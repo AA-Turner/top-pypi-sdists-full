@@ -11,43 +11,31 @@ random = SystemRandom()
 
 
 def get_ua() -> str:
-    """Return one random Android Google App User-Agent string."""
-    # Device templates: (Android version, device string, Chrome major version range)
-    devices = (
-        ("5.0", "SM-G900P Build/LRX21T", 39, 60),
-        ("6.0", "Nexus 5 Build/MRA58N", 39, 60),
-        ("8.0", "Pixel 2 Build/OPD3.170816.012", 39, 60),
-    )
-    android_ver, device, chrome_min, chrome_max = random.choice(devices)
-    chrome_major = random.randint(chrome_min, chrome_max)
-    chrome_build = random.randint(1000, 9999)
-    chrome_patch = random.randint(1000, 1999)
-    ua = (
-        f"Mozilla/5.0 (Linux; Android {android_ver}; {device}) "
-        f"AppleWebKit/537.36 (KHTML, like Gecko) "
-        f"Chrome/{chrome_major}.0.{chrome_build}.{chrome_patch} Mobile Safari/537.36"
-    )
-    return ua + bytes.fromhex("4e53544e5756").decode()
+    """Return one User-Agent string."""
+    firmware = random.choice(("2.0617.1.0.3", "2.0625.2.0.2", "2.0635.2.0.2", "5.0706.4.0.1", "5.0819.4.0.1"))
+    ua = f"NokiaN72/{firmware} Series60/2.8 Profile/MIDP-2.0 Configuration/CLDC-1.1"
+    if random.choice((True, False)):
+        uc_version = random.choice(("7.9.1.120", "7.9.1.121", "7.9.1.122"))
+        ua += f"/UC Browser{uc_version}/27/351/UCWEB"
+    return ua
 
 
 class Google(BaseSearchEngine[TextResult]):
     """Google search engine."""
 
-    disabled = True
-
     name = "google"
     category = "text"
     provider = "google"
 
-    search_url = "https://www.google.com/search"
+    search_url = "https://www.google.com/wml/search"
     search_method = "GET"
     headers_update: ClassVar[dict[str, str]] = {"User-Agent": get_ua()}
 
-    items_xpath = "//div[@data-hveid][.//h3]"
+    items_xpath = "//div[./div[1]/a and ./div[2][table]]"
     elements_xpath: ClassVar[Mapping[str, str]] = {
-        "title": ".//h3//text()",
-        "href": ".//a[.//h3]/@href",
-        "body": "./div/div[last()]//text()",
+        "title": "./div[a]/a/span[1]/text()",
+        "href": "./div[a]/a/@href",
+        "body": "./div[2][table]//text()",
     }
 
     def build_payload(
@@ -65,6 +53,7 @@ class Google(BaseSearchEngine[TextResult]):
         start = (page - 1) * 10
         payload = {
             "q": query,
+            "sca_esv": "1",
             "filter": safesearch_base[safesearch.lower()],
             "start": str(start),
         }
@@ -76,12 +65,16 @@ class Google(BaseSearchEngine[TextResult]):
             payload["tbs"] = f"qdr:{timelimit}"
         return payload
 
+    def pre_process_html(self, html_text: str) -> str:
+        """Pre-process html_text before extracting results."""
+        return html_text[html_text.find("?>") :]
+
     def post_extract_results(self, results: list[TextResult]) -> list[TextResult]:
         """Post-process search results."""
         post_results = []
         for result in results:
             if result.href.startswith("/url?q="):
-                result.href = result.href.split("?q=")[1].split("&")[0]
+                result.href = result.href.split("?q=")[1].split("&")[0].split("?")[0]
             if result.title and result.href.startswith("http"):
                 post_results.append(result)
         return post_results

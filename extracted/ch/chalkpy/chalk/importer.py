@@ -362,7 +362,7 @@ def _parse_agg_function_call(
         # Special arg validation for approx_top_k, first_k, and last_k.
         if len(call_expr._chalk__args) > 0:
             raise ChalkParseError("should not have any positional arguments")
-        allowed_kwargs = {"k", "by", "return_total_weight"}
+        allowed_kwargs = {"k", "by", "counters", "return_total_weight"}
         unexpected_kwargs = call_expr._chalk__kwargs.keys() - allowed_kwargs
         if unexpected_kwargs:
             raise ChalkParseError(
@@ -374,11 +374,22 @@ def _parse_agg_function_call(
             raise ChalkParseError(
                 f"expecting 'int' type argument for 'k', but received arg of type '{type(call_expr._chalk__kwargs.get('k'))}'"
             )
+        if "counters" in call_expr._chalk__kwargs.keys():
+            counters = call_expr._chalk__kwargs["counters"]
+            if not isinstance(counters, int) or isinstance(counters, bool):
+                raise ChalkParseError(
+                    f"expecting 'int' type argument for 'counters', but received arg of type '{type(counters)}'"
+                )
+            k_arg = call_expr._chalk__kwargs["k"]
+            assert isinstance(k_arg, int)
+            if counters < k_arg:
+                raise ChalkParseError(
+                    f"'counters' must be at least as large as 'k' for 'approx_top_k', but got counters={counters} and k={k_arg}"
+                )
         if "by" in call_expr._chalk__kwargs.keys():
             additional_features.append(_parse_simple_feature_ref("by", call_expr._chalk__kwargs.get("by")))
-        # Keep only `k` in the materialization's `aggregation_kwargs`. `by` is lifted into
-        # `additional_features` above. `return_total_weight` is read from the underscore expression kwargs
-        # Only `k` survives round-tripping in the proto
+        # `by` is lifted into `additional_features` above; `return_total_weight` is read off the
+        # underscore expression. Neither survives round-tripping in the proto.
         opts = FrozenOrderedSet(
             (k, v) for k, v in call_expr._chalk__kwargs.items() if k not in ("by", "return_total_weight")
         )

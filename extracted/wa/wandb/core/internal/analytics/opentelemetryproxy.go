@@ -27,17 +27,24 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"github.com/wandb/wandb/core/internal/api"
-	"github.com/wandb/wandb/core/internal/clients"
 	"github.com/wandb/wandb/core/internal/httplayers"
 	"github.com/wandb/wandb/core/internal/settings"
 	"github.com/wandb/wandb/core/internal/version"
 )
 
 const (
-	defaultExportIntervalMs = 500
-	defaultTimeout          = 1 * time.Second
-	metricsPath             = "/sdk/otel/v1/metrics"
-	logsPath                = "/sdk/otel/v1/logs"
+	// defaultExportInterval is the interval at which metrics and logs are sent to the backend.
+	defaultExportInterval = 60 * time.Second
+
+	// defaultExportTimeout is the total time allowed for an export to complete.
+	// It includes the time to collect and send metric/log records.
+	defaultExportTimeout = 5 * time.Second
+
+	// httpClientTimeout is the timeout for HTTP requests to the backend.
+	httpClientTimeout = 10 * time.Second
+
+	metricsPath = "/sdk/otel/v1/metrics"
+	logsPath    = "/sdk/otel/v1/logs"
 )
 
 // ConfigureOTelErrorHandler routes OpenTelemetry SDK errors to the core logger.
@@ -388,6 +395,11 @@ func NewOpenTelemetryProxy(
 		return nil
 	}
 
+	if !checkServerSupportsOpenTelemetryProxy(ctx, wandbSettings) {
+		slog.Debug("analytics: server does not support OpenTelemetry proxy, disabling telemetry")
+		return nil
+	}
+
 	httpClient, err := newOTLPHTTPClient(wandbSettings)
 	if err != nil {
 		slog.Debug(
@@ -426,33 +438,23 @@ func newOTLPHTTPClient(
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = clients.ProxyFn(
-		wandbSettings.GetHTTPProxy(),
-		wandbSettings.GetHTTPSProxy(),
-	)
+	transport.Proxy = wandbSettings.GetProxyFn()
+	transport.ProxyConnectHeader = wandbSettings.GetProxyConnectHeader()
 	if wandbSettings.IsInsecureDisableSSL() {
 		transport.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
 	}
 
-	extraHeaders := make(http.Header, len(wandbSettings.GetExtraHTTPHeaders()))
-	for key, value := range wandbSettings.GetExtraHTTPHeaders() {
-		extraHeaders.Set(key, value)
-	}
-	if header := extraHeaders.Get("Proxy-Authorization"); header != "" {
-		transport.ProxyConnectHeader = http.Header{
-			"Proxy-Authorization": []string{header},
-		}
-	}
+	extraHeaders := wandbSettings.GetExtraHTTPHeaders()
 
 	client := &http.Client{
-		Timeout: defaultTimeout,
+		Timeout: httpClientTimeout,
 	}
 	client.Transport = httplayers.WrapRoundTripper(
 		transport,
 		httplayers.Concat(
-			httplayers.ExtraHeaders(extraHeaders),
+			httplayers.DefaultHeaders(extraHeaders),
 			credentialProvider,
 		),
 	)
@@ -519,7 +521,8 @@ func (o *OpenTelemetryProxy) setupMetrics(
 		metric.WithResource(res),
 		metric.WithReader(
 			metric.NewPeriodicReader(exporter,
-				metric.WithInterval(defaultExportIntervalMs*time.Millisecond),
+				metric.WithInterval(defaultExportInterval),
+				metric.WithTimeout(defaultExportTimeout),
 			),
 		),
 	), nil
@@ -545,7 +548,12 @@ func (o *OpenTelemetryProxy) setupLogs(
 
 	return otellog.NewLoggerProvider(
 		otellog.WithResource(res),
-		otellog.WithProcessor(otellog.NewBatchProcessor(exporter)),
+		otellog.WithProcessor(
+			otellog.NewBatchProcessor(exporter,
+				otellog.WithExportInterval(defaultExportInterval),
+				otellog.WithExportTimeout(defaultExportTimeout),
+			),
+		),
 	), nil
 }
 
@@ -683,4 +691,42 @@ func toOTelAttrs(attrs map[string]string) otelmetric.MeasurementOption {
 		kvs = append(kvs, attribute.String(k, v))
 	}
 	return otelmetric.WithAttributes(kvs...)
+}
+
+// checkServerSupportsOpenTelemetryProxy probes the W&B OpenTelemetry proxy
+// endpoint to determine whether the server exposes it.
+func checkServerSupportsOpenTelemetryProxy(
+	ctx context.Context,
+	wandbSettings *settings.Settings,
+) bool {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = wandbSettings.GetProxyFn()
+	transport.ProxyConnectHeader = wandbSettings.GetProxyConnectHeader()
+	if wandbSettings.IsInsecureDisableSSL() {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	httpClient := &http.Client{Timeout: httpClientTimeout, Transport: transport}
+
+	url := wandbSettings.GetBaseURL() + metricsPath
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		url,
+		http.NoBody,
+	)
+	if err != nil {
+		return false
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	// Depending on the server configuration, it may respond with a
+	// 404 Not Found or a 405 Method Not Allowed when it does not support
+	// the proxy API.
+	return resp.StatusCode != http.StatusMethodNotAllowed &&
+		resp.StatusCode != http.StatusNotFound
 }

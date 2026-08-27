@@ -780,6 +780,7 @@ def install_plugin_local(
     home: Path | None = None,
     strict_lint: bool = False,
     accept_risk: bool = False,
+    force: bool = False,
 ) -> PluginInstallResult:
     """Install every skill under an Agent Plugins directory layout.
 
@@ -789,6 +790,14 @@ def install_plugin_local(
     digest (``source="plugin"``) so a later ``sync`` can detect drift. An
     invalid individual skill is skipped with a diagnostic naming it rather
     than aborting the whole plugin install.
+
+    A skill whose name already holds a lock row from a *different* source -
+    such as ``bernstein-skills.toml`` or a different plugin pack - is refused
+    the same way, naming the source or pack it would have replaced. Overwriting it
+    would delete an install the operator chose deliberately and silently flip that
+    row's provenance, letting a pack shadow a trusted skill. Pass ``force=True`` to
+    take the replacement anyway. A same-source reinstall (drift heal, upgrade) of
+    the same pack is untouched and stays silent.
     """
     if not source.is_dir():
         raise SkillLifecycleError(
@@ -826,6 +835,11 @@ def install_plugin_local(
 
     installed: list[InstallResult] = []
     skipped: list[SkippedSkill] = []
+    # Read before the loop: the collision has to be caught *before*
+    # install_local writes, because that call already clobbers the target
+    # directory. Refusing only at lock-write time would leave the previous
+    # skill's tree destroyed with no row describing it.
+    existing_lock = {} if force else _read_lock(workdir / SKILLS_LOCK_FILENAME)
     for skill_dir in sorted(skills_dir.iterdir()):
         if not skill_dir.is_dir():
             continue
@@ -840,6 +854,19 @@ def install_plugin_local(
             # of the pack would install content the operator never saw.
             if _escapes(skills_dir, skill_dir):
                 raise SkillLifecycleError(f"{skill_dir}: skill directory resolves outside the plugin")
+            prior = existing_lock.get(name)
+            if prior is not None:
+                if prior.source != _PLUGIN_LOCK_SOURCE:
+                    raise SkillLifecycleError(
+                        f"{name}: already installed from source {prior.source!r}; "
+                        f"installing this plugin would replace it. Re-run with --force to take the plugin's copy"
+                    )
+                elif prior.pack is not None and prior.pack != name_field:
+                    raise SkillLifecycleError(
+                        f"{name}: already installed from plugin pack {prior.pack!r}; "
+                        f"installing pack {name_field!r} would replace it. "
+                        f"Re-run with --force to take the new plugin's copy"
+                    )
             parse_skill_md(skill_md)
             installed.append(
                 install_local(
@@ -855,7 +882,7 @@ def install_plugin_local(
             skipped.append(SkippedSkill(name=name, reason=str(exc)))
 
     if installed:
-        _record_plugin_lock(installed, skills_dir, workdir=workdir)
+        _record_plugin_lock(installed, skills_dir, workdir=workdir, pack=str(name_field) if name_field else None)
     return PluginInstallResult(installed=installed, skipped=skipped)
 
 
@@ -864,6 +891,7 @@ def _record_plugin_lock(
     skills_dir: Path,
     *,
     workdir: Path,
+    pack: str | None = None,
 ) -> None:
     """Merge plugin-installed skills into ``skills.lock`` ([[skills]] rows).
 
@@ -879,6 +907,7 @@ def _record_plugin_lock(
             source=_PLUGIN_LOCK_SOURCE,
             path=str(skills_dir / result.name),
             digest=result.digest.digest,
+            pack=pack,
         )
     _write_lock(lock_path, list(entries.values()))
 
@@ -981,6 +1010,7 @@ class LockEntry:
     source: str
     path: str
     digest: str
+    pack: str | None = None
 
 
 def _read_lock(path: Path) -> dict[str, LockEntry]:
@@ -1003,13 +1033,15 @@ def _read_lock(path: Path) -> dict[str, LockEntry]:
         source = item_dict.get("source")
         path_value = item_dict.get("path")
         digest = item_dict.get("digest")
+        pack = item_dict.get("pack")
         if (
             isinstance(name, str)
             and isinstance(source, str)
             and isinstance(path_value, str)
             and isinstance(digest, str)
+            and (pack is None or isinstance(pack, str))
         ):
-            out[name] = LockEntry(name=name, source=source, path=path_value, digest=digest)
+            out[name] = LockEntry(name=name, source=source, path=path_value, digest=digest, pack=pack)
     return out
 
 
@@ -1034,9 +1066,12 @@ def _write_lock(path: Path, entries: list[LockEntry]) -> None:
                 f"source = {_toml_quote(entry.source)}",
                 f"path = {_toml_quote(entry.path)}",
                 f"digest = {_toml_quote(entry.digest)}",
-                "",
             )
         )
+        if entry.pack is not None:
+            lines.append(f"pack = {_toml_quote(entry.pack)}")
+        lines.append("")
+
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 

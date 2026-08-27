@@ -57,6 +57,11 @@ async def _default_heal(page, description, method_name, original_locator, *args,
     if not _config.smart:
         return False
 
+    # Variable-target re-probe signal from the heal-patch reprobe branch: the
+    # recorded locator holds a PRIOR run's value, so its name is stale. Popped so
+    # it never leaks into the underlying verb args.
+    _reprobe = bool(kwargs.pop("_reprobe", False))
+
     cache = get_cache()
     action_type = _METHOD_TO_ACTION_TYPE.get(method_name)
     if action_type is None:
@@ -84,7 +89,7 @@ async def _default_heal(page, description, method_name, original_locator, *args,
             # page.locator(...), so a rename fails CI loudly instead of
             # silently dropping the hint.
             previous = getattr(getattr(original_locator, "_impl_obj", None), "_selector", "") or ""
-            healed = await run_locator_heal(page, description, action_type, previous_selectors=previous)
+            healed = await run_locator_heal(page, description, action_type, previous_selectors=previous, reprobe=_reprobe)
         else:
             from testmu._helpers.autoheal import autoheal_locator
             healed = await autoheal_locator(page, description, action_type)

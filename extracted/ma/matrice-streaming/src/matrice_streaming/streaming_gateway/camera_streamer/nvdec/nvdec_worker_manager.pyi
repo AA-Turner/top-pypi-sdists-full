@@ -23,12 +23,16 @@ import time
 import urllib.request
 
 # Constants
+CIRCUIT_BREAKER_COOLDOWN_SEC: Any
 CIRCUIT_BREAKER_MAX_RESTARTS: Any
+CIRCUIT_BREAKER_WARN_INTERVAL_SEC: Any
 CIRCUIT_BREAKER_WINDOW_SEC: Any
 FRAME_STALL_THRESHOLD_SEC: Any
+HANDLER_STALE_SEC: Any
 HOTADD_MAX_ATTEMPTS: Any
 HOTADD_RETRY_BACKOFF_SEC: Any
 PRODUCER_READY_TIMEOUT_SEC: Any
+REMOVE_ACK_TIMEOUT_SEC: Any
 logger: Any
 
 # Functions
@@ -151,7 +155,10 @@ class NVDECWorkerManager:
                     stream_key: Camera ID / stream key to remove
         
                 Returns:
-                    True if the camera was found and removed
+                    True if the removal was effected (worker ACKed, or nothing was
+                    running to stop). False only if the command was sent but the worker
+                    did not ACK within the timeout — DCM then keeps the camera and the
+                    next refresh retries, which self-heals (the retry no-ops and ACKs).
         """
 
     def restart_workers(self: Any) -> None: ...

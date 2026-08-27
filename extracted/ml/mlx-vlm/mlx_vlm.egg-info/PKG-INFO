@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-vlm
-Version: 0.6.16
+Version: 0.6.17
 Summary: MLX-VLM is a package for inference and fine-tuning of Vision Language Models (VLMs) and Omni Models (VLMs with audio and video support) on your Mac using MLX.
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License: MIT
@@ -104,6 +104,7 @@ Some models have detailed documentation with prompt formats, examples, and best 
 | Granite Vision 3.2 | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/granite_vision/README.md) |
 | Granite 4.0 Vision | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/granite4_vision/README.md) |
 | MiniCPM-V 4.6 | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/minicpmv4_6/README.md) |
+| GLiNER2.5 | [Docs](https://github.com/Blaizzy/mlx-vlm/blob/main/mlx_vlm/models/gliner2_5/README.md) |
 
 ## Installation
 

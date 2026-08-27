@@ -400,7 +400,7 @@ class Proxy(proxy.Proxy):
         use_slo: bool = True,
         metadata: dict[str, Any] | None = None,
         generate_checksums: bool | None = None,
-        data: bytes | None = None,
+        data: str | bytes | None = None,
         **headers: Any,
     ) -> _obj.Object | None:
         """Create a file object.
@@ -647,7 +647,7 @@ class Proxy(proxy.Proxy):
             metadata = self.get_object_metadata(name, container).metadata
         except exceptions.NotFoundException:
             self._connection.log.debug(
-                f"swift stale check, no object: {container}/{name}"
+                "swift stale check, no object: %s/%s", container, name
             )
             return True
 
@@ -840,7 +840,7 @@ class Proxy(proxy.Proxy):
         int_segment_size = int(segment_size)
         for index, offset in enumerate(range(0, file_size, int_segment_size)):
             remaining = file_size - (index * int_segment_size)
-            segment = _utils.FileSegment(  # type: ignore[no-untyped-call]
+            segment = _utils.FileSegment(
                 filename,
                 offset,
                 int_segment_size

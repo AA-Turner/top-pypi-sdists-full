@@ -11,6 +11,7 @@
 # under the License.
 
 import copy
+from typing import Any
 from unittest import mock
 
 from keystoneauth1 import adapter
@@ -20,7 +21,7 @@ from openstack.tests.unit import base
 
 GROUP_ID = "6f519a48-3183-46cf-a32f-41815f813986"
 
-GROUP = {
+GROUP: dict[str, Any] = {
     "id": GROUP_ID,
     "status": "available",
     "availability_zone": "az1",
@@ -66,6 +67,15 @@ class TestGroup(base.TestCase):
         )
         self.assertEqual(GROUP["source_group_id"], resource.source_group_id)
         self.assertEqual(GROUP["project_id"], resource.project_id)
+
+    def test_add_remove_volumes(self):
+        sot = group.Group.existing(id=GROUP_ID)
+        sot._update(add_volumes="v1,v2", remove_volumes="v3")
+
+        self.assertEqual(
+            {"group": {"add_volumes": "v1,v2", "remove_volumes": "v3"}},
+            sot._prepare_request(prepend_key=True).body,
+        )
 
 
 class TestGroupAction(base.TestCase):

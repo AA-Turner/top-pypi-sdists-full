@@ -5,12 +5,12 @@ from typing import Annotated, Any
 import typer
 from rich.console import Console
 
-from robocop import __version__
-from robocop.config import defaults, manager, parser, schema
+from robocop import __version__, plugins
+from robocop.config import defaults, generator, manager, parser, schema
 from robocop.formatter.runner import RobocopFormatter
 from robocop.linter import rules_list
 from robocop.linter.diagnostics import Diagnostic
-from robocop.linter.reports import load_reports, print_reports
+from robocop.linter.reports import load_all_reports, print_reports
 from robocop.linter.rules import Rule, RuleSeverity
 from robocop.linter.runner import RobocopLinter
 from robocop.linter.utils.misc import ROBOCOP_RULES_URL, get_plural_form  # TODO: move higher up
@@ -21,7 +21,7 @@ from robocop.runtime.resolver import ConfigResolver
 class CliWithVersion(typer.core.TyperGroup):
     def list_commands(self, ctx: Any) -> list[str]:  # noqa: ARG002
         """Return the list of commands in the set order."""
-        commands = ["check", "check-project", "format", "list", "docs"]
+        commands = ["check", "format", "list", "docs"]
         for command in self.commands:
             if command not in commands:
                 commands.append(command)
@@ -36,8 +36,10 @@ app = typer.Typer(
     rich_markup_mode="rich",
     cls=CliWithVersion,
 )
-list_app = typer.Typer(help="List available rules, reports or formatters.")
+list_app = typer.Typer(help="List available rules, reports, formatters or plugins.")
 app.add_typer(list_app, name="list")
+config_app = typer.Typer(help="Manage Robocop configuration files.")
+app.add_typer(config_app, name="config")
 
 
 def version_callback(value: bool | None) -> None:
@@ -141,6 +143,89 @@ language_option = Annotated[
         metavar="LANG",
         help="Parse Robot Framework files using additional languages.",
         rich_help_panel="Other",
+    ),
+]
+variable_option = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--variable",
+        "-v",
+        show_default=False,
+        metavar="NAME:VALUE",
+        help="Set variable used to resolve dynamic import paths, for example -v RESOURCE_DIR:resources . "
+        "Equivalent of the Robot Framework --variable option.",
+        rich_help_panel="Other",
+    ),
+]
+variable_file_option = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--variablefile",
+        "-V",
+        show_default=False,
+        metavar="PATH",
+        help="Python or YAML file with variables used to resolve dynamic import paths. "
+        "Equivalent of the Robot Framework --variablefile option.",
+        rich_help_panel="Other",
+    ),
+]
+python_path_option = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--pythonpath",
+        "-P",
+        show_default=False,
+        metavar="PATH",
+        help="Additional locations to search for resources, variable files and libraries. Supports glob patterns. "
+        "Equivalent of the Robot Framework --pythonpath option.",
+        rich_help_panel="Other",
+    ),
+]
+project_option = Annotated[
+    bool | None,
+    typer.Option(
+        "--project/--no-project",
+        show_default="run project rules if any is enabled",
+        help="Run project level rules. They require parsing the whole project and are enabled by selecting them.",
+        rich_help_panel="Project analysis",
+    ),
+]
+analyze_libraries_option = Annotated[
+    bool | None,
+    typer.Option(
+        "--analyze-libraries/--no-analyze-libraries",
+        show_default="--analyze-libraries",
+        help="Import Robot Framework libraries to check keywords they provide. Importing a library executes its code.",
+        rich_help_panel="Project analysis",
+    ),
+]
+load_library_timeout_option = Annotated[
+    int | None,
+    typer.Option(
+        "--load-library-timeout",
+        show_default="10",
+        metavar="SECONDS",
+        help="Maximum time for importing a single library. Only used together with --library-workers.",
+        rich_help_panel="Project analysis",
+    ),
+]
+library_workers_option = Annotated[
+    bool | None,
+    typer.Option(
+        "--library-workers/--no-library-workers",
+        show_default="--no-library-workers",
+        help="Import libraries in parallel, in separate processes with a timeout, instead of in Robocop itself.",
+        rich_help_panel="Project analysis",
+    ),
+]
+ignored_libraries_option = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--ignored-library",
+        show_default=False,
+        metavar="NAME",
+        help="Library that should not be imported. Supports glob patterns, for example --ignored-library Selenium* .",
+        rich_help_panel="Project analysis",
     ),
 ]
 verbose_option = Annotated[
@@ -264,7 +349,8 @@ reports_option = Annotated[
         "-r",
         show_default=False,
         help="Generate reports from reported issues. To list available reports use `list reports` command. "
-        "Use `all` to enable all reports.",
+        "Use `all` to enable all reports. Custom reports are enabled by providing a path, module or plugin "
+        "reference with the reports.",
         rich_help_panel="Reports",
     ),
 ]
@@ -365,13 +451,26 @@ def check_files(
         ),
     ] = False,
     root: project_root_option = None,
+    variable: variable_option = None,
+    variable_file: variable_file_option = None,
+    python_path: python_path_option = None,
+    project: project_option = None,
+    analyze_libraries: analyze_libraries_option = None,
+    load_library_timeout: load_library_timeout_option = None,
+    library_workers: library_workers_option = None,
+    ignored_library: ignored_libraries_option = None,
     verbose: verbose_option = None,
     silent: silent_option = None,
     cache: cache_option = None,
     clear_cache: clear_cache_option = False,
     cache_dir: cache_dir_option = None,
 ) -> list[Diagnostic]:
-    """Lint Robot Framework files."""
+    """
+    Lint Robot Framework files.
+
+    Project level rules (such as unused-keyword) are run whenever any of them is enabled. They require parsing
+    the whole project, which is done from the project root even if only selected paths are linted.
+    """
     if gitlab:
         if not reports:
             reports = []
@@ -405,6 +504,14 @@ def check_files(
         file_filters=file_filters,
         cache=cache_config,
         language=language,
+        variables=parser.parse_variables(variable),
+        variable_files=variable_file,
+        python_path=python_path,
+        project=project,
+        analyze_libraries=analyze_libraries,
+        load_library_timeout=load_library_timeout,
+        library_workers=library_workers,
+        ignored_libraries=ignored_library,
         silent=silent,
         verbose=verbose,
         target_version=target_version,
@@ -425,118 +532,16 @@ def check_files(
     return runner.run()
 
 
-@app.command(name="check-project")
-def check_project(
-    sources: sources_argument = None,
-    select: select_rules_option = None,
-    extend_select: extend_select_rules_option = None,
-    ignore: ignore_rules_option = None,
-    target_version: linter_target_version_option = None,
-    threshold: linter_threshold_option = None,
-    include: include_option = None,
-    default_include: default_include_option = None,
-    exclude: exclude_option = None,
-    default_exclude: default_exclude_option = None,
-    force_exclude: force_exclude_option = False,
-    configuration_file: config_option = None,
-    configure: linter_configure_option = None,
-    reports: reports_option = None,
-    issue_format: Annotated[
-        str | None,
-        typer.Option("--issue-format", show_default=defaults.DEFAULT_ISSUE_FORMAT, rich_help_panel="Other"),
-    ] = None,
-    language: language_option = None,
-    custom_rules: Annotated[
-        list[str] | None,
-        typer.Option("--custom-rules", help="Load custom rules", show_default=False, rich_help_panel="Selecting rules"),
-    ] = None,
-    ignore_git_dir: ignore_git_dir_option = False,
-    ignore_file_config: ignore_file_config_option = False,
-    skip_gitignore: Annotated[
-        bool | None, typer.Option(help="Do not skip files listed in .gitignore files", rich_help_panel="File discovery")
-    ] = False,
-    persistent: Annotated[
-        bool | None,
-        typer.Option(
-            help="Use this flag to save Robocop reports in cache directory for later comparison.",
-            rich_help_panel="Reports",
-        ),
-    ] = None,
-    compare: Annotated[
-        bool | None,
-        typer.Option(
-            help="Compare reports results with previous results (saved with --persistent)", rich_help_panel="Reports"
-        ),
-    ] = None,
-    gitlab: Annotated[
-        bool | None,
-        typer.Option(
-            help="Generate Gitlab Code Quality report. Equivalent of --reports gitlab",
-            rich_help_panel="Reports",
-        ),
-    ] = False,
-    exit_zero: Annotated[
-        bool | None,
-        typer.Option(
-            help="Always exit with 0 unless Robocop terminates abnormally.",
-            show_default="--no-exit-zero",
-            rich_help_panel="Other",
-        ),
-    ] = None,
-    return_result: Annotated[
-        bool,
-        typer.Option(
-            help="Return check results as list of Diagnostic messages instead of exiting from the application.",
-            hidden=True,
-        ),
-    ] = False,
-    root: project_root_option = None,
-    verbose: verbose_option = None,
-    silent: silent_option = None,
-) -> list[Diagnostic]:
-    """Analyse the whole project using project level checkers."""
-    if gitlab:
-        if not reports:
-            reports = []
-        reports.append("gitlab")
-    linter_config = schema.RawLinterConfig(
-        configure=configure,
-        select=select,
-        extend_select=extend_select,
-        ignore=ignore,
-        issue_format=issue_format,
-        threshold=threshold,
-        custom_rules=custom_rules,
-        reports=reports,
-        persistent=persistent,
-        compare=compare,
-        exit_zero=exit_zero,
-        return_result=return_result,
+@app.command(name="check-project", hidden=True, deprecated=True)
+def check_project() -> None:
+    """Fail with a message pointing to the ``check`` command."""
+    print(
+        "The 'check-project' command was removed. Project level rules are now run by the 'check' command "
+        "whenever any of them is enabled:\n\n"
+        "    robocop check --select unused-keyword\n\n"
+        "Use --no-project to skip project level analysis."
     )
-    file_filters = schema.RawFileFiltersOptions(
-        include=include, default_include=default_include, exclude=exclude, default_exclude=default_exclude
-    )
-    overwrite_config = schema.RawConfig(
-        linter=linter_config,
-        formatter=None,
-        file_filters=file_filters,
-        language=language,
-        verbose=verbose,
-        silent=silent,
-        target_version=target_version,
-    )
-    config_manager = manager.ConfigManager(
-        sources=sources,
-        config=configuration_file,
-        root=root,
-        ignore_git_dir=ignore_git_dir,
-        ignore_file_config=ignore_file_config,
-        skip_gitignore=skip_gitignore,
-        force_exclude=force_exclude,
-        overwrite_config=overwrite_config,
-    )
-    runner = RobocopLinter(config_manager)
-    return runner.run_project_checks()
+    raise typer.Exit(code=2)
 
 
 @app.command(name="format")
@@ -864,7 +869,7 @@ def list_reports(
     config_manager = manager.ConfigManager(config=configuration_file, overwrite_config=overwrite_config)
     runner = RobocopLinter(config_manager)
     if not silent:
-        console.print(print_reports(runner.reports, enabled))  # TODO: color etc
+        console.print(print_reports(runner.reports, enabled, config_manager.default_config))  # TODO: color etc
 
 
 @list_app.command(name="formatters")
@@ -925,6 +930,39 @@ def list_formatters(
         )
 
 
+@list_app.command(name="plugins")
+def list_plugins(
+    silent: silent_option = None,
+) -> None:
+    """
+    List installed Robocop plugins.
+
+    Plugins are Python packages that register themselves using the `robocop.plugins` entry point group.
+    Rules, formatters and configuration files shipped with a plugin are referenced using the
+    `plugin_name.path.inside.the.plugin` syntax.
+    """
+    from rich.box import MINIMAL  # noqa: PLC0415
+    from rich.table import Table  # noqa: PLC0415
+
+    if silent:
+        return
+    console = Console(soft_wrap=True)
+    installed_plugins = plugins.get_plugins()
+    if not len(installed_plugins):
+        console.print(
+            "There are no Robocop plugins installed.\n"
+            "Visit https://robocop.dev/stable/plugins/ to learn how to create and install a plugin."
+        )
+        return
+    table = Table(title="Plugins", header_style="bold", box=MINIMAL)
+    table.add_column("Name", justify="left", no_wrap=True)
+    table.add_column("Module")
+    table.add_column("Location")
+    for plugin in installed_plugins:
+        table.add_row(plugin.name, plugin.module_path, str(plugin.path))
+    console.print(table)
+
+
 @app.command("docs")
 def print_resource_documentation(
     name: Annotated[str, typer.Argument(help="Rule name")],
@@ -942,7 +980,7 @@ def print_resource_documentation(
         console.print(resolved_config.rules[name].description_with_configurables)
         return
 
-    reports = load_reports(config_manager.default_config)
+    reports = load_all_reports(config_manager.default_config)
     if name in reports:
         docs = textwrap.dedent(str(reports[name].__doc__))
         console.print(docs)
@@ -978,6 +1016,72 @@ def migrate_config(
     If you have separate configuration files for Robocop and Robotidy, run the command twice and merge it manually.
     """
     migrate_deprecated_configs(config_path)
+
+
+@config_app.command(name="init")
+def config_init(
+    output: Annotated[
+        Path | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Path where the configuration file will be written. Use `-` to print it to the standard output.",
+            show_default="robocop.toml",
+            rich_help_panel="Configuration",
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Overwrite the output file if it already exists."),
+    ] = False,
+    target_version: linter_target_version_option = None,
+) -> None:
+    """
+    Generate a documented Robocop configuration file with all the available options.
+
+    The generated file lists every global option, linter rule and formatter together with their default
+    values and a short description. All the options are written as comments, so the generated file reproduces
+    Robocop's default behaviour until you uncomment and edit the options you want to change.
+
+    By default the configuration is written to ``robocop.toml`` in the current directory:
+
+    > robocop config init
+
+    Write it to a different location:
+
+    > robocop config init --output config/robocop.toml
+
+    Print it to the standard output instead of writing a file:
+
+    > robocop config init --output -
+    """
+    console = Console(soft_wrap=True)
+    overwrite_config = schema.RawConfig(
+        target_version=target_version, formatter=schema.RawFormatterConfig(allow_disabled=True)
+    )
+    config_manager = manager.ConfigManager(overwrite_config=overwrite_config, ignore_file_config=True)
+    resolver = ConfigResolver(load_rules=True, load_formatters=True)
+    resolved_config = resolver.resolve_config(config_manager.default_config)
+    resolved_target_version = config_manager.default_config.linter.target_version
+
+    rules = rules_list.filter_rules_by_category(
+        resolved_config.rules, rules_list.RuleFilter.ALL, resolved_target_version
+    )
+    formatters = list(resolved_config.formatters.values())
+    content = generator.generate_config(rules, formatters, resolved_target_version)
+
+    if output is not None and str(output) == "-":
+        typer.echo(content)
+        return
+
+    destination = output if output is not None else Path("robocop.toml")
+    if destination.exists() and not force:
+        console.print(f"Configuration file '{destination}' already exists. Use --force to overwrite it.", style="red")
+        raise typer.Exit(code=1)
+    if destination.parent != Path():
+        destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(content, encoding="utf-8")
+    console.print(f"Generated Robocop configuration file at '{destination}'.")
 
 
 def main() -> None:

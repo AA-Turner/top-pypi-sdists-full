@@ -16,7 +16,8 @@ import typer
 import yaml
 from rich.table import Table
 
-from plato._generated.api.v1.env import get_simulator_by_name, get_simulators
+from plato._generated.api.v1.env import create_simulator, get_simulator_by_name, get_simulators
+from plato._generated.api.v1.env import update_simulator as env_update_simulator
 from plato._generated.api.v1.organization import get_organization_members
 from plato._generated.api.v1.simulator import (
     add_simulator_review,
@@ -26,11 +27,14 @@ from plato._generated.api.v1.simulator import (
 )
 from plato._generated.models import (
     AddReviewRequest,
+    AppApiV1EnvRoutesUpdateSimulatorRequest,
     AppApiV1SimulatorRoutesUpdateSimulatorRequest,
     Authentication,
+    CreateSimulatorRequest,
     Outcome,
     ReviewType,
     SimReviewComment,
+    SimulatorConfig,
     Status,
     UpdateStatusRequest,
     UpdateTagRequest,
@@ -207,6 +211,7 @@ list_app = typer.Typer(help="List simulators by status")
 review_app = typer.Typer(help="Review simulator artifacts")
 submit_app = typer.Typer(help="Submit simulator artifacts for review")
 start_app = typer.Typer(help="Start env or data pipelines for simulators")
+register_app = typer.Typer(help="Create or complete simulator records")
 experiment_app = typer.Typer(help="Manage experiment configs in Chronos")
 experiment_env_app = typer.Typer(help="Env pipeline experiments")
 experiment_env_base_app = typer.Typer(help="Env base (fresh create) experiment")
@@ -227,6 +232,7 @@ pm_app.add_typer(list_app, name="list")
 pm_app.add_typer(review_app, name="review")
 pm_app.add_typer(submit_app, name="submit")
 pm_app.add_typer(start_app, name="start")
+pm_app.add_typer(register_app, name="register")
 pm_app.add_typer(experiment_app, name="experiment")
 experiment_app.add_typer(experiment_env_app, name="env")
 experiment_app.add_typer(experiment_data_app, name="data")
@@ -851,6 +857,7 @@ async def _launch_env_world(
                 github_url=github_url,
                 workspace="/workspace",
             )
+            _render_step_verify(config, sim_name=simulator_name, github_url=github_url)
             cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
             _set_claude_credentials(config, cred_key, cred_val)
@@ -872,6 +879,7 @@ async def _launch_env_world(
                 github_url=github_url,
                 workspace="/workspace",
             )
+            _render_step_verify(config, sim_name=simulator_name, github_url=github_url)
             cred_key, cred_val = _get_claude_credentials()
             config["plato_api_key"] = datagen_api_key
             _set_claude_credentials(config, cred_key, cred_val)
@@ -1819,6 +1827,11 @@ async def _launch_from_template_unified(
 @start_app.command(name="env")
 def start_env(
     simulators: list[str] = typer.Argument(None, help="Simulator name(s)"),
+    url: str = typer.Option(
+        "",
+        "--url",
+        help="GitHub URL for a simulator that has no record yet; the pipeline's register step creates it.",
+    ),
     resume: bool = typer.Option(False, "--resume", "-r", help="Resume create pipeline from last simcreator session"),
     resume_from: str = typer.Option("", "--resume-from", help="Resume from a specific session ID"),
     fix: bool = typer.Option(False, "--fix", "-f", help="Fix rejected sim using latest env review feedback"),
@@ -1900,12 +1913,36 @@ def start_env(
             sim_name = sim_names[idx]
             idx += 1
             try:
-                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
-                    sim = await get_simulator_by_name.asyncio(
-                        client=client,
-                        name=sim_name,
-                        x_api_key=api_key,
+                sim = None
+                try:
+                    async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                        sim = await get_simulator_by_name.asyncio(
+                            client=client,
+                            name=sim_name,
+                            x_api_key=api_key,
+                        )
+                except Exception:
+                    if not (mode == "fresh" and url):
+                        raise
+                if sim is None:
+                    if not (mode == "fresh" and url):
+                        console.print(
+                            f"[red]❌ {sim_name}: not found (pass --url to register it in the pipeline)[/red]"
+                        )
+                        continue
+                    # No record yet: the pipeline's register step creates it and
+                    # moves it to env_in_progress, so there is nothing to update here.
+                    to_launch.append(
+                        {
+                            "name": sim_name,
+                            "id": None,
+                            "status": "unregistered",
+                            "github_url": url,
+                            "base_artifact_id": "",
+                            "current_config": {},
+                        }
                     )
+                    continue
                 current_config = sim_config_dict(sim.config)
                 github_url = current_config.get("source_code_url", "")
                 base_artifact_id = current_config.get("base_artifact_id", "")
@@ -1978,13 +2015,14 @@ def start_env(
 
         for s in to_launch:
             try:
-                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
-                    await update_simulator_status.asyncio(
-                        client=client,
-                        simulator_id=s["id"],
-                        body=UpdateStatusRequest(status=Status("env_in_progress")),
-                        x_api_key=api_key,
-                    )
+                if s["id"] is not None:
+                    async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                        await update_simulator_status.asyncio(
+                            client=client,
+                            simulator_id=s["id"],
+                            body=UpdateStatusRequest(status=Status("env_in_progress")),
+                            x_api_key=api_key,
+                        )
 
                 if mode == "fresh":
                     template, version_id = _fetch_experiment_config("env", "base", api_key)
@@ -1997,6 +2035,7 @@ def start_env(
                         github_url=s["github_url"],
                         workspace="/workspace",
                     )
+                    _render_step_verify(config, sim_name=s["name"], github_url=s["github_url"])
                     config["plato_api_key"] = datagen_api_key
                     _set_claude_credentials(config, cred_key, cred_val)
                     config["agent"]["config"]["plato_api_key"] = datagen_api_key
@@ -2014,6 +2053,7 @@ def start_env(
                         github_url=s["github_url"],
                         workspace="/workspace",
                     )
+                    _render_step_verify(config, sim_name=s["name"], github_url=s["github_url"])
                     config["plato_api_key"] = datagen_api_key
                     _set_claude_credentials(config, cred_key, cred_val)
                     config["agent"]["config"]["plato_api_key"] = datagen_api_key
@@ -2896,6 +2936,141 @@ def open_sim(
 # =============================================================================
 # ARCHIVE COMMAND
 # =============================================================================
+
+
+@register_app.command(name="env")
+def register_env(
+    name: str = typer.Argument(..., help="Simulator name (lowercase letters and underscores)"),
+    url: str = typer.Option(..., "--url", help="GitHub URL of the app"),
+    description: str | None = typer.Option(None, "--description", "-d", help="One-line description"),
+    img_url: str | None = typer.Option(None, "--img-url", help="Favicon / logo URL"),
+    check: bool = typer.Option(False, "--check", help="Verify only: exit 1 unless the record is complete"),
+    json_output: bool = typer.Option(False, "--json", help="Print the record as JSON"),
+):
+    """Create or complete the simulator record the env pipeline builds into.
+
+    Idempotent — the pipeline's ``register`` step runs it, and re-running is safe:
+    creates the record if missing (docker_app, oss, enabled), fills url /
+    description / favicon when given, and moves ``not_started`` →
+    ``env_in_progress``. A simulator in any other status is left alone.
+
+    Examples:
+        plato pm register env grist --url https://github.com/gristlabs/grist-core \
+            -d "Grist — the evolution of spreadsheets" --img-url https://www.getgrist.com/favicon.ico
+        plato pm register env grist --url https://github.com/gristlabs/grist-core --check
+    """
+    api_key = require_api_key()
+    base_url = _get_base_url()
+
+    async def _run() -> bool:
+        async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+            try:
+                sim = await get_simulator_by_name.asyncio(client=client, name=name, x_api_key=api_key)
+            except Exception:
+                sim = None
+
+            def _record(sim_obj, created: bool) -> dict:
+                cfg = sim_config_dict(sim_obj.config) if sim_obj else {}
+                extra = getattr(sim_obj, "model_extra", None) or {}
+                return {
+                    "name": name,
+                    "id": getattr(sim_obj, "id", None),
+                    "created": created,
+                    "enabled": bool(getattr(sim_obj, "enabled", False)),
+                    "status": cfg.get("status"),
+                    "url": getattr(sim_obj, "url", None),
+                    "description": getattr(sim_obj, "description", None),
+                    "img_url": getattr(sim_obj, "img_url", None) or extra.get("imgUrl") or extra.get("img_url"),
+                }
+
+            def _missing(rec: dict) -> list[str]:
+                problems = []
+                if rec["id"] is None:
+                    return ["record does not exist"]
+                if not rec["enabled"]:
+                    problems.append("enabled is false (start-services cannot find a disabled sim in Gitea)")
+                if rec["status"] != "env_in_progress":
+                    problems.append(f"status is {rec['status']!r}, expected env_in_progress")
+                for field in ("url", "description", "img_url"):
+                    if not rec[field]:
+                        problems.append(f"{field} is empty")
+                return problems
+
+            if check:
+                rec = _record(sim, False)
+                problems = _missing(rec)
+                if json_output:
+                    print(json.dumps({**rec, "problems": problems}))
+                elif problems:
+                    for problem in problems:
+                        console.print(f"[red]❌ {name}: {problem}[/red]")
+                else:
+                    console.print(f"[green]✅ {name}: registered (id={rec['id']}, {rec['status']})[/green]")
+                return not problems
+
+            created = False
+            if sim is None:
+                body = CreateSimulatorRequest(
+                    name=name,
+                    url=url,
+                    description=description or "",
+                    # model_validate: the generated SimulatorConfig types `type`/`status` as enums and
+                    # has no `source_code_url` field, but the backend reads it (pm start env does too).
+                    config=SimulatorConfig.model_validate(
+                        {"type": "docker_app", "status": "not_started", "source_code_url": url}
+                    ),
+                    enabled=True,
+                    kind="oss",
+                    simType="docker_app",
+                )
+                sim = await create_simulator.asyncio(client=client, body=body, x_api_key=api_key)
+                created = True
+
+            cfg = sim_config_dict(sim.config)
+            status = cfg.get("status") or "not_started"
+            if status not in ("not_started", "env_in_progress"):
+                console.print(
+                    f"[red]❌ {name}: status is {status!r}; refusing to touch a simulator past env_in_progress[/red]"
+                )
+                return False
+
+            update = AppApiV1EnvRoutesUpdateSimulatorRequest()
+            changed = False
+            if not sim.enabled:
+                update.enabled = True
+                changed = True
+            if url and sim.url != url:
+                update.url = url
+                changed = True
+            if description and sim.description != description:
+                update.description = description
+                changed = True
+            if img_url:
+                # The generated model predates imgUrl; the backend reads it by alias.
+                update.__pydantic_extra__ = {**(update.__pydantic_extra__ or {}), "imgUrl": img_url}
+                changed = True
+            if changed:
+                sim = await env_update_simulator.asyncio(client=client, id=sim.id, body=update, x_api_key=api_key)
+
+            if status == "not_started":
+                await update_simulator_status.asyncio(
+                    client=client,
+                    simulator_id=sim.id,
+                    body=UpdateStatusRequest(status=Status("env_in_progress")),
+                    x_api_key=api_key,
+                )
+                sim = await get_simulator_by_name.asyncio(client=client, name=name, x_api_key=api_key)
+
+            rec = _record(sim, created)
+            if json_output:
+                print(json.dumps(rec))
+            else:
+                verb = "created" if created else "updated"
+                console.print(f"[green]✅ {name}: {verb} (id={rec['id']}, {rec['status']})[/green]")
+            return True
+
+    if not handle_async(_run()):
+        raise typer.Exit(1)
 
 
 @pm_app.command(name="set-status")

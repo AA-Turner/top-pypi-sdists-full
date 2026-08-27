@@ -285,7 +285,9 @@ class RunnerOverride:
             # batches. A whole-model cache skip would wrongly abort the retry, so
             # bypass the per-model cache decision entirely and let dbt orchestrate
             # the (partial) batch set normally.
-            return self._original_microbatch_execute(runner, node, manifest)
+            result = self._original_microbatch_execute(runner, node, manifest)
+            self._drop_cached_target_freshness(node)
+            return result
 
         window = self._resolve_microbatch_window(runner, node)
         if window is None:
@@ -295,7 +297,9 @@ class RunnerOverride:
                 "execute: could not resolve microbatch window for node {}; bypassing dbt State",
                 node.unique_id,
             )
-            return self._original_microbatch_execute(runner, node, manifest)
+            result = self._original_microbatch_execute(runner, node, manifest)
+            self._drop_cached_target_freshness(node)
+            return result
 
         def submit(run_cache: RunCache) -> t.Union[RunResult, NoRunResult, None]:
             # Compile the model body without batch context so on_execute hashes a
@@ -315,6 +319,25 @@ class RunnerOverride:
             # window as a clean execution.
             should_confirm=lambda result: result.status == RunStatus.Success,
         )
+
+    def _drop_cached_target_freshness(self, node: ModelNode) -> None:
+        """Drops a bypassed node's cached target freshness, without consulting dbt State.
+
+        The microbatch bypasses in ``microbatch_execute_override`` deliberately make
+        no cache decision and send no request, but the batches still rebuild the
+        target table. The bypass only covers the node itself — dbt State stays
+        active for the rest of the invocation — so leaving the pre-build
+        ``last_modified`` cached would make downstream nodes report it and be
+        skipped against a version of the table that no longer exists.
+
+        Reads the run cache only if one already exists, so a bypass never brings
+        dbt State up on its own. The eviction is local; no request is sent.
+
+        Args:
+            node: The bypassed microbatch model node.
+        """
+        if run_cache := self._run_cache:
+            run_cache.on_state_request_failed(node)
 
     def _execute_with_cache(
         self,

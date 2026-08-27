@@ -21,6 +21,7 @@ from robot.api.parsing import ModelTransformer
 from robot.errors import DataError
 from robot.utils.importer import Importer
 
+from robocop import plugins
 from robocop.config.defaults import SKIP_OPTIONS
 from robocop.exceptions import ImportFormatterError, InvalidParameterError
 from robocop.formatter.skip import Skip
@@ -44,12 +45,8 @@ FormatterArgs = dict[str, dict[str, Any]]  # Maps formatter name to its configur
 
 FORMATTERS = [
     "NormalizeSeparators",
-    "DiscardEmptySections",
     "MergeAndOrderSections",
-    "RemoveEmptySettings",
-    "ReplaceEmptyValues",
     "ReplaceWithVAR",
-    "NormalizeAssignments",
     "GenerateDocumentation",
     "OrderSettings",
     "OrderSettingsSection",
@@ -65,15 +62,13 @@ FORMATTERS = [
     "NormalizeNewLines",
     "NormalizeSectionHeaderName",
     "NormalizeSettingName",
-    "ReplaceRunKeywordIf",
     "SplitTooLongLine",
     "SmartSortKeywords",
     "RenameTestCases",
     "RenameKeywords",
-    "ReplaceBreakContinue",
     "InlineIf",
     "Translate",
-    "NormalizeComments",
+    "AlignBDDStatements",
 ]
 
 IMPORTER = Importer()
@@ -207,7 +202,8 @@ def import_custom_formatter(
 ) -> Generator[FormatterContainer, None, None]:
     try:
         short_name = get_formatter_short_name(name)
-        abs_path = get_absolute_path_to_formatter(name)
+        import_name = plugins.resolve_module_reference(name) or name
+        abs_path = get_absolute_path_to_formatter(import_name)
         imported = IMPORTER.import_class_or_module(abs_path)
         if inspect.isclass(imported):
             yield create_formatter_instance(imported, short_name, formatter_args.get(short_name, {}), skip_config)

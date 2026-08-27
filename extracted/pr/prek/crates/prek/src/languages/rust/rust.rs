@@ -366,11 +366,13 @@ async fn install_cli_dependency(
     cargo: &Path,
     cargo_home: &Path,
     new_path: &OsStr,
+    install_cwd: &Path,
 ) -> anyhow::Result<()> {
     let dep = CargoCliDependency::from_str(cli_dep)?;
 
     let mut cmd = Cmd::new(cargo);
-    cmd.args(["install", "--bins", "--root"])
+    cmd.current_dir(install_cwd)
+        .args(["install", "--bins", "--root"])
         .arg(&info.env_path)
         .args(dep.to_cargo_args())
         .arg("--locked");
@@ -394,6 +396,7 @@ impl LanguageBackend for Rust {
         &self,
         store: &Store,
         hook: Arc<Hook>,
+        install_cwd: &Path,
         reporter: &HookInstallReporter,
     ) -> anyhow::Result<InstalledHook> {
         let progress = reporter.on_install_start(&hook);
@@ -407,7 +410,7 @@ impl LanguageBackend for Rust {
         let version: &RustRequest = hook.language_request.version();
 
         let rust = installer
-            .install(version, hook.language_request.allows_download())
+            .install(version, hook.language_request.toolchain_policy())
             .await
             .context("Failed to install rust")?;
         let rustc_bin = bin_dir(rust.toolchain());
@@ -446,7 +449,7 @@ impl LanguageBackend for Rust {
             });
 
         // Use the hook entry as the binary name to find the package, this could be improved by allowing an explicit binary name in the hook config.
-        let hook_entry = hook.entry.expect_direct().split()?;
+        let hook_entry = hook.entry.expect_argv_entry().split()?;
         let hook_bin = hook_entry[0]
             .to_str()
             .context("Rust hook entry binary must be valid UTF-8")?;
@@ -467,7 +470,8 @@ impl LanguageBackend for Rust {
 
         // Install CLI dependencies
         for cli_dep in cli_deps {
-            install_cli_dependency(cli_dep, &info, &cargo, &cargo_home, &new_path).await?;
+            install_cli_dependency(cli_dep, &info, &cargo, &cargo_home, &new_path, install_cwd)
+                .await?;
         }
 
         info.persist_env_path();

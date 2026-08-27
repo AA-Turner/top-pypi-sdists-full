@@ -1164,6 +1164,32 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get a review",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_google_business_review(
+        account_id: str, review_id: str, location_id: str | None = None
+    ) -> str:
+        """Get a review
+
+        Args:
+            account_id: The Zernio account ID (from /v1/accounts) (required)
+            review_id: The review ID portion (e.g. "AIe9_BGx1234567890"), not the full resource name (required)
+            location_id: Override which location to read the review from. If omitted, uses the account's selected location. Use GET /gmb-locations to list valid IDs."""
+        client = _get_client()
+        try:
+            response = client.accounts.get_google_business_review(
+                account_id=account_id, review_id=review_id, location_id=location_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Reply to a review",
             readOnlyHint=False,
             destructiveHint=True,
@@ -2970,6 +2996,42 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Attach extension assets to a Google Search campaign",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_attach_campaign_assets(
+        campaign_id: str,
+        account_id: str,
+        sitelinks: list[dict[str, Any]] | None = None,
+        callouts: list[str] | None = None,
+        structured_snippets: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Attach extension assets to a Google Search campaign
+
+        Args:
+            campaign_id: Numeric Google platform campaign id. (required)
+            account_id: Zernio Google Ads SocialAccount id — resolves the customer id + refresh token. (required)
+            sitelinks: See POST /v1/ads/create sitelinks — same shape.
+            callouts
+            structured_snippets"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.attach_campaign_assets(
+                campaign_id=campaign_id,
+                account_id=account_id,
+                sitelinks=sitelinks,
+                callouts=callouts,
+                structured_snippets=structured_snippets,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Boost post as ad",
             readOnlyHint=False,
             destructiveHint=True,
@@ -3230,6 +3292,8 @@ def register_generated_tools(mcp, _get_client):
         additional_headlines: list[str] | None = None,
         additional_descriptions: list[str] | None = None,
         sitelinks: list[dict[str, Any]] | None = None,
+        callouts: list[str] | None = None,
+        structured_snippets: list[dict[str, Any]] | None = None,
         advantage_audience: int | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         gender: str = "all",
@@ -3510,6 +3574,15 @@ def register_generated_tools(mcp, _get_client):
         Google requires at least two sitelinks to surface them on an ad; four or more
         is Google's own recommendation for maximum visibility. The response's
         creative.sitelinks[] echoes each input plus its Google resourceName.
+                callouts: Google Search only. Short callout texts (max 25 chars each) that appear as
+        non-clickable annotations under the ad, e.g. "Free shipping", "24/7 support".
+        Each becomes one Asset (`callout_asset`) plus a CampaignAsset link with
+        field_type CALLOUT. Response's creative.callouts[] echoes each input plus
+        its Google resourceName.
+                structured_snippets: Google Search only. Structured snippets — one header from Google's
+        predefined list plus 3-10 values (max 25 chars each). Each becomes one
+        Asset (`structured_snippet_asset`) plus a CampaignAsset link with
+        field_type STRUCTURED_SNIPPET.
                 advantage_audience: Meta only. Controls the Advantage audience feature (targeting_automation). 0 = disabled (default), 1 = enabled. Meta Marketing API requires this field on all ad set creation requests.
                 attribution_spec: Meta only. Conversion attribution window for the ad set — maps 1:1 to Meta's
         ad-set `attribution_spec`. Only honored for conversion goals (`conversions`,
@@ -3716,6 +3789,8 @@ def register_generated_tools(mcp, _get_client):
                 additional_headlines=additional_headlines,
                 additional_descriptions=additional_descriptions,
                 sitelinks=sitelinks,
+                callouts=callouts,
+                structured_snippets=structured_snippets,
                 advantage_audience=advantage_audience,
                 attribution_spec=attribution_spec,
                 gender=gender,
@@ -4924,7 +4999,7 @@ def register_generated_tools(mcp, _get_client):
             to_date: Inclusive upper bound (YYYY-MM-DD). Defaults to today if omitted.
             limit: Page size (default 50)
             page: Page number (default 1)
-            sort_by: Sort by date, engagement, or a specific metric
+            sort_by: Sort by date, engagement, or a specific metric. Instagram-only metrics (follows, reposts, reels_skip_rate, ig_reels_*) sort posts with no value as 0.
             order: Sort order"""
         client = _get_client()
         try:
@@ -7441,7 +7516,16 @@ def register_generated_tools(mcp, _get_client):
         omit to enter ads-only mode (no TikTok posting account linked; ad creation uses
         a Brand Identity instead of a TT_USER). Ignored for same-token (`facebook`,
         `instagram`, `linkedin`, `pinterest`) and standalone (`googleads`) platforms.
-                redirect_url: Custom redirect URL after OAuth completes (same-token platforms only). Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path.
+                redirect_url: Custom URL the browser is sent to once the OAuth flow finishes. Honored on
+        every ads platform, including the separate-token (`tiktok`, `twitter`) and
+        standalone (`googleads`) flows. Accepts an http(s) URL, a custom app scheme
+        for mobile deeplinks (e.g. myapp://callback), or a relative path. On success
+        `tiktok`, `twitter` and `googleads` land on the URL unchanged, while the
+        same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`)
+        append `connected`, `profileId`, `accountId`, `username` and, on API-key
+        calls, `connect_token`. On failure every platform appends error details,
+        starting with `error` and `platform`. When omitted, the browser lands on
+        the Zernio dashboard.
                 headless: Enable headless mode (same-token platforms only)
                 force: Force a fresh OAuth even when an account already exists. Normally the
         endpoint returns `alreadyConnected: true` whenever a connected account
@@ -11456,6 +11540,7 @@ def register_generated_tools(mcp, _get_client):
         link_preview: bool = True,
         template_language: str | None = None,
         template_params: list[str] | None = None,
+        template_button_params: list[dict[str, Any]] | None = None,
         header_media: dict[str, Any] | None = None,
     ) -> str:
         """Create conversation
@@ -11470,7 +11555,8 @@ def register_generated_tools(mcp, _get_client):
             category: WhatsApp only (Meta Direct Send). Combined with message and without templateName, starts the conversation with a business-initiated UTILITY message and no pre-approved template; Meta matches or auto-creates a template asynchronously. The WhatsApp Business Account must be eligible for Direct Send, otherwise the send fails with an error telling you to use an approved message template instead. Cannot be combined with templateName (templates are already categorized at creation). Utility messages only; marketing content is not allowed under this category. Accepted on the JSON body only, not on multipart requests.
             link_preview: WhatsApp only. Set false to send the Direct Send (category: 'utility') text message without a link-preview thumbnail for the first URL in the text. Defaults to true, which is how every WhatsApp text has been sent to date. Does not apply to template sends. Accepted on the JSON body only, not on multipart requests.
             template_language: WhatsApp only. Template language code (e.g. en_US).
-            template_params: WhatsApp only. Template variable values as one flat array, in the order the variables appear across the whole template: text-header variables first, then body variables, then one value per dynamic URL button (in button order). Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance. Example - a body with {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values: [body1, body2, buttonSuffix]. Media headers (image, video, document) are filled automatically from the approved template and take no value here (use headerMedia to override the header asset per send).
+            template_params: WhatsApp only. Template variable values as one flat array, in the order the variables appear across the whole template: text-header variables first, then body variables, then one value per dynamic URL button (in button order). Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance. Example - a body with {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values: [body1, body2, buttonSuffix]. Media headers (image, video, document) are filled automatically from the approved template and take no value here (use headerMedia to override the header asset per send). Buttons that are not dynamic-URL buttons (copy-code, flow) take no value here either; use templateButtonParams.
+            template_button_params: WhatsApp only. Values for template buttons that carry one at send time, each addressed by the button's position in the approved template. This is the only way to send a copy-code button's payload (a Pix payment code, a coupon) or a flow token, because templateParams is a flat array of text variables and covers dynamic URL buttons only. Supplying a button here overrides whatever templateParams would have derived for that same index, so the send never carries one button twice; repeating an index within this array is rejected with 400. Each index must name a button of the matching kind on the approved template, which is also checked before the send and returns 400 (INVALID_TEMPLATE_BUTTON_PARAM) rather than a Meta rejection.
             header_media: WhatsApp only. Overrides a media-header template's header asset for THIS send, so a template with an image/video/document header can carry a different asset per message (e.g. each recipient their own invoice PDF). Without it, the template's approved sample asset is sent. Provide exactly one of link or id."""
         client = _get_client()
         try:
@@ -11485,6 +11571,7 @@ def register_generated_tools(mcp, _get_client):
                 link_preview=link_preview,
                 template_language=template_language,
                 template_params=template_params,
+                template_button_params=template_button_params,
                 header_media=header_media,
             )
             return _format_response(response)
@@ -11935,7 +12022,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             conversation_id: The conversation ID (required)
-            message_id: The platform message ID to react to (required)
+            message_id: The platform message ID (as returned by GET /messages) or the Zernio message ID (as returned by the reaction webhook) (required)
             account_id: Social account ID (required)
             emoji: Emoji character (e.g. "👍", "❤️") (required)"""
         client = _get_client()
@@ -11965,7 +12052,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             conversation_id: The conversation ID (required)
-            message_id: The platform message ID (required)
+            message_id: The platform message ID (as returned by GET /messages) or the Zernio message ID (as returned by the reaction webhook) (required)
             account_id: Social account ID (required)"""
         client = _get_client()
         try:
@@ -19232,17 +19319,18 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def whatsapp_templates_get_whats_app_library_template(
-        account_id: str, name: str
+        account_id: str, name: str, language: str | None = None
     ) -> str:
         """Look up a library template
 
         Args:
             account_id: WhatsApp social account ID (required)
-            name: Exact library template name (required)"""
+            name: Exact library template name (required)
+            language: Desired language variant (e.g. es, en_US). If the template is not offered in it, the first available variant is returned and named in the response language field."""
         client = _get_client()
         try:
             response = client.whatsapp_templates.get_whats_app_library_template(
-                account_id=account_id, name=name
+                account_id=account_id, name=name, language=language
             )
             return _format_response(response)
         except Exception as e:

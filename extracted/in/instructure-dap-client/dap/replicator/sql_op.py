@@ -55,6 +55,7 @@ class SqlOp(abc.ABC):
     explorer: Explorer
     session: Optional[DAPSession]
     namespace_module: types.ModuleType
+    dialect: str
 
     def __init__(
         self,
@@ -62,6 +63,7 @@ class SqlOp(abc.ABC):
         namespace: str,
         table_name: str,
         explorer: Explorer,
+        dialect: str,
         session: Optional[DAPSession] = None,
     ) -> None:
         self.conn = conn
@@ -70,6 +72,7 @@ class SqlOp(abc.ABC):
         self.explorer = explorer
         self.session = session
         self.namespace_module = get_module_for_namespace(namespace)
+        self.dialect = dialect
 
     @abc.abstractmethod
     async def run(self) -> None: ...

@@ -17,6 +17,8 @@ from wandb.proto.wandb_api_pb2 import (
     FeaturesRequest,
     GetAccessTokenRequest,
     GraphQLRequest,
+    OrgFeaturesRequest,
+    ServerFeaturesRequest,
 )
 from wandb.sdk import wandb_settings, wandb_setup
 from wandb.sdk.lib.service.service_connection import (
@@ -94,10 +96,15 @@ class ServiceApi:
         """Send an API request to the backend service.
 
         Creates the backend service connection if it has not been created yet.
+        Falls back to the timeout this API was created with when none is
+        given.
         """
         session = self._get_api_session()
         request.api_id = session.api_id
-        return session.connection.api_request(request, timeout=timeout)
+        return session.connection.api_request(
+            request,
+            timeout=self._timeout if timeout is None else timeout,
+        )
 
     def finalize(
         self,
@@ -179,10 +186,7 @@ class ServiceApi:
                 rename_fields=rename_fields,
             )
         )
-        resp = self.send_api_request(
-            req,
-            timeout=self._timeout if timeout is None else timeout,
-        )
+        resp = self.send_api_request(req, timeout=timeout)
         return parse(resp.graphql_response.data_json)
 
     def authenticate(
@@ -212,10 +216,7 @@ class ServiceApi:
         req = ApiRequest(
             auth_request=AuthRequest(authenticate_request=AuthenticateRequest())
         )
-        resp = self.send_api_request(
-            req,
-            timeout=self._timeout if timeout is None else timeout,
-        )
+        resp = self.send_api_request(req, timeout=timeout)
         return resp.auth_response.authenticate_response
 
     def access_token(
@@ -249,10 +250,7 @@ class ServiceApi:
         req = ApiRequest(
             auth_request=AuthRequest(get_access_token_request=GetAccessTokenRequest())
         )
-        resp = self.send_api_request(
-            req,
-            timeout=self._timeout if timeout is None else timeout,
-        )
+        resp = self.send_api_request(req, timeout=timeout)
         return resp.auth_response.get_access_token_response.access_token or None
 
     async def send_api_request_async(
@@ -277,6 +275,24 @@ class ServiceApi:
         session = self._get_api_session()
         request.api_id = session.api_id
         session.connection.api_publish(request)
+
+    def org_feature_flags(
+        self,
+        org: str,
+        *features: str,
+        timeout: float = 10,
+    ) -> dict[str, bool]:
+        """Return requested org feature flags and legacy ramps that exist."""
+        if not features:
+            return {}
+
+        req = ApiRequest(
+            features_request=FeaturesRequest(
+                org=OrgFeaturesRequest(org=org, features=features)
+            )
+        )
+        resp = self.send_api_request(req, timeout=timeout)
+        return dict(resp.features_response.org.features)
 
     def feature_enabled(
         self,
@@ -307,7 +323,11 @@ class ServiceApi:
                 # SERVER_FEATURE_UNSPECIFIED is always disabled.
                 return False
 
-        req = ApiRequest(features_request=FeaturesRequest(features=[feature]))
+        req = ApiRequest(
+            features_request=FeaturesRequest(
+                server=ServerFeaturesRequest(features=[feature])
+            )
+        )
 
         try:
             resp = self.send_api_request(req, timeout=timeout)
@@ -316,4 +336,4 @@ class ServiceApi:
             _logger.exception("Failed to load feature %s", feature)
             return False
 
-        return feature in resp.features_response.enabled
+        return feature in resp.features_response.server.enabled

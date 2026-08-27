@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use crate::{
     compiler,
-    error::ErrorIterator,
     keywords::{BoxedValidator, CompilationResult},
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
@@ -43,16 +42,17 @@ impl<F: Json> Validate<F> for RefValidator<F> {
             .validate(instance, location, Some(&child_tracker), ctx)
     }
 
-    fn iter_errors<'i>(
+    fn collect_errors<'i>(
         &self,
         instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> ErrorIterator<'i> {
+        errors: &mut Vec<ValidationError<'i>>,
+    ) {
         let child_tracker = RefTracker::new(&self.ref_suffix, &self.ref_target_base, tracker);
         self.inner
-            .iter_errors(instance, location, Some(&child_tracker), ctx)
+            .collect_errors(instance, location, Some(&child_tracker), ctx, errors);
     }
 
     fn evaluate(
@@ -102,16 +102,17 @@ impl<F: Json> Validate<F> for DirectRefValidator<F> {
             .validate(instance, location, Some(&child_tracker), ctx)
     }
 
-    fn iter_errors<'i>(
+    fn collect_errors<'i>(
         &self,
         instance: &F::Node<'i>,
         location: &LazyLocation,
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
-    ) -> ErrorIterator<'i> {
+        errors: &mut Vec<ValidationError<'i>>,
+    ) {
         let child_tracker = RefTracker::new(&self.ref_suffix, &self.ref_target_base, tracker);
         self.inner
-            .iter_errors(instance, location, Some(&child_tracker), ctx)
+            .collect_errors(instance, location, Some(&child_tracker), ctx, errors);
     }
 
     fn evaluate(
@@ -397,6 +398,14 @@ mod tests {
             .with_registry(&registry)
             .build(schema)
             .unwrap()
+    }
+
+    // A `$ref` re-entered while it is being validated counts as satisfied, so the sibling `$ref`
+    // cannot be served a result taken outside that state.
+    #[test]
+    fn self_reference_under_not_agrees_across_modes() {
+        let schema = json!({"allOf": [{"not": {"$ref": "#"}}, {"$ref": "#"}]});
+        tests_util::is_not_valid(&schema, &json!([]));
     }
 
     #[test]

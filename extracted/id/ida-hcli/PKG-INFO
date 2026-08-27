@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ida-hcli
-Version: 0.19.2
+Version: 0.20.1
 Summary: HCLI - Hex-Rays CLI Utility
 Author-email: Hex-Rays SA <support@hex-rays.com>
 License-Expression: MIT
@@ -53,6 +53,19 @@ Dynamic: license-file
 ![](docs/assets/screenshot.png)
 
 A modern command-line interface for managing IDA Pro licenses, downloads, ...
+
+# Quickstart
+
+```console
+curl -LsSf https://hcli.docs.hex-rays.com/install | sh
+# or on Windows
+iwr -useb https://hcli.docs.hex-rays.com/install.ps1 | iex
+
+hcli login
+hcli license list
+```
+
+See [Installation](https://hcli.docs.hex-rays.com/getting-started/installation/) for more details.
 
 # Documentation
 

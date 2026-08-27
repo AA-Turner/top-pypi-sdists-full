@@ -66,6 +66,7 @@ from snowflake.snowpark_connect.config import (
     get_success_file_generation_enabled,
     global_config,
     is_column_nullability_tracking_enabled,
+    raise_if_unsupported_data_source,
     sessions_config,
     str_to_bool,
 )
@@ -725,6 +726,9 @@ def _validate_no_partition_cols_on_fdn(
 
 def map_write(request: proto_base.ExecutePlanRequest):
     write_op = request.plan.command.write_operation
+    # SNOW-3917754: reject an unsupported format (e.g. .format("delta")) before any
+    # planning or IO-write telemetry, so rejected writes don't skew adoption metrics.
+    raise_if_unsupported_data_source(write_op.source, get_or_create_snowpark_session())
     telemetry.report_io_write(write_op.source, dict(write_op.options))
     if write_op.path and write_op.options.get("path"):
         raise AnalysisException(
@@ -1866,6 +1870,14 @@ def map_write(request: proto_base.ExecutePlanRequest):
 
 def map_write_v2(request: proto_base.ExecutePlanRequest):
     write_op = request.plan.command.write_operation_v2
+
+    # SNOW-3917754: reject an unsupported provider (e.g. .using("delta")) before
+    # any planning work. Only create-family modes forward .using(provider) in
+    # Spark (see _is_create_table_mode_v2), so scope the check to match.
+    if _is_create_table_mode_v2(write_op.mode):
+        raise_if_unsupported_data_source(
+            write_op.provider, get_or_create_snowpark_session()
+        )
 
     dml_target = resolve_iceberg_ref_dml_target(
         write_op.table_name, _spark_to_snowflake

@@ -15,7 +15,9 @@ if typing.TYPE_CHECKING:
     from .chat.client import AsyncChatClient, ChatClient
     from .doc_ai.client import AsyncDocAiClient, DocAiClient
     from .document_intelligence.client import AsyncDocumentIntelligenceClient, DocumentIntelligenceClient
+    from .document_translation.client import AsyncDocumentTranslationClient, DocumentTranslationClient
     from .dubbing.client import AsyncDubbingClient, DubbingClient
+    from .open_source_models.client import AsyncOpenSourceModelsClient, OpenSourceModelsClient
     from .pronunciation_dictionary.client import AsyncPronunciationDictionaryClient, PronunciationDictionaryClient
     from .speech_to_text.client import AsyncSpeechToTextClient, SpeechToTextClient
     from .speech_to_text_job.client import AsyncSpeechToTextJobClient, SpeechToTextJobClient
@@ -105,6 +107,7 @@ class SarvamAI:
             logging=logging,
         )
         self._dubbing: typing.Optional[DubbingClient] = None
+        self._document_translation: typing.Optional[DocumentTranslationClient] = None
         self._text: typing.Optional[TextClient] = None
         self._speech_to_text: typing.Optional[SpeechToTextClient] = None
         self._text_to_speech: typing.Optional[TextToSpeechClient] = None
@@ -114,6 +117,7 @@ class SarvamAI:
         self._speech_to_text_translate_job: typing.Optional[SpeechToTextTranslateJobClient] = None
         self._document_intelligence: typing.Optional[DocumentIntelligenceClient] = None
         self._doc_ai: typing.Optional[DocAiClient] = None
+        self._open_source_models: typing.Optional[OpenSourceModelsClient] = None
         self._speech_to_text_streaming: typing.Optional[SpeechToTextStreamingClient] = None
         self._speech_to_text_translate_streaming: typing.Optional[SpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[SpeechToTextRealtimeStreamingClient] = None
@@ -126,6 +130,14 @@ class SarvamAI:
 
             self._dubbing = DubbingClient(client_wrapper=self._client_wrapper)
         return self._dubbing
+
+    @property
+    def document_translation(self):
+        if self._document_translation is None:
+            from .document_translation.client import DocumentTranslationClient  # noqa: E402
+
+            self._document_translation = DocumentTranslationClient(client_wrapper=self._client_wrapper)
+        return self._document_translation
 
     @property
     def text(self):
@@ -198,6 +210,14 @@ class SarvamAI:
 
             self._doc_ai = DocAiClient(client_wrapper=self._client_wrapper)
         return self._doc_ai
+
+    @property
+    def open_source_models(self):
+        if self._open_source_models is None:
+            from .open_source_models.client import OpenSourceModelsClient  # noqa: E402
+
+            self._open_source_models = OpenSourceModelsClient(client_wrapper=self._client_wrapper)
+        return self._open_source_models
 
     @property
     def speech_to_text_streaming(self):
@@ -307,6 +327,7 @@ class AsyncSarvamAI:
             logging=logging,
         )
         self._dubbing: typing.Optional[AsyncDubbingClient] = None
+        self._document_translation: typing.Optional[AsyncDocumentTranslationClient] = None
         self._text: typing.Optional[AsyncTextClient] = None
         self._speech_to_text: typing.Optional[AsyncSpeechToTextClient] = None
         self._text_to_speech: typing.Optional[AsyncTextToSpeechClient] = None
@@ -316,6 +337,7 @@ class AsyncSarvamAI:
         self._speech_to_text_translate_job: typing.Optional[AsyncSpeechToTextTranslateJobClient] = None
         self._document_intelligence: typing.Optional[AsyncDocumentIntelligenceClient] = None
         self._doc_ai: typing.Optional[AsyncDocAiClient] = None
+        self._open_source_models: typing.Optional[AsyncOpenSourceModelsClient] = None
         self._speech_to_text_streaming: typing.Optional[AsyncSpeechToTextStreamingClient] = None
         self._speech_to_text_translate_streaming: typing.Optional[AsyncSpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[AsyncSpeechToTextRealtimeStreamingClient] = None
@@ -328,6 +350,14 @@ class AsyncSarvamAI:
 
             self._dubbing = AsyncDubbingClient(client_wrapper=self._client_wrapper)
         return self._dubbing
+
+    @property
+    def document_translation(self):
+        if self._document_translation is None:
+            from .document_translation.client import AsyncDocumentTranslationClient  # noqa: E402
+
+            self._document_translation = AsyncDocumentTranslationClient(client_wrapper=self._client_wrapper)
+        return self._document_translation
 
     @property
     def text(self):
@@ -402,6 +432,14 @@ class AsyncSarvamAI:
 
             self._doc_ai = AsyncDocAiClient(client_wrapper=self._client_wrapper)
         return self._doc_ai
+
+    @property
+    def open_source_models(self):
+        if self._open_source_models is None:
+            from .open_source_models.client import AsyncOpenSourceModelsClient  # noqa: E402
+
+            self._open_source_models = AsyncOpenSourceModelsClient(client_wrapper=self._client_wrapper)
+        return self._open_source_models
 
     @property
     def speech_to_text_streaming(self):

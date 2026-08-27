@@ -34,10 +34,8 @@ impl FromStr for DenoVersion {
     }
 }
 
-/// `language_version` field of deno can be one of the following:
-/// - `default`: Find system installed deno, or download the latest version.
-/// - `system`: Find system installed deno, or error if not found.
-/// - `deno` or `deno@latest`: Same as `default`.
+/// A parsed Deno version request:
+/// - `deno` or `deno@latest`: Accept any version.
 /// - `x.y` or `deno@x.y`: Install the latest version with the same major and minor version.
 /// - `x.y.z` or `deno@x.y.z`: Install the specific version.
 /// - `^x.y.z`: Install the latest version that satisfies the semver requirement.
@@ -122,6 +120,8 @@ impl DenoRequest {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -174,10 +174,10 @@ mod tests {
     #[test]
     fn test_deno_request_range() {
         let req = DenoRequest::from_str(">=2.0").unwrap();
-        assert!(matches!(req, DenoRequest::Range(_)));
+        assert_matches!(req, DenoRequest::Range(_));
 
         let req = DenoRequest::from_str(">=2.0, <3.0").unwrap();
-        assert!(matches!(req, DenoRequest::Range(_)));
+        assert_matches!(req, DenoRequest::Range(_));
     }
 
     #[test]

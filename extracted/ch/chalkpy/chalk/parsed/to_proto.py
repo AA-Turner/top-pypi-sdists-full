@@ -1033,6 +1033,9 @@ class ToProtoConverter:
                         if mat.aggregation in ("approx_top_k", "approx_percentile", "min_by_n", "max_by_n")
                         else None
                     ),
+                    approx_top_k_arg_counters=(
+                        aggregation_kwargs.get("counters") if mat.aggregation == "approx_top_k" else None
+                    ),
                     cache_aggregated_values=mat.cache_aggregated_values,
                     allow_filter_migration=mat.allow_filter_migration,
                 ),
@@ -1169,6 +1172,9 @@ class ToProtoConverter:
                                     aggregation_kwargs.get("k")
                                     if wmp.aggregation in ("approx_top_k", "approx_percentile", "min_by_n", "max_by_n")
                                     else None
+                                ),
+                                approx_top_k_arg_counters=(
+                                    aggregation_kwargs.get("counters") if wmp.aggregation == "approx_top_k" else None
                                 ),
                                 cache_aggregated_values=wmp.cache_aggregated_values,
                                 allow_filter_migration=wmp.allow_filter_migration,

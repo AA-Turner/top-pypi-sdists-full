@@ -8,7 +8,7 @@ from .dubbing_export_item import DubbingExportItem
 
 
 class DubbingExportStatusData(UniversalBaseModel):
-    exports: typing.Optional[typing.List[DubbingExportItem]] = pydantic.Field(default=None)
+    exports: typing.List[DubbingExportItem] = pydantic.Field()
     """
     One entry per (target_language, export_type).
     """

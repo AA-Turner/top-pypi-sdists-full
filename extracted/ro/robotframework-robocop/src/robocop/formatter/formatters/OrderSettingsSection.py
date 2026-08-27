@@ -108,7 +108,7 @@ class OrderSettingsSection(Formatter):
             return default
         if not order:
             return []
-        parts = order.lower().split(",")
+        parts = [part.strip() for part in order.lower().split(",")]
         if any(part not in default for part in parts):
             raise InvalidParameterValueError(
                 self.__class__.__name__,
@@ -128,7 +128,7 @@ class OrderSettingsSection(Formatter):
         if order == "preserved":
             self.disabled_group.add(name)
             return default
-        parts = order.lower().split(",")
+        parts = [part.strip() for part in order.lower().split(",")]
         try:
             return [mapping[part] for part in parts]
         except KeyError:
@@ -148,8 +148,9 @@ class OrderSettingsSection(Formatter):
     def visit_SettingSection(self, node: SettingSection) -> SettingSection | None:  # noqa: N802
         if not node.body:
             return None
-        if node is self.last_section and not isinstance(node.body[-1], EmptyLine):
-            node.body[-1] = self.fix_eol(node.body[-1])
+        last_section = self.last_section
+        if last_section is not None and node is last_section and not isinstance(last_section.body[-1], EmptyLine):
+            last_section.body[-1] = self.fix_eol(last_section.body[-1])
         comments: list[Comment] = []
         errors: list[Statement] = []
         groups: dict[str, list[tuple[list[Comment], Statement]]] = defaultdict(list)
@@ -206,7 +207,7 @@ class OrderSettingsSection(Formatter):
             new_body.extend([empty_line] * self.new_lines_between_groups)
             new_body.extend(errors)
         new_body.extend(comments)
-        if node is not self.last_section:
+        if node is not last_section:
             new_body.append(empty_line)
         node.body = new_body
         return node

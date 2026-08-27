@@ -302,10 +302,9 @@ async def initdb(
     global_options: GlobalOptions, namespace: str, table: str, connection_string: str
 ) -> None:
     logger.debug(
-        "Running initdb command with parameters: namespace=%s, table=%s, connection_string=%s",
+        "Running initdb command with parameters: namespace=%s, table=%s",
         namespace,
         table,
-        connection_string,
     )
 
     await init_db(
@@ -332,10 +331,9 @@ async def syncdb(
     global_options: GlobalOptions, namespace: str, table: str, connection_string: str
 ) -> None:
     logger.debug(
-        "Running syncdb command with parameters: namespace=%s, table=%s, connection_string=%s",
+        "Running syncdb command with parameters: namespace=%s, table=%s",
         namespace,
         table,
-        connection_string,
     )
 
     await sync_db(
@@ -375,9 +373,8 @@ async def listdb(
     omit_record_count: bool,
 ) -> None:
     logger.debug(
-        "Running listdb command with parameters: namespace=%s, connection_string=%s, omit_not_replicated=%s, omit_record_count=%s",
+        "Running listdb command with parameters: namespace=%s, omit_not_replicated=%s, omit_record_count=%s",
         namespace,
-        connection_string,
         omit_not_replicated,
         omit_record_count,
     )
@@ -401,10 +398,9 @@ async def listdb(
 @connection_string_option
 async def dropdb(namespace: str, table: str, connection_string: str) -> None:
     logger.debug(
-        "Running dropdb command with parameters: namespace=%s, table=%s, connection_string=%s",
+        "Running dropdb command with parameters: namespace=%s, table=%s",
         namespace,
         table,
-        connection_string,
     )
 
     await drop_db(

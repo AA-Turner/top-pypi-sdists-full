@@ -10,18 +10,18 @@ from .dubbing_export_type import DubbingExportType
 
 
 class DubbingExportItem(UniversalBaseModel):
-    id: typing.Optional[str] = pydantic.Field(default=None)
+    id: str = pydantic.Field()
     """
     Export record ID.
     """
 
-    export_type: typing.Optional[DubbingExportType] = None
-    target_language: typing.Optional[str] = pydantic.Field(default=None)
+    export_type: DubbingExportType
+    target_language: str = pydantic.Field()
     """
     The target language (BCP-47) of this export.
     """
 
-    status: typing.Optional[DubbingExportItemStatus] = None
+    status: DubbingExportItemStatus
     created_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
     When the export was triggered.
@@ -32,7 +32,7 @@ class DubbingExportItem(UniversalBaseModel):
     When the export finished (if completed).
     """
 
-    is_stale: typing.Optional[bool] = pydantic.Field(default=None)
+    is_stale: bool = pydantic.Field()
     """
     True if translate chunks for this language were modified after the export completed, so the output no longer reflects the latest edits.
     """

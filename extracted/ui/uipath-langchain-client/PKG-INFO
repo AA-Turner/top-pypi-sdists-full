@@ -1,10 +1,10 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: uipath-langchain-client
-Version: 1.17.3
+Version: 1.18.0
 Summary: LangChain-compatible chat models and embeddings for UiPath's LLM services
 Requires-Python: >=3.11
 Requires-Dist: langchain<2.0.0,>=1.2.15
-Requires-Dist: uipath-llm-client<2.0.0,>=1.17.1
+Requires-Dist: uipath-llm-client<2.0.0,>=1.18.0
 Provides-Extra: all
 Requires-Dist: anthropic[bedrock,vertex]<1.0.0,>=0.96.0; extra == 'all'
 Requires-Dist: langchain-anthropic<2.0.0,>=1.4.1; extra == 'all'

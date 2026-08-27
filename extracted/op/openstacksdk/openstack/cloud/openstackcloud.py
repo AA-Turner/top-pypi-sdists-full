@@ -11,13 +11,14 @@
 # limitations under the License.
 
 import atexit
+from collections.abc import Iterable, Sequence
 import concurrent.futures
 import copy
 import functools
 import queue
 import types
-from typing import Any, Optional, Self, TYPE_CHECKING
-from collections.abc import Callable
+from typing import Any, Optional, Self, TypeVar, TYPE_CHECKING
+from collections.abc import Callable, Mapping
 import warnings
 import weakref
 
@@ -46,6 +47,9 @@ if TYPE_CHECKING:
     from oslo_config import cfg
 
     from openstack import service_description
+
+
+_T = TypeVar('_T', bound=Mapping[str, Any])
 
 
 class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
@@ -389,7 +393,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         else:
             name_key = f'{self.name}:{namespace}'
 
-        def generate_key(*args, **kwargs):
+        def generate_key(*args: Any, **kwargs: Any) -> str:
             # TODO(frickler): make handling arg keys actually work
             arg_key = ''
             kw_keys = sorted(kwargs.keys())
@@ -406,16 +410,14 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         # import late since this is a utility function
         import pprint
 
-        new_resource = _utils._dictify_resource(resource)
-        pprint.pprint(new_resource)
+        pprint.pprint(resource)
 
     def pformat(self, resource: object) -> str:
         """Wrapper around pformat that groks munch objects"""
         # import late since this is a utility function
         import pprint
 
-        new_resource = _utils._dictify_resource(resource)
-        return pprint.pformat(new_resource)
+        return pprint.pformat(resource)
 
     @property
     def _keystone_catalog(self) -> 'ks_service_catalog.ServiceCatalog':
@@ -523,7 +525,9 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
             project=self._get_project_info(project_id),
         )
 
-    def range_search(self, data, filters):
+    def range_search(
+        self, data: Iterable[_T], filters: Mapping[str, str]
+    ) -> list[_T]:
         """Perform integer range searches across a list of dictionaries.
 
         Given a list of dictionaries, search across the list using the given
@@ -552,7 +556,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         :raises: :class:`~openstack.exceptions.SDKException` on invalid range
             expressions.
         """
-        filtered: list[object] = []
+        filtered: list[_T] = []
 
         for key, range_value in filters.items():
             # We always want to operate on the full data set so that
@@ -571,7 +575,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
 
         return filtered
 
-    def _get_and_munchify(self, key, data):
+    def _get_and_munchify(self, key: str | None, data: Any) -> Any:
         """Wrapper around meta.get_and_munchify.
 
         Some of the methods expect a `meta` attribute to be passed in as
@@ -648,26 +652,26 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
 
     def search_resources(
         self,
-        resource_type,
-        name_or_id,
-        get_args=None,
-        get_kwargs=None,
-        list_args=None,
-        list_kwargs=None,
-        **filters,
-    ):
+        resource_type: str,
+        name_or_id: str,
+        get_args: Sequence[Any] | None = None,
+        get_kwargs: dict[str, Any] | None = None,
+        list_args: Sequence[Any] | None = None,
+        list_kwargs: dict[str, Any] | None = None,
+        **filters: Any,
+    ) -> list[resource.Resource]:
         """Search resources
 
         Search resources matching certain conditions
 
-        :param str resource_type: String representation of the expected
+        :param resource_type: String representation of the expected
             resource as `service.resource` (i.e. "network.security_group").
-        :param str name_or_id: Name or ID of the resource
-        :param list get_args: Optional args to be passed to the _get call.
-        :param dict get_kwargs: Optional kwargs to be passed to the _get call.
-        :param list list_args: Optional args to be passed to the _list call.
-        :param dict list_kwargs: Optional kwargs to be passed to the _list call
-        :param dict filters: Additional filters to be used for querying
+        :param name_or_id: Name or ID of the resource
+        :param get_args: Optional args to be passed to the _get call.
+        :param get_kwargs: Optional kwargs to be passed to the _get call.
+        :param list_args: Optional args to be passed to the _list call.
+        :param list_kwargs: Optional kwargs to be passed to the _list call
+        :param filters: Additional filters to be used for querying
             resources.
         """
         get_args = get_args or ()
@@ -715,23 +719,31 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
 
     def project_cleanup(
         self,
-        dry_run=True,
-        wait_timeout=120,
-        status_queue=None,
-        filters=None,
-        resource_evaluation_fn=None,
-        skip_resources=None,
-    ):
+        dry_run: bool = True,
+        wait_timeout: int | float = 120,
+        status_queue: queue.Queue[resource.Resource] | None = None,
+        filters: dict[str, Any] | None = None,
+        resource_evaluation_fn: Callable[
+            [
+                resource.Resource,
+                dict[str, Any] | None,
+                dict[str, resource.Resource] | None,
+            ],
+            bool,
+        ]
+        | None = None,
+        skip_resources: Sequence[str] | None = None,
+    ) -> None:
         """Cleanup the project resources.
 
         Cleanup all resources in all services, which provide cleanup methods.
 
-        :param bool dry_run: Cleanup or only list identified resources.
-        :param int wait_timeout: Maximum amount of time given to each service
+        :param dry_run: Cleanup or only list identified resources.
+        :param wait_timeout: Maximum amount of time given to each service
             to comlete the cleanup.
-        :param queue status_queue: a threading queue object used to get current
+        :param status_queue: a threading queue object used to get current
             process status. The queue contain processed resources.
-        :param dict filters: Additional filters for the cleanup (only resources
+        :param filters: Additional filters for the cleanup (only resources
             matching all filters will be deleted, if there are no other
             dependencies).
         :param resource_evaluation_fn: A callback function, which will be
@@ -810,11 +822,13 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
                 return
 
 
-def cleanup_task(graph, service, fn):
+def cleanup_task(
+    graph: utils.TinyDAG, service: str, fn: Callable[..., Any]
+) -> None:
     try:
         fn()
     except Exception:
         log = _log.setup_logging('openstack.project_cleanup')
-        log.exception(f'Error in the {service} cleanup function')
+        log.exception('Error in the %s cleanup function', service)
     finally:
         graph.node_done(service)

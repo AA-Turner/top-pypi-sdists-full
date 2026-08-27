@@ -54,6 +54,11 @@ SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION = (
     "SNOWPARK_CONNECT_USE_CTE_OPTIMIZATION_VERSION"
 )
 
+# SNOW-3917754: error on unsupported data sources when Snowpark Connect version >= this value
+SNOWPARK_CONNECT_ERROR_ON_UNSUPPORTED_DATA_SOURCE_VERSION = (
+    "SNOWPARK_CONNECT_ERROR_ON_UNSUPPORTED_DATA_SOURCE_VERSION"
+)
+
 
 def str_to_bool(boolean_str: str) -> bool:
     assert boolean_str in (
@@ -173,6 +178,26 @@ def spark_max_partition_bytes_to_target_file_size(value: str | None) -> str | No
         return "AUTO"
     byte_size = _parse_spark_byte_size(stripped)
     return _bucket_to_target_file_size(byte_size)
+
+
+# SNOW-3969691: Spark exposes this as static metadata, but each Connect session
+# needs an independent runtime overlay so one client's setting cannot leak to another.
+CASE_SENSITIVE_CONFIG = "spark.sql.caseSensitive"
+
+
+def _case_sensitive_session_override() -> str | None:
+    session_config = sessions_config.get(get_spark_session_id())
+    if session_config is None:
+        return None
+    session_value = session_config.get(CASE_SENSITIVE_CONFIG)
+    return session_value if session_value != "" else None
+
+
+def _get_effective_case_sensitive_config() -> str:
+    session_override = _case_sensitive_session_override()
+    if session_override is not None:
+        return session_override
+    return str(global_config.global_config[CASE_SENSITIVE_CONFIG])
 
 
 class GlobalConfig:
@@ -533,6 +558,15 @@ class GlobalConfig:
         for key in self.global_config.keys():
             setattr(self, key.replace(".", "_"), self._get_config_setting(key))
 
+    @property
+    def spark_sql_caseSensitive(self) -> bool:
+        return str_to_bool(_get_effective_case_sensitive_config())
+
+    @spark_sql_caseSensitive.setter
+    def spark_sql_caseSensitive(self, value: bool | str) -> None:
+        enabled = value if isinstance(value, bool) else str_to_bool(value)
+        self.global_config[CASE_SENSITIVE_CONFIG] = "true" if enabled else "false"
+
     def _get_config_setting(self, key: str) -> bool | int | float | str | None:
         """Get the configuration setting for the key based on the setting type."""
         if key in self.boolean_config_list:
@@ -555,10 +589,14 @@ class GlobalConfig:
 
     def get(self, key, default=None) -> str:
         self._initialize_if_static_config_not_set(key)
+        if key == CASE_SENSITIVE_CONFIG:
+            return _get_effective_case_sensitive_config()
         return self.global_config.get(key, default)
 
     def get_all(self) -> dict[str, str]:
-        return self.global_config.copy()
+        values = self.global_config.copy()
+        values[CASE_SENSITIVE_CONFIG] = _get_effective_case_sensitive_config()
+        return values
 
     def set(self, key: str, value: str) -> None:
         # Spark Connect sends us only string values, with empty string being
@@ -610,6 +648,11 @@ class GlobalConfig:
 
     def is_user_set(self, key: str) -> bool:
         """Whether the user explicitly set this config key (vs. a default)."""
+        if (
+            key == CASE_SENSITIVE_CONFIG
+            and _case_sensitive_session_override() is not None
+        ):
+            return True
         return key in self.user_set_keys
 
 
@@ -682,6 +725,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.session.timeZone",
     "spark.sql.timestampType",
     "spark.sql.ansi.enabled",
+    CASE_SENSITIVE_CONFIG,
     "spark.sql.legacy.timeParserPolicy",
     "spark.sql.snowflake.arrow.typeMappingVersion",
     # SNOW-3674169: Spark's read-side partition-bytes hint; SCOS uses it as a
@@ -709,7 +753,13 @@ SESSION_CONFIG_KEY_WHITELIST = {
     # ``build_spark_conf`` drops it, so only an explicit client ``conf.set`` reaches the
     # sandbox -- which already defaults this to true via its own ``new SQLConf()``.
     "spark.sql.csv.parser.columnPruning.enabled",
+    # SNOW-3968584: paired with _RELEVANT_SPARK_CONF_KEYS in nss_scan_options.py --
+    # both gates are required for the conf to reach the sandbox.
+    "spark.sql.legacy.json.enableDateTimeParsingFallback",
+    "spark.sql.legacy.csv.enableDateTimeParsingFallback",
 }
+
+SESSION_SCOPED_RUNTIME_CONFIGS = {CASE_SENSITIVE_CONFIG}
 
 # Static Spark configs that nonetheless accept a *per-session* override at
 # runtime. Kept separate from SESSION_CONFIG_KEY_WHITELIST because the two drive
@@ -829,17 +879,50 @@ def is_nss_enabled() -> bool:
     its next file read. NSS is read-only and covers CSV/JSON only; writes always go
     through COPY unload regardless of this setting.
     """
+    return resolve_nss_path()[0]
+
+
+# Reason codes for how the NSS decision was reached. Low cardinality on purpose -- these
+# are a telemetry dimension (SNOW-3957228), so the value space must stay closed.
+NSS_REASON_SESSION_CONF = "session_conf"  # customer opted in (or out) explicitly
+NSS_REASON_ENV_VAR = "env_var"  # operator / CI turned it on server-side
+NSS_REASON_DEFAULT = "default"  # nothing set -- COPY v1 default
+
+NSS_ENV_VAR = "SCOS_NSS_ENABLED"
+_NSS_ENV_TRUTHY = ("1", "true", "yes", "on")
+
+
+def nss_env_var_enabled() -> bool:
+    """Whether the operator-side ``SCOS_NSS_ENABLED`` switch is on.
+
+    The single source of truth for the accepted spellings. Both the read-path decision
+    (:func:`resolve_nss_path`) and the startup telemetry field ``nss_env_enabled`` go
+    through this, so the reported value cannot drift from the value actually used --
+    ``telemetry`` reaches it via a deferred import, since ``config`` imports
+    ``utils.telemetry`` at module level.
+    """
+    return os.environ.get(NSS_ENV_VAR, "false").strip().lower() in _NSS_ENV_TRUTHY
+
+
+def resolve_nss_path() -> tuple[bool, str]:
+    """``(enabled, reason)`` for the NSS file-read decision.
+
+    Splitting the reason out of :func:`is_nss_enabled` lets telemetry distinguish a
+    customer opt-in from an operator-side enable, which are very different facts during a
+    customer-opt-in rollout (SNOW-3957228). ``is_nss_enabled`` remains the boolean-only
+    entry point for callers that do not care why.
+
+    The reason is reported even when ``enabled`` is False, so a customer who explicitly
+    rolled *back* to COPY v1 is distinguishable from one who never opted in.
+    """
     session_value = get_string_session_config_param(NSS_ENABLED_SESSION_CONFIG).strip()
     if session_value:
         # Value space is constrained by CONFIG_ALLOWED_VALUES, so a typo is rejected at
         # set() time rather than silently read as False here.
-        return str_to_bool(session_value)
-    return os.environ.get("SCOS_NSS_ENABLED", "false").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+        return str_to_bool(session_value), NSS_REASON_SESSION_CONF
+    if nss_env_var_enabled():
+        return True, NSS_REASON_ENV_VAR
+    return False, NSS_REASON_DEFAULT
 
 
 class SessionConfig:
@@ -955,6 +1038,10 @@ class SessionConfig:
 
 
 CONFIG_ALLOWED_VALUES: dict[str, tuple] = {
+    CASE_SENSITIVE_CONFIG: (
+        "true",
+        "false",
+    ),
     # SNOW-3957220: constrain the NSS opt-in to values ``str_to_bool`` accepts, so a
     # typo ("ture") is rejected at set() time with INVALID_CONFIG_VALUE rather than
     # silently read as "NSS off" — a customer must never think NSS is on when it is not.
@@ -1236,6 +1323,15 @@ def _load_spark_jars(jars_value: str) -> None:
 def set_config_param(
     session_id: str, key, val, snowpark_session: snowpark.Session
 ) -> None:
+    if key in SESSION_SCOPED_RUNTIME_CONFIGS:
+        _verify_is_not_readonly_config(key)
+        normalized_value = val.lower() if isinstance(val, str) else val
+        _verify_is_valid_config_value(key, normalized_value)
+        # SessionConfig.set silently ignores keys outside the whitelist; the
+        # case-sensitivity unit test pins this dependency.
+        sessions_config[session_id][key] = normalized_value
+        return
+
     # Session-overridable static configs (e.g. ``spark.sql.extensions``): record
     # the value as a per-session overlay and leave the immutable process-global
     # value untouched. This is the one allowed way to "modify" such a static
@@ -1266,6 +1362,10 @@ def set_config_param(
 def unset_config_param(
     session_id: str, key, snowpark_session: snowpark.Session
 ) -> None:
+    if key in SESSION_SCOPED_RUNTIME_CONFIGS:
+        sessions_config[session_id].set(key, "")
+        return
+
     # Clear the per-session overlay for session-overridable static configs; the
     # process-global value remains the fallback.
     if key in SESSION_OVERRIDABLE_STATIC:
@@ -1482,7 +1582,9 @@ def set_snowflake_parameters(
                 value = global_config.default_static_global_config.get(key)
 
             snowpark_name = quote_name_without_upper_casing(value)
-            if not global_config.spark_sql_caseSensitive:
+            # The global temp database is process-scoped, so its identifier must
+            # not vary with the current Spark session's case-sensitivity overlay.
+            if not str_to_bool(global_config.global_config[CASE_SENSITIVE_CONFIG]):
                 snowpark_name = snowpark_name.upper()
 
             # Create the schema on demand. Before creating it, however,
@@ -1642,11 +1744,12 @@ def _set_large_query_breakdown_bound(
 
 
 def get_boolean_session_config_param(name: str) -> bool:
-    session_config = sessions_config[get_spark_session_id()]
-    return str_to_bool(session_config[name])
+    return str_to_bool(get_string_session_config_param(name))
 
 
 def get_string_session_config_param(name: str) -> str:
+    if name == CASE_SENSITIVE_CONFIG:
+        return _get_effective_case_sensitive_config()
     session_config = sessions_config[get_spark_session_id()]
     return str(session_config[name])
 
@@ -1701,6 +1804,54 @@ def is_cte_optimization_enabled_for_connect_version(
             raw,
         )
         return False
+
+
+_UNSUPPORTED_DATA_SOURCES = frozenset({"delta"})
+
+
+def is_unsupported_data_source(fmt: str | None) -> bool:
+    # Exact, case-insensitive match so "deltasharing" is not caught. SNOW-3917754.
+    return bool(fmt) and fmt.lower() in _UNSUPPORTED_DATA_SOURCES
+
+
+def is_error_on_unsupported_data_source_enabled(
+    snowpark_session: snowpark.Session,
+) -> bool:
+    """SNOW-3917754 BCR gate: raise on an unsupported data source instead of
+    silently writing a table. Same version semantics as
+    ``is_cte_optimization_enabled_for_connect_version`` (unset/empty -> off).
+    """
+    raw = snowpark_session._conn._get_client_side_session_parameter(
+        SNOWPARK_CONNECT_ERROR_ON_UNSUPPORTED_DATA_SOURCE_VERSION, ""
+    )
+    if not isinstance(raw, str) or not raw:
+        return False
+    try:
+        return parse_version(".".join(map(str, sas_version))) >= parse_version(raw)
+    except InvalidVersion:
+        logger.debug(
+            "Ignoring invalid %s value %r; unsupported-data-source gate off",
+            SNOWPARK_CONNECT_ERROR_ON_UNSUPPORTED_DATA_SOURCE_VERSION,
+            raw,
+        )
+        return False
+
+
+def raise_if_unsupported_data_source(
+    fmt: str | None, snowpark_session: snowpark.Session
+) -> None:
+    """Raise a Spark-compatible error for a data source SCOS cannot honor (e.g.
+    ``delta``) when the BCR gate is on; no-op otherwise. Single choke point for
+    the V1/V2 writer and SQL DDL paths. SNOW-3917754.
+    """
+    if is_unsupported_data_source(fmt) and is_error_on_unsupported_data_source_enabled(
+        snowpark_session
+    ):
+        from pyspark.errors.exceptions.base import AnalysisException
+
+        exception = AnalysisException(f"Failed to find data source: {fmt}")
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
 
 
 def get_cte_optimization_enabled() -> bool | None:

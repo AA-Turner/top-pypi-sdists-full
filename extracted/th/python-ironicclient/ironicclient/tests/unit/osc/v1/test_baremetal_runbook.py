@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import copy
 import json
+from typing import Any
 from unittest import mock
 
 from osc_lib.tests import utils as osctestutils
@@ -131,6 +132,21 @@ class TestCreateBaremetalRunbook(TestBaremetalRunbook):
                           self.cmd, arglist, verifylist)
         self.assertFalse(self.baremetal_mock.runbook.create.called)
 
+    def test_baremetal_runbook_create_no_traits_option(self) -> None:
+        # Traits cannot be supplied at creation time; the API only accepts
+        # them via the /runbooks/<ident>/traits sub-resource.
+        arglist = [
+            '--name', baremetal_fakes.baremetal_runbook_name,
+            '--steps', baremetal_fakes.baremetal_runbook_steps,
+            '--traits', 'CUSTOM_FOO',
+        ]
+        verifylist: list[tuple[str, Any]] = []
+
+        self.assertRaises(osctestutils.ParserException,
+                          self.check_parser,
+                          self.cmd, arglist, verifylist)
+        self.assertFalse(self.baremetal_mock.runbook.create.called)
+
     def test_baremetal_runbook_create_public_false(self) -> None:
         arglist = [
             '--name', baremetal_fakes.baremetal_runbook_name,
@@ -150,6 +166,28 @@ class TestCreateBaremetalRunbook(TestBaremetalRunbook):
             'name': baremetal_fakes.baremetal_runbook_name,
             'steps': json.loads(baremetal_fakes.baremetal_runbook_steps),
             'public': False,
+        }
+        self.baremetal_mock.runbook.create.assert_called_once_with(**expected)
+
+    def test_baremetal_runbook_create_disable_ramdisk(self) -> None:
+        arglist = [
+            '--name', baremetal_fakes.baremetal_runbook_name,
+            '--steps', baremetal_fakes.baremetal_runbook_steps,
+            '--disable-ramdisk',
+        ]
+        verifylist = [
+            ('name', baremetal_fakes.baremetal_runbook_name),
+            ('steps', baremetal_fakes.baremetal_runbook_steps),
+            ('disable_ramdisk', True),
+        ]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+        self.cmd.take_action(parsed_args)
+
+        expected = {
+            'name': baremetal_fakes.baremetal_runbook_name,
+            'steps': json.loads(baremetal_fakes.baremetal_runbook_steps),
+            'disable_ramdisk': True,
         }
         self.baremetal_mock.runbook.create.assert_called_once_with(**expected)
 
@@ -182,6 +220,7 @@ class TestShowBaremetalRunbook(TestBaremetalRunbook):
 
         collist = (
             'description',
+            'disable_ramdisk',
             'extra',
             'name',
             'owner',
@@ -193,6 +232,7 @@ class TestShowBaremetalRunbook(TestBaremetalRunbook):
 
         datalist = (
             baremetal_fakes.baremetal_runbook_description,
+            baremetal_fakes.baremetal_runbook_disable_ramdisk,
             baremetal_fakes.baremetal_runbook_extra,
             baremetal_fakes.baremetal_runbook_name,
             baremetal_fakes.baremetal_runbook_owner,
@@ -257,6 +297,36 @@ class TestBaremetalRunbookSet(TestBaremetalRunbook):
             baremetal_fakes.baremetal_runbook_uuid,
             [{'path': '/steps', 'value': expected_steps, 'op': 'add'}])
 
+    def test_baremetal_runbook_set_disable_ramdisk(self) -> None:
+        arglist = [
+            baremetal_fakes.baremetal_runbook_uuid,
+            '--disable-ramdisk']
+        verifylist = [
+            ('runbook', baremetal_fakes.baremetal_runbook_uuid),
+            ('disable_ramdisk', 'true')]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.cmd.take_action(parsed_args)
+        self.baremetal_mock.runbook.update.assert_called_once_with(
+            baremetal_fakes.baremetal_runbook_uuid,
+            [{'path': '/disable_ramdisk', 'value': True, 'op': 'add'}])
+
+    def test_baremetal_runbook_set_disable_ramdisk_false(self) -> None:
+        arglist = [
+            baremetal_fakes.baremetal_runbook_uuid,
+            '--disable-ramdisk', 'false']
+        verifylist = [
+            ('runbook', baremetal_fakes.baremetal_runbook_uuid),
+            ('disable_ramdisk', 'false')]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.cmd.take_action(parsed_args)
+        self.baremetal_mock.runbook.update.assert_called_once_with(
+            baremetal_fakes.baremetal_runbook_uuid,
+            [{'path': '/disable_ramdisk', 'value': False, 'op': 'add'}])
+
     def test_baremetal_runbook_set_no_options(self) -> None:
         arglist = []
         verifylist = []
@@ -307,6 +377,31 @@ class TestBaremetalRunbookUnset(TestBaremetalRunbook):
             baremetal_fakes.baremetal_runbook_uuid,
             [{'path': '/extra/key1', 'op': 'remove'},
              {'path': '/extra/key2', 'op': 'remove'}])
+
+    def test_baremetal_runbook_unset_disable_ramdisk(self) -> None:
+        arglist = [
+            baremetal_fakes.baremetal_runbook_uuid, '--disable-ramdisk']
+        verifylist = [('runbook',
+                       baremetal_fakes.baremetal_runbook_uuid),
+                      ('disable_ramdisk', True)]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.cmd.take_action(parsed_args)
+        self.baremetal_mock.runbook.update.assert_called_once_with(
+            baremetal_fakes.baremetal_runbook_uuid,
+            [{'path': '/disable_ramdisk', 'op': 'remove'}])
+
+    def test_baremetal_runbook_unset_no_step_option(self) -> None:
+        # --step was removed: the API has no way to remove an individual
+        # step from a runbook, only to replace the whole 'steps' list.
+        arglist = [baremetal_fakes.baremetal_runbook_uuid, '--step', 'key1']
+        verifylist: list[tuple[str, Any]] = []
+
+        self.assertRaises(osctestutils.ParserException,
+                          self.check_parser,
+                          self.cmd, arglist, verifylist)
+        self.assertFalse(self.baremetal_mock.runbook.update.called)
 
     def test_baremetal_runbook_unset_no_options(self) -> None:
         arglist = []
@@ -436,6 +531,7 @@ class TestBaremetalRunbookList(TestBaremetalRunbook):
                    'name',
                    'description',
                    'traits',
+                   'disable_ramdisk',
                    'owner',
                    'public',
                    'steps',
@@ -449,6 +545,7 @@ class TestBaremetalRunbookList(TestBaremetalRunbook):
             baremetal_fakes.baremetal_runbook_name,
             baremetal_fakes.baremetal_runbook_description,
             baremetal_fakes.baremetal_runbook_traits,
+            baremetal_fakes.baremetal_runbook_disable_ramdisk,
             baremetal_fakes.baremetal_runbook_owner,
             baremetal_fakes.baremetal_runbook_public,
             baremetal_fakes.baremetal_runbook_steps,

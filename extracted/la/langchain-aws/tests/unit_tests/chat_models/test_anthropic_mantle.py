@@ -1,6 +1,8 @@
 """ChatAnthropicMantle unit tests."""
 
-from typing import Tuple, Type, cast
+from collections.abc import Mapping
+from typing import Any, Tuple, Type, cast
+from unittest.mock import patch
 
 import pytest
 from langchain_core.language_models import BaseChatModel, ModelProfile
@@ -11,6 +13,23 @@ from pytest import MonkeyPatch
 from langchain_aws import ChatAnthropicMantle
 
 MODEL_NAME = "anthropic.claude-sonnet-5"
+
+
+def _constructed_client_params(
+    model: ChatAnthropicMantle,
+) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    with (
+        patch(
+            "langchain_aws.chat_models.anthropic.AnthropicBedrockMantle"
+        ) as sync_client,
+        patch(
+            "langchain_aws.chat_models.anthropic.AsyncAnthropicBedrockMantle"
+        ) as async_client,
+    ):
+        _ = model._client
+        _ = model._async_client
+
+    return sync_client.call_args.kwargs, async_client.call_args.kwargs
 
 
 class TestAnthropicMantleStandard(ChatModelUnitTests):
@@ -128,6 +147,110 @@ def test_credentials_profile_routed_to_client() -> None:
     assert model._client_params["aws_profile"] == "my-profile"
 
 
+@pytest.mark.parametrize(
+    ("credential_environment", "sigv4_params", "expected_client_params"),
+    [
+        (
+            {},
+            {"credentials_profile_name": "my-profile"},
+            {"aws_profile": "my-profile"},
+        ),
+        (
+            {},
+            {
+                "aws_access_key_id": SecretStr("AKIA-test"),
+                "aws_secret_access_key": SecretStr("secret-test"),
+                "aws_session_token": SecretStr("token-test"),
+            },
+            {
+                "aws_access_key": "AKIA-test",
+                "aws_secret_key": "secret-test",
+                "aws_session_token": "token-test",
+            },
+        ),
+        (
+            {"AWS_SECRET_ACCESS_KEY": "secret-from-env"},
+            {"aws_access_key_id": SecretStr("AKIA-explicit")},
+            {
+                "aws_access_key": "AKIA-explicit",
+                "aws_secret_key": "secret-from-env",
+            },
+        ),
+        (
+            {"AWS_ACCESS_KEY_ID": "AKIA-from-env"},
+            {"aws_secret_access_key": SecretStr("secret-explicit")},
+            {
+                "aws_access_key": "AKIA-from-env",
+                "aws_secret_key": "secret-explicit",
+            },
+        ),
+    ],
+    ids=[
+        "profile",
+        "explicit-keys",
+        "explicit-access-key",
+        "explicit-secret-key",
+    ],
+)
+def test_explicit_sigv4_credentials_outrank_ambient_api_key(
+    credential_environment: dict[str, str],
+    sigv4_params: dict[str, Any],
+    expected_client_params: dict[str, str],
+) -> None:
+    """An ambient bearer token does not override explicit SigV4 credentials."""
+    with MonkeyPatch().context() as m:
+        m.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        m.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+        m.delenv("AWS_SESSION_TOKEN", raising=False)
+        m.setenv("AWS_BEARER_TOKEN_BEDROCK", "ambient-key")
+        for name, value in credential_environment.items():
+            m.setenv(name, value)
+        model = ChatAnthropicMantle(  # type: ignore[call-arg]
+            model=MODEL_NAME,
+            region_name="us-east-1",
+            **sigv4_params,
+        )
+
+        client_params_by_type = _constructed_client_params(model)
+
+    for client_params in client_params_by_type:
+        for name, value in expected_client_params.items():
+            assert client_params[name] == value
+        assert "api_key" not in client_params
+
+
+def test_explicit_bedrock_api_key_outranks_sigv4_credentials() -> None:
+    """An explicitly passed bearer key keeps precedence over SigV4 signals."""
+    with MonkeyPatch().context() as m:
+        m.setenv("AWS_BEARER_TOKEN_BEDROCK", "ambient-key")
+        model = ChatAnthropicMantle(  # type: ignore[call-arg]
+            model=MODEL_NAME,
+            region_name="us-east-1",
+            bedrock_api_key=SecretStr("explicit-key"),
+            credentials_profile_name="my-profile",
+        )
+
+        client_params_by_type = _constructed_client_params(model)
+
+    for client_params in client_params_by_type:
+        assert client_params["api_key"] == "explicit-key"
+
+
+def test_ambient_api_key_is_forwarded_without_explicit_sigv4_credentials() -> None:
+    """Ambient bearer authentication remains the default without SigV4 signals."""
+    with MonkeyPatch().context() as m:
+        m.setenv("AWS_BEARER_TOKEN_BEDROCK", "ambient-key")
+        model = ChatAnthropicMantle(  # type: ignore[call-arg]
+            model=MODEL_NAME,
+            region_name="us-east-1",
+        )
+
+        client_params_by_type = _constructed_client_params(model)
+
+    for client_params in client_params_by_type:
+        assert client_params["api_key"] == "ambient-key"
+
+
 def test_ls_params_provider() -> None:
     """Tracing provider is reported as anthropic-mantle."""
     model = ChatAnthropicMantle(  # type: ignore[call-arg]
@@ -218,3 +341,68 @@ def test_inherits_anthropic_features() -> None:
         "_agenerate",
     ):
         assert hasattr(model, attr)
+
+
+def _make_model(**kwargs: Any) -> ChatAnthropicMantle:
+    return ChatAnthropicMantle(  # type: ignore[call-arg]
+        model_name=MODEL_NAME,
+        region_name="us-east-1",
+        bedrock_api_key=SecretStr("test-key"),
+        **kwargs,
+    )
+
+
+def test_guardrail_default_headers_rejected_at_construction() -> None:
+    with pytest.raises(ValueError, match="not supported on the bedrock-mantle"):
+        _make_model(
+            default_headers={
+                "X-Amzn-Bedrock-GuardrailIdentifier": "gr-1",
+                "X-Amzn-Bedrock-GuardrailVersion": "1",
+            },
+        )
+
+
+def test_guardrail_extra_headers_rejected_per_request() -> None:
+    model = _make_model()
+    with pytest.raises(ValueError, match="not supported on the bedrock-mantle"):
+        model._get_request_payload(
+            "hello",
+            extra_headers={"X-Amzn-Bedrock-GuardrailIdentifier": "gr-1"},
+        )
+
+
+def test_non_guardrail_headers_still_allowed() -> None:
+    model = _make_model(default_headers={"X-Custom-Header": "ok"})
+    payload = model._get_request_payload(
+        "hello", extra_headers={"X-Another-Header": "ok"}
+    )
+    assert payload["extra_headers"] == {"X-Another-Header": "ok"}
+
+
+def test_explicit_sigv4_credentials_select_sigv4_at_sdk_level() -> None:
+    with MonkeyPatch().context() as m:
+        m.setenv("AWS_BEARER_TOKEN_BEDROCK", "api-key")
+        model = ChatAnthropicMantle(  # type: ignore[call-arg]
+            model_name=MODEL_NAME,
+            region_name="us-east-1",
+            aws_access_key_id=SecretStr("key-id"),
+            aws_secret_access_key=SecretStr("sec-key"),
+        )
+        client = model._client
+        assert client._use_sigv4 is True
+        assert client.api_key is None
+
+
+def test_env_sigv4_credentials_do_not_outrank_ambient_api_key() -> None:
+    with MonkeyPatch().context() as m:
+        m.setenv("AWS_BEARER_TOKEN_BEDROCK", "api-key")
+        m.setenv("AWS_ACCESS_KEY_ID", "key-id")
+        m.setenv("AWS_SECRET_ACCESS_KEY", "sec-key")
+        model = ChatAnthropicMantle(  # type: ignore[call-arg]
+            model_name=MODEL_NAME, region_name="us-east-1"
+        )
+
+        client_params_by_type = _constructed_client_params(model)
+
+    for client_params in client_params_by_type:
+        assert client_params["api_key"] == "api-key"

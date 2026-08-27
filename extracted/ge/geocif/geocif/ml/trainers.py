@@ -778,6 +778,37 @@ def optimized_model(
     return hyperparams, model
 
 
+def strip_variant_prefix(model_name: str) -> str:
+    """Map a wrapper section name to the algorithm it dispatches to.
+
+    ``curated_<algo>``, ``top<N>_<algo>``, ``auto_<algo>`` and
+    ``last<N>m_<algo>`` are config-driven wrappers around the same underlying
+    algorithm; the section name carries the knobs (use_cids, top_n,
+    last_n_months, ...) which Geocif applies BEFORE training. Stripping the
+    prefix here lets every ``model_name == "catboost"`` branch work unchanged,
+    while the original section name lives on the caller side and is what shows
+    up in DB rows and plot filenames, keeping variants distinguishable.
+
+        curated_tabpfn  -> tabpfn
+        top10_tabpfn    -> tabpfn
+        auto_tabpfn     -> tabpfn
+        last2m_catboost -> catboost
+
+    Single source of truth on purpose: this logic was duplicated in
+    ``auto_train`` and the CI wrapper, and adding ``last<N>m_`` to only one of
+    them raised "Unknown model name: last2m_catboost" at fit time.
+    """
+    import re as _re
+
+    if model_name.startswith(("curated_", "auto_")):
+        return model_name.split("_", 1)[1]
+    for pattern in (r"^top\d+_(.+)$", r"^last\d+m_(.+)$"):
+        m = _re.match(pattern, model_name)
+        if m:
+            return m.group(1)
+    return model_name
+
+
 def auto_train(
     cluster_strategy: str,
     model_name: str,
@@ -833,15 +864,7 @@ def auto_train(
     # The original section name still lives on the caller side and is
     # what shows up in DB rows / plot filenames, keeping variants
     # distinguishable.
-    import re as _re
-    if model_name.startswith("curated_"):
-        model_name = model_name.split("_", 1)[1]
-    elif model_name.startswith("auto_"):
-        model_name = model_name.split("_", 1)[1]
-    else:
-        _m = _re.match(r"^top\d+_(.+)$", model_name)
-        if _m:
-            model_name = _m.group(1)
+    model_name = strip_variant_prefix(model_name)
 
     if optimize:
         hyperparams, model = optimized_model(
@@ -1426,15 +1449,7 @@ def estimate_ci(model_type, model_name, model, alpha=0.05, ci_method="crepes"):
     """
     # Mirror auto_train's wrapper-prefix strip so estimate_ci treats
     # curated_/top<N>_/auto_ variants like their underlying algo.
-    import re as _re
-    if model_name.startswith("curated_"):
-        model_name = model_name.split("_", 1)[1]
-    elif model_name.startswith("auto_"):
-        model_name = model_name.split("_", 1)[1]
-    else:
-        _m = _re.match(r"^top\d+_(.+)$", model_name)
-        if _m:
-            model_name = _m.group(1)
+    model_name = strip_variant_prefix(model_name)
 
     if model_name in ["ngboost", "tabpfn", "tabpfn_ft", "tabicl", "tabicl_ft"]:
         return model

@@ -15,6 +15,7 @@
 import argparse
 import copy
 import os
+from typing import Any
 from unittest import mock
 
 import fixtures
@@ -151,6 +152,7 @@ class TestConfig(base.TestCase):
         c = config.OpenStackConfig(config_files=[self.cloud_yaml])
         cc = c.get_one(cloud='_test-cloud_', auth={'username': 'user'})
         self.assertEqual('user', cc.auth['username'])
+        assert defaults._defaults is not None
         self.assertEqual(
             defaults._defaults['auth_type'],
             cc.auth_type,
@@ -173,10 +175,29 @@ class TestConfig(base.TestCase):
         self._assert_cloud_details(cc)
 
     def test_get_one_with_int_project_id(self):
-        c = config.OpenStackConfig(
-            config_files=[self.cloud_yaml], vendor_files=[self.vendor_yaml]
+        # Real project IDs are strings (which often look like UUIDs), but a
+        # numeric value in the config should still be coerced to a string
+        # rather than left as an int. This guards the normalization done by
+        # _fix_backwards_auth.
+        single_conf = base._write_yaml(
+            {
+                'clouds': {
+                    'int-project': {
+                        'auth': {
+                            'auth_url': 'http://example.com/v2',
+                            'username': 'testuser',
+                            'password': 'testpass',
+                            'project_id': 12345,
+                        },
+                        'region_name': 'test-region',
+                    }
+                }
+            }
         )
-        cc = c.get_one('_test-cloud-int-project_')
+        c = config.OpenStackConfig(
+            config_files=[single_conf], secure_files=[], vendor_files=[]
+        )
+        cc = c.get_one('int-project')
         self.assertEqual('12345', cc.auth['project_id'])
 
     def test_get_one_with_domain_id(self):
@@ -268,16 +289,15 @@ class TestConfig(base.TestCase):
         c = config.OpenStackConfig(
             config_files=[self.cloud_yaml], vendor_files=[self.vendor_yaml]
         )
-        args = {
-            'auth': {
+        cc = c.get_one(
+            auth={
                 'username': 'testuser',
                 'password': 'testpass',
                 'project-id': '12345',
                 'auth-url': 'http://example.com/v2',
             },
-            'region_name': 'test-region',
-        }
-        cc = c.get_one(**args)
+            region_name='test-region',
+        )
         self.assertEqual('http://example.com/v2', cc.auth['auth_url'])
 
     def test_no_environ(self):
@@ -584,6 +604,7 @@ class TestConfig(base.TestCase):
         kr_mock.get_password = mock.Mock(side_effect=[RuntimeError])
 
         region = c.get_one('_test-cloud_')
+        assert region._auth is not None
         kr_mock.get_password.assert_called_with(
             'openstacksdk', region._auth.get_cache_id()
         )
@@ -603,6 +624,7 @@ class TestConfig(base.TestCase):
         kr_mock.get_password = mock.Mock(return_value=fake_auth)
 
         region = c.get_one('_test-cloud_')
+        assert region._auth is not None
         kr_mock.get_password.assert_called_with(
             'openstacksdk', region._auth.get_cache_id()
         )
@@ -634,6 +656,7 @@ class TestConfig(base.TestCase):
         kr_mock.set_password = mock.Mock()
 
         region = c.get_one('_test-cloud_')
+        assert region._auth is not None
         region._auth.set_auth_state(
             '{"auth_token":"foo", "body":{"token":"bar"}}'
         )
@@ -721,7 +744,7 @@ class TestExcludedFormattedConfigValue(base.TestCase):
     def setUp(self):
         super().setUp()
 
-        self.args = dict(
+        self.args: dict[str, Any] = dict(
             auth_url='http://example.com/v2',
             username='user',
             project_name='project',
@@ -774,7 +797,7 @@ class TestConfigArgparse(base.TestCase):
     def setUp(self):
         super().setUp()
 
-        self.args = dict(
+        self.args: dict[str, Any] = dict(
             auth_url='http://example.com/v2',
             username='user',
             password='password',
@@ -814,7 +837,7 @@ class TestConfigArgparse(base.TestCase):
             config_files=[self.cloud_yaml], vendor_files=[self.vendor_yaml]
         )
 
-        kwargs = {
+        kwargs: dict[str, Any] = {
             'auth': {
                 'username': 'testuser',
                 'password': 'authpass',
@@ -847,7 +870,7 @@ class TestConfigArgparse(base.TestCase):
             vendor_files=[self.vendor_yaml],
         )
 
-        kwargs = {
+        kwargs: dict[str, Any] = {
             'auth': {
                 'username': 'testuser',
                 'password': 'authpass',
@@ -879,7 +902,7 @@ class TestConfigArgparse(base.TestCase):
             config_files=[self.cloud_yaml], vendor_files=[self.vendor_yaml]
         )
 
-        kwargs = {
+        kwargs: dict[str, Any] = {
             'auth': {
                 'username': 'testuser',
                 'password': 'authpass',
@@ -921,7 +944,7 @@ class TestConfigArgparse(base.TestCase):
             config_files=[self.cloud_yaml], vendor_files=[self.vendor_yaml]
         )
 
-        args = {
+        args: dict[str, Any] = {
             'auth-url': 'http://example.com/v2',
             'username': 'user',
             'password': 'password',
@@ -1095,6 +1118,7 @@ class TestConfigArgparse(base.TestCase):
             'force_ipv4': False,
         }
         ansible_options = cc.get_client_config('ansible', defaults)
+        assert ansible_options is not None
 
         # This should show that the default for use_hostnames and force_ipv4
         # above is overridden by the value in the config file defined in
@@ -1529,7 +1553,7 @@ class TestMagicFixes(base.TestCase):
             'external_network': 'public',
             'internal_network': 'private',
         }
-        expected = {
+        expected: dict[str, Any] = {
             'auth': {},
             'auth_type': None,
             'external_network': 'public',
@@ -1553,7 +1577,7 @@ class TestMagicFixes(base.TestCase):
 
     def test_normalize_network(self):
         cloud = {'auth': {}, 'networks': [{'name': 'private'}]}
-        expected = {
+        expected: dict[str, Any] = {
             'auth': {},
             'auth_type': None,
             'networks': [
@@ -1651,7 +1675,7 @@ class TestMagicFixes(base.TestCase):
             "auth": {},
             "passcode": "totp",
         }
-        expected = {
+        expected: dict[str, Any] = {
             "auth": {
                 "passcode": "totp",
             },
@@ -1666,7 +1690,7 @@ class TestMagicFixes(base.TestCase):
             "endpoint_type": "public",
             "foo_endpoint_type": "internal",
         }
-        expected = {
+        expected: dict[str, Any] = {
             "auth": {},
             'auth_type': None,
             'networks': [],
@@ -1676,9 +1700,9 @@ class TestMagicFixes(base.TestCase):
         self._test_magic_fixes(cloud, expected)
 
     def test_bool_keys(self):
-        cloud = {"auth": {}}
+        cloud: dict[str, Any] = {"auth": {}}
         cloud.update({k: "True" for k in loader.BOOL_KEYS})
-        expected = {
+        expected: dict[str, Any] = {
             "auth_type": None,
             "auth": {},
             "networks": [],
@@ -1687,9 +1711,9 @@ class TestMagicFixes(base.TestCase):
         self._test_magic_fixes(cloud, expected)
 
     def test_csv_keys(self):
-        cloud = {"auth": {}}
+        cloud: dict[str, Any] = {"auth": {}}
         cloud.update({k: "spam,ham" for k in loader.CSV_KEYS})
-        expected = {
+        expected: dict[str, Any] = {
             "auth_type": None,
             "auth": {},
             "networks": [],
@@ -1704,7 +1728,7 @@ class TestMagicFixes(base.TestCase):
             },
             "region_id": "RegionOne",
         }
-        expected = {
+        expected: dict[str, Any] = {
             "auth_type": None,
             "auth": {
                 "auth_url": "https://my.cloud/RegionOne",

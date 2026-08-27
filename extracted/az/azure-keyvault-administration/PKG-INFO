@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-keyvault-administration
-Version: 4.7.0
+Version: 4.7.1
 Summary: Microsoft Corporation Key Vault Administration Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk
 Author: Microsoft Corporation

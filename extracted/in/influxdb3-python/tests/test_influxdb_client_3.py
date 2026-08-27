@@ -2,17 +2,17 @@ import re
 import unittest
 from collections import defaultdict
 from unittest.mock import patch
+
+import pandas as pd
 from pytest_httpserver import HTTPServer
 
 from influxdb_client_3 import InfluxDBClient3, WritePrecision, DefaultWriteOptions, Point, WriteOptions, WriteType, \
     write_client_options
 from influxdb_client_3.exceptions import InfluxDB3ClientQueryError
 from influxdb_client_3.write_client.client.write_api import _BatchItemKey
-from influxdb_client_3.write_client.rest import ApiException
+from influxdb_client_3.write_client.write_exceptions import ApiException
 from tests.util import asyncio_run
 from tests.util.mocks import ConstantFlightServer, ConstantData, ErrorFlightServer
-
-import pandas as pd
 
 try:
     import polars as pl
@@ -29,11 +29,9 @@ def http_server():
 
 class TestInfluxDBClient3(unittest.TestCase):
 
-    @patch('influxdb_client_3._InfluxDBClient')
     @patch('influxdb_client_3._WriteApi')
     @patch('influxdb_client_3._QueryApi')
-    def setUp(self, mock_query_api, mock_write_api, mock_influx_db_client):
-        self.mock_influx_db_client = mock_influx_db_client
+    def setUp(self, mock_query_api, mock_write_api):
         self.mock_write_api = mock_write_api
         self.mock_query_api = mock_query_api
         self.client = InfluxDBClient3(
@@ -51,7 +49,6 @@ class TestInfluxDBClient3(unittest.TestCase):
     def test_init(self):
         self.assertEqual(self.client._org, "my_org")
         self.assertEqual(self.client._database, "my_db")
-        self.assertEqual(self.client._client, self.mock_influx_db_client.return_value)
         self.assertEqual(self.client._write_api, self.mock_write_api.return_value)
         self.assertEqual(self.client._query_api, self.mock_query_api.return_value)
 
@@ -63,7 +60,53 @@ class TestInfluxDBClient3(unittest.TestCase):
             database="my_db",
             token="my_token",
         )
-        self.assertEqual(client._client.auth_header_value, "Token my_token")
+        self.assertEqual(client.default_header['Authorization'], "Token my_token")
+
+    def test_parse_addresses(self):
+        tests = [
+            {"url": "http://192.168.0.5/db", "expect": "http://192.168.0.5:443"},
+            {"url": "http://192.168.0.1:80", "expect": "http://192.168.0.1:80"},
+            {"url": "https://[2001:db8::1]", "expect": "https://[2001:db8::1]:443"},
+            {"url": "https://[2001:db8::1]:8086/influx", "expect": "https://[2001:db8::1]:8086"},
+            {"url": "http://[2001:db8::1]:15000?token=my-token", "expect": "http://[2001:db8::1]:15000"},
+            {"url": "http://[2001:db8::1]", "expect": "http://[2001:db8::1]:443"},
+            {"url": "http://[2001:db8:a0b:12f0::1]:80", "expect": "http://[2001:db8:a0b:12f0::1]:80"},
+            {"url": "http://example.com", "expect": "http://example.com:443"},
+            {"url": "http://example.com:3000", "expect": "http://example.com:3000"},
+        ]
+        for test in tests:
+            client = InfluxDBClient3(
+                host=test["url"],
+                org="my_org",
+                database="my_db",
+                token="my_token",
+            )
+            self.assertEqual(client.base_url, test["expect"])
+
+    @patch('influxdb_client_3._QueryApi')
+    def test_ipv6_QueryApi(self, mock_query_api):
+        tests = [
+            {"url": "https://[2001:db8::1]", "expect": "grpc+tls://[2001:db8::1]:443"},
+            {"url": "https://[2001:db8::1]:8086/influx", "expect": "grpc+tls://[2001:db8::1]:8086"},
+            {"url": "http://[2001:db8::1]:15000?token=my-token", "expect": "grpc+tcp://[2001:db8::1]:15000"},
+            {"url": "http://[2001:db8::1]", "expect": "grpc+tcp://[2001:db8::1]:443"},
+            {"url": "http://[2001:db8:a0b:12f0::1]:80", "expect": "grpc+tcp://[2001:db8:a0b:12f0::1]:80"},
+        ]
+        for test in tests:
+            InfluxDBClient3(
+                host=test['url'],
+                org="my_org",
+                database="my_db",
+                token="my_token"
+            )
+            mock_query_api.assert_called_with(
+                connection_string=test['expect'],
+                token="my_token",
+                flight_client_options=None,
+                proxy=None,
+                options=unittest.mock.ANY
+            )
+            mock_query_api.reset_mock()
 
     # test explicit token auth_scheme
     def test_token_auth_scheme_explicit(self):
@@ -74,12 +117,29 @@ class TestInfluxDBClient3(unittest.TestCase):
             token="my_token",
             auth_scheme="my_scheme"
         )
-        self.assertEqual(client._client.auth_header_value, "my_scheme my_token")
+        self.assertEqual(client.default_header['Authorization'], "my_scheme my_token")
+
+    def test_missing_key_params(self):
+        with self.assertRaises(Exception) as e:
+            InfluxDBClient3(database="my_db", token="my_token")
+        self.assertEqual('The \'host\' key is required', str(e.exception))
+
+        with self.assertRaises(Exception) as e:
+            InfluxDBClient3(host="http://localhost:8181", token="my_token")
+        self.assertEqual('The \'database\' key is required', str(e.exception))
+
+        with self.assertRaises(Exception) as e:
+            InfluxDBClient3(host="http://localhost:8181", database="my_db")
+        self.assertEqual('The \'token\' key is required', str(e.exception))
+
+        InfluxDBClient3(host="http://localhost:8181", token='my-token', database="my_db")
+        self.assertTrue(True)
 
     def test_write_options(self):
         client = InfluxDBClient3(
             host="localhost",
             org="my_org",
+            database='my_db',
             token="my_token",
             auth_scheme="my_scheme",
             write_client_options=write_client_options(
@@ -181,7 +241,8 @@ class TestInfluxDBClient3(unittest.TestCase):
     def test_write_api_custom_options_no_error(self):
         write_options = WriteOptions(write_type=WriteType.batching)
         write_client_option = {'write_options': write_options}
-        client = InfluxDBClient3(write_client_options=write_client_option)
+        client = InfluxDBClient3(host='http://localhost:8181', token='my-token', database='bicket0',
+                                 write_client_options=write_client_option)
         sync_client = None
         try:
             client._write_api._write_batching("bucket", "org", Point.measurement("test"), None)
@@ -296,7 +357,7 @@ class TestInfluxDBClient3(unittest.TestCase):
         env_client = InfluxDBClient3.from_env()
         verify_client_write_options(env_client)
 
-        default_client = InfluxDBClient3()
+        default_client = InfluxDBClient3(host="http://localhost:8181", token="test_token", database="test_db")
         verify_client_write_options(default_client)
 
     @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
@@ -309,11 +370,11 @@ class TestInfluxDBClient3(unittest.TestCase):
         client = InfluxDBClient3.from_env()
         self.assertIsInstance(client, InfluxDBClient3)
         self.assertEqual(client._token, "test_token")
-        self.assertEqual(client._client.url, "https://localhost:443")
-        self.assertEqual(client._client.auth_header_value, f"custom_scheme {client._token}")
+        self.assertEqual(client.base_url, "https://localhost:443")
+        self.assertEqual(client.default_header['Authorization'], f"custom_scheme {client._token}")
         self.assertEqual(client._database, "test_db")
         self.assertEqual(client._org, "test_org")
-        self.assertEqual(client._client.api_client.rest_client.configuration.gzip_threshold, 2000)
+        self.assertEqual(client._write_api.gzip_threshold, 2000)
 
         write_options = client._write_client_options.get("write_options")
         self.assertEqual(write_options.write_precision, WritePrecision.MS)
@@ -545,10 +606,9 @@ class TestInfluxDBClient3(unittest.TestCase):
 class TestWriteDataFrame(unittest.TestCase):
     """Tests for the write_dataframe() method."""
 
-    @patch('influxdb_client_3._InfluxDBClient')
     @patch('influxdb_client_3._WriteApi')
     @patch('influxdb_client_3._QueryApi')
-    def setUp(self, mock_query_api, mock_write_api, mock_influx_db_client):
+    def setUp(self, mock_query_api, mock_write_api):
         self.mock_write_api = mock_write_api
         self.client = InfluxDBClient3(
             host="localhost",

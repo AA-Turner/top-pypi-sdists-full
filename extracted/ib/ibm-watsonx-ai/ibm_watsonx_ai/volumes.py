@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import shlex
-import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -239,7 +237,7 @@ class Volume(WMLResource):
                 if wait_for_available:
                     retries = 0
                     volume_status = False
-                    while True and retries < 60 and not volume_status:
+                    while retries < 60 and not volume_status:
                         volume_status = self.get_volume_status(name)
                         time.sleep(5)
                         retries += 1
@@ -330,45 +328,37 @@ class Volume(WMLResource):
         if isinstance(file_path, str):
             file_path = Path(file_path)
 
-        header_input = self._client._get_headers(zen=True)
-        zen_token = header_input.get("Authorization", "")
+        with file_path.open("rb") as file:
+            response = self._client.httpx_client.put(
+                self._client._href_definitions.volume_upload_file_href(
+                    name, file_path.name
+                ),
+                headers=self._client._get_headers(zen=True, no_content_type=True),
+                files={"upFile": (file_path.name, file)},
+            )
 
-        filename_to_upload = file_path.name
-        upload_url_file = self._client._href_definitions.volume_upload_file_href(
-            name, filename_to_upload
+        if response.status_code == 403:
+            insufficient_permissions_warning = (
+                "It seems that you don't have the necessary permissions to perform this action. "
+                "Please review your permissions and try again once they have been updated."
+            )
+
+            warn(insufficient_permissions_warning)
+            return "FAILED"
+
+        try:
+            print(response.json().get("message", ""))
+            return "SUCCESS"
+        except Exception:
+            pass
+
+        upload_failed_warning = (
+            "Failed to upload the file to volume. Try again. "
+            f"Status code: {response.status_code}. "
+            f"Response: {response.text}."
         )
-        cmd_str = (
-            'curl -k  -X PUT "'
-            + upload_url_file
-            + '"'
-            + "  -H 'Content-Type: multipart/form-data' -H 'Authorization: "
-            + zen_token
-            + "' -F upFile='@"
-            + str(file_path)
-            + "'"
-        )
-        args = shlex.split(cmd_str)
-        upload_response = subprocess.run(args, capture_output=True, text=True)
-        if upload_response.returncode == 0:
-            import json
 
-            try:
-                cmd_output = json.loads(upload_response.stdout)
-                if cmd_output.get("_statusCode_") == 403:
-                    insufficient_permissions_warning = (
-                        "It seems that you don't have the necessary permissions to perform this action. "
-                        "Please review your permissions and try again once they have been updated."
-                    )
-                    warn(insufficient_permissions_warning)
-                    return "FAILED"
-                print(cmd_output.get("message"))
-                return "SUCCESS"
-            except Exception:
-                pass
-
-        upload_response_error_warning = f"{upload_response.returncode} {upload_response.stdout} {upload_response.stderr}"
-        warn(upload_response_error_warning)
-        warn("Failed to upload the file to volume. Try again.")
+        warn(upload_failed_warning)
         return "FAILED"
 
     @raise_exception_about_unsupported_on_cloud

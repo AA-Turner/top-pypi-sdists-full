@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from xpander_sdk.utils.agno_output_parsing import (
     install_agno_output_parsing_patch,
     lenient_structured_parse,
+    normalize_json_mode_result,
 )
 
 
@@ -215,3 +216,70 @@ def test_failed_import_does_not_lock_out_a_retry(monkeypatch):
     monkeypatch.setattr(mod, "_INSTALLED", False)
     assert mod.install_agno_output_parsing_patch() is True
     assert _parse(_raw_with_literal_newlines()).final_result == ANSWER
+
+
+# normalize_json_mode_result
+
+
+def test_valid_json_is_handed_back_untouched():
+    """The healthy path stays byte-identical - no reformatting churn on every run."""
+    assert normalize_json_mode_result('{"a": 1}') is None
+    assert normalize_json_mode_result("[1, 2]") is None
+
+
+def test_literal_newlines_are_repaired_and_preserved():
+    fixed = normalize_json_mode_result('{"text": "# Heading\n\n- one\n- two"}')
+    assert json.loads(fixed)["text"] == "# Heading\n\n- one\n- two"
+
+
+def test_unescaped_interior_quote_is_repaired():
+    fixed = normalize_json_mode_result('{"text": "he called it "the largest db" ok"}')
+    assert json.loads(fixed)["text"] == 'he called it "the largest db" ok'
+
+
+def test_a_fenced_payload_unwraps():
+    fixed = normalize_json_mode_result('```json\n{"text": "a\nb"}\n```')
+    assert json.loads(fixed)["text"] == "a\nb"
+
+
+def test_a_top_level_array_stays_an_array():
+    """The dict-only tier would otherwise hand back the array's first object."""
+    fixed = normalize_json_mode_result('[{"counter": 1, "t": "a\nb"}]')
+    assert json.loads(fixed) == [{"counter": 1, "t": "a\nb"}]
+
+
+def test_prose_and_scalars_are_left_alone():
+    assert normalize_json_mode_result("Just an answer, no JSON here.") is None
+    assert normalize_json_mode_result("42") is None
+    assert normalize_json_mode_result("") is None
+    assert normalize_json_mode_result(None) is None
+
+
+def test_a_reasoning_prefixed_array_keeps_its_wrapper():
+    """A think block hid the '[' from the array-aware tier, unwrapping it."""
+    raw = '<think>weighing it</think>\n[{"counter": 1, "t": "a\nb"}]'
+    assert json.loads(normalize_json_mode_result(raw)) == [{"counter": 1, "t": "a\nb"}]
+
+
+def test_a_reasoning_prefixed_object_still_normalizes():
+    fixed = normalize_json_mode_result('<think>hm</think>\n{"t": "a\nb"}')
+    assert json.loads(fixed) == {"t": "a\nb"}
+
+
+def test_an_unreadable_array_is_not_reduced_to_one_of_its_objects():
+    """Falling back to the dict-only tier here would drop every sibling element."""
+    assert normalize_json_mode_result('[{"a": 1}, BROKEN]') is None
+    assert normalize_json_mode_result('[{"a": "x\ny"}, oops') is None
+
+
+def test_a_prose_answer_quoting_json_is_left_whole():
+    """Lifting the blob out would persist the config and delete the answer around it."""
+    prose = 'Here is the summary.\n\n{"host": "db1"}\n\nRoll back when ready.'
+    assert normalize_json_mode_result(prose) is None
+    assert normalize_json_mode_result('prose then\n[{"a": 1}]') is None
+
+
+def test_non_finite_constants_are_never_called_valid_json():
+    """NaN/Infinity round-trip in Python and are unreadable in every consumer."""
+    assert normalize_json_mode_result('{"score": NaN}') is None
+    assert normalize_json_mode_result('{"a": "x\ny", "score": NaN}') is None

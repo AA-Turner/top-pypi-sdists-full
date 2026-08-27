@@ -8,9 +8,9 @@ from .dubbing_live_status_export_info import DubbingLiveStatusExportInfoParams
 
 
 class DubbingLiveStatusDataParams(typing_extensions.TypedDict):
-    job_id: typing_extensions.NotRequired[str]
+    job_id: str
     job_name: typing_extensions.NotRequired[str]
-    status: typing_extensions.NotRequired[DubbingJobStatus]
+    status: DubbingJobStatus
     current_step: typing_extensions.NotRequired[str]
     """
     Current pipeline step key.
@@ -21,7 +21,7 @@ class DubbingLiveStatusDataParams(typing_extensions.TypedDict):
     Human-readable label of the current pipeline step.
     """
 
-    progress: typing_extensions.NotRequired[int]
+    progress: int
     """
     Overall progress percentage (0–100).
     """

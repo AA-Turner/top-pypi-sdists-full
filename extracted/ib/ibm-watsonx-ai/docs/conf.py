@@ -25,10 +25,12 @@
 import os
 import sys
 import re
+
 from docs.utils import (
     get_latest_version_by_major_minor,
     get_versions_from_git_tags,
 )
+
 sys.path.insert(0, os.path.abspath('../ibm_watsonx_ai/'))
 sys.path.insert(0, os.path.abspath('../ibm_watsonx_ai/libs/'))
 

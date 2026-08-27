@@ -23,7 +23,11 @@ from typing_extensions import Self
 from langchain_aws._version import _add_langchain_aws_version
 from langchain_aws.chat_models._anthropic_utils import _create_bedrock_client_params
 from langchain_aws.data._profiles import _PROFILES
-from langchain_aws.utils import MODEL_ID_GEO_PREFIXES
+from langchain_aws.utils import (
+    _MANTLE_GUARDRAILS_ERR_MSG,
+    MODEL_ID_GEO_PREFIXES,
+    _check_no_mantle_guardrail_headers,
+)
 
 _MODEL_PROFILES = cast("ModelProfileRegistry", _PROFILES)
 
@@ -375,7 +379,16 @@ class ChatAnthropicMantle(ChatAnthropic):
       ``AWS_BEARER_TOKEN_BEDROCK`` environment variable.
     - **AWS SigV4** with standard AWS credentials — explicit keys, a named
       profile, or the default credential chain (environment, instance profile,
-      SSO, etc.). Used automatically whenever no API key is provided.
+      SSO, etc.).
+
+    Note that if multiple credential sources are provided/available, the
+    ``AnthropicBedrockMantle`` client resolves priority as follows:
+
+    1. Explicit ``bedrock_api_key``
+    2. Explicit ``aws_access_key_id``/``aws_secret_access_key``
+    3. Explicit ``credentials_profile_name``
+    4. ``AWS_BEARER_TOKEN_BEDROCK`` env variable
+    5. Default AWS credential chain (SigV4)
 
     See the [Claude Platform docs](https://platform.claude.com/docs/en/about-claude/models/overview)
     for the latest models, their capabilities, and pricing.
@@ -416,8 +429,9 @@ class ChatAnthropicMantle(ChatAnthropic):
     """Amazon Bedrock API key used to authenticate to Mantle.
 
     If not provided, read from the ``AWS_BEARER_TOKEN_BEDROCK`` environment
-    variable. When neither is set, the client falls back to AWS SigV4 using
-    the credentials below (or the default AWS credential chain).
+    variable. An explicitly passed key always selects bearer authentication;
+    an environment-sourced key is outranked by explicitly passed SigV4
+    credentials. See the class docstring for the full selection order.
     """
 
     aws_access_key_id: SecretStr | None = Field(
@@ -469,6 +483,32 @@ class ChatAnthropicMantle(ChatAnthropic):
             values["anthropic_api_key"] = ""
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_guardrails(cls, values: Any) -> Any:
+        # TODO: remove after Mantle adds guardrails support
+        if isinstance(values, dict):
+            if any(
+                values.get(key) is not None
+                for key in ("guardrail_config", "guardrails")
+            ):
+                raise ValueError(_MANTLE_GUARDRAILS_ERR_MSG)
+            _check_no_mantle_guardrail_headers(values.get("default_headers"))
+        return values
+
+    def _get_request_payload(
+        self,
+        input_: Any,
+        *,
+        stop: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict:
+        # TODO: remove after Mantle adds guardrails support
+        if kwargs.get("guardrail_config") is not None:
+            raise ValueError(_MANTLE_GUARDRAILS_ERR_MSG)
+        _check_no_mantle_guardrail_headers(kwargs.get("extra_headers"))
+        return super()._get_request_payload(input_, stop=stop, **kwargs)
+
     @property
     def _client_params(self) -> dict[str, Any]:
         """Get client parameters for AnthropicBedrockMantle."""
@@ -485,7 +525,17 @@ class ChatAnthropicMantle(ChatAnthropic):
         }
         if self.anthropic_api_url and "api.anthropic.com" not in self.anthropic_api_url:
             client_params["base_url"] = self.anthropic_api_url
-        if self.bedrock_api_key:
+        explicit_sigv4_credentials = (
+            "credentials_profile_name" in self.model_fields_set
+            and bool(self.credentials_profile_name)
+        ) or (
+            bool({"aws_access_key_id", "aws_secret_access_key"} & self.model_fields_set)
+            and self.aws_access_key_id is not None
+            and self.aws_secret_access_key is not None
+        )
+        if self.bedrock_api_key and (
+            "bedrock_api_key" in self.model_fields_set or not explicit_sigv4_credentials
+        ):
             client_params["api_key"] = self.bedrock_api_key.get_secret_value()
         if self.aws_access_key_id:
             client_params["aws_access_key"] = self.aws_access_key_id.get_secret_value()

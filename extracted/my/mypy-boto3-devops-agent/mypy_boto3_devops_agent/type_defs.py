@@ -53,6 +53,7 @@ from .literals import (
     TaskStatusType,
     TaskTypeType,
     ToolClassificationType,
+    TriggerEventType,
     UserTypeType,
     ValidationStatusType,
     WebhookTypeType,
@@ -92,7 +93,9 @@ __all__ = (
     "AzureConfigurationTypeDef",
     "AzureDevOpsConfigurationTypeDef",
     "BlobTypeDef",
+    "CapabilityConfigurationOutputTypeDef",
     "CapabilityConfigurationTypeDef",
+    "CapabilityConfigurationUnionTypeDef",
     "ChatExecutionTypeDef",
     "CreateAgentSpaceInputTypeDef",
     "CreateAgentSpaceOutputTypeDef",
@@ -242,6 +245,9 @@ __all__ = (
     "PagerDutyDetailsTypeDef",
     "PagerDutyOAuthClientCredentialsConfigTypeDef",
     "PaginatorConfigTypeDef",
+    "PatternFilterOutputTypeDef",
+    "PatternFilterTypeDef",
+    "PatternFilterUnionTypeDef",
     "PendingMessageTypeDef",
     "PrivateConnectionModeTypeDef",
     "PrivateConnectionSummaryTypeDef",
@@ -312,6 +318,9 @@ __all__ = (
     "TaskTypeDef",
     "TimestampTypeDef",
     "TriggerConditionTypeDef",
+    "TriggerFilterGroupOutputTypeDef",
+    "TriggerFilterGroupTypeDef",
+    "TriggerFilterGroupUnionTypeDef",
     "TriggerTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAgentSpaceInputTypeDef",
@@ -512,10 +521,6 @@ class AssetZipContentOutputTypeDef(TypedDict):
 class AssistantMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolUse: NotRequired[dict[str, Any]]
-
-
-class CapabilityConfigurationTypeDef(TypedDict):
-    enabled: NotRequired[bool]
 
 
 class GenericWebhookTypeDef(TypedDict):
@@ -1003,6 +1008,14 @@ class PagerDutyConfigurationOutputTypeDef(TypedDict):
 class PagerDutyConfigurationTypeDef(TypedDict):
     services: Sequence[str]
     customerEmail: str
+
+
+class PatternFilterOutputTypeDef(TypedDict):
+    patterns: list[str]
+
+
+class PatternFilterTypeDef(TypedDict):
+    patterns: Sequence[str]
 
 
 class SelfManagedInputTypeDef(TypedDict):
@@ -1690,6 +1703,14 @@ class PagerDutyAuthorizationConfigTypeDef(TypedDict):
     oAuthClientCredentials: NotRequired[PagerDutyOAuthClientCredentialsConfigTypeDef]
 
 
+class TriggerFilterGroupOutputTypeDef(TypedDict):
+    events: NotRequired[list[TriggerEventType]]
+    targetBranches: NotRequired[PatternFilterOutputTypeDef]
+
+
+PatternFilterUnionTypeDef = Union[PatternFilterTypeDef, PatternFilterOutputTypeDef]
+
+
 class PrivateConnectionModeTypeDef(TypedDict):
     serviceManaged: NotRequired[ServiceManagedInputTypeDef]
     selfManaged: NotRequired[SelfManagedInputTypeDef]
@@ -1904,6 +1925,16 @@ class PagerDutyDetailsTypeDef(TypedDict):
     authorizationConfig: PagerDutyAuthorizationConfigTypeDef
 
 
+class CapabilityConfigurationOutputTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    triggerFilterGroups: NotRequired[list[TriggerFilterGroupOutputTypeDef]]
+
+
+class TriggerFilterGroupTypeDef(TypedDict):
+    events: NotRequired[Sequence[TriggerEventType]]
+    targetBranches: NotRequired[PatternFilterUnionTypeDef]
+
+
 class CreatePrivateConnectionInputTypeDef(TypedDict):
     name: str
     mode: PrivateConnectionModeTypeDef
@@ -2041,6 +2072,9 @@ class ListPendingMessagesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+TriggerFilterGroupUnionTypeDef = Union[TriggerFilterGroupTypeDef, TriggerFilterGroupOutputTypeDef]
+
+
 class CreateTriggerResponseTypeDef(TypedDict):
     trigger: TriggerTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2145,6 +2179,11 @@ AssetContentTypeDef = TypedDict(
 )
 
 
+class CapabilityConfigurationTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    triggerFilterGroups: NotRequired[Sequence[TriggerFilterGroupUnionTypeDef]]
+
+
 class SendMessageResponseTypeDef(TypedDict):
     events: EventStream[SendMessageEventsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2169,7 +2208,7 @@ class AssociationTypeDef(TypedDict):
     serviceId: str
     configuration: ServiceConfigurationOutputTypeDef
     status: NotRequired[ValidationStatusType]
-    capabilities: NotRequired[dict[CapabilityTypeType, CapabilityConfigurationTypeDef]]
+    capabilities: NotRequired[dict[CapabilityTypeType, CapabilityConfigurationOutputTypeDef]]
 
 
 ServiceConfigurationUnionTypeDef = Union[
@@ -2191,6 +2230,11 @@ class UpdateAssetRequestTypeDef(TypedDict):
     metadata: NotRequired[Mapping[str, Any]]
     content: NotRequired[AssetContentTypeDef]
     clientToken: NotRequired[str]
+
+
+CapabilityConfigurationUnionTypeDef = Union[
+    CapabilityConfigurationTypeDef, CapabilityConfigurationOutputTypeDef
+]
 
 
 class AssociateServiceOutputTypeDef(TypedDict):
@@ -2220,11 +2264,11 @@ class AssociateServiceInputTypeDef(TypedDict):
     agentSpaceId: str
     serviceId: str
     configuration: ServiceConfigurationUnionTypeDef
-    capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationTypeDef]]
+    capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationUnionTypeDef]]
 
 
 class UpdateAssociationInputTypeDef(TypedDict):
     agentSpaceId: str
     associationId: str
     configuration: ServiceConfigurationUnionTypeDef
-    capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationTypeDef]]
+    capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationUnionTypeDef]]

@@ -127,6 +127,21 @@ class Proxy(proxy.Proxy):
         cache = self._get_resource(_cache.Cache, None)
         cache.clear(self, target)
 
+    def cached_image_nodes(
+        self,
+        image: str | _image.Image,
+    ) -> list[str]:
+        """List node reference URLs where an image is cached.
+
+        When centralized caching is enabled, returns the list of Glance
+        node reference URLs where the specified image is cached.
+
+        :param image: The value can be either the ID of an image or a
+            :class:`~openstack.image.v2.image.Image` instance.
+        :returns: List of node reference URLs as strings.
+        """
+        return _cache.Cache.image_nodes(self, image)
+
     # ====== IMAGES ======
 
     def _make_v2_image_params(
@@ -153,7 +168,7 @@ class Proxy(proxy.Proxy):
         name: str,
         *,
         filename: str | None = None,
-        data: bytes | None = None,
+        data: bytes | str | io.IOBase | None = None,
         container: str | None = None,
         md5: str | None = None,
         sha256: str | None = None,
@@ -164,7 +179,7 @@ class Proxy(proxy.Proxy):
         allow_duplicates: bool = False,
         meta: dict[str, Any] | None = None,
         wait: bool = False,
-        timeout: int = 3600,
+        timeout: int | float = 3600,
         validate_checksum: bool = False,
         use_import: bool = False,
         import_method: str | None = None,
@@ -620,7 +635,7 @@ class Proxy(proxy.Proxy):
         data: Any = None,
         meta: dict[str, Any] | None = None,
         wait: bool = False,
-        timeout: int | None = None,
+        timeout: int | float | None = None,
         validate_checksum: bool = True,
         use_import: bool = False,
         import_method: str | None = None,
@@ -800,7 +815,7 @@ class Proxy(proxy.Proxy):
         filename: str | None,
         data: Any,
         wait: bool,
-        timeout: int | None,
+        timeout: int | float | None,
         meta: dict[str, Any] | None,
         size: int | None = None,
         **image_kwargs: Any,
@@ -819,8 +834,11 @@ class Proxy(proxy.Proxy):
         image_kwargs.pop('disk_format', None)
         image_kwargs.pop('container_format', None)
 
-        self._connection.create_container(container)  # type: ignore[no-untyped-call]
-        self._connection.create_object(  # type: ignore[no-untyped-call]
+        self._connection.create_container(container)
+        # NOTE: The header names contain hyphens so they can only be passed via
+        # dict unpacking; mypy cannot verify they land in **headers rather than
+        # the typed keyword parameters, hence the ignore.
+        self._connection.create_object(
             container,
             name,
             filename,
@@ -828,7 +846,7 @@ class Proxy(proxy.Proxy):
             sha256=sha256,
             data=data,
             metadata={self._connection._OBJECT_AUTOCREATE_KEY: 'true'},
-            **{
+            **{  # type: ignore[arg-type]
                 'content-type': 'application/octet-stream',
                 'x-delete-after': str(24 * 60 * 60),
             },
@@ -878,7 +896,7 @@ class Proxy(proxy.Proxy):
             finally:
                 # Clean up after ourselves. The object we created is not
                 # needed after the import is done.
-                self._connection.delete_object(container, name)  # type: ignore[no-untyped-call]
+                self._connection.delete_object(container, name)
             return image
         else:
             return glance_task
@@ -1132,7 +1150,7 @@ class Proxy(proxy.Proxy):
         properties = {}
         for k, v in iter(kwargs.items()):
             if v and k in ['ramdisk', 'kernel']:
-                v = self._connection.get_image_id(v)  # type: ignore[no-untyped-call]
+                v = self._connection.get_image_id(v)
                 k = f'{k}_id'
             properties[k] = v
 
@@ -2163,7 +2181,7 @@ class Proxy(proxy.Proxy):
         status: str = 'success',
         failures: list[str] | None = None,
         interval: int | float = 2,
-        wait: int | None = 120,
+        wait: int | float | None = 120,
     ) -> _task.Task:
         """Wait for a task to be in a particular status.
 
@@ -2214,7 +2232,7 @@ class Proxy(proxy.Proxy):
                 if task.message == _IMAGE_ERROR_396:
                     task_args = {'input': task.input, 'type': task.type}
                     task = self.create_task(**task_args)
-                    self.log.debug(f'Got error 396. Recreating task {task}')
+                    self.log.debug('Got error 396. Recreating task %s', task)
                 else:
                     raise exceptions.ResourceFailure(
                         f"{name} transitioned to failure state {new_status}"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copilotkit
-Version: 0.1.95
+Version: 0.1.96
 Summary: CopilotKit python SDK
 License: MIT
 Keywords: copilot,copilotkit,langgraph,langchain,ai,langsmith,langserve
@@ -21,7 +21,7 @@ Requires-Dist: crewai (>=0.118.0) ; (python_version >= "3.10" and python_version
 Requires-Dist: fastapi (>=0.115.0,<1.0.0)
 Requires-Dist: langchain (>=0.3.0)
 Requires-Dist: langgraph (>=0.3.25,<2)
-Requires-Dist: partialjson (>=0.0.8,<0.0.9)
+Requires-Dist: partialjson (>=0.0.8,<2.0.0)
 Requires-Dist: pydantic-core (>=2.35.0)
 Requires-Dist: toml (>=0.10.2,<0.11.0)
 Project-URL: Homepage, https://copilotkit.ai

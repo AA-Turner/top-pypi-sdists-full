@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cython-lint
-Version: 0.21.0
+Version: 0.21.1
 Summary: Lint Cython files
 Project-URL: Homepage, https://github.com/MarcoGorelli/cython-lint
 Project-URL: Bug Tracker, https://github.com/MarcoGorelli/cython-lint
@@ -69,7 +69,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.21.0
+    rev: v0.21.1
     hooks:
     -   id: cython-lint
     -   id: double-quote-cython-strings

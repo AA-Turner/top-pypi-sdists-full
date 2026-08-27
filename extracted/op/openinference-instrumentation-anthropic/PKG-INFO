@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-anthropic
-Version: 2.0.1
+Version: 2.1.0
 Summary: OpenInference Anthropic Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-anthropic
 Author-email: OpenInference Authors <oss@arize.com>

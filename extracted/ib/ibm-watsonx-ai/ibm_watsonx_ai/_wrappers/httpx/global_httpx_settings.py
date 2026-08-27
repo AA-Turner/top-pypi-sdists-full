@@ -36,16 +36,16 @@ class GlobalHttpxSettings:
         Prioritizes environment variable over global state.
         """
 
-        match os.environ.get("WX_CLIENT_VERIFY_REQUESTS"):
-            case "True" | "":
-                # Empty string means True (default verification)
-                return True
-            case "False":
-                return False
-            case None:
-                return cls.verify
-            case _ as env_verify:
-                return env_verify
+        env_val = os.environ.get("WX_CLIENT_VERIFY_REQUESTS")
+
+        if env_val is None:
+            return cls.verify
+        if env_val == "" or env_val.lower() == "true":
+            # Empty string means True (default verification)
+            return True
+        if env_val.lower() == "false":
+            return False
+        return env_val
 
     @classmethod
     def get_effective_verify(cls) -> bool | str:

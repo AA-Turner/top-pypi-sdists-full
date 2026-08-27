@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from contextlib import suppress
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -39,6 +40,64 @@ _ABANDONED_STREAM_EXC = (GeneratorExit, asyncio.CancelledError)
 _log = logging.getLogger(__name__)
 
 
+_counters_lock = threading.Lock()
+
+
+def trace_run_counters(trace: Any) -> dict[str, Any]:
+    """The trace's own run counters — ``tool_calls`` and ``turn_count``.
+
+    The root row is stamped ``span_id == trace_id``, so its counters describe
+    the *trace*: an interrupt and its resume share that row, and so do several
+    runs a caller wraps in a trace of their own. A per-handler count put
+    whichever run closed first onto that row and called it the whole trace.
+    Keeping the tally on the trace makes the order those runs close in
+    irrelevant, and it needs no registry — it dies with the trace.
+    """
+    counters: dict[str, Any] | None = getattr(trace, "_aigie_run_counters", None)
+    if counters is not None:
+        return counters
+    with _counters_lock:
+        # Re-read under the lock. Two runs starting together on the same trace
+        # would otherwise each attach their own dict, and the close would stamp
+        # the root from whichever attached last — losing the other's counts.
+        counters = getattr(trace, "_aigie_run_counters", None)
+        if counters is None:
+            counters = {"tool_calls": 0, "turn_count": 0}  # plus "agent"/"status" at close
+            with suppress(AttributeError):
+                trace._aigie_run_counters = counters
+    return counters
+
+
+# Worst-wins ordering for a trace that hosted more than one run: a clean run
+# must not paper over a failed one, and two failures keep the more severe.
+_STATUS_RANK = {"success": 0, "interrupted": 1, "error": 2}
+
+
+def worst_status(current: str | None, candidate: str) -> str:
+    """The more severe of two run outcomes."""
+    if current is None:
+        return candidate
+    return max(current, candidate, key=lambda s: _STATUS_RANK.get(s, 0))
+
+
+def bump(counters: dict[str, Any], key: str, delta: int = 1) -> None:
+    """Move a counter, safely, with zero as the floor.
+
+    ``d[k] += 1`` is load-add-store, so two threads can lose a step between
+    them — and LangGraph dispatches node callbacks from a threadpool, while two
+    runs sharing a caller's trace can finish at once. A lost ``open_runs``
+    decrement would leave a completed trace reporting ``interrupted``.
+    """
+    with _counters_lock:
+        counters[key] = max(0, counters.get(key, 0) + delta)
+
+
+def record_status(counters: dict[str, Any], status: str) -> None:
+    """Keep the worst outcome any run on this trace reported."""
+    with _counters_lock:
+        counters["status"] = worst_status(counters.get("status"), status)
+
+
 class LangChainTraceBoundary:
     """Workflow-span lifecycle + opt-in callback-driven trace boundary."""
 
@@ -55,6 +114,8 @@ class LangChainTraceBoundary:
         _trace_id: str | None
         _ambient_token: Any
         _workflow_root: WorkflowRoot | None
+        _counters: dict[str, Any]
+        _owns_trace: bool
 
     def _note_start(
         self,
@@ -111,6 +172,13 @@ class LangChainTraceBoundary:
             return True
         self._root_run_id = str(run_id)
         self._trace_id = str(trace.id)
+        self._owns_trace = not adopted
+        self._counters = trace_run_counters(trace)
+        # Claimed at open, not at close: a caller's ``async with`` can exit
+        # before an abandoned stream tears down, and the trace close has to
+        # find these already there.
+        self._counters.setdefault("agent", self._workflow_name)
+        bump(self._counters, "open_runs")
         self._ambient_token = open_ambient(trace_id=self._trace_id)
         self.open_workflow_span(input=input, span_id=self._trace_id)
         return False
@@ -177,6 +245,7 @@ class LangChainTraceBoundary:
             status = "interrupted"
         else:
             status = "error"
+        self._adopt_trace_counters(status)
         # Run-level data the legacy trace_update carried is folded onto the root.
         metadata_updates = self._root_metadata_updates(status)
         self._execution.end_span(
@@ -207,15 +276,36 @@ class LangChainTraceBoundary:
         if root is not None:
             root.note_output(value)
 
+    def _adopt_trace_counters(self, status: str) -> None:
+        """Take the trace's totals, and leave our labels for its close.
+
+        That close knows the trace's counters but not which agent ran, and its
+        own status says nothing about a failure the caller caught inside their
+        ``async with``. First agent wins; the worst status wins.
+        """
+        self._execution.tool_call_count = self._counters["tool_calls"]
+        self._execution.turn_count = self._counters["turn_count"]
+        self._counters.setdefault("agent", self._workflow_name)
+        bump(self._counters, "open_runs", -1)
+        if status != "success":
+            record_status(self._counters, status)
+
     def _root_metadata_updates(self, status: str) -> dict[str, Any]:
         metadata: dict[str, Any] = {
             "framework": self.framework_name,
             "type": self.framework_name,
-            "execution_plan": self._execution.to_execution_plan(
-                agent_name=self._workflow_name, status=status
-            ),
             "turn_count": self._execution.turn_count,
         }
+        # Only the trace's owner summarises it. Where a caller wraps several
+        # runs in one trace they all write this row, and each one's totals are
+        # stale the moment the next tool runs — so under a last-write-wins
+        # merge whichever write lands last decides the count. The caller's own
+        # close is the single writer there, and the only one that sees the
+        # whole trace.
+        if getattr(self, "_owns_trace", True):
+            metadata["execution_plan"] = self._execution.to_execution_plan(
+                agent_name=self._workflow_name, status=status
+            )
         execution_data = self._execution.to_execution_data()
         if execution_data["execution_path"]:
             metadata["execution_data"] = execution_data

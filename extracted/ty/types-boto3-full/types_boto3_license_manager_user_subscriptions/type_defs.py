@@ -349,6 +349,7 @@ class ProductUserSummaryTypeDef(TypedDict):
     Domain: NotRequired[str]
     SubscriptionStartDate: NotRequired[str]
     SubscriptionEndDate: NotRequired[str]
+    LicenseExpirationDate: NotRequired[str]
 
 
 IdentityProviderUnionTypeDef = Union[IdentityProviderTypeDef, IdentityProviderOutputTypeDef]

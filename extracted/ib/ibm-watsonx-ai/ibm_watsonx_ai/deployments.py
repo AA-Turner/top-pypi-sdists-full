@@ -1093,26 +1093,18 @@ class Deployments(WMLResource):
 
     def _convert_scoring_values(self, scoring_values: Any) -> dict[str, list]:
         lib_checker.check_lib(lib_name="pandas")
-        import numpy as np
+        import numpy as np  # pylint: disable=import-outside-toplevel
         import pandas as pd  # pylint: disable=import-outside-toplevel
 
         result: dict[str, list] = {}
 
         match scoring_values:
             case pd.DataFrame():
-                # replace nan with None
-                scoring_values = scoring_values.where(pd.notnull(scoring_values), None)
-                fields_names = scoring_values.columns.values.tolist()
-                values = scoring_values.values.tolist()
+                values = scoring_values.values.astype(object)
+                values[pd.isnull(values)] = None
+                result["values"] = values.tolist()
 
-                try:
-                    # note: below code fails when there aren't any null values in a dataframe
-                    values[pd.isnull(values)] = None
-                except TypeError:
-                    pass
-
-                result["values"] = values
-                if fields_names is not None:
+                if fields_names := scoring_values.columns.tolist():
                     result["fields"] = fields_names
             case np.ndarray():
                 result["values"] = np.where(

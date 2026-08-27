@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pyodide-lock
-Version: 0.2.0
+Version: 0.2.1
 Summary: Tooling to manage the `pyodide-lock.json` file
 Project-URL: Homepage, https://github.com/pyodide/pyodide-lock
 Project-URL: Bug Tracker, https://github.com/pyodide/pyodide-lock/issues

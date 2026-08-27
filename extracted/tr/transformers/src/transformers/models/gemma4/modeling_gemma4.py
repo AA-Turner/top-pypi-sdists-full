@@ -1089,7 +1089,7 @@ class Gemma4TextRotaryEmbedding(nn.Module):
         self.original_max_seq_len = config.max_position_embeddings
 
         self.config = config
-        self.layer_types = set(config.layer_types)
+        self.layer_types = sorted(set(config.layer_types))
         self.rope_init_fns: dict[str, Callable[..., tuple[torch.Tensor, float]]] = {}
         self.rope_type: dict[str, str] = {}
 
@@ -1998,7 +1998,7 @@ class Gemma4AudioModel(Gemma4PreTrainedModel):
 class Gemma4VisionModel(Gemma4PreTrainedModel):
     """The Gemma 4 Vision Encoder."""
 
-    config = Gemma4VisionConfig
+    config: Gemma4VisionConfig
     _can_record_outputs = {
         "hidden_states": Gemma4VisionEncoderLayer,
         "attentions": Gemma4VisionAttention,

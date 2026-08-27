@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-keyvault-securitydomain
-Version: 1.0.0b2
+Version: 1.0.0b3
 Summary: Microsoft Corporation Azure Keyvault Securitydomain Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -228,6 +228,12 @@ additional questions or comments.
 [securitydomain_docs]: https://learn.microsoft.com/azure/key-vault/managed-hsm/security-domain
 
 # Release History
+
+## 1.0.0b3 (2026-08-25)
+
+### Bugs Fixed
+
+- Fixed a bug in the challenge authentication policy where the authentication challenge was cached before the challenge resource was verified. The challenge is now cached only after resource verification succeeds [#48710](https://github.com/Azure/azure-sdk-for-python/pull/48710).
 
 ## 1.0.0b2 (2026-08-20)
 

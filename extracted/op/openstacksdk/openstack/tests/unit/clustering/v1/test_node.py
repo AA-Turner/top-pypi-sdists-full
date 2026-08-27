@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from typing import Any
 from unittest import mock
 
 from openstack.clustering.v1 import node
@@ -18,7 +19,7 @@ from openstack.tests.unit import base
 FAKE_ID = '123d0955-0099-aabb-b8fa-6a44655ceeff'
 FAKE_NAME = 'test_node'
 
-FAKE = {
+FAKE: dict[str, Any] = {
     'id': FAKE_ID,
     'cluster_id': 'clusterA',
     'metadata': {'key1': 'value1'},
@@ -76,7 +77,7 @@ class TestNode(base.TestCase):
         sess.post = mock.Mock(return_value=resp)
         self.assertEqual('', sot.check(sess))
         url = f'nodes/{sot.id}/actions'
-        body = {'check': {}}
+        body: dict[str, dict[str, Any]] = {'check': {}}
         sess.post.assert_called_once_with(url, json=body)
 
     def test_recover(self):
@@ -88,7 +89,7 @@ class TestNode(base.TestCase):
         sess.post = mock.Mock(return_value=resp)
         self.assertEqual('', sot.recover(sess))
         url = f'nodes/{sot.id}/actions'
-        body = {'recover': {}}
+        body: dict[str, dict[str, Any]] = {'recover': {}}
         sess.post.assert_called_once_with(url, json=body)
 
     def test_operation(self):

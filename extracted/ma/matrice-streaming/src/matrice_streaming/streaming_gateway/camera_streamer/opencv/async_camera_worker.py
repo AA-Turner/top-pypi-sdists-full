@@ -170,7 +170,10 @@ class AsyncCameraWorker:
 
     def _publish_frame_sync(self, frame, camera_id: str, width: int, height: int):
         """Encode (optionally) and publish a frame to DataBus (blocking)."""
-        encode_start = time.time()
+        # monotonic: this measures a duration, so it must not be affected by an NTP
+        # step. `_cam_started_at` below stays on the wall clock deliberately -- that is
+        # a timestamp reported outward, not an interval.
+        encode_start = time.monotonic()
 
         if self.jpeg_encode:
             ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality])
@@ -183,7 +186,7 @@ class AsyncCameraWorker:
             data = frame  # numpy array
             fmt = "bgr"
 
-        self._encoding_times.append(time.time() - encode_start)
+        self._encoding_times.append(time.monotonic() - encode_start)
         self._frames_encoded += 1
         self._cam_frames[camera_id] = self._cam_frames.get(camera_id, 0) + 1
         self._cam_started_at.setdefault(camera_id, time.time())
@@ -654,6 +657,14 @@ class AsyncCameraWorker:
                         "executor_publish": self.use_executor_publish,
                         "pool_exhausted_total": frame_processor.pool_exhausted_total() if self.use_frame_pool else 0,
                         "frames_dropped_bp": sum(p.metrics.frames_dropped for p in self._bp_publishers.values())
+                        if self.use_backpressure
+                        else 0,
+                        # Data-plane loss: frames written over a slot the slowest consumer
+                        # had not read. Reported beside frames_dropped_bp rather than added
+                        # to it -- a refusal and an overwrite are different events, and one
+                        # counter cannot carry two meanings. Cumulative, because this whole
+                        # metrics block is an absolute snapshot the parent overwrites.
+                        "frames_overwritten_bp": sum(p.metrics.frames_overwritten for p in self._bp_publishers.values())
                         if self.use_backpressure
                         else 0,
                     },

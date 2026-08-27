@@ -1,0 +1,107 @@
+"""
+pysqlsync: Synchronize schema and large volumes of data.
+
+This module helps convert between data-class, dictionary and tuple representation of result-sets.
+
+Copyright 2023-2026, Levente Hunyadi; 2026 Instructure, Inc.
+
+:see: https://github.com/instructure-internal/pysqlsync
+"""
+
+import typing
+from collections.abc import Sequence
+from typing import Any, Iterable, TypeVar
+
+from strong_typing.inspection import DataclassInstance, is_dataclass_type
+
+D = TypeVar("D", bound=DataclassInstance)
+T = TypeVar("T")
+
+
+def resultset_unwrap_dict(signature: type[D], records: Iterable[dict[str, Any]]) -> list[D]:
+    """
+    Converts a result-set into a list of data-class instances.
+
+    :param signature: A data-class type.
+    :param records: The result-set whose rows to convert.
+    """
+
+    if not is_dataclass_type(signature):
+        raise TypeError(f"expected: data-class type as result-set signature; got: {signature}")
+
+    return [signature(**{name: value for name, value in record.items()}) for record in records]
+
+
+def resultset_unwrap_object(signature: type[D], records: Iterable[Any]) -> list[D]:
+    """
+    Converts a result-set into a list of data-class instances.
+
+    :param signature: A data-class type.
+    :param records: The result-set whose rows to convert.
+    """
+
+    if not is_dataclass_type(signature):
+        raise TypeError(f"expected: data-class type as result-set signature; got: {signature}")
+
+    names = [name for name in signature.__dataclass_fields__.keys()]  # pyright: ignore[reportUnknownMemberType]
+    return [signature(**{name: record.__getattribute__(name) for name in names}) for record in records]
+
+
+def resultset_unwrap_tuple(signature: type[T], records: Iterable[Sequence[Any]]) -> list[T]:
+    """
+    Converts a result-set into a list of tuples, or a list of simple types (as appropriate).
+
+    :param signature: A tuple type, or a simple type (e.g. `bool` or `str`).
+    :param records: The result-set whose rows to convert.
+    """
+
+    if signature in (bool, int, float, str):
+        args_count = 1
+    else:
+        origin_args = typing.get_args(signature)
+        args_count = len(origin_args)
+
+    # check result shape
+    it = iter(records)
+    try:
+        item = next(it)
+    except StopIteration:
+        return []
+    if isinstance(item, (bool, int, float, str)):
+        raise TypeError(f"expected: record, list or tuple as result-set row; got: {type(item)}")
+    if len(item) != args_count:
+        raise ValueError(f"invalid number of columns, expected: {args_count}; got: {len(item)}")
+
+    if signature in (bool, int, float, str):
+        scalar_results: list[T] = []
+
+        scalar_results.append(item[0])
+        while True:
+            try:
+                item = next(it)
+            except StopIteration:
+                return scalar_results
+            scalar_results.append(item[0])
+
+    origin_type = typing.get_origin(signature)
+    if origin_type is tuple:
+        results: list[T] = []
+
+        if isinstance(item, tuple):
+            results.append(item)  # type: ignore
+            while True:
+                try:
+                    item = next(it)
+                except StopIteration:
+                    return results
+                results.append(item)  # type: ignore
+        else:
+            results.append(tuple(item))  # type: ignore
+            while True:
+                try:
+                    item = next(it)
+                except StopIteration:
+                    return results
+                results.append(tuple(item))  # type: ignore
+
+    raise TypeError(f"expected: tuple or simple type as result-set signature; got: {signature}")

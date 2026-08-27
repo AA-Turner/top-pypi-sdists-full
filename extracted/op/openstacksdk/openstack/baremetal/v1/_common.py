@@ -46,7 +46,7 @@ PROVISIONING_VERSIONS = {
 # Based on https://docs.openstack.org/ironic/latest/contributor/states.html
 EXPECTED_STATES = {
     'active': 'active',
-    'adopt': 'available',
+    'adopt': 'active',
     'clean': 'manageable',
     'deleted': 'available',
     'inspect': 'manageable',
@@ -106,6 +106,9 @@ VMEDIA_VERSION = '1.89'
 RUNBOOKS_VERSION = '1.92'
 """API version in which a runbook can be used in place of arbitrary steps
 for provisioning"""
+
+RUNBOOK_TRAITS_VERSION = '1.112'
+"""API version in which runbooks gained traits and a description."""
 
 
 class Resource(resource.Resource):

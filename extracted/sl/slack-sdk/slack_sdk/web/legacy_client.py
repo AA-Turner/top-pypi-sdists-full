@@ -9,7 +9,6 @@
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 from asyncio import Future
-
 """A Python module for interacting with Slack's Web API."""
 
 import json
@@ -1934,6 +1933,58 @@ class LegacyWebClient(LegacyBaseClient):
             kwargs.update({"workflow_ids": workflow_ids})
         return self.api_call("admin.workflows.unpublish", params=kwargs)
 
+    def agents_sessions_rename(
+        self,
+        *,
+        channel_id: str,
+        title: str,
+        thread_ts: Optional[str] = None,
+        **kwargs,
+    ) -> Union[Future, SlackResponse]:
+        """Rename an agent session.
+        https://docs.slack.dev/reference/methods/agents.sessions.rename
+        """
+        kwargs.update(
+            {
+                "channel_id": channel_id,
+                "title": title,
+                "thread_ts": thread_ts,
+            }
+        )
+        kwargs = _remove_none_values(kwargs)
+        return self.api_call("agents.sessions.rename", json=kwargs)
+
+    def agents_sessions_setStatus(
+        self,
+        *,
+        channel_id: str,
+        status: str,
+        thread_ts: Optional[str] = None,
+        title: Optional[str] = None,
+        initiator_user_id: Optional[str] = None,
+        icon_emoji: Optional[str] = None,
+        icon_url: Optional[str] = None,
+        username: Optional[str] = None,
+        **kwargs,
+    ) -> Union[Future, SlackResponse]:
+        """Set an agent session's lifecycle status, creating the session if needed.
+        https://docs.slack.dev/reference/methods/agents.sessions.setStatus
+        """
+        kwargs.update(
+            {
+                "channel_id": channel_id,
+                "status": status,
+                "thread_ts": thread_ts,
+                "title": title,
+                "initiator_user_id": initiator_user_id,
+                "icon_emoji": icon_emoji,
+                "icon_url": icon_url,
+                "username": username,
+            }
+        )
+        kwargs = _remove_none_values(kwargs)
+        return self.api_call("agents.sessions.setStatus", json=kwargs)
+
     def api_test(
         self,
         *,
@@ -2180,6 +2231,32 @@ class LegacyWebClient(LegacyBaseClient):
         """
         kwargs.update({"cursor": cursor, "limit": limit, "include_icon": include_icon})
         return self.api_call("auth.teams.list", params=kwargs)
+
+    def blocks_validate(
+        self,
+        *,
+        blocks: Optional[Union[str, Sequence[Union[Dict, Block]]]] = None,
+        message: Optional[Union[str, Dict]] = None,
+        view: Optional[Union[str, Dict, View]] = None,
+        **kwargs,
+    ) -> Union[Future, SlackResponse]:
+        """Validates an array of blocks, or a message or view payload.
+        Provide exactly one of ``blocks``, ``message``, or ``view``.
+        https://docs.slack.dev/reference/methods/blocks.validate
+        """
+        if blocks is not None:
+            if isinstance(blocks, str):
+                kwargs.update({"blocks": blocks})
+            else:
+                kwargs.update({"blocks": json.dumps([b.to_dict() if isinstance(b, Block) else b for b in blocks])})
+        if message is not None:
+            kwargs.update({"message": message if isinstance(message, str) else json.dumps(message)})
+        if view is not None:
+            if isinstance(view, View):
+                kwargs.update({"view": json.dumps(view.to_dict())})
+            else:
+                kwargs.update({"view": view if isinstance(view, str) else json.dumps(view)})
+        return self.api_call("blocks.validate", params=kwargs)
 
     def bookmarks_add(
         self,
@@ -2952,6 +3029,7 @@ class LegacyWebClient(LegacyBaseClient):
         blocks: Optional[Union[str, Sequence[Union[Dict, Block]]]] = None,
         metadata: Optional[Union[Dict, Metadata]] = None,
         chunks: Optional[Sequence[Union[Dict, Chunk]]] = None,
+        session_status: Optional[str] = None,
         **kwargs,
     ) -> Union[Future, SlackResponse]:
         """Stops a streaming conversation.
@@ -2965,6 +3043,7 @@ class LegacyWebClient(LegacyBaseClient):
                 "blocks": blocks,
                 "metadata": metadata,
                 "chunks": chunks,
+                "session_status": session_status,
             }
         )
         _parse_web_class_objects(kwargs)

@@ -21,7 +21,7 @@ def main():
     parser = OptionParser()
     parser.add_option("-l", "--length", action="store", type="int", default=100, help="")
 
-    (options, args) = parser.parse_args()
+    options, args = parser.parse_args()
 
     length = options.length
     maf_reader = bx.align.maf.Reader(sys.stdin)
@@ -37,11 +37,11 @@ def chop(m, length):
     chunk_count = maf_length // length
     lost_bases = maf_length % length
     skip_amounts = [0] * (chunk_count + 1)
-    for i in range(0, lost_bases):
+    for i in range(lost_bases):
         skip_amounts[random.randrange(0, chunk_count + 1)] += 1
     start = 0
     rval = []
-    for i in range(0, chunk_count):
+    for i in range(chunk_count):
         start += skip_amounts[i]
         n = m.slice(start, start + length)
         if check_len(n):

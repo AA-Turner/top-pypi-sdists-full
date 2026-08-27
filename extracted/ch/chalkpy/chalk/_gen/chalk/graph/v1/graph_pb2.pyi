@@ -950,6 +950,7 @@ class WindowAggregation(_message.Message):
         "allow_filter_migration",
         "fold_step",
         "fold_initial_value",
+        "approx_top_k_arg_counters",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -973,6 +974,7 @@ class WindowAggregation(_message.Message):
     ALLOW_FILTER_MIGRATION_FIELD_NUMBER: _ClassVar[int]
     FOLD_STEP_FIELD_NUMBER: _ClassVar[int]
     FOLD_INITIAL_VALUE_FIELD_NUMBER: _ClassVar[int]
+    APPROX_TOP_K_ARG_COUNTERS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     bucket_duration: _duration_pb2.Duration
@@ -995,6 +997,7 @@ class WindowAggregation(_message.Message):
     allow_filter_migration: bool
     fold_step: _expression_pb2.LogicalExprNode
     fold_initial_value: _expression_pb2.LogicalExprNode
+    approx_top_k_arg_counters: int
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -1019,6 +1022,7 @@ class WindowAggregation(_message.Message):
         allow_filter_migration: bool = ...,
         fold_step: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         fold_initial_value: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
+        approx_top_k_arg_counters: _Optional[int] = ...,
     ) -> None: ...
 
 class BackfillTagSet(_message.Message):

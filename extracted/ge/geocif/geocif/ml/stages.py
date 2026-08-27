@@ -667,6 +667,117 @@ def select_monthly_plus_fullseason_features(df):
     return df[[c for c in df.columns if keep_col(c)]]
 
 
+def select_last_n_months_features(df, n):
+    """Keep only the features whose stage span is the LAST ``n`` calendar
+    periods of the season — a trailing window, not a cumulative one.
+
+    Motivation: the cumulative stage set answers "what does the whole season
+    say?", which under ``run_time_steps = latest`` puts every window in one
+    model and lets selection dilute the recent signal. This selector builds
+    the opposite: an operational "what do we know right now" frame using only
+    the most recent ``n`` periods.
+
+    Reverse naming matters. ``monthly_r`` names spans harvest-first, so the
+    trailing window is the span whose tokens DESCEND from the season's latest
+    period: ``8_7`` is Aug+Jul (the last 2 months ending August), whereas
+    ``5_4`` is a 2-month span earlier in the season and is dropped.
+
+    The endpoint is derived per season-group from the data actually present
+    (the largest starting token among spans of length ``n``), never
+    hard-coded, so two-season countries keep one window per season rather
+    than collapsing to whichever season ends latest.
+
+    Same conventions as ``select_single_calendar_period_features``: applied
+    PRE-rename on ``_``-token names; ``AEF_`` / ``MEAN_FLDAS_`` whitelisted;
+    PS/IS aggregates dropped; non-stage columns (target / categoricals / lag)
+    kept so the frame stays usable.
+
+    ``n < 1`` disables the filter and returns ``df`` unchanged — the caller
+    uses ``-1`` as the explicit "off" sentinel.
+
+    Examples (monthly method, n=2, season ending in month 8):
+        PRCPTOT_8_7      → keep  (the last 2 months)
+        PRCPTOT_8        → drop  (single month, not a 2-span)
+        PRCPTOT_8_7_6    → drop  (3-month span)
+        PRCPTOT_5_4      → drop  (2-span, but not the trailing one)
+        Region, lag_1    → keep  (no stage suffix)
+    """
+    if n is None or n < 1:
+        return df
+
+    def _trailing_nums(col):
+        nums = []
+        for part in reversed(col.split("_")):
+            if part.isdigit():
+                nums.append(int(part))
+            else:
+                break
+        # reversed() walked right-to-left; restore written order
+        return list(reversed(nums))
+
+    def _is_passthrough(col):
+        if col.startswith("AEF_") or col.startswith("MEAN_FLDAS_"):
+            return True
+        return False
+
+    def _is_ps_is(col):
+        return ("_PS_" in col or "_IS_" in col
+                or col.endswith("_PS") or col.endswith("_IS"))
+
+    # Season groups come from the MONTHS present, not from window overlap:
+    # with a sparse column set two windows of the same season (8_7 and 5_4)
+    # need not share a month, and overlap-grouping would wrongly call them
+    # separate seasons and keep both.
+    months = set()
+    spans = set()
+    for c in df.columns:
+        if _is_passthrough(c) or _is_ps_is(c):
+            continue
+        nums = _trailing_nums(c)
+        if nums:
+            months.update(nums)
+            spans.add(tuple(nums))
+    if not months:
+        return df
+
+    # Contiguous runs on the circular month axis (Dec->Jan wraps).
+    ordered = sorted(months)
+    runs = [[ordered[0]]]
+    for m in ordered[1:]:
+        if m - runs[-1][-1] == 1:
+            runs[-1].append(m)
+        else:
+            runs.append([m])
+    if len(runs) > 1 and runs[0][0] == 1 and runs[-1][-1] == 12:
+        runs[-1].extend(runs.pop(0))        # wrapped season: ... 12, 1, 2 ...
+
+    # Trailing window of a run = the n periods ending at its latest month,
+    # written harvest-first to match the stage naming.
+    keep_windows = set()
+    for run in runs:
+        latest = run[-1]
+        w = tuple(((latest - k - 1) % 12) + 1 for k in range(n))
+        if w in spans:
+            keep_windows.add(w)
+
+    if not keep_windows:
+        # Nothing of that width exists (e.g. n longer than the season).
+        # Returning df unchanged is safer than returning an empty frame.
+        return df
+
+    def keep_col(col):
+        if _is_passthrough(col):
+            return True
+        if _is_ps_is(col):
+            return False
+        nums = _trailing_nums(col)
+        if not nums:
+            return True                      # non-stage: target / cat / lag
+        return tuple(nums) in keep_windows
+
+    return df[[c for c in df.columns if keep_col(c)]]
+
+
 def select_single_time_period_features(df):
     """
     Only select those features that span a single time-period

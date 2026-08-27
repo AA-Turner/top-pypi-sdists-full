@@ -3,17 +3,17 @@ members = ["crates/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.4.14"
+version = "0.5.0"
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.96"
 repository = "https://github.com/j178/prek"
 homepage = "https://prek.j178.dev/"
 license = "MIT"
 
 [workspace.dependencies]
-prek-consts = { path = "crates/prek-consts", version = "0.4.14" }
-prek-identify = { path = "crates/prek-identify", version = "0.4.14" }
-prek-pty = { path = "crates/prek-pty", version = "0.4.14" }
+prek-consts = { path = "crates/prek-consts", version = "0.5.0" }
+prek-identify = { path = "crates/prek-identify", version = "0.5.0" }
+prek-pty = { path = "crates/prek-pty", version = "0.5.0" }
 
 aho-corasick = { version = "1.1.4" }
 annotate-snippets = { version = "0.12.13" }
@@ -25,7 +25,7 @@ async-trait = { version = "0.1.89" }
 async-compression = { version = "0.4.18", features = ["gzip", "xz", "tokio"] }
 async_zip = { version = "0.0.20", package = "astral_async_zip", features = ["deflate", "tokio"] }
 axoupdater = { version = "0.10.0", default-features = false, features = ["github_releases"] }
-bstr = { version = "1.11.0" }
+bstr = { version = "1.11.0", default-features = false, features = ["std"] }
 cargo_metadata = { version = "0.23.1" }
 clap = { version = "4.6.0", features = ["derive", "env", "string", "wrap_help"] }
 clap_complete = { version = "4.6.0", features = ["unstable-dynamic"] }
@@ -54,7 +54,6 @@ owo-colors = { version = "4.1.0" }
 phf = { version = "0.14.0", default-features = false, features = ["macros"] }
 pprof = { version = "0.15.0" }
 reqwest = { version = "0.13.2", default-features = false, features = [
-  "http2",
   "stream",
   "json",
   "rustls",
@@ -179,29 +178,15 @@ ignored = ["liblzma"]
 insta.opt-level = 3
 similar.opt-level = 3
 
-# Profile for fast test execution: Skip debug info generation, and
-# apply basic optimization, which speed up build and running tests.
-[profile.fast-build]
-inherits = "dev"
-debug = 0
-strip = "debuginfo"
-
 # Profile for faster builds: Skip debug info generation, for faster
 # builds of smaller binaries.
 [profile.no-debug]
 inherits = "dev"
+opt-level = 1
 debug = 0
 strip = "debuginfo"
 
-[profile.profiling]
-inherits = "release"
-strip = false
-debug = "full"
-lto = false
-codegen-units = 16
-
-[profile.minimal-size]
-inherits = "release"
+[profile.release]
 # Enable Full LTO for the best optimizations
 lto = "fat"
 # Reduce codegen units to 1 for better optimizations
@@ -209,6 +194,9 @@ codegen-units = 1
 strip = true
 panic = "abort"
 
-# The profile that 'cargo dist' will build with
-[profile.dist]
-inherits = "minimal-size"
+[profile.profiling]
+inherits = "release"
+strip = false
+debug = "full"
+lto = false
+codegen-units = 16

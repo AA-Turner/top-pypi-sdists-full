@@ -8,6 +8,9 @@ import sys
 from typing import Any, Dict, Callable
 import time
 
+import pysqlsync
+import strong_typing
+
 from .commands.global_options import GlobalOptions
 from .ui import is_interactive
 
@@ -163,8 +166,6 @@ def log_system_info() -> None:
         "aiohttp-retry",
         "aiofiles",
         "types-aiofiles",
-        "json_strong_typing",
-        "pysqlsync",
         "PyJWT",
         "tsv2py",
     ]
@@ -173,4 +174,9 @@ def log_system_info() -> None:
         for pkg in installed_packages
         if pkg.metadata["Name"] in filter_packages
     }
+    # `strong_typing` and `pysqlsync` are vendored (see vendor/VENDORED.md) rather
+    # than installed as distributions, so they have no metadata to enumerate. Report
+    # the versions they declare, which move independently of the client version.
+    dependency_versions["strong_typing (vendored)"] = strong_typing.__version__
+    dependency_versions["pysqlsync (vendored)"] = pysqlsync.__version__
     logger.info(f"Package versions: {dependency_versions}")

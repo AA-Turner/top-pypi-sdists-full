@@ -32,9 +32,7 @@ class JWTTokenFunctionAuth(RefreshableTokenAuth):
         on_token_creation: Callable[[], None] | None = None,
         on_token_refresh: Callable[[], None] | None = None,
     ) -> None:
-        RefreshableTokenAuth.__init__(
-            self, api_client, on_token_creation, on_token_refresh
-        )
+        super().__init__(api_client, on_token_creation, on_token_refresh)
 
         if all(
             not callable(getattr(self._api_client.credentials, attr_name, None))

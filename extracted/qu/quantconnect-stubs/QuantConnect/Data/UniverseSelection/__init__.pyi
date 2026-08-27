@@ -20,6 +20,7 @@ import System
 import System.Collections.Concurrent
 import System.Collections.Generic
 import System.Collections.Specialized
+import System.IO
 
 QuantConnect_Data_UniverseSelection_FuncUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_FuncUniverse_T")
 QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T")
@@ -1153,6 +1154,15 @@ class CoarseFundamentalDataProvider(QuantConnect.Data.UniverseSelection.BaseFund
 
     @property
     def get(self) -> QuantConnect.Data.UniverseSelection._CoarseFundamentalDataProvider_Get:
+        ...
+
+    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param live_mode: True if running in live mode
+        """
         ...
 
     @staticmethod
@@ -2621,6 +2631,48 @@ class UserDefinedUniverse(QuantConnect.Data.UniverseSelection.Universe, System.C
         :param utc_time: The current utc time
         :param data: The symbols to remain in the universe
         :returns: The data that passes the filter.
+        """
+        ...
+
+
+class BackupUniverseFileDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider):
+    """
+    Data provider wrapper that falls back to the backup universe file ("*.backup"), if any,
+    when the expected universe file can't be fetched, as a last resort
+    """
+
+    @property
+    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
+        """Event raised each time data fetch is finished (successfully or not)"""
+        ...
+
+    @new_data_request.setter
+    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def __init__(self, data_provider: QuantConnect.Interfaces.IDataProvider = None) -> None:
+        """
+        Creates a new instance
+        
+        :param data_provider: The data provider to wrap, can be set later with set_data_provider
+        """
+        ...
+
+    def fetch(self, key: str) -> System.IO.Stream:
+        """
+        Retrieves data to be used in an algorithm, falling back to the backup universe file, if any,
+        when the requested file is not available
+        
+        :param key: A string representing where the data is stored
+        :returns: A Stream of the data requested, or null if none is available.
+        """
+        ...
+
+    def set_data_provider(self, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+        """
+        Sets the data provider to wrap, forwarding its IDataProvider.new_data_request events
+        
+        :param data_provider: The data provider to wrap
         """
         ...
 

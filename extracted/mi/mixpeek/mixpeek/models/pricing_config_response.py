@@ -39,10 +39,9 @@ class PricingConfigResponse(BaseModel):
     placeholder_rates: Optional[StrictBool] = Field(default=False, description="True only pre-cutover; consumers must not render dollars while true (contract §5 display gate).")
     modalities: Optional[List[Any]] = Field(default=None, description="Per file type (modality): its billing unit, base rate, and the search-by features you can add (D9: the public vocabulary — render these, never extractors).")
     usage_pools: Optional[Dict[str, Any]] = Field(default=None, description="Tier usage pools (dollar-denominated, natural-unit equivalents)")
-    storage: Optional[Dict[str, Any]] = None
     reads: Optional[Dict[str, Any]] = None
     full_res_multiplier: Optional[Union[StrictFloat, StrictInt]] = 2.0
-    __properties: ClassVar[List[str]] = ["credit_rate_usd", "managed_plans", "mvs_plans", "mvs_usage_rates", "enterprise_defaults", "extractors", "pricing_model", "currency", "placeholder_rates", "modalities", "usage_pools", "storage", "reads", "full_res_multiplier"]
+    __properties: ClassVar[List[str]] = ["credit_rate_usd", "managed_plans", "mvs_plans", "mvs_usage_rates", "enterprise_defaults", "extractors", "pricing_model", "currency", "placeholder_rates", "modalities", "usage_pools", "reads", "full_res_multiplier"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -113,7 +112,6 @@ class PricingConfigResponse(BaseModel):
             "placeholder_rates": obj.get("placeholder_rates") if obj.get("placeholder_rates") is not None else False,
             "modalities": obj.get("modalities"),
             "usage_pools": obj.get("usage_pools"),
-            "storage": obj.get("storage"),
             "reads": obj.get("reads"),
             "full_res_multiplier": obj.get("full_res_multiplier") if obj.get("full_res_multiplier") is not None else 2.0
         })

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-glue
-Version: 1.10.19
+Version: 1.12.3
 Summary: dbt adapter for AWS Glue
 Home-page: https://github.com/aws-samples/dbt-glue
 Author: moshirm,segnina,sekiyama
@@ -10,15 +10,15 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: dbt-core~=1.10.19
-Requires-Dist: dbt-spark~=1.9.3
+Requires-Dist: dbt-core~=1.12.3
+Requires-Dist: dbt-spark~=1.11.0
 Requires-Dist: dbt-common<3.0,>=1.0.4
 Requires-Dist: dbt-adapters<2.0,>=1.1.1
 Requires-Dist: waiter
@@ -201,7 +201,7 @@ Please to update variables between **`<>`**, here are explanations of these argu
 
 ### Configuration of the local environment
 
-Because **`dbt`** and **`dbt-glue`** adapter are compatible with Python versions 3.7, 3.8, and 3.9, check the version of Python:
+Because **`dbt`** and **`dbt-glue`** adapter are compatible with Python versions 3.10, 3.11, 3.12, and 3.13, check the version of Python:
 
 ```bash
 $ python3 --version
@@ -249,6 +249,7 @@ idle_timeout: 10
 schema: "dbt_demo"
 session_provisioning_timeout_in_seconds: 120
 location: "s3://dbt_demo_bucket/dbt_demo_data"
+root_location: False
 ```
 
 The table below describes all the options.
@@ -265,6 +266,7 @@ The table below describes all the options.
 | schema	                                 | The schema used to organize data stored in Amazon S3.Additionally, is the database in AWS Lake Formation that stores metadata tables in the Data Catalog.	                                                                                                                                        | yes       |
 | session_provisioning_timeout_in_seconds | The timeout in seconds for AWS Glue interactive session provisioning.	                                                                                                                                                                                                                            | yes       |
 | location	                               | The Amazon S3 location of your target data.	                                                                                                                                                                                                                                                      | yes       |
+| root_location	                           | By default the adapter stores data at `location`/`schema`/`table`. Set to `true` to omit the schema segment and store data at `location`/`table` instead. Default `false`.	                                                                                                                       | no        |
 | query_timeout_in_minutes	               | The timeout in minutes for a signle query. Default is 300                                                                                                                                                                                                                                         | no        |
 | idle_timeout	                           | The AWS Glue session idle timeout in minutes. (The session stops after being idle for the specified amount of time)	                                                                                                                                                                              | no        |
 | glue_version	                           | The version of AWS Glue for this session to use. Currently, the only valid options are 2.0, 3.0 and 4.0. The default value is 4.0.	                                                                                                                                                               | no        |

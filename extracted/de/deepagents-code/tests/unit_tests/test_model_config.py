@@ -225,7 +225,7 @@ class TestRetryParamByProvider:
             set(PROVIDER_API_KEY_ENV)
             | set(IMPLICIT_AUTH_PROVIDERS)
             | set(NO_AUTH_REQUIRED_PROVIDERS)
-            | {"bedrock"}
+            | {"bedrock", model_config.CODEX_PROVIDER}
         )
         assert set(RETRY_PARAM_BY_PROVIDER) <= known_providers
 
@@ -9516,11 +9516,11 @@ class TestWritesReachTheSharedResolver:
         monkeypatch.setattr(model_config, "DEFAULT_CONFIG_PATH", config_path)
         model_config.clear_caches()
 
-        def explode(_self: object) -> None:
+        def explode(**_kwargs: object) -> None:
             msg = "synthetic reload failure"
             raise RuntimeError(msg)
 
-        monkeypatch.setattr(resolver_module.ConfigResolver, "reload", explode)
+        monkeypatch.setattr(resolver_module, "get_config_resolver", explode)
 
         with caplog.at_level(logging.WARNING):
             assert model_config.save_thread_sort_order("created_at") is True

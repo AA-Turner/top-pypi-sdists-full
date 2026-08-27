@@ -4,8 +4,8 @@ import typing_extensions
 
 
 class DubbingStartDataParams(typing_extensions.TypedDict):
-    job_id: typing_extensions.NotRequired[str]
-    status: typing_extensions.NotRequired[str]
+    job_id: str
+    status: str
     """
     Job status after starting, e.g. `processing`.
     """

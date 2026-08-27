@@ -3,12 +3,12 @@ from __future__ import annotations
 import typing as t
 from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, StrictBool, StrictStr
 
 # Import directly from modules to avoid circular import through generated/__init__.py
 from connector_sdk_types.generated.models.basic_credential import BasicCredential
+from connector_sdk_types.generated.models.error_response import ErrorResponse
 from connector_sdk_types.generated.models.jwt_credential import JWTCredential
 from connector_sdk_types.generated.models.key_pair_credential import KeyPairCredential
 from connector_sdk_types.generated.models.o_auth1_credential import OAuth1Credential
@@ -17,13 +17,15 @@ from connector_sdk_types.generated.models.o_auth_credential import OAuthCredenti
 from connector_sdk_types.generated.models.service_account_credential import ServiceAccountCredential
 from connector_sdk_types.generated.models.token_credential import TokenCredential
 
-if TYPE_CHECKING:
-    from connector_sdk_types.generated import (
-        ErrorResponse,
-        ValidateCredentialConfigRequest,
-        ValidateCredentialConfigResponse,
-    )
-
+# These three back the forward references in ValidateCredentialConfigCallable below, which
+# pydantic has to resolve to build CredentialConfig. Under TYPE_CHECKING they do not exist at
+# runtime, and on Python 3.11+ that makes CredentialConfig permanently undefined.
+from connector_sdk_types.generated.models.validate_credential_config_request import (
+    ValidateCredentialConfigRequest,
+)
+from connector_sdk_types.generated.models.validate_credential_config_response import (
+    ValidateCredentialConfigResponse,
+)
 from connector_sdk_types.oai.modules.oauth_module_types import OAuthSettings
 
 ValidateCredentialConfigCallable: t.TypeAlias = Callable[

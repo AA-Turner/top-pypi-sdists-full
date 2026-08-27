@@ -9,7 +9,10 @@ import librosa
 import torch
 from pydub import AudioSegment
 import soundfile as sf
+from audio_separator.separator.audio_io import atomic_output_path, validate_audio_source
+from audio_separator.separator.exceptions import AudioExportError, InvalidAudioDataError
 from audio_separator.separator.uvr_lib_v5 import spec_utils
+from audio_separator.separator.execution_policy import FP32, resolve_execution_policy
 
 
 class CommonSeparator:
@@ -61,6 +64,7 @@ class CommonSeparator:
 
         # Inferencing device / acceleration config
         self.torch_device = config.get("torch_device")
+        self.requested_torch_device = self.torch_device
         self.torch_device_cpu = config.get("torch_device_cpu")
         self.torch_device_mps = config.get("torch_device_mps")
         self.onnx_execution_provider = config.get("onnx_execution_provider")
@@ -83,6 +87,15 @@ class CommonSeparator:
         self.invert_using_spec = config.get("invert_using_spec")
         self.sample_rate = config.get("sample_rate")
         self.use_soundfile = config.get("use_soundfile")
+        self.use_autocast = config.get("use_autocast", False)
+        self.use_native_fp16 = config.get("use_native_fp16", False)
+        self.use_torch_compile = config.get("use_torch_compile", False)
+        self.uses_pytorch_inference = True
+        self.is_native_fp16 = False
+        self.effective_precision = FP32
+        self.effective_torch_compile = False
+        self._should_torch_compile = False
+        self._execution_policy_resolved = False
         
         # Roformer-specific loading support
         self.roformer_loader = None
@@ -144,6 +157,24 @@ class CommonSeparator:
         self.secondary_stem_output_path = None
 
         self.cached_sources_map = {}
+
+    def resolve_execution_policy(self, model_family):
+        """Resolve the requested precision and compilation settings for this model."""
+        policy = resolve_execution_policy(
+            device=self.torch_device,
+            requested_device=self.requested_torch_device,
+            model_family=model_family,
+            use_autocast=self.use_autocast,
+            use_native_fp16=self.use_native_fp16,
+            use_torch_compile=self.use_torch_compile,
+            uses_pytorch_inference=getattr(self, "uses_pytorch_inference", True),
+            logger=self.logger,
+        )
+        self.effective_precision = policy.precision
+        self.effective_torch_compile = False
+        self._should_torch_compile = policy.use_torch_compile
+        self._execution_policy_resolved = True
+        return policy
 
     def secondary_stem(self, primary_stem: str):
         """Determines secondary stem name based on the primary stem name."""
@@ -262,14 +293,17 @@ class CommonSeparator:
             mix = mix.T
             self.logger.debug(f"Transposed mix shape: {mix.shape}")
 
-        # If the original input was a filepath, check if the loaded mix is empty
-        if isinstance(audio_path, str):
-            if not np.any(mix):
-                error_msg = f"Audio file {audio_path} is empty or not valid"
-                self.logger.error(error_msg)
-                raise ValueError(error_msg)
-            else:
-                self.logger.debug("Audio file is valid and contains data.")
+        source_description = "Audio array" if isinstance(audio_path, np.ndarray) else f"Audio file {audio_path}"
+        if mix.size == 0:
+            error_msg = f"{source_description} contains no audio frames"
+            self.logger.error(error_msg)
+            raise InvalidAudioDataError(error_msg)
+        elif not np.isfinite(mix).all():
+            error_msg = f"{source_description} contains non-finite samples"
+            self.logger.error(error_msg)
+            raise InvalidAudioDataError(error_msg)
+        else:
+            self.logger.debug("Audio input is valid and contains audio frames.")
 
         # Ensure the mix is in stereo format
         if mix.ndim == 1:
@@ -289,7 +323,7 @@ class CommonSeparator:
         https://github.com/jiaaro/pydub/issues/135
         """
         # Get the duration of the input audio file
-        duration_seconds = librosa.get_duration(filename=self.audio_file_path)
+        duration_seconds = librosa.get_duration(path=self.audio_file_path)
         duration_hours = duration_seconds / 3600
         self.logger.info(f"Audio duration is {duration_hours:.2f} hours ({duration_seconds:.2f} seconds).")
 
@@ -306,17 +340,16 @@ class CommonSeparator:
         """
         self.logger.debug(f"Entering write_audio_pydub with stem_path: {stem_path}")
 
+        stem_source = validate_audio_source(stem_source)
         stem_source = spec_utils.normalize(wave=stem_source, max_peak=self.normalization_threshold, min_peak=self.amplification_threshold)
-
-        # Check if the numpy array is empty or contains very low values
-        if np.max(np.abs(stem_source)) < 1e-6:
-            self.logger.warning("Warning: stem_source array is near-silent or empty.")
-            return
 
         # If output_dir is specified, create it and join it with stem_path
         if self.output_dir:
-            os.makedirs(self.output_dir, exist_ok=True)
             stem_path = os.path.join(self.output_dir, stem_path)
+            try:
+                os.makedirs(self.output_dir, exist_ok=True)
+            except Exception as e:
+                raise AudioExportError(f"Failed to prepare output directory for {stem_path}: {e}", path=stem_path, backend="pydub") from e
 
         self.logger.debug(f"Audio data shape before processing: {stem_source.shape}")
         self.logger.debug(f"Data type before conversion: {stem_source.dtype}")
@@ -331,20 +364,17 @@ class CommonSeparator:
             stem_source = (stem_source * 32767).astype(np.int16)
             self.logger.debug("Converted stem_source to int16 for pydub processing.")
 
-        # Correctly interleave stereo channels
-        stem_source_interleaved = np.empty((2 * stem_source.shape[0],), dtype=np.int16)
-        stem_source_interleaved[0::2] = stem_source[:, 0]  # Left channel
-        stem_source_interleaved[1::2] = stem_source[:, 1]  # Right channel
+        channels = 1 if stem_source.ndim == 1 else stem_source.shape[1]
+        stem_source_interleaved = np.ascontiguousarray(stem_source).reshape(-1)
 
         self.logger.debug(f"Interleaved audio data shape: {stem_source_interleaved.shape}")
 
         # Create a pydub AudioSegment (always from 16-bit data)
         try:
-            audio_segment = AudioSegment(stem_source_interleaved.tobytes(), frame_rate=self.sample_rate, sample_width=2, channels=2)
+            audio_segment = AudioSegment(stem_source_interleaved.tobytes(), frame_rate=self.sample_rate, sample_width=2, channels=channels)
             self.logger.debug("Created AudioSegment successfully.")
-        except (IOError, ValueError) as e:
-            self.logger.error(f"Specific error creating AudioSegment: {e}")
-            return
+        except Exception as e:
+            raise AudioExportError(f"Failed to create audio for {stem_path} with pydub: {e}", path=stem_path, backend="pydub") from e
 
         # Determine file format based on the file extension
         file_format = stem_path.lower().split(".")[-1]
@@ -358,8 +388,10 @@ class CommonSeparator:
         # Set the bitrate to 320k for mp3 files if output_bitrate is not specified
         bitrate = "320k" if file_format == "mp3" and self.output_bitrate is None else self.output_bitrate
 
+        target_path = stem_path
+
         # Export using the determined format
-        try:
+        with atomic_output_path(target_path, "pydub") as temp_path:
             # Pass codec parameters to ffmpeg to enforce bit depth for lossless formats
             export_params = {"format": file_format}
             
@@ -383,10 +415,11 @@ class CommonSeparator:
                     if file_format == "wav":
                         export_params["codec"] = "pcm_s32le"
             
-            audio_segment.export(stem_path, **export_params)
-            self.logger.debug(f"Exported audio file successfully to {stem_path} with {output_bit_depth}-bit depth")
-        except (IOError, ValueError) as e:
-            self.logger.error(f"Error exporting audio file: {e}")
+            export_handle = audio_segment.export(temp_path, **export_params)
+            close_export = getattr(export_handle, "close", None)
+            if callable(close_export):
+                close_export()
+        self.logger.debug(f"Exported audio file successfully to {target_path} with {output_bit_depth}-bit depth")
 
     def write_audio_soundfile(self, stem_path: str, stem_source):
         """
@@ -394,17 +427,16 @@ class CommonSeparator:
         """
         self.logger.debug(f"Entering write_audio_soundfile with stem_path: {stem_path}")
 
+        stem_source = validate_audio_source(stem_source)
         stem_source = spec_utils.normalize(wave=stem_source, max_peak=self.normalization_threshold, min_peak=self.amplification_threshold)
-
-        # Check if the numpy array is empty or contains very low values
-        if np.max(np.abs(stem_source)) < 1e-6:
-            self.logger.warning("Warning: stem_source array is near-silent or empty.")
-            return
 
         # If output_dir is specified, create it and join it with stem_path
         if self.output_dir:
-            os.makedirs(self.output_dir, exist_ok=True)
             stem_path = os.path.join(self.output_dir, stem_path)
+            try:
+                os.makedirs(self.output_dir, exist_ok=True)
+            except Exception as e:
+                raise AudioExportError(f"Failed to prepare output directory for {stem_path}: {e}", path=stem_path, backend="soundfile") from e
 
         # Determine the subtype based on the input audio's bit depth
         output_subtype = None
@@ -428,7 +460,7 @@ class CommonSeparator:
             self.logger.warning("No bit depth info available, defaulting to PCM_16")
 
         # Correctly interleave stereo channels if needed
-        if stem_source.shape[1] == 2:
+        if stem_source.ndim == 2 and stem_source.shape[1] == 2:
             # If the audio is already interleaved, ensure it's in the correct order
             # Check if the array is Fortran contiguous (column-major)
             if stem_source.flags["F_CONTIGUOUS"]:
@@ -442,13 +474,11 @@ class CommonSeparator:
         """
         Write audio using soundfile (for formats other than M4A).
         """
-        # Save audio using soundfile with the specified subtype
-        try:
+        target_path = stem_path
+        with atomic_output_path(target_path, "soundfile") as temp_path:
             # Specify the subtype to match input bit depth
-            sf.write(stem_path, stem_source, self.sample_rate, subtype=output_subtype)
-            self.logger.debug(f"Exported audio file successfully to {stem_path} with subtype {output_subtype}")
-        except Exception as e:
-            self.logger.error(f"Error exporting audio file: {e}")
+            sf.write(temp_path, stem_source, self.sample_rate, subtype=output_subtype)
+        self.logger.debug(f"Exported audio file successfully to {target_path} with subtype {output_subtype}")
 
     def clear_gpu_cache(self):
         """
@@ -519,9 +549,16 @@ class CommonSeparator:
         # Check for explicit Roformer flag
         if self.model_data.get("is_roformer", False):
             return True
+
+        # Prefer architecture-defining configuration over renameable paths.
+        from .roformer.configuration_normalizer import ConfigurationNormalizer
+
+        if ConfigurationNormalizer().detect_model_type(self.model_data) is not None:
+            return True
             
-        # Check model path for Roformer indicators
-        if self.model_path and "roformer" in self.model_path.lower():
+        # Keep filename-based compatibility without letting parent directories
+        # influence architecture routing.
+        if self.model_path and "roformer" in os.path.basename(self.model_path).lower():
             return True
             
         # Check model name for Roformer indicators

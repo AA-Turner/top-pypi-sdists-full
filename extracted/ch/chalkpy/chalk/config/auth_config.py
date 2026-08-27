@@ -10,6 +10,7 @@ import yaml
 
 from chalk.config._validator import Validator
 from chalk.config.project_config import load_project_config
+from chalk.config.web_identity import get_web_identity_token, web_identity_token_file_from_env
 from chalk.utils.log_with_context import get_logger
 
 _logger = get_logger(__name__)
@@ -22,6 +23,7 @@ class TokenConfig:
     name: Optional[str] = None
     apiServer: Optional[str] = None
     activeEnvironment: Optional[str] = None
+    webIdentityTokenFile: Optional[str] = None
 
     @staticmethod
     def from_py(raw: Any, path: str) -> "TokenConfig":
@@ -90,6 +92,24 @@ def load_token(
     api_server: Optional[str],
     skip_cache: bool = False,
 ) -> TokenConfig | None:
+    web_identity_file = web_identity_token_file_from_env()
+    if web_identity_file is not None:
+        web_identity = get_web_identity_token(web_identity_file)
+        return TokenConfig(
+            name="WebIdentity",
+            clientId="",
+            clientSecret="",
+            apiServer=api_server or _en("CHALK_API_SERVER") or "https://api.chalk.ai",
+            activeEnvironment=(
+                active_environment
+                or _en("CHALK_ENVIRONMENT", "_CHALK_ACTIVE_ENVIRONMENT")
+                or os.getenv("CHALK_ENVIRONMENT_ID")
+                or os.getenv("CHALK_ACTIVE_ENVIRONMENT")
+                or web_identity.environment_id
+            ),
+            webIdentityTokenFile=web_identity_file,
+        )
+
     token_name = "Explicit" if client_id and client_secret else "Environment"
 
     client_id = client_id or _en("CHALK_CLIENT_ID")

@@ -7,7 +7,7 @@ from .dubbing_export_item import DubbingExportItemParams
 
 
 class DubbingExportStatusDataParams(typing_extensions.TypedDict):
-    exports: typing_extensions.NotRequired[typing.Sequence[DubbingExportItemParams]]
+    exports: typing.Sequence[DubbingExportItemParams]
     """
     One entry per (target_language, export_type).
     """

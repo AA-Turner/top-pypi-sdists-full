@@ -7,7 +7,17 @@ from typing import TYPE_CHECKING
 
 import typer
 from rich.markup import escape
-from robot.api.parsing import Comment, End, If, IfHeader, ModelVisitor, Token
+from robot.api.parsing import (
+    Comment,
+    ElseHeader,
+    ElseIfHeader,
+    End,
+    If,
+    IfHeader,
+    KeywordCall,
+    ModelVisitor,
+    Token,
+)
 from robot.parsing.model import Statement
 from robot.utils.robotio import file_writer
 
@@ -52,13 +62,6 @@ def normalize_name(name: str) -> str:
 
 def after_last_dot(name: str) -> str:
     return name.split(".")[-1]
-
-
-def round_to_four(number: int) -> int:
-    div = number % 4
-    if div:
-        return number + 4 - div
-    return number
 
 
 def any_non_sep(tokens: list[Token]) -> bool:
@@ -131,7 +134,6 @@ class RecommendationFinder:
         # most popular typos
         norm_cand["align"] = ["AlignSettingsSection", "AlignVariablesSection"]
         norm_cand["normalize"] = [
-            "NormalizeAssignments",
             "NormalizeNewLines",
             "NormalizeSectionHeaderName",
             "NormalizeSeparators",
@@ -140,7 +142,6 @@ class RecommendationFinder:
         norm_cand["order"] = ["OrderSettings", "OrderSettingsSection"]
         norm_cand["alignsettings"] = ["AlignSettingsSection"]
         norm_cand["alignvariables"] = ["AlignVariablesSection"]
-        norm_cand["assignmentnormalizer"] = ["NormalizeAssignments"]
         return norm_cand
 
 
@@ -217,6 +218,127 @@ def wrap_in_if_and_replace_statement(node: Statement, statement: type[Statement]
     return If(header=header, body=[body], orelse=None, end=end)
 
 
+def _run_keyword_if_insert_separators(indent: str, tokens: list[Token], separator: str) -> Generator[Token, None, None]:
+    yield Token(Token.SEPARATOR, indent)
+    for token in tokens[:-1]:
+        yield token
+        yield Token(Token.SEPARATOR, separator)
+    yield tokens[-1]
+    yield Token(Token.EOL)
+
+
+def _run_keyword_if_split_args(
+    args: list[Token], delimiters: tuple[str, ...], assign: list[Token] | None = None
+) -> Generator[list[Token], None, None]:
+    split_points = [index for index, arg in enumerate(args) if arg.value in delimiters]
+    prev_index = 0
+    for split_point in split_points:
+        yield args[prev_index:split_point]
+        prev_index = split_point
+    yield args[prev_index : len(args)]
+    if assign and "ELSE" in delimiters and not any(arg.value == "ELSE" for arg in args):
+        values = [Token(Token.ARGUMENT, "${None}")] * len(assign)
+        yield [Token(Token.ELSE), Token(Token.ARGUMENT, "Set Variable"), *values]
+
+
+def _run_keyword_if_useless_set_variable(tokens: list[Token], assign: list[Token]) -> bool:
+    if not assign or normalize_name(tokens[0].value) != "setvariable" or len(tokens[1:]) != len(assign):
+        return False
+    return all(
+        normalize_name(var.value) == normalize_name(var_assign.value)
+        for var, var_assign in zip(tokens[1:], assign, strict=False)
+    )
+
+
+def _run_keyword_if_args_to_keyword(
+    arg_tokens: list[Token], assign: list[Token], indent: str, separator: str
+) -> KeywordCall:
+    separated_tokens = list(
+        _run_keyword_if_insert_separators(
+            indent,
+            [*assign, Token(Token.KEYWORD, arg_tokens[0].value), *arg_tokens[1:]],
+            separator,
+        )
+    )
+    return KeywordCall.from_tokens(separated_tokens)
+
+
+def _run_keyword_if_create_keywords(
+    arg_tokens: list[Token], assign: list[Token], indent: str, separator: str
+) -> list[KeywordCall]:
+    keyword_name = normalize_name(arg_tokens[0].value)
+    if keyword_name == "runkeywords":
+        return [
+            _run_keyword_if_args_to_keyword(keyword[1:], assign, indent, separator)
+            for keyword in _run_keyword_if_split_args(arg_tokens, ("AND",))
+        ]
+    if is_var(keyword_name):
+        keyword_token = Token(Token.KEYWORD_NAME, "Run Keyword")
+        arg_tokens = [keyword_token, *arg_tokens]
+    return [_run_keyword_if_args_to_keyword(arg_tokens, assign, indent, separator)]
+
+
+def run_keyword_if_to_branched(
+    node: KeywordCall, separator: str, indent: str, negate: bool = False
+) -> If | KeywordCall:
+    """
+    Convert a ``Run Keyword If`` (or ``Run Keyword Unless``) keyword call to an ``IF`` block.
+
+    ``separator`` is the whitespace used between tokens, ``indent`` is the extra indentation added to the block body.
+    When ``negate`` is set (``Run Keyword Unless``) the ``IF`` condition is wrapped in ``not (...)``.
+    The original ``node`` is returned unchanged when it cannot be safely converted.
+    """
+    base_separator = node.tokens[0]
+    assign = node.get_tokens(Token.ASSIGN)
+    raw_args = node.get_tokens(Token.ARGUMENT)
+    if len(raw_args) < 2:
+        return node
+    end = End([base_separator, Token(Token.END), Token(Token.EOL)])
+    prev_if: If | None = None
+    for branch in reversed(list(_run_keyword_if_split_args(raw_args, ("ELSE", "ELSE IF"), assign=assign))):
+        if branch[0].value == "ELSE":
+            if len(branch) < 2:
+                return node
+            args = branch[1:]
+            if _run_keyword_if_useless_set_variable(args, assign):
+                continue
+            header = ElseHeader([base_separator, Token(Token.ELSE), Token(Token.EOL)])
+        elif branch[0].value == "ELSE IF":
+            if len(branch) < 3:
+                return node
+            header = ElseIfHeader(
+                [
+                    base_separator,
+                    Token(Token.ELSE_IF),
+                    Token(Token.SEPARATOR, separator),
+                    branch[1],
+                    Token(Token.EOL),
+                ]
+            )
+            args = branch[2:]
+        else:
+            if len(branch) < 2:
+                return node
+            condition = Token(Token.ARGUMENT, f"not ({branch[0].value})") if negate else branch[0]
+            header = IfHeader(
+                [
+                    base_separator,
+                    Token(Token.IF),
+                    Token(Token.SEPARATOR, separator),
+                    condition,
+                    Token(Token.EOL),
+                ]
+            )
+            args = branch[1:]
+        keywords = _run_keyword_if_create_keywords(args, assign, base_separator.value + indent, separator)
+        if_block = If(header=header, body=keywords, orelse=prev_if)
+        prev_if = if_block
+    if prev_if is None:
+        return node
+    prev_if.end = end
+    return prev_if
+
+
 def get_comments(tokens: list[Token]) -> list[Token]:
     prev_sep = ""
     comments = []
@@ -247,6 +369,49 @@ def collect_comments_from_tokens(tokens: list[Token], indent: Token | None) -> l
     if indent:
         return [Comment([indent, comment, eol]) for comment in comments]
     return [Comment([comment, eol]) for comment in comments]
+
+
+def _split_tokens_into_lines(tokens: list[Token]) -> Generator[list[Token]]:
+    """Yield tokens grouped by physical line (split on EOL)."""
+    line: list[Token] = []
+    for token in tokens:
+        line.append(token)
+        if token.type == Token.EOL:
+            yield line
+            line = []
+    if line:
+        yield line
+
+
+def split_comments_by_anchor(tokens: list[Token], indent: Token | None) -> tuple[list[Comment], dict[int, list[Token]]]:
+    """
+    Split comments into standalone comment lines and trailing comments.
+
+    A comment that shares a physical line with data tokens (keyword name or arguments) is considered a
+    *trailing* comment and is anchored to the last data token preceding it on that line. A comment that occupies
+    its own line is considered *standalone*.
+
+    Returns a tuple of ``(standalone_comments, anchor_map)`` where ``standalone_comments`` is a list of
+    ``Comment`` nodes (to be emitted before the statement) and ``anchor_map`` maps ``id(data_token)`` to the list
+    of trailing comment tokens that should be rendered on the same output line as that data token.
+    """
+    standalone: list[Comment] = []
+    anchor_map: dict[int, list[Token]] = {}
+    eol = Token(Token.EOL)
+    for line in _split_tokens_into_lines(tokens):
+        data_tokens = [
+            token for token in line if token.type not in (Token.SEPARATOR, Token.EOL, Token.CONTINUATION, Token.COMMENT)
+        ]
+        line_comments = get_comments(line)
+        if not line_comments:
+            continue
+        if data_tokens:
+            anchor_map.setdefault(id(data_tokens[-1]), []).extend(line_comments)
+        elif indent:
+            standalone.extend(Comment([indent, comment, eol]) for comment in line_comments)
+        else:
+            standalone.extend(Comment([comment, eol]) for comment in line_comments)
+    return standalone, anchor_map
 
 
 def flatten_multiline(tokens: list[Token], separator: str, remove_comments: bool = False) -> list[Token]:

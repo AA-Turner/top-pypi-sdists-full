@@ -6,6 +6,10 @@ import typing_extensions
 
 
 class JsonSchemaDefinitionParams(typing_extensions.TypedDict):
+    """
+    The `json_schema` body of a `response_format` of type `json_schema`.
+    """
+
     name: str
     """
     The name of the response format. Must contain only alphanumeric characters, underscores and dashes.
@@ -16,7 +20,7 @@ class JsonSchemaDefinitionParams(typing_extensions.TypedDict):
     A description of what the response format is for, used by the model to determine how to respond in the format.
     """
 
-    schema: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    schema: typing.Dict[str, typing.Any]
     """
     The schema for the response format, described as a JSON Schema object.
     """

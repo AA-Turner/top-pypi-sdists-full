@@ -10,6 +10,7 @@ if typing.TYPE_CHECKING:
     from pyspark.sql import SparkSession
 
 from datacontract.config import Config
+from datacontract.engines.checks.dimensions import default_dimension
 from datacontract.engines.data_contract_test import execute_data_contract_test
 from datacontract.export.exporter import ExportFormat
 from datacontract.export.exporter_factory import exporter_factory
@@ -47,6 +48,7 @@ class DataContract:
         filter: str = None,
         filters: dict[str, str] | None = None,
         metadata_only: bool = False,
+        untrusted_contract: bool = False,
         config: "Config | dict[str, str] | None" = None,
     ):
         self._data_contract_file = data_contract_file
@@ -71,6 +73,9 @@ class DataContract:
         self._filter = filter
         self._filters = filters
         self._metadata_only = metadata_only
+        # The contract came from somewhere the caller does not control (the API
+        # server), so the SQL it carries must not reach the host running it.
+        self._untrusted_contract = untrusted_contract
         self._config = Config.resolve(config)
 
     @classmethod
@@ -97,7 +102,7 @@ class DataContract:
                     type="lint",
                     result=ResultEnum.passed,
                     name="Data contract is syntactically valid",
-                    engine="datacontract",
+                    engine="datacontract-cli",
                 )
             )
             run.dataContractId = data_contract.id
@@ -124,7 +129,7 @@ class DataContract:
                     result=ResultEnum.error,
                     name="Check Data Contract",
                     reason=str(e),
-                    engine="datacontract",
+                    engine="datacontract-cli",
                 )
             )
             run.log_error(str(e))
@@ -172,12 +177,14 @@ class DataContract:
                 filters=self._filters,
                 metadata_only=self._metadata_only,
                 config=self._config,
+                untrusted_contract=self._untrusted_contract,
             )
 
         except DataContractException as e:
             run.checks.append(
                 Check(
                     type=e.type,
+                    dimension=default_dimension(e.type),
                     name=e.name,
                     result=e.result,
                     reason=e.reason,
@@ -193,7 +200,7 @@ class DataContract:
                     result=ResultEnum.error,
                     name="Test Data Contract",
                     reason=str(e),
-                    engine="datacontract",
+                    engine="datacontract-cli",
                 )
             )
             logging.exception("Exception occurred")
@@ -202,7 +209,9 @@ class DataContract:
         run.finish()
 
         if self._publish_url is not None or self._publish_test_results:
-            publish_test_results_to_entropy_data(run, self._publish_url, self._ssl_verification, config=self._config)
+            run.publish_succeeded = publish_test_results_to_entropy_data(
+                run, self._publish_url, self._ssl_verification, config=self._config
+            )
 
         return run
 

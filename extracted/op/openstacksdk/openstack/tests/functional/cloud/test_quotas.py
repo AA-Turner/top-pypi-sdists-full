@@ -23,7 +23,9 @@ from openstack.tests.functional import base
 class TestComputeQuotas(base.BaseFunctionalTest):
     def test_get_quotas(self):
         '''Test quotas functionality'''
-        self.user_cloud.get_compute_quotas(self.user_cloud.current_project_id)
+        project_id = self.user_cloud.current_project_id
+        assert project_id is not None
+        self.user_cloud.get_compute_quotas(project_id)
 
     def test_set_quotas(self):
         '''Test quotas functionality'''
@@ -50,7 +52,9 @@ class TestVolumeQuotas(base.BaseFunctionalTest):
 
     def test_get_quotas(self):
         '''Test get quotas functionality'''
-        self.user_cloud.get_volume_quotas(self.user_cloud.current_project_id)
+        project_id = self.user_cloud.current_project_id
+        assert project_id is not None
+        self.user_cloud.get_volume_quotas(project_id)
 
     def test_set_quotas(self):
         '''Test set quotas functionality'''
@@ -73,7 +77,9 @@ class TestVolumeQuotas(base.BaseFunctionalTest):
 class TestNetworkQuotas(base.BaseFunctionalTest):
     def test_get_quotas(self):
         '''Test get quotas functionality'''
-        self.user_cloud.get_network_quotas(self.user_cloud.current_project_id)
+        project_id = self.user_cloud.current_project_id
+        assert project_id is not None  # narrow type
+        self.user_cloud.get_network_quotas(project_id)
 
     def test_quotas(self):
         '''Test quotas functionality'''

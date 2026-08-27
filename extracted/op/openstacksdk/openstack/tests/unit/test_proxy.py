@@ -12,10 +12,11 @@
 
 import copy
 import queue
-from requests import Response
+from typing import Any
 from unittest import mock
 
 from keystoneauth1 import session
+from requests import Response
 from testscenarios import load_tests_apply_scenarios as load_tests  # noqa
 
 from openstack import exceptions
@@ -110,7 +111,9 @@ class TestProxyPrivate(base.TestCase):
         fake_type.new = mock.Mock(return_value=value)
         attrs = {"first": "Brian", "last": "Curtin"}
 
-        result = self.fake_proxy._get_resource(fake_type, None, **attrs)
+        result: resource.Resource = self.fake_proxy._get_resource(
+            fake_type, None, **attrs
+        )
 
         fake_type.new.assert_called_with(connection=self.cloud, **attrs)
         self.assertEqual(value, result)
@@ -126,12 +129,14 @@ class TestProxyPrivate(base.TestCase):
         # of that same behavior to let us check that `new` gets
         # called with the expected arguments.
 
-        class Fake:
-            call = {}
+        class Fake(resource.Resource):
+            call: dict[str, object] = {}
 
             @classmethod
             def new(cls, **kwargs):
                 cls.call = kwargs
+                # deliberately return a sentinel rather than a Resource to
+                # confirm _get_resource returns exactly what new() returned
                 return value
 
         result = self.fake_proxy._get_resource(Fake, id, **attrs)
@@ -161,7 +166,9 @@ class TestProxyPrivate(base.TestCase):
         m = utils.Munch(answer=42)
         attrs = {"first": "Brian", "last": "Curtin"}
 
-        result = self.fake_proxy._get_resource(cls, m, **attrs)
+        result: resource.Resource = self.fake_proxy._get_resource(
+            cls, m, **attrs
+        )
 
         cls._from_munch.assert_called_once_with(m, connection=self.cloud)
         res._update.assert_called_once_with(**attrs)
@@ -175,21 +182,24 @@ class TestProxyDelete(base.TestCase):
         self.session = mock.Mock()
         self.session._sdk_connection = self.cloud
 
-        self.fake_id = 1
+        self.fake_id = "1"
         self.res = mock.Mock(spec=DeleteableResource)
         self.res.id = self.fake_id
         self.res.delete = mock.Mock()
 
         self.sot = proxy.Proxy(self.session)
         self.sot._connection = self.cloud
-        DeleteableResource.new = mock.Mock(return_value=self.res)
+        self.mock_new = mock.patch.object(
+            DeleteableResource, 'new', return_value=self.res
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
     def test_delete(self):
         self.sot._delete(DeleteableResource, self.res)
         self.res.delete.assert_called_with(self.sot, params=None)
 
         self.sot._delete(DeleteableResource, self.fake_id)
-        DeleteableResource.new.assert_called_with(
+        self.mock_new.assert_called_with(
             connection=self.cloud, id=self.fake_id
         )
         self.res.delete.assert_called_with(self.sot, params=None)
@@ -247,7 +257,7 @@ class TestProxyUpdate(base.TestCase):
 
         self.session = mock.Mock()
 
-        self.fake_id = 1
+        self.fake_id = "1"
         self.fake_result = "fake_result"
 
         self.res = mock.Mock(spec=UpdateableResource)
@@ -256,9 +266,12 @@ class TestProxyUpdate(base.TestCase):
         self.sot = proxy.Proxy(self.session)
         self.sot._connection = self.cloud
 
-        self.attrs = {"x": 1, "y": 2, "z": 3}
+        self.attrs: dict[str, Any] = {"x": 1, "y": 2, "z": 3}
 
-        UpdateableResource.new = mock.Mock(return_value=self.res)
+        mock.patch.object(
+            UpdateableResource, 'new', return_value=self.res
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
     def test_update_resource(self):
         rv = self.sot._update(UpdateableResource, self.res, **self.attrs)
@@ -299,28 +312,30 @@ class TestProxyCreate(base.TestCase):
         self.sot._connection = self.cloud
 
     def test_create_attributes(self):
-        CreateableResource.new = mock.Mock(return_value=self.res)
+        mock_new = mock.patch.object(
+            CreateableResource, 'new', return_value=self.res
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
-        attrs = {"x": 1, "y": 2, "z": 3}
+        attrs: dict[str, Any] = {"x": 1, "y": 2, "z": 3}
         rv = self.sot._create(CreateableResource, **attrs)
 
         self.assertEqual(rv, self.fake_result)
-        CreateableResource.new.assert_called_once_with(
-            connection=self.cloud, **attrs
-        )
+        mock_new.assert_called_once_with(connection=self.cloud, **attrs)
         self.res.create.assert_called_once_with(self.sot, base_path=None)
 
     def test_create_attributes_override_base_path(self):
-        CreateableResource.new = mock.Mock(return_value=self.res)
+        mock_new = mock.patch.object(
+            CreateableResource, 'new', return_value=self.res
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
         base_path = 'dummy'
         attrs = {"x": 1, "y": 2, "z": 3}
         rv = self.sot._create(CreateableResource, base_path=base_path, **attrs)
 
         self.assertEqual(rv, self.fake_result)
-        CreateableResource.new.assert_called_once_with(
-            connection=self.cloud, **attrs
-        )
+        mock_new.assert_called_once_with(connection=self.cloud, **attrs)
         self.res.create.assert_called_once_with(self.sot, base_path=base_path)
 
 
@@ -337,13 +352,16 @@ class TestProxyBulkCreate(base.TestCase):
 
         self.sot = proxy.Proxy(self.session)
         self.cls = Res
-        self.cls.bulk_create = mock.Mock(return_value=self.result)
+        self.mock_bulk_create = mock.patch.object(
+            self.cls, 'bulk_create', return_value=self.result
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
     def test_bulk_create_attributes(self):
         rv = self.sot._bulk_create(self.cls, self.data)
 
         self.assertEqual(rv, self.result)
-        self.cls.bulk_create.assert_called_once_with(
+        self.mock_bulk_create.assert_called_once_with(
             self.sot, self.data, base_path=None
         )
 
@@ -353,7 +371,7 @@ class TestProxyBulkCreate(base.TestCase):
         rv = self.sot._bulk_create(self.cls, self.data, base_path=base_path)
 
         self.assertEqual(rv, self.result)
-        self.cls.bulk_create.assert_called_once_with(
+        self.mock_bulk_create.assert_called_once_with(
             self.sot, self.data, base_path=base_path
         )
 
@@ -365,7 +383,7 @@ class TestProxyGet(base.TestCase):
         self.session = mock.Mock()
         self.session._sdk_connection = self.cloud
 
-        self.fake_id = 1
+        self.fake_id = "1"
         self.fake_name = "fake_name"
         self.fake_result = "fake_result"
         self.res = mock.Mock(spec=RetrieveableResource)
@@ -374,7 +392,10 @@ class TestProxyGet(base.TestCase):
 
         self.sot = proxy.Proxy(self.session)
         self.sot._connection = self.cloud
-        RetrieveableResource.new = mock.Mock(return_value=self.res)
+        self.mock_new = mock.patch.object(
+            RetrieveableResource, 'new', return_value=self.res
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
     def test_get_resource(self):
         rv = self.sot._get(RetrieveableResource, self.res)
@@ -389,7 +410,7 @@ class TestProxyGet(base.TestCase):
         self.assertEqual(rv, self.fake_result)
 
     def test_get_resource_with_args(self):
-        args = {"key": "value"}
+        args: dict[str, Any] = {"key": "value"}
         rv = self.sot._get(RetrieveableResource, self.res, **args)
 
         self.res._update.assert_called_once_with(**args)
@@ -405,7 +426,7 @@ class TestProxyGet(base.TestCase):
     def test_get_id(self):
         rv = self.sot._get(RetrieveableResource, self.fake_id)
 
-        RetrieveableResource.new.assert_called_with(
+        self.mock_new.assert_called_with(
             connection=self.cloud, id=self.fake_id
         )
         self.res.fetch.assert_called_with(
@@ -423,7 +444,7 @@ class TestProxyGet(base.TestCase):
             RetrieveableResource, self.fake_id, base_path=base_path
         )
 
-        RetrieveableResource.new.assert_called_with(
+        self.mock_new.assert_called_with(
             connection=self.cloud, id=self.fake_id
         )
         self.res.fetch.assert_called_with(
@@ -461,8 +482,9 @@ class TestProxyList(base.TestCase):
 
         self.sot = proxy.Proxy(self.session)
         self.sot._connection = self.cloud
-        ListableResource.list = mock.Mock()
-        ListableResource.list.return_value = self.fake_response
+        self.mock_list = mock.patch.object(ListableResource, 'list').start()
+        self.addCleanup(mock.patch.stopall)
+        self.mock_list.return_value = self.fake_response
 
     def _test_list(self, paginated, base_path=None):
         rv = self.sot._list(
@@ -473,7 +495,7 @@ class TestProxyList(base.TestCase):
         )
 
         self.assertEqual(self.fake_response, rv)
-        ListableResource.list.assert_called_once_with(
+        self.mock_list.assert_called_once_with(
             self.sot, paginated=paginated, base_path=base_path, **self.args
         )
 
@@ -492,23 +514,28 @@ class TestProxyList(base.TestCase):
             FilterableResource(a='a2', b='b2', c='c'),
             FilterableResource(a='a3', b='b3', c='c'),
         ]
-        FilterableResource.list = mock.Mock()
-        FilterableResource.list.return_value = fake_response
+        mock_list = mock.patch.object(FilterableResource, 'list').start()
+        self.addCleanup(mock.patch.stopall)
+        mock_list.return_value = fake_response
 
-        rv = self.sot._list(
-            FilterableResource,
-            paginated=False,
-            base_path=None,
-            jmespath_filters="[?c=='c']",
+        rv = list(
+            self.sot._list(
+                FilterableResource,
+                paginated=False,
+                base_path=None,
+                jmespath_filters="[?c=='c']",
+            )
         )
         self.assertEqual(3, len(rv))
 
         # Test filtering based on unknown attribute
-        rv = self.sot._list(
-            FilterableResource,
-            paginated=False,
-            base_path=None,
-            jmespath_filters="[?d=='c']",
+        rv = list(
+            self.sot._list(
+                FilterableResource,
+                paginated=False,
+                base_path=None,
+                jmespath_filters="[?d=='c']",
+            )
         )
         self.assertEqual(0, len(rv))
 
@@ -520,7 +547,7 @@ class TestProxyHead(base.TestCase):
         self.session = mock.Mock()
         self.session._sdk_connection = self.cloud
 
-        self.fake_id = 1
+        self.fake_id = "1"
         self.fake_name = "fake_name"
         self.fake_result = "fake_result"
         self.res = mock.Mock(spec=HeadableResource)
@@ -529,7 +556,10 @@ class TestProxyHead(base.TestCase):
 
         self.sot = proxy.Proxy(self.session)
         self.sot._connection = self.cloud
-        HeadableResource.new = mock.Mock(return_value=self.res)
+        self.mock_new = mock.patch.object(
+            HeadableResource, 'new', return_value=self.res
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
     def test_head_resource(self):
         rv = self.sot._head(HeadableResource, self.res)
@@ -547,7 +577,7 @@ class TestProxyHead(base.TestCase):
     def test_head_id(self):
         rv = self.sot._head(HeadableResource, self.fake_id)
 
-        HeadableResource.new.assert_called_with(
+        self.mock_new.assert_called_with(
             connection=self.cloud, id=self.fake_id
         )
         self.res.head.assert_called_with(self.sot, base_path=None)
@@ -555,6 +585,10 @@ class TestProxyHead(base.TestCase):
 
 
 class TestExtractName(base.TestCase):
+    # these are injected by testscenarios
+    url: str
+    parts: list[str]
+
     scenarios = [
         ('slash_servers_bare', dict(url='/servers', parts=['servers'])),
         ('slash_servers_arg', dict(url='/servers/1', parts=['server'])),
@@ -689,7 +723,7 @@ class TestProxyCleanup(base.TestCase):
         self.session = mock.Mock()
         self.session._sdk_connection = self.cloud
 
-        self.fake_id = 1
+        self.fake_id = "1"
         self.fake_name = "fake_name"
         self.fake_result = "fake_result"
         self.res = mock.Mock(spec=resource.Resource)
@@ -772,7 +806,7 @@ class TestProxyCleanup(base.TestCase):
         self.delete_mock.assert_called_with(self.res)
 
     def test_service_cleanup_real_run_identified_resources(self):
-        rd = dict()
+        rd: dict[str, resource.Resource] = dict()
         self.assertTrue(
             self.sot._service_cleanup_del_res(
                 self.delete_mock,
@@ -829,7 +863,7 @@ class TestProxyCleanup(base.TestCase):
         self.delete_mock.assert_called()
 
     def test_service_cleanup_queue(self):
-        q = queue.Queue()
+        q: queue.Queue[resource.Resource] = queue.Queue()
         self.assertTrue(
             self.sot._service_cleanup_del_res(
                 self.delete_mock,

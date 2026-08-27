@@ -21,7 +21,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 
 from aigie.tracing.event_classifier import EventKind, FrameworkEvent, FrameworkEventClassifier
 from aigie.tracing.execution_state import ExecutionState
-from aigie.tracing.lc_trace_boundary import LangChainTraceBoundary
+from aigie.tracing.lc_trace_boundary import LangChainTraceBoundary, bump, trace_run_counters
 from aigie.tracing.lc_usage import usage_payload
 from aigie.tracing.llm_metadata import (
     extract_llm_params,
@@ -58,6 +58,13 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
         self.spans = SpanEventHandler(emitter=emitter, config=config)
         self._workflow_name = workflow_name
         self._execution = ExecutionState()
+        # Replaced by the trace's own counters once a root is claimed; a handler
+        # that never opens one still needs somewhere to count.
+        self._counters: dict[str, Any] = {"tool_calls": 0, "turn_count": 0}
+        # A run that mints its own trace summarises it; one sharing a caller's
+        # trace leaves that to the caller's close, which is the only writer
+        # there that sees every run.
+        self._owns_trace = True
         self._classifier = classifier if classifier is not None else self._default_classifier()
         # Callback-driven trace-boundary state (used only when callback_driven).
         self._root_run_id: str | None = None
@@ -291,7 +298,7 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
             metadata=merged_metadata,
             extras=extras,
         )
-        self._execution.increment_turn()
+        bump(self._counters, "turn_count")
         self._execution.start_span(name=span_name, span_type="llm", at=datetime.now(timezone.utc))
 
     def on_chat_model_start(
@@ -388,6 +395,18 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
     # Tool events
     # ------------------------------------------------------------------
 
+    def bind_trace_tally(self, trace: Any, *, owns_trace: bool = True) -> None:
+        """Count into the trace's tally rather than this handler's own.
+
+        A bridge-driven handler never opens a callback root, so it has no other
+        chance to pick the trace's tally up — and without it a resumed leg would
+        re-stamp the root having seen only the calls made after the pause.
+        """
+        self._owns_trace = owns_trace
+        self._counters = trace_run_counters(trace)
+        self._counters.setdefault("agent", self._workflow_name)
+        bump(self._counters, "open_runs")
+
     def on_tool_start(
         self,
         serialized: dict[str, Any] | None,
@@ -408,6 +427,10 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
             fw_meta["tool_call_id"] = str(call_id)
         if self._note_start(run_id, parent_run_id, name, input_str, set_workflow_name=False):
             return
+        # Counted on the way in, per the span contract: a tool that raises or
+        # pauses reaches on_tool_error and never on_tool_end, and ToolNode
+        # swallows errors by default — counting at the far end dropped both.
+        bump(self._counters, "tool_calls")
         self.spans.open_span(
             run_id=str(run_id),
             parent_run_id=self._resolve_parent(parent_run_id),
@@ -425,7 +448,6 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
         run_id: UUID,
         **kwargs: Any,
     ) -> None:
-        self._execution.increment_tool_calls()
         state = self.spans.get_state(str(run_id))
         if state:
             self._execution.end_span(

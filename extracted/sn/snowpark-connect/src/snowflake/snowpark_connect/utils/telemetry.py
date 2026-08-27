@@ -103,6 +103,9 @@ RECORDED_CONFIG_KEYS = {
     "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
     "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
     "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
+    # SNOW-3957228: the NSS opt-in must be visible as a VALUE, not "<redacted>".
+    # It is reversible in both directions, so the value is the rollback signal too.
+    "snowflake.file.nextGenReader.enabled",
 }
 
 # IO option allowlist for telemetry reporting.
@@ -879,6 +882,88 @@ class Telemetry:
         summary["io"].append(entry)
 
     @safe
+    def report_nss_tvf(self, tvf: str) -> None:
+        """Count an NSS TVF invocation (SNOW-3957228).
+
+        ``tvf`` is the unqualified TVF name -- "INFER_STAGE_FILE_SCHEMA" or
+        "STAGE_FILE_READER". Counting them separately matters because they are distinct
+        TVFs with distinct failure modes: a read can fail during inference or during the
+        scan, and ``report_file_read_path`` alone reports both as ``path="nss"``.
+
+        Combined with ``was_successful`` / ``error_code`` in the same request summary, an
+        errored request showing ``{"INFER_STAGE_FILE_SCHEMA": 1}`` and no
+        ``STAGE_FILE_READER`` identifies inference as the last thing attempted.
+
+        Counts *attempts at issue time*, not successes. For ``STAGE_FILE_READER`` the count
+        is of query construction: the reader returns a lazy DataFrame, so execution happens
+        later -- the executed query itself is captured as a query id in ``summary["queries"]``
+        via the wrapped cursor. A count above 1 for ``INFER_STAGE_FILE_SCHEMA`` on a single
+        read is a re-inference signal (cf. SNOW-3891256).
+
+        Do NOT read the absence of an ``INFER_STAGE_FILE_SCHEMA`` count as "the caller
+        supplied an explicit schema". That correlation holds only incidentally today, because
+        both read mappers gate inference behind ``if schema is None``. SNOW-3717231 plans to
+        call a with-schema ``INFER_STAGE_FILE_SCHEMA`` for explicit-schema reads too, so that
+        the backend returns the same per-column response format in both cases -- once it lands,
+        an explicit-schema read will also produce an INFER count and any query built on that
+        inference will silently start returning wrong answers. If schema provenance is ever
+        actually needed, record it explicitly rather than deriving it from this counter.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "nss_tvf" not in summary:
+            summary["nss_tvf"] = defaultdict(int)
+
+        summary["nss_tvf"][tvf] += 1
+
+    @safe
+    def report_file_read_path(self, io_type: str, path: str, reason: str) -> None:
+        """Record which file-read path served a read, and why (SNOW-3957228).
+
+        ``path`` is "nss" or "copy"; ``reason`` is one of the ``NSS_REASON_*`` constants in
+        ``config`` ("session_conf" / "env_var" / "default").
+
+        **This is the ATTEMPTED path, not a successful read.** The entry is appended at
+        dispatch, ahead of every NSS sub-guard, so a read that then fails -- multi-path,
+        an unparseable schema, or a sandbox error -- still leaves ``path="nss"`` behind.
+        That is what makes the field usable as an NSS error-rate *denominator*, but it
+        means any "successful NSS reads" query must join to ``was_successful`` on the same
+        summary row rather than counting entries.
+
+        Two gaps to remember when writing "total reads" queries:
+
+        * **Streaming reads never appear.** CSV/JSON streaming raises
+          ``UNSUPPORTED_OPERATION`` before this branch, so it produces no entry at all.
+        * **A pre-dispatch failure never appears.** A read that dies before the mapper
+          (e.g. a stage upload error) has no entry, so a missing entry means "never
+          reached the reader", *not* "went through COPY".
+
+        Deliberately separate from :meth:`report_io_read`: that fires in ``map_read`` before
+        the NSS/COPY branch is taken and so cannot know the path. This is emitted from the
+        branch itself, at the point the read actually dispatches -- which also makes it the
+        *effective* path rather than the requested config, since NSS additionally requires
+        server-side gates and a resolvable JVM package.
+
+        Per read rather than per session on purpose: ``is_nss_enabled`` is read live, so one
+        session can serve some reads via NSS and others via COPY. The request summary already
+        carries ``spark_session_id``, so this rolls up to per-session for free.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "file_read_paths" not in summary:
+            summary["file_read_paths"] = []
+
+        summary["file_read_paths"].append(
+            {"type": io_type, "path": path, "reason": reason}
+        )
+
+    @safe
     def report_io_read(
         self, io_type: str, options: dict[str, str] | None = None
     ) -> None:
@@ -892,12 +977,34 @@ class Telemetry:
 
     @safe
     def send_server_started_telemetry(self):
+        # Deferred import: config imports this module at module level, so importing it
+        # back at module scope would be a cycle. Guarded because this method is @safe --
+        # an unguarded failure here would swallow the whole SERVER_STARTED event, turning
+        # a missing NSS field into the loss of a pre-existing event. Degrade the one
+        # field instead. ImportError specifically: the call itself only reads os.environ.
+        try:
+            from snowflake.snowpark_connect.config import nss_env_var_enabled
+        except ImportError:  # pragma: no cover - config is already in sys.modules
+            logger.warning(
+                "could not resolve nss_env_var_enabled; "
+                "reporting nss_env_enabled=False"
+            )
+            nss_env_enabled = False
+        else:
+            nss_env_enabled = nss_env_var_enabled()
+
         message = {
             **self._basic_telemetry_data(),
             TelemetryField.KEY_TYPE.value: TelemetryType.TYPE_EVENT.value,
             TelemetryType.EVENT_TYPE.value: EventType.SERVER_STARTED.value,
             TelemetryField.KEY_DATA.value: {
                 TelemetryField.KEY_START_TIME.value: get_time_millis(),
+                # SNOW-3957228: the server-side NSS switch. Reported here, once per server,
+                # because the per-read `reason` only appears once traffic arrives -- without
+                # this an operator cannot confirm from telemetry that their enable took
+                # effect on a server that has not served a file read yet. Mirrors how
+                # _basic_telemetry_data promotes SNOWPARK_SUBMIT_* env vars to fields.
+                "nss_env_enabled": nss_env_enabled,
             },
         }
         self._send(message)

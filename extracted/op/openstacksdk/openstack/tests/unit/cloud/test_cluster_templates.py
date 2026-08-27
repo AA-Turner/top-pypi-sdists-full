@@ -10,12 +10,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from typing import Any
+
 from openstack.container_infrastructure_management.v1 import cluster_template
 from openstack import exceptions
 from openstack.tests.unit import base
 
 
-cluster_template_obj = dict(
+cluster_template_obj: dict[str, Any] = dict(
     apiserver_port=12345,
     cluster_distro='fake-distro',
     coe='fake-coe',
@@ -56,15 +58,19 @@ class TestClusterTemplates(base.TestCase):
     def get_mock_url(
         self,
         service_type='container-infrastructure-management',
-        base_url_append=None,
-        append=None,
+        interface='public',
         resource=None,
+        append=None,
+        base_url_append=None,
+        qs_elements=None,
     ):
         return super().get_mock_url(
             service_type=service_type,
+            interface=interface,
             resource=resource,
             append=append,
             base_url_append=base_url_append,
+            qs_elements=qs_elements,
         )
 
     def test_list_cluster_templates_without_detail(self):
@@ -143,9 +149,16 @@ class TestClusterTemplates(base.TestCase):
             [
                 dict(
                     method='GET',
+                    uri=self.get_mock_url(
+                        resource='clustertemplates/fake-cluster-template'
+                    ),
+                    status_code=404,
+                ),
+                dict(
+                    method='GET',
                     uri=self.get_mock_url(resource='clustertemplates'),
                     json=dict(clustertemplates=[cluster_template_obj]),
-                )
+                ),
             ]
         )
 
@@ -162,9 +175,16 @@ class TestClusterTemplates(base.TestCase):
             [
                 dict(
                     method='GET',
+                    uri=self.get_mock_url(
+                        resource='clustertemplates/doesNotExist'
+                    ),
+                    status_code=404,
+                ),
+                dict(
+                    method='GET',
                     uri=self.get_mock_url(resource='clustertemplates'),
                     json=dict(clustertemplates=[]),
-                )
+                ),
             ]
         )
         r = self.cloud.get_cluster_template('doesNotExist')
@@ -220,8 +240,10 @@ class TestClusterTemplates(base.TestCase):
             [
                 dict(
                     method='GET',
-                    uri=self.get_mock_url(resource='clustertemplates'),
-                    json=dict(clustertemplates=[cluster_template_obj]),
+                    uri=self.get_mock_url(
+                        resource='clustertemplates/fake-uuid'
+                    ),
+                    json=cluster_template_obj,
                 ),
                 dict(
                     method='DELETE',
@@ -239,8 +261,10 @@ class TestClusterTemplates(base.TestCase):
             [
                 dict(
                     method='GET',
-                    uri=self.get_mock_url(resource='clustertemplates'),
-                    json=dict(clustertemplates=[cluster_template_obj]),
+                    uri=self.get_mock_url(
+                        resource='clustertemplates/fake-uuid'
+                    ),
+                    json=cluster_template_obj,
                 ),
                 dict(
                     method='PATCH',
@@ -272,9 +296,16 @@ class TestClusterTemplates(base.TestCase):
             [
                 dict(
                     method='GET',
+                    uri=self.get_mock_url(
+                        resource='clustertemplates/fake-cluster-template'
+                    ),
+                    status_code=404,
+                ),
+                dict(
+                    method='GET',
                     uri=self.get_mock_url(resource='clustertemplates'),
                     json=dict(clustertemplates=[cluster_template_obj]),
-                )
+                ),
             ]
         )
 

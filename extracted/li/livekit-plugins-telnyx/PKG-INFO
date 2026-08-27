@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-telnyx
-Version: 1.7.0
+Version: 1.7.1
 Summary: Telnyx implementation for LiveKit Agents
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -18,7 +18,7 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: aiohttp>=3.10.0
-Requires-Dist: livekit-agents>=1.7.0
+Requires-Dist: livekit-agents>=1.7.1
 Requires-Dist: livekit-api>=0.6.0
 Description-Content-Type: text/markdown
 

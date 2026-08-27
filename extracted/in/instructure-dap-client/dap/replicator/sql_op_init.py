@@ -5,6 +5,7 @@ from typing import Type, Optional
 import aiofiles
 from pysqlsync.base import BaseContext, Explorer
 from pysqlsync.data.exchange import AsyncTextReader
+from pysqlsync.model.properties import get_primary_key_name_type
 from strong_typing.inspection import DataclassInstance
 
 from .. import ui
@@ -15,6 +16,7 @@ from ..replicator.sql_metatable_handler import (
     get_table_meta_record,
     initdb_insert_table_metadata,
 )
+from ..replicator.record_validation import validated_records
 from ..replicator.sql_op import (
     SqlOp,
     _TabularLabelMapping,
@@ -34,10 +36,11 @@ class SqlOpInit(SqlOp):
         namespace: str,
         table_name: str,
         explorer: Explorer,
+        dialect: str,
         session: Optional[DAPSession] = None,
         use_upsert: bool = False,
     ) -> None:
-        super().__init__(conn, namespace, table_name, explorer, session)
+        super().__init__(conn, namespace, table_name, explorer, dialect, session)
         self.use_upsert = use_upsert
 
     async def run(self) -> None:
@@ -125,14 +128,24 @@ class SqlOpInit(SqlOp):
                     table = conn.get_table(entity_type)
 
                     records_with_counter = AsyncCountingIterator(records)
+                    field_names = tuple(mapping.labels_to_fields[c] for c in columns)
                     operation = (
                         conn.upsert_rows if self.use_upsert else conn.insert_rows
                     )
                     await operation(
                         table,
-                        field_names=tuple(mapping.labels_to_fields[c] for c in columns),
+                        field_names=field_names,
                         field_types=field_types,
-                        records=records_with_counter,
+                        records=validated_records(
+                            records_with_counter,
+                            field_names=field_names,
+                            field_types=field_types,
+                            namespace=self.namespace,
+                            table_name=self.table_name,
+                            primary_key_name=get_primary_key_name_type(entity_type)[0],
+                            dialect=self.dialect,
+                            uses_upsert=self.use_upsert,
+                        ),
                     )
                     total_inserted_records += records_with_counter.count
                 progress.update(advance=1)

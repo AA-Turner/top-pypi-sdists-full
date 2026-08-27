@@ -330,7 +330,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.777"
+__version__ = "0.12.780"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -13779,6 +13779,10 @@ DASHBOARD_HTML = r"""
 <script src="{{ url_for('static', filename='js/i18n.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/runtime-logos.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/time-range-picker.js', v=version) }}"></script>
+<!-- Provenance badges: the shared "measured / derived / estimated" component
+     every dollar amount and score renders through. Loaded BEFORE app.js so
+     window.cmMoney / cmProvBadge exist by the time a tab paints. -->
+<script src="{{ url_for('static', filename='js/provenance.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/app.js', v=version) }}"></script>
 </div> <!-- end zoom-wrapper -->
 
@@ -18957,7 +18961,7 @@ ARCHITECTURE_OVERVIEW = """\
   ┌─────────────────────┐              ┌─────────────────────┐              ┌─────────────────────┐
   │  🤖                 │  READS FILES │  🦞                 │  SHOWS YOU  │  📊                 │
   │  Your AI agents     │ ──────────->  │                     │ ──────────->  │                     │
-  │  Any of 27 runtimes │              │  ClawMetry          │              │  Your browser       │
+  │  Any of 28 runtimes │              │  ClawMetry          │              │  Your browser       │
   │                     │              │  Parses logs +      │              │  localhost:{port}   │
   │  Running normally.  │              │  sessions.          │              │  Live dashboard     │
   │  Nothing changes.   │              │  Serves dashboard.  │              │                     │

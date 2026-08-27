@@ -60,7 +60,18 @@ def main():
     single_stem_help = "Output only single stem, e.g. Instrumental, Vocals, Drums, Bass, Guitar, Piano, Other. Example: --single_stem=Instrumental"
     sample_rate_help = "Modify the sample rate of the output audio (default: %(default)s). Example: --sample_rate=44100"
     use_soundfile_help = "Use soundfile to write audio output (default: %(default)s). Example: --use_soundfile"
-    use_autocast_help = "Use PyTorch autocast for faster inference (default: %(default)s). Do not use for CPU inference. Example: --use_autocast"
+    use_autocast_help = (
+        "Use PyTorch autocast when supported (default: %(default)s). Example: --use_autocast"
+    )
+    use_native_fp16_help = (
+        "Use native float16 for verified model/device combinations (default: %(default)s). "
+        "Mutually exclusive with --use_autocast. Example: --use_native_fp16"
+    )
+    use_torch_compile_help = (
+        "Compile verified repeated model blocks when supported (default: %(default)s). "
+        "Best for long inputs or repeated same-shape runs; a fresh compiler cache can make "
+        "the first run slower. Example: --use_torch_compile"
+    )
     use_directml_help = "Use DirectML for hardware-accelerated inference on Windows AMD/Intel GPUs (experimental; requires the 'dml' extra). Example: --use_directml"
     chunk_duration_help = "Split audio into chunks of this duration in seconds (default: %(default)s = no chunking). Useful for processing very long audio files on systems with limited memory. Recommended: 600 (10 minutes) for files >1 hour. Chunks are concatenated without overlap/crossfade. Example: --chunk_duration=600"
     ensemble_algorithm_help = "Algorithm to use for ensembling multiple models (default: avg_wave). Choices: avg_wave, median_wave, min_wave, max_wave, avg_fft, median_fft, min_fft, max_fft, uvr_max_spec, uvr_min_spec, ensemble_wav. Example: --ensemble_algorithm=uvr_max_spec"
@@ -76,7 +87,10 @@ def main():
     common_params.add_argument("--single_stem", default=None, help=single_stem_help)
     common_params.add_argument("--sample_rate", type=int, default=44100, help=sample_rate_help)
     common_params.add_argument("--use_soundfile", action="store_true", help=use_soundfile_help)
-    common_params.add_argument("--use_autocast", action="store_true", help=use_autocast_help)
+    precision_params = common_params.add_mutually_exclusive_group()
+    precision_params.add_argument("--use_autocast", action="store_true", help=use_autocast_help)
+    precision_params.add_argument("--use_native_fp16", action="store_true", help=use_native_fp16_help)
+    common_params.add_argument("--use_torch_compile", action="store_true", help=use_torch_compile_help)
     common_params.add_argument("--use_directml", action="store_true", help=use_directml_help)
     common_params.add_argument("--chunk_duration", type=float, default=None, help=chunk_duration_help)
     common_params.add_argument(
@@ -133,15 +147,15 @@ def main():
 
     mdxc_segment_size_help = "Larger consumes more resources, but may give better results (default: %(default)s). Example: --mdxc_segment_size=256"
     mdxc_override_model_segment_size_help = "Override model default segment size instead of using the model default value. Example: --mdxc_override_model_segment_size"
-    mdxc_overlap_help = "Amount of overlap between prediction windows, 2-50. Higher is better but slower (default: %(default)s). Example: --mdxc_overlap=8"
-    mdxc_batch_size_help = "Larger consumes more RAM but may process slightly faster (default: %(default)s). Example: --mdxc_batch_size=4"
+    mdxc_overlap_help = "Number of overlapping prediction windows, 2-50. Higher is better but slower (default: model config, falling back to 8). Example: --mdxc_overlap=8"
+    mdxc_batch_size_help = "Larger consumes more RAM but may process slightly faster (default: model config, falling back to 1). Example: --mdxc_batch_size=4"
     mdxc_pitch_shift_help = "Shift audio pitch by a number of semitones while processing. May improve output for deep/high vocals. (default: %(default)s). Example: --mdxc_pitch_shift=2"
 
     mdxc_params = parser.add_argument_group("MDXC Architecture Parameters")
     mdxc_params.add_argument("--mdxc_segment_size", type=int, default=256, help=mdxc_segment_size_help)
     mdxc_params.add_argument("--mdxc_override_model_segment_size", action="store_true", help=mdxc_override_model_segment_size_help)
-    mdxc_params.add_argument("--mdxc_overlap", type=int, default=8, help=mdxc_overlap_help)
-    mdxc_params.add_argument("--mdxc_batch_size", type=int, default=1, help=mdxc_batch_size_help)
+    mdxc_params.add_argument("--mdxc_overlap", type=int, default=None, help=mdxc_overlap_help)
+    mdxc_params.add_argument("--mdxc_batch_size", type=int, default=None, help=mdxc_batch_size_help)
     mdxc_params.add_argument("--mdxc_pitch_shift", type=int, default=0, help=mdxc_pitch_shift_help)
 
     args = parser.parse_args()
@@ -152,13 +166,13 @@ def main():
         log_level = getattr(logging, args.log_level.upper())
     logger.setLevel(log_level)
 
-    from audio_separator.separator import Separator
-
     if args.env_info:
+        from audio_separator.separator import Separator
         separator = Separator()
         sys.exit(0)
 
     if args.list_models:
+        from audio_separator.separator import Separator
         separator = Separator(info_only=True)
 
         if args.list_format == "json":
@@ -192,6 +206,7 @@ def main():
         sys.exit(0)
 
     if args.list_presets:
+        from audio_separator.separator import Separator
         separator = Separator(info_only=True)
         presets = separator.list_ensemble_presets()
 
@@ -219,6 +234,7 @@ def main():
         sys.exit(0)
 
     if args.download_model_only:
+        from audio_separator.separator import Separator
         models_to_download = [args.model_filename] + (args.extra_models or [])
         separator = Separator(log_formatter=log_formatter, log_level=log_level, model_file_dir=args.model_file_dir)
         for model in models_to_download:
@@ -235,6 +251,8 @@ def main():
 
     logger.info(f"Separator version {package_version} beginning with input path(s): {', '.join(audio_files)}")
 
+    from audio_separator.separator import Separator
+
     separator = Separator(
         log_formatter=log_formatter,
         log_level=log_level,
@@ -249,6 +267,8 @@ def main():
         sample_rate=args.sample_rate,
         use_soundfile=args.use_soundfile,
         use_autocast=args.use_autocast,
+        use_native_fp16=args.use_native_fp16,
+        use_torch_compile=args.use_torch_compile,
         use_directml=args.use_directml,
         chunk_duration=args.chunk_duration,
         ensemble_algorithm=args.ensemble_algorithm,
@@ -295,13 +315,13 @@ def main():
             model_filenames = model_filenames[0]
         separator.load_model(model_filename=model_filenames)
 
-    output_files = separator.separate(audio_files, custom_output_names=args.custom_output_names)
+    try:
+        output_files = separator.separate(audio_files, custom_output_names=args.custom_output_names)
+    except Exception as e:
+        logger.error(f"Separation failed: {e}", exc_info=True)
+        sys.exit(1)
 
     if not output_files:
-        # Separator.separate logs and swallows per-file errors so a batch can
-        # continue past one bad file — but if NOTHING was produced, the run
-        # failed and the CLI must not report success (this previously exited 0
-        # with "Separation complete!" after logging an error).
         logger.error("Separation produced no output files — see errors above.")
         sys.exit(1)
 

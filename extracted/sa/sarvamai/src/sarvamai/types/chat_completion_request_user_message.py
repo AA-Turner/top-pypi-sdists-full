@@ -4,10 +4,16 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .content import Content
 
 
 class ChatCompletionRequestUserMessage(UniversalBaseModel):
-    content: str = pydantic.Field()
+    role: typing.Literal["user"] = pydantic.Field(default="user")
+    """
+    The role of the messages author, in this case `user`.
+    """
+
+    content: Content = pydantic.Field()
     """
     The contents of the user message.
     """

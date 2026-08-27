@@ -3,6 +3,7 @@ import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from datetime import datetime
 from decimal import Decimal
 from types import TracebackType
 from typing import (
@@ -31,6 +32,7 @@ from polymarket._internal.actions import data as _data_actions
 from polymarket._internal.actions import gamma as _gamma_actions
 from polymarket._internal.actions import rewards as _rewards_actions
 from polymarket._internal.actions import rfq as _rfq_actions
+from polymarket._internal.actions import session_keys as _session_key_actions
 from polymarket._internal.actions.data import (
     ActivitySortBy,
     ActivityTypeFilter,
@@ -84,7 +86,8 @@ from polymarket._internal.actions.perps import credentials as _perps_credentials
 from polymarket._internal.actions.perps import funds as _perps_funds
 from polymarket._internal.actions.perps import public as _perps_actions
 from polymarket._internal.actions.relayer.approvals import (
-    resolve_missing_trading_approval_calls,
+    build_missing_trading_approval_calls,
+    get_trading_approvals_state,
 )
 from polymarket._internal.actions.relayer.auth import (
     build_builder_key_headers,
@@ -139,11 +142,13 @@ from polymarket._internal.l1_auth import sign_api_key_auth
 from polymarket._internal.rfq import RfqSessionContext
 from polymarket._internal.streams.handle import AsyncSubscriptionHandle, SubscriptionHandle
 from polymarket._internal.wallet import (
+    SignerType,
     WalletType,
-    classify_wallet_type,
+    classify_account,
     derive_beacon_deposit_wallet_address,
     derive_uups_deposit_wallet_address,
     signature_type_for,
+    wrap_deposit_wallet_signature,
 )
 from polymarket.auth import ApiKey, BuilderApiKey
 from polymarket.clients._transport import AsyncTransport
@@ -184,13 +189,14 @@ from polymarket.models import (
     Tag,
     TagReference,
     Team,
+    TradingApprovalsState,
 )
 from polymarket.models.clob.api_key import BuilderApiKeyInfo
 from polymarket.models.clob.cancel import CancelOrdersResponse
 from polymarket.models.clob.market_events import MarketEvent
 from polymarket.models.clob.order_response import AcceptedOrder, OrderResponse
 from polymarket.models.clob.orders import MarketOrderType, SignedOrder
-from polymarket.models.clob.relayer import RelayerTransactionType
+from polymarket.models.clob.relayer import RelayerTransactionType, TransactionOutcome
 from polymarket.models.clob.rewards import (
     CurrentReward,
     MarketReward,
@@ -247,6 +253,7 @@ from polymarket.models.rtds_events import (
 from polymarket.models.sports_events import SportsEvent
 from polymarket.models.types import CtfConditionId, TokenId
 from polymarket.pagination import AsyncPaginator, Page
+from polymarket.rate_limit import RateLimitUpdateListener
 from polymarket.rfq import (
     ComboFillResult,
     ComboQuote,
@@ -255,6 +262,12 @@ from polymarket.rfq import (
     RfqDirection,
     RfqSide,
     RfqStatusResult,
+)
+from polymarket.session_keys import (
+    AuthorizedSessionKey,
+    AuthorizeSessionKeyResult,
+    SessionKeyKnownScope,
+    SessionKeyScope,
 )
 from polymarket.streams._specs import (
     CommentsSpec,
@@ -360,6 +373,7 @@ class AsyncSecureClient:
         api_key: ApiKey | None = None,
         nonce: int = 0,
         logger: logging.Logger | None = None,
+        on_rate_limit_update: RateLimitUpdateListener | None = None,
     ) -> Self:
         """Create an authenticated async client.
 
@@ -370,6 +384,9 @@ class AsyncSecureClient:
                 derived during client creation.
             api_key: Optional key for gasless wallet and relayed transaction workflows.
             nonce: Credential derivation nonce. Cannot be combined with ``credentials``.
+            on_rate_limit_update: Listener invoked whenever a response reports
+                per-signer rate-limit state, as order and cancellation responses
+                do. Errors raised by the listener are ignored.
 
         Raises:
             UserInputError: If key material, wallet, nonce, or credentials are invalid.
@@ -384,6 +401,7 @@ class AsyncSecureClient:
             nonce=nonce,
             validate_credentials=True,
             logger=logger,
+            on_rate_limit_update=on_rate_limit_update,
         )
         try:
             return await client._ensure_wallet_ready()
@@ -403,6 +421,7 @@ class AsyncSecureClient:
         nonce: int = 0,
         validate_credentials: bool = True,
         logger: logging.Logger | None = None,
+        on_rate_limit_update: RateLimitUpdateListener | None = None,
     ) -> Self:
         if not private_key:
             raise UserInputError("private_key is required")
@@ -420,6 +439,11 @@ class AsyncSecureClient:
             wallet=wallet,
             config=config,
             logger=logger,
+        )
+        account = classify_account(
+            signer=signer.address,
+            wallet=resolved_wallet,
+            config=config.wallet_derivation,
         )
         try:
             wallet_checksum = to_checksum_address(resolved_wallet)
@@ -443,11 +467,14 @@ class AsyncSecureClient:
         return cls._construct_for_wallet(
             signer=signer,
             wallet=wallet_checksum,
+            wallet_type=account.wallet_type,
+            signer_type=account.signer_type,
             environment=environment,
             config=config,
             credentials=resolved_credentials,
             api_key=api_key,
             logger=logger,
+            on_rate_limit_update=on_rate_limit_update,
         )
 
     @classmethod
@@ -456,24 +483,26 @@ class AsyncSecureClient:
         *,
         signer: LocalAccount,
         wallet: str,
+        wallet_type: WalletType,
+        signer_type: SignerType,
         environment: Environment,
         config: EnvironmentConfig,
         credentials: ApiKeyCreds,
         api_key: ApiKey | None,
         logger: logging.Logger | None,
+        on_rate_limit_update: RateLimitUpdateListener | None,
     ) -> Self:
         wallet_checksum = to_checksum_address(wallet)
-        wallet_type = classify_wallet_type(
-            signer=signer.address,
-            wallet=wallet_checksum,
-            config=config.wallet_derivation,
-        )
         branded_wallet = cast(EvmAddress, wallet_checksum)
 
         gamma = AsyncTransport(base_url=config.gamma_url, logger=logger)
         data = AsyncTransport(base_url=config.data_url, logger=logger)
         rfq = AsyncTransport(base_url=config.rfq_url, logger=logger)
-        clob = AsyncTransport(base_url=config.clob_url, logger=logger)
+        clob = AsyncTransport(
+            base_url=config.clob_url,
+            logger=logger,
+            on_rate_limit_update=on_rate_limit_update,
+        )
         relayer_resolver = make_relayer_header_resolver(api_key) if api_key is not None else None
         relayer = AsyncTransport(
             base_url=config.relayer_url,
@@ -494,6 +523,7 @@ class AsyncSecureClient:
             base_url=config.clob_url,
             logger=logger,
             header_resolver=_make_l2_header_resolver(signer, credentials),
+            on_rate_limit_update=on_rate_limit_update,
         )
         rpc_transport = AsyncTransport(base_url=config.rpc_url, logger=logger)
         rpc = JsonRpcClient(rpc_transport)
@@ -511,6 +541,7 @@ class AsyncSecureClient:
             secure_clob=secure_clob,
             wallet=branded_wallet,
             wallet_type=wallet_type,
+            signer_type=signer_type,
             relayer=relayer,
             combos=combos,
             builder_gateway=builder_gateway,
@@ -544,6 +575,85 @@ class AsyncSecureClient:
     def credentials(self) -> ApiKeyCreds:
         """API credentials used for authenticated requests."""
         return self._ctx.credentials
+
+    async def authorize_session_key(
+        self,
+        *,
+        address: str,
+        scopes: Sequence[SessionKeyScope] = (SessionKeyKnownScope.ALL,),
+        valid_until: datetime,
+        idempotency_key: str | None = None,
+    ) -> AuthorizeSessionKeyResult:
+        """Authorize an externally managed signer for selected venues.
+
+        The SDK receives only the public address. The application remains
+        responsible for generating, storing, and protecting the private key.
+        Requires a :class:`BuilderApiKey` passed as ``api_key=`` when
+        constructing the client.
+        Scope names are normalized to uppercase. Unknown names remain usable
+        before this SDK enumerates them. When scopes are omitted,
+        authorization defaults to ``ALL``.
+
+        Resolves after the submitted transaction is confirmed and the session
+        key appears in the active session-key list.
+
+        Raises:
+            UserInputError: If the client or authorization input is invalid.
+            RequestRejectedError: If the authorization request is rejected.
+            RateLimitError: If the authorization or transaction request is rate-limited.
+            SigningError: If the owner signature cannot be produced.
+            TransportError: If a network request fails.
+            UnexpectedResponseError: If an authorization or transaction response is malformed.
+            TimeoutError: If transaction confirmation exceeds the wait budget.
+            TransactionFailedError: If the authorization transaction fails.
+        """
+        return await _session_key_actions.authorize_session_key(
+            self._ctx,
+            address=address,
+            scopes=scopes,
+            valid_until=valid_until,
+            idempotency_key=idempotency_key,
+        )
+
+    async def fetch_session_keys(self) -> tuple[AuthorizedSessionKey, ...]:
+        """Fetch active session keys authorized for the Deposit Wallet.
+
+        Raises:
+            UserInputError: If this client is not the Deposit Wallet owner.
+            RequestRejectedError: If the request is rejected.
+            RateLimitError: If the request is rate-limited.
+            SigningError: If request authentication cannot be produced.
+            TransportError: If the network request fails.
+            UnexpectedResponseError: If the response is malformed.
+        """
+        return await _session_key_actions.fetch_session_keys(self._ctx)
+
+    async def revoke_session_key(
+        self,
+        *,
+        address: str,
+        idempotency_key: str | None = None,
+    ) -> TransactionOutcome:
+        """Revoke a session key authorized for the Deposit Wallet.
+
+        Returns the confirmed transaction after order cleanup and on-chain
+        confirmation. Requires an ``api_key=`` that supports gasless transactions.
+
+        Raises:
+            UserInputError: If the client or revocation input is invalid.
+            RequestRejectedError: If the revocation request is rejected.
+            RateLimitError: If a revocation or transaction request remains rate-limited.
+            SigningError: If the owner signature cannot be produced.
+            TransportError: If a network request fails.
+            UnexpectedResponseError: If a revocation or transaction response is malformed.
+            TimeoutError: If transaction confirmation exceeds the wait budget.
+            TransactionFailedError: If the revocation transaction fails.
+        """
+        return await _session_key_actions.revoke_session_key(
+            self._ctx,
+            address=address,
+            idempotency_key=idempotency_key,
+        )
 
     @overload
     async def subscribe(self, specs: MarketSpec, /) -> SubscriptionHandle[MarketEvent]: ...
@@ -867,6 +977,7 @@ class AsyncSecureClient:
         context manager. Iterate over it to receive quote requests,
         confirmation requests, and execution updates.
         """
+        _combo_rfq_actions.assert_combos_supported(self._ctx)
         return RfqSessionContext(self._open_rfq_session)
 
     async def _open_rfq_session(self) -> "RfqQuoterSession":
@@ -2415,6 +2526,16 @@ class AsyncSecureClient:
         )
         return await self._dispatch_single_call(call, metadata=resolved_metadata)
 
+    async def get_trading_approvals_state(
+        self, *, wallet: str | None = None
+    ) -> TradingApprovalsState:
+        """Get missing trading approvals for a wallet or the authenticated wallet."""
+        return await get_trading_approvals_state(
+            self._ctx.rpc,
+            wallet=self._ctx.wallet if wallet is None else wallet,
+            config=self._ctx.environment_config,
+        )
+
     async def setup_trading_approvals(self) -> DeprecatedTransactionHandle:
         """Approve the standard set of trading allowances for the wallet.
 
@@ -2425,11 +2546,8 @@ class AsyncSecureClient:
         Returns:
             A deprecated compatibility handle whose ``wait()`` returns immediately.
         """
-        calls = await resolve_missing_trading_approval_calls(
-            self._ctx.rpc,
-            wallet=self._ctx.wallet,
-            config=self._ctx.environment_config,
-        )
+        state = await self.get_trading_approvals_state()
+        calls = build_missing_trading_approval_calls(state.missing)
         if not calls:
             return DeprecatedTransactionHandle()
         if self._ctx.wallet_type == "EOA":
@@ -3138,7 +3256,11 @@ class AsyncSecureClient:
             raise SigningError(f"Failed to sign order: {error}") from error
         raw_hex = signed_message.signature.hex()
         signature_hex = HexString(raw_hex if raw_hex.startswith("0x") else "0x" + raw_hex)
-        final_signature = build_order_signature(unsigned, signature_hex)
+        final_signature = wrap_deposit_wallet_signature(
+            signer=self._ctx.signer.address,
+            signer_type=self._ctx.signer_type,
+            signature=build_order_signature(unsigned, signature_hex),
+        )
         return create_signed_order(unsigned, final_signature, post_only=post_only)
 
     def list_current_rewards(

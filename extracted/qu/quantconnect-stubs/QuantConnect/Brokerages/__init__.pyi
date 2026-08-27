@@ -2520,6 +2520,29 @@ class SamcoBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
         ...
 
 
+class ClearStreetBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
+    """Represents a brokerage model specific to Clear Street."""
+
+    def __init__(self, account_type: QuantConnect.AccountType = ...) -> None:
+        """
+        Constructor for Clear Street brokerage model
+        
+        :param account_type: Cash or Margin
+        """
+        ...
+
+    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage could accept this order. This takes into account order type, security type.
+        
+        :param security: The security of the order
+        :param order: The order to be processed
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :returns: True if the brokerage could process the order, false otherwise.
+        """
+        ...
+
+
 class RBIBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """RBI Brokerage model"""
 
@@ -3678,6 +3701,9 @@ class BrokerageName(IntEnum):
 
     BLOOMBERG_FIX = 37
     """Transaction and submit/execution rules will use bloomberg fix models"""
+
+    CLEAR_STREET = 38
+    """Transaction and submit/execution rules will use Clear Street models"""
 
 
 class WolverineBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):

@@ -57,6 +57,11 @@ infrastructure:
   # write: can create infrastructure for an org
   # delete: can (soft) delete infrastructure for an org
   org_id: wildcard
+workspace_meta:
+  # read: can see that the workspace exists and list its deployed modules;
+  # grants no flow or data content (those are workspace / workspace_data)
+  org_id: wildcard
+  ws_id: wildcard
 workspace:
   # read: can read information about workspace and all flows within
   # write: can
@@ -89,6 +94,11 @@ flows:
   additional_actions:
     - execute
     - deploy
+flow_folders:
+  # write: can create and rename folders
+  # delete: can delete empty folders
+  org_id: wildcard
+  ws_id: wildcard
 workspace_routing_sandbox:
   # write: can modify sandbox routing
   org_id: wildcard

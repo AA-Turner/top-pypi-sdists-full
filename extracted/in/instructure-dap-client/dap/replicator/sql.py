@@ -71,6 +71,7 @@ class SQLReplicator:
                 namespace=namespace,
                 table_name=table_name,
                 explorer=explorer,
+                dialect=self._connection.dialect,
                 session=self._session,
                 use_upsert=use_upsert,
             )
@@ -96,6 +97,7 @@ class SQLReplicator:
                 namespace=namespace,
                 table_name=table_name,
                 explorer=explorer,
+                dialect=self._connection.dialect,
                 session=self._session,
             )
 
@@ -158,6 +160,7 @@ class SQLDrop:
                         namespace=namespace,
                         table_name=table_name,
                         explorer=explorer,
+                        dialect=self._connection.dialect,
                     )
                     await drop_op.run()
                     ui.success(

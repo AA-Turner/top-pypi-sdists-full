@@ -85,6 +85,47 @@ def lenient_structured_parse(content: str) -> Optional[dict]:
     return parsed if isinstance(parsed, dict) else None
 
 
+def _reject_constant(name: str) -> None:
+    """Refuse NaN/Infinity so a payload no other language can read is never called valid."""
+    raise ValueError(name)
+
+
+def normalize_json_mode_result(content: str) -> Optional[str]:
+    """Valid-JSON rewrite of a json-mode result; None when valid or unreadable."""
+    if not isinstance(content, str) or not content.strip():
+        return None
+    stripped = content.strip()
+    try:
+        # a strict parser already reads it - hand it back untouched
+        if isinstance(json.loads(stripped, parse_constant=_reject_constant), (dict, list)):
+            return None
+    except Exception:
+        pass
+    body = content
+    # a reasoning model puts the payload after its thinking, exactly as agno assumes
+    if "</think>" in body:
+        body = body.rsplit("</think>", 1)[-1]
+    body = _strip_code_fence(body).lstrip()
+    # a prose answer that merely quotes a JSON blob is not a payload - lifting it out deletes the answer
+    if not body.startswith(("{", "[")):
+        return None
+    parsed = parse_structured_string(body)
+    if isinstance(parsed, (dict, list)):
+        data = parsed
+    elif body.startswith("["):
+        # an unreadable array must not degrade into one of the objects inside it
+        data = None
+    else:
+        data = lenient_structured_parse(body)
+    if not isinstance(data, (dict, list)):
+        return None
+    try:
+        # allow_nan=False: NaN/Infinity round-trip in Python and are unreadable everywhere else
+        return json.dumps(data, ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError):
+        return None
+
+
 def _nothing_to_parse(content: Any) -> bool:
     """True when no parser could extract anything: empty or brace-less non-JSON text."""
     if not isinstance(content, str):

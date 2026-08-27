@@ -8,17 +8,17 @@ from .dubbing_start_data import DubbingStartData
 
 
 class DubbingStartResponse(UniversalBaseModel):
-    status: typing.Optional[str] = pydantic.Field(default=None)
+    status: str = pydantic.Field()
     """
     Response status, e.g. `success`.
     """
 
-    message: typing.Optional[str] = pydantic.Field(default=None)
+    message: str = pydantic.Field()
     """
     Human-readable confirmation that the dubbing pipeline has started.
     """
 
-    data: typing.Optional[DubbingStartData] = None
+    data: DubbingStartData
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

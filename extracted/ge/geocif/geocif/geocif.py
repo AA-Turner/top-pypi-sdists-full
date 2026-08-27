@@ -530,6 +530,14 @@ class Geocif:
         self.monthly_only_features = self.parser.getboolean(
             self.model_name, "monthly_only_features", fallback=False,
         )
+        # Trailing-window width. Taken from the last<N>m_ prefix when present,
+        # overridable by an explicit key so a plain [catboost] section can use
+        # the window without being renamed. -1 = off; any value < 1 disables,
+        # so 0 can never be misread as "keep zero months".
+        _last_m = re.match(r"^last(\d+)m_(.+)$", self.model_name)
+        self.last_n_months = self._get_model_int(
+            "last_n_months", int(_last_m.group(1)) if _last_m else -1
+        )
         # Middle ground: single months + the one full-season window, dropping
         # intermediate cumulative spans. Restores season-integrated signal that
         # monthly_only strips, while avoiding the full cumulative set's dilution.
@@ -550,6 +558,15 @@ class Geocif:
         # (dedup-first relaxation). Per-model knobs override defaults.
         _top_match = re.match(r"^top(\d+)_(.+)$", self.model_name)
         _auto_match = self.model_name.startswith("auto_")
+        # last<N>m_<algo> wrappers (e.g. last2m_catboost): restrict the feature
+        # frame to the TRAILING N calendar periods of the season, then dispatch
+        # to <algo>. N lives in the section name so last2m_catboost, plain
+        # catboost and null can share one `models` list -- same folds, same
+        # data prep, same baseline, hence a controlled comparison.
+        # Deliberately does NOT force feature_selection = "none" (unlike
+        # top<N>_ / curated_): this is a feature-SPACE restriction, and the
+        # selector should still run over what survives.
+        _last_match = re.match(r"^last(\d+)m_(.+)$", self.model_name)
         self.top_n_pearson: int | None = None
         self.auto_select_cids_flag = False
         if self.model_name.startswith("curated_"):
@@ -579,6 +596,8 @@ class Geocif:
             self.dispatch_name = _top_match.group(2)
         elif _auto_match:
             self.dispatch_name = self.model_name.split("_", 1)[1]
+        elif _last_match:
+            self.dispatch_name = _last_match.group(2)
         else:
             self.dispatch_name = self.model_name
         # In pooled mode, use _config_country for per-country config lookups
@@ -3466,6 +3485,7 @@ class Geocif:
         df = self._filter_single_time_period_features(df)
         df = self._filter_monthly_only_features(df)
         df = self._filter_monthly_plus_fullseason(df)
+        df = self._filter_last_n_months(df)
         df = self._filter_current_month_partial_data(df)
         df = self._remove_last_month_data(df)
         df = self._update_column_names(df)
@@ -3643,6 +3663,39 @@ class Geocif:
             self.logger.info(
                 f"  monthly_only_features: {n_before} → {df.shape[1]} columns"
             )
+        return df
+
+    def _filter_last_n_months(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Restrict the feature frame to the TRAILING ``last_n_months`` calendar
+        periods of the season (``last<N>m_<algo>`` models, or an explicit
+        ``last_n_months`` key).
+
+        Distinct from the cumulative windows the CID stage set already holds:
+        this keeps ONLY the most recent N-period span, dropping single months,
+        longer spans and earlier N-spans alike. Ignored for season-normalized
+        methods, whose calendar-agnostic window has no trailing month to take.
+
+        Takes precedence over ``monthly_only_features`` /
+        ``monthly_plus_fullseason_features``: those keep single months, which a
+        trailing N-span excludes, so intersecting them would leave zero stage
+        features. Warn rather than silently emptying the frame.
+        """
+        if self.last_n_months is None or self.last_n_months < 1:
+            return df
+        if self._is_season_normalized_method():
+            return df
+        if self.monthly_only_features or self.monthly_plus_fullseason_features:
+            self.logger.warning(
+                f"  last_n_months={self.last_n_months} overrides "
+                f"monthly_only_features/monthly_plus_fullseason for "
+                f"{self.model_name} — they select single months, which a "
+                f"trailing {self.last_n_months}-month span excludes"
+            )
+        n_before = df.shape[1]
+        df = stages.select_last_n_months_features(df, self.last_n_months)
+        self.logger.info(
+            f"  last_n_months={self.last_n_months}: {n_before} → {df.shape[1]} columns"
+        )
         return df
 
     def _filter_monthly_plus_fullseason(self, df: pd.DataFrame) -> pd.DataFrame:

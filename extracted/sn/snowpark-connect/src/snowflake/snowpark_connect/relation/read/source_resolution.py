@@ -22,6 +22,9 @@ single source of truth for:
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from itertools import chain
+
 from snowflake import snowpark
 from snowflake.snowpark_connect.relation.read.utils import (
     cloud_list_path_to_relative,
@@ -131,6 +134,8 @@ def expand_dir_to_stage_files(
     session: snowpark.Session,
     *,
     skip_success_markers: bool = True,
+    path_filter: Callable[[str], bool] | None = None,
+    max_results: int | None = None,
 ) -> list[str]:
     """Expand a stage path into its concrete stage-relative file paths via ``LIST``.
 
@@ -158,13 +163,39 @@ def expand_dir_to_stage_files(
     ``skip_success_markers`` drops Spark's ``_SUCCESS`` sentinel files. Depth /
     hidden-file filtering for ``recursiveFileLookup=false`` is left to the
     caller because it depends on the input path depth.
+
+    When ``path_filter`` or ``max_results`` is supplied, rows are streamed so an
+    existence check can stop after its first qualifying path instead of collecting
+    an arbitrarily large directory listing. Default callers retain the original
+    eager-list behavior.
     """
     from snowflake.snowpark_connect.relation.io_utils import (
         get_stage_url_prefix,
         is_external_cloud_url,
     )
 
-    listed_rows = session.sql(f"LIST {path}").collect()
+    if max_results is not None:
+        if max_results < 0:
+            raise ValueError("max_results must be non-negative")
+        if max_results == 0:
+            return []
+
+    listed_dataframe = session.sql(f"LIST {path}")
+    if path_filter is None and max_results is None:
+        listed_rows = listed_dataframe.collect()
+        first_row = listed_rows[0] if listed_rows else None
+        has_external_cloud_rows = any(
+            is_external_cloud_url(row[0]) for row in listed_rows
+        )
+    else:
+        listed_iterator = iter(listed_dataframe.to_local_iterator())
+        first_row = next(listed_iterator, None)
+        listed_rows = chain(() if first_row is None else (first_row,), listed_iterator)
+        # One LIST result set has one root shape; inspecting the first row avoids
+        # consuming the streaming iterator before filtering can stop early.
+        has_external_cloud_rows = first_row is not None and is_external_cloud_url(
+            first_row[0]
+        )
 
     # Only a named *external* stage needs its own URL prefix stripped: its LIST
     # rows are rooted at the stage's cloud URL (bucket + the stage's prefix), and
@@ -179,10 +210,14 @@ def expand_dir_to_stage_files(
     # a trailing slash cannot cause a silent miss that falls back to the broken
     # scheme+bucket strip.
     stage_url_rest: str | None = None
-    stripped_path = path.strip("'\"")
-    if stripped_path.startswith("@") and any(
-        is_external_cloud_url(row[0]) for row in listed_rows
+    stripped_path = path
+    if (
+        len(stripped_path) >= 2
+        and stripped_path[0] == stripped_path[-1]
+        and stripped_path[0] in ("'", '"')
     ):
+        stripped_path = stripped_path[1:-1]
+    if stripped_path.startswith("@") and has_external_cloud_rows:
         stage_name = stripped_path[1:].split("/", 1)[0]
         stage_url = get_stage_url_prefix(stage_name, session)
         if stage_url and is_external_cloud_url(stage_url):
@@ -207,5 +242,9 @@ def expand_dir_to_stage_files(
                 # Stage-name-rooted path (e.g. ``stage/dir/file``): drop the
                 # leading stage-name component.
                 relative = "/".join(listed.split("/")[1:])
+        if path_filter is not None and not path_filter(relative):
+            continue
         file_paths.append(relative)
+        if max_results is not None and len(file_paths) >= max_results:
+            break
     return file_paths

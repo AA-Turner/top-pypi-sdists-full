@@ -12,6 +12,11 @@ class ChatCompletionRequestSystemMessage(UniversalBaseModel):
     The contents of the system message.
     """
 
+    role: typing.Literal["system"] = pydantic.Field(default="system")
+    """
+    The role of the messages author, in this case `system`.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:

@@ -17,7 +17,12 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
-from ...constants import DEFAULT_OPENCV_OPTIMIZATION_MODE
+from ...constants import (
+    DEFAULT_IPC_COMMAND_QUEUE_MAXSIZE,
+    DEFAULT_IPC_RESULT_QUEUE_MAXSIZE,
+    DEFAULT_IPC_STATUS_QUEUE_MAXSIZE,
+    DEFAULT_OPENCV_OPTIMIZATION_MODE,
+)
 from ..shm_liveness import held_shm_paths, is_shm_path_live
 from .async_camera_worker import run_async_worker
 
@@ -112,7 +117,7 @@ class WorkerManager:
 
         # Multiprocessing primitives
         self.stop_event = multiprocessing.Event()
-        self.health_queue = multiprocessing.Queue()
+        self.health_queue = multiprocessing.Queue(maxsize=DEFAULT_IPC_STATUS_QUEUE_MAXSIZE)
         self.workers: List[multiprocessing.Process] = []
         self.worker_camera_assignments: Dict[int, List[Dict[str, Any]]] = {}
 
@@ -123,7 +128,7 @@ class WorkerManager:
         # the camera manager thread and the metrics/monitoring thread)
         self._camera_lock = threading.Lock()
         self.command_queues: Dict[int, multiprocessing.Queue] = {}
-        self.response_queue = multiprocessing.Queue()
+        self.response_queue = multiprocessing.Queue(maxsize=DEFAULT_IPC_RESULT_QUEUE_MAXSIZE)
         self.camera_to_worker: Dict[str, int] = {}
         self.worker_camera_count: Dict[int, int] = {}
         # Live per-camera config, kept in sync on add/update/remove so a no-op
@@ -207,7 +212,7 @@ class WorkerManager:
         """Start a single worker process."""
         worker_cameras = self.worker_camera_assignments.get(worker_id, [])
 
-        command_queue = multiprocessing.Queue()
+        command_queue = multiprocessing.Queue(maxsize=DEFAULT_IPC_COMMAND_QUEUE_MAXSIZE)
         self.command_queues[worker_id] = command_queue
         self.worker_camera_count[worker_id] = len(worker_cameras)
 
@@ -271,21 +276,24 @@ class WorkerManager:
 
     def monitor(self, duration: Optional[float] = None):
         """Monitor workers and collect health reports."""
-        start_time = time.time()
+        # monotonic, not wall clock: these are durations, and an NTP step or a
+        # manual clock change would otherwise expire the duration or the summary
+        # interval instantly (or never).
+        start_time = time.monotonic()
         last_summary_time = start_time
 
         try:
             while not self.stop_event.is_set():
-                if duration and (time.time() - start_time) >= duration:
+                if duration and (time.monotonic() - start_time) >= duration:
                     break
 
                 self._drain_health_queue()
                 self._check_worker_liveness()
 
-                if time.time() - last_summary_time >= 10.0:
+                if time.monotonic() - last_summary_time >= 10.0:
                     running = sum(1 for w in self.workers if w.is_alive())
                     self.logger.info(f"Health: {running}/{len(self.workers)} workers alive")
-                    last_summary_time = time.time()
+                    last_summary_time = time.monotonic()
 
                 time.sleep(0.5)
         except KeyboardInterrupt:
@@ -497,8 +505,19 @@ class WorkerManager:
     def get_worker_statistics(self) -> Dict[str, Any]:
         """Return the last cached health snapshot without draining the queue."""
         per_camera_stats = {}
+        pool_exhausted_total = 0
+        frames_dropped_bp_total = 0
+        frames_overwritten_bp_total = 0
         for report in self.last_health_reports.values():
             per_camera_stats.update(report.get("per_camera_stats", {}))
+            # Each worker's health report carries these; nothing summed them, so the
+            # operator log had no backpressure figures at all. frames_overwritten is
+            # kept separate from frames_dropped on purpose: a refusal and an overwrite
+            # are different events and one counter cannot mean both.
+            worker_metrics = report.get("metrics", {})
+            pool_exhausted_total += worker_metrics.get("pool_exhausted_total", 0)
+            frames_dropped_bp_total += worker_metrics.get("frames_dropped_bp", 0)
+            frames_overwritten_bp_total += worker_metrics.get("frames_overwritten_bp", 0)
 
         with self._camera_lock:
             total_cameras = sum(self.worker_camera_count.values())
@@ -511,6 +530,9 @@ class WorkerManager:
             "total_cameras": total_cameras,
             "camera_assignments": camera_assignments,
             "worker_camera_counts": worker_camera_counts,
+            "pool_exhausted_total": pool_exhausted_total,
+            "frames_dropped_bp_total": frames_dropped_bp_total,
+            "frames_overwritten_bp_total": frames_overwritten_bp_total,
             "health_reports": {
                 wid: {
                     "status": r.get("status", "unknown"),

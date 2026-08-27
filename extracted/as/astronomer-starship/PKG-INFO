@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astronomer-starship
-Version: 2.9.1
+Version: 2.10.0
 Summary: Migrations to Astro
 Author-email: Fritz Davenport <fritz@astronomer.io>, CETA Team <ceta@astronomer.io>, Astronomer <humans@astronomer.io>
 License: PROPRIETARY
@@ -16,6 +16,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -25,7 +27,7 @@ Provides-Extra: dev
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: build; extra == "dev"
 Requires-Dist: commitizen; extra == "dev"
-Requires-Dist: apache-airflow<3.2; extra == "dev"
+Requires-Dist: apache-airflow<3.4; extra == "dev"
 Requires-Dist: pytest>=7; extra == "dev"
 Requires-Dist: pytest-cov>=4.0; extra == "dev"
 Requires-Dist: pytest-integration>=0.2; extra == "dev"

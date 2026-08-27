@@ -1,5 +1,5 @@
 """Auto-generated stub for module: dynamic_camera_manager."""
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from __future__ import annotations
 from camera_streamer.codec_detect import normalize_codec

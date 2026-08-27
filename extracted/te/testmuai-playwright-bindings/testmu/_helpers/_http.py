@@ -3,8 +3,8 @@
 All smart helpers (vision, assertion, wait, network) call LT-hosted
 endpoints that require Basic auth via LT_USERNAME + LT_ACCESS_KEY.
 
-Also threads session tracking headers (x-session-id, x-source) so the
-LT backend can distinguish local runs from HyperExecute runs. Forge
+Also threads session tracking headers (x-session-id, x-source, x-test-id)
+so the LT backend can distinguish local runs from HyperExecute runs. Forge
 sets TESTMUAI_SOURCE=hyperexecute in all cloud YAML paths; locally we
 default to "local".
 """
@@ -12,6 +12,9 @@ import base64
 import os
 
 import aiohttp
+
+from testmu import _configure
+from testmu._step import get_instruction_id
 
 
 def create_session(**kwargs) -> aiohttp.ClientSession:
@@ -40,5 +43,15 @@ def create_session(**kwargs) -> aiohttp.ClientSession:
         headers["x-session-id"] = session_id
 
     headers["x-source"] = os.getenv("TESTMUAI_SOURCE", "local")
+
+    test_id = (_configure.get("test_id")
+               or os.getenv("TESTMUAI_TEST_ID", "")
+               or os.getenv("TEST_ID", ""))
+    if test_id:
+        headers["x-test-id"] = test_id
+
+    instruction_id = get_instruction_id()
+    if instruction_id:
+        headers["x-instruction-id"] = instruction_id
 
     return aiohttp.ClientSession(headers=headers, **kwargs)

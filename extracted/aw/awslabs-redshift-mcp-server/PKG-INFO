@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: awslabs.redshift-mcp-server
-Version: 0.0.34
+Version: 0.1.0
 Summary: An AWS Labs Model Context Protocol (MCP) server for Redshift
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/redshift-mcp-server/
@@ -25,7 +25,7 @@ Requires-Python: >=3.10
 Requires-Dist: boto3>=1.38.39
 Requires-Dist: botocore>=1.38.39
 Requires-Dist: loguru>=0.7.0
-Requires-Dist: mcp[cli]<2.0.0,>=1.23.0
+Requires-Dist: mcp[cli]<3.0.0,>=2.0.0
 Requires-Dist: pydantic>=2.10.6
 Requires-Dist: sqlglot<30.0.0,>=29.0.1
 Description-Content-Type: text/markdown

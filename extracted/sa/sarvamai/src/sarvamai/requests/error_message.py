@@ -5,6 +5,10 @@ from .error_details import ErrorDetailsParams
 
 
 class ErrorMessageParams(typing_extensions.TypedDict):
+    """
+    Canonical error envelope returned by the public API gateway. Backend services may emit RFC 7807 Problem Details internally; the gateway normalizes them into this shape before they reach SDK consumers. The `code` field is a machine-readable enum (see `ErrorCode`) that maps the backend's domain-specific error types to a stable public vocabulary.
+    """
+
     error: ErrorDetailsParams
     """
     Error details

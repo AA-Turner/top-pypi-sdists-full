@@ -49,7 +49,7 @@ class Client:
         legacy_auth: bool = True,
         headers: dict[str, str] | None = None,
     ):
-        headers = headers or dict()
+        headers = headers or {}
         if output_style:
             self.output_style = output_style
         self.host = host if host else os.environ.get("ANOMALO_INSTANCE_HOST")
@@ -78,7 +78,7 @@ class Client:
         else:
             self.proto = proto if proto else "https"
 
-        self.request_headers = dict()
+        self.request_headers = {}
         if self.api_token:
             self.request_headers.update(
                 {"X-Anomalo-Token": self.api_token}
@@ -120,9 +120,9 @@ class Client:
         endpoint_url = f"{self.proto}://{self.host}/api/public/v1/{endpoint}"
 
         if method in ["PUT", "POST", "PATCH"]:
-            request_args = dict(json=kwargs)
+            request_args = {"json": kwargs}
         else:
-            request_args = dict(params=kwargs)
+            request_args = {"params": kwargs}
 
         response = requests.request(
             method,
@@ -234,13 +234,13 @@ class Client:
     ):
         # If we pass schema_crawl_priority prior to v0.190.4 we will encounter
         # a 400 Bad Request error.
-        data: dict[str, Any] = dict()
+        data: dict[str, Any] = {}
         if (
             schema_crawl_priority is not None
             and self.server_version not in ("test", "unknown")
             and self.server_version >= "v0.190.4"
         ):
-            data |= dict(schema_crawl_priority=schema_crawl_priority)
+            data |= {"schema_crawl_priority": schema_crawl_priority}
         return self._api_call(f"warehouse/{warehouse_id}/refresh", method="PUT", **data)
 
     def refresh_warehouse_tables(
@@ -801,26 +801,26 @@ class Client:
         destination_description=None,
         destination_url=None,
     ):
-        raw_source = dict(
-            table_id=source_table_id,
-            external_ref=source_external_ref,
-            display_name=source_display_name,
-            data_source_name=source_data_source_name,
-            description=source_description,
-            url=source_url,
-        )
+        raw_source = {
+            "table_id": source_table_id,
+            "external_ref": source_external_ref,
+            "display_name": source_display_name,
+            "data_source_name": source_data_source_name,
+            "description": source_description,
+            "url": source_url,
+        }
         pruned_source = {
             key: value for key, value in raw_source.items() if value is not None
         }
 
-        raw_destination = dict(
-            table_id=destination_table_id,
-            external_ref=destination_external_ref,
-            display_name=destination_display_name,
-            data_source_name=destination_data_source_name,
-            description=destination_description,
-            url=destination_url,
-        )
+        raw_destination = {
+            "table_id": destination_table_id,
+            "external_ref": destination_external_ref,
+            "display_name": destination_display_name,
+            "data_source_name": destination_data_source_name,
+            "description": destination_description,
+            "url": destination_url,
+        }
         pruned_destination = {
             key: value for key, value in raw_destination.items() if value is not None
         }

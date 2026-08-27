@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: stravalib
-Version: 2.5.0
+Version: 2.6.0
 Summary: A Python package that makes it easy to access and download data from the Strava V3 REST API.
 Author-email: Hans Lellelid <hans@xmpl.org>
 Maintainer: Leah Wasser, Hans Lellelid, Jonatan Samoocha, Yihong, Émile Nadeau
-License: Apache 2.0 License
+License-Expression: Apache-2.0
 Project-URL: documentation, https://stravalib.readthedocs.io
 Project-URL: repository, https://github.com/stravalib/stravalib
 Project-URL: changelog, https://github.com/stravalib/stravalib/blob/main/changelog.md
@@ -13,7 +13,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering

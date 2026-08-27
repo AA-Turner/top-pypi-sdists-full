@@ -6,10 +6,18 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .text_format_model_baseline_offset import TextFormatModelBaselineOffset
 from .theme_color import ThemeColor
 
 
 class TextFormatModel(UniversalBaseModel):
+    baseline_offset: typing_extensions.Annotated[
+        typing.Optional[TextFormatModelBaselineOffset], FieldMetadata(alias="baselineOffset")
+    ] = pydantic.Field(default=None)
+    """
+    Superscript/subscript text positioning (Excel's vertAlign): 'superscript' or 'subscript' to set, 'baseline' to explicitly remove an existing offset (return text to the normal baseline). Omit to leave the current offset unchanged.
+    """
+
     bold: typing.Optional[bool] = None
     color_hex: typing.Optional[str] = pydantic.Field(default=None)
     """

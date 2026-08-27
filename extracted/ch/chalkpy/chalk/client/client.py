@@ -131,9 +131,15 @@ class ChalkClient:
         client_id
             The client ID to use to authenticate. Can either be a
             service token id or a user token id.
+
+            Ignored if the environment variable `CHALK_WEB_IDENTITY_TOKEN_FILE`
+            is set: see the note on rotating authentication below.
         client_secret
             The client secret to use to authenticate. Can either be a
             service token secret or a user token secret.
+
+            Ignored if the environment variable `CHALK_WEB_IDENTITY_TOKEN_FILE`
+            is set: see the note on rotating authentication below.
         environment
             The ID or name of the environment to use for this client.
             Not necessary if your `client_id` and `client_secret`
@@ -187,6 +193,23 @@ class ChalkClient:
             A `ssl.SSLContext` that can be loaded with self-signed certificates so that
             `requests` requests to servers hosted with self-signed certificates succeed.
 
+        Notes
+        -----
+        Rotating ("web identity") authentication: if the environment variable
+        `CHALK_WEB_IDENTITY_TOKEN_FILE` names a file holding a Chalk JWT, that
+        token is used directly and takes precedence over everything else --
+        `client_id`/`client_secret`, the `CHALK_CLIENT_ID`/`CHALK_CLIENT_SECRET`
+        environment variables, `~/.chalk.yml`, and an `Authorization` header
+        supplied through `additional_headers`. No credential exchange is
+        performed. The file is re-read as the token nears expiry, so an external
+        producer can rotate it without restarting the process.
+
+        On this path the JWT's `environment_id` claim selects the environment
+        unless `environment` or `CHALK_ENVIRONMENT` is given; because there is no
+        credential exchange, those must be an environment **id** rather than a
+        name. A missing or malformed token file is an error: the client will
+        never fall back to stored credentials.
+
         Raises
         ------
         ChalkAuthException
@@ -194,6 +217,10 @@ class ChalkClient:
             is no `~/.chalk.yml` file with applicable credentials,
             and the environment variables `CHALK_CLIENT_ID` and
             `CHALK_CLIENT_SECRET` are not set.
+        WebIdentityTokenError
+            If `CHALK_WEB_IDENTITY_TOKEN_FILE` is set but the file is missing,
+            empty, or does not contain a JWT with a non-empty `environment_id`
+            claim.
         """
         super().__init__()
         ...

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 from __future__ import annotations
 from async_camera_worker import run_async_worker
-from constants import DEFAULT_OPENCV_OPTIMIZATION_MODE
+from constants import DEFAULT_IPC_COMMAND_QUEUE_MAXSIZE, DEFAULT_IPC_RESULT_QUEUE_MAXSIZE, DEFAULT_IPC_STATUS_QUEUE_MAXSIZE, DEFAULT_OPENCV_OPTIMIZATION_MODE
 from shm_liveness import held_shm_paths, is_shm_path_live
 import glob
 import logging

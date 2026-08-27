@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cmeel
-Version: 0.60.1
+Version: 0.61.0
 Summary: Create Wheel from CMake projects
 Project-URL: Changelog, https://github.com/cmake-wheel/cmeel/blob/cmeel/CHANGELOG.md
 Project-URL: Documentation, https://cmeel.readthedocs.io/

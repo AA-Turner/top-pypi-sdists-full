@@ -8,13 +8,13 @@ from .dubbing_live_status_data import DubbingLiveStatusData
 
 
 class DubbingLiveStatusResponse(UniversalBaseModel):
-    status: typing.Optional[str] = pydantic.Field(default=None)
+    status: str = pydantic.Field()
     """
     Response status, e.g. `success`.
     """
 
-    message: typing.Optional[str] = None
-    data: typing.Optional[DubbingLiveStatusData] = None
+    message: str
+    data: DubbingLiveStatusData
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kuksa_client
-Version: 0.5.2
+Version: 0.6.0
 Summary: KUKSA Python Client and SDK
 Home-page: https://github.com/eclipse-kuksa/kuksa-python-sdk
 Author: Eclipse KUKSA Project
@@ -14,15 +14,17 @@ Classifier: Environment :: Console
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: websockets>=10.1
-Requires-Dist: cmd2<2.0,>=1.4
+Requires-Dist: cmd2<5.0,>=4.0
 Requires-Dist: pygments>=2.15
-Requires-Dist: grpcio-tools==1.68.0
-Requires-Dist: protobuf<6.0dev,>=5.29.6
+Requires-Dist: grpcio-tools==1.82.1
+Requires-Dist: protobuf<8.0.0,>=7.35.1
 Requires-Dist: jsonpath-ng>=1.5.3
+Requires-Dist: gnureadline>=8.2; sys_platform == "darwin"
+Requires-Dist: pyreadline; sys_platform == "win32"
 Provides-Extra: test
 Requires-Dist: pylint; extra == "test"
 Requires-Dist: pytest; extra == "test"

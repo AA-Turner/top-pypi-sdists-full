@@ -7,26 +7,35 @@ on:
   workflow_call:
     inputs:
       release_mode:
-        description: 'Release mode (signed binaries, no commit sha in version number)'
+        description: 'Release mode (no commit sha in version number)'
+        type: boolean
+        default: false
+      sign:
+        description: 'Code-sign the binaries (needs secrets, so no PR from a fork can)'
         type: boolean
         default: false
   workflow_dispatch:
     inputs:
       release_mode:
-        description: 'Release mode (signed binaries, no commit sha in version number)'
+        description: 'Release mode (no commit sha in version number)'
+        type: boolean
+        default: false
+      sign:
+        description: 'Code-sign the binaries (needs secrets, so no PR from a fork can)'
         type: boolean
         default: false
 
 env:
   UV_VERSION: 0.10.8
-  DEFAULT_PYTHON_VERSION: '3.10'
+  DEFAULT_PYTHON_VERSION: '3.14'
+  GRYPE_VERSION: 0.116.1
 
 jobs:
   build_wheel_sdist:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -34,12 +43,21 @@ jobs:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
 
+      # No GGSHIELD_BUILD_RUST: this is the sdist plus the pure-Python
+      # `py3-none-any` fallback wheel, where `ggshield` is the Python entry
+      # point. The platform wheels come from .github/workflows/wheels.yml.
       - name: Create packages
         run: |
           uv build
 
+      - name: Smoke test the pure wheel
+        run: |
+          uv venv /tmp/smoke
+          VIRTUAL_ENV=/tmp/smoke uv pip install dist/*-py3-none-any.whl
+          /tmp/smoke/bin/ggshield --version
+
       - name: Upload packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: |
@@ -59,39 +77,39 @@ jobs:
             arch: x86_64
             nfpm_arch: x86_64
             sha256sum:
-              python: e8d7ed8c6f8c6f85cd083d5051cafd8c6c01d09eca340d1da74d0c00ff1cb897
+              python: d6254462d5fe066810a472d286861f6a18f66400008bfa9688e202a5672e88cb
               nfpm: 9f8effa24bc6033b509611dbe68839542a63e825525b195672298c369051ef0b
           - os: ubuntu-24.04-arm
             container: rockylinux/rockylinux:8
             arch: aarch64
             nfpm_arch: arm64
             sha256sum:
-              python: 5dcd0486c403d07e27a1f2c256810122ac5d153f921433d77116df5c7d09b4c9
+              python: 44f86d58f3bbc1aa6c95ee90f03226e0fdbd22475a98c4410e5a20042b7f40d3
               nfpm: ccfc3a154dec318100c6b6e28deddef0a1ffddf5e258364d74b647a129c72a0e
           - os: windows-2022
           - os: macos-15-intel
             arch: x86_64
             sha256sum:
-              python: 6378dfd22f58bb553ddb02be28304d739cd730c1f95c15c74955c923a1bc3d6a
+              python: 26e384a6000a2c6e7484bca9c6441553c0c9f701c87dcd2e632d994edd000e9c
               rcodesign: bca6e648afaddd48f1c3d5dd25aa516659992cbbd2ba7131ba6add739aa895d3
           - os: macos-14
             arch: aarch64
             sha256sum:
-              python: 5fdc0f6a5b5a90fd3c528e8b1da8e3aac931ea8690126c2fdb4254c84a3ff04a
+              python: 1c7e8db27d1f5c029c232406103b7216baaa8a32a900a64f6dee20f8eaaca1af
               rcodesign: 163520079cd6ad1427791c792735a6ddfcb8eca0187bbcf0cc0bebfa4a62153d
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Get enough commits to run `ggshield secret scan commit-range` on ourselves
           fetch-depth: 10
 
-      - name: Set up Python 3.10 (Windows 1/2)
+      - name: Set up Python 3.14 (Windows 1/2)
         if: matrix.os == 'windows-2022'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.10'
+          python-version: '3.14'
 
-      - name: Set up Python 3.10 (Windows 2/2)
+      - name: Set up Python 3.14 (Windows 2/2)
         if: matrix.os == 'windows-2022'
         shell: bash
         run: |
@@ -108,9 +126,9 @@ jobs:
             git-core \
             findutils
 
-          # Install Python 3.10 (we can't use the one from setup-python@v5: it requires a more recent version of libc)
-          PYTHON_VERSION=3.10.16
-          PYTHON_BUILD=20250317
+          # Install Python 3.14 (we can't use the one from setup-python@v5: it requires a more recent version of libc)
+          PYTHON_VERSION=3.14.6
+          PYTHON_BUILD=20260728
           scripts/download \
             https://github.com/indygreg/python-build-standalone/releases/download/${PYTHON_BUILD}/cpython-${PYTHON_VERSION}+${PYTHON_BUILD}-${{ matrix.arch }}-unknown-linux-gnu-install_only_stripped.tar.gz \
             python.tar.gz \
@@ -143,8 +161,8 @@ jobs:
           # macs it installs the Framework version of Python, and the binaries
           # produced with that version do not pass Apple notarization step.
           # (tested with actions/setup-python@v4 and @v5)
-          PYTHON_VERSION=3.10.13
-          PYTHON_BUILD=20240224
+          PYTHON_VERSION=3.14.6
+          PYTHON_BUILD=20260728
 
           scripts/download \
             https://github.com/indygreg/python-build-standalone/releases/download/${PYTHON_BUILD}/cpython-${PYTHON_VERSION}+${PYTHON_BUILD}-${{ matrix.arch }}-apple-darwin-install_only.tar.gz \
@@ -181,10 +199,10 @@ jobs:
           $PYTHON_CMD -m pip install --upgrade pip
           # Install uv
           $PYTHON_CMD -m pip install uv==$UV_VERSION
-          uv sync --locked --group tests --group standalone
+          uv sync --locked --no-default-groups --group tests --group standalone
 
       - name: Prepare macOS secrets
-        if: startsWith(matrix.os, 'macos-') && inputs.release_mode
+        if: startsWith(matrix.os, 'macos-') && inputs.sign
         run: |
           set -euo pipefail
           SECRETS_DIR=$TMPDIR/secrets
@@ -207,7 +225,7 @@ jobs:
           MACOS_API_KEY_FILE: ${{ secrets.MACOS_API_KEY_FILE }}
 
       - name: Setup Windows environment
-        if: startsWith(matrix.os, 'windows-') && inputs.release_mode
+        if: startsWith(matrix.os, 'windows-') && inputs.sign
         shell: bash
         run: |
           signtool_install_dir="/c/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64"
@@ -238,7 +256,7 @@ jobs:
           EOF
 
       - name: Install Windows dependencies
-        if: startsWith(matrix.os, 'windows-') && inputs.release_mode
+        if: startsWith(matrix.os, 'windows-') && inputs.sign
         shell: bash
         run: |
           scripts/build-os-packages/install-keylockertools
@@ -246,14 +264,17 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          if [ "${{ inputs.release_mode }}" = "true" ] ; then
-            args="--sign"
-          else
-            args="--suffix +${GITHUB_SHA:0:7}"
+          args=""
+          if [ "${{ inputs.sign }}" = "true" ] ; then
+            args="$args --sign"
+          fi
+          # The +sha stamp is what tells an internal build apart from the release.
+          if [ "${{ inputs.release_mode }}" != "true" ] ; then
+            args="$args --suffix +${GITHUB_SHA:0:7}"
           fi
           # Run the script with `bash -c` because `uv run` does not
           # automatically do it on Windows
-          uv run bash -c "scripts/build-os-packages/build-os-packages $args"
+          uv run --no-sync bash -c "scripts/build-os-packages/build-os-packages $args"
 
       - name: Override base Docker image used for functional tests on Windows
         if: matrix.os == 'windows-2022'
@@ -268,7 +289,7 @@ jobs:
         # See note about steps requiring the GITGUARDIAN_API at the top of this file
         if: ${{ !github.event.pull_request.head.repo.fork }}
         run: |
-          uv run bash -c "scripts/build-os-packages/build-os-packages functests"
+          uv run --no-sync bash -c "scripts/build-os-packages/build-os-packages functests"
         env:
           GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
           GITGUARDIAN_API_URL: ${{ secrets.GITGUARDIAN_API_URL }}
@@ -277,7 +298,7 @@ jobs:
           TEST_GG_VALID_TOKEN_IGNORE_SHA: ${{ secrets.TEST_GG_VALID_TOKEN_IGNORE_SHA }}
           TEST_UNKNOWN_SECRET: ${{ secrets.TEST_UNKNOWN_SECRET }}
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: os-packages-${{ matrix.os }}
           path: |
@@ -326,7 +347,7 @@ jobs:
           esac
 
       - name: Download OS packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: os-packages-${{ matrix.runner }}
           path: dist
@@ -363,3 +384,43 @@ jobs:
         run: |
           ggshield --version
           ggshield --help
+
+  scan_vulnerabilities:
+    name: Scan built packages for vulnerabilities
+    needs: build_os_packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts/vulnscan
+            .grype.yaml
+
+      - name: Download built packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: os-packages-*
+          path: packages
+
+      - name: Compute cache date
+        id: date
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Grype vulnerability database
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/grype/db
+          # The DB is refreshed daily upstream; keying on the date avoids
+          # re-downloading it on every run.
+          key: grype-db-${{ steps.date.outputs.date }}
+
+      - name: Install Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh \
+            | sh -s -- -b /usr/local/bin "v${GRYPE_VERSION}"
+
+      - name: Scan and report
+        # tee, not >>: the report is genuinely useful in the plain job log
+        # too (searchable, visible without switching to the Summary tab).
+        run: scripts/vulnscan/scan_packages.py packages | tee -a "$GITHUB_STEP_SUMMARY"

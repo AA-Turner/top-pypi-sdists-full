@@ -1,15 +1,24 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: django-pg-zero-downtime-migrations
-Version: 0.19
+Version: 0.20
 Summary: Django postgresql backend that apply migrations with respect to database locks
-Home-page: https://github.com/tbicr/django-pg-zero-downtime-migrations
-Author: Paveł Tyślacki
-Author-email: pavel.tyslacki@gmail.com
-License: MIT
-Keywords: django postgres postgresql migrations
-Classifier: Development Status :: 4 - Beta
+Project-URL: Homepage, https://github.com/tbicr/django-pg-zero-downtime-migrations
+Project-URL: Repository, https://github.com/tbicr/django-pg-zero-downtime-migrations
+Project-URL: Changelog, https://github.com/tbicr/django-pg-zero-downtime-migrations/blob/master/CHANGES.md
+Project-URL: Issues, https://github.com/tbicr/django-pg-zero-downtime-migrations/issues
+Author-email: Paveł Tyślacki <pavel.tyslacki@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: django,migrations,postgres,postgresql
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.8
@@ -18,33 +27,21 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
-Classifier: Framework :: Django :: 5.2
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-License-File: LICENSE
-License-File: AUTHORS
 Requires-Dist: django>=4.2
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Provides-Extra: dev
+Requires-Dist: psycopg[binary]; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-django; extra == 'dev'
+Requires-Dist: pytest-mock; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Description-Content-Type: text/markdown
 
 [![PyPI](https://img.shields.io/pypi/v/django-pg-zero-downtime-migrations.svg)](https://pypi.org/project/django-pg-zero-downtime-migrations/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/django-pg-zero-downtime-migrations.svg)
-![PyPI - Django Version](https://img.shields.io/pypi/djversions/django-pg-zero-downtime-migrations.svg?label=django)
-![Postgres Version](https://img.shields.io/badge/postgres-12%20|%2013%20|%2014%20|%2015%20|%2016%20|%2017%20-blue.svg)
+![PyPI - Django Version](https://img.shields.io/pypi/frameworkversions/django/django-pg-zero-downtime-migrations.svg?label=django)
+![Postgres Version](https://img.shields.io/badge/postgres-14%20|%2015%20|%2016%20|%2017%20|%2018%20-blue.svg)
 [![PyPI - License](https://img.shields.io/pypi/l/django-pg-zero-downtime-migrations.svg)](https://raw.githubusercontent.com/tbicr/django-pg-zero-downtime-migrations/master/LICENSE)
 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/django-pg-zero-downtime-migrations.svg)](https://pypistats.org/packages/django-pg-zero-downtime-migrations)
@@ -95,7 +92,7 @@ There are requirements for zero downtime deployment:
 1. Our application works fine before, on and after migration - old application works fine with old and new database schema version;
 1. Our application works fine before, on and after instance updating - old and new application versions work fine with new database schema version.
 
-![deployment timeline](https://raw.githubusercontent.com/tbicr/django-pg-zero-downtime-migrations/0.19/images/timeline.png "deployment timeline")
+![deployment timeline](https://raw.githubusercontent.com/tbicr/django-pg-zero-downtime-migrations/0.20/images/timeline.png "deployment timeline")
 
 Flow:
 
@@ -104,7 +101,7 @@ Flow:
 
 If our deployment don't satisfy zero downtime deployment rules, then we split it to smaller deployments.
 
-![deployment flow](https://raw.githubusercontent.com/tbicr/django-pg-zero-downtime-migrations/0.19/images/deployment.gif "deployment flow")
+![deployment flow](https://raw.githubusercontent.com/tbicr/django-pg-zero-downtime-migrations/0.20/images/deployment.gif "deployment flow")
 
 ### Settings
 
@@ -178,6 +175,8 @@ Allowed values:
 - `False` - standard django behaviour that will drop constraints with `CASCADE` mode (some constraints can be dropped explicitly too).
 
 Explicitly dropping constraints and indexes before dropping tables or columns allows for splitting schema-only changes with an `ACCESS EXCLUSIVE` lock and the deletion of physical files, which can take significant time and cause downtime.
+
+> _NOTE:_ django 6.0 removed the `CASCADE` keyword from the `DROP COLUMN` statement. In django 6.0+ the `False` value cannot drop a column that a different table refers to. The default `True` value drops the related constraints first and does not have this limit.
 
 #### ZERO_DOWNTIME_MIGRATIONS_KEEP_DEFAULT
 
@@ -260,7 +259,7 @@ Main point there is if you have two transactions that update one row, then secon
 
 ### Transactions FIFO waiting
 
-![postgres FIFO](https://raw.githubusercontent.com/tbicr/django-pg-zero-downtime-migrations/0.19/images/fifo-diagram.png "postgres FIFO")
+![postgres FIFO](https://raw.githubusercontent.com/tbicr/django-pg-zero-downtime-migrations/0.20/images/fifo-diagram.png "postgres FIFO")
 
 Found same diagram in interesting article http://pankrat.github.io/2015/django-migrations-without-downtimes/.
 
@@ -411,9 +410,34 @@ INSERT INTO tbl (old_col, new_col) VALUES (1, 1);  -- new code inserts work fine
 `db_default` is most robust way to apply default and it's works fine with `NOT NULL` constraints too.
 In django<5.0 you can use `ZERO_DOWNTIME_MIGRATIONS_KEEP_DEFAULT=True` to emulate `db_default` behaviour for `default` field.
 
+##### Create column generated stored
+
+Migrations: `ALTER TABLE ADD COLUMN GENERATED ALWAYS AS (...) STORED`.
+
+A stored generated column keeps a value for every row. Thus postgres computes the value for all existing rows and rewrites the table with an `ACCESS EXCLUSIVE` lock.
+
+Postgres computes the value of a virtual generated column on read. This column changes only the table metadata, thus it is safe to add.
+`GeneratedField(db_persist=False)` makes a virtual generated column. This column needs postgres 18 or later and django 6.1 or later.
+
+```sql
+-- unsafe, rewrites the table
+ALTER TABLE tbl ADD COLUMN new_col integer GENERATED ALWAYS AS (old_col * 2) STORED;
+
+-- safe, changes the table metadata only
+ALTER TABLE tbl ADD COLUMN new_col integer GENERATED ALWAYS AS (old_col * 2) VIRTUAL;
+```
+
+There are three methods for a stored generated column:
+
+1. use a virtual generated column, with postgres 18 or later and django 6.1 or later
+2. create a new table, copy the existing data, drop the old table
+3. downtime
+
+A generated column in a `CREATE TABLE` statement is safe. A new table has no rows to compute.
+
 #### Dealing with `NOT NULL` column constraint
 
-Postgres checks that all column values `NOT NULL` (full table scan) when you are applying `ALTER TABLE ALTER COLUMN SET NOT NULL`, this check skipped if appropriate valid `CHECK CONSTRAINT` exists for postgres 12+. So to make existing column `NOT NULL` safe way you can follow next steps:
+Postgres checks that all column values `NOT NULL` (full table scan) when you are applying `ALTER TABLE ALTER COLUMN SET NOT NULL`, this check skipped if appropriate valid `CHECK CONSTRAINT` exists. So to make existing column `NOT NULL` safe way you can follow next steps:
 - `ALTER TABLE ADD CONSTRAINT CHECK (column IS NOT NULL) NOT VALID` - create invalid check constraint for column, this operation takes `ACCESS EXCLUSIVE` lock only for table metadata update
 - `ALTER TABLE VALIDATE CONSTRAINT` - validate constraint, at this moment all column values should be `NOT NULL`, this operation takes `SHARE UPDATE EXCLUSIVE` lock until full table scan will be completed
 - `ALTER TABLE ALTER COLUMN SET NOT NULL` - set column `NOT NULL` don't check column values if appropriate valid `CHECK CONSTRAINT` exists, in this case this operation takes `ACCESS EXCLUSIVE` lock only for table metadata update
@@ -435,6 +459,34 @@ For other operations propose to create new column and copy data to it. Eg. some 
 
 
 # django-pg-zero-downtime-migrations Changelog
+
+## 0.20
+- added python 3.14 support
+- added django 6.0 support
+- added django 6.1 support
+- added postgres 18 support
+- added support for the foreign key `ON DELETE` options at database level in django 6.1
+- marked `ADD COLUMN GENERATED STORED` as an unsafe operation that warns or raises, because it rewrites the table
+- marked the decimal type cast to a numeric without precision as a safe operation
+- fixed the introspection of constraints and indexes in `sqlmigrate` after a table rename in django 6.1
+- fixed the introspection of constraints and indexes for a `db_table` that needs quotes, as it found nothing and skipped the explicit constraints drop
+- fixed the idempotent mode checks, as for a `db_table` that needs quotes they raised an error or found nothing, and as they answered for a same named object in another schema or of another kind and skipped the statement
+- updated the documentation with the django 6.0 `DROP COLUMN` limit for `ZERO_DOWNTIME_MIGRATIONS_EXPLICIT_CONSTRAINTS_DROP=False`, that cannot drop a referenced column
+- marked python 3.8 support as deprecated
+- marked python 3.9 support as deprecated
+- marked python 3.10 support as deprecated
+- marked python 3.11 support as deprecated
+- marked django 4.2 support as deprecated
+- marked django 5.0 support as deprecated
+- marked django 5.1 support as deprecated
+- marked postgres 14 support as deprecated
+- dropped postgres 12 support
+- dropped postgres 13 support
+- replaced `setup.py`, `setup.cfg` and `MANIFEST.in` with `pyproject.toml`
+- replaced `setuptools` with `hatchling` and generated the pypi description with `hatch-fancy-pypi-readme`
+- replaced `flake8` and `isort` with `ruff`
+- replaced `tox` and `docker compose` with a github actions test matrix
+- replaced `pip` and `build` with `uv` in the test environments and the release build
 
 ## 0.19
 - added django 5.2 support

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openccu-loom-client
-Version: 2026.8.25
+Version: 2026.8.26
 Summary: Async Python REST + WebSocket client for the openccu-loom daemon
 Author: OpenCCU-Loom authors
 License: MIT
@@ -20,7 +20,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohomematic>=2026.8.3
 Requires-Dist: aiohttp>=3.12.0
-Requires-Dist: openccu-loom-types==0.5.4
+Requires-Dist: openccu-loom-types==0.5.5
 Requires-Dist: pydantic>=2.12.0
 Requires-Dist: python-slugify>=8.0.0
 Provides-Extra: dev

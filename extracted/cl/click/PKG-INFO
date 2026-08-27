@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: click
-Version: 8.4.2
+Version: 8.5.0
 Summary: Composable command line interface toolkit
 Maintainer-email: Pallets <contact@palletsprojects.com>
 Requires-Python: >=3.10
@@ -12,7 +12,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Typing :: Typed
 License-File: LICENSE.txt
-Requires-Dist: colorama; platform_system == 'Windows'
 Project-URL: Changes, https://click.palletsprojects.com/page/changes/
 Project-URL: Chat, https://discord.gg/pallets
 Project-URL: Documentation, https://click.palletsprojects.com/

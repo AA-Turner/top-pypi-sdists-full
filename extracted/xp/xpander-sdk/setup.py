@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="xpander-sdk",
-    version="2.0.494",
+    version="2.0.496",
     author="xpanderAI",
     author_email="dev@xpander.ai",
     description="xpander.ai Backend-as-a-service for AI Agents - SDK",

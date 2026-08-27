@@ -1087,3 +1087,175 @@ if True:
     import os
 """
     assert isort.code(test_input) == test_input
+
+
+def test_sort_separate_packages_issue_2104():
+    """
+    Test to ensure that packages within a section can be separated by blank lines.
+    See: https://github.com/PyCQA/isort/issues/2104
+    """
+
+    # Base case as described in issue
+    assert (
+        isort.code(
+            """
+import os
+import sys
+
+from django.db.models.signals import m2m_changed
+from django.utils import functional
+from django_filters import BooleanFilter
+from junitparser import JUnitXml
+from junitparser import TestSuite
+from loguru import logger
+""",
+            force_single_line=True,
+            separate_packages=["THIRDPARTY"],
+        )
+        == """
+import os
+import sys
+
+from django.db.models.signals import m2m_changed
+from django.utils import functional
+
+from django_filters import BooleanFilter
+
+from junitparser import JUnitXml
+from junitparser import TestSuite
+
+from loguru import logger
+"""
+    )
+
+    # Check that multiline comments aren't broken up
+    assert (
+        isort.code(
+            """
+from junitparser import TestSuite
+# Some multiline
+# comment
+from loguru import logger
+""",
+            force_single_line=True,
+            separate_packages=["THIRDPARTY"],
+        )
+        == """
+from junitparser import TestSuite
+
+# Some multiline
+# comment
+from loguru import logger
+"""
+    )
+
+    # Check it works for custom sections
+    assert (
+        isort.code(
+            """
+import os
+from package2 import bar
+from package1 import foo
+            """,
+            force_single_line=True,
+            known_MYPACKAGES=["package1", "package2"],
+            sections=["STDLIB", "MYPACKAGES"],
+            separate_packages=["MYPACKAGES"],
+        )
+        == """
+import os
+
+from package1 import foo
+
+from package2 import bar
+"""
+    )
+
+    # Check it works for packages with deeper nesting
+    assert (
+        isort.code(
+            """
+import os
+from package2 import bar
+from package1.a.b import foo
+from package1.a.c import baz
+            """,
+            force_single_line=True,
+            known_MYPACKAGES=["package1.a", "package2"],
+            sections=["STDLIB", "MYPACKAGES"],
+            separate_packages=["MYPACKAGES"],
+        )
+        == """
+import os
+
+from package1.a.b import foo
+
+from package1.a.c import baz
+
+from package2 import bar
+"""
+    )
+
+
+def test_combine_as_with_comments_and_vertical_hang_2316() -> None:
+    """Comments should still produce correct parentheses with multi_line_output=3.
+    See: https://github.com/PyCQA/isort/issues/2316
+    """
+    assert (
+        isort.code(
+            "from pythonosc.udp_client import SimpleUDPClient  # type: ignore[import-untyped]",
+            combine_as_imports=True,
+            multi_line_output=3,
+        )
+        == """\
+from pythonosc.udp_client import (  # type: ignore[import-untyped]
+    SimpleUDPClient
+)
+"""
+    )
+    assert (
+        isort.code(
+            "from pythonosc.udp_client import SimpleUDPClient  # type: ignore[import-untyped]",
+            combine_as_imports=True,
+            multi_line_output=3,
+            include_trailing_comma=True,
+        )
+        == """\
+from pythonosc.udp_client import (  # type: ignore[import-untyped]
+    SimpleUDPClient,
+)
+"""
+    )
+
+
+def test_isort_preserves_empty_inline_comments() -> None:
+    """isort should not strip empty inline comments (bare `#`).
+    See: https://github.com/PyCQA/isort/issues/1913
+    """
+    # Straight imports
+    assert isort.code("import a  #\n") == "import a  #\n"
+
+    # From imports
+    assert isort.code("from foo import bar  #\n") == "from foo import bar  #\n"
+
+    # Should be idempotent
+    assert isort.code(isort.code("import a  #\n")) == "import a  #\n"
+    assert isort.code(isort.code("from foo import bar  #\n")) == "from foo import bar  #\n"
+
+    # Regular (non-empty) comments should still work
+    assert isort.code("import a  # comment\n") == "import a  # comment\n"
+    assert isort.code("from foo import bar  # comment\n") == "from foo import bar  # comment\n"
+
+
+def test_comment_not_duplicated_across_from_imports_2282() -> None:
+    """isort should not copy a comment from one 'from X import' line to other lines.
+
+    See: https://github.com/PyCQA/isort/issues/2282
+    """
+    # Comment should stay only on the line with a, b - not copied to e
+    code = """\
+from foo import a, b  # comment
+from foo import c as d
+from foo import e
+"""
+    assert isort.code(code) == code

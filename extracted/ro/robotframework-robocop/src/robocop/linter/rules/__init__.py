@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from robocop.config.manager import ConfigManager
     from robocop.linter import sonar_qube
     from robocop.linter.fix import Fix
+    from robocop.project.context import ProjectContext
     from robocop.source_file import SourceFile, VirtualSourceFile
 
 
@@ -328,6 +329,8 @@ class Rule:
         default_enabled (bool): (class attribute) store default value of enabled parameter for documentation purpose
         deprecated (bool): (class attribute) deprecated rule. If rule is used in configuration, it will issue a warning
         file_wide_rule (bool): (class attribute) If set, rule is reported for whole file
+        project_rule (bool): (class attribute) If set, rule requires parsing the whole project. Such rule is
+        reported by a ``ProjectChecker`` and makes ``robocop check`` analyze the project when it is selected
         parameters: (class attribute) optional rule parameters
         style_guide_ref (list of str): (class attribute) reference to Robot Framework Style Guide in form of
         '#paragraph' strings
@@ -351,6 +354,7 @@ class Rule:
     default_enabled: bool = True
     deprecated: bool = False
     file_wide_rule: bool = False
+    project_rule: bool = False
     parameters: list[RuleParam] | None = None
     style_guide_ref: list[str] | None = None  # docs only
     sonar_qube_attrs: sonar_qube.SonarQubeAttributes | None = None
@@ -618,7 +622,10 @@ class VisitorChecker(BaseChecker, ModelVisitor):  # type: ignore[misc]
 
 class ProjectChecker(BaseChecker):
     def scan_project(
-        self, project_source_file: SourceFile | VirtualSourceFile, config_manager: ConfigManager
+        self,
+        project_source_file: SourceFile | VirtualSourceFile,
+        config_manager: ConfigManager,
+        context: ProjectContext,
     ) -> list[Diagnostic]:
         """
         Perform checks on the whole project.
@@ -626,6 +633,13 @@ class ProjectChecker(BaseChecker):
         This method is called after other checks are finished. Define the main logic of the check here.
         Robocop will access ``self.issues`` list to retrieve list of issues found during the check. Issues are
         reported using ``self.report()`` method.
+
+        Args:
+            project_source_file: Virtual source file representing the whole project. Use its ``config`` attribute
+                when creating ``SourceFile`` instances for reported issues.
+            config_manager: Configuration manager, can be used to access project root and configuration.
+            context: Project context with parsed files, keyword definitions, keyword calls and resolved imports.
+
         """
         raise NotImplementedError
 

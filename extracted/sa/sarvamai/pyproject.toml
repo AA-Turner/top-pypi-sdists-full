@@ -4,7 +4,7 @@ dynamic = ["version"]
 
 [tool.poetry]
 name = "sarvamai"
-version = "0.1.30"
+version = "0.1.31"
 description = ""
 readme = "README.md"
 authors = []

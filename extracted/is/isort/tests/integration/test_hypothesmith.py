@@ -87,7 +87,10 @@ st.register_type_strategy(isort.Config, configs())
 )
 @hypothesis.seed(235738473415671197623909623354096762459)
 @hypothesis.settings(
-    suppress_health_check=[hypothesis.HealthCheck.too_slow, hypothesis.HealthCheck.filter_too_much]
+    suppress_health_check=[
+        hypothesis.HealthCheck.too_slow,
+        hypothesis.HealthCheck.filter_too_much,
+    ]
 )
 def test_isort_is_idempotent(source_code: str, config: isort.Config, disregard_skip: bool) -> None:
     # NOTE: if this test finds a bug, please notify @Zac-HD so that it can be added to the

@@ -20,7 +20,7 @@ try:
 except ImportError:
     Languages = None
 
-from robocop import exceptions
+from robocop import exceptions, plugins
 from robocop.linter.rules import RuleSeverity
 from robocop.version_handling import ROBOT_VERSION, Version
 
@@ -57,12 +57,52 @@ def parse_rule_severity(value: str) -> RuleSeverity:
     return RuleSeverity.parser(value, rule_severity=False)
 
 
+VERBATIM_CONFIG_KEYS = frozenset({"variables", "per_file_ignores"})
+
+BUILTIN_CONFIG_PREFIX = "robocop:"
+"""Prefix used in the ``extends`` option to reference a built-in Robocop configuration (e.g. ``robocop:minimal``)."""
+
+BUILTIN_CONFIG_DIR = Path(__file__).parent / "builtin"
+"""Directory with the built-in Robocop configurations shipped with the package."""
+
+
+def resolve_builtin_config(reference: str) -> Path:
+    """
+    Resolve a ``robocop:<name>`` reference to a built-in configuration file shipped with Robocop.
+
+    Returns:
+        Path to the built-in configuration file.
+
+    """
+    name = reference[len(BUILTIN_CONFIG_PREFIX) :]
+    config_path = BUILTIN_CONFIG_DIR / f"{name}.toml"
+    if not name or not config_path.is_file():
+        available = ", ".join(sorted(path.stem for path in BUILTIN_CONFIG_DIR.glob("*.toml")))
+        raise exceptions.ConfigurationError(
+            f"Unknown built-in Robocop configuration: '{reference}'. Available built-in configurations: {available}."
+        )
+    return config_path
+
+
 def normalize_config_keys(config: dict[str, Any]) -> dict[str, Any]:
-    """Normalize configuration keys to allow using both - and _ interchangeably."""
-    return {
-        key.replace("-", "_"): normalize_config_keys(value) if isinstance(value, dict) else value
-        for key, value in config.items()
-    }
+    """
+    Normalize configuration keys to allow using both - and _ interchangeably.
+
+    Keys of sections listed in ``VERBATIM_CONFIG_KEYS`` are user defined names (variable names, file patterns) and
+    are never normalized.
+
+    Returns:
+        Configuration dictionary with normalized keys.
+
+    """
+    normalized: dict[str, Any] = {}
+    for key, value in config.items():
+        normalized_key = key.replace("-", "_")
+        if isinstance(value, dict) and normalized_key not in VERBATIM_CONFIG_KEYS:
+            normalized[normalized_key] = normalize_config_keys(value)
+        else:
+            normalized[normalized_key] = value
+    return normalized
 
 
 def load_languages(languages: list[str]) -> Languages | None:
@@ -116,6 +156,30 @@ def parse_target_version(value: int | str | TargetVersion | None) -> Version:
             f"installed version ({ROBOT_VERSION})."
         ) from None
     return Version(f"{target_version}.0")
+
+
+def parse_variables(variables: list[str] | None) -> dict[str, str] | None:
+    """
+    Parse variables provided with the ``--variable`` option.
+
+    Variables use the ``NAME:VALUE`` syntax, same as in Robot Framework. Value may contain a colon.
+
+    Returns:
+        Mapping of variable name to its value, or None if no variable was provided.
+
+    """
+    if not variables:
+        return None
+    parsed: dict[str, str] = {}
+    for variable in variables:
+        name, separator, value = variable.partition(":")
+        name = name.strip()
+        if not separator or not name:
+            raise typer.BadParameter(
+                f"Invalid variable '{variable}'. Variable should be provided in the NAME:VALUE format."
+            )
+        parsed[name] = value
+    return parsed
 
 
 def resolve_relative_path(orig_path: str, config_dir: Path, ensure_exists: bool) -> str:
@@ -173,13 +237,21 @@ def extend_configs(config: dict[str, Any], config_path: Path, seen: set[Path]) -
                 f"Invalid 'extends' parameter value in the configuration file: '{config_path}'. "
                 f"{base_config} is not a string."
             )
-        if not base_config.endswith(".toml"):
-            continue
-        base_config = Path(base_config)
-        if base_config.is_absolute():
-            extended_path = base_config
+        if base_config.startswith(BUILTIN_CONFIG_PREFIX):
+            extended_path = resolve_builtin_config(base_config)
+        elif not base_config.endswith(".toml"):
+            extended_path = plugins.resolve_path_reference(base_config)
+            if not extended_path.is_file():
+                raise exceptions.ConfigurationError(
+                    f"Configuration '{base_config}' referenced in the 'extends' parameter in the configuration "
+                    f"file: '{config_path}' does not exist. Expected plugin file: '{extended_path}'."
+                )
         else:
-            extended_path = (config_path.parent / base_config).resolve()
+            base_config_path = Path(base_config)
+            if base_config_path.is_absolute():
+                extended_path = base_config_path
+            else:
+                extended_path = (config_path.parent / base_config_path).resolve()
         if extended_path in seen:
             raise exceptions.CircularExtendsReferenceError(str(config_path)) from None
         normalized_config = read_robocop_toml_config(extended_path)

@@ -11,11 +11,10 @@ with open("HISTORY.rst") as history_file:
 with open("requirements.txt") as f:
     requirements = f.read().splitlines()
 
-long_description = readme + "\n\n" + history
 long_description = readme
 
 test_requirements = [
-    "pytest>=3",
+    "pytest>=8",
     "syrupy>=4.0.0",
 ]
 
@@ -24,7 +23,7 @@ setup(
     author_email="fuatakgun@gmail.com",
     python_requires=">=3.12",
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
@@ -51,6 +50,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api",
-    version="4.27.0",
+    version="4.27.1",
     zip_safe=False,
 )

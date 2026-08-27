@@ -9,6 +9,10 @@ from ..core.serialization import FieldMetadata
 
 
 class JsonSchemaDefinition(UniversalBaseModel):
+    """
+    The `json_schema` body of a `response_format` of type `json_schema`.
+    """
+
     name: str = pydantic.Field()
     """
     The name of the response format. Must contain only alphanumeric characters, underscores and dashes.
@@ -20,12 +24,12 @@ class JsonSchemaDefinition(UniversalBaseModel):
     """
 
     schema_: typing_extensions.Annotated[
-        typing.Optional[typing.Dict[str, typing.Any]],
+        typing.Dict[str, typing.Any],
         FieldMetadata(alias="schema"),
         pydantic.Field(
             alias="schema", description="The schema for the response format, described as a JSON Schema object."
         ),
-    ] = None
+    ]
     strict: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Whether to enable strict schema adherence when generating the output.

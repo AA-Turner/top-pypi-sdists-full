@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "victron_mqtt"
-version = "2026.8.5"
+version = "2026.8.7"
 description = "Python library for communicating with Victron Venus OS MQTT interface"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -196,6 +196,7 @@ disable = [
     "too-many-instance-attributes",
     "too-many-nested-blocks",
     "too-few-public-methods",
+    "too-many-public-methods",
     "duplicate-code",
 ]
 

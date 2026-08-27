@@ -6,7 +6,7 @@ from __future__ import annotations
 from async_camera_worker import run_async_worker
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-from constants import DEFAULT_OPENCV_OPTIMIZATION_MODE
+from constants import DEFAULT_IPC_COMMAND_QUEUE_MAXSIZE, DEFAULT_IPC_RESULT_QUEUE_MAXSIZE, DEFAULT_IPC_STATUS_QUEUE_MAXSIZE, DEFAULT_OPENCV_OPTIMIZATION_MODE
 from databus_backpressure import BackpressurePublisher
 from frame_optimizer import build_frame_optimizer
 from frame_pool import GatewayFramePool

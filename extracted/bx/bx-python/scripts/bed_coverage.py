@@ -10,12 +10,15 @@ usage: %prog bed files ...
 
 import fileinput
 import sys
+from typing import (
+    TextIO,
+)
 
 from bx.bitset_builders import binned_bitsets_from_file
 
 bed_filenames = sys.argv[1:]
 if bed_filenames:
-    input = fileinput.input(bed_filenames)
+    input: fileinput.FileInput | TextIO = fileinput.input(bed_filenames)
 else:
     input = sys.stdin
 

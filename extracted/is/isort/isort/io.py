@@ -1,17 +1,14 @@
 """Defines any IO utilities used by isort"""
 
 import dataclasses
-import re
 import tokenize
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from io import BytesIO, StringIO, TextIOWrapper
 from pathlib import Path
-from typing import Any, TextIO
+from typing import TextIO
 
 from isort.exceptions import UnsupportedEncoding
-
-_ENCODING_PATTERN = re.compile(rb"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -46,7 +43,7 @@ class File:
             encoding = File.detect_encoding(filename, buffer.readline)
             buffer.seek(0)
             text = TextIOWrapper(buffer, encoding, line_buffering=True, newline="")
-            text.mode = "r"  # type: ignore
+            text.mode = "r"  # type: ignore[misc]
             return text
         except Exception:
             buffer.close()
@@ -63,11 +60,3 @@ class File:
         finally:
             if stream is not None:
                 stream.close()
-
-
-class _EmptyIO(StringIO):
-    def write(self, *args: Any, **kwargs: Any) -> None:  # type: ignore # skipcq: PTC-W0049
-        pass
-
-
-Empty = _EmptyIO()

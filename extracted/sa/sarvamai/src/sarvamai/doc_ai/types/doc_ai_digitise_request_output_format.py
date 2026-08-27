@@ -2,4 +2,4 @@
 
 import typing
 
-DocAiDigitiseRequestOutputFormat = typing.Union[typing.Literal["html", "md"], typing.Any]
+DocAiDigitiseRequestOutputFormat = typing.Union[typing.Literal["html", "md", "json"], typing.Any]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cohere
-Version: 7.0.9
+Version: 7.1.0
 Summary: 
 License: MIT
 Requires-Python: >=3.10,<4.0

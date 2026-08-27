@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pgcli
-Version: 4.5.0
+Version: 4.6.0
 Summary: CLI for Postgres Database. With auto-completion and syntax highlighting.
 Author-email: Pgcli Core Team <pgcli-dev@googlegroups.com>
-License: BSD
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://pgcli.com
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: Unix
@@ -29,7 +29,7 @@ Requires-Dist: Pygments>=2.0
 Requires-Dist: prompt_toolkit<4.0.0,>=2.0.6
 Requires-Dist: psycopg>=3.0.14; sys_platform != "win32"
 Requires-Dist: psycopg-binary>=3.0.14; sys_platform == "win32"
-Requires-Dist: sqlparse<0.6,>=0.3.0
+Requires-Dist: sqlparse<0.7,>=0.3.0
 Requires-Dist: configobj>=5.0.6
 Requires-Dist: cli_helpers[styles]>=2.4.0
 Requires-Dist: setproctitle>=1.1.9; sys_platform != "win32" and "CYGWIN" not in sys_platform

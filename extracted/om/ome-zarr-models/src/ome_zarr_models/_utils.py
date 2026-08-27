@@ -25,9 +25,10 @@ if TYPE_CHECKING:
     import zarr
     from zarr.abc.store import Store
 
-    from ome_zarr_models._v06.base import BaseGroupv06
     from ome_zarr_models.v04.base import BaseGroupv04
     from ome_zarr_models.v05.base import BaseGroupv05
+    from ome_zarr_models.v06.base import BaseGroupv06
+
 
 TBaseGroupv2 = TypeVar("TBaseGroupv2", bound="BaseGroupv04[Any]")
 TAttrsv2 = TypeVar("TAttrsv2", bound=BaseAttrsv2)

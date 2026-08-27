@@ -3,7 +3,7 @@
 
 //! gRPC worker dynamic plugin loader and host-side proxy adapter.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::future::Future;
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
@@ -20,18 +20,30 @@ use nemo_relay_worker_proto::v1::relay_host_runtime_server::{
 };
 use nemo_relay_worker_proto::v1::{
     CancelInvocationRequest, CreateScopeStackRequest, CreateScopeStackResponse,
-    DropScopeStackRequest, EmitMarkRequest, GuardrailResult, HandshakeRequest, HealthRequest,
-    HostAck, InvokeRequest, InvokeResponse, JsonEnvelope, JsonResult, LlmCodecDecodeRequest,
-    LlmCodecDecodeResponse, LlmCodecEncodeRequest, LlmCodecIdentity as ProtoLlmCodecIdentity,
-    LlmCodecKind, LlmInvocation, LlmNextRequest,
+    DeregisterConditionalMiddlewareGuardrailRequest,
+    DeregisterConditionalMiddlewareGuardrailResponse, DropScopeStackRequest, EmitMarkRequest,
+    GetRuntimeDiagnosticsRequest, GetRuntimeDiagnosticsResponse, GuardrailResult, HandshakeRequest,
+    HandshakeResponse, HealthRequest, HostAck, InvokeRequest, InvokeResponse, JsonEnvelope,
+    JsonResult, ListRuntimeRegistrationsRequest, ListRuntimeRegistrationsResponse,
+    LlmCodecDecodeRequest, LlmCodecDecodeResponse, LlmCodecEncodeRequest,
+    LlmCodecIdentity as ProtoLlmCodecIdentity, LlmCodecKind, LlmInvocation, LlmNextRequest,
     LlmSanitizeRequestContext as ProtoLlmSanitizeRequestContext,
     LlmSanitizeResponseContext as ProtoLlmSanitizeResponseContext, LlmStreamNextRequest,
-    PopScopeRequest, PushScopeRequest, PushScopeResponse, RegisterRequest, RegisterResponse,
-    Registration, RegistrationSurface, ScopeContext, ShutdownRequest, StreamChunk, ToolInvocation,
+    PopScopeRequest, PushScopeRequest, PushScopeResponse,
+    RegisterConditionalMiddlewareGuardrailRequest, RegisterConditionalMiddlewareGuardrailResponse,
+    RegisterRequest, RegisterResponse, Registration, RegistrationSurface,
+    RuntimeDiagnostic as ProtoRuntimeDiagnostic,
+    RuntimeRegistrationIdentity as ProtoRuntimeRegistrationIdentity,
+    RuntimeRegistrationOwner as ProtoRuntimeRegistrationOwner,
+    RuntimeRegistrationOwnerKind as ProtoRuntimeRegistrationOwnerKind, ScopeContext,
+    ShutdownRequest, StreamChunk,
+    ToolExecutionInterceptOutcome as ProtoToolExecutionInterceptOutcome,
+    ToolExecutionResult as ProtoToolExecutionResult, ToolExecutionResultResponse, ToolInvocation,
     ToolNextRequest, ValidateRequest, WorkerError,
 };
-use nemo_relay_worker_proto::{WORKER_PROTOCOL_GRPC_V1, decode_json_envelope, json_envelope};
-use semver::{Version, VersionReq};
+use nemo_relay_worker_proto::{
+    WORKER_PROTOCOL_GRPC_V1, decode_json_envelope, decode_json_value, json_envelope, json_value,
+};
 use serde_json::{Map, Value as Json};
 use sha2::{Digest, Sha256};
 use tokio::runtime::{Builder as RuntimeBuilder, Runtime};
@@ -58,13 +70,18 @@ use tokio_stream::wrappers::UnixListenerStream;
 #[cfg(unix)]
 use tower::service_fn;
 
-use crate::api::event::{Event, EventSanitizeFields};
+use crate::api::event::{DataSchema, Event, EventCategory, EventSanitizeFields, LogSeverity};
 use crate::api::llm::{LLM_REQUEST_INTERCEPT_OUTCOME_SCHEMA, LlmRequest};
+use crate::api::registry::{
+    RuntimeRegistrationKind, RuntimeRegistrationOwnerKind,
+    deregister_conditional_middleware_guardrail, list_runtime_registrations,
+    register_conditional_middleware_guardrail,
+};
 use crate::api::runtime::subscriber_dispatcher::{
     PublicationBuffer, capture_nested_publication_buffer, with_nested_publication_buffer,
 };
 use crate::api::runtime::{
-    EventSanitizeFn, LlmCodecIdentity, LlmExecutionNextFn, LlmJsonStream,
+    EventMetadataInjectorFn, EventSanitizeFn, LlmCodecIdentity, LlmExecutionNextFn, LlmJsonStream,
     LlmSanitizeRequestContext, LlmSanitizeResponseContext, LlmStreamExecutionNextFn,
     MiddlewareContinuationContext, ToolExecutionNextFn, current_scope_stack, with_scope_stack,
 };
@@ -72,22 +89,24 @@ use crate::api::scope::{
     EmitMarkEventParams, PopScopeParams, PushScopeParams, ScopeAttributes, ScopeHandle, ScopeType,
     event as emit_scope_mark, pop_scope, push_scope,
 };
-use crate::api::tool::ToolExecutionInterceptOutcome;
+use crate::api::tool::{ToolExecutionInterceptOutcome, ToolExecutionResult};
 use crate::codec::request::{ANNOTATED_LLM_REQUEST_SCHEMA, AnnotatedLlmRequest};
 use crate::codec::traits::{LlmCodec, LlmResponseCodec};
 use crate::error::{FlowError, Result as FlowResult};
 use crate::plugin::{
     ConfigDiagnostic, DiagnosticLevel, Plugin, PluginError, PluginRegistrationContext,
-    deregister_plugin_registration_checked, register_plugin_tracked,
+    active_runtime_diagnostics_snapshot, deregister_plugin_registration_checked,
+    register_plugin_tracked,
 };
 
 use super::{
     DynamicPluginKind, DynamicPluginManifest, DynamicPluginManifestLoad,
     DynamicPluginTeardownOutcome, WorkerRuntime, deregister_tracked_registrations_checked,
-    validate_annotated_request_consumer_compatibility,
+    validate_annotated_request_consumer_compatibility, validate_dynamic_plugin_relay_compatibility,
 };
 
 const JSON_SCHEMA: &str = "nemo.relay.Json@1";
+const DATA_SCHEMA_SCHEMA: &str = "nemo.relay.DataSchema@1";
 const EVENT_SCHEMA: &str = "nemo.relay.Event@1";
 const LLM_REQUEST_SCHEMA: &str = "nemo.relay.LlmRequest@1";
 const WORKER_STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
@@ -282,6 +301,8 @@ impl WorkerPluginInstance {
             plugin_id = self.plugin_kind.as_str();
             "Worker plugin is stopping"
         );
+
+        self.host_state.cleanup_conditional_middleware_guardrails();
 
         let mut client = self.client.clone();
         let request = ShutdownRequest {
@@ -564,19 +585,7 @@ fn load_one_worker_plugin(
     )
     .map_err(|err| PluginError::RegistrationFailed(format!("worker handshake failed: {err}")))?;
     let handshake = handshake.into_inner();
-    if handshake.plugin_id != spec.plugin_id || handshake.plugin_kind != spec.plugin_id {
-        return Err(PluginError::InvalidConfig(format!(
-            "worker plugin returned id '{}' kind '{}' but manifest id is '{}'",
-            handshake.plugin_id, handshake.plugin_kind, spec.plugin_id
-        )));
-    }
-    if handshake.worker_protocol != WORKER_PROTOCOL_GRPC_V1 {
-        let message = format!(
-            "unsupported worker_protocol '{}'",
-            handshake.worker_protocol
-        );
-        return Err(PluginError::InvalidConfig(message));
-    }
+    validate_worker_handshake(&spec.plugin_id, &handshake)?;
 
     let config = Json::Object(spec.config.clone());
     let validate = block_on_runtime(
@@ -601,8 +610,8 @@ fn load_one_worker_plugin(
         None => Vec::new(),
     };
 
-    let registrations = if diagnostics_have_errors(&validation_diagnostics) {
-        Vec::new()
+    let (registrations, initial_gates) = if diagnostics_have_errors(&validation_diagnostics) {
+        (Vec::new(), Vec::new())
     } else {
         let register = block_on_runtime(
             runtime_handle.runtime(),
@@ -621,8 +630,42 @@ fn load_one_worker_plugin(
             return Err(worker_error_to_plugin(error, "worker registration failed"));
         }
         validate_registration_plan(&spec.plugin_id, &register)?;
-        register.registrations
+        (
+            register.registrations,
+            register.conditional_middleware_guardrails,
+        )
     };
+    for gate in initial_gates {
+        let kinds = gate
+            .kinds
+            .into_iter()
+            .map(|kind| {
+                RegistrationSurface::try_from(kind)
+                    .map_err(|_| {
+                        PluginError::RegistrationFailed(format!(
+                            "worker plugin '{}' returned an unknown conditional middleware guardrail kind",
+                            spec.plugin_id
+                        ))
+                    })
+                    .and_then(|surface| {
+                        runtime_registration_kind_from_surface(surface).map_err(|status| {
+                            PluginError::RegistrationFailed(status.message().to_string())
+                        })
+                    })
+            })
+            .collect::<crate::plugin::Result<BTreeSet<_>>>()?;
+        if let Err(error) = host_state.register_owned_conditional_middleware_guardrail(
+            gate.name,
+            kinds,
+            gate.registration_name,
+            gate.reason,
+        ) {
+            host_state.cleanup_conditional_middleware_guardrails();
+            return Err(PluginError::RegistrationFailed(format!(
+                "worker initial conditional middleware guardrail failed: {error}"
+            )));
+        }
+    }
     if registrations.iter().any(|registration| {
         RegistrationSurface::try_from(registration.surface)
             .is_ok_and(|surface| surface == RegistrationSurface::LlmRequestIntercept)
@@ -1070,6 +1113,12 @@ impl WorkerPluginInstance {
                 RegistrationSurface::Subscriber => {
                     self.install_subscriber_registration(ctx, &registration.local_name)?
                 }
+                RegistrationSurface::EventMetadataInjector => self
+                    .install_event_metadata_injector_registration(
+                        ctx,
+                        &registration.local_name,
+                        registration.priority,
+                    )?,
                 RegistrationSurface::MarkSanitizeGuardrail
                 | RegistrationSurface::ScopeSanitizeStartGuardrail
                 | RegistrationSurface::ScopeSanitizeEndGuardrail => self
@@ -1120,6 +1169,26 @@ impl WorkerPluginInstance {
                 }
             }),
         )
+    }
+
+    fn install_event_metadata_injector_registration(
+        &self,
+        ctx: &mut PluginRegistrationContext,
+        name: &str,
+        priority: i32,
+    ) -> crate::plugin::Result<()> {
+        let instance = Arc::new(self.clone_for_callback());
+        let callback_name = name.to_owned();
+        let callback: EventMetadataInjectorFn = Arc::new(move |event| {
+            let instance = instance.clone();
+            let callback_name = callback_name.clone();
+            Box::pin(async move {
+                instance
+                    .invoke_event_metadata_injector(&callback_name, &event)
+                    .await
+            })
+        });
+        ctx.register_event_metadata_injector(name, priority, callback)
     }
 
     fn install_event_sanitize_registration(
@@ -1504,6 +1573,26 @@ impl WorkerPluginCallback {
         }
     }
 
+    async fn invoke_event_metadata_injector(
+        &self,
+        registration_name: &str,
+        event: &Event,
+    ) -> FlowResult<BTreeMap<String, Json>> {
+        let request = self.base_request(
+            registration_name,
+            RegistrationSurface::EventMetadataInjector,
+            None,
+            Some(invoke_request_payload_event(event)),
+        );
+        let value = json_from_invoke_response(self.invoke_async(request).await?)?;
+        let additions = serde_json::from_value::<BTreeMap<String, Json>>(value).map_err(|err| {
+            FlowError::Internal(format!(
+                "worker returned invalid Event metadata additions: {err}"
+            ))
+        })?;
+        Ok(additions)
+    }
+
     async fn invoke_event_sanitize(
         &self,
         registration_name: &str,
@@ -1575,15 +1664,10 @@ impl WorkerPluginCallback {
         let response = self.invoke_async(request).await?;
         match response.result {
             Some(invoke_response_result::Result::ToolExecution(result)) => {
-                let outcome =
-                    required_envelope(result.outcome, "tool execution intercept outcome")?;
-                if outcome.schema != "nemo.relay.ToolExecutionInterceptOutcome@1" {
-                    return Err(FlowError::Internal(format!(
-                        "worker returned unsupported tool execution intercept outcome schema: {}",
-                        outcome.schema
-                    )));
-                }
-                decode_json_envelope(&outcome).map_err(|err| {
+                let outcome = result.outcome.ok_or_else(|| {
+                    FlowError::Internal("worker tool execution intercept outcome is missing".into())
+                })?;
+                tool_execution_intercept_outcome_from_proto(outcome).map_err(|err| {
                     FlowError::Internal(format!(
                         "worker returned invalid tool execution intercept outcome: {err}"
                     ))
@@ -2088,6 +2172,13 @@ struct WorkerHostRuntimeState {
     scope_handles: Mutex<HashMap<String, StoredScopeHandle>>,
     continuations: Mutex<HashMap<String, Continuation>>,
     codecs: Mutex<HashMap<String, WorkerCodecCapability>>,
+    gates_active: AtomicBool,
+    conditional_middleware_guardrails: Mutex<HashMap<String, WorkerOwnedGate>>,
+}
+
+struct WorkerOwnedGate {
+    local_name: String,
+    qualified_name: String,
 }
 
 struct WorkerCodecCapability {
@@ -2171,7 +2262,83 @@ impl WorkerHostRuntimeState {
             scope_handles: Mutex::new(HashMap::new()),
             continuations: Mutex::new(HashMap::new()),
             codecs: Mutex::new(HashMap::new()),
+            gates_active: AtomicBool::new(true),
+            conditional_middleware_guardrails: Mutex::new(HashMap::new()),
         }
+    }
+
+    fn cleanup_conditional_middleware_guardrails(&self) {
+        self.gates_active.store(false, Ordering::Release);
+        let mut gates = match self.conditional_middleware_guardrails.lock() {
+            Ok(gates) => gates,
+            Err(error) => {
+                log::error!(
+                    target: "nemo_relay.worker",
+                    event = "worker_gate_ownership_lock_poisoned";
+                    "Worker gate ownership lock was poisoned during cleanup; recovering owned gates"
+                );
+                error.into_inner()
+            }
+        };
+        let names = gates
+            .drain()
+            .map(|(_, gate)| gate.qualified_name)
+            .collect::<Vec<_>>();
+        drop(gates);
+        for name in names {
+            if let Err(error) = deregister_conditional_middleware_guardrail(&name) {
+                log::error!(
+                    target: "nemo_relay.worker",
+                    event = "worker_gate_cleanup_failed",
+                    gate = name.as_str();
+                    "Worker-owned conditional middleware guardrail cleanup failed: {error}"
+                );
+            }
+        }
+    }
+
+    fn register_owned_conditional_middleware_guardrail(
+        &self,
+        name: String,
+        kinds: BTreeSet<RuntimeRegistrationKind>,
+        registration_name: String,
+        reason: String,
+    ) -> FlowResult<String> {
+        let mut owned_gates = self
+            .conditional_middleware_guardrails
+            .lock()
+            .map_err(|error| {
+                FlowError::Internal(format!("gate ownership lock poisoned: {error}"))
+            })?;
+        if !self.gates_active.load(Ordering::Acquire) {
+            return Err(FlowError::NotFound(
+                "worker activation is shutting down".into(),
+            ));
+        }
+        if owned_gates.values().any(|gate| gate.local_name == name) {
+            return Err(FlowError::AlreadyExists(format!(
+                "conditional middleware guardrail '{name}' already exists for this activation"
+            )));
+        }
+        let handle = format!("gate-{}", Uuid::now_v7());
+        let qualified_name = format!(
+            "__nemo_relay_worker_gate__{}__{}__{}",
+            self.activation_id, name, handle
+        );
+        register_conditional_middleware_guardrail(
+            &qualified_name,
+            kinds,
+            &registration_name,
+            Arc::new(move |_, _| Some(reason.clone())),
+        )?;
+        owned_gates.insert(
+            handle.clone(),
+            WorkerOwnedGate {
+                local_name: name,
+                qualified_name,
+            },
+        );
+        Ok(handle)
     }
 
     fn insert_request_codec(&self, invocation_id: &str, codec: Arc<dyn LlmCodec>) -> String {
@@ -2481,25 +2648,276 @@ struct WorkerHostRuntimeService {
     state: Arc<WorkerHostRuntimeState>,
 }
 
+fn runtime_registration_kind_from_surface(
+    surface: RegistrationSurface,
+) -> Result<RuntimeRegistrationKind, Status> {
+    match surface {
+        RegistrationSurface::Subscriber => Ok(RuntimeRegistrationKind::Subscriber),
+        RegistrationSurface::EventMetadataInjector => {
+            Ok(RuntimeRegistrationKind::EventMetadataInjector)
+        }
+        RegistrationSurface::MarkSanitizeGuardrail => {
+            Ok(RuntimeRegistrationKind::MarkSanitizeGuardrail)
+        }
+        RegistrationSurface::ScopeSanitizeStartGuardrail => {
+            Ok(RuntimeRegistrationKind::ScopeSanitizeStartGuardrail)
+        }
+        RegistrationSurface::ScopeSanitizeEndGuardrail => {
+            Ok(RuntimeRegistrationKind::ScopeSanitizeEndGuardrail)
+        }
+        RegistrationSurface::ToolSanitizeRequestGuardrail => {
+            Ok(RuntimeRegistrationKind::ToolSanitizeRequestGuardrail)
+        }
+        RegistrationSurface::ToolSanitizeResponseGuardrail => {
+            Ok(RuntimeRegistrationKind::ToolSanitizeResponseGuardrail)
+        }
+        RegistrationSurface::ToolConditionalExecutionGuardrail => {
+            Ok(RuntimeRegistrationKind::ToolConditionalExecutionGuardrail)
+        }
+        RegistrationSurface::ToolRequestIntercept => {
+            Ok(RuntimeRegistrationKind::ToolRequestIntercept)
+        }
+        RegistrationSurface::ToolExecutionIntercept => {
+            Ok(RuntimeRegistrationKind::ToolExecutionIntercept)
+        }
+        RegistrationSurface::LlmSanitizeRequestGuardrail => {
+            Ok(RuntimeRegistrationKind::LlmSanitizeRequestGuardrail)
+        }
+        RegistrationSurface::LlmSanitizeResponseGuardrail => {
+            Ok(RuntimeRegistrationKind::LlmSanitizeResponseGuardrail)
+        }
+        RegistrationSurface::LlmConditionalExecutionGuardrail => {
+            Ok(RuntimeRegistrationKind::LlmConditionalExecutionGuardrail)
+        }
+        RegistrationSurface::LlmRequestIntercept => {
+            Ok(RuntimeRegistrationKind::LlmRequestIntercept)
+        }
+        RegistrationSurface::LlmExecutionIntercept => {
+            Ok(RuntimeRegistrationKind::LlmExecutionIntercept)
+        }
+        RegistrationSurface::LlmStreamExecutionIntercept => {
+            Ok(RuntimeRegistrationKind::LlmStreamExecutionIntercept)
+        }
+        RegistrationSurface::Unspecified => Err(Status::invalid_argument(
+            "runtime registration kind must be specified",
+        )),
+    }
+}
+
+fn registration_surface_from_kind(kind: RuntimeRegistrationKind) -> RegistrationSurface {
+    match kind {
+        RuntimeRegistrationKind::Subscriber => RegistrationSurface::Subscriber,
+        RuntimeRegistrationKind::EventMetadataInjector => {
+            RegistrationSurface::EventMetadataInjector
+        }
+        RuntimeRegistrationKind::MarkSanitizeGuardrail => {
+            RegistrationSurface::MarkSanitizeGuardrail
+        }
+        RuntimeRegistrationKind::ScopeSanitizeStartGuardrail => {
+            RegistrationSurface::ScopeSanitizeStartGuardrail
+        }
+        RuntimeRegistrationKind::ScopeSanitizeEndGuardrail => {
+            RegistrationSurface::ScopeSanitizeEndGuardrail
+        }
+        RuntimeRegistrationKind::ToolSanitizeRequestGuardrail => {
+            RegistrationSurface::ToolSanitizeRequestGuardrail
+        }
+        RuntimeRegistrationKind::ToolSanitizeResponseGuardrail => {
+            RegistrationSurface::ToolSanitizeResponseGuardrail
+        }
+        RuntimeRegistrationKind::ToolConditionalExecutionGuardrail => {
+            RegistrationSurface::ToolConditionalExecutionGuardrail
+        }
+        RuntimeRegistrationKind::ToolRequestIntercept => RegistrationSurface::ToolRequestIntercept,
+        RuntimeRegistrationKind::ToolExecutionIntercept => {
+            RegistrationSurface::ToolExecutionIntercept
+        }
+        RuntimeRegistrationKind::LlmSanitizeRequestGuardrail => {
+            RegistrationSurface::LlmSanitizeRequestGuardrail
+        }
+        RuntimeRegistrationKind::LlmSanitizeResponseGuardrail => {
+            RegistrationSurface::LlmSanitizeResponseGuardrail
+        }
+        RuntimeRegistrationKind::LlmConditionalExecutionGuardrail => {
+            RegistrationSurface::LlmConditionalExecutionGuardrail
+        }
+        RuntimeRegistrationKind::LlmRequestIntercept => RegistrationSurface::LlmRequestIntercept,
+        RuntimeRegistrationKind::LlmExecutionIntercept => {
+            RegistrationSurface::LlmExecutionIntercept
+        }
+        RuntimeRegistrationKind::LlmStreamExecutionIntercept => {
+            RegistrationSurface::LlmStreamExecutionIntercept
+        }
+    }
+}
+
 #[tonic::async_trait]
 impl RelayHostRuntime for WorkerHostRuntimeService {
+    async fn list_runtime_registrations(
+        &self,
+        request: Request<ListRuntimeRegistrationsRequest>,
+    ) -> Result<Response<ListRuntimeRegistrationsResponse>, Status> {
+        let request = request.into_inner();
+        self.state
+            .authorize(&request.activation_id, &request.auth_token)?;
+        let kinds = request
+            .kinds
+            .into_iter()
+            .map(|kind| {
+                RegistrationSurface::try_from(kind)
+                    .map_err(|_| Status::invalid_argument("unknown runtime registration kind"))
+                    .and_then(runtime_registration_kind_from_surface)
+            })
+            .collect::<Result<BTreeSet<_>, _>>()?;
+        let selected = (!kinds.is_empty()).then_some(&kinds);
+        let registrations = list_runtime_registrations(selected).map_err(status_from_flow)?;
+        Ok(Response::new(ListRuntimeRegistrationsResponse {
+            registrations: registrations
+                .into_iter()
+                .map(|registration| ProtoRuntimeRegistrationIdentity {
+                    kind: registration_surface_from_kind(registration.kind) as i32,
+                    local_name: registration.local_name,
+                    effective_name: registration.effective_name,
+                    owner: Some(ProtoRuntimeRegistrationOwner {
+                        kind: match registration.owner.kind {
+                            RuntimeRegistrationOwnerKind::Core => {
+                                ProtoRuntimeRegistrationOwnerKind::Core as i32
+                            }
+                            RuntimeRegistrationOwnerKind::GlobalApi => {
+                                ProtoRuntimeRegistrationOwnerKind::GlobalApi as i32
+                            }
+                            RuntimeRegistrationOwnerKind::Plugin => {
+                                ProtoRuntimeRegistrationOwnerKind::Plugin as i32
+                            }
+                        },
+                        plugin_kind: registration.owner.plugin_kind,
+                        component_ordinal: registration.owner.component_ordinal,
+                    }),
+                })
+                .collect(),
+            error: None,
+        }))
+    }
+
+    async fn register_conditional_middleware_guardrail(
+        &self,
+        request: Request<RegisterConditionalMiddlewareGuardrailRequest>,
+    ) -> Result<Response<RegisterConditionalMiddlewareGuardrailResponse>, Status> {
+        let request = request.into_inner();
+        self.state
+            .authorize(&request.activation_id, &request.auth_token)?;
+        let kinds = request
+            .kinds
+            .into_iter()
+            .map(|kind| {
+                RegistrationSurface::try_from(kind)
+                    .map_err(|_| Status::invalid_argument("unknown runtime registration kind"))
+                    .and_then(runtime_registration_kind_from_surface)
+            })
+            .collect::<Result<BTreeSet<_>, _>>()?;
+        let handle = self
+            .state
+            .register_owned_conditional_middleware_guardrail(
+                request.name,
+                kinds,
+                request.registration_name,
+                request.reason,
+            )
+            .map_err(status_from_flow)?;
+        Ok(Response::new(
+            RegisterConditionalMiddlewareGuardrailResponse {
+                handle,
+                error: None,
+            },
+        ))
+    }
+
+    async fn deregister_conditional_middleware_guardrail(
+        &self,
+        request: Request<DeregisterConditionalMiddlewareGuardrailRequest>,
+    ) -> Result<Response<DeregisterConditionalMiddlewareGuardrailResponse>, Status> {
+        let request = request.into_inner();
+        self.state
+            .authorize(&request.activation_id, &request.auth_token)?;
+        let mut owned_gates = self
+            .state
+            .conditional_middleware_guardrails
+            .lock()
+            .map_err(|error| Status::internal(format!("gate ownership lock poisoned: {error}")))?;
+        let removed = match owned_gates.get(&request.handle) {
+            Some(gate) => {
+                let removed = deregister_conditional_middleware_guardrail(&gate.qualified_name)
+                    .map_err(status_from_flow)?;
+                if removed {
+                    owned_gates.remove(&request.handle);
+                }
+                removed
+            }
+            None => false,
+        };
+        Ok(Response::new(
+            DeregisterConditionalMiddlewareGuardrailResponse {
+                removed,
+                error: None,
+            },
+        ))
+    }
+
     async fn emit_mark(
         &self,
         request: Request<EmitMarkRequest>,
     ) -> Result<Response<HostAck>, Status> {
-        let request = request.into_inner();
-        self.state
-            .authorize(&request.activation_id, &request.auth_token)?;
-        let result = self.with_stack(request.scope.as_ref(), || {
+        let EmitMarkRequest {
+            activation_id,
+            auth_token,
+            scope,
+            name,
+            data,
+            metadata,
+            data_schema,
+            severity,
+            category,
+        } = request.into_inner();
+        self.state.authorize(&activation_id, &auth_token)?;
+        let data_schema = optional_typed_envelope::<DataSchema>(
+            data_schema,
+            "mark data_schema",
+            DATA_SCHEMA_SCHEMA,
+        );
+        let severity = optional_log_severity(&severity);
+        let category = (!category.is_empty()).then(|| EventCategory::new(category));
+        let result = self.with_stack(scope.as_ref(), || {
             emit_scope_mark(
                 EmitMarkEventParams::builder()
-                    .name(&request.name)
-                    .data_opt(optional_envelope_to_json(request.data)?)
-                    .metadata_opt(optional_envelope_to_json(request.metadata)?)
+                    .name(&name)
+                    .data_opt(optional_envelope_to_json(data)?)
+                    .metadata_opt(optional_envelope_to_json(metadata)?)
+                    .data_schema_opt(data_schema?)
+                    .severity_opt(severity?)
+                    .category_opt(category)
                     .build(),
             )
         });
         Ok(Response::new(host_ack(result)))
+    }
+
+    async fn get_runtime_diagnostics(
+        &self,
+        request: Request<GetRuntimeDiagnosticsRequest>,
+    ) -> Result<Response<GetRuntimeDiagnosticsResponse>, Status> {
+        let request = request.into_inner();
+        self.state
+            .authorize(&request.activation_id, &request.auth_token)?;
+        Ok(Response::new(GetRuntimeDiagnosticsResponse {
+            entries: active_runtime_diagnostics_snapshot()
+                .into_iter()
+                .map(|diagnostic| ProtoRuntimeDiagnostic {
+                    code: diagnostic.code,
+                    message: diagnostic.message,
+                    count: diagnostic.count,
+                })
+                .collect(),
+        }))
     }
 
     async fn push_scope(
@@ -2636,7 +3054,7 @@ impl RelayHostRuntime for WorkerHostRuntimeService {
     async fn tool_next(
         &self,
         request: Request<ToolNextRequest>,
-    ) -> Result<Response<JsonResult>, Status> {
+    ) -> Result<Response<ToolExecutionResultResponse>, Status> {
         let request = request.into_inner();
         self.state
             .authorize(&request.activation_id, &request.auth_token)?;
@@ -2660,7 +3078,7 @@ impl RelayHostRuntime for WorkerHostRuntimeService {
                     panic_payload_message(payload.as_ref())
                 )))
             });
-        Ok(Response::new(json_result(result)))
+        Ok(Response::new(tool_execution_result_response(result)))
     }
 
     async fn llm_next(
@@ -3047,6 +3465,35 @@ fn optional_envelope_to_json(value: Option<JsonEnvelope>) -> FlowResult<Option<J
         .transpose()
 }
 
+fn optional_typed_envelope<T: serde::de::DeserializeOwned>(
+    value: Option<JsonEnvelope>,
+    field: &str,
+    expected_schema: &str,
+) -> FlowResult<Option<T>> {
+    value
+        .map(|value| {
+            if value.schema != expected_schema {
+                return Err(FlowError::InvalidArgument(format!(
+                    "{field} has schema {:?}; expected {expected_schema:?}",
+                    value.schema
+                )));
+            }
+            decode_json_envelope::<T>(&value).map_err(|err| {
+                FlowError::InvalidArgument(format!("{field} has an invalid value: {err}"))
+            })
+        })
+        .transpose()
+}
+
+fn optional_log_severity(value: &str) -> FlowResult<Option<LogSeverity>> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    serde_json::from_value(Json::String(value.to_owned()))
+        .map(Some)
+        .map_err(|err| FlowError::InvalidArgument(format!("mark severity is invalid: {err}")))
+}
+
 fn host_ack(result: FlowResult<()>) -> HostAck {
     match result {
         Ok(()) => HostAck {
@@ -3084,6 +3531,77 @@ fn typed_json_result<T: serde::Serialize>(schema: &str, result: FlowResult<T>) -
             error: Some(flow_error_to_worker(err)),
         },
     }
+}
+
+fn tool_execution_result_response(
+    result: FlowResult<ToolExecutionResult>,
+) -> ToolExecutionResultResponse {
+    match result {
+        Ok(value) => match tool_execution_result_to_proto(value) {
+            Ok(value) => ToolExecutionResultResponse {
+                value: Some(value),
+                error: None,
+            },
+            Err(err) => ToolExecutionResultResponse {
+                value: None,
+                error: Some(flow_error_to_worker(FlowError::Internal(format!(
+                    "failed to encode tool execution result: {err}"
+                )))),
+            },
+        },
+        Err(err) => ToolExecutionResultResponse {
+            value: None,
+            error: Some(flow_error_to_worker(err)),
+        },
+    }
+}
+
+fn tool_execution_result_to_proto(
+    value: ToolExecutionResult,
+) -> std::result::Result<ProtoToolExecutionResult, serde_json::Error> {
+    Ok(ProtoToolExecutionResult {
+        result: Some(json_value(&value.result)?),
+        annotation: value
+            .annotation
+            .as_ref()
+            .filter(|value| !value.is_null())
+            .map(json_value)
+            .transpose()?,
+    })
+}
+
+fn tool_execution_intercept_outcome_from_proto(
+    value: ProtoToolExecutionInterceptOutcome,
+) -> FlowResult<ToolExecutionInterceptOutcome> {
+    let result = value.result.ok_or_else(|| {
+        FlowError::Internal("worker tool execution intercept outcome result is missing".into())
+    })?;
+    let result = decode_json_value(&result).map_err(|err| {
+        FlowError::Internal(format!("invalid worker tool execution result JSON: {err}"))
+    })?;
+    let annotation = value
+        .annotation
+        .as_ref()
+        .map(decode_json_value)
+        .transpose()
+        .map_err(|err| {
+            FlowError::Internal(format!(
+                "invalid worker tool execution annotation JSON: {err}"
+            ))
+        })?
+        .filter(|value: &Json| !value.is_null());
+    let pending_marks = value
+        .pending_marks
+        .as_ref()
+        .map(decode_json_value)
+        .transpose()
+        .map_err(|err| FlowError::Internal(format!("invalid worker pending marks JSON: {err}")))?
+        .unwrap_or_default();
+    Ok(ToolExecutionInterceptOutcome {
+        result,
+        annotation,
+        pending_marks,
+    })
 }
 
 fn flow_error_to_worker(err: FlowError) -> WorkerError {
@@ -3166,6 +3684,23 @@ fn validate_registration_plan(
             )));
         }
     }
+    let mut gate_names = std::collections::HashSet::new();
+    for gate in &response.conditional_middleware_guardrails {
+        if gate.name.trim().is_empty()
+            || gate.registration_name.trim().is_empty()
+            || gate.kinds.is_empty()
+        {
+            return Err(PluginError::RegistrationFailed(format!(
+                "worker plugin '{plugin_id}' returned an invalid conditional middleware guardrail"
+            )));
+        }
+        if !gate_names.insert(gate.name.as_str()) {
+            return Err(PluginError::RegistrationFailed(format!(
+                "worker plugin '{plugin_id}' returned duplicate conditional middleware guardrail '{}'",
+                gate.name
+            )));
+        }
+    }
     Ok(())
 }
 
@@ -3185,23 +3720,27 @@ fn worker_error_diagnostic(plugin_kind: &str, code: &str, message: &str) -> Conf
     }
 }
 
-fn validate_relay_compatibility(relay: Option<&str>) -> crate::plugin::Result<()> {
-    let relay = relay
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| PluginError::InvalidConfig("compat.relay is required".into()))?;
-    let req = VersionReq::parse(relay).map_err(|err| {
-        PluginError::InvalidConfig(format!("invalid compat.relay version requirement: {err}"))
-    })?;
-    let version = Version::parse(env!("CARGO_PKG_VERSION"))
-        .map_err(|err| PluginError::Internal(format!("failed to parse host version: {err}")))?;
-    if req.matches(&version) {
-        Ok(())
-    } else {
-        Err(PluginError::InvalidConfig(format!(
-            "worker plugin requires relay '{relay}' but host version is {version}"
-        )))
+fn validate_worker_handshake(
+    expected_plugin_id: &str,
+    handshake: &HandshakeResponse,
+) -> crate::plugin::Result<()> {
+    if handshake.plugin_id != expected_plugin_id || handshake.plugin_kind != expected_plugin_id {
+        return Err(PluginError::InvalidConfig(format!(
+            "worker plugin returned id '{}' kind '{}' but manifest id is '{}'",
+            handshake.plugin_id, handshake.plugin_kind, expected_plugin_id
+        )));
     }
+    if handshake.worker_protocol != WORKER_PROTOCOL_GRPC_V1 {
+        return Err(PluginError::InvalidConfig(format!(
+            "unsupported worker_protocol '{}'",
+            handshake.worker_protocol
+        )));
+    }
+    Ok(())
+}
+
+fn validate_relay_compatibility(relay: Option<&str>) -> crate::plugin::Result<()> {
+    validate_dynamic_plugin_relay_compatibility(relay, "worker")
 }
 
 fn resolve_manifest_relative_path(manifest_path: &Path, value: &str) -> PathBuf {

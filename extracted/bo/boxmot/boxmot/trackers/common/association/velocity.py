@@ -5,10 +5,14 @@ import numpy as np
 from boxmot.trackers.common.association.iou import AssociationFunction
 
 
-def speed_direction_batch(dets, tracks):
+def speed_direction_batch(dets, tracks, *, is_obb=False):
     tracks = tracks[..., np.newaxis]
-    CX1, CY1 = (dets[:, 0] + dets[:, 2]) / 2.0, (dets[:, 1] + dets[:, 3]) / 2.0
-    CX2, CY2 = (tracks[:, 0] + tracks[:, 2]) / 2.0, (tracks[:, 1] + tracks[:, 3]) / 2.0
+    if is_obb:
+        CX1, CY1 = dets[:, 0], dets[:, 1]
+        CX2, CY2 = tracks[:, 0], tracks[:, 1]
+    else:
+        CX1, CY1 = (dets[:, 0] + dets[:, 2]) / 2.0, (dets[:, 1] + dets[:, 3]) / 2.0
+        CX2, CY2 = (tracks[:, 0] + tracks[:, 2]) / 2.0, (tracks[:, 1] + tracks[:, 3]) / 2.0
     dx = CX1 - CX2
     dy = CY1 - CY2
     norm = np.sqrt(dx**2 + dy**2) + 1e-6
@@ -66,6 +70,7 @@ def associate(
     w_assoc_emb=None,
     aw_off=None,
     aw_param=None,
+    is_obb=False,
 ):
     if len(trackers) == 0:
         return (
@@ -74,7 +79,7 @@ def associate(
             np.empty((0, 5), dtype=int),
         )
 
-    Y, X = speed_direction_batch(detections, previous_obs)
+    Y, X = speed_direction_batch(detections, previous_obs, is_obb=is_obb)
     inertia_Y, inertia_X = velocities[:, 0], velocities[:, 1]
     inertia_Y = np.repeat(inertia_Y[:, np.newaxis], Y.shape[1], axis=1)
     inertia_X = np.repeat(inertia_X[:, np.newaxis], X.shape[1], axis=1)
@@ -84,7 +89,11 @@ def associate(
     diff_angle = (np.pi / 2.0 - np.abs(diff_angle)) / np.pi
 
     valid_mask = np.ones(previous_obs.shape[0])
-    valid_mask[np.where(previous_obs[:, 4] < 0)] = 0
+    # Observation rows end in confidence.  In OBB mode column four is a
+    # perfectly valid (and often negative) angle, not the missing-observation
+    # sentinel used by the original AABB implementation.
+    confidence_idx = 5 if is_obb else 4
+    valid_mask[np.where(previous_obs[:, confidence_idx] < 0)] = 0
 
     iou_matrix = asso_func(detections, trackers)
     # iou_matrix = iou_batch(detections, trackers)

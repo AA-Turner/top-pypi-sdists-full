@@ -14,15 +14,25 @@ Example::
     import nemo_relay
 
     async def search(args):
-        return {"result": args["query"].upper()}
+        return nemo_relay.ToolExecutionResult({"result": args["query"].upper()})
 
     result = await nemo_relay.tools.execute("search", {"query": "hello"}, search)
-    assert result == {"result": "HELLO"}
+    assert result.result == {"result": "HELLO"}
 """
 
+from __future__ import annotations
+
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 
+from nemo_relay import Json
 from nemo_relay._context import ensure_scope_stack
+from nemo_relay._native import (
+    ScopeHandle,
+    ToolAttributes,
+    ToolExecutionResult,
+    ToolHandle,
+)
 from nemo_relay._native import (
     tool_call as _native_tool_call,
 )
@@ -41,16 +51,16 @@ from nemo_relay._native import (
 
 
 def call(
-    name,
-    args,
+    name: str,
+    args: Json,
     *,
-    handle=None,
-    attributes=None,
-    data=None,
-    metadata=None,
-    tool_call_id=None,
+    handle: ScopeHandle | None = None,
+    attributes: ToolAttributes | None = None,
+    data: Json | None = None,
+    metadata: Json | None = None,
+    tool_call_id: str | None = None,
     timestamp: datetime | None = None,
-):
+) -> ToolHandle:
     """Start a manual tool span and return its ``ToolHandle``.
 
     Args:
@@ -91,7 +101,7 @@ def call(
         )
         nemo_relay.tools.call_end(
             handle,
-            {"result": "ok"},
+            nemo_relay.ToolExecutionResult({"result": "ok"}),
             data={"cached": False},
             metadata={"status": "success"},
         )
@@ -109,12 +119,19 @@ def call(
     )
 
 
-def call_end(handle, result, *, data=None, metadata=None, timestamp: datetime | None = None):
+def call_end(
+    handle: ToolHandle,
+    result: ToolExecutionResult[Json],
+    *,
+    data: Json | None = None,
+    metadata: Json | None = None,
+    timestamp: datetime | None = None,
+) -> None:
     """Finish a manual tool span started by ``call()``.
 
     Args:
         handle: Tool handle returned by ``call()``.
-        result: JSON-compatible tool result to record on the end event.
+        result: Canonical ``ToolExecutionResult`` to record on the end event.
         data: Optional JSON payload used when the sanitized ``result`` is JSON null.
         metadata: Optional JSON metadata recorded on the emitted end event.
         timestamp: Optional timezone-aware ``datetime`` recorded on the emitted
@@ -137,7 +154,17 @@ def call_end(handle, result, *, data=None, metadata=None, timestamp: datetime | 
     return _native_tool_call_end(handle, result, data=data, metadata=metadata, timestamp=timestamp)
 
 
-def execute(name, args, func, *, handle=None, attributes=None, data=None, metadata=None):
+def execute(
+    name: str,
+    args: Json,
+    func: Callable[[Json], ToolExecutionResult[Json] | Awaitable[ToolExecutionResult[Json]]],
+    *,
+    handle: ScopeHandle | None = None,
+    attributes: ToolAttributes | None = None,
+    data: Json | None = None,
+    metadata: Json | None = None,
+    tool_call_id: str | None = None,
+) -> Awaitable[ToolExecutionResult[Json]]:
     """Run a tool through the managed middleware pipeline.
 
     Pipeline order:
@@ -153,15 +180,18 @@ def execute(name, args, func, *, handle=None, attributes=None, data=None, metada
         name: Tool name recorded on emitted lifecycle events.
         args: JSON-compatible arguments passed through the middleware pipeline.
         func: Tool implementation invoked as ``func(args)`` after guardrails and
-            intercepts run.
+            intercepts run. It must return ``ToolExecutionResult``.
         handle: Optional parent scope handle. When omitted, the current scope
             becomes the parent.
         attributes: Optional native tool attributes attached to the start event.
         data: Optional JSON application payload stored on the managed tool handle.
         metadata: Optional JSON metadata recorded on the emitted start event.
+        tool_call_id: Optional provider-specific tool call identifier recorded
+            on the emitted start and end events.
 
     Returns:
-        Json: The raw result returned by ``func`` or by an execution intercept.
+        ToolExecutionResult: The canonical result returned by ``func`` or an
+        execution intercept.
 
     Notes:
         Sanitize guardrails affect emitted event payloads only. They do not
@@ -173,7 +203,7 @@ def execute(name, args, func, *, handle=None, attributes=None, data=None, metada
         import nemo_relay
 
         async def local_tool(args):
-            return {"count": len(args["items"])}
+            return nemo_relay.ToolExecutionResult({"count": len(args["items"])})
 
         result = await nemo_relay.tools.execute(
             "count",
@@ -184,7 +214,7 @@ def execute(name, args, func, *, handle=None, attributes=None, data=None, metada
             data={"source": "example"},
             metadata={"request_id": "req-1"},
         )
-        assert result["count"] == 3
+        assert result.result["count"] == 3
     """
     ensure_scope_stack()
     return _native_tool_call_execute(
@@ -195,10 +225,11 @@ def execute(name, args, func, *, handle=None, attributes=None, data=None, metada
         attributes=attributes,
         data=data,
         metadata=metadata,
+        tool_call_id=tool_call_id,
     )
 
 
-def request_intercepts(name, args):
+def request_intercepts(name: str, args: Json) -> Json | Awaitable[Json]:
     """Apply global tool request intercepts to ``args``.
 
     Args:
@@ -218,7 +249,7 @@ def request_intercepts(name, args):
     return _native_tool_request_intercepts(name, args)
 
 
-def conditional_execution(name, args):
+def conditional_execution(name: str, args: Json) -> Awaitable[None] | None:
     """Run tool conditional-execution guardrails for ``args``.
 
     Args:
@@ -226,7 +257,7 @@ def conditional_execution(name, args):
         args: JSON-compatible tool arguments to validate.
 
     Returns:
-        None | Awaitable[None]: ``None`` when execution is allowed, returned
+        Awaitable[None] | None: ``None`` when execution is allowed, returned
         directly outside an event loop or through an awaitable inside one.
 
     Notes:

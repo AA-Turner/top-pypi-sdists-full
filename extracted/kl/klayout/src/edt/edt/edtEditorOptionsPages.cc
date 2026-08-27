@@ -914,6 +914,16 @@ EditorOptionsInstPCellParam::update_pcell_parameters (const std::vector <tl::Var
 }
 
 void
+EditorOptionsInstPCellParam::attach_events ()
+{
+  lay::EditorOptionsPageWidget::attach_events ();
+
+  if (mp_pcell_parameters.get ()) {
+    mp_pcell_parameters->edited.add (this, &EditorOptionsInstPCellParam::parameters_page_edited);
+  }
+}
+
+void
 EditorOptionsInstPCellParam::parameters_page_edited ()
 {
   edited ();

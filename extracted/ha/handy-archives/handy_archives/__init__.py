@@ -39,7 +39,7 @@ from typing import IO, TYPE_CHECKING, Callable, Iterable, Optional, Type, TypeVa
 __author__: str = "Dominic Davis-Foster"
 __copyright__: str = "2021 Dominic Davis-Foster"
 __license__: str = "MIT License"
-__version__: str = "0.2.0"
+__version__: str = "0.3.0"
 __email__: str = "dominic@davis-foster.co.uk"
 
 __all__ = ["unpack_archive", "TarFile", "ZipFile", "is_tarfile"]
@@ -67,9 +67,9 @@ if TYPE_CHECKING or not hasattr(tarfile, "FilterError"):  # pragma: nocover
 
 else:  # pragma: nocover
 	# stdlib
-	from tarfile import data_filter as data_filter
-	from tarfile import fully_trusted_filter as fully_trusted_filter
-	from tarfile import tar_filter as tar_filter
+	from tarfile import data_filter as data_filter  # noqa: F401
+	from tarfile import fully_trusted_filter as fully_trusted_filter  # noqa: F401
+	from tarfile import tar_filter as tar_filter  # noqa: F401
 
 
 def unpack_archive(
@@ -112,14 +112,14 @@ class TarFile(tarfile.TarFile):
 	offset: int
 
 	@no_type_check
-	def extractall(
-			self,
-			path: PathLike = '.',
-			members: Optional[Iterable[tarfile.TarInfo]] = None,
-			*,
-			numeric_owner: bool = False,
-			filter: Optional[Callable] = None,  # noqa: A002  # pylint: disable=redefined-builtin
-			) -> None:  # pragma: nocover
+	def extractall(  # noqa: PRM002
+		self,
+		path: PathLike = '.',
+		members: Optional[Iterable[tarfile.TarInfo]] = None,
+		*,
+		numeric_owner: bool = False,
+		filter: Optional[Callable] = None,  # noqa: A002  # pylint: disable=redefined-builtin
+	) -> None:  # pragma: nocover
 		"""
 		Wrapper around :meth:`tarfile.TarFile.extractall` with compatibility shim for :pep:`706` on unpatched Pythons.
 		"""
@@ -135,15 +135,15 @@ class TarFile(tarfile.TarFile):
 			return super().extractall(path, members, numeric_owner=numeric_owner)
 
 	@no_type_check
-	def extract(
-			self,
-			member: Union[str, tarfile.TarInfo],
-			path: PathLike = '',
-			set_attrs: bool = True,
-			*,
-			numeric_owner: bool = False,
-			filter: Optional[Callable] = None,  # noqa: A002  # pylint: disable=redefined-builtin
-			) -> None:  # pragma: nocover
+	def extract(  # noqa: PRM002
+		self,
+		member: Union[str, tarfile.TarInfo],
+		path: PathLike = '',
+		set_attrs: bool = True,
+		*,
+		numeric_owner: bool = False,
+		filter: Optional[Callable] = None,  # noqa: A002  # pylint: disable=redefined-builtin
+	) -> None:  # pragma: nocover
 		"""
 		Wrapper around :meth:`tarfile.TarFile.extract` with compatibility shim for :pep:`706` on unpatched Pythons.
 		"""
@@ -159,7 +159,7 @@ class TarFile(tarfile.TarFile):
 		else:
 			return super().extract(member, path, set_attrs, numeric_owner=numeric_owner)
 
-	def extractfile(self, member: Union[str, tarfile.TarInfo]) -> IO[bytes]:
+	def extractfile(self, member: Union[PathLike, tarfile.TarInfo]) -> IO[bytes]:
 		"""
 		Extract a member from the archive as a file object.
 
@@ -169,14 +169,14 @@ class TarFile(tarfile.TarFile):
 		Otherwise :exc:`FileNotFoundError` is raised.
 		"""
 
-		if isinstance(member, str):
-			tarinfo = self._getmember(member)  # type: ignore[attr-defined]
+		if isinstance(member, tarfile.TarInfo):
+			fd = super().extractfile(member)
+		else:
+			tarinfo = self._getmember(os.fspath(member))  # type: ignore[attr-defined]
 			if tarinfo is None:
 				raise FileNotFoundError(member)
 			else:
-				fd = super().extractfile(member)
-		else:
-			fd = super().extractfile(member)
+				fd = super().extractfile(os.fspath(member))
 
 		if fd is None:
 			raise FileNotFoundError(member)
@@ -185,7 +185,7 @@ class TarFile(tarfile.TarFile):
 
 	def read_text(
 			self,
-			member: Union[str, tarfile.TarInfo],
+			member: Union[PathLike, tarfile.TarInfo],
 			*,
 			normalize_nl: bool = False,
 			) -> str:
@@ -204,7 +204,7 @@ class TarFile(tarfile.TarFile):
 
 		return _normalize_nl(self.read_bytes(member).decode("UTF-8"), normalize_nl)
 
-	def read_bytes(self, member: Union[str, tarfile.TarInfo]) -> bytes:
+	def read_bytes(self, member: Union[PathLike, tarfile.TarInfo]) -> bytes:
 		"""
 		Returns the content of the given file as bytes.
 
@@ -255,7 +255,7 @@ class TarFile(tarfile.TarFile):
 
 		# Create a TarInfo object from the file.
 		tarinfo = self.gettarinfo(os.fspath(filename), arcname)
-		tarinfo.mtime = mtime.timestamp()  # type: ignore[assignment]
+		tarinfo.mtime = mtime.timestamp()
 
 		if tarinfo is None:  # pragma: no cover
 			self._dbg(1, f"tarfile: Unsupported type {filename!r}")
@@ -268,13 +268,13 @@ class TarFile(tarfile.TarFile):
 	def __enter__(self: _Self) -> _Self:
 		return super().__enter__()  # type: ignore[misc]
 
-	@classmethod  # noqa: A003  # pylint: disable=redefined-builtin
-	def open(  # type: ignore[override]  # noqa: D102
+	@classmethod
+	def open(  # type: ignore[override]  # noqa: D102,A003  # pylint: disable=redefined-builtin
 		cls: Type[_Self],
 		name: Optional[PathLike] = None,
 		*args,
 		**kwargs,
-		) -> _Self:
+	) -> _Self:
 
 		if name is not None:
 			name = os.fspath(name)
@@ -293,7 +293,7 @@ class ZipFile(zipfile.ZipFile):
 
 	def extractfile(
 			self,
-			member: Union[str, zipfile.ZipInfo],
+			member: Union[PathLike, zipfile.ZipInfo],
 			pwd: Union[str, bytes, None] = None,
 			) -> IO[bytes]:
 		"""
@@ -313,7 +313,7 @@ class ZipFile(zipfile.ZipFile):
 			info = member
 		else:
 			# Get info object for 'member'
-			maybe_info = self.NameToInfo.get(member)
+			maybe_info = self.NameToInfo.get(os.fspath(member))
 			if maybe_info is None:
 				raise FileNotFoundError(member)
 			else:
@@ -326,10 +326,10 @@ class ZipFile(zipfile.ZipFile):
 
 	def read_text(
 			self,
-			member: Union[str, zipfile.ZipInfo],
+			member: Union[PathLike, zipfile.ZipInfo],
 			pwd: Union[str, bytes, None] = None,
 			*,
-			normalize_nl: bool = False
+			normalize_nl: bool = False,
 			) -> str:
 		r"""
 		Returns the content of the given file as a string.
@@ -349,7 +349,7 @@ class ZipFile(zipfile.ZipFile):
 
 	def read_bytes(
 			self,
-			member: Union[str, zipfile.ZipInfo],
+			member: Union[PathLike, zipfile.ZipInfo],
 			pwd: Union[str, bytes, None] = None,
 			) -> bytes:
 		"""
@@ -402,8 +402,7 @@ class ZipFile(zipfile.ZipFile):
 
 		zinfo.compress_type = self.compression
 
-		if sys.version_info >= (3, 7):  # pragma: no cover (<py37)
-			zinfo._compresslevel = self.compresslevel  # type: ignore[attr-defined]
+		zinfo._compresslevel = self.compresslevel  # type: ignore[attr-defined]
 
 		st = os.stat(filename)
 		zinfo.external_attr = (st.st_mode & 0xFFFF) << 16  # Unix attributes

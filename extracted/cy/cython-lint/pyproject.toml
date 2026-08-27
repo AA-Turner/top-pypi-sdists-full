@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cython-lint"
-version = "0.21.0"
+version = "0.21.1"
 authors = [
   { name="Marco Gorelli", email="33491632+MarcoGorelli@users.noreply.github.com" },
 ]
@@ -99,3 +99,5 @@ exclude_also = [
 [tool.mypy]
 strict = true
 
+[tool.pyrefly]
+project-includes=['cython_lint']

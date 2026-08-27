@@ -50,6 +50,34 @@ def _is_version_stage_relative(path: str) -> bool:
     return trimmed.startswith("/") and not os.path.exists(trimmed)
 
 
+def hashed_udtf_name(
+    prefix: str,
+    udtf_proto: CommonInlineUserDefinedFunction,
+    session_id: str,
+    *body_parts: object,
+) -> str:
+    """Per-registration UDTF name, so two UDTFs in one plan cannot collide.
+
+    Created with ``replace=True``, and the plan carries only the NAME, bound positionally --
+    so any two registrations hashing the same silently become one (SNOW-4010527).
+
+    ``python_udf.command`` (the pickled ``(function, return_type)``) is always folded in. Pass
+    everything ELSE baked into the body as ``body_parts`` -- notably the column-name lists,
+    which the handler applies but which are NOT part of Snowflake's overload identity.
+
+    The two paths corrupt differently, which matters when testing them: map/arrow assign
+    positionally, so a column REORDER is enough; cogroup selects by key from JSON records, so
+    only a differing name SET bites (a reorder test there is vacuous). See
+    tests/expectation_tests/test_map_partitions_shared_udtf_name_gap.py.
+
+    ``default=str`` keeps this total for a body part that is not JSON-serialisable.
+    """
+    digest = hashlib.md5(udtf_proto.python_udf.command)
+    for part in body_parts:
+        digest.update(json.dumps(part, sort_keys=True, default=str).encode())
+    return f"{prefix}_{digest.hexdigest()}_{session_id.replace('-', '_')}"
+
+
 def apply_version_stage_import_passthrough() -> None:
     """Make Snowpark's import resolver emit version-stage-relative (``/...``) imports verbatim
     rather than treating them as missing local files, so a pandas UDTF created in the
@@ -381,7 +409,13 @@ def create_pandas_udtf(
         ],
         input_names=[field.name for field in input_schema.fields]
         + ["_DUMMY_PARTITION_KEY"],
-        name=f"map_pandas_udtf_{session_id.replace('-','_')}",
+        name=hashed_udtf_name(
+            "map_pandas_udtf",
+            udtf_proto,
+            session_id,
+            spark_column_names,
+            input_schema.json_value(),
+        ),
         replace=True,
         packages=process_udtf_packages(
             udtf_packages,
@@ -428,7 +462,13 @@ def create_pandas_udtf_with_arrow(
         ],
         input_names=[field.name for field in input_schema.fields]
         + ["_DUMMY_PARTITION_KEY"],
-        name=f"mapinarrow_udtf_{session_id.replace('-','_')}",
+        name=hashed_udtf_name(
+            "mapinarrow_udtf",
+            udtf_proto,
+            session_id,
+            spark_column_names,
+            input_schema.json_value(),
+        ),
         replace=True,
         packages=process_udtf_packages(
             udtf_packages,
@@ -580,10 +620,18 @@ def create_cogroup_pandas_udtf(
     It separates the rows by source, reconstructs two pandas DataFrames, and calls
     the user function with both DataFrames.
     """
-    base_name = (
-        "cogroup_pandas_udtf_" + hashlib.md5(udtf_proto.python_udf.command).hexdigest()
+    # Third instance of the same collision: this body bakes in BOTH column-name lists
+    # (self.inputN_spark_column_names, applied via pd.DataFrame(..., columns=...)), which the
+    # previous digest over `command` alone did not cover.
+    udtf_name = hashed_udtf_name(
+        "cogroup_pandas_udtf",
+        udtf_proto,
+        session_id,
+        input1_spark_column_names,
+        input2_spark_column_names,
+        return_schema.json_value(),
+        grouping_column_names,
     )
-    udtf_name = f"{base_name}_{session_id.replace('-','_')}"
 
     user_function, _ = cloudpickle.loads(udtf_proto.python_udf.command)
     output_column_names = [field.name for field in return_schema.fields]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gravity
-Version: 1.2.3
+Version: 1.2.4
 Summary: Command-line utilities to assist in managing Galaxy servers
 Author-email: The Galaxy Team <team@galaxyproject.org>
 License-Expression: MIT
@@ -131,6 +131,11 @@ More detailed configuration and usage examples, especially those concerning prod
 =========
  History
 =========
+
+1.2.4
+=====
+
+- Add ``--start-if-stopped`` to ``graceful``, to start a stopped service instead of refusing by @jdavcs in https://github.com/galaxyproject/gravity/pull/162
 
 1.2.3
 =====

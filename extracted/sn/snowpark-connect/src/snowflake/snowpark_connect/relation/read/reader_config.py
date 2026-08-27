@@ -60,6 +60,26 @@ def validate_json_charset_name(encoding: str) -> str:
     return canonical.upper()
 
 
+def to_snowflake_file_format_encoding(encoding: str) -> str:
+    """Map a Spark/Java charset name to a Snowflake ``FILE FORMAT`` ``ENCODING`` value.
+
+    Normalizes like Snowflake (uppercase, strip non-alphanumerics:
+    ``ISO-8859-1`` → ``ISO88591``). Maps ASCII aliases to ``UTF8`` (Snowflake
+    rejects ``US-ASCII`` / ``ASCII``). Unknown names are returned normalized so
+    Snowflake can reject them.
+
+    ``codecs.lookup`` is only used to detect ASCII; the returned value otherwise
+    keeps the original spelling, since Python's codec names diverge from
+    Snowflake's (e.g. ``windows-1252`` → ``cp1252`` vs ``WINDOWS1252``).
+    """
+    try:
+        if codecs.lookup(encoding).name == "ascii":
+            return "UTF8"
+    except LookupError:
+        pass
+    return "".join(c for c in encoding.upper() if c.isalnum())
+
+
 @dataclass
 class _Config:
     default_config: dict[str, str]
@@ -351,10 +371,14 @@ _CSV_ESCAPE_LITERAL_PAIRS = {
 }
 
 
-def _translate_csv_escape_literal(s: str | None) -> str | None:
+def translate_csv_escape_literal(s: str | None) -> str | None:
     """Translate Java/Spark string-literal escape sequences inside a CSV
     delimiter / line-separator option, chunk-by-chunk, mirroring Spark's
     ``CSVExprUtils.toDelimiterStr``.
+
+    Public because the NSS path shares it: ``nss_file_format`` translates the caller's
+    ``lineSep`` the same way before declaring it as ``RECORD_DELIMITER``, so the FILE
+    FORMAT and the COPY path resolve ``"\\t"`` to the same byte.
 
     Handles both 1-char escapes (``"\\t"`` -> tab) and embedded escapes
     inside a longer delimiter (``"_/-\\\\_"`` 6 chars from a Scala raw
@@ -423,6 +447,14 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
             snowpark_config["encoding"] = snowpark_config["charset"]
         del snowpark_config["charset"]
 
+    # Snowflake FILE FORMAT ENCODING rejects Spark's US-ASCII (no USASCII enum
+    # value); map Spark/Java charset names to the strip-non-alphanumeric form GS
+    # expects (and ASCII → UTF8).
+    if "encoding" in snowpark_config and snowpark_config["encoding"] is not None:
+        snowpark_config["encoding"] = to_snowflake_file_format_encoding(
+            str(snowpark_config["encoding"])
+        )
+
     # SNOW-3389608: Translate Spark/Java string-literal escape sequences in
     # ``sep`` and ``lineSep`` (e.g. ``"\\t"`` 2 chars -> tab; ``"_/-\\\\_"`` 6
     # chars from a Scala raw triple-quoted string -> 5-char ``"_/-\\_"``).
@@ -431,7 +463,7 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
     # post-translation value.
     for esc_key in ("sep", "linesep"):
         if esc_key in snowpark_config:
-            snowpark_config[esc_key] = _translate_csv_escape_literal(
+            snowpark_config[esc_key] = translate_csv_escape_literal(
                 snowpark_config[esc_key]
             )
 
@@ -855,19 +887,19 @@ class JsonReaderConfig(ReaderWriterConfig):
         3. JSONOptionsInRead.checkedEncoding: non-UTF-8 encodings require an
            explicit lineSep when multiLine is false (SNOW-3390108)
 
-        Additionally canonicalizes the encoding name to the uppercase form Snowflake
-        expects (e.g. "UTF8", "utf-8", "Utf-8" all become "UTF-8") using
-        codecs.lookup().name and stores it back in self.config["encoding"].
+        Charset validation uses ``codecs.lookup()`` internally, but the
+        user-supplied spelling is left in ``self.config["encoding"]``. Python's
+        codec name (e.g. ``UTF-16-BE``) is not a Java ``Charset.forName``
+        name; NSS forwards this bag to the sandbox Spark reader.
         """
         # Preserve the user-supplied spelling for error messages (Spark uses ``enc``
         # as provided, e.g. ``UTF-16LE``, not the codecs canonical ``UTF-16-LE``).
         encoding = self.config.get("encoding", "utf-8")
 
-        # SPARK-23723: Validate the charset name and canonicalize it to the
-        # uppercase form Snowflake's COPY INTO expects (e.g. "UTF-8" regardless
-        # of how the user spelled it: "UTF8", "utf-8", "Utf-8", ...).
+        # SPARK-23723: Validate the charset; ``canonical`` is only used for
+        # denyList / UTF-8 checks below (do not write it back — NSS needs the
+        # Java-facing spelling).
         canonical = validate_json_charset_name(encoding)
-        self.config["encoding"] = canonical
 
         # SPARK-24190 / SNOW-3246417: Check encoding denyList for non-multiLine
         # mode. Use _get_config_setting to get the properly typed boolean value

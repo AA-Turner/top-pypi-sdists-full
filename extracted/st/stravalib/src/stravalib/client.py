@@ -34,6 +34,8 @@ from stravalib import exc, model, strava_model, unit_helper
 from stravalib.exc import (
     ActivityPhotoUploadNotSupported,
     warn_attribute_unofficial,
+    warn_method_removal,
+    warn_method_restricted,
     warn_method_unofficial,
     warn_param_deprecation,
     warn_param_unofficial,
@@ -50,6 +52,12 @@ ActivityType = str
 SportType = str
 StreamType = str
 PhotoMetadata = Any
+
+#: Date on which Strava removes the Club Activities, Club Members, and Club
+#: Admins endpoints, and limits the Explore Segments endpoint to the Extended
+#: Access Tier.
+STRAVA_API_CHANGE_DATE = "September 1, 2026"
+STRAVA_API_CHANGELOG_URL = "https://developers.strava.com/docs/changelog/"
 
 
 class Client:
@@ -665,7 +673,20 @@ class Client:
         class:`BatchedResultsIterator`
             An iterator of :class:`stravalib.model.Athlete` objects.
 
+        Warns
+        -----
+        DeprecationWarning
+            Strava removes the Club Members endpoint. The warning gives the
+            removal date, after which calls to this method fail. See
+            https://developers.strava.com/docs/changelog/.
+
         """
+        warn_method_removal(
+            "get_club_members",
+            STRAVA_API_CHANGE_DATE,
+            STRAVA_API_CHANGELOG_URL,
+        )
+
         result_fetcher = functools.partial(
             self.protocol.get, "/clubs/{id}/members", id=club_id
         )
@@ -696,7 +717,20 @@ class Client:
         class:`BatchedResultsIterator`
             An iterator of :class:`stravalib.model.ClubActivity` objects.
 
+        Warns
+        -----
+        DeprecationWarning
+            Strava removes the Club Activities endpoint. The warning gives the
+            removal date, after which calls to this method fail. See
+            https://developers.strava.com/docs/changelog/.
+
         """
+        warn_method_removal(
+            "get_club_activities",
+            STRAVA_API_CHANGE_DATE,
+            STRAVA_API_CHANGELOG_URL,
+        )
+
         result_fetcher = functools.partial(
             self.protocol.get, "/clubs/{id}/activities", id=club_id
         )
@@ -727,7 +761,19 @@ class Client:
         class:`BatchedResultsIterator`
             An iterator of :class:`stravalib.model.SummaryAthlete` objects.
 
+        Warns
+        -----
+        DeprecationWarning
+            Strava removes the Club Admins endpoint. The warning gives the
+            removal date, after which calls to this method fail. See
+            https://developers.strava.com/docs/changelog/.
+
         """
+        warn_method_removal(
+            "get_club_admins",
+            STRAVA_API_CHANGE_DATE,
+            STRAVA_API_CHANGELOG_URL,
+        )
 
         result_fetcher = functools.partial(
             self.protocol.get, "/clubs/{id}/admins", id=club_id
@@ -1570,6 +1616,15 @@ class Client:
         :class:`list`
             An list of :class:`stravalib.model.Segment`.
 
+        Warns
+        -----
+        FutureWarning
+            Strava limits the Explore Segments endpoint to the Extended Access
+            Tier. Standard Tier is the default for every application. The
+            warning gives the date, after which calls from an application in
+            the Standard Tier fail. See
+            https://developers.strava.com/docs/changelog/.
+
         """
         if len(bounds) == 2:
             bounds = (
@@ -1580,8 +1635,8 @@ class Client:
             )
         elif len(bounds) != 4:
             raise ValueError(
-                "Invalid bounds specified: {0!r}. Must be tuple of 4 float "
-                "values or tuple of 2 (lat,lon) tuples."
+                f"Invalid bounds specified: {bounds!r}. Must be tuple of 4 "
+                "float values or tuple of 2 (lat,lon) tuples."
             )
 
         params: dict[str, Any] = {"bounds": ",".join(str(b) for b in bounds)}
@@ -1598,6 +1653,12 @@ class Client:
             params["min_cat"] = min_cat
         if max_cat is not None:
             params["max_cat"] = max_cat
+
+        warn_method_restricted(
+            "explore_segments",
+            STRAVA_API_CHANGE_DATE,
+            STRAVA_API_CHANGELOG_URL,
+        )
 
         raw = self.protocol.get("/segments/explore", **params)
         return [
@@ -1984,13 +2045,18 @@ class Client:
         An instance of :class:`stravalib.model.Subscription`.
 
         """
-        params: dict[str, Any] = dict(
-            client_id=client_id,
-            client_secret=client_secret,
-            callback_url=callback_url,
-            verify_token=verify_token,
+        # Sent as a form-encoded body rather than query parameters, so
+        # the client secret does not reach the URL. Strava documents this
+        # endpoint with a request body (issue #740).
+        raw = self.protocol.post(
+            "/push_subscriptions",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "callback_url": callback_url,
+                "verify_token": verify_token,
+            },
         )
-        raw = self.protocol.post("/push_subscriptions", **params)
         return model.Subscription.model_validate(
             {**raw, **{"bound_client": self}}
         )
@@ -2060,6 +2126,14 @@ class Client:
         class:`BatchedResultsIterator`
             An iterator of :class:`stravalib.model.Subscription` objects.
 
+        Notes
+        -----
+        This call takes the credentials in the URL query string, so
+        `client_secret` reaches the URL. A request body does not work here:
+        a GET that carries one is rejected before it reaches Strava. URLs
+        are recorded by proxies and server access logs, so treat a secret
+        used here as exposed to your network path.
+
         """
         result_fetcher = functools.partial(
             self.protocol.get,
@@ -2092,12 +2166,24 @@ class Client:
         -------
         Deletes the specific subscription using the subscription ID
 
+        Notes
+        -----
+        Strava documents this call with the credentials in the URL query
+        string. It also accepts them in a request body, which this method
+        uses so that `client_secret` stays out of the URL. That body form
+        is not documented, so it could stop working. It would fail loudly
+        rather than quietly: every call would return 401.
+
         """
+        # See the note above: the body form is undocumented but verified
+        # against the live API (issue #740).
         self.protocol.delete(
             "/push_subscriptions/{id}",
             id=subscription_id,
-            client_id=client_id,
-            client_secret=client_secret,
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+            },
         )
         # Expects a 204 response if all goes well.
 

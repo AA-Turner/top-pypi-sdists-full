@@ -89,7 +89,6 @@ impl EnvVars {
     pub const PREK_NO_CONCURRENCY: &'static str = "PREK_NO_CONCURRENCY";
     pub const PREK_CONCURRENT_HOOKS: &'static str = "PREK_CONCURRENT_HOOKS";
     pub const PREK_CONCURRENT_BATCHES: &'static str = "PREK_CONCURRENT_BATCHES";
-    pub const PREK_MAX_CONCURRENCY: &'static str = "PREK_MAX_CONCURRENCY";
     pub const PREK_NO_FAST_PATH: &'static str = "PREK_NO_FAST_PATH";
     pub const PREK_UV_SOURCE: &'static str = "PREK_UV_SOURCE";
     pub const PREK_NATIVE_TLS: &'static str = "PREK_NATIVE_TLS";
@@ -105,8 +104,6 @@ impl EnvVars {
     pub const PREK_INTERNAL__USER_CONFIG_PATH: &'static str = "PREK_INTERNAL__USER_CONFIG_PATH";
     pub const PREK_INTERNAL__SORT_FILENAMES: &'static str = "PREK_INTERNAL__SORT_FILENAMES";
     pub const PREK_INTERNAL__SKIP_POST_CHECKOUT: &'static str = "PREK_INTERNAL__SKIP_POST_CHECKOUT";
-    pub const PREK_INTERNAL__RUN_ORIGINAL_PRE_COMMIT: &'static str =
-        "PREK_INTERNAL__RUN_ORIGINAL_PRE_COMMIT";
     pub const PREK_INTERNAL__BUN_BINARY_NAME: &'static str = "PREK_INTERNAL__BUN_BINARY_NAME";
     pub const PREK_INTERNAL__DENO_BINARY_NAME: &'static str = "PREK_INTERNAL__DENO_BINARY_NAME";
     pub const PREK_INTERNAL__DOTNET_BINARY_NAME: &'static str = "PREK_INTERNAL_DOTNET_BINARY_NAME";
@@ -213,7 +210,6 @@ impl EnvVars {
 
 impl EnvVars {
     // Pre-commit environment variables that we support for compatibility
-    pub const PRE_COMMIT_HOME: &'static str = "PRE_COMMIT_HOME";
     const PRE_COMMIT_ALLOW_NO_CONFIG: &'static str = "PRE_COMMIT_ALLOW_NO_CONFIG";
     const PRE_COMMIT_NO_CONCURRENCY: &'static str = "PRE_COMMIT_NO_CONCURRENCY";
 }
@@ -257,6 +253,8 @@ fn parse_boolish(val: &str) -> Option<bool> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::{EnvVars, EnvVarsRead, parse_boolish};
 
     #[test]
@@ -283,10 +281,10 @@ mod tests {
         assert!(env_vars.is_set(EnvVars::PREK_COLOR));
 
         let env_vars = EnvVars::from_map(&[]);
-        assert!(matches!(
+        assert_matches!(
             env_vars.var(EnvVars::PREK_COLOR),
             Err(std::env::VarError::NotPresent)
-        ));
+        );
         assert!(!env_vars.is_set(EnvVars::PREK_COLOR));
 
         let env_vars = EnvVars::from_map(&[(EnvVars::PRE_COMMIT_NO_CONCURRENCY, "1")]);

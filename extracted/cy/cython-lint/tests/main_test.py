@@ -556,6 +556,22 @@ def test_late_binding_closure(
 
 
 @pytest.mark.parametrize(
+    "src",
+    [
+        "def f(seq):\n    return [x for x in seq]\n",
+        "def f(seq):\n    return {x for x in seq}\n",
+        "def f(seq):\n    return {x: x for x in seq}\n",
+        "def f(seq):\n    return {k: v for k, v in seq}\n",
+    ],
+)
+def test_comprehension_without_late_binding_closure(capsys: Any, src: str) -> None:
+    ret = _main(src, "t.py", ext=".pyx", no_pycodestyle=True)
+    out, _ = capsys.readouterr()
+    assert out == ""
+    assert ret == 0
+
+
+@pytest.mark.parametrize(
     ("ignore", "expected", "exp_ret"),
     [
         (
@@ -692,6 +708,7 @@ def test_pycodestyle_when_ast_parsing_fails(
         "for i, _v in enumerate(values):\n    a == values[[i]]\n",
         "for i, _v in enumerate(values):\n    pass\n    arr.extend(values[i])\n    pass\n",
         "for i, _v in enumerate(values):\n    b = t[i]\n",
+        "for i, v in zip(range(10), values):\n    a = values[i]\n    use(v)\n",
         "import numpy as np\n\n\ndef foo() -> np.ndarray:\n    pass\n",
         "dict([x for x in foo])\n",
         "current_notification = 3\n"

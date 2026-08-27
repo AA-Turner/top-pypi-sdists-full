@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: relenv
-Version: 0.22.23
+Version: 0.22.25
 Project-URL: Source Code, https://github.com/saltstack/relative-environment-for-python
 Project-URL: Documentation, https://relenv.readthedocs.io/en/latest/
 Project-URL: Changelog, https://relenv.readthedocs.io/en/latest/changelog.html

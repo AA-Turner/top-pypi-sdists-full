@@ -1,5 +1,14 @@
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-from .resources import ActionAttempt
+from .resources import ActionAttempt, ErrorActionAttempt, PendingActionAttempt
+
+
+@dataclass(frozen=True)
+class SeamValidationError:
+    """A request parameter that failed validation and its error messages."""
+
+    parameter_name: str
+    error_messages: List[str]
 
 
 # HTTP
@@ -88,6 +97,18 @@ class SeamHttpInvalidInputError(SeamHttpApiError):
         self.code = "invalid_input"
         self._validation_errors = error.get("validation_errors") or {}
 
+    @property
+    def validation_errors(self) -> List[SeamValidationError]:
+        """Validation errors, one entry per failed request parameter."""
+
+        return [
+            SeamValidationError(
+                param_name, self.get_validation_error_messages(param_name)
+            )
+            for param_name in self._validation_errors
+            if param_name != "_errors"
+        ]
+
     def get_validation_error_messages(self, param_name: str) -> List[str]:
         """
         The validation messages for a request parameter, or an empty list when
@@ -135,10 +156,10 @@ class SeamActionAttemptFailedError(SeamActionAttemptError):
     :vartype code: str
     """
 
-    def __init__(self, action_attempt: ActionAttempt):
+    def __init__(self, action_attempt: ErrorActionAttempt):
         """
-        :param action_attempt: The ActionAttempt object associated with this error
-        :type action_attempt: ActionAttempt
+        :param action_attempt: The failed ActionAttempt object associated with this error
+        :type action_attempt: ErrorActionAttempt
         """
 
         # A failed action attempt carries an error, but reading through it
@@ -165,10 +186,10 @@ class SeamActionAttemptTimeoutError(SeamActionAttemptError):
     :vartype name: str
     """
 
-    def __init__(self, action_attempt: ActionAttempt, timeout: float):
+    def __init__(self, action_attempt: PendingActionAttempt, timeout: float):
         """
-        :param action_attempt: The ActionAttempt object associated with this error
-        :type action_attempt: ActionAttempt
+        :param action_attempt: The still-pending ActionAttempt object associated with this error
+        :type action_attempt: PendingActionAttempt
         :param timeout: The timeout duration in seconds
         :type timeout: float
         """

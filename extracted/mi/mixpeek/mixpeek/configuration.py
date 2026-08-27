@@ -540,7 +540,7 @@ conf = mixpeek.Configuration(
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 0.82\n"\
-               "SDK Package Version: 1.3.465".\
+               "SDK Package Version: 1.3.477".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self) -> List[HostSetting]:

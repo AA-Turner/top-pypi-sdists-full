@@ -17,6 +17,17 @@ from testmu import _test_state
 
 _log = logging.getLogger("testmu")
 _current_step = contextvars.ContextVar("testmu_step", default=None)
+
+_current_instruction_id = contextvars.ContextVar("testmu_instruction_id", default="")
+
+
+def set_instruction_id(value):
+    return _current_instruction_id.set(value or "")
+
+
+def get_instruction_id():
+    step = _current_step.get()
+    return getattr(step, "instruction_id", "") or _current_instruction_id.get()
 # Per-step auto-heal flag: reset at step start, set by the heal cascade, read into the step-end payload (auto_heal).
 _step_autoheal = contextvars.ContextVar("testmu_step_autoheal", default=False)
 

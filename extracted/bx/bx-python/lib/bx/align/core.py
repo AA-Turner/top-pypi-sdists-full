@@ -143,7 +143,7 @@ class Alignment:
         start_col = ref.coord_to_col(start)
         end_col = ref.coord_to_col(end)
         if ref.strand == "-":
-            (start_col, end_col) = (end_col, start_col)
+            start_col, end_col = (end_col, start_col)
         return self.slice(start_col, end_col)
 
     def column_iter(self):
@@ -355,7 +355,7 @@ class Component:
         start_col = self.coord_to_col(start)
         end_col = self.coord_to_col(end)
         if self.strand == "-":
-            (start_col, end_col) = (end_col, start_col)
+            start_col, end_col = (end_col, start_col)
         return self.slice(start_col, end_col)
 
     def coord_to_col(self, pos):
@@ -378,12 +378,12 @@ class Component:
                 # when slice_by_component() and slice_by_coord() flip the ends,
                 # the resulting slice is correct
                 for x in range(len(self.text) - 1, -1, -1):
-                    if not self.text[x] == "-":
+                    if self.text[x] != "-":
                         self.index.append(x + 1)
                 self.index.append(0)
             else:
                 for x in range(len(self.text)):
-                    if not self.text[x] == "-":
+                    if self.text[x] != "-":
                         self.index.append(x)
                 self.index.append(len(self.text))
         x = None

@@ -278,6 +278,8 @@ class AssistedCandidateGenerator(CandidateGenerator):
                 best_threshold = thresholds[optimal_threshold_index]
 
                 self.assistant_generation_config.assistant_confidence_threshold = best_threshold
+                # Sync to generation_config so ConfidenceCriteria picks up the updated threshold on the next round
+                self.generation_config.assistant_confidence_threshold = best_threshold
 
     def _calculate_new_tokens(self, input_ids: torch.LongTensor) -> tuple[int, int]:
         """Calculate the minimum and maximum number of new tokens to generate."""
@@ -292,8 +294,11 @@ class AssistedCandidateGenerator(CandidateGenerator):
         """Update past key values and attention masks for subsequent generation rounds."""
         has_past_key_values = self.assistant_kwargs.get("past_key_values", None) is not None
         if has_past_key_values:
-            tokens_to_remove = remove_from_pkv + num_added_tokens
-            self.assistant_kwargs["past_key_values"].crop(-tokens_to_remove)
+            target_cache_size = input_ids.shape[-1] - 1 - remove_from_pkv - num_added_tokens
+            current_cache_size = self.assistant_kwargs["past_key_values"].get_seq_length()
+            tokens_to_remove = current_cache_size - target_cache_size
+            if tokens_to_remove >= 0:
+                self.assistant_kwargs["past_key_values"].crop(-tokens_to_remove)
             self.assistant_kwargs = _prepare_attention_mask(
                 self.assistant_kwargs, input_ids.shape[-1], self.assistant_model.config.is_encoder_decoder
             )
@@ -1450,6 +1455,9 @@ class MTPCandidateGenerator(AssistedCandidateGenerator):
         self.do_sample = generation_config.do_sample
         self.logits_processor = logits_processor
 
+        # Same tensor the stopping criteria are built from, so a draft cropped here stops generation
+        self.eos_token_id = getattr(generation_config, "_eos_token_tensor", None)
+
         self.is_main_model_prefill = True
 
     def get_candidates(
@@ -1533,6 +1541,17 @@ class MTPCandidateGenerator(AssistedCandidateGenerator):
         # Once we arrive here the first time, it's no longer the case
         self.is_main_model_prefill = False
 
+        # Crop the draft after the first EOS, otherwise the target model may accept eos and the rest as valid,
+        # thus not stopping generation after "eos" -- the block is committed before the stopping criteria run,
+        # and they only look at the last committed token. Cropping leaves EOS last, so they fire unchanged.
+        if self.eos_token_id is not None:
+            drafted_tokens = candidate_ids[0]
+            eos_positions = (torch.isin(drafted_tokens, self.eos_token_id.to(drafted_tokens.device))).nonzero()
+            if eos_positions.numel() > 0:
+                num_drafted = eos_positions[0].item() + 1
+                candidate_ids = candidate_ids[:, :num_drafted]
+                candidate_logits = candidate_logits[:, :num_drafted]
+
         # cat everything back together (we need to return the full ids here)
         candidate_ids = torch.cat([input_ids, candidate_ids], dim=-1)
         return candidate_ids, candidate_logits
@@ -1595,6 +1614,9 @@ class DFlashTokenCandidateGenerator(CandidateGenerator):
         # Save those to allow logits manipulations
         self.do_sample = generation_config.do_sample
         self.logits_processor = logits_processor
+
+        # Same tensor the stopping criteria are built from, so a draft cropped here stops generation
+        self.eos_token_id = getattr(generation_config, "_eos_token_tensor", None)
 
         self.is_main_model_prefill = True
 
@@ -1702,6 +1724,17 @@ class DFlashTokenCandidateGenerator(CandidateGenerator):
             else:
                 candidate_ids = candidate_logits.argmax(dim=-1)
             candidate_ids = torch.cat([input_ids, candidate_ids], dim=-1)
+
+        # Crop the draft after the first EOS, otherwise the target model may accept eos and the rest as valid,
+        # thus not stopping generation after "eos" -- the block is committed before the stopping criteria run,
+        # and they only look at the last committed token. Cropping leaves EOS last, so they fire unchanged.
+        if self.eos_token_id is not None:
+            drafted_tokens = candidate_ids[0, input_ids.shape[1] :]
+            eos_positions = (torch.isin(drafted_tokens, self.eos_token_id.to(drafted_tokens.device))).nonzero()
+            if eos_positions.numel() > 0:
+                num_drafted = eos_positions[0].item() + 1
+                candidate_ids = candidate_ids[:, : input_ids.shape[1] + num_drafted]
+                candidate_logits = candidate_logits[:, :num_drafted]
 
         return candidate_ids, candidate_logits
 

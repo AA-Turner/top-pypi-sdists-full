@@ -679,7 +679,7 @@ class Shiny(WMLResource):
         :param force: if True, the delete operation will proceed even when the shiny asset deployment exists, defaults to False
         :type force: bool, optional
 
-        :return: status ("SUCCESS" or "FAILED") if deleted synchronously or dictionary with response
+        :return: status "SUCCESS" if deleted synchronously or dictionary with response
         :rtype: str | dict
 
         **Example:**

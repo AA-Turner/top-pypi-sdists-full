@@ -2,6 +2,20 @@ import cv2 as cv
 import numpy as np
 
 
+def _obb_geometry(boxes: np.ndarray) -> np.ndarray:
+    """Return canonical ``xywha`` geometry from OBB rows with optional metadata."""
+    values = np.asarray(boxes, dtype=float)
+    if values.ndim == 1:
+        if values.size == 0:
+            raise ValueError("Empty OBB association rows must preserve at least five columns.")
+        values = values.reshape(1, -1)
+    if values.ndim != 2 or values.shape[1] < 5:
+        raise ValueError(f"OBB association expects rows with at least 5 columns, got {values.shape}.")
+    if values.size == 0:
+        return np.empty((0, 5), dtype=float)
+    return values[:, :5]
+
+
 def iou_obb_pair(i, j, bboxes1, bboxes2):
     """
     Compute IoU for the rotated rectangles at index i and j in the batches `bboxes1`, `bboxes2` .
@@ -147,7 +161,41 @@ class AssociationFunction:
 
     @staticmethod
     def iou_batch_obb(bboxes1, bboxes2) -> np.ndarray:
-        return _iou_obb_matrix(np.asarray(bboxes1, dtype=float), np.asarray(bboxes2, dtype=float))
+        return _iou_obb_matrix(_obb_geometry(bboxes1), _obb_geometry(bboxes2))
+
+    @staticmethod
+    def diou_batch_obb(bboxes1, bboxes2) -> np.ndarray:
+        """Compute distance IoU for oriented boxes."""
+        boxes1 = _obb_geometry(bboxes1)
+        boxes2 = _obb_geometry(bboxes2)
+        iou = _iou_obb_matrix(boxes1, boxes2)
+        if boxes1.size == 0 or boxes2.size == 0:
+            return iou
+
+        def enclosing_bounds(boxes):
+            half_w = boxes[:, 2] / 2.0
+            half_h = boxes[:, 3] / 2.0
+            cos_a = np.abs(np.cos(boxes[:, 4]))
+            sin_a = np.abs(np.sin(boxes[:, 4]))
+            extent_x = half_w * cos_a + half_h * sin_a
+            extent_y = half_w * sin_a + half_h * cos_a
+            return (
+                boxes[:, 0] - extent_x,
+                boxes[:, 1] - extent_y,
+                boxes[:, 0] + extent_x,
+                boxes[:, 1] + extent_y,
+            )
+
+        x1_min, y1_min, x1_max, y1_max = enclosing_bounds(boxes1)
+        x2_min, y2_min, x2_max, y2_max = enclosing_bounds(boxes2)
+        enclosing_width = np.maximum(x1_max[:, None], x2_max[None, :]) - np.minimum(x1_min[:, None], x2_min[None, :])
+        enclosing_height = np.maximum(y1_max[:, None], y2_max[None, :]) - np.minimum(y1_min[:, None], y2_min[None, :])
+        enclosing_diagonal = enclosing_width**2 + enclosing_height**2
+        center_distance = (boxes1[:, None, 0] - boxes2[None, :, 0]) ** 2 + (
+            boxes1[:, None, 1] - boxes2[None, :, 1]
+        ) ** 2
+        diou = iou - center_distance / np.maximum(enclosing_diagonal, 1e-12)
+        return (diou + 1.0) / 2.0
 
     @staticmethod
     def hmiou_batch(bboxes1, bboxes2):
@@ -405,6 +453,7 @@ class AssociationFunction:
         ASSO_FUNCS = {
             "iou": AssociationFunction.iou_batch,
             "iou_obb": AssociationFunction.iou_batch_obb,
+            "diou_obb": AssociationFunction.diou_batch_obb,
             "hmiou": AssociationFunction.hmiou_batch,
             "giou": AssociationFunction.giou_batch,
             "ciou": AssociationFunction.ciou_batch,

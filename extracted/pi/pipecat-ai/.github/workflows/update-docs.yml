@@ -56,6 +56,13 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           path: _docs
 
+      - name: Record docs baseline
+        id: docs-base
+        working-directory: _docs
+        # The commit the docs branch builds on, used to scope formatting to the
+        # pages this run touches.
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Resolve PR number
         id: pr
         run: |
@@ -117,7 +124,7 @@ jobs:
 
             ## Follow the skill instructions
 
-            Apply the SKILL.md workflow (Steps 3-9) with these adaptations for automation:
+            Apply the SKILL.md workflow (Steps 3-10) with these adaptations for automation:
 
             ### Docs path
             Use `./_docs/` — it's already checked out. Do not ask for a path.
@@ -174,6 +181,11 @@ jobs:
             (e.g., only skip-listed files changed, or changes don't affect public API docs),
             exit cleanly without creating a branch or PR. Output "No documentation changes needed."
 
+            ### Formatting and llms.txt
+            Skip SKILL.md Step 9. A later workflow step runs Prettier over the pages
+            this branch touches and regenerates `llms.txt` / `llms-full.txt`, so leave
+            both to it rather than running them yourself.
+
             ## Important rules
             - Only modify files inside `./_docs/` — never modify pipecat source code
             - Follow the conservative editing rules from SKILL.md Step 6
@@ -183,6 +195,55 @@ jobs:
             --model claude-sonnet-4-5-20250929
             --max-turns 30
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+
+      # Pinned from the docs repo's own .nvmrc rather than left to whatever the
+      # runner image ships, so formatting and generated files match what
+      # contributors produce.
+      - name: Set up Node
+        if: always()
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: _docs/.nvmrc
+
+      - name: Format docs and regenerate llms.txt
+        if: always()
+        working-directory: _docs
+        run: |
+          BRANCH="docs/pr-${{ steps.pr.outputs.number }}"
+          if [ "$(git rev-parse --abbrev-ref HEAD)" != "$BRANCH" ]; then
+            echo "No docs branch checked out; nothing to do."
+            exit 0
+          fi
+
+          # Format only the pages this branch touches, so the docs PR diff stays
+          # limited to the changes under review.
+          CHANGED=$(mktemp)
+          git diff --name-only --diff-filter=d -z \
+            "${{ steps.docs-base.outputs.sha }}" HEAD > "$CHANGED"
+          if [ ! -s "$CHANGED" ]; then
+            echo "No doc changes to format."
+            exit 0
+          fi
+
+          # The docs repo pins Prettier, so this matches what its pre-commit hook
+          # produces. `--ignore-unknown` skips files Prettier has no parser for.
+          npm ci --no-audit --no-fund
+          xargs -0 npx prettier --ignore-unknown --write < "$CHANGED"
+
+          # The docs repo checks in llms.txt and llms-full.txt, and its metadata
+          # lint fails when either is stale. llms-full.txt embeds page bodies
+          # verbatim, so generation runs after Prettier has settled them.
+          node scripts/gen-llms-txt.mjs
+
+          if git diff --quiet; then
+            echo "Doc changes are already formatted and llms.txt is current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: format docs and regenerate llms.txt"
+          git push origin "$BRANCH"
 
       - name: Assign docs PR
         if: always()

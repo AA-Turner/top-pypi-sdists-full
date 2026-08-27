@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rsl-rl-lib
-Version: 5.4.2
+Version: 5.5.0
 Summary: Fast and simple RL algorithms implemented in PyTorch
 Author-email: Clemens Schwarke <cschwarke@ethz.ch>, Mayank Mittal <mittalma@ethz.ch>, Nikita Rudin <rudinn@ethz.ch>, David Hoeller <holler.david78@gmail.com>
 Maintainer-email: Clemens Schwarke <cschwarke@ethz.ch>, Mayank Mittal <mittalma@ethz.ch>
@@ -16,27 +16,35 @@ License-File: LICENSE
 License-File: licenses/dependencies/codespell-license.txt
 License-File: licenses/dependencies/furo-license.txt
 License-File: licenses/dependencies/gitpython-license.txt
+License-File: licenses/dependencies/lucas-c-pre-commit-hooks-license.txt
+License-File: licenses/dependencies/neptune-license.txt
 License-File: licenses/dependencies/numpy-license.txt
 License-File: licenses/dependencies/onnx-license.txt
 License-File: licenses/dependencies/onnxscript-license.txt
 License-File: licenses/dependencies/pre-commit-hooks-license.txt
 License-File: licenses/dependencies/pre-commit-license.txt
-License-File: licenses/dependencies/pyright-license.txt
+License-File: licenses/dependencies/pytest-license.txt
 License-File: licenses/dependencies/ruff-license.txt
 License-File: licenses/dependencies/setuptools-license.txt
 License-File: licenses/dependencies/sphinx-license.txt
 License-File: licenses/dependencies/tensorboard-license.txt
 License-File: licenses/dependencies/tensordict-license.txt
 License-File: licenses/dependencies/torch-license.txt
-License-File: licenses/dependencies/torchvision-license.txt
+License-File: licenses/dependencies/wandb-license.txt
+License-File: licenses/dependencies/wheel-license.txt
 Requires-Dist: torch>=2.6.0
-Requires-Dist: torchvision>=0.5.0
 Requires-Dist: tensordict>=0.7.0
 Requires-Dist: numpy>=1.16.4
 Requires-Dist: tensorboard
 Requires-Dist: GitPython
 Requires-Dist: onnx
 Requires-Dist: onnxscript>=0.5.4
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Provides-Extra: wandb
+Requires-Dist: wandb; extra == "wandb"
+Provides-Extra: neptune
+Requires-Dist: neptune; extra == "neptune"
 Dynamic: license-file
 
 # RSL-RL

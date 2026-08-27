@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import contextlib
 import os
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from contextvars import ContextVar
 from importlib import import_module
-from typing import cast
+from typing import Protocol, cast
 
 OIDC_HEADER_NAME = "x-vercel-oidc-token"
 INTERNAL_OIDC_HEADER_NAME = "x-vercel-internal-oidc-token"
+INTERNAL_HEADER_PREFIX = "x-vercel-internal-"
 FORWARDED_HOST_HEADER = "x-forwarded-host"
 
 # The host the proxy routed the current request on. Routing is by host, so
@@ -20,9 +21,25 @@ _forwarded_host: ContextVar[str | None] = ContextVar(
 )
 
 
+class _MutableHeaders(Protocol):
+    def __iter__(self) -> Iterator[str]: ...
+
+    def __delitem__(self, name: str, /) -> None: ...
+
+
 def current_forwarded_host() -> str | None:
     """Return the host the current request arrived on, if any."""
     return _forwarded_host.get()
+
+
+def is_internal_header(name: str) -> bool:
+    return name.lower().startswith(INTERNAL_HEADER_PREFIX)
+
+
+def strip_internal_headers(headers: _MutableHeaders) -> None:
+    for name in tuple(headers):
+        if is_internal_header(name):
+            del headers[name]
 
 
 def _remember_forwarded_host(normalized: Mapping[str, str]) -> None:

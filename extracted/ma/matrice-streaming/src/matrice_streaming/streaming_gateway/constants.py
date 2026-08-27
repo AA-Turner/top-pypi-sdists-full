@@ -75,6 +75,20 @@ DEFAULT_WORKER_STOP_TIMEOUT = 15.0
 # MediaMTX defaults
 DEFAULT_MEDIAMTX_PORT = 8554
 
+# IPC queue bounds. Every multiprocessing.Queue() carrying control-plane traffic was
+# unbounded, so a stalled or dead consumer grew the queue's feeder buffer without limit
+# -- on a device with no swap that is the OOM killer, and it takes the whole gateway
+# process down. Worse, `put_nowait()` on an unbounded queue can never raise
+# `queue.Full`, which made the shedding path already written around the status queue
+# dead code. Sizing follows the 2.x line, which runs with these bounds in production:
+#   COMMAND (16)  ADD/REMOVE/UPDATE -- low-frequency, bursty on hot-add/remove.
+#   STATUS  (64)  health pings -- periodic and small.
+#   RESULT  (256) per-command final tallies -- one message per exit/response, with
+#                 generous headroom above realistic camera counts per manager.
+DEFAULT_IPC_COMMAND_QUEUE_MAXSIZE = 16
+DEFAULT_IPC_STATUS_QUEUE_MAXSIZE = 64
+DEFAULT_IPC_RESULT_QUEUE_MAXSIZE = 256
+
 # OpenCV path optimizations (REFACTORING_PLAN §20 — evidence-only, opt-in).
 # Env MATRICE_SG_OPENCV_OPTIM: none | frame_pool | backpressure |
 # executor_offload | combined

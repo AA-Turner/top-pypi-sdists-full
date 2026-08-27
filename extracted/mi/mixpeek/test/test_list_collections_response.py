@@ -161,6 +161,19 @@ class TestListCollectionsResponse(unittest.TestCase):
                                 scroll_filters = { }, 
                                 enabled = True, )
                             ], 
+                        retriever_transform = mixpeek.models.retriever_transform_config.RetrieverTransformConfig(
+                            stages = [
+                                mixpeek.models.stage_config.StageConfig(
+                                    stage_name = '0', 
+                                    stage_type = 'filter', 
+                                    config = { }, 
+                                    batch_size = '', 
+                                    description = '', 
+                                    on_error = '', 
+                                    output_alias = '', 
+                                    parameters = { }, )
+                                ], 
+                            unique_id_field = null, ), 
                         vector_count = 56, 
                         taxonomy_count = 56, 
                         retriever_count = 56, )
@@ -309,6 +322,19 @@ class TestListCollectionsResponse(unittest.TestCase):
                                 scroll_filters = { }, 
                                 enabled = True, )
                             ], 
+                        retriever_transform = mixpeek.models.retriever_transform_config.RetrieverTransformConfig(
+                            stages = [
+                                mixpeek.models.stage_config.StageConfig(
+                                    stage_name = '0', 
+                                    stage_type = 'filter', 
+                                    config = { }, 
+                                    batch_size = '', 
+                                    description = '', 
+                                    on_error = '', 
+                                    output_alias = '', 
+                                    parameters = { }, )
+                                ], 
+                            unique_id_field = null, ), 
                         vector_count = 56, 
                         taxonomy_count = 56, 
                         retriever_count = 56, )

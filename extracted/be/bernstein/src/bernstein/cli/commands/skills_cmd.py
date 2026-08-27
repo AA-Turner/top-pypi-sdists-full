@@ -105,12 +105,20 @@ def skills_list(no_plugins: bool, layered: bool) -> None:
         description = skill.description.strip().replace("\n", " ")
         if len(description) > 100:
             description = description[:97] + "..."
+
+        # Format SOURCE column to include the pack name if from a plugin
+        source_display = skill.source_name
+        if source_display.startswith("plugin:"):
+            # Format as "plugin <packname>"
+            pack_name = source_display.replace("plugin:", "", 1)
+            source_display = f"plugin {pack_name}"
+
         table.add_row(
             skill.name,
             description,
             str(len(skill.references)),
             str(len(skill.scripts)),
-            skill.source_name,
+            source_display,
         )
 
     console.print(table)
@@ -307,7 +315,16 @@ def skills_init(name: str, scope: str, description: str | None) -> None:
     default=False,
     help="Allow installs that require explicit risk acceptance.",
 )
-def skills_install(source: Path, scope: str, override_name: str | None, strict: bool, accept_risk: bool) -> None:
+@click.option(
+    "--force",
+    "force",
+    is_flag=True,
+    default=False,
+    help="Replace a same-named skill that was installed from a different source.",
+)
+def skills_install(
+    source: Path, scope: str, override_name: str | None, strict: bool, accept_risk: bool, force: bool
+) -> None:
     """Install a skill from a local path.
 
     \b
@@ -331,6 +348,7 @@ def skills_install(source: Path, scope: str, override_name: str | None, strict: 
                 workdir=Path.cwd(),
                 strict_lint=strict,
                 accept_risk=accept_risk,
+                force=force,
             )
             for result in plugin_result.installed:
                 console.print(

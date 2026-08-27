@@ -2,7 +2,9 @@
   - Creating the Search Space:
     - binary_operators
     - unary_operators
+    - operators
     - expression_spec
+    - type_spec
     - maxsize
     - maxdepth
   - Setting the Search Size:
@@ -32,17 +34,23 @@
     - adaptive_parsimony_scaling
     - should_simplify
   - Mutations:
+    - default_mutations
+    - mutations
+    - default_plugins
+    - plugins
     - weight_add_node
     - weight_insert_node
     - weight_delete_node
     - weight_do_nothing
     - weight_mutate_constant
     - weight_mutate_operator
+    - weight_mutate_feature
     - weight_swap_operands
     - weight_rotate_tree
     - weight_randomize
     - weight_simplify
     - weight_optimize
+    - weight_backsolve
     - crossover_probability
     - annealing
     - alpha
@@ -62,6 +70,7 @@
   - Migration between Populations:
     - fraction_replaced
     - fraction_replaced_hof
+    - fraction_replaced_guesses
     - migration
     - hof_migration
     - topn
@@ -77,6 +86,8 @@
   - procs
   - cluster_manager
   - heap_size_hint_in_bytes
+  - worker_timeout
+  - worker_imports
   - batching
   - batch_size
   - precision
@@ -88,6 +99,7 @@
   - random_state
   - deterministic
   - warm_start
+  - guesses
 - Monitoring:
   - verbosity
   - update_verbosity

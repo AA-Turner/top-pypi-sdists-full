@@ -798,6 +798,35 @@ def resolve_chronos_plato_session_id(
     return envs_response.plato_session_id
 
 
+def dataset_config_from_plato_config(
+    plato_config: object, dataset: str, *, source: str
+) -> AppSchemasBuildModelsSimConfigDataset:
+    """Validate one dataset of a plato-config through the generated backend-schema model.
+
+    This is the model to use whenever the config is *serialised* (config-mode
+    snapshots, start-worker): it is regenerated from the backend's
+    ``SimConfigDataset`` and therefore carries every field the backend knows —
+    ``audit_ignore_tables``, ``native_worker``, ... The hand-maintained
+    :class:`plato.v1.models.sandbox.PlatoConfig` declares neither and silently
+    dropped both from the ``plato_config`` stored on every config-mode snapshot.
+    """
+    if not isinstance(plato_config, dict):
+        raise ValueError(f"Invalid plato config in {source}: expected a top-level mapping")
+    config = cast(dict[str, object], plato_config)
+    datasets = config.get("datasets")
+    if isinstance(datasets, dict):
+        datasets = cast(dict[str, object], datasets)
+        dataset_config = datasets.get(dataset)
+        if dataset_config is None:
+            available_datasets = sorted(str(name) for name in datasets.keys())
+            raise ValueError(f"Dataset '{dataset}' not found in {source}. Available datasets: {available_datasets}")
+    else:
+        # Config without a datasets wrapper — treat the top-level mapping as the
+        # dataset config directly (some artifacts store it this way).
+        dataset_config = config
+    return AppSchemasBuildModelsSimConfigDataset.model_validate(dataset_config)
+
+
 class SandboxClient:
     """Synchronous client for sandbox development workflows.
 
@@ -1697,23 +1726,22 @@ class SandboxClient:
             plato_config_raw = plato_config_path.read_text()
             plato_config = yaml.safe_load(plato_config_raw)
 
-            # New format - extract just the dataset portion
-            plato_config_model = PlatoConfig.model_validate(plato_config)
-            dataset_config = plato_config_model.datasets[dataset]
-            # Convert dataset config back to dict for YAML serialization
-            dataset_dict = dataset_config.model_dump(exclude_none=True, by_alias=True, mode="json")
+            # Validate through the generated backend-schema model, not the v1 PlatoConfig
+            # (see dataset_config_from_plato_config). exclude_unset stores exactly what
+            # the file says, without the generated model's defaults leaking in.
+            dataset_config = dataset_config_from_plato_config(plato_config, dataset, source=str(plato_config_path))
+            dataset_dict = dataset_config.model_dump(exclude_unset=True, by_alias=True, mode="json")
             checkpoint_request.plato_config = yaml.dump(dataset_dict, default_flow_style=False)
 
             dataset_compute = dataset_config.compute
-            if not dataset_compute:
-                raise ValueError(f"Compute configuration is required for dataset '{dataset}'")
             checkpoint_request.internal_app_port = dataset_compute.app_port
             checkpoint_request.messaging_port = dataset_compute.plato_messaging_port
             # we dont set target
 
             # Override service name if specified in plato-config.yml
-            if plato_config_model.service:
-                checkpoint_request.override_service = plato_config_model.service
+            service_name = plato_config.get("service") if isinstance(plato_config, dict) else None
+            if service_name:
+                checkpoint_request.override_service = str(service_name)
 
             # Read flows from the path specified in plato-config metadata
             # API expects YAML string, not parsed dict
@@ -1967,25 +1995,7 @@ class SandboxClient:
             with open(config_path, "rb") as f:
                 raw_plato_config = yaml.safe_load(f) or {}
 
-        if not isinstance(raw_plato_config, dict):
-            raise ValueError(f"Invalid plato config in {config_source}: expected a top-level mapping")
-
-        plato_config = cast(dict[str, object], raw_plato_config)
-        datasets = plato_config.get("datasets")
-        if isinstance(datasets, dict):
-            datasets = cast(dict[str, object], datasets)
-            dataset_config = datasets.get(dataset)
-            if dataset_config is None:
-                available_datasets = sorted(str(name) for name in datasets.keys())
-                raise ValueError(
-                    f"Dataset '{dataset}' not found in {config_source}. Available datasets: {available_datasets}"
-                )
-        else:
-            # Config without a datasets wrapper — treat the top-level mapping as the
-            # dataset config directly (some artifacts store it this way).
-            dataset_config = plato_config
-
-        return AppSchemasBuildModelsSimConfigDataset.model_validate(dataset_config)
+        return dataset_config_from_plato_config(raw_plato_config, dataset, source=config_source)
 
     # CHECKED
     def sync(

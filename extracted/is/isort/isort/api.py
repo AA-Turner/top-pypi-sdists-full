@@ -15,13 +15,16 @@ __all__ = (
 )
 
 import contextlib
+import os
 import shutil
 import sys
 from collections.abc import Iterator
+from contextlib import AbstractContextManager, nullcontext
 from enum import Enum
 from io import StringIO
 from itertools import chain
 from pathlib import Path
+from threading import Event
 from typing import Any, TextIO, cast
 from warnings import warn
 
@@ -35,7 +38,7 @@ from .exceptions import (
     IntroducedSyntaxErrors,
 )
 from .format import ask_whether_to_apply_changes_to_file, create_terminal_printer, show_unified_diff
-from .io import Empty, File
+from .io import File
 from .place import module as place_module  # noqa: F401
 from .place import module_with_reason as place_module_with_reason  # noqa: F401
 from .settings import CYTHON_EXTENSIONS, DEFAULT_CONFIG, Config
@@ -46,19 +49,12 @@ class ImportKey(Enum):
 
     Import keys are defined from less to more specific:
 
-    from x.y import z as a
-    ______| |        |    |
-       |    |        |    |
-    PACKAGE |        |    |
-    ________|        |    |
-          |          |    |
-        MODULE       |    |
-    _________________|    |
-              |           |
-           ATTRIBUTE      |
-    ______________________|
-                  |
-                ALIAS
+        from x.y import z as a
+
+        PACKAGE: x
+        MODULE: y
+        ATTRIBUTE: z
+        ALIAS: a
     """
 
     PACKAGE = 1
@@ -84,7 +80,7 @@ def sort_code_string(
     - **file_path**: The disk location where the code string was pulled from.
     - **disregard_skip**: set to `True` if you want to ignore a skip set in config for this file.
     - **show_diff**: If `True` the changes that need to be done will be printed to stdout, if a
-    TextIO stream is provided results will be written to it, otherwise no diff will be computed.
+      TextIO stream is provided results will be written to it, otherwise no diff will be computed.
     - ****config_kwargs**: Any config modifications.
     """
     input_stream = StringIO(code)
@@ -117,7 +113,7 @@ def check_code_string(
 
     - **code**: The string of code with imports that need to be sorted.
     - **show_diff**: If `True` the changes that need to be done will be printed to stdout, if a
-    TextIO stream is provided results will be written to it, otherwise no diff will be computed.
+      TextIO stream is provided results will be written to it, otherwise no diff will be computed.
     - **extension**: The file extension that contains imports. Defaults to filename extension or py.
     - **config**: The config object to use when sorting imports.
     - **file_path**: The disk location where the code string was pulled from.
@@ -156,7 +152,7 @@ def sort_stream(
     - **file_path**: The disk location where the code string was pulled from.
     - **disregard_skip**: set to `True` if you want to ignore a skip set in config for this file.
     - **show_diff**: If `True` the changes that need to be done will be printed to stdout, if a
-    TextIO stream is provided results will be written to it, otherwise no diff will be computed.
+      TextIO stream is provided results will be written to it, otherwise no diff will be computed.
     - ****config_kwargs**: Any config modifications.
     """
     extension = extension or (file_path and file_path.suffix.lstrip(".")) or "py"
@@ -252,7 +248,7 @@ def check_stream(
 
     - **input_stream**: The stream of code with imports that need to be sorted.
     - **show_diff**: If `True` the changes that need to be done will be printed to stdout, if a
-    TextIO stream is provided results will be written to it, otherwise no diff will be computed.
+      TextIO stream is provided results will be written to it, otherwise no diff will be computed.
     - **extension**: The file extension that contains imports. Defaults to filename extension or py.
     - **config**: The config object to use when sorting imports.
     - **file_path**: The disk location where the code string was pulled from.
@@ -264,14 +260,15 @@ def check_stream(
     if show_diff:
         input_stream = StringIO(input_stream.read())
 
-    changed: bool = sort_stream(
-        input_stream=input_stream,
-        output_stream=Empty,
-        extension=extension,
-        config=config,
-        file_path=file_path,
-        disregard_skip=disregard_skip,
-    )
+    with open(os.devnull, "w") as devnull:
+        changed: bool = sort_stream(
+            input_stream=input_stream,
+            output_stream=devnull,
+            extension=extension,
+            config=config,
+            file_path=file_path,
+            disregard_skip=disregard_skip,
+        )
     printer = create_terminal_printer(
         color=config.color_output, error=config.format_error, success=config.format_success
     )
@@ -319,7 +316,7 @@ def check_file(
 
     - **filename**: The name or Path of the file to check.
     - **show_diff**: If `True` the changes that need to be done will be printed to stdout, if a
-    TextIO stream is provided results will be written to it, otherwise no diff will be computed.
+      TextIO stream is provided results will be written to it, otherwise no diff will be computed.
     - **config**: The config object to use when sorting imports.
     - **file_path**: The disk location where the code string was pulled from.
     - **disregard_skip**: set to `True` if you want to ignore a skip set in config for this file.
@@ -349,21 +346,45 @@ def check_file(
         )
 
 
-def _tmp_file(source_file: File) -> Path:
-    return source_file.path.with_suffix(source_file.path.suffix + ".isorted")
+@contextlib.contextmanager
+def _in_memory_output_stream_context(source_file: File, changed: Event) -> Iterator[TextIO]:
+    """
+    Output stream that is kept in memory.
+
+    If `changed` is set at exit it will copy the stream to the source file.
+    """
+    stream = StringIO(newline=None)
+    yield stream
+
+    if changed.is_set():
+        stream.seek(0)
+        source_file.stream.close()
+        with source_file.path.open("w") as fs:
+            shutil.copyfileobj(stream, fs)
 
 
 @contextlib.contextmanager
-def _in_memory_output_stream_context() -> Iterator[TextIO]:
-    yield StringIO(newline=None)
+def _file_output_stream_context(
+    filename: str | Path, source_file: File, changed: Event
+) -> Iterator[TextIO]:
+    """
+    Output stream that is written to disk, using a "temporary" `.isorted` file.
 
+    If `changed` is set at exit it will replace the source file with the temporary file.
+    """
+    tmp_file = source_file.path.with_suffix(source_file.path.suffix + ".isorted")
 
-@contextlib.contextmanager
-def _file_output_stream_context(filename: str | Path, source_file: File) -> Iterator[TextIO]:
-    tmp_file = _tmp_file(source_file)
-    with tmp_file.open("w+", encoding=source_file.encoding, newline="") as output_stream:
-        shutil.copymode(filename, tmp_file)
-        yield output_stream
+    try:
+        with tmp_file.open("w+", encoding=source_file.encoding, newline="") as output_stream:
+            shutil.copymode(filename, tmp_file)
+            yield output_stream
+
+        if changed.is_set():
+            source_file.stream.close()
+            tmp_file.replace(source_file.path)
+    finally:
+        # Make sure to remove the temporary file, whatever is the outcoming of sorting.
+        tmp_file.unlink(missing_ok=True)
 
 
 # Ignore DeepSource cyclomatic complexity check for this function. It is one
@@ -391,10 +412,10 @@ def sort_file(
     - **disregard_skip**: set to `True` if you want to ignore a skip set in config for this file.
     - **ask_to_apply**: If `True`, prompt before applying any changes.
     - **show_diff**: If `True` the changes that need to be done will be printed to stdout, if a
-    TextIO stream is provided results will be written to it, otherwise no diff will be computed.
+      TextIO stream is provided results will be written to it, otherwise no diff will be computed.
     - **write_to_stdout**: If `True`, write to stdout instead of the input file.
     - **output**: If a TextIO is provided, results will be written there rather than replacing
-    the original file content.
+      the original file content.
     - ****config_kwargs**: Any config modifications.
     """
     file_config: Config = config
@@ -411,100 +432,69 @@ def sort_file(
     with io.File.read(filename) as source_file:
         actual_file_path = file_path or source_file.path
         config = _config(path=actual_file_path, config=file_config, **config_kwargs)
-        changed: bool = False
-        try:
-            if write_to_stdout:
+
+        if write_to_stdout:
+            output = sys.stdout
+
+        # Prepare the output stream. Using the `is_changed_event` we propagate whether the file
+        # should flush the output to the source file.
+        is_changed_event = Event()
+        if output:
+            output_stream_context: AbstractContextManager[TextIO] = nullcontext(output)
+        elif config.overwrite_in_place:
+            output_stream_context = _in_memory_output_stream_context(source_file, is_changed_event)
+        else:
+            output_stream_context = _file_output_stream_context(
+                filename, source_file, is_changed_event
+            )
+
+        with output_stream_context as output_stream:
+            try:
                 changed = sort_stream(
                     input_stream=source_file.stream,
-                    output_stream=sys.stdout,
+                    output_stream=output_stream,
                     config=config,
                     file_path=actual_file_path,
                     disregard_skip=disregard_skip,
                     extension=extension,
                 )
-            else:
-                if output is None:
-                    try:
-                        if config.overwrite_in_place:
-                            output_stream_context = _in_memory_output_stream_context()
-                        else:
-                            output_stream_context = _file_output_stream_context(
-                                filename, source_file
-                            )
-                        with output_stream_context as output_stream:
-                            changed = sort_stream(
-                                input_stream=source_file.stream,
-                                output_stream=output_stream,
-                                config=config,
-                                file_path=actual_file_path,
-                                disregard_skip=disregard_skip,
-                                extension=extension,
-                            )
-                            output_stream.seek(0)
-                            if changed:
-                                if show_diff or ask_to_apply:
-                                    source_file.stream.seek(0)
-                                    show_unified_diff(
-                                        file_input=source_file.stream.read(),
-                                        file_output=output_stream.read(),
-                                        file_path=actual_file_path,
-                                        output=(
-                                            None if show_diff is True else cast(TextIO, show_diff)
-                                        ),
-                                        color_output=config.color_output,
-                                    )
-                                    if show_diff or (
-                                        ask_to_apply
-                                        and not ask_whether_to_apply_changes_to_file(
-                                            str(source_file.path)
-                                        )
-                                    ):
-                                        return False
-                                source_file.stream.close()
-                                if config.overwrite_in_place:
-                                    output_stream.seek(0)
-                                    with source_file.path.open("w") as fs:
-                                        shutil.copyfileobj(output_stream, fs)
-                        if changed:
-                            if not config.overwrite_in_place:
-                                tmp_file = _tmp_file(source_file)
-                                tmp_file.replace(source_file.path)
-                            if not config.quiet:
-                                print(f"Fixing {source_file.path}")
-                    finally:
-                        if not config.overwrite_in_place:  # pragma: no branch
-                            tmp_file = _tmp_file(source_file)
-                            tmp_file.unlink(missing_ok=True)
-                else:
-                    changed = sort_stream(
-                        input_stream=source_file.stream,
-                        output_stream=output,
-                        config=config,
-                        file_path=actual_file_path,
-                        disregard_skip=disregard_skip,
-                        extension=extension,
-                    )
-                    if changed and show_diff:
-                        source_file.stream.seek(0)
-                        output.seek(0)
-                        show_unified_diff(
-                            file_input=source_file.stream.read(),
-                            file_output=output.read(),
-                            file_path=actual_file_path,
-                            output=None if show_diff is True else show_diff,
-                            color_output=config.color_output,
-                        )
-                    source_file.stream.close()
+            except ExistingSyntaxErrors:
+                warn(
+                    f"{actual_file_path} unable to sort due to existing syntax errors",
+                    stacklevel=2,
+                )
+                return False
+            except IntroducedSyntaxErrors:  # pragma: no cover
+                warn(
+                    f"{actual_file_path} unable to sort as isort introduces new syntax errors",
+                    stacklevel=2,
+                )
+                return False
 
-        except ExistingSyntaxErrors:
-            warn(f"{actual_file_path} unable to sort due to existing syntax errors", stacklevel=2)
-        except IntroducedSyntaxErrors:  # pragma: no cover
-            warn(
-                f"{actual_file_path} unable to sort as isort introduces new syntax errors",
-                stacklevel=2,
-            )
+            if not changed or write_to_stdout:
+                return changed
 
-        return changed
+            if show_diff or ask_to_apply:
+                output_stream.seek(0)
+                source_file.stream.seek(0)
+                show_unified_diff(
+                    file_input=source_file.stream.read(),
+                    file_output=output_stream.read(),
+                    file_path=actual_file_path,
+                    output=(None if show_diff is True else cast(TextIO, show_diff)),
+                    color_output=config.color_output,
+                )
+                if show_diff or (
+                    ask_to_apply and not ask_whether_to_apply_changes_to_file(str(source_file.path))
+                ):
+                    return False
+
+            if not config.quiet and not output:
+                print(f"Fixing {source_file.path}")
+
+            is_changed_event.set()
+
+            return True
 
 
 def find_imports_in_code(

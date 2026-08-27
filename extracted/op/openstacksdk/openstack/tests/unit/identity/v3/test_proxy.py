@@ -18,6 +18,7 @@ from openstack.identity.v3 import credential
 from openstack.identity.v3 import domain
 from openstack.identity.v3 import domain_config
 from openstack.identity.v3 import endpoint
+from openstack.identity.v3 import endpoint_group
 from openstack.identity.v3 import group
 from openstack.identity.v3 import policy
 from openstack.identity.v3 import project
@@ -37,6 +38,7 @@ from openstack.tests.unit import test_proxy_base
 
 USER_ID = 'user-id-' + uuid.uuid4().hex
 ENDPOINT_ID = 'endpoint-id-' + uuid.uuid4().hex
+ENDPOINT_GROUP_ID = 'endpoint-group-id-' + uuid.uuid4().hex
 PROJECT_ID = 'project-id-' + uuid.uuid4().hex
 
 
@@ -186,6 +188,14 @@ class TestIdentityProxyEndpoint(TestIdentityProxyBase):
     def test_endpoints(self):
         self.verify_list(self.proxy.endpoints, endpoint.Endpoint)
 
+    def test_endpoint_group_endpoints(self):
+        self.verify_list(
+            self.proxy.endpoint_group_endpoints,
+            endpoint.EndpointGroupEndpoint,
+            method_kwargs={'endpoint_group': ENDPOINT_GROUP_ID},
+            expected_kwargs={'endpoint_group_id': ENDPOINT_GROUP_ID},
+        )
+
     def test_project_endpoints(self):
         self.verify_list(
             self.proxy.project_endpoints,
@@ -196,6 +206,71 @@ class TestIdentityProxyEndpoint(TestIdentityProxyBase):
 
     def test_endpoint_update(self):
         self.verify_update(self.proxy.update_endpoint, endpoint.Endpoint)
+
+
+class TestIdentityProxyEndpointGroup(TestIdentityProxyBase):
+    def test_endpoint_group_create_attrs(self):
+        self.verify_create(
+            self.proxy.create_endpoint_group, endpoint_group.EndpointGroup
+        )
+
+    def test_endpoint_group_delete(self):
+        self.verify_delete(
+            self.proxy.delete_endpoint_group,
+            endpoint_group.EndpointGroup,
+            False,
+        )
+
+    def test_endpoint_group_delete_ignore(self):
+        self.verify_delete(
+            self.proxy.delete_endpoint_group,
+            endpoint_group.EndpointGroup,
+            True,
+        )
+
+    def test_endpoint_group_find(self):
+        self.verify_find(
+            self.proxy.find_endpoint_group, endpoint_group.EndpointGroup
+        )
+
+    def test_endpoint_group_get(self):
+        self.verify_get(
+            self.proxy.get_endpoint_group, endpoint_group.EndpointGroup
+        )
+
+    def test_endpoint_groups(self):
+        self.verify_list(
+            self.proxy.endpoint_groups, endpoint_group.EndpointGroup
+        )
+
+    def test_project_endpoint_groups(self):
+        self.verify_list(
+            self.proxy.project_endpoint_groups,
+            endpoint_group.ProjectEndpointGroup,
+            method_kwargs={'project': PROJECT_ID},
+            expected_kwargs={'project_id': PROJECT_ID},
+        )
+
+    def test_endpoint_group_update(self):
+        self.verify_update(
+            self.proxy.update_endpoint_group, endpoint_group.EndpointGroup
+        )
+
+    def test_endpoint_group_associate_project(self):
+        self._verify(
+            'openstack.identity.v3.endpoint_group.EndpointGroup.associate_project',
+            self.proxy.associate_project_with_endpoint_group,
+            method_args=['endpoint_group_id', 'project_id'],
+            expected_args=[self.proxy, 'project_id'],
+        )
+
+    def test_endpoint_group_disassociate_project(self):
+        self._verify(
+            'openstack.identity.v3.endpoint_group.EndpointGroup.disassociate_project',
+            self.proxy.disassociate_project_from_endpoint_group,
+            method_args=['endpoint_group_id', 'project_id'],
+            expected_args=[self.proxy, 'project_id'],
+        )
 
 
 class TestIdentityProxyGroup(TestIdentityProxyBase):
@@ -318,6 +393,14 @@ class TestIdentityProxyProject(TestIdentityProxyBase):
             project.EndpointProject,
             method_kwargs={'endpoint': ENDPOINT_ID},
             expected_kwargs={'endpoint_id': ENDPOINT_ID},
+        )
+
+    def test_endpoint_group_projects(self):
+        self.verify_list(
+            self.proxy.endpoint_group_projects,
+            project.EndpointGroupProject,
+            method_kwargs={'endpoint_group': ENDPOINT_GROUP_ID},
+            expected_kwargs={'endpoint_group_id': ENDPOINT_GROUP_ID},
         )
 
     def test_project_update(self):

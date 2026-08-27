@@ -46,7 +46,7 @@ pub(crate) struct FilenamesArgs {
 
 pub(crate) fn parse_hook_args<T: Parser>(hook: &Hook) -> Result<T> {
     Ok(T::try_parse_from(
-        hook.entry.expect_direct().split_with_args(&hook.args)?,
+        hook.entry.expect_argv_entry().split_with_args(&hook.args)?,
     )?)
 }
 
@@ -129,7 +129,12 @@ pub(crate) enum PreCommitHooks {
 
 impl PreCommitHooks {
     pub(crate) async fn run(self, hook: &Hook, filenames: &[&Path]) -> Result<HookOutput> {
-        debug!("Running hook `{}` in fast path", hook.id);
+        debug!(
+            "Running hook `{}` with prek's bundled Rust implementation instead of `{}` (fast path); behavior and defaults may differ. Set `language: {}` for this hook or `PREK_NO_FAST_PATH=1` to run the pinned implementation",
+            hook.id,
+            hook.repo(),
+            hook.language,
+        );
         let future: HookFuture<'_> = match self {
             Self::CheckAddedLargeFiles => Box::pin(check_added_large_files::run(hook, filenames)),
             Self::CheckCaseConflict => Box::pin(check_case_conflict::run(hook, filenames)),

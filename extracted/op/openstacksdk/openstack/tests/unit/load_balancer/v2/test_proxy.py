@@ -28,7 +28,6 @@ from openstack.load_balancer.v2 import member
 from openstack.load_balancer.v2 import pool
 from openstack.load_balancer.v2 import provider
 from openstack.load_balancer.v2 import quota
-from openstack import proxy as proxy_base
 from openstack.tests.unit import test_proxy_base
 
 
@@ -62,38 +61,25 @@ class TestLoadBalancerProxy(test_proxy_base.TestProxyBase):
     def test_load_balancer_create(self):
         self.verify_create(self.proxy.create_load_balancer, lb.LoadBalancer)
 
-    @mock.patch.object(proxy_base.Proxy, '_get_resource')
-    def test_load_balancer_delete_non_cascade(self, mock_get_resource):
-        fake_load_balancer = mock.Mock()
-        fake_load_balancer.id = "load_balancer_id"
-        mock_get_resource.return_value = fake_load_balancer
+    def test_load_balancer_delete_non_cascade(self):
         self._verify(
             "openstack.proxy.Proxy._delete",
             self.proxy.delete_load_balancer,
             method_args=["resource_or_id", True, False],
-            expected_args=[lb.LoadBalancer, fake_load_balancer],
-            expected_kwargs={"ignore_missing": True},
-        )
-        self.assertFalse(fake_load_balancer.cascade)
-        mock_get_resource.assert_called_once_with(
-            lb.LoadBalancer, "resource_or_id"
+            expected_args=[lb.LoadBalancer, "resource_or_id"],
+            expected_kwargs={"ignore_missing": True, "params": None},
         )
 
-    @mock.patch.object(proxy_base.Proxy, '_get_resource')
-    def test_load_balancer_delete_cascade(self, mock_get_resource):
-        fake_load_balancer = mock.Mock()
-        fake_load_balancer.id = "load_balancer_id"
-        mock_get_resource.return_value = fake_load_balancer
+    def test_load_balancer_delete_cascade(self):
         self._verify(
             "openstack.proxy.Proxy._delete",
             self.proxy.delete_load_balancer,
             method_args=["resource_or_id", True, True],
-            expected_args=[lb.LoadBalancer, fake_load_balancer],
-            expected_kwargs={"ignore_missing": True},
-        )
-        self.assertTrue(fake_load_balancer.cascade)
-        mock_get_resource.assert_called_once_with(
-            lb.LoadBalancer, "resource_or_id"
+            expected_args=[lb.LoadBalancer, "resource_or_id"],
+            expected_kwargs={
+                "ignore_missing": True,
+                "params": {"cascade": True},
+            },
         )
 
     def test_load_balancer_find(self):
@@ -497,3 +483,66 @@ class TestLoadBalancerProxy(test_proxy_base.TestProxyBase):
             self.proxy.update_availability_zone,
             availability_zone.AvailabilityZone,
         )
+
+
+class TestProjectCleanup(test_proxy_base.TestProxyBase):
+    def setUp(self):
+        super().setUp()
+        self.proxy = _proxy.Proxy(self.session, service_type='load-balancer')
+
+    def test_get_cleanup_dependencies(self):
+        deps = self.proxy._get_cleanup_dependencies()
+        self.assertIn('load_balancer', deps)
+        self.assertIn('compute', deps['load_balancer']['before'])
+        self.assertIn('network', deps['load_balancer']['before'])
+
+    @mock.patch.object(_proxy.Proxy, 'load_balancers', autospec=True)
+    @mock.patch.object(_proxy.Proxy, 'delete_load_balancer', autospec=True)
+    @mock.patch.object(_proxy.Proxy, 'wait_for_delete', autospec=True)
+    def test_service_cleanup(self, mock_wait, mock_delete, mock_list):
+        obj = lb.LoadBalancer(id='lb-1', name='test-lb')
+        mock_list.return_value = [obj]
+
+        self.proxy._service_cleanup(
+            dry_run=False,
+            client_status_queue=None,
+            identified_resources=None,
+            filters=None,
+            resource_evaluation_fn=None,
+            skip_resources=None,
+        )
+
+        mock_delete.assert_called_once_with(self.proxy, obj, cascade=True)
+        mock_wait.assert_called_once_with(self.proxy, obj)
+
+    @mock.patch.object(_proxy.Proxy, 'load_balancers', autospec=True)
+    @mock.patch.object(_proxy.Proxy, 'delete_load_balancer', autospec=True)
+    def test_service_cleanup_dry_run(self, mock_delete, mock_list):
+        obj = lb.LoadBalancer(id='lb-1', name='test-lb')
+        mock_list.return_value = [obj]
+
+        self.proxy._service_cleanup(
+            dry_run=True,
+            client_status_queue=None,
+            identified_resources=None,
+            filters=None,
+            resource_evaluation_fn=None,
+            skip_resources=None,
+        )
+
+        mock_delete.assert_not_called()
+
+    @mock.patch.object(_proxy.Proxy, 'load_balancers', autospec=True)
+    @mock.patch.object(_proxy.Proxy, 'delete_load_balancer', autospec=True)
+    def test_service_cleanup_skip_lb(self, mock_delete, mock_list):
+        self.proxy._service_cleanup(
+            dry_run=False,
+            client_status_queue=None,
+            identified_resources=None,
+            filters=None,
+            resource_evaluation_fn=None,
+            skip_resources=['load_balancer.load_balancer'],
+        )
+
+        mock_list.assert_not_called()
+        mock_delete.assert_not_called()

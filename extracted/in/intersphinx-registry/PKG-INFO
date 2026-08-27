@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: intersphinx_registry
-Version: 0.2606.25
+Version: 0.2608.26
 Summary: This package provides convenient utilities and data to write a sphinx config file.
 Author-email: M Bussonnier <bussonniermatthias@gmail.com>
 Description-Content-Type: text/markdown
@@ -20,6 +20,7 @@ Project-URL: Home, https://github.com/Quansight-labs/intersphinx_registry
 Provides-Extra: cli
 Provides-Extra: lookup
 Provides-Extra: tests
+Import-Name: intersphinx_registry
 
 # Intersphinx Registry
 

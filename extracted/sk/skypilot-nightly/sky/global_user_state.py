@@ -170,6 +170,16 @@ volume_table = sqlalchemy.Table(
     sqlalchemy.Column('usedby_pods', sqlalchemy.Text, server_default=None),
     sqlalchemy.Column('usedby_clusters', sqlalchemy.Text, server_default=None),
     sqlalchemy.Column('creation_yaml', sqlalchemy.Text, server_default=None),
+    # Set only while the volume is being resized to a size it does not have
+    # yet; `handle`'s size stays the capacity that exists. See
+    # models.VolumeResizeStatus.
+    sqlalchemy.Column('resize_status', sqlalchemy.Text, server_default=None),
+    sqlalchemy.Column('resize_target_size',
+                      sqlalchemy.Text,
+                      server_default=None),
+    # What the cloud said about the resize, in its own words. What is shown to
+    # the user is built from this in volume_list, not stored.
+    sqlalchemy.Column('resize_message', sqlalchemy.Text, server_default=None),
 )
 
 # Table for Cluster History
@@ -2995,6 +3005,9 @@ def _volume_record_from_row(row: Any) -> Dict[str, Any]:
         'usedby_clusters':
             (json.loads(row.usedby_clusters) if row.usedby_clusters else []),
         'creation_yaml': row.creation_yaml,
+        'resize_status': row.resize_status,
+        'resize_target_size': row.resize_target_size,
+        'resize_message': row.resize_message,
     }
 
 
@@ -3140,7 +3153,11 @@ def update_volume_status(name: str,
                          status: status_lib.VolumeStatus,
                          error_message: Optional[str] = None,
                          usedby_pods: Optional[List[str]] = None,
-                         usedby_clusters: Optional[List[str]] = None) -> None:
+                         usedby_clusters: Optional[List[str]] = None,
+                         resize_status: Optional[
+                             models.VolumeResizeStatus] = None,
+                         resize_target_size: Optional[str] = None,
+                         resize_message: Optional[str] = None) -> None:
     """Update volume status and related fields.
 
     Args:
@@ -3149,6 +3166,11 @@ def update_volume_status(name: str,
         error_message: Error message (None clears it).
         usedby_pods: List of pods using the volume (None keeps existing value).
         usedby_clusters: List of clusters using the volume (None keeps it).
+        resize_status: How far a resize of the volume has got (None clears it,
+            which is what a finished resize looks like).
+        resize_target_size: The size that resize is heading for (None clears
+            it).
+        resize_message: What the cloud said about the resize (None clears it).
     """
     engine = _db_manager.get_engine()
     with orm.Session(engine) as session:
@@ -3157,6 +3179,12 @@ def update_volume_status(name: str,
         }
         # Always update error_message (None clears it)
         update_dict[volume_table.c.error_message] = error_message
+        # Same for the resize fields: a resize that finished stops being
+        # reported, and that absence is the signal it is done.
+        update_dict[volume_table.c.resize_status] = (
+            resize_status.value if resize_status is not None else None)
+        update_dict[volume_table.c.resize_target_size] = resize_target_size
+        update_dict[volume_table.c.resize_message] = resize_message
         # Update usedby fields if provided (encode as JSON)
         if usedby_pods is not None:
             update_dict[volume_table.c.usedby_pods] = json.dumps(usedby_pods)
@@ -3573,6 +3601,14 @@ def get_all_service_account_tokens() -> List[Dict[str, Any]]:
 
 
 @metrics_lib.time_me
+def count_service_account_tokens() -> int:
+    """Number of service account token rows."""
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        return session.query(service_account_token_table).count()
+
+
+@metrics_lib.time_me
 def get_system_config(config_key: str) -> Optional[str]:
     """Get a system configuration value by key."""
     engine = _db_manager.get_engine()
@@ -3584,27 +3620,34 @@ def get_system_config(config_key: str) -> Optional[str]:
     return row.config_value
 
 
+def _system_config_insert(engine: sqlalchemy.engine.Engine, config_key: str,
+                          config_value: str, current_time: int):
+    """A dialect-appropriate INSERT for one system_config row.
+
+    The caller adds the ON CONFLICT clause that distinguishes overwriting from
+    insert-if-absent.
+    """
+    if engine.dialect.name == db_utils.SQLAlchemyDialect.SQLITE.value:
+        insert_func = sqlite.insert
+    elif engine.dialect.name == db_utils.SQLAlchemyDialect.POSTGRESQL.value:
+        insert_func = postgresql.insert
+    else:
+        raise ValueError('Unsupported database dialect')
+    return insert_func(system_config_table).values(config_key=config_key,
+                                                   config_value=config_value,
+                                                   created_at=current_time,
+                                                   updated_at=current_time)
+
+
 @metrics_lib.time_me
 def set_system_config(config_key: str, config_value: str) -> None:
-    """Set a system configuration value."""
+    """Set a system configuration value, overwriting any existing one."""
     engine = _db_manager.get_engine()
     current_time = int(time.time())
 
     with orm.Session(engine) as session:
-        if engine.dialect.name == db_utils.SQLAlchemyDialect.SQLITE.value:
-            insert_func = sqlite.insert
-        elif (engine.dialect.name == db_utils.SQLAlchemyDialect.POSTGRESQL.value
-             ):
-            insert_func = postgresql.insert
-        else:
-            raise ValueError('Unsupported database dialect')
-
-        insert_stmnt = insert_func(system_config_table).values(
-            config_key=config_key,
-            config_value=config_value,
-            created_at=current_time,
-            updated_at=current_time)
-
+        insert_stmnt = _system_config_insert(engine, config_key, config_value,
+                                             current_time)
         upsert_stmnt = insert_stmnt.on_conflict_do_update(
             index_elements=[system_config_table.c.config_key],
             set_={
@@ -3613,6 +3656,39 @@ def set_system_config(config_key: str, config_value: str) -> None:
             })
         session.execute(upsert_stmnt)
         session.commit()
+
+
+@metrics_lib.time_me
+def get_or_set_system_config(config_key: str, config_value: str) -> str:
+    """Read a system configuration value, inserting `config_value` if absent.
+
+    Returns the value that is live in the database after the call, which is
+    the pre-existing one whenever a row was already there -- callers must use
+    the return value rather than assume `config_value` won. Unlike
+    `set_system_config` this can never overwrite, so servers racing to
+    bootstrap the same key converge on a single value. Use it for keys others
+    already depend on, where losing the original is not recoverable.
+    """
+    engine = _db_manager.get_engine()
+    current_time = int(time.time())
+
+    with orm.Session(engine) as session:
+        insert_stmnt = _system_config_insert(engine, config_key, config_value,
+                                             current_time)
+        session.execute(
+            insert_stmnt.on_conflict_do_nothing(
+                index_elements=[system_config_table.c.config_key]))
+        session.commit()
+
+        # Read back rather than trusting `config_value`: on conflict the row
+        # kept whatever the winner wrote, and that is the value callers must
+        # use.
+        row = session.query(system_config_table).filter_by(
+            config_key=config_key).first()
+    if row is None:
+        raise RuntimeError(f'System config {config_key!r} is missing right '
+                           'after inserting it; it was concurrently deleted.')
+    return row.config_value
 
 
 def get_max_db_connections() -> Optional[int]:

@@ -31,7 +31,7 @@ Pytest helpers.
 
 # stdlib
 import os
-from typing import Union
+from typing import Any, Union
 
 # 3rd party
 import pytest  # nodep
@@ -41,6 +41,9 @@ from coincidence import AdvancedFileRegressionFixture  # nodep
 from handy_archives import TarFile, ZipFile
 
 __all__ = ["ArchiveFileRegressionFixture", "archive_regression"]
+
+# Exists in type hints only; this fixes the docs
+LazyDataDir = Any
 
 
 class ArchiveFileRegressionFixture(AdvancedFileRegressionFixture):
@@ -80,7 +83,7 @@ class ArchiveFileRegressionFixture(AdvancedFileRegressionFixture):
 
 
 @pytest.fixture()
-def archive_regression(datadir, original_datadir, request) -> AdvancedFileRegressionFixture:
+def archive_regression(datadir, original_datadir, request) -> AdvancedFileRegressionFixture:  # noqa: MAN001
 	"""
 	Pytest fixture for performing regression tests on files in ``tar`` and ``zip`` archives.
 	"""

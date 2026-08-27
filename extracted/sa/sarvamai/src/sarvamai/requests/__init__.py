@@ -17,13 +17,8 @@ if typing.TYPE_CHECKING:
     from .chat_completion_named_tool_choice import ChatCompletionNamedToolChoiceParams
     from .chat_completion_named_tool_choice_function import ChatCompletionNamedToolChoiceFunctionParams
     from .chat_completion_request_assistant_message import ChatCompletionRequestAssistantMessageParams
-    from .chat_completion_request_message import (
-        ChatCompletionRequestMessageParams,
-        ChatCompletionRequestMessage_AssistantParams,
-        ChatCompletionRequestMessage_SystemParams,
-        ChatCompletionRequestMessage_ToolParams,
-        ChatCompletionRequestMessage_UserParams,
-    )
+    from .chat_completion_request_generic_message import ChatCompletionRequestGenericMessageParams
+    from .chat_completion_request_message import ChatCompletionRequestMessageParams
     from .chat_completion_request_system_message import ChatCompletionRequestSystemMessageParams
     from .chat_completion_request_tool_message import ChatCompletionRequestToolMessageParams
     from .chat_completion_request_user_message import ChatCompletionRequestUserMessageParams
@@ -34,7 +29,11 @@ if typing.TYPE_CHECKING:
     from .config_message import ConfigMessageParams
     from .configure_connection import ConfigureConnectionParams
     from .configure_connection_data import ConfigureConnectionDataParams
+    from .content import ContentParams
+    from .content_one_item import ContentOneItemParams, ContentOneItem_ImageUrlParams, ContentOneItem_TextParams
     from .create_chat_completion_response import CreateChatCompletionResponseParams
+    from .create_chat_completion_v2response import CreateChatCompletionV2ResponseParams
+    from .create_document_job_response import CreateDocumentJobResponseParams
     from .create_dubbing_job_data import CreateDubbingJobDataParams
     from .create_dubbing_job_response import CreateDubbingJobResponseParams
     from .diarized_entry import DiarizedEntryParams
@@ -59,6 +58,7 @@ if typing.TYPE_CHECKING:
     from .doc_digitization_job_status_response import DocDigitizationJobStatusResponseParams
     from .doc_digitization_page_error import DocDigitizationPageErrorParams
     from .doc_digitization_upload_files_response import DocDigitizationUploadFilesResponseParams
+    from .document_job_export_status_response import DocumentJobExportStatusResponseParams
     from .dubbing_export_item import DubbingExportItemParams
     from .dubbing_export_status_data import DubbingExportStatusDataParams
     from .dubbing_export_status_response import DubbingExportStatusResponseParams
@@ -84,9 +84,15 @@ if typing.TYPE_CHECKING:
     from .flush_signal import FlushSignalParams
     from .function_call import FunctionCallParams
     from .function_definition import FunctionDefinitionParams
+    from .image_part import ImagePartParams
+    from .image_url import ImageUrlParams
+    from .job_live_status_response import JobLiveStatusResponseParams
     from .job_status_response import JobStatusResponseParams
     from .json_schema_definition import JsonSchemaDefinitionParams
     from .language_identification_response import LanguageIdentificationResponseParams
+    from .model_list_response import ModelListResponseParams
+    from .model_object import ModelObjectParams
+    from .page_metrics import PageMetricsParams
     from .ping_signal import PingSignalParams
     from .pronunciation_dictionary_data import PronunciationDictionaryDataParams
     from .pronunciation_dictionary_delete_response import PronunciationDictionaryDeleteResponseParams
@@ -131,15 +137,19 @@ if typing.TYPE_CHECKING:
     from .speech_to_text_translate_response_data import SpeechToTextTranslateResponseDataParams
     from .speech_to_text_translate_streaming_response import SpeechToTextTranslateStreamingResponseParams
     from .speech_to_text_translate_transcription_data import SpeechToTextTranslateTranscriptionDataParams
+    from .start_job_response import StartJobResponseParams
     from .stop_configuration import StopConfigurationParams
     from .stt_flush_signal import SttFlushSignalParams
     from .task_detail import TaskDetailParams
     from .task_file_details import TaskFileDetailsParams
+    from .text_part import TextPartParams
     from .text_to_speech_response import TextToSpeechResponseParams
     from .timestamps_model import TimestampsModelParams
     from .tool_choice_option import ToolChoiceOptionParams
     from .transcription_metrics import TranscriptionMetricsParams
+    from .translation_language_metrics import TranslationLanguageMetricsParams
     from .translation_response import TranslationResponseParams
+    from .translation_status_item import TranslationStatusItemParams
     from .transliteration_response import TransliterationResponseParams
 _dynamic_imports: typing.Dict[str, str] = {
     "AudioDataParams": ".audio_data",
@@ -153,11 +163,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionNamedToolChoiceFunctionParams": ".chat_completion_named_tool_choice_function",
     "ChatCompletionNamedToolChoiceParams": ".chat_completion_named_tool_choice",
     "ChatCompletionRequestAssistantMessageParams": ".chat_completion_request_assistant_message",
+    "ChatCompletionRequestGenericMessageParams": ".chat_completion_request_generic_message",
     "ChatCompletionRequestMessageParams": ".chat_completion_request_message",
-    "ChatCompletionRequestMessage_AssistantParams": ".chat_completion_request_message",
-    "ChatCompletionRequestMessage_SystemParams": ".chat_completion_request_message",
-    "ChatCompletionRequestMessage_ToolParams": ".chat_completion_request_message",
-    "ChatCompletionRequestMessage_UserParams": ".chat_completion_request_message",
     "ChatCompletionRequestSystemMessageParams": ".chat_completion_request_system_message",
     "ChatCompletionRequestToolMessageParams": ".chat_completion_request_tool_message",
     "ChatCompletionRequestUserMessageParams": ".chat_completion_request_user_message",
@@ -168,7 +175,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConfigMessageParams": ".config_message",
     "ConfigureConnectionDataParams": ".configure_connection_data",
     "ConfigureConnectionParams": ".configure_connection",
+    "ContentOneItemParams": ".content_one_item",
+    "ContentOneItem_ImageUrlParams": ".content_one_item",
+    "ContentOneItem_TextParams": ".content_one_item",
+    "ContentParams": ".content",
     "CreateChatCompletionResponseParams": ".create_chat_completion_response",
+    "CreateChatCompletionV2ResponseParams": ".create_chat_completion_v2response",
+    "CreateDocumentJobResponseParams": ".create_document_job_response",
     "CreateDubbingJobDataParams": ".create_dubbing_job_data",
     "CreateDubbingJobResponseParams": ".create_dubbing_job_response",
     "DiarizedEntryParams": ".diarized_entry",
@@ -193,6 +206,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocDigitizationJobStatusResponseParams": ".doc_digitization_job_status_response",
     "DocDigitizationPageErrorParams": ".doc_digitization_page_error",
     "DocDigitizationUploadFilesResponseParams": ".doc_digitization_upload_files_response",
+    "DocumentJobExportStatusResponseParams": ".document_job_export_status_response",
     "DubbingExportItemParams": ".dubbing_export_item",
     "DubbingExportStatusDataParams": ".dubbing_export_status_data",
     "DubbingExportStatusResponseParams": ".dubbing_export_status_response",
@@ -218,9 +232,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FlushSignalParams": ".flush_signal",
     "FunctionCallParams": ".function_call",
     "FunctionDefinitionParams": ".function_definition",
+    "ImagePartParams": ".image_part",
+    "ImageUrlParams": ".image_url",
+    "JobLiveStatusResponseParams": ".job_live_status_response",
     "JobStatusResponseParams": ".job_status_response",
     "JsonSchemaDefinitionParams": ".json_schema_definition",
     "LanguageIdentificationResponseParams": ".language_identification_response",
+    "ModelListResponseParams": ".model_list_response",
+    "ModelObjectParams": ".model_object",
+    "PageMetricsParams": ".page_metrics",
     "PingSignalParams": ".ping_signal",
     "PronunciationDictionaryDataParams": ".pronunciation_dictionary_data",
     "PronunciationDictionaryDeleteResponseParams": ".pronunciation_dictionary_delete_response",
@@ -263,15 +283,19 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SpeechToTextTranslateResponseParams": ".speech_to_text_translate_response",
     "SpeechToTextTranslateStreamingResponseParams": ".speech_to_text_translate_streaming_response",
     "SpeechToTextTranslateTranscriptionDataParams": ".speech_to_text_translate_transcription_data",
+    "StartJobResponseParams": ".start_job_response",
     "StopConfigurationParams": ".stop_configuration",
     "SttFlushSignalParams": ".stt_flush_signal",
     "TaskDetailParams": ".task_detail",
     "TaskFileDetailsParams": ".task_file_details",
+    "TextPartParams": ".text_part",
     "TextToSpeechResponseParams": ".text_to_speech_response",
     "TimestampsModelParams": ".timestamps_model",
     "ToolChoiceOptionParams": ".tool_choice_option",
     "TranscriptionMetricsParams": ".transcription_metrics",
+    "TranslationLanguageMetricsParams": ".translation_language_metrics",
     "TranslationResponseParams": ".translation_response",
+    "TranslationStatusItemParams": ".translation_status_item",
     "TransliterationResponseParams": ".transliteration_response",
 }
 
@@ -309,11 +333,8 @@ __all__ = [
     "ChatCompletionNamedToolChoiceFunctionParams",
     "ChatCompletionNamedToolChoiceParams",
     "ChatCompletionRequestAssistantMessageParams",
+    "ChatCompletionRequestGenericMessageParams",
     "ChatCompletionRequestMessageParams",
-    "ChatCompletionRequestMessage_AssistantParams",
-    "ChatCompletionRequestMessage_SystemParams",
-    "ChatCompletionRequestMessage_ToolParams",
-    "ChatCompletionRequestMessage_UserParams",
     "ChatCompletionRequestSystemMessageParams",
     "ChatCompletionRequestToolMessageParams",
     "ChatCompletionRequestUserMessageParams",
@@ -324,7 +345,13 @@ __all__ = [
     "ConfigMessageParams",
     "ConfigureConnectionDataParams",
     "ConfigureConnectionParams",
+    "ContentOneItemParams",
+    "ContentOneItem_ImageUrlParams",
+    "ContentOneItem_TextParams",
+    "ContentParams",
     "CreateChatCompletionResponseParams",
+    "CreateChatCompletionV2ResponseParams",
+    "CreateDocumentJobResponseParams",
     "CreateDubbingJobDataParams",
     "CreateDubbingJobResponseParams",
     "DiarizedEntryParams",
@@ -349,6 +376,7 @@ __all__ = [
     "DocDigitizationJobStatusResponseParams",
     "DocDigitizationPageErrorParams",
     "DocDigitizationUploadFilesResponseParams",
+    "DocumentJobExportStatusResponseParams",
     "DubbingExportItemParams",
     "DubbingExportStatusDataParams",
     "DubbingExportStatusResponseParams",
@@ -374,9 +402,15 @@ __all__ = [
     "FlushSignalParams",
     "FunctionCallParams",
     "FunctionDefinitionParams",
+    "ImagePartParams",
+    "ImageUrlParams",
+    "JobLiveStatusResponseParams",
     "JobStatusResponseParams",
     "JsonSchemaDefinitionParams",
     "LanguageIdentificationResponseParams",
+    "ModelListResponseParams",
+    "ModelObjectParams",
+    "PageMetricsParams",
     "PingSignalParams",
     "PronunciationDictionaryDataParams",
     "PronunciationDictionaryDeleteResponseParams",
@@ -419,14 +453,18 @@ __all__ = [
     "SpeechToTextTranslateResponseParams",
     "SpeechToTextTranslateStreamingResponseParams",
     "SpeechToTextTranslateTranscriptionDataParams",
+    "StartJobResponseParams",
     "StopConfigurationParams",
     "SttFlushSignalParams",
     "TaskDetailParams",
     "TaskFileDetailsParams",
+    "TextPartParams",
     "TextToSpeechResponseParams",
     "TimestampsModelParams",
     "ToolChoiceOptionParams",
     "TranscriptionMetricsParams",
+    "TranslationLanguageMetricsParams",
     "TranslationResponseParams",
+    "TranslationStatusItemParams",
     "TransliterationResponseParams",
 ]

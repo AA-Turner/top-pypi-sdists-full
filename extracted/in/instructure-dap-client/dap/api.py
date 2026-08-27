@@ -733,9 +733,19 @@ class DAPSession:
         if decompress:
             file_path = file_path.removesuffix(".gz")
 
-        logger.debug(f"Downloading: {url} to {file_path}")
+        # Ensure the resolved path stays within the target directory. The file
+        # name is derived from a server-supplied URL, so guard against path
+        # traversal before opening the file for writing.
+        output_root = os.path.realpath(output_directory)
+        resolved_path = os.path.realpath(file_path)
+        if os.path.commonpath([output_root, resolved_path]) != output_root:
+            raise DownloadError(
+                f"refusing to write outside the output directory: {file_name}"
+            )
 
-        async with aiofiles.open(file_path, "wb") as output_file:
+        logger.debug(f"Downloading: {url} to {resolved_path}")
+
+        async with aiofiles.open(resolved_path, "wb") as output_file:
             decompressor = (
                 zlib.decompressobj(16 + zlib.MAX_WBITS) if decompress else None
             )

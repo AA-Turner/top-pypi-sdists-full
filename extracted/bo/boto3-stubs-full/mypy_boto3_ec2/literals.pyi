@@ -1425,7 +1425,9 @@ InstanceExistsWaiterName = Literal["instance_exists"]
 InstanceGenerationType = Literal["current", "previous"]
 InstanceHealthStatusType = Literal["healthy", "unhealthy"]
 InstanceInterruptionBehaviorType = Literal["hibernate", "stop", "terminate"]
-InstanceLifecycleType = Literal["interruptible-capacity-reservation", "on-demand", "spot"]
+InstanceLifecycleType = Literal[
+    "capacity-block", "interruptible-capacity-reservation", "on-demand", "spot"
+]
 InstanceLifecycleTypeType = Literal[
     "capacity-block", "interruptible-capacity-reservation", "scheduled", "spot"
 ]
@@ -3764,7 +3766,7 @@ VpcPeeringConnectionStateReasonCodeType = Literal[
     "provisioning",
     "rejected",
 ]
-VpcStateType = Literal["available", "pending"]
+VpcStateType = Literal["available", "deleting", "pending"]
 VpcTenancyType = Literal["default"]
 VpnConcentratorTypeType = Literal["ipsec.1"]
 VpnConnectionAvailableWaiterName = Literal["vpn_connection_available"]

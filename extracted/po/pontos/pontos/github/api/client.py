@@ -10,7 +10,6 @@ from types import TracebackType
 from typing import Any
 
 import httpx
-from typing_extensions import Self
 
 from pontos.github.api.helper import (
     DEFAULT_GITHUB_API_URL,
@@ -20,6 +19,7 @@ from pontos.github.api.helper import (
     _get_next_url,
 )
 from pontos.github.models.base import GitHubModel
+from pontos.typing import Self
 
 Headers = Mapping[str, str]
 ParamValue = str | None
@@ -147,11 +147,7 @@ class GitHubAsyncRESTClient(AbstractAsyncContextManager):
         next_url = _get_next_url(response)
 
         while next_url:
-            # Workaround for https://github.com/encode/httpx/issues/3433
-            new_params = (
-                httpx.URL(next_url).params.merge(params) if params else None
-            )
-            response = await self.get(next_url, params=new_params)
+            response = await self.get(next_url)
 
             yield response
 

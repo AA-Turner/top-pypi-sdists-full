@@ -103,11 +103,11 @@ class TestConfig:
         )
 
     def test_deprecated_multi_line_output(self):
-        assert Config(multi_line_output=6).multi_line_output == WrapModes.VERTICAL_GRID_GROUPED  # type: ignore # noqa
+        assert Config(multi_line_output=6).multi_line_output == WrapModes.VERTICAL_GRID_GROUPED  # noqa
 
 
 def test_as_list():
-    assert settings._as_list([" one "]) == ["one"]  # type: ignore
+    assert settings._as_list([" one "]) == ["one"]
     assert settings._as_list("one,two") == ["one", "two"]
 
 
@@ -181,6 +181,7 @@ indent_style = space
     assert loaded_settings["comment_prefix"] == "text"
     assert loaded_settings["force_grid_wrap"] == 0
     assert loaded_settings["indent"] == "\t"
+    assert isinstance(loaded_settings["source"], str)
     assert str(tmpdir) in loaded_settings["source"]
 
 
@@ -211,6 +212,7 @@ multi_line_output = 3
         str(test_config), sections=settings.CONFIG_SECTIONS["pyproject.toml"]
     )
     assert loaded_settings
+    assert isinstance(loaded_settings["source"], str)
     assert str(tmpdir) in loaded_settings["source"]
 
 

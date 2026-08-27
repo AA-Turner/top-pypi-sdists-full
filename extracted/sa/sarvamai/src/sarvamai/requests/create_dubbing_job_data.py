@@ -4,7 +4,7 @@ import typing_extensions
 
 
 class CreateDubbingJobDataParams(typing_extensions.TypedDict):
-    job_id: typing_extensions.NotRequired[str]
+    job_id: str
     """
     Unique identifier for the created dubbing job.
     """
@@ -24,12 +24,12 @@ class CreateDubbingJobDataParams(typing_extensions.TypedDict):
     How long the signed upload URL(s) remain valid, in hours.
     """
 
-    processing_started: typing_extensions.NotRequired[bool]
+    processing_started: bool
     """
     Whether processing has already begun for this job.
     """
 
-    voice_cloning: typing_extensions.NotRequired[bool]
+    voice_cloning: bool
     voice_id: typing_extensions.NotRequired[str]
     pace_preset: typing_extensions.NotRequired[str]
     model_tier: typing_extensions.NotRequired[str]

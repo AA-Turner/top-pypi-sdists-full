@@ -58,12 +58,15 @@ from matrice_streaming._mp_patch import install_resource_tracker_patch as _matri
 _matrice_install_rt_patch()
 
 import argparse
+import faulthandler
+import glob
 import hashlib
 import logging
 import math
 import multiprocessing as mp
 import os
 import queue as thread_queue
+import signal
 import tempfile
 import threading
 import time
@@ -71,13 +74,73 @@ import uuid
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Generator, List, Optional, Set, Tuple
+from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Set, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import numpy as np
 
 from matrice_streaming.secure_cache import is_safe_cached_file, secure_cache_dir
 from matrice_streaming.url_redact import redact_url
+
+# resolve_restart_policy is the single reader of all six MATRICE_SG_* restart /
+# stall knobs; the local _env_float/_env_int helpers it replaced are gone.
+from .restart_policy import StreamSupervisor, resolve_restart_policy
+
+
+class _AnyStop:
+    """Duck-typed stop flag that is set when ANY of its events is set.
+
+    Lets the decode worker honour both a per-sub SIGTERM (graceful per-camera
+    removal / terminate) and the shared orchestrator stop event (full shutdown)
+    through the single ``stop_event`` it polls. Only ``is_set()`` is required by
+    the worker loop; ``set()`` is provided for completeness.
+    """
+
+    def __init__(self, *events: Any) -> None:
+        self._events = [e for e in events if e is not None]
+
+    def is_set(self) -> bool:
+        return any(e.is_set() for e in self._events)
+
+    def set(self) -> None:  # pragma: no cover - convenience only
+        for e in self._events:
+            try:
+                e.set()
+            except Exception:  # nosec B110
+                pass
+
+
+def _unlink_camera_shm(camera_id: str) -> int:
+    """Unlink a camera's own DataBus SHM segments (best-effort, idempotent).
+
+    Called from the decode sub-process on teardown so a removed/terminated
+    camera does not leave an orphan ``/dev/shm/databus__<cam>__*`` that keeps
+    consumers reading stale frames and fools the phantom reconciler (which keys
+    on the file's existence). Mirrors the path patterns cleaned by
+    ``NVDECWorkerManager._clean_stale_shm_for``. Returns the count removed.
+    """
+    if not camera_id:
+        return 0
+    removed = 0
+    patterns = [  # nosec B108 - SHM cleanup is intentional
+        f"/dev/shm/databus__{camera_id}__*",  # nosec B108
+        f"/dev/shm/databus_status__{camera_id}",  # nosec B108
+    ]
+    for pattern in patterns:
+        for path in glob.glob(pattern):
+            try:
+                os.remove(path)
+                removed += 1
+            except OSError:
+                pass
+    return removed
+
+
+# How often the per-GPU command handler emits a "handler_alive" heartbeat so the
+# manager/watchdog can detect a wedged handler (process alive, frames advancing,
+# but no commands being consumed). The manager's staleness threshold is a
+# multiple of this.
+_HANDLER_HEARTBEAT_SEC = 5.0
 
 
 class DemuxerType(Enum):
@@ -185,6 +248,11 @@ logger = logging.getLogger(__name__)
 # >= this is an invalid/sentinel value (e.g. GST_CLOCK_TIME_NONE-derived) and
 # must be rejected before packing.
 _UINT64_MAX = (1 << 64) - 1
+
+# RTP media clock for H.264/H.265 video, in ticks per second (RFC 3551 §6). Named
+# rather than spelled 90000 inline because it appears on both sides of the surface-PTS
+# conversion below, and a mismatch there is a silent timestamp scaling error.
+RTP_CLOCK_RATE = 90_000
 
 # =============================================================================
 # Orin Platform Fallback (opt-in via MATRICE_PLATFORM=orin)
@@ -397,6 +465,8 @@ class VideoDownloader:
 
     def _get_url_hash(self, normalized_url: str) -> str:
         """Generate a short hash for consistent file naming."""
+        # A cache filename, not a security digest; usedforsecurity=False is set.
+        # nosemgrep: hashlib-md5-or-sha1
         return hashlib.md5(normalized_url.encode(), usedforsecurity=False).hexdigest()[:12]
 
     def _download_video(self, url: str, camera_id: str) -> Optional[str]:
@@ -660,8 +730,30 @@ class _SubprocessCameraRegistry:
     def owner_for(self, camera_id: str) -> Optional[Any]:
         return self._camera_to_sub.get(camera_id)
 
+    def active_camera_count(self) -> int:
+        """Live count of cameras currently configured on this GPU.
+
+        Used by the progress monitor so per-camera FPS figures track cameras
+        hot-added/removed after spawn, instead of the stale spawn-time count.
+        """
+        return len(self._camera_to_config)
+
     def config_for(self, camera_id: str) -> Optional[StreamConfig]:
         return self._camera_to_config.get(camera_id)
+
+    def configs_for_owner(self, owner: Any) -> List[StreamConfig]:
+        """Every still-configured camera owned by ``owner``.
+
+        Read-only counterpart to :meth:`detach_owner_for_camera`, for the case
+        where the owner is already dead and there is nothing to detach — the
+        caller only needs to know which cameras went down with it.
+        """
+        configs = []
+        for cid in self._sub_to_cameras.get(owner, set()):
+            cfg = self._camera_to_config.get(cid)
+            if cfg is not None:
+                configs.append(cfg)
+        return configs
 
     def remove_config(self, camera_id: str) -> None:
         self._camera_to_config.pop(camera_id, None)
@@ -935,6 +1027,19 @@ class StreamState:
     # 0 = native camera resolution; inference owns preprocess.
     width: int = 0
     height: int = 0
+    # The source's OWN resolution, as the demuxer reported it at open. 0 = the
+    # demuxer supplied none.
+    #
+    # Recorded because the ring buffer has to be sized at what the decoder will
+    # actually produce, which is min(declared, native) — the decoder clamps a
+    # target larger than native down to native and never upsamples. Sizing the
+    # ring at the DECLARED value instead meant a stale `customStreamSettings`
+    # (1920x1080 against a 1280x720 camera) failed the ring's shape check on
+    # every frame and the camera sat at 0 fps until an operator corrected the
+    # config by hand. This is knowable at open and used to be logged and then
+    # discarded.
+    native_width: int = 0
+    native_height: int = 0
     empty_packets: int = 0
     decode_errors: int = 0  # Consecutive decode errors
     _empty_start_ns: float = 0.0  # time.monotonic() when current empty-streak started; for wall-clock stall check
@@ -1131,6 +1236,71 @@ def _disable_src_dims_support() -> None:
     _SUPPORTS_SRC_DIMS = False
 
 
+# Whether this PyNvVideoCodec build lets us carry a per-picture timestamp THROUGH the
+# decoder (`PacketData.pts` in, surface timestamp out).
+#
+# Why this matters: NVDEC is created without `latency=`, so it defaults to NATIVE and
+# holds ~2 pictures in its display queue. The decode loop feeds an access unit and then
+# iterates the surfaces `Decode()` emits -- but those are EARLIER pictures. Stamping the
+# fed-in AU's RTP timestamp onto them labels every frame ~2 source frames ahead of the
+# picture it actually contains. Nothing errors: the value is a valid on-grid timestamp,
+# so the recorder resolves it to a real stored frame, just the wrong one. That is the
+# LPR overlay/alert desync.
+#
+# Carrying the timestamp through the decoder makes each surface self-describing, which
+# is what `orin_nvdec.py` already does on the Jetson path via its PTS->RTP map.
+#
+# Starts True and flips off permanently the first time the API does not cooperate, so a
+# build without `pts`/surface timestamps degrades to the previous behaviour instead of
+# raising in the decode path of every camera. `MATRICE_NVDEC_SURFACE_PTS=0` forces the
+# old path without a redeploy.
+_SUPPORTS_SURFACE_PTS = os.getenv("MATRICE_NVDEC_SURFACE_PTS", "1").strip().lower() not in (
+    "0",
+    "false",
+    "no",
+)
+
+
+def _disable_surface_pts_support(reason: str) -> None:
+    """Flip the surface-PTS capability flag off, once, with a reason.
+
+    Same shape as :func:`_disable_src_dims_support`: only ever True -> False, so
+    concurrent workers writing the same value is harmless.
+    """
+    global _SUPPORTS_SURFACE_PTS
+    if _SUPPORTS_SURFACE_PTS:
+        _SUPPORTS_SURFACE_PTS = False
+        logger.warning(
+            "[NVDEC] per-picture timestamps unavailable (%s); falling back to stamping "
+            "the fed-in access unit's RTP timestamp. Published capture_timestamp_ns will "
+            "lead the picture by the decoder's display-queue depth (~2 frames).",
+            reason,
+        )
+
+
+def _surface_rtp_timestamp(surface: Any) -> Optional[int]:
+    """The RTP timestamp NVDEC carried through for THIS surface, or None.
+
+    The decode loop sets ``PacketData.pts`` to the access unit's true RTP timestamp, so
+    whatever comes back out is the emitted picture's own value rather than the one
+    currently being fed in. Attribute name varies across PyNvVideoCodec builds, hence the
+    probing; None means "could not read it" and the caller keeps the old behaviour.
+    """
+    for attr in ("timestamp", "pts"):
+        value = getattr(surface, attr, None)
+        if isinstance(value, int) and value > 0:
+            return value
+    getter = getattr(surface, "getPTS", None)
+    if callable(getter):
+        try:
+            value = getter()
+        except Exception:  # nosec B110 - a probe must never break the decode loop
+            return None
+        if isinstance(value, int) and value > 0:
+            return value
+    return None
+
+
 try:
     _nv12_resize_kernel = _compile_nv12_resize_kernel()
 except Exception:  # nosec B110
@@ -1245,6 +1415,34 @@ def nv12_resize(
 _RESIZE_WARNED: set = set()
 
 
+def _warn_resize_fallback(src_w: int, src_h: int, target_w: int, target_h: int, err: Exception) -> None:
+    """Warn once per geometry that a resize failed and the frame is being dropped.
+
+    The fallback packs the surface at native size "so one camera's resize error never
+    drops its stream" — but the ring is sized for the RESIZED geometry, so a
+    native-sized tensor fails its shape check and is dropped anyway. The old wording
+    implied the frame had been published. It says what actually happens now: the
+    passthrough keeps the stream alive for the frames that do resize, not for this one.
+    """
+    sig = ("err", src_w, src_h, target_w, target_h)
+    if sig in _RESIZE_WARNED:
+        return
+    _RESIZE_WARNED.add(sig)
+    logger.warning(
+        "[F08] NV12 resize %dx%d->%dx%d failed (%s); falling back to native passthrough at "
+        "%dx%d. NOTE: this camera's ring is sized for the resized geometry, so a native-sized "
+        "frame will fail the ring's shape check and be DROPPED — the passthrough keeps the "
+        "stream alive for the frames that do resize, it does not publish this one.",
+        src_w,
+        src_h,
+        target_w,
+        target_h,
+        err,
+        src_w,
+        src_h,
+    )
+
+
 def surface_to_nv12_with_src_dims(frame, target_h: int = 0, target_w: int = 0) -> Tuple[Optional[cp.ndarray], int, int]:
     """Convert NVDEC surface to NV12 and return the pre-resize source dims.
 
@@ -1333,17 +1531,7 @@ def surface_to_nv12_with_src_dims(frame, target_h: int = 0, target_w: int = 0) -
             try:
                 nv12_frame = nv12_resize(y_plane, uv_plane, y_stride, uv_stride, src_h, src_w, target_h, target_w)
             except Exception as resize_err:
-                _sig = ("err", src_w, src_h, target_w, target_h)
-                if _sig not in _RESIZE_WARNED:
-                    _RESIZE_WARNED.add(_sig)
-                    logger.warning(
-                        "[F08] NV12 resize %dx%d->%dx%d failed (%s); falling back to native passthrough",
-                        src_w,
-                        src_h,
-                        target_w,
-                        target_h,
-                        resize_err,
-                    )
+                _warn_resize_fallback(src_w, src_h, target_w, target_h, resize_err)
                 nv12_frame = _pack_nv12_native(y_plane, uv_plane, src_h, src_w)
         # Synchronize to ensure resize kernel finishes reading from NVDEC surface
         # before next Decode() call can overwrite it (kernel runs on worker stream,
@@ -1445,6 +1633,23 @@ class NVDECDecoderPool:
         self.decoders = []
         self.streams_per_decoder: List[List[StreamState]] = [[] for _ in range(pool_size)]
         self._streams_lock = threading.Lock()  # Protects streams_per_decoder mutations
+
+        # All six operator knobs (MATRICE_SG_RESTART_COOLDOWN / _GIVEUP_COOLDOWN /
+        # _MAX_RESTARTS / _RESTART_WINDOW / _STALL_SEC / _BOOTSTRAP_SEC) are
+        # resolved here, once, by the single reader in restart_policy. The decode
+        # loops read stall_sec/bootstrap_sec off this policy instead of re-parsing
+        # os.environ per packet. Resolving once (not per iteration) is deliberate:
+        # the values are deployment tuning, not something a running worker retunes.
+        self.restart_policy = resolve_restart_policy()
+        # Restart policy: cooldown-aware, give-up-capable supervisor shared by
+        # every camera on this pool. A permanently-dead source (RTSP "Not
+        # found") stops flooding ERROR-level tracebacks — after a burst of
+        # failed restarts it enters a quiet slow-probe state (still recovers if
+        # the source returns).
+        self.stream_supervisor = StreamSupervisor.from_policy(
+            self.restart_policy,
+            on_give_up=self._on_restart_give_up,
+        )
 
         if not PYNVCODEC_AVAILABLE:
             raise RuntimeError("PyNvVideoCodec not available")
@@ -1577,6 +1782,10 @@ class NVDECDecoderPool:
             demuxer=demuxer,
             width=width,
             height=height,
+            # The source's own geometry, probed at open. It is knowable here and
+            # nowhere later, and the ring is sized from min(declared, native).
+            native_width=_demuxer_native_dim(demuxer, "Width", camera_id),
+            native_height=_demuxer_native_dim(demuxer, "Height", camera_id),
             stream_type=stream_type,
             source_fps=source_fps,
             demuxer_type="nvc",
@@ -1627,8 +1836,13 @@ class NVDECDecoderPool:
             camera_id=camera_id,
             video_path=video_path,
             demuxer=None,  # Not used for GStreamer
-            width=width,  # Keep configured target dims (must match ring buffer)
-            height=height,  # Detected resolution is logged above, not used for decode target
+            width=width,  # Declared target; clamped to native by effective_frame_dims()
+            height=height,
+            # The resolution the demuxer just reported. It used to be logged on the
+            # line above and then discarded, which left the ring sized from config
+            # alone — the whole defect this records it for.
+            native_width=int(getattr(gst_demuxer, "width", 0) or 0),
+            native_height=int(getattr(gst_demuxer, "height", 0) or 0),
             stream_type=stream_type,
             source_fps=source_fps,
             demuxer_type="gstreamer",
@@ -1767,6 +1981,56 @@ class NVDECDecoderPool:
         # # Frame-count estimate (file sources)
         # return int(stream.frames_decoded * 1_000_000_000 / stream.source_fps)
 
+    @staticmethod
+    def _build_decode_packet(nal_bytes: bytes, rtp_ts: int) -> Tuple[Any, Any]:
+        """Wrap one access unit as a ``PacketData``, carrying its RTP timestamp.
+
+        Returns the packet AND the numpy view backing it: the packet holds a raw
+        pointer (`bsl_data`) into that buffer, so the caller must keep the array
+        alive for as long as the decoder may read the packet.
+
+        The PTS is what lets the surface that eventually comes out describe
+        itself. Without it the decode loop stamps the AU being fed in onto a
+        picture NVDEC emitted ~2 frames ago (see `_SUPPORTS_SURFACE_PTS`). A
+        decoder build whose PacketData has no settable `pts` disables the whole
+        surface-PTS path once, rather than raising per packet.
+        """
+        nal_arr = np.frombuffer(nal_bytes, dtype=np.uint8)
+        pkt = nvc.PacketData()
+        pkt.bsl_data = nal_arr.ctypes.data
+        pkt.bsl = len(nal_bytes)
+        if _SUPPORTS_SURFACE_PTS:
+            try:
+                pkt.pts = rtp_ts
+            except Exception as exc:  # nosec B110 - capability probe
+                _disable_surface_pts_support(f"PacketData.pts not settable: {exc}")
+        return pkt, nal_arr
+
+    def _gst_surface_timestamp_ns(self, stream: "StreamState", absolute_ns: int, rtp_ts_ns: int, surface: Any) -> int:
+        """Timestamp one decoded surface, preferring the picture's OWN PTS.
+
+        On the first surface that cannot supply one, drop to the old
+        feed-in-timestamp behaviour permanently rather than probing every frame.
+        """
+        surface_rtp = _surface_rtp_timestamp(surface) if _SUPPORTS_SURFACE_PTS else None
+        if surface_rtp is not None:
+            return self._compute_gst_timestamp_ns(stream, absolute_ns, surface_rtp * 1_000_000_000 // RTP_CLOCK_RATE)
+        if _SUPPORTS_SURFACE_PTS:
+            _disable_surface_pts_support("surface exposes no usable timestamp")
+        return self._compute_gst_timestamp_ns(stream, absolute_ns, rtp_ts_ns)
+
+    def _to_nv12(self, stream: "StreamState", surface: Any, target_h: int, target_w: int) -> Any:
+        """Convert one decoded surface to an NV12 tensor at THIS camera's target.
+
+        ``target_h``/``target_w`` are the worker-global pair and are only the fallback:
+        they used to be applied to every camera in the sub-process, so two cameras with
+        different declared sizes both got the first one's target while each ring was
+        built at its own size — and every camera but the first mismatched. The target
+        now comes from the camera's own ``StreamState`` via ``stream_target_dims``.
+        """
+        eff_h, eff_w = self.stream_target_dims(stream, target_h, target_w)
+        return surface_to_nv12_with_src_dims(surface, eff_h, eff_w)
+
     def _decode_gstreamer_stream(
         self,
         stream: StreamState,
@@ -1808,8 +2072,10 @@ class NVDECDecoderPool:
                     now = time.monotonic()
                     if math.isclose(stream._empty_start_ns, 0.0, abs_tol=1e-9):
                         stream._empty_start_ns = now
-                    stall_sec = float(os.environ.get("MATRICE_SG_STALL_SEC", "10.0"))
-                    bootstrap_sec = float(os.environ.get("MATRICE_SG_BOOTSTRAP_SEC", "30.0"))
+                    # MATRICE_SG_STALL_SEC / MATRICE_SG_BOOTSTRAP_SEC, resolved
+                    # once in __init__ via restart_policy.resolve_restart_policy.
+                    stall_sec = self.restart_policy.stall_sec
+                    bootstrap_sec = self.restart_policy.bootstrap_sec
                     limit = bootstrap_sec if stream.frames_decoded == 0 else stall_sec
                     if (now - getattr(stream, "_empty_start_ns", now)) >= limit:
                         logger.warning(
@@ -1833,20 +2099,17 @@ class NVDECDecoderPool:
                     continue
 
                 try:
-                    _nal_arr = np.frombuffer(nal_bytes, dtype=np.uint8)
-                    _pkt = nvc.PacketData()
-                    _pkt.bsl_data = _nal_arr.ctypes.data
-                    _pkt.bsl = len(nal_bytes)
+                    _pkt, _nal_arr = self._build_decode_packet(nal_bytes, rtp_ts)
                     _bm_decode_t = _bm.start() if _bm else 0.0
                     for surface in decoder.Decode(_pkt):
                         if _bm and _bm_decode_t:
                             _bm.record("gpu_decode", _bm_decode_t)
                             _bm_decode_t = 0.0
 
-                        decode_timestamp_ns = self._compute_gst_timestamp_ns(stream, absolute_ns, rtp_ts_ns)
+                        decode_timestamp_ns = self._gst_surface_timestamp_ns(stream, absolute_ns, rtp_ts_ns, surface)
 
                         _bm_resize_t = _bm.start() if _bm else 0.0
-                        tensor, src_w, src_h = surface_to_nv12_with_src_dims(surface, target_h, target_w)
+                        tensor, src_w, src_h = self._to_nv12(stream, surface, target_h, target_w)
                         if _bm:
                             _bm.record("nv12_resize", _bm_resize_t)
 
@@ -1869,6 +2132,15 @@ class NVDECDecoderPool:
                             stream.empty_packets = 0
                             stream.decode_errors = 0
                             stream._empty_start_ns = 0.0
+
+                            if stream.frames_decoded == 1:
+                                # First frame since this (re)open: the ONLY proof
+                                # of recovery. A demuxer that reopens without
+                                # ever delivering a frame is still broken, so the
+                                # restart history is cleared here and not in
+                                # _restart_gstreamer_stream. keep_anchor=True
+                                # preserves the cooldown floor across recovery.
+                                self.stream_supervisor.reset(stream.camera_id, keep_anchor=True)
 
                             stream.last_rtp_timestamp = rtp_ts
                             if stream.first_rtp_timestamp is None:
@@ -1917,6 +2189,13 @@ class NVDECDecoderPool:
         the rate-limiting overhead of _restart_gstreamer_stream. Used for
         expected EOFs (video file loops) that happen frequently.
         """
+        # A camera already declared dead (slow-probe) must not keep paying the
+        # multi-second demuxer.restart() open()-retry on every StopIteration.
+        # Defer to the cooldown-gated full restart, which no-ops during its
+        # (stretched) cooldown and owns the quiet logging.
+        if self.stream_supervisor.should_give_up(stream.camera_id):
+            self._restart_gstreamer_stream(stream)
+            return
         try:
             if stream.gst_demuxer:
                 stream.gst_demuxer.restart()
@@ -1929,7 +2208,10 @@ class NVDECDecoderPool:
                 stream.frames_decoded = 0
                 stream.awaiting_idr = True  # Wait for IDR before decoding
         except Exception as e:
-            logger.warning(f"{stream.camera_id}: Quick restart failed, falling back to full restart: {e}")
+            # Fallback to the supervised full restart, which owns user-facing
+            # logging (WARN pre-give-up, one ERROR at give-up, then quiet). Keep
+            # this at debug so the frequent file-loop path stays silent.
+            logger.debug(f"{stream.camera_id}: quick restart failed, falling back to full restart: {e}")
             self._restart_gstreamer_stream(stream)
 
     def _restart_gstreamer_stream(self, stream: StreamState) -> None:
@@ -1938,34 +2220,29 @@ class NVDECDecoderPool:
         Note: stream.width/height must NOT be updated here — they must stay
         matched to the ring buffer dimensions set at creation time.
         """
-        # Rate-limit restarts. The default is high because every restart forces
-        # awaiting_idr=True and burns the next IDR-to-IDR window; a too-low floor
-        # (was 2s) plus other eager triggers caused 15-30 restarts/min and
-        # dropped a 30 FPS source to ~3 FPS on Thor.
-        cooldown = float(os.environ.get("MATRICE_SG_RESTART_COOLDOWN", "30.0"))
-        now = time.monotonic()
-        last_restart = getattr(stream, "_last_restart_time", 0.0)
-        since_last = now - last_restart
-        if since_last < cooldown:
-            # Suppress: reset counters so we don't immediately re-trigger.
-            #
-            # Do NOT bump _last_restart_time here. Bumping it on every suppressed
-            # poll makes `since_last` reset to ~0 each time, so the cooldown
-            # window never elapses and a wedged camera can never restart itself
-            # (only a full gateway restart recovers it). Leaving the clock
-            # anchored to the last REAL restart lets since_last keep growing,
-            # so once `cooldown` has actually passed the next call falls through
-            # to a genuine restart. The cooldown is still keyed off the last
-            # real restart, so the eager-trigger burst is still rate-limited to
-            # at most one real restart per cooldown window.
+        # Rate-limit + give-up policy is owned by self.stream_supervisor. The
+        # cooldown default is high because every restart forces awaiting_idr=True
+        # and burns the next IDR-to-IDR window; a too-low floor (was 2s) plus
+        # other eager triggers caused 15-30 restarts/min and dropped a 30 FPS
+        # source to ~3 FPS on Thor. A permanently-dead source (RTSP "Not found")
+        # no longer floods ERROR tracebacks: after a burst of failed restarts
+        # the supervisor enters a sticky slow-probe state (stretched cooldown,
+        # demoted logging) while still probing so a source that returns recovers.
+        cam_id = stream.camera_id
+        if not self.stream_supervisor.on_error(cam_id):
+            # Inside the cooldown window — suppress this restart. Reset the
+            # transient error counters so we don't immediately re-trigger. As
+            # before, no clock is anchored on a suppressed poll: the supervisor
+            # keys the cooldown off the last REAL restart, so the elapsed time
+            # since it keeps growing and a wedged camera can still restart itself
+            # once the window elapses (not only on a full gateway restart).
             stream.decode_errors = 0
             stream.empty_packets = 0
             stream._empty_start_ns = 0.0
-            logger.info(
-                f"{stream.camera_id}: restart suppressed ({since_last:.1f}s since last, cooldown={cooldown:.0f}s)"
-            )
+            logger.debug(f"{cam_id}: restart suppressed (within cooldown)")
             return
 
+        slow_probe = self.stream_supervisor.should_give_up(cam_id)
         try:
             if stream.gst_demuxer:
                 stream.gst_demuxer.close()
@@ -1984,11 +2261,44 @@ class NVDECDecoderPool:
                 stream.awaiting_idr = True  # Wait for IDR before decoding
                 stream._last_restart_time = time.monotonic()
 
-                logger.info(f"{stream.camera_id}: GStreamer demuxer restarted, new session_id={stream.session_id}")
+                # NOT recovered yet — deliberately no supervisor.reset() here.
+                # open() succeeding only means the demuxer was rebuilt; a camera
+                # whose source is wedged reopens fine and then delivers nothing.
+                # Resetting here dropped the cooldown anchor AND the restart
+                # count on every such reopen, so a flapping camera restarted once
+                # per stall detection (10s) instead of once per cooldown (30s)
+                # and could never reach give-up — its restarts kept "succeeding".
+                # The decode loop calls reset(keep_anchor=True) on the first frame
+                # actually decoded, which is the real recovery signal.
+                logger.info(f"{cam_id}: GStreamer demuxer restarted, new session_id={stream.session_id}")
         except Exception as e:
             stream._last_restart_time = time.monotonic()
-            logger.exception(f"{stream.camera_id}: Failed to restart GStreamer demuxer: {e}")
+            # Demote logging once we've given up so a dead camera does not spam
+            # ERROR-level tracebacks. The single authoritative ERROR is emitted
+            # exactly once by the on_give_up callback (_on_restart_give_up); the
+            # RuntimeError message already carries the root cause (e.g. "Not
+            # found"), so no full traceback is needed on the hot path.
+            if slow_probe:
+                logger.debug(f"{cam_id}: demuxer still unreachable (slow-probe): {e}")
+            else:
+                logger.warning(f"{cam_id}: failed to restart GStreamer demuxer: {e}")
             time.sleep(5)  # Backoff on persistent failures only
+
+    def _on_restart_give_up(self, camera_id: str) -> None:
+        """One-shot ERROR when a camera exhausts its fast-restart budget.
+
+        Invoked once by the StreamSupervisor the first time a camera crosses the
+        give-up threshold. After this the supervisor slow-probes quietly (see
+        _restart_gstreamer_stream); the first frame actually decoded calls reset()
+        and re-arms normal-cadence logging.
+        """
+        logger.error(
+            "%s: demuxer restart repeatedly failed — source likely down. "
+            "Entering slow-probe mode (cooldown=%.0fs); further failures are "
+            "logged at debug. Will auto-recover if the source returns.",
+            camera_id,
+            self.stream_supervisor.giveup_cooldown_sec,
+        )
 
     def _reset_nvc_demuxer(self, stream: StreamState, reason: str = "") -> bool:
         """Reset NVC demuxer and session state for a stream.
@@ -2083,7 +2393,7 @@ class NVDECDecoderPool:
                         decode_timestamp_ns = self._compute_nvc_timestamp_ns(stream, packet_pts)
 
                         _bm_resize_t = _bm.start() if _bm else 0.0
-                        tensor, src_w, src_h = surface_to_nv12_with_src_dims(surface, target_h, target_w)
+                        tensor, src_w, src_h = self._to_nv12(stream, surface, target_h, target_w)
                         if _bm:
                             _bm.record("nv12_resize", _bm_resize_t)
 
@@ -2131,8 +2441,10 @@ class NVDECDecoderPool:
                     now = time.monotonic()
                     if stream.empty_packets == 1:
                         stream._empty_start_ns = now
-                    stall_sec = float(os.environ.get("MATRICE_SG_STALL_SEC", "10.0"))
-                    bootstrap_sec = float(os.environ.get("MATRICE_SG_BOOTSTRAP_SEC", "30.0"))
+                    # MATRICE_SG_STALL_SEC / MATRICE_SG_BOOTSTRAP_SEC, resolved
+                    # once in __init__ via restart_policy.resolve_restart_policy.
+                    stall_sec = self.restart_policy.stall_sec
+                    bootstrap_sec = self.restart_policy.bootstrap_sec
                     limit = bootstrap_sec if stream.frames_decoded == 0 else stall_sec
                     if (now - getattr(stream, "_empty_start_ns", now)) >= limit:
                         self._reset_nvc_demuxer(stream, "empty packets (stall)")
@@ -2170,6 +2482,54 @@ class NVDECDecoderPool:
         if not streams:
             return DEFAULT_SOURCE_FPS
         return _normalize_reported_fps(sum(s.source_fps for s in streams) / len(streams))
+
+    @staticmethod
+    def stream_target_dims(stream: StreamState, fallback_h: int = 0, fallback_w: int = 0) -> Tuple[int, int]:
+        """This stream's decode target as ``(target_h, target_w)``.
+
+        Per-camera, from the camera's own declared size clamped to its own source
+        — not the worker-global pair, which is ``camera_configs[0]``'s size applied
+        to every camera in the sub-process. That global was the bug behind the
+        "F08 per-camera resize" log line: any sub-process holding two cameras with
+        different declared sizes resized both to the first one's target while each
+        ring was built at its own size, so every camera but the first failed the
+        shape check on every frame.
+
+        Derived from the same :func:`effective_frame_dims` the ring is sized with,
+        so decode target and ring geometry cannot disagree.
+
+        ``fallback_*`` is used only when this stream declares nothing AND its
+        source reported nothing, i.e. there is genuinely no per-camera answer.
+        """
+        eff_w, eff_h = effective_frame_dims(
+            int(stream.width or 0),
+            int(stream.height or 0),
+            int(stream.native_width or 0),
+            int(stream.native_height or 0),
+        )
+        if eff_w <= 0 and eff_h <= 0:
+            return fallback_h, fallback_w
+        return eff_h, eff_w
+
+    def get_native_dims_for_camera(self, camera_id: str) -> Optional[Tuple[int, int]]:
+        """The source's own ``(width, height)`` as the demuxer reported it, or ``None``.
+
+        Mirrors :meth:`get_source_fps_for_camera`: a per-camera fact learned at
+        assignment, recorded on ``StreamState`` and read back here, because it
+        cannot be recovered later.
+
+        ``None`` means "the demuxer supplied no usable geometry" (either
+        accessor missing, or a non-positive value) — NOT "square" or "default".
+        The caller must treat it as unknown and leave the ring's geometry to be
+        settled by the first decoded frame instead of inventing a size.
+        """
+        for streams in self.streams_per_decoder:
+            for s in streams:
+                if s.camera_id != camera_id:
+                    continue
+                w, h = int(s.native_width or 0), int(s.native_height or 0)
+                return (w, h) if w > 0 and h > 0 else None
+        return None
 
     def get_source_fps_for_camera(self, camera_id: str) -> float:
         """Detected source FPS for one camera (for the publish-rate decimator).
@@ -2234,6 +2594,185 @@ class NVDECDecoderPool:
 # =============================================================================
 
 
+def _demuxer_native_dim(demuxer: Any, attr: str, camera_id: str) -> int:
+    """Read ``Width``/``Height`` off an NVC demuxer, or 0 if it cannot supply one.
+
+    Never raises and never guesses: a build whose demuxer lacks the accessor, or
+    reports a non-positive value, yields 0, which the ring sizing reads as
+    "unknown" and defers to the first decoded frame. Guessing here would put the
+    ring back on a value the source never confirmed, which is the whole defect
+    this exists to remove.
+    """
+    try:
+        value = getattr(demuxer, attr, None)
+        if callable(value):
+            value = value()
+        native = int(value or 0)
+    except Exception:
+        # Capability probe on a C-extension object: no accessor, or an
+        # unparseable value, both mean "unknown".
+        logger.debug("%s: NVC demuxer exposed no usable %s", camera_id, attr, exc_info=True)
+        return 0
+    return native if native > 0 else 0
+
+
+def effective_frame_dims(declared_w: int, declared_h: int, native_w: int, native_h: int) -> Tuple[int, int]:
+    """The geometry the decoder will actually emit: ``min(declared, native)``.
+
+    This is the single source of truth for ring-buffer sizing, and it exists
+    because the two used to be resolved independently and could disagree
+    permanently:
+
+    * the ring was created from the DECLARED per-camera size (the API's
+      ``customStreamSettings``), before any source was open, and
+    * the decoder clamps a target larger than native down to native and never
+      upsamples (``surface_to_nv12_with_src_dims``, the F08 rule).
+
+    So a config declaring 1920x1080 for a camera that really sends 1280x720
+    produced a 1920x1080 ring fed 1280x720 tensors — ``_validate_frame_shape``
+    rejected every frame, the camera published nothing, and because the frame
+    counter only advances AFTER a successful ring write the manager's watchdog
+    read the whole GPU as stalled. Deriving both from this function makes that
+    disagreement unrepresentable.
+
+    A declared dimension of 0 means "native" and yields the native value. An
+    unknown native (0) yields the declared value unchanged: with nothing to
+    clamp against, the declared target is still the best available answer, and
+    the first-frame reconcile is what settles it.
+    """
+    w = native_w if declared_w <= 0 else (min(declared_w, native_w) if native_w > 0 else declared_w)
+    h = native_h if declared_h <= 0 else (min(declared_h, native_h) if native_h > 0 else declared_h)
+    return max(w, 0), max(h, 0)
+
+
+def nv12_ring_height(frame_h: int) -> int:
+    """Ring-buffer row count for an NV12 frame of ``frame_h`` luma rows.
+
+    NV12 packs a full-height Y plane plus a half-height interleaved CbCr plane,
+    so the ring is 1.5x the frame height. Named because the ``h + h // 2``
+    expression was open-coded at four sites that all had to agree with
+    ``_validate_frame_shape``'s inverse (``nv12_h * 2 // 3``).
+    """
+    return frame_h + frame_h // 2 if frame_h > 0 else 0
+
+
+def _ack_producer_ready(
+    worker_status_queue: Optional[Any],
+    cam_id: str,
+    gpu_id: int,
+    lazy: bool,
+) -> None:
+    """Emit the ``producer_ready`` ACK the hot-add path waits on.
+
+    Factored out because it is now sent from three places (eager create, the
+    pre-flight geometry reconcile, and the lazy first-frame create) and a missed
+    ACK is not a cosmetic loss: ``hotadd_policy`` tears the camera down and
+    re-adds it in a loop when the ACK misses its deadline.
+    """
+    if worker_status_queue is None:
+        return
+    try:
+        worker_status_queue.put_nowait({"type": "producer_ready", "camera_id": cam_id, "gpu_id": gpu_id, "lazy": lazy})
+    except thread_queue.Full:
+        logger.warning(f"GPU {gpu_id}: status queue full, dropping producer_ready ACK for {cam_id}")
+    except Exception:
+        logger.debug("producer_ready ACK put failed: %s", cam_id, exc_info=True)
+
+
+def _open_ring_producer(cam_id: str, gpu_id: int, num_slots: int, frame_w: int, nv12_h: int) -> DataBusProducer:
+    """Construct one camera's ring-buffer producer.
+
+    Single construction site so every path that creates or re-creates a ring
+    agrees on kind, naming and geometry convention (``height`` is the NV12 row
+    count, not the luma height). The eager, reconcile and lazy paths previously
+    open-coded this call and could drift apart.
+    """
+    return DataBus.producer(
+        cam_id,
+        "sg",
+        "frames",
+        "cupy",
+        gpu_id=gpu_id,
+        num_slots=num_slots,
+        width=frame_w,
+        height=nv12_h,
+    )
+
+
+def ring_frame_dims(producer: Any) -> Tuple[int, int]:
+    """A producer's ``(frame_w, frame_h)`` in luma pixels, or ``(0, 0)``.
+
+    The ring stores ``height`` as NV12 rows, so the luma height is ``* 2 // 3``
+    — the same inverse ``_validate_frame_shape`` applies to a tensor.
+    """
+    rb = getattr(producer, "rb", None)
+    w = int(getattr(rb, "width", 0) or 0)
+    nv12_h = int(getattr(rb, "height", 0) or 0)
+    if w <= 0 or nv12_h <= 0:
+        return 0, 0
+    return w, nv12_h * 2 // 3
+
+
+def _recreate_ring_at(
+    cam_id: str,
+    ring_buffers: Dict[str, DataBusProducer],
+    gpu_id: int,
+    num_slots: int,
+    frame_w: int,
+    frame_h: int,
+    reason: str,
+    worker_status_queue: Optional[Any] = None,
+) -> bool:
+    """Re-open ``cam_id``'s ring at ``frame_w x frame_h``. True if it now matches.
+
+    Safe to call while consumers are attached: the producer publishes its
+    metadata segment by atomic ``rename`` onto a fresh inode, which is precisely
+    what a gateway restart looks like downstream, and the inference connector's
+    watchdog already reconnects on an inode change
+    (``ring_buffer_connector._watchdog_check_camera``). It is nonetheless only
+    called BEFORE a camera's first successful publish — see the caller — because
+    a mid-stream re-open costs every attached consumer a reconnect.
+
+    On failure the old producer is left in place: a ring with the wrong geometry
+    still drops frames, but it drops them with a live segment the consumer can
+    stay attached to, which beats leaving the camera with no producer at all.
+    """
+    nv12_h = nv12_ring_height(frame_h)
+    if frame_w <= 0 or nv12_h <= 0:
+        logger.error("%s: refusing to re-open ring at %sx%s (%s)", cam_id, frame_w, frame_h, reason)
+        return False
+
+    old = ring_buffers.get(cam_id)
+    old_w, old_h = ring_frame_dims(old) if old is not None else (0, 0)
+    try:
+        producer = _open_ring_producer(cam_id, gpu_id, num_slots, frame_w, nv12_h)
+    except Exception as exc:
+        # Keep the old ring rather than dropping the camera entirely.
+        logger.exception("%s: ring re-open at %sx%s failed (%s): %s", cam_id, frame_w, frame_h, reason, exc)
+        return False
+
+    ring_buffers[cam_id] = producer
+    if old is not None:
+        try:
+            old.close()
+        except Exception:
+            # The replacement is already published.
+            logger.debug("%s: closing the superseded ring producer failed", cam_id, exc_info=True)
+
+    logger.warning(
+        "%s: ring buffer re-opened %sx%s -> %sx%s (%s). Consumers reconnect on the "
+        "new SHM inode; frames flow at the new geometry.",
+        cam_id,
+        old_w or "?",
+        old_h or "?",
+        frame_w,
+        frame_h,
+        reason,
+    )
+    _ack_producer_ready(worker_status_queue, cam_id, gpu_id, lazy=False)
+    return True
+
+
 def _maybe_create_lazy_ring_buffer(
     cam_id: str,
     tensor: Any,
@@ -2252,30 +2791,10 @@ def _maybe_create_lazy_ring_buffer(
         return None
     t_nv12_h, t_w, _ = tensor.shape
     t_h = t_nv12_h * 2 // 3
-    producer = DataBus.producer(
-        cam_id,
-        "sg",
-        "frames",
-        "cupy",
-        gpu_id=pool_gpu_id,
-        num_slots=num_slots,
-        width=t_w,
-        height=t_nv12_h,
-    )
+    producer = _open_ring_producer(cam_id, pool_gpu_id, num_slots, t_w, t_nv12_h)
     ring_buffers[cam_id] = producer
     lazy_rb_cameras.discard(cam_id)
-    if worker_status_queue is not None:
-        try:
-            worker_status_queue.put_nowait(
-                {
-                    "type": "producer_ready",
-                    "camera_id": cam_id,
-                    "gpu_id": pool_gpu_id,
-                    "lazy": True,
-                }
-            )
-        except Exception:  # nosec B110
-            pass
+    _ack_producer_ready(worker_status_queue, cam_id, pool_gpu_id, lazy=True)
     logger.info(
         f"Worker {worker_id}: Lazy-created ring buffer for {cam_id}: "
         f"{t_w}x{t_h} (NV12: {t_nv12_h}x{t_w}, "
@@ -2299,6 +2818,59 @@ def _validate_frame_shape(
         _nv12_h = target_h + target_h // 2 if target_h > 0 else 0
         expected_shape = (_nv12_h, target_w, 1) if _nv12_h > 0 else tensor.shape
     return tensor.shape == expected_shape
+
+
+def _reconcile_or_drop_on_shape_mismatch(
+    cam_id: str,
+    tensor: Any,
+    ring_buffers: Dict[str, DataBusProducer],
+    published_once: Set[str],
+    gpu_id: int,
+    num_slots: int,
+    worker_id: Any,
+    worker_status_queue: Optional[Any],
+    log_err_rate_limited: Callable[[str, str], None],
+) -> Optional[DataBusProducer]:
+    """Last-resort geometry reconcile at the mismatch site.
+
+    ``_preflight_reconcile_geometry`` already sized this ring from the source's own
+    geometry, so reaching here means either the source reported nothing at open (a
+    demuxer carrying no caps) or the resize kernel fell back to native passthrough.
+    Either way the tensor in hand is the authority on what this camera actually
+    produces, so the ring is re-opened to match it.
+
+    Only BEFORE the camera's first successful publish. After that the geometry is
+    **pinned**: re-opening a ring that consumers have attached to costs every one of
+    them a reconnect, and a source whose resolution genuinely changes mid-stream is
+    rarer than the config drift this guards against. In that case the frame is
+    dropped with one actionable error naming both geometries, rather than the old
+    behaviour of dropping every frame forever with nothing that said why.
+
+    Returns the producer to publish through, or ``None`` if this frame must be
+    dropped.
+    """
+    t_nv12_h, t_w, _ = tensor.shape
+    frame_h = t_nv12_h * 2 // 3
+    if cam_id not in published_once and _recreate_ring_at(
+        cam_id,
+        ring_buffers,
+        gpu_id,
+        num_slots,
+        t_w,
+        frame_h,
+        reason="first decoded frame disagreed with the ring geometry",
+        worker_status_queue=worker_status_queue,
+    ):
+        return ring_buffers[cam_id]
+
+    r_w, r_h = ring_frame_dims(ring_buffers[cam_id])
+    log_err_rate_limited(
+        f"shape:{cam_id}",
+        f"Worker {worker_id}: {cam_id} produces {t_w}x{frame_h} but its ring is {r_w}x{r_h} "
+        f"and has already published at that geometry — dropping these frames. The source "
+        f"resolution changed mid-stream; restart the gateway (or this camera) to resize the ring.",
+    )
+    return None
 
 
 def _flush_shared_counters(
@@ -2369,6 +2941,9 @@ def nvdec_pool_worker(
 
     local_frames = 0
     local_errors = 0
+    # Ring geometry is pinned once a camera is in here (see
+    # _reconcile_or_drop_on_shape_mismatch).
+    published_once: Set[str] = set()
     frames_since_counter_update = 0
     counter_batch_size = 100
     start_time = time.perf_counter()
@@ -2497,8 +3072,7 @@ def nvdec_pool_worker(
     # path, so log at INFO for visibility rather than WARNING.
     if (target_w or 0) > 0 or (target_h or 0) > 0:
         logger.info(
-            "Worker %s decoding to target dims %sx%s (F08 per-camera resize; "
-            "clamped to native, never upsampled).",
+            "Worker %s decoding to target dims %sx%s (F08 per-camera resize; clamped to native, never upsampled).",
             worker_id,
             target_w,
             target_h,
@@ -2583,12 +3157,21 @@ def nvdec_pool_worker(
                     try:
                         producer = ring_buffers[cam_id]
                         if not _validate_frame_shape(tensor, producer, target_h, target_w):
-                            local_errors += 1
-                            _log_err_rate_limited(
-                                f"shape:{cam_id}",
-                                f"Worker {worker_id} shape mismatch for {cam_id}: got {tensor.shape}",
+                            reconciled = _reconcile_or_drop_on_shape_mismatch(
+                                cam_id,
+                                tensor,
+                                ring_buffers,
+                                published_once,
+                                pool.gpu_id,
+                                num_slots,
+                                worker_id,
+                                worker_status_queue,
+                                _log_err_rate_limited,
                             )
-                            continue
+                            if reconciled is None:
+                                local_errors += 1
+                                continue
+                            producer = reconciled
 
                         # Output cap (primary): per-camera phase accumulator keyed
                         # to this camera's source FPS yields a stable target-FPS
@@ -2700,6 +3283,8 @@ def nvdec_pool_worker(
                         local_frames += 1
                         frames_since_counter_update += 1
                         written_cams.append(cam_id)
+                        # Pins this camera's ring geometry from here on.
+                        published_once.add(cam_id)
 
                         if fps_limit_enabled:
                             next_frame_time += frame_interval
@@ -2797,6 +3382,144 @@ def nvdec_pool_worker(
 # =============================================================================
 
 
+def _open_declared_rings(
+    camera_configs: List["StreamConfig"],
+    ring_buffers: Dict[str, DataBusProducer],
+    num_slots: int,
+    sub_id: Any,
+    worker_status_queue: Optional[Any],
+) -> Set[str]:
+    """Eagerly open a ring per camera that declares a resolution.
+
+    Each camera gets its OWN declared size. This deliberately does not fall back to
+    ``camera_configs[0]``'s dims: borrowing a sibling's size both sized this camera's
+    ring wrongly and denied it the native/lazy path it asked for by declaring nothing.
+    ``0`` means native, and native is settled by the pre-flight pass once the source
+    has been opened.
+
+    The eager create plus an immediate ``producer_ready`` ACK is load-bearing, not
+    incidental: ``_resolve_hotadd_resolution`` records that deferring ring creation to
+    the first decoded frame is what made a slow hot-add miss the ACK deadline and get
+    torn down and re-added in a loop. So the ACK goes out at the DECLARED size, before
+    any source is opened, and the geometry is corrected afterwards.
+
+    Returns the camera ids that declared nothing and so take the lazy path.
+    """
+    lazy: Set[str] = set()
+    for config in camera_configs:
+        cfg_w = config.width or 0
+        cfg_h = config.height or 0
+        if cfg_w <= 0 or cfg_h <= 0:
+            lazy.add(config.camera_id)
+            continue
+        try:
+            ring_buffers[config.camera_id] = _open_ring_producer(
+                config.camera_id, config.gpu_id, num_slots, cfg_w, nv12_ring_height(cfg_h)
+            )
+            _ack_producer_ready(worker_status_queue, config.camera_id, config.gpu_id, lazy=False)
+        except Exception as exc:
+            logger.exception(
+                f"Sub-process {sub_id}: producer creation failed for camera {config.camera_id}: {exc}",
+            )
+            _report_add_failed(worker_status_queue, config, f"producer init: {exc}", sub_id)
+            # Skip this camera — don't add to ring_buffers.
+    return lazy
+
+
+def _report_add_failed(
+    worker_status_queue: Optional[Any],
+    config: "StreamConfig",
+    reason: str,
+    sub_id: Any,
+) -> None:
+    """Tell the parent one camera failed, so it acts per camera and not per GPU."""
+    if worker_status_queue is None:
+        return
+    try:
+        worker_status_queue.put_nowait(
+            {
+                "type": "add_failed",
+                "camera_id": config.camera_id,
+                "gpu_id": config.gpu_id,
+                "reason": reason,
+            }
+        )
+    except thread_queue.Full:
+        logger.warning(f"Sub-process {sub_id}: status queue full, dropping add_failed for {config.camera_id}")
+    except Exception:
+        logger.debug("add_failed ACK put failed: %s", config.camera_id, exc_info=True)
+
+
+def _preflight_reconcile_geometry(
+    camera_configs: List["StreamConfig"],
+    pool: Any,
+    ring_buffers: Dict[str, DataBusProducer],
+    num_slots: int,
+    worker_status_queue: Optional[Any],
+) -> None:
+    """Settle every camera's decode target and ring geometry before frame one.
+
+    Opening the source is the moment a camera's real resolution becomes knowable,
+    and it is knowable for BOTH demuxers. It used to be logged here and then
+    discarded, leaving the ring at whatever the config claimed — so a stale
+    declared resolution meant every decoded frame failed its ring's shape check
+    and the camera sat at 0 fps forever. Correcting it here, before the first
+    decode, means nothing is dropped for a geometry disagreement and the frame
+    counter never stalls; a stalled counter is what the manager watchdog reads as
+    a dead GPU, and that read is what used to escalate a config typo into a
+    restart loop.
+
+    Returns nothing on purpose. The decode target is read back per frame from the
+    camera's own ``StreamState`` via ``NVDECDecoderPool.stream_target_dims``; handing
+    the decode loop a second copy of it is precisely the divergence that made the
+    worker-global ``camera_configs[0]`` target wrong for every other camera.
+    """
+    for config in camera_configs:
+        native = pool.get_native_dims_for_camera(config.camera_id)
+        declared_w, declared_h = config.width or 0, config.height or 0
+        if native is None:
+            # Source reported no geometry: leave the declared target in place and
+            # let the first decoded frame settle it.
+            continue
+
+        eff_w, eff_h = effective_frame_dims(declared_w, declared_h, native[0], native[1])
+        logger.info(
+            "%s: source %dx%d, declared %s, decoding and publishing at %dx%d.",
+            config.camera_id,
+            native[0],
+            native[1],
+            f"{declared_w}x{declared_h}" if declared_w > 0 and declared_h > 0 else "native",
+            eff_w,
+            eff_h,
+        )
+        if (declared_w, declared_h) != (eff_w, eff_h) and declared_w > 0 and declared_h > 0:
+            logger.warning(
+                "%s: declared %dx%d but the source sends %dx%d; decoding and publishing at "
+                "%dx%d (never upsampled). The configured resolution is stale.",
+                config.camera_id,
+                declared_w,
+                declared_h,
+                native[0],
+                native[1],
+                eff_w,
+                eff_h,
+            )
+
+        existing = ring_buffers.get(config.camera_id)
+        if existing is None or ring_frame_dims(existing) == (eff_w, eff_h):
+            continue
+        _recreate_ring_at(
+            config.camera_id,
+            ring_buffers,
+            config.gpu_id,
+            num_slots,
+            eff_w,
+            eff_h,
+            reason="source geometry differs from the configured size",
+            worker_status_queue=worker_status_queue,
+        )
+
+
 def _sub_decode_process(
     sub_id: int,
     gpu_id: int,
@@ -2821,6 +3544,16 @@ def _sub_decode_process(
     Having its own GIL means no contention with other decoders —
     PyNvVideoCodec.Decode() holds the GIL, so threads serialize.
     """
+    # This is a spawn target: it inherits no faulthandler from the parent, and the
+    # code below calls into PyNvVideoCodec/CuPy C extensions that can and do
+    # SIGSEGV (e.g. nvc.CreateDemuxer on an rtsp:// URL). Without this a crash
+    # leaves no traceback anywhere — the child becomes an unreaped zombie while
+    # the manager still reports the GPU alive at 0 fps.
+    try:
+        faulthandler.enable()
+    except Exception:  # a closed/replaced stderr must not kill decode
+        logger.debug("faulthandler.enable() failed in decode sub-process %s", sub_id, exc_info=True)
+
     if not camera_configs:
         result_queue.put({"sub_id": sub_id, "total_frames": 0, "total_errors": 0})
         return
@@ -2855,6 +3588,25 @@ def _sub_decode_process(
             pass
         time.sleep(0.1)
 
+    # Bound before the try so the finally can always close/unlink them even if
+    # setup raises early.
+    pool = None
+    ring_buffers: Dict[str, DataBusProducer] = {}
+
+    # Graceful teardown: a SIGTERM (per-camera REMOVE / orchestrator terminate)
+    # sets local_stop so the decode loop exits and the finally below closes AND
+    # unlinks this sub's SHM — instead of a hard kill that orphans the segment.
+    # The worker also stops when the shared orchestrator stop_event is set (full
+    # shutdown), via _AnyStop.
+    local_stop = threading.Event()
+    _worker_stop = _AnyStop(local_stop, stop_event)
+    try:
+        signal.signal(signal.SIGTERM, lambda *_a: local_stop.set())
+    except (ValueError, OSError):
+        # Not the process main thread (shouldn't happen for a spawn target) —
+        # rely on the shared stop_event + the manager-side SHM backstop.
+        pass
+
     try:
         target_w = camera_configs[0].width or DEFAULT_FRAME_WIDTH
         target_h = camera_configs[0].height or DEFAULT_FRAME_HEIGHT
@@ -2875,58 +3627,10 @@ def _sub_decode_process(
             return
 
         # Create ring buffers for this sub-process's cameras
-        ring_buffers: Dict[str, DataBusProducer] = {}
+        # (ring_buffers is pre-bound above so the finally can close them.)
         _lazy_rb_cameras: set = set()
 
-        for config in camera_configs:
-            cfg_w = config.width or target_w
-            cfg_h = config.height or target_h
-            if cfg_w > 0 and cfg_h > 0:
-                cam_nv12_h = cfg_h + cfg_h // 2
-                try:
-                    producer = DataBus.producer(
-                        config.camera_id,
-                        "sg",
-                        "frames",
-                        "cupy",
-                        gpu_id=config.gpu_id,
-                        num_slots=num_slots,
-                        width=cfg_w,
-                        height=cam_nv12_h,
-                    )
-                    ring_buffers[config.camera_id] = producer
-                    if worker_status_queue is not None:
-                        try:
-                            worker_status_queue.put_nowait(
-                                {
-                                    "type": "producer_ready",
-                                    "camera_id": config.camera_id,
-                                    "gpu_id": config.gpu_id,
-                                    "lazy": False,
-                                }
-                            )
-                        except Exception:  # nosec B110
-                            pass
-                except Exception as _e:
-                    logger.exception(
-                        f"Sub-process {sub_id}: producer creation failed for camera {config.camera_id}: {_e}",
-                    )
-                    if worker_status_queue is not None:
-                        try:
-                            worker_status_queue.put_nowait(
-                                {
-                                    "type": "add_failed",
-                                    "camera_id": config.camera_id,
-                                    "gpu_id": config.gpu_id,
-                                    "reason": f"producer init: {_e}",
-                                }
-                            )
-                        except Exception:  # nosec B110
-                            pass
-                    # Skip this camera — don't add to ring_buffers
-                    continue
-            else:
-                _lazy_rb_cameras.add(config.camera_id)
+        _lazy_rb_cameras |= _open_declared_rings(camera_configs, ring_buffers, num_slots, sub_id, worker_status_queue)
 
         # Assign streams with stagger
         _stagger_delay = 0.15
@@ -2935,20 +3639,39 @@ def _sub_decode_process(
                 stream_id=i,
                 camera_id=config.camera_id,
                 video_path=config.video_path,
-                width=config.width or target_w,
-                height=config.height or target_h,
+                # Each camera's own declared target; no sibling fallback (see the
+                # ring-creation loop above for why).
+                width=config.width or 0,
+                height=config.height or 0,
                 stream_type=config.stream_type,
+                # Per-stream demuxer, not the pool default. StreamConfig resolves
+                # RTSP to the gstreamer demuxer on purpose ("for ABSOLUTE RTP
+                # timestamps"); dropping it here meant an RTSP camera could land on
+                # the nvc demuxer, whose CreateDemuxer() segfaults on an rtsp:// URL
+                # and takes the decode sub-process with it.
+                #
+                # `codec` is deliberately NOT forwarded: the decoder pool is created
+                # for ONE codec (camera_configs[0]'s), so handing assign_stream a
+                # different per-camera codec would mismatch the decoder rather than
+                # fix anything. Mixed-codec sub-processes are a separate defect.
+                demuxer_type=config.demuxer_type,
             )
             if _stagger_delay > 0 and i < len(camera_configs) - 1:
                 time.sleep(_stagger_delay)
 
         logger.info(f"Sub-process {sub_id}: 1 {codec} decoder, {len(camera_configs)} streams on GPU {gpu_id}")
 
+        _preflight_reconcile_geometry(
+            camera_configs,
+            pool,
+            ring_buffers,
+            num_slots,
+            worker_status_queue,
+        )
+
         # F08: per-camera publish rate = aggregated max(app min_fps), carried on
         # each StreamConfig.target_fps. Overrides the worker-global cap per camera.
-        publish_fps_by_camera = {
-            c.camera_id: float(c.target_fps) for c in camera_configs if (c.target_fps or 0) > 0
-        }
+        publish_fps_by_camera = {c.camera_id: float(c.target_fps) for c in camera_configs if (c.target_fps or 0) > 0}
 
         # Run decode loop directly (single thread, decoder_idx=0)
         sub_result_queue = thread_queue.Queue()
@@ -2961,7 +3684,7 @@ def _sub_decode_process(
             frame_counter=frame_counter,
             duration_sec=duration_sec,
             result_queue=sub_result_queue,
-            stop_event=threading.Event(),  # controlled by duration_sec
+            stop_event=_worker_stop,  # SIGTERM (per-sub) or shared orchestrator stop
             burst_size=burst_size,
             target_h=target_h,
             target_w=target_w,
@@ -2984,10 +3707,6 @@ def _sub_decode_process(
             total_frames += r.get("total_frames", 0)
             total_errors += r.get("total_errors", 0)
 
-        pool.close()
-        for rb in ring_buffers.values():
-            rb.close()
-
         result_queue.put(
             {
                 "sub_id": sub_id,
@@ -3000,11 +3719,142 @@ def _sub_decode_process(
         logger.exception("Sub-process %s error: %s", sub_id, e)
         _emit_add_failed_for_all(f"sub-process crashed: {e}")
         result_queue.put({"sub_id": sub_id, "error": str(e), "total_frames": 0, "total_errors": 1})
+    finally:
+        # Always release GPU/ring-buffer handles — on normal end, on SIGTERM
+        # (REMOVE), and on crash.
+        try:
+            if pool is not None:
+                pool.close()
+        except Exception:  # nosec B110 - teardown must not raise
+            pass
+        for _cam, _rb in list(ring_buffers.items()):
+            try:
+                _rb.close()
+            except Exception:  # nosec B110
+                pass
+        # Unlink the SHM segments ONLY on a per-camera SIGTERM (local_stop) — i.e.
+        # a genuine REMOVE where the camera is gone for good. Do NOT unlink when
+        # stopping for the shared orchestrator stop_event (full shutdown /
+        # watchdog restart) or on a crash: those segments are reused by the
+        # replacement sub-processes, and unlinking here would race the new
+        # producer and leave consumers with ENOENT. SIGKILL after the terminate
+        # grace bypasses this; remove_camera()'s _clean_stale_shm_for backstop
+        # reaps that case.
+        if local_stop.is_set():
+            _unlinked = 0
+            for _cfg in camera_configs:
+                _unlinked += _unlink_camera_shm(_cfg.camera_id)
+            if _unlinked:
+                logger.info("Sub-process %s: unlinked %d SHM segment(s) on REMOVE", sub_id, _unlinked)
 
 
 # =============================================================================
 # GPU Process — helpers
 # =============================================================================
+
+
+def _exit_signal_note(exit_code: Optional[int]) -> str:
+    """`` (SIGSEGV)``-style suffix for a negative exit code, else empty.
+
+    Mirrors ``NVDECWorkerManager._format_exit_signal``; duplicated rather than
+    imported because that lives in the manager module, which imports this one.
+    """
+    if exit_code is None or exit_code >= 0:
+        return ""
+    try:
+        return f" ({signal.Signals(-exit_code).name})"
+    except (ValueError, AttributeError):
+        return f" (signal {-exit_code})"
+
+
+def _reap_dead_subprocesses(
+    procs: List[Any],
+    sub_registry: "_SubprocessCameraRegistry",
+    already_reaped: Set[int],
+    process_id: Any,
+    worker_status_queue: Optional[Any] = None,
+) -> List[str]:
+    """Reap decode sub-processes that died after start-up. Returns their cameras.
+
+    The ADD path polls ``exitcode`` once, immediately after spawn, which only
+    catches a failure between ``start()`` and that line. A crash a second later —
+    a SIGSEGV inside PyNvVideoCodec or CuPy, which does happen — left the child an
+    unreaped zombie while this orchestrator stayed alive and reported the GPU
+    healthy at 0 fps. Nothing noticed until the manager's frame-stall watchdog
+    fired (``FRAME_STALL_THRESHOLD_SEC``, 120s by default) and restarted the WHOLE
+    GPU worker, wiping SHM for every camera on it; three of those inside the
+    circuit-breaker window used to abandon the GPU permanently.
+
+    So: reap it, name it with its signal, and report each of its cameras as
+    ``add_failed`` — the per-camera signal the manager already knows how to act
+    on. ``already_reaped`` is updated in place so a corpse that lingers in
+    ``procs`` cannot re-report on every call.
+    """
+    lost: List[str] = []
+    for proc in list(procs):
+        try:
+            if proc.is_alive():
+                continue
+        except Exception:  # a torn-down handle counts as dead
+            logger.debug("Process %s: liveness probe failed on a sub-process", process_id, exc_info=True)
+        key = id(proc)
+        if key in already_reaped:
+            continue
+        already_reaped.add(key)
+        exit_code = getattr(proc, "exitcode", None)
+        signal_note = _exit_signal_note(exit_code)
+        owned = sub_registry.configs_for_owner(proc)
+        cam_names = ", ".join(c.camera_id for c in owned) or "no registered cameras"
+        logger.error(
+            "Process %s: decode sub-process died (exitcode=%s%s), cameras: %s. Reaping and "
+            "reporting them failed so the manager can act per-camera instead of waiting for "
+            "the frame-stall watchdog to restart this GPU.",
+            process_id,
+            exit_code,
+            signal_note,
+            cam_names,
+        )
+        try:
+            proc.join(timeout=1.0)  # reap: no zombie left behind
+        except Exception:  # already dead; nothing to salvage
+            logger.debug("Process %s: join of a dead sub-process failed", process_id, exc_info=True)
+        for cfg in owned:
+            lost.append(cfg.camera_id)
+            if worker_status_queue is None:
+                continue
+            try:
+                worker_status_queue.put_nowait(
+                    {
+                        "type": "add_failed",
+                        "camera_id": cfg.camera_id,
+                        "gpu_id": cfg.gpu_id,
+                        "reason": f"decode sub-process died (exitcode={exit_code}{signal_note})",
+                    }
+                )
+            except thread_queue.Full:
+                logger.warning(
+                    "Process %s: status queue full, dropping add_failed for %s",
+                    process_id,
+                    cfg.camera_id,
+                )
+            except Exception:
+                logger.debug("add_failed put failed: %s", cfg.camera_id, exc_info=True)
+    return lost
+
+
+def _run_report_hook(on_report: Optional[Callable[[], None]], gpu_id: int) -> None:
+    """Call the progress-monitor's per-tick hook, never letting it kill the loop.
+
+    The hook is how dead decode sub-processes get reaped on the same cadence the
+    orchestrator already reports progress on, so a raising hook must not be able to
+    stop progress reporting -- that would silence the very loop that notices a wedge.
+    """
+    if on_report is None:
+        return
+    try:
+        on_report()
+    except Exception:  # never lose the loop to a hook
+        logger.debug("GPU %s: progress-report hook raised", gpu_id, exc_info=True)
 
 
 def _monitor_gpu_progress(
@@ -3016,8 +3866,22 @@ def _monitor_gpu_progress(
     num_gpu_streams: int,
     total_num_streams: int,
     total_num_gpus: int,
+    live_stream_count: Optional[Callable[[], int]] = None,
+    on_report: Optional[Callable[[], None]] = None,
 ) -> None:
-    """Progress monitoring loop with current/avg FPS tracking."""
+    """Progress monitoring loop with current/avg FPS tracking.
+
+    ``num_gpu_streams`` is the spawn-time camera count; when cameras are
+    hot-added/removed it goes stale, making the per-camera FPS figures and the
+    "(N cams)" label wrong. ``live_stream_count`` (when provided) is polled each
+    report to reflect the current count instead.
+
+    ``on_report`` runs once per report interval. This loop is the orchestrator's
+    only wait point, so it is also the only place that can notice a decode
+    sub-process that died after start-up; the caller uses the hook to reap them.
+    Exceptions from it are logged and swallowed — losing the progress log because
+    a supervision callback raised would be a poor trade.
+    """
     start_time = time.perf_counter()
     last_report_time = start_time
     last_gpu_fc = 0
@@ -3036,10 +3900,20 @@ def _monitor_gpu_progress(
             elapsed = current_time - start_time
             remaining = max(0, duration_sec - elapsed)
 
+            # Live per-GPU camera count (falls back to the spawn-time count).
+            n_streams = num_gpu_streams
+            if live_stream_count is not None:
+                try:
+                    live = live_stream_count()
+                    if live and live > 0:
+                        n_streams = live
+                except Exception:  # nosec B110 - display metric, never fatal
+                    pass
+
             gpu_frames = gpu_frame_count.value if gpu_frame_count else 0
             gpu_int_frames = gpu_frames - last_gpu_fc
             gpu_int_fps = gpu_int_frames / report_interval
-            gpu_ps_fps = gpu_int_fps / num_gpu_streams if num_gpu_streams > 0 else 0
+            gpu_ps_fps = gpu_int_fps / n_streams if n_streams > 0 else 0
 
             global_frames = shared_frame_count.value if shared_frame_count else 0  # type: ignore[union-attr,attr-defined]
             global_int_frames = global_frames - last_global_fc
@@ -3054,12 +3928,12 @@ def _monitor_gpu_progress(
             if proc_start_time is not None:
                 proc_elapsed = current_time - proc_start_time
                 gpu_avg_fps = (gpu_frames - gpu_fc_at_start) / proc_elapsed if proc_elapsed > 0 else 0
-                gpu_avg_ps = gpu_avg_fps / num_gpu_streams if num_gpu_streams > 0 else 0
+                gpu_avg_ps = gpu_avg_fps / n_streams if n_streams > 0 else 0
                 global_avg_fps = (global_frames - global_fc_at_start) / proc_elapsed if proc_elapsed > 0 else 0
                 global_avg_ps = global_avg_fps / total_num_streams if total_num_streams > 0 else 0
 
                 logger.info(
-                    f"GPU{gpu_id} [{elapsed:5.1f}s] {gpu_frames:,} frames ({num_gpu_streams} cams) | "
+                    f"GPU{gpu_id} [{elapsed:5.1f}s] {gpu_frames:,} frames ({n_streams} cams) | "
                     f"cur: {gpu_int_fps:,.0f} FPS ({gpu_ps_fps:.1f}/cam) | "
                     f"avg: {gpu_avg_fps:,.0f} FPS ({gpu_avg_ps:.1f}/cam)"
                 )
@@ -3076,6 +3950,8 @@ def _monitor_gpu_progress(
             last_gpu_fc = gpu_frames
             last_global_fc = global_frames
             last_report_time = current_time
+
+            _run_report_hook(on_report, gpu_id)
 
         time.sleep(0.1)
 
@@ -3154,6 +4030,10 @@ def nvdec_pool_process(
     frame_size_mb = target_w * nv12_h * 1 / 1e6 if target_w > 0 else 0
     total_decoders = min(pool_size, len(camera_configs))
 
+    # Pre-bind so the finally can always signal + terminate sub-processes, even
+    # if setup below raises before they are assigned.
+    threads: List[Any] = []
+    cmd_handler_stop = None
     try:
         logger.warning(
             f"Process {process_id}: spawning {total_decoders} sub-processes, "
@@ -3252,7 +4132,30 @@ def nvdec_pool_process(
                     output_fps_cap,
                 ),
             )
-            new_p.start()
+            try:
+                new_p.start()
+            except Exception as _start_exc:
+                # start() can raise (e.g. OSError under fd/resource exhaustion)
+                # before the exitcode poll below. The REMOVE/UPDATE sibling loops
+                # call this unguarded, so a raise here would skip the remaining
+                # siblings (and the UPDATE target) and emit no add_failed. Convert
+                # it to the same clean failure the immediate-exit path uses.
+                logger.exception(
+                    f"Process {process_id}: failed to start sub-process for camera {cfg.camera_id}: {_start_exc}"
+                )
+                if worker_status_queue is not None:
+                    try:
+                        worker_status_queue.put_nowait(
+                            {
+                                "type": "add_failed",
+                                "camera_id": cfg.camera_id,
+                                "gpu_id": gpu_id,
+                                "reason": f"spawn start failed: {_start_exc}",
+                            }
+                        )
+                    except Exception:  # nosec B110 - status queue is best-effort
+                        pass
+                return None
 
             # A sub-process that is already dead must NOT be registered as the
             # camera's owner: `owner_for(cam) is not None` makes the command
@@ -3320,18 +4223,60 @@ def nvdec_pool_process(
                 # Already pruned (e.g. previous UPDATE detached the same owner).
                 pass
 
+        def _emit_removed(cam_id: str, owned: bool) -> None:
+            """ACK a REMOVE back to the manager so it need not blind-timeout.
+
+            ``owned=False`` means this GPU never owned the camera (already gone,
+            or routed here by mistake); the manager treats both as "stopped here"
+            and relies on its SHM backstop to reap any orphan.
+            """
+            if worker_status_queue is None:
+                return
+            try:
+                worker_status_queue.put_nowait(
+                    {
+                        "type": "removed",
+                        "camera_id": cam_id,
+                        "gpu_id": gpu_id,
+                        "owned": owned,
+                    }
+                )
+            except Exception:  # nosec B110 - status queue is best-effort
+                pass
+
         def _command_handler():
             """Poll command_queue and dispatch ADD/REMOVE/UPDATE."""
             if command_queue is None:
                 return
+            _last_hb = 0.0
+            _last_qerr_log = 0.0
             while not cmd_handler_stop.is_set() and not stop_event.is_set():
+                # Liveness heartbeat: lets the manager/watchdog detect a wedged
+                # handler even while the process is alive and cameras decode.
+                _now_hb = time.monotonic()
+                if worker_status_queue is not None and _now_hb - _last_hb >= _HANDLER_HEARTBEAT_SEC:
+                    _last_hb = _now_hb
+                    try:
+                        worker_status_queue.put_nowait({"type": "handler_alive", "gpu_id": gpu_id})
+                    except Exception:  # nosec B110
+                        pass
                 try:
                     cmd = command_queue.get(timeout=0.5)
                 except thread_queue.Empty:
                     continue
                 except (EOFError, OSError) as e:
-                    logger.warning(f"Process {process_id}: command_queue closed ({e}), command handler exiting")
-                    return
+                    if cmd_handler_stop.is_set() or stop_event.is_set():
+                        return  # genuine shutdown
+                    # Transient/broken read while still running: do NOT exit
+                    # permanently — that silently wedges every add/remove/update
+                    # for this GPU with no crash and no watchdog restart. Log
+                    # rate-limited and keep polling; the heartbeat above lets the
+                    # manager detect a handler that is genuinely stuck.
+                    if _now_hb - _last_qerr_log >= 30.0:
+                        _last_qerr_log = _now_hb
+                        logger.warning(f"Process {process_id}: command_queue read error ({e}); continuing")
+                    time.sleep(0.5)
+                    continue
                 except Exception as e:  # pragma: no cover - defensive
                     logger.exception(f"Process {process_id}: command_queue error: {e}")
                     continue
@@ -3355,28 +4300,52 @@ def nvdec_pool_process(
                                 except Exception:  # nosec B110
                                     pass
                             continue
+                        # Split-brain guard: only ACK "already running" when a
+                        # LIVE producer actually exists. A registry entry whose
+                        # sub-process has died, or whose SHM was reaped, must NOT
+                        # short-circuit to producer_ready — that ACKs the manager
+                        # for a producer that isn't there and the camera never
+                        # recovers. In that case tear the stale owner down and
+                        # fall through to a genuine spawn.
+                        _shm_frames = f"/dev/shm/databus__{cfg.camera_id}__sg__frames"  # nosec B108
+                        stale_owner = None
                         with _sub_lock:
-                            if sub_registry.owner_for(cfg.camera_id) is not None:
-                                logger.info(
-                                    f"Process {process_id}: ADD ignored — camera {cfg.camera_id} already running"
+                            existing_owner = sub_registry.owner_for(cfg.camera_id)
+                            if existing_owner is not None:
+                                _alive = bool(getattr(existing_owner, "is_alive", lambda: False)())
+                                _shm_ok = os.path.exists(_shm_frames)
+                                if _alive and _shm_ok:
+                                    logger.info(
+                                        f"Process {process_id}: ADD ignored — camera {cfg.camera_id} already running"
+                                    )
+                                    if worker_status_queue is not None:
+                                        try:
+                                            worker_status_queue.put_nowait(
+                                                {
+                                                    "type": "producer_ready",
+                                                    "camera_id": cfg.camera_id,
+                                                    "gpu_id": gpu_id,
+                                                    "lazy": False,
+                                                    "already_running": True,
+                                                }
+                                            )
+                                        except Exception:  # nosec B110
+                                            pass
+                                    continue
+                                # Stale owner: detach now, terminate outside the
+                                # lock (terminate can take seconds), then respawn.
+                                logger.warning(
+                                    f"Process {process_id}: ADD for {cfg.camera_id} found a stale owner "
+                                    f"(alive={_alive}, shm={_shm_ok}); respawning instead of false-ACK"
                                 )
-                                # Treat as ready: there is already a producing
-                                # sub-process for this camera. The manager's
-                                # pending add_camera() expects an ACK.
-                                if worker_status_queue is not None:
-                                    try:
-                                        worker_status_queue.put_nowait(
-                                            {
-                                                "type": "producer_ready",
-                                                "camera_id": cfg.camera_id,
-                                                "gpu_id": gpu_id,
-                                                "lazy": False,
-                                                "already_running": True,
-                                            }
-                                        )
-                                    except Exception:  # nosec B110
-                                        pass
-                                continue
+                                stale_owner, _ = sub_registry.detach_owner_for_camera(cfg.camera_id)
+                                sub_registry.remove_config(cfg.camera_id)
+                        if stale_owner is not None:
+                            _terminate_subprocess(stale_owner, cfg.camera_id)
+                        # Genuine spawn (fresh add or post-stale respawn).
+                        # _spawn_for_camera no longer raises from start(); the
+                        # guard here remains as defense in depth.
+                        with _sub_lock:
                             try:
                                 _spawn_for_camera(cfg)
                             except Exception as _spawn_exc:
@@ -3403,6 +4372,7 @@ def nvdec_pool_process(
                             sibling_configs = [cfg for cid, cfg in owned_configs.items() if cid != cam_id]
                         if owner is None:
                             logger.info(f"Process {process_id}: REMOVE noop — camera {cam_id} not owned by this GPU")
+                            _emit_removed(cam_id, owned=False)
                             continue
                         _terminate_subprocess(owner, cam_id)
                         if sibling_configs:
@@ -3410,6 +4380,7 @@ def nvdec_pool_process(
                                 for sibling_cfg in sibling_configs:
                                     _spawn_for_camera(sibling_cfg)
                         logger.warning(f"Process {process_id}: stopped sub-process for camera {cam_id}")
+                        _emit_removed(cam_id, owned=True)
                     elif cmd_type == "update":
                         cam_id = cmd.get("camera_id")
                         cfg = cmd.get("config")
@@ -3442,6 +4413,13 @@ def nvdec_pool_process(
         cmd_thread.start()
 
         start_time = time.perf_counter()
+        # Corpses already reported, keyed by id(proc), so a sub-process that
+        # lingers in `threads` is not re-reported on every progress tick.
+        _reaped_subs: Set[int] = set()
+
+        def _reap_subs() -> None:
+            _reap_dead_subprocesses(threads, sub_registry, _reaped_subs, process_id, worker_status_queue)
+
         _monitor_gpu_progress(
             stop_event=stop_event,
             duration_sec=duration_sec,
@@ -3451,6 +4429,12 @@ def nvdec_pool_process(
             num_gpu_streams=len(camera_configs),
             total_num_streams=total_num_streams,
             total_num_gpus=total_num_gpus,
+            # Live count so per-camera FPS tracks cameras hot-added/removed after
+            # spawn, instead of the stale spawn-time len(camera_configs).
+            live_stream_count=sub_registry.active_camera_count,
+            # The ADD path only polls exitcode once, right after spawn. This tick
+            # is what catches a decode child that segfaults later on.
+            on_report=_reap_subs,
         )
 
         # Signal sub-processes to stop and wait
@@ -3508,6 +4492,33 @@ def nvdec_pool_process(
         )
 
     finally:
+        # Ensure decode sub-processes are signalled + terminated even on the
+        # error path — a crashing orchestrator must not leave orphaned producers
+        # writing stale SHM (the "SG logs FPS, IE sees ENOENT" split brain).
+        # stop_event is watched by each sub (via _AnyStop) and terminate() sends
+        # SIGTERM, both of which trigger the sub's graceful self-clean (close +
+        # SHM unlink). Idempotent on the normal path where this already ran.
+        try:
+            stop_event.set()
+        except Exception:  # nosec B110
+            pass
+        if cmd_handler_stop is not None:
+            try:
+                cmd_handler_stop.set()
+            except Exception:  # nosec B110
+                pass
+        for _t in list(threads):
+            try:
+                if hasattr(_t, "terminate") and _t.is_alive():
+                    _t.terminate()
+            except Exception:  # nosec B110
+                pass
+        for _t in list(threads):
+            try:
+                _t.join(timeout=5.0)
+            except Exception:  # nosec B110
+                pass
+
         # Drive the canonical CUDA teardown sequence before returning so the
         # GPU driver releases its dmabufs proactively. Without this, on
         # Jetson Thor unified memory the pages stay tied to inode references
@@ -3539,6 +4550,12 @@ class StreamingGateway:
         self.config = config
         self._workers: List[mp.Process] = []
         self._stop_event = mp.Event()
+        # Pre-existing on this line and deliberately left unbounded HERE: 2.x bounds it
+        # as `mp.Queue(maxsize=DEFAULT_IPC_RESULT_QUEUE_MAXSIZE)`, but it did so together
+        # with the drain logic and tests that keep a full queue from blocking `put` and
+        # wedging a worker. Adding the bound alone would trade an unbounded-growth risk
+        # for a deadlock risk. Tracked as a follow-up, not smuggled into a timestamp fix.
+        # nosemgrep: py-unbounded-multiprocessing-queue
         self._result_queue = mp.Queue()  # type: ignore[var-annotated]
 
     def start(self) -> Dict:

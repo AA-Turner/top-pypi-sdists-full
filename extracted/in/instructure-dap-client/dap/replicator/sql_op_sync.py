@@ -12,6 +12,7 @@ from ..dap_types import IncrementalQuery, Format, Mode
 from ..integration.database_errors import (
     MissingMetaActionInSync,
 )
+from ..replicator.record_validation import validate_records
 from ..replicator import meta_schema
 from ..replicator.sql_metatable_handler import (
     get_table_meta_record,
@@ -73,7 +74,12 @@ class SqlOpSync(SqlOp):
             )
             ui.info(f"Downloaded data for table [bold]{self.table_name}[/bold]")
             await self.sync_insert_data_from_files_to_db(
-                self.conn, entity_type, temp_dir
+                self.conn,
+                entity_type,
+                temp_dir,
+                self.namespace,
+                self.table_name,
+                self.dialect,
             )
             await sync_upsert_table_metadata(
                 self.conn,
@@ -87,7 +93,12 @@ class SqlOpSync(SqlOp):
 
     @staticmethod
     async def sync_insert_data_from_files_to_db(
-        conn: BaseContext, entity_type: Type[DataclassInstance], temp_dir: str
+        conn: BaseContext,
+        entity_type: Type[DataclassInstance],
+        temp_dir: str,
+        namespace: str,
+        table_name: str,
+        dialect: str,
     ) -> None:
         logger.debug(
             "sync: insert data from resources saved to disk into database table"
@@ -132,6 +143,9 @@ class SqlOpSync(SqlOp):
                             filepath=filepath,
                             mapping=mapping,
                             rows=recordBatch,
+                            namespace=namespace,
+                            table_name=table_name,
+                            dialect=dialect,
                         )
                     total_upserted_records += records_with_counter.count
                 progress.update(advance=1)
@@ -153,6 +167,9 @@ class SqlOpSync(SqlOp):
         filepath: str,
         mapping: _TabularLabelMapping,
         rows: list[tuple],
+        namespace: str,
+        table_name: str,
+        dialect: str,
     ) -> None:
         logger.debug(f"insert/update data from {filepath} into database table")
         table = conn.get_table(entity_type)
@@ -184,6 +201,17 @@ class SqlOpSync(SqlOp):
         primary_name, primary_type = get_primary_key_name_type(entity_type)
         primary_name_index = field_names.index(primary_name)
         delete_keys = [row[primary_name_index] for row in delete_rows]
+        # only the upserted rows carry values; deletes are keyed on the primary key alone
+        validate_records(
+            update_rows,
+            field_names=field_names,
+            field_types=field_types,
+            namespace=namespace,
+            table_name=table_name,
+            primary_key_name=primary_name,
+            dialect=dialect,
+            uses_upsert=True,
+        )
         await conn.upsert_rows(
             table,
             field_names=field_names,

@@ -79,6 +79,73 @@ fn replay_chunks_roundtrip_through_the_codecs() {
 }
 
 #[test]
+fn gemini_replay_uses_a_valid_native_stream_event() {
+    let aggregate = json!({
+        "candidates": [{
+            "index": 0,
+            "content": {
+                "role": "model",
+                "parts": [
+                    {"text": "hello", "thoughtSignature": "sig_TEXT=="},
+                    {
+                        "functionCall": {
+                            "id": "call_1",
+                            "name": "lookup",
+                            "args": {"q": "x"}
+                        },
+                        "thoughtSignature": "sig_CALL=="
+                    }
+                ]
+            },
+            "finishReason": "STOP",
+            "safetyRatings": [
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "probability": "NEGLIGIBLE"}
+            ],
+            "groundingMetadata": {"webSearchQueries": ["example query"]}
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 9,
+            "candidatesTokenCount": 3,
+            "totalTokenCount": 12
+        },
+        "modelVersion": "gemini-2.5-flash",
+        "responseId": "resp_1"
+    });
+    let chunks = synthesize_replay_chunks(&aggregate).expect("gemini shape");
+    assert_eq!(
+        chunks,
+        vec![aggregate.clone()],
+        "a GenerateContentResponse aggregate is already a native Gemini stream event"
+    );
+    assert!(
+        !replay_is_lossy(&aggregate),
+        "the Gemini streaming codec must reassemble the native replay exactly"
+    );
+}
+
+#[test]
+fn gemini_replay_rejects_multi_candidate_aggregates_as_lossy() {
+    let aggregate = json!({
+        "candidates": [
+            {
+                "index": 0,
+                "content": {"role": "model", "parts": [{"text": "first"}]},
+                "finishReason": "STOP"
+            },
+            {
+                "index": 1,
+                "content": {"role": "model", "parts": [{"text": "second"}]},
+                "finishReason": "STOP"
+            }
+        ]
+    });
+    assert!(
+        replay_is_lossy(&aggregate),
+        "Gemini streaming replay must not serve aggregates with candidates the collector cannot preserve"
+    );
+}
+
+#[test]
 fn responses_replay_sequence_numbers_are_contiguous() {
     let aggregate = json!({
         "id": "r1",
@@ -146,4 +213,62 @@ fn replay_of_an_unknown_shape_is_lossy_for_the_streaming_tier() {
     assert!(synthesize_replay_chunks(&json!("bare string")).is_none());
     assert!(replay_is_lossy(&json!({"weird": true})));
     assert!(replay_is_lossy(&json!("bare string")));
+}
+
+#[test]
+fn stripping_stream_metadata_leaves_nonobject_frames_unchanged() {
+    // The helper also runs against collector output. A malformed non-object
+    // frame must be a harmless no-op rather than preventing the lossiness
+    // check from completing.
+    let mut frame = json!("not an aggregate");
+    strip_stream_metadata(&mut frame);
+    assert_eq!(frame, json!("not an aggregate"));
+}
+
+#[test]
+fn anthropic_replay_keeps_complete_unknown_blocks_and_stop_sequences() {
+    // Blocks without a delta representation (such as thinking/server blocks)
+    // must be sent intact at content-block start, while stop_sequence remains
+    // visible to strict Anthropic stream consumers.
+    let aggregate = json!({
+        "id": "msg_2",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-test",
+        "content": [{"type": "thinking", "thinking": "reasoning"}],
+        "stop_reason": "end_turn",
+        "stop_sequence": "<END>",
+        "usage": {"input_tokens": 3, "output_tokens": 2}
+    });
+
+    let chunks = synthesize_anthropic_chunks(&aggregate);
+    assert_eq!(chunks[1]["type"], json!("content_block_start"));
+    assert_eq!(chunks[1]["content_block"], aggregate["content"][0]);
+    assert_eq!(chunks[2]["type"], json!("content_block_stop"));
+    let message_delta = chunks
+        .iter()
+        .find(|chunk| chunk["type"] == "message_delta")
+        .expect("replay must finish with a message_delta");
+    assert_eq!(
+        message_delta.pointer("/delta/stop_sequence"),
+        Some(&json!("<END>"))
+    );
+}
+
+#[test]
+fn responses_replay_omits_item_events_for_a_nonarray_output() {
+    // A partially formed stored Responses aggregate is still replayed with
+    // lifecycle framing, but only real output arrays produce item-done events.
+    let aggregate = json!({
+        "id": "resp_2",
+        "object": "response",
+        "model": "gpt-test",
+        "output": {"unexpected": true}
+    });
+
+    let chunks = synthesize_responses_chunks(&aggregate);
+    assert_eq!(chunks.len(), 2);
+    assert_eq!(chunks[0]["type"], json!("response.created"));
+    assert_eq!(chunks[1]["type"], json!("response.completed"));
+    assert_eq!(chunks[1]["sequence_number"], json!(1));
 }

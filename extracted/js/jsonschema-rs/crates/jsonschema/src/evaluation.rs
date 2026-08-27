@@ -247,6 +247,25 @@ impl Evaluation {
             valid: self.root.valid,
         }
     }
+    /// Whether the instance is valid against the schema.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use serde_json::json;
+    ///
+    /// let validator = jsonschema::validator_for(&json!({"type": "number"}))?;
+    ///
+    /// assert!(validator.evaluate(&json!(42)).is_valid());
+    /// assert!(!validator.evaluate(&json!("oops")).is_valid());
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        self.root.valid
+    }
     /// Returns the list output format.
     ///
     /// This format provides a flat list of all evaluation units, where each unit
@@ -792,6 +811,16 @@ pub struct ErrorEntry<'a> {
     pub error: &'a ErrorDescription,
 }
 
+impl fmt::Display for ErrorEntry<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.instance_location.is_empty() {
+            self.error.fmt(f)
+        } else {
+            write!(f, "{}: {}", self.instance_location, self.error)
+        }
+    }
+}
+
 struct NodeIter<'a> {
     stack: Vec<&'a EvaluationNode>,
 }
@@ -998,8 +1027,9 @@ impl<'a> Serialize for ErrorEntriesSerializer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use serde_json::{json, Value};
     use std::sync::Arc;
+    use test_case::test_case;
 
     fn loc() -> Location {
         Location::new()
@@ -1715,5 +1745,32 @@ mod tests {
         // into_inner() should consume self and return the owned message
         let message = error.into_inner();
         assert_eq!(message, expected_message);
+    }
+
+    #[test_case(json!(42), true)]
+    #[test_case(json!("not a number"), false)]
+    #[allow(clippy::needless_pass_by_value)]
+    fn test_evaluation_is_valid(instance: Value, expected: bool) {
+        let validator = crate::validator_for(&json!({"type": "number"})).expect("valid schema");
+        assert_eq!(validator.evaluate(&instance).is_valid(), expected);
+    }
+
+    #[test]
+    fn test_error_entry_display() {
+        let schema = json!({
+            "type": "object",
+            "properties": {"age": {"type": "number"}},
+            "required": ["name"]
+        });
+        let validator = crate::validator_for(&schema).expect("valid schema");
+        let evaluation = validator.evaluate(&json!({"age": "oops"}));
+        let rendered: Vec<String> = evaluation.iter_errors().map(|e| e.to_string()).collect();
+        assert_eq!(
+            rendered,
+            vec![
+                "\"name\" is a required property".to_string(),
+                "/age: \"oops\" is not of type \"number\"".to_string(),
+            ]
+        );
     }
 }

@@ -19,7 +19,6 @@ from ..errors.payment_required_error import PaymentRequiredError
 from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..types.doc_ai_download_url_response import DocAiDownloadUrlResponse
-from ..types.doc_ai_error_model import DocAiErrorModel
 from ..types.doc_ai_job_status_response import DocAiJobStatusResponse
 from ..types.doc_ai_presign_upload_response import DocAiPresignUploadResponse
 from ..types.doc_ai_start_job_response import DocAiStartJobResponse
@@ -100,9 +99,9 @@ class RawDocAiClient:
                 raise PaymentRequiredError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -153,12 +152,11 @@ class RawDocAiClient:
         language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiDigitiseRequestOutputFormat] = OMIT,
         content_type: typing.Optional[DocAiDigitiseRequestContentType] = OMIT,
-        auto_orient: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DocAiStartJobResponse]:
         """
-        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML or Markdown while preserving layout.
+        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML, Markdown, or JSON while preserving layout.
 
         **Input:** Exactly one of `file` and `upload_ids` must be provided. Use `POST /doc-ai/v1/job/upload` to obtain upload IDs.
 
@@ -182,9 +180,6 @@ class RawDocAiClient:
 
         content_type : typing.Optional[DocAiDigitiseRequestContentType]
             Nature of the document content.
-
-        auto_orient : typing.Optional[str]
-            Automatically correct page orientation before processing. Boolean sent as text: `true` or `false`.
 
         model : typing.Optional[str]
             Model to use for digitisation.
@@ -218,11 +213,6 @@ class RawDocAiClient:
                     if content_type is not OMIT
                     else {}
                 ),
-                **(
-                    {"auto_orient": (None, jsonable_encoder(auto_orient), "text/plain")}
-                    if auto_orient is not OMIT
-                    else {}
-                ),
                 **({"model": (None, jsonable_encoder(model), "text/plain")} if model is not OMIT else {}),
             },
             request_options=request_options,
@@ -254,9 +244,9 @@ class RawDocAiClient:
                 raise PaymentRequiredError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -320,7 +310,6 @@ class RawDocAiClient:
         language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiExtractRequestOutputFormat] = OMIT,
         classification: typing.Optional[str] = OMIT,
-        auto_orient: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DocAiStartJobResponse]:
@@ -347,7 +336,7 @@ class RawDocAiClient:
             Inline extraction schema as a JSON string. The root must be `type: "object"` with non-empty `properties`; every field needs a `type` and a non-empty `description`. Supported types: `string`, `number`, `integer`, `boolean`, `object`, `array` (objects need `properties`, arrays need `items`); optional `enum`; maximum nesting depth 4. Exactly one of `schema` and `config_id` is required.
 
         config_id : typing.Optional[str]
-            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required.
+            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, follow the steps listed [here](/api/api-guides-tutorials/document-intelligence/how-to/get-your-config-id).
 
         language : typing.Optional[str]
             Language code of the document (BCP-47), e.g. `en-IN`, `hi-IN`.
@@ -357,9 +346,6 @@ class RawDocAiClient:
 
         classification : typing.Optional[str]
             Enable document classification. Boolean sent as text: `true` or `false`.
-
-        auto_orient : typing.Optional[str]
-            Automatically correct page orientation before processing. Boolean sent as text: `true` or `false`.
 
         model : typing.Optional[str]
             Model to use for extraction.
@@ -395,11 +381,6 @@ class RawDocAiClient:
                     if classification is not OMIT
                     else {}
                 ),
-                **(
-                    {"auto_orient": (None, jsonable_encoder(auto_orient), "text/plain")}
-                    if auto_orient is not OMIT
-                    else {}
-                ),
                 **({"model": (None, jsonable_encoder(model), "text/plain")} if model is not OMIT else {}),
             },
             request_options=request_options,
@@ -431,9 +412,9 @@ class RawDocAiClient:
                 raise PaymentRequiredError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -604,9 +585,9 @@ class RawDocAiClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -668,9 +649,9 @@ class RawDocAiClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -749,9 +730,9 @@ class AsyncRawDocAiClient:
                 raise PaymentRequiredError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -802,12 +783,11 @@ class AsyncRawDocAiClient:
         language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiDigitiseRequestOutputFormat] = OMIT,
         content_type: typing.Optional[DocAiDigitiseRequestContentType] = OMIT,
-        auto_orient: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DocAiStartJobResponse]:
         """
-        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML or Markdown while preserving layout.
+        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML, Markdown, or JSON while preserving layout.
 
         **Input:** Exactly one of `file` and `upload_ids` must be provided. Use `POST /doc-ai/v1/job/upload` to obtain upload IDs.
 
@@ -831,9 +811,6 @@ class AsyncRawDocAiClient:
 
         content_type : typing.Optional[DocAiDigitiseRequestContentType]
             Nature of the document content.
-
-        auto_orient : typing.Optional[str]
-            Automatically correct page orientation before processing. Boolean sent as text: `true` or `false`.
 
         model : typing.Optional[str]
             Model to use for digitisation.
@@ -867,11 +844,6 @@ class AsyncRawDocAiClient:
                     if content_type is not OMIT
                     else {}
                 ),
-                **(
-                    {"auto_orient": (None, jsonable_encoder(auto_orient), "text/plain")}
-                    if auto_orient is not OMIT
-                    else {}
-                ),
                 **({"model": (None, jsonable_encoder(model), "text/plain")} if model is not OMIT else {}),
             },
             request_options=request_options,
@@ -903,9 +875,9 @@ class AsyncRawDocAiClient:
                 raise PaymentRequiredError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -969,7 +941,6 @@ class AsyncRawDocAiClient:
         language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiExtractRequestOutputFormat] = OMIT,
         classification: typing.Optional[str] = OMIT,
-        auto_orient: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DocAiStartJobResponse]:
@@ -996,7 +967,7 @@ class AsyncRawDocAiClient:
             Inline extraction schema as a JSON string. The root must be `type: "object"` with non-empty `properties`; every field needs a `type` and a non-empty `description`. Supported types: `string`, `number`, `integer`, `boolean`, `object`, `array` (objects need `properties`, arrays need `items`); optional `enum`; maximum nesting depth 4. Exactly one of `schema` and `config_id` is required.
 
         config_id : typing.Optional[str]
-            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required.
+            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, follow the steps listed [here](/api/api-guides-tutorials/document-intelligence/how-to/get-your-config-id).
 
         language : typing.Optional[str]
             Language code of the document (BCP-47), e.g. `en-IN`, `hi-IN`.
@@ -1006,9 +977,6 @@ class AsyncRawDocAiClient:
 
         classification : typing.Optional[str]
             Enable document classification. Boolean sent as text: `true` or `false`.
-
-        auto_orient : typing.Optional[str]
-            Automatically correct page orientation before processing. Boolean sent as text: `true` or `false`.
 
         model : typing.Optional[str]
             Model to use for extraction.
@@ -1044,11 +1012,6 @@ class AsyncRawDocAiClient:
                     if classification is not OMIT
                     else {}
                 ),
-                **(
-                    {"auto_orient": (None, jsonable_encoder(auto_orient), "text/plain")}
-                    if auto_orient is not OMIT
-                    else {}
-                ),
                 **({"model": (None, jsonable_encoder(model), "text/plain")} if model is not OMIT else {}),
             },
             request_options=request_options,
@@ -1080,9 +1043,9 @@ class AsyncRawDocAiClient:
                 raise PaymentRequiredError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1253,9 +1216,9 @@ class AsyncRawDocAiClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1317,9 +1280,9 @@ class AsyncRawDocAiClient:
                 raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        DocAiErrorModel,
+                        typing.Any,
                         parse_obj_as(
-                            type_=DocAiErrorModel,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

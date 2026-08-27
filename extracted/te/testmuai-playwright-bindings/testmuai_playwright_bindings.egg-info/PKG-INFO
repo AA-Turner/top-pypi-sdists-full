@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testmuai-playwright-bindings
-Version: 0.1.33
+Version: 0.1.35
 Summary: TestMu binding for Playwright Python — thin test runtime for TestMu-exported tests on the LambdaTest grid
 Author-email: TestMu AI <engineering@testmu.ai>
 License-Expression: MIT

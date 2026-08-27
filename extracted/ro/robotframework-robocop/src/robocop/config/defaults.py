@@ -16,6 +16,7 @@ SKIP_OPTIONS = frozenset(
         "skip_template",
         "skip_return_statement",
         "skip_tags",
+        "skip_metadata",
         "skip_comments",
         "skip_block_comments",
         "skip_sections",
@@ -27,6 +28,13 @@ SKIP_OPTIONS = frozenset(
 FORCE_EXCLUDE = False
 VERBOSE = False
 SILENT = False
+
+# project checks
+
+PROJECT: bool | None = None  # None: run project checks only if any project rule is enabled
+ANALYZE_LIBRARIES = True
+LOAD_LIBRARY_TIMEOUT = 10
+LIBRARY_WORKERS = False
 
 # cache
 

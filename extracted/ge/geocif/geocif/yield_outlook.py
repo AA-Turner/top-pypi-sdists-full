@@ -46,6 +46,10 @@ _SCATTER_LABEL_N = 8
 # regions have unremarkable error.
 _SCATTER_LABEL_N_X = 2
 
+# Minimum years in a region's series before a within-region Pearson r is
+# meaningful. Below this, one anomalous year dominates the correlation.
+_WITHIN_R_MIN_YEARS = 5
+
 
 def _log_scale_appropriate(values):
     """Should an axis showing ``values`` use a log scale?
@@ -733,6 +737,88 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
             .rename(columns={"Yield (tn per ha)": "obs_mean"})
         )
     return baselines
+
+
+def _plot_within_r_comparison(df_wr, summary, dir_out, fname, base_title):
+    """Model comparison on within-region interannual correlation.
+
+    One box+strip per model over the per-region correlations, median and
+    "% of regions > 0" annotated. Pearson and Spearman are drawn as SIDE-BY-SIDE
+    panels sharing a y-axis when both are available, because they fail
+    differently on ~10-year smallholder series: Pearson can be carried by a
+    single drought year, Spearman cannot but is blind to how bad that year was.
+    Agreement between the panels means the signal is not one year.
+
+    The zero line is the reference — NOT the `null` baseline, which sits at
+    exactly -1.0 by LOOCV construction (its prediction is a strictly decreasing
+    function of the held-out value) and is an artifact rather than a skill
+    floor. A model at ~0 has no temporal skill however good its pooled R2 looks.
+    """
+    import matplotlib.pyplot as plt
+    import scienceplots  # noqa: F401
+
+    models = summary["Model"].tolist()
+    if not models:
+        return
+
+    panels = [("within_r", "Pearson r")]
+    if "within_r_spearman" in df_wr.columns and df_wr["within_r_spearman"].notna().any():
+        panels.append(("within_r_spearman", "Spearman rho"))
+
+    rng = np.random.default_rng(0)  # deterministic jitter
+    with plt.style.context(["science", "no-latex"]):
+        fig, axes = plt.subplots(
+            1, len(panels), figsize=(max(6.0, 1.7 * len(models)) * len(panels), 4.6),
+            sharey=True, squeeze=False,
+        )
+        for pi, (col, plabel) in enumerate(panels):
+            ax = axes[0, pi]
+            data = [
+                df_wr.loc[df_wr["Model"] == m, col].dropna().values for m in models
+            ]
+            if all(len(v) == 0 for v in data):
+                continue
+            bp = ax.boxplot(data, positions=range(len(models)), widths=0.55,
+                            showfliers=False, patch_artist=True, zorder=2)
+            for patch in bp["boxes"]:
+                patch.set_facecolor("#c7d9ec")
+                patch.set_alpha(0.85)
+            for med in bp["medians"]:
+                med.set_color("#1f4e79")
+                med.set_linewidth(1.6)
+
+            for i, vals in enumerate(data):
+                if len(vals) == 0:
+                    continue
+                ax.scatter(i + rng.uniform(-0.16, 0.16, len(vals)), vals,
+                           s=13, color="#33628f", alpha=0.5, linewidth=0, zorder=3)
+                med = float(np.median(vals))
+                pct = 100.0 * float((vals > 0).mean())
+                _lab = "%+.3f\n%.0f%%>0" % (med, pct)
+                ax.annotate(_lab, xy=(i, med),
+                            xytext=(0, 9), textcoords="offset points",
+                            ha="center", fontsize=7.5, fontweight="bold")
+
+            ax.axhline(0.0, color="crimson", linestyle="--", linewidth=1.1,
+                       alpha=0.9, zorder=1)
+            ax.text(0.995, 0.0, " no temporal skill", color="crimson", fontsize=7.5,
+                    va="bottom", ha="right", transform=ax.get_yaxis_transform())
+            ax.set_xticks(range(len(models)))
+            ax.set_xticklabels([_display_model_name(m) for m in models], fontsize=9)
+            ax.set_title(plabel, fontsize=10)
+            ax.grid(True, axis="y", linestyle="--", alpha=0.4)
+            if pi == 0:
+                ax.set_ylabel("Within-region correlation (obs vs pred, across years)")
+
+        fig.suptitle(
+            "Interannual skill by model — %s\n"
+            "per-region correlation across years; median and %% of regions > 0 annotated"
+            % base_title,
+            fontsize=10, fontweight="bold",
+        )
+        plt.tight_layout()
+        fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
 
 
 def _generate_diagnostics_for_stage(df, country, crop, model, dg, dir_outlook,
@@ -3174,12 +3260,44 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
                 _obs_mean = rdf[obs_col].mean()
                 _rmse = float(np.sqrt(rdf["SE"].mean()))
                 _rrmse = (100.0 * _rmse / _obs_mean) if _obs_mean else np.nan
+                # within_r: Pearson correlation of observed vs predicted ACROSS
+                # YEARS for this one region — "does the model know which years
+                # are good?", the actual forecasting question.
+                #
+                # Distinct from R2 above, which is an ACCURACY score and is
+                # punished hard by under-dispersion: forecasts typically carry
+                # ~25% of observed variance, so per-region R2 sits negative even
+                # when the model tracks direction correctly. Pearson ignores
+                # amplitude and level, isolating co-movement.
+                #
+                # Read against 0, never against the `null` baseline: a LOOCV
+                # per-region mean predicts (sum - obs_Y)/(n-1), a strictly
+                # DECREASING function of obs_Y, so null scores exactly -1.0 by
+                # construction. That is an artifact, not a skill floor.
+                # Both correlations are reported because they fail differently
+                # on short smallholder series (~10 years, yield CV up to 1.3):
+                #   pearson  — uses magnitudes, so a single drought year can
+                #              dominate; the standard anomaly-correlation
+                #              measure in seasonal forecasting.
+                #   spearman — rank-based, robust to that one outlier, but
+                #              coarse at n~10 and blind to whether a bad year
+                #              was catastrophic or merely below average.
+                # Agreement between them means the signal is not one year.
+                _within_r = np.nan
+                _within_r_sp = np.nan
+                if len(rdf) >= _WITHIN_R_MIN_YEARS:
+                    _o, _p = rdf[obs_col], rdf[pred_col]
+                    if _o.std() > 0 and _p.std() > 0:
+                        _within_r = float(_o.corr(_p, method="pearson"))
+                        _within_r_sp = float(_o.corr(_p, method="spearman"))
                 rows_region.append({
                     "Model": model, "Region": region,
                     "MAPE": rdf["MAPE"].mean(),
                     "RMSE": _rmse,
                     "RRMSE": _rrmse,
                     "R2": r2,
+                    "within_r": _within_r,
+                    "within_r_spearman": _within_r_sp,
                 })
 
             # By year
@@ -3208,6 +3326,60 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
         df_year = pd.DataFrame(rows_year)
         df_region.to_csv(dir_csvs_comp / f"metrics_by_region_{country}_{crop}.csv", index=False)
         df_year.to_csv(dir_csvs_comp / f"metrics_by_year_{country}_{crop}.csv", index=False)
+
+        # ------------------------------------------------------------------
+        # within_r summary + model comparison. The headline metrics elsewhere
+        # are pooled across region-years and are therefore dominated by
+        # BETWEEN-region variation (which counties yield more) — a model that
+        # only learns the cross-section scores well without forecasting
+        # anything. The median within_r isolates the temporal question.
+        # ------------------------------------------------------------------
+        # Median-across-regions for EVERY per-region metric, not just within_r.
+        # The pooled headline numbers average over all region-years, so a
+        # handful of unpredictable regions (arid, high yield-CV) drag them
+        # down out of proportion to their production. The median over regions
+        # answers "what does a TYPICAL region look like?" instead.
+        _per_region_metrics = [
+            c for c in ("MAPE", "RMSE", "RRMSE", "R2", "within_r", "within_r_spearman")
+            if c in df_region.columns
+        ]
+        if _per_region_metrics:
+            _agg = {f"median_{m}": (m, "median") for m in _per_region_metrics}
+            _agg.update({f"mean_{m}": (m, "mean") for m in _per_region_metrics})
+            _region_summary = (
+                df_region.groupby("Model").agg(**_agg).reset_index()
+            )
+            _region_summary["n_regions"] = (
+                df_region.groupby("Model")["Region"].nunique().values
+            )
+            _region_summary.to_csv(
+                dir_csvs_comp / f"region_metrics_summary_{country}_{crop}.csv",
+                index=False,
+            )
+
+        if "within_r" in df_region.columns and df_region["within_r"].notna().any():
+            _wr = df_region.dropna(subset=["within_r"])
+            _wr_summary = (
+                _wr.groupby("Model")["within_r"]
+                .agg(median_within_r="median", mean_within_r="mean",
+                     pct_regions_positive=lambda s: 100.0 * (s > 0).mean(),
+                     n_regions="size")
+                .reset_index()
+                .sort_values("median_within_r", ascending=False)
+            )
+            _wr_summary["median_within_r_spearman"] = (
+                _wr.groupby("Model")["within_r_spearman"].median()
+                .reindex(_wr_summary["Model"]).values
+                if "within_r_spearman" in _wr.columns else np.nan
+            )
+            _wr_summary.to_csv(
+                dir_csvs_comp / f"within_r_summary_{country}_{crop}.csv", index=False
+            )
+            _plot_within_r_comparison(
+                _wr, _wr_summary, dir_comp,
+                f"within_r_comparison_{country}_{crop}.png",
+                f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')}",
+            )
         base_title = f"{country.title().replace('_', ' ')} {crop.title().replace('_', ' ')}"
 
         # ------------------------------------------------------------------
@@ -3466,7 +3638,9 @@ def _generate_model_comparison(df_pred_store, dg, dir_outlook, yield_units="Mg/h
 
         with plt.style.context(["science", "no-latex"]):
             # By region: grouped bar for each metric
-            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", f"RMSE ({yield_units})"), ("RRMSE", "RRMSE (%)"), ("R2", "R²")]:
+            for metric, ylabel in [("MAPE", "Mean Absolute Percentage Error (%)"), ("RMSE", f"RMSE ({yield_units})"), ("RRMSE", "RRMSE (%)"), ("R2", "R²"), ("within_r", "Within-region r (obs vs pred, across years)")]:
+                if metric not in df_region.columns:
+                    continue
                 pivot = df_region.pivot_table(index="Region", columns="Model", values=metric)
                 if pivot.empty:
                     continue

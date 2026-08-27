@@ -1255,7 +1255,7 @@ class Proxy(proxy.Proxy):
         name: str,
         metadata: dict[str, str] | None = None,
         wait: bool = False,
-        timeout: int = 120,
+        timeout: int | float = 120,
     ) -> _image_v2.Image:
         """Create an image from a server
 
@@ -1269,18 +1269,16 @@ class Proxy(proxy.Proxy):
         server = self._get_resource(_server.Server, server)
         image_id = server.create_image(self, name, metadata)
 
-        # we need to type the cloud layer
         image = cast(
             _image_v2.Image,
-            self._connection.get_image(image_id),  # type: ignore[no-untyped-call]
+            self._connection.get_image(image_id),
         )
         if not wait:
             return image
 
-        # we need to type the cloud layer
         return cast(
             _image_v2.Image,
-            self._connection.wait_for_image(image, timeout=timeout),  # type: ignore[no-untyped-call]
+            self._connection.wait_for_image(image, timeout=timeout),
         )
 
     def backup_server(
@@ -1312,18 +1310,16 @@ class Proxy(proxy.Proxy):
         server = self._get_resource(_server.Server, server)
         image_id = server.backup(self, name, backup_type, rotation)
 
-        # we need to type the cloud layer
         image = cast(
             _image_v2.Image,
-            self._connection.get_image(image_id),  # type: ignore[no-untyped-call]
+            self._connection.get_image(image_id),
         )
         if not wait:
             return image
 
-        # we need to type the cloud layer
         return cast(
             _image_v2.Image,
-            self._connection.wait_for_image(image, timeout=timeout),  # type: ignore[no-untyped-call]
+            self._connection.wait_for_image(image, timeout=timeout),
         )
 
     def pause_server(self, server: str | _server.Server) -> None:
@@ -1527,7 +1523,7 @@ class Proxy(proxy.Proxy):
         server: str | _server.Server,
         *,
         host: str | None = None,
-        availability_zone: str | None | types.Unset = types.UNSET,
+        availability_zone: str | types.Unset | None = types.UNSET,
     ) -> None:
         """Unshelves or restores a shelved server.
 
@@ -3251,7 +3247,7 @@ class Proxy(proxy.Proxy):
         status: str = 'ACTIVE',
         failures: list[str] | None = None,
         interval: int | float | None = 2,
-        wait: int | None = 120,
+        wait: int | float | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> _server.Server:
         """Wait for a server to be in a particular status.
@@ -3297,7 +3293,7 @@ class Proxy(proxy.Proxy):
         status: str,
         failures: list[str] | None = None,
         interval: int | float | None = 2,
-        wait: int | None = None,
+        wait: int | float | None = None,
         attribute: str = 'status',
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
@@ -3334,7 +3330,7 @@ class Proxy(proxy.Proxy):
         self,
         res: resource.ResourceT,
         interval: int | float | None = 2,
-        wait: int | None = 120,
+        wait: int | float | None = 120,
         callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.

@@ -55,6 +55,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::hash_map::Entry;
+use std::debug_assert_matches;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -70,6 +71,8 @@ use crate::hook::Hook;
 use crate::printer::Printer;
 use crate::process::OutputSink;
 use crate::workspace;
+
+use super::{FAILED, PASSED};
 
 /// UI state for one hook run.
 ///
@@ -198,7 +201,7 @@ impl CompletedBars {
         // Hooks can finish in a different order than their progress rows were inserted;
         // collapse completed rows by their original visual order.
         let replaced = self.visible.insert(completed.line_order, completed);
-        debug_assert!(replaced.is_none());
+        debug_assert_matches!(replaced, None);
     }
 
     fn collapse_one_line(&mut self) -> Option<CollapsedCompletedBars> {
@@ -674,15 +677,11 @@ impl HookRunReporter {
         };
 
         let label = progress.message();
-        let (status, status_width) = if passed {
-            ("Passed".on_green().to_string(), "Passed".width())
-        } else {
-            ("Failed".on_red().to_string(), "Failed".width())
-        };
+        let status = if passed { PASSED } else { FAILED };
         let dots = self
             .dots
             .saturating_add("Passed".width())
-            .saturating_sub(label.width() + status_width);
+            .saturating_sub(label.width() + status.inner().width());
         let dots = ".".repeat(dots).green().to_string();
 
         progress.set_style(ProgressStyle::with_template("{wide_msg}").unwrap());

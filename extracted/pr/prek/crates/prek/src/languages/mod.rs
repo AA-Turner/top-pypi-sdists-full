@@ -15,6 +15,7 @@ use crate::cli::reporter::HookInstallReporter;
 use crate::cli::run::HookRunReporter;
 use crate::config::Language;
 use crate::fs::PathClean;
+use crate::git::GitCommandExt;
 use crate::hook::{Hook, InstallInfo, InstalledHook, Repo};
 use crate::hook_entry::PreparedHookEntry;
 use crate::hooks::{self, HookOutput};
@@ -54,10 +55,15 @@ pub(crate) mod version;
 #[async_trait::async_trait(?Send)]
 trait LanguageBackend: Sync {
     /// Provisions the environment required by `hook` and returns the prepared hook.
+    ///
+    /// `install_cwd` is the cloned repository for remote hooks and an empty temporary directory
+    /// for local hooks. Installer arguments that depend on the process working directory should
+    /// resolve from it rather than the user's work tree.
     async fn install(
         &self,
         store: &Store,
         hook: Arc<Hook>,
+        install_cwd: &Path,
         reporter: &HookInstallReporter,
     ) -> Result<InstalledHook>;
 
@@ -84,9 +90,10 @@ trait LanguageBackend: Sync {
         hook: &InstalledHook,
         environment: &ExecutionEnvironment,
     ) -> Result<PreparedHookEntry> {
+        let repo_path = hook.repo_path().unwrap_or(hook.work_dir());
         Ok(hook
             .entry
-            .resolve(environment.path(hook), hook.work_dir(), store)?)
+            .resolve(repo_path, environment.path(hook), hook.work_dir(), store)?)
     }
 
     /// Applies asynchronous or working-directory-dependent changes to `environment`.
@@ -122,7 +129,7 @@ trait LanguageBackend: Sync {
         let entry = self.prepare_hook_entry(store, hook, &environment)?;
         let run = async |batch: &[&Path]| {
             let output = environment
-                .command(hook, hook.work_dir(), entry.argv())?
+                .command(hook, hook.work_dir(), &entry)?
                 .args(&hook.args)
                 .file_args(batch)
                 .stdin(Stdio::null())
@@ -134,7 +141,7 @@ trait LanguageBackend: Sync {
             anyhow::Ok(output)
         };
 
-        let output = run_by_batch(hook, filenames, entry.argv(), run).await?;
+        let output = run_by_batch(hook, filenames, &entry, run).await?;
 
         reporter.on_run_complete(progress);
 
@@ -218,7 +225,10 @@ impl ExecutionEnvironment {
         let command = resolve_command(command.to_vec(), self.path(hook), cwd);
         let (program, args) = command.split_first().context("Command cannot be empty")?;
         let mut cmd = Cmd::new(program);
-        cmd.current_dir(cwd).args(args).check(false);
+        cmd.current_dir(cwd)
+            .preserve_current_worktree(cwd)
+            .args(args)
+            .check(false);
         self.patch.apply(&mut cmd);
         cmd.envs(&hook.env);
         Ok(cmd)
@@ -514,9 +524,9 @@ impl Language {
 
     pub(crate) fn ensure_exec_supported(self, hook: &Hook) -> Result<()> {
         match hook.repo() {
-            Repo::Meta { .. } => anyhow::bail!("`prek exec` does not support meta hooks"),
-            Repo::Builtin { .. } => anyhow::bail!("`prek exec` does not support builtin hooks"),
-            Repo::Remote { .. } | Repo::Local { .. } => {}
+            Repo::Meta => anyhow::bail!("`prek exec` does not support meta hooks"),
+            Repo::Builtin => anyhow::bail!("`prek exec` does not support builtin hooks"),
+            Repo::Remote { .. } | Repo::Local => {}
         }
 
         match self {
@@ -550,9 +560,10 @@ impl Language {
         &'a self,
         store: &'a Store,
         hook: Arc<Hook>,
+        install_cwd: &'a Path,
         reporter: &'a HookInstallReporter,
     ) -> LanguageFuture<'a, InstalledHook> {
-        self.backend().install(store, hook, reporter)
+        self.backend().install(store, hook, install_cwd, reporter)
     }
 
     pub(crate) fn check_health<'a>(&'a self, info: &'a InstallInfo) -> LanguageFuture<'a, ()> {
@@ -571,13 +582,13 @@ impl Language {
         'p: 'a,
     {
         match hook.repo() {
-            Repo::Meta { .. } => {
+            Repo::Meta => {
                 hooks::MetaHooks::from_str(&hook.id)
                     .unwrap()
                     .run(store, hook, filenames, reporter)
                     .await
             }
-            Repo::Builtin { .. } => {
+            Repo::Builtin => {
                 hooks::BuiltinHooks::from_str(&hook.id)
                     .unwrap()
                     .run(store, hook, filenames, reporter)
@@ -587,7 +598,7 @@ impl Language {
             Repo::Remote { .. } if hooks::check_fast_path(hook) => {
                 hooks::run_fast_path(store, hook, filenames, reporter).await
             }
-            Repo::Remote { .. } | Repo::Local { .. } => {
+            Repo::Remote { .. } | Repo::Local => {
                 let (exit_status, output) =
                     self.backend().run(store, hook, filenames, reporter).await?;
                 if self.can_modify_files() {

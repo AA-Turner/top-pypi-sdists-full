@@ -13,6 +13,8 @@
 import itertools
 import json
 import logging
+from typing import Any
+from typing import cast
 from unittest import mock
 
 from keystoneauth1 import adapter
@@ -26,15 +28,26 @@ from openstack.tests.unit import base
 from openstack import utils
 
 
-class FakeResponse:
+class FakeResponse(requests.Response):
     def __init__(self, response, status_code=200, headers=None):
+        super().__init__()
         self.body = response
         self.status_code = status_code
         headers = headers if headers else {'content-type': 'application/json'}
         self.headers = requests.structures.CaseInsensitiveDict(headers)
 
-    def json(self):
+    def json(self, **kwargs):
         return self.body
+
+    # NOTE: requests.Response.content is a read-only property; some tests
+    # set it directly, so override it with a settable property.
+    @property
+    def content(self):
+        return self._content
+
+    @content.setter
+    def content(self, value):
+        self._content = value
 
 
 class TestComponentManager(base.TestCase):
@@ -138,7 +151,9 @@ class Test_Request(base.TestCase):
         body = 2
         headers = 3
 
-        sot = resource._Request(uri, body, headers)
+        # this test deliberately passes non-string values to verify they are
+        # stored verbatim
+        sot = resource._Request(uri, body, headers)  # type: ignore[arg-type]
 
         self.assertEqual(uri, sot.url)
         self.assertEqual(body, sot.body)
@@ -148,7 +163,7 @@ class Test_Request(base.TestCase):
 class TestQueryParameters(base.TestCase):
     def test_create(self):
         location = "location"
-        mapping = {
+        mapping: dict[str, Any] = {
             "first_name": "first-name",
             "second_name": {"name": "second-name"},
             "third_name": {"name": "third", "type": int},
@@ -174,7 +189,7 @@ class TestQueryParameters(base.TestCase):
             return value * 10
 
         location = "location"
-        mapping = {
+        mapping: dict[str, Any] = {
             "first_name": "first-name",
             "pet_name": {"name": "pet"},
             "answer": {"name": "answer", "type": int},
@@ -208,7 +223,7 @@ class TestQueryParameters(base.TestCase):
 
     def test_transpose_not_in_query(self):
         location = "location"
-        mapping = {
+        mapping: dict[str, Any] = {
             "first_name": "first-name",
             "pet_name": {"name": "pet"},
             "answer": {"name": "answer", "type": int},
@@ -229,7 +244,7 @@ class TestResource(base.TestCase):
         header = {"header": 2, "Location": "somewhere"}
         uri = {"uri": 3}
         computed = {"computed": 4}
-        everything = dict(
+        everything: dict[str, Any] = dict(
             itertools.chain(
                 body.items(),
                 header.items(),
@@ -320,22 +335,25 @@ class TestResource(base.TestCase):
         uri = "uri"
         computed = "computed"
 
-        sot._collect_attrs = mock.Mock(
-            return_value=(body, header, uri, computed)
-        )
-        sot._body.update = mock.Mock()
-        sot._header.update = mock.Mock()
-        sot._uri.update = mock.Mock()
-        sot._computed.update = mock.Mock()
+        mock_collect_attrs = mock.patch.object(
+            sot, '_collect_attrs', return_value=(body, header, uri, computed)
+        ).start()
+        mock_body_update = mock.patch.object(sot._body, 'update').start()
+        mock_header_update = mock.patch.object(sot._header, 'update').start()
+        mock_uri_update = mock.patch.object(sot._uri, 'update').start()
+        mock_computed_update = mock.patch.object(
+            sot._computed, 'update'
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
         args = {"arg": 1}
         sot._update(**args)
 
-        sot._collect_attrs.assert_called_once_with(args)
-        sot._body.update.assert_called_once_with(body)
-        sot._header.update.assert_called_once_with(header)
-        sot._uri.update.assert_called_once_with(uri)
-        sot._computed.update.assert_called_with(computed)
+        mock_collect_attrs.assert_called_once_with(args)
+        mock_body_update.assert_called_once_with(body)
+        mock_header_update.assert_called_once_with(header)
+        mock_uri_update.assert_called_once_with(uri)
+        mock_computed_update.assert_called_with(computed)
 
     def test__consume_attrs(self):
         serverside_key1 = "someKey1"
@@ -370,6 +388,26 @@ class TestResource(base.TestCase):
         # name.
         self.assertDictEqual(
             {serverside_key1: value1, serverside_key2: value2}, result
+        )
+
+    def test__consume_attrs_duplicate_matching_keys(self):
+        mapping = {
+            "_stack_name": "stack_name",
+            "stack_name": "name",
+        }
+        attrs = {"stack_name": "castle_siege"}
+
+        sot = resource.Resource()
+
+        result = sot._consume_attrs(mapping, attrs)
+
+        self.assertDictEqual({}, attrs)
+        self.assertDictEqual(
+            {
+                "_stack_name": "castle_siege",
+                "stack_name": "castle_siege",
+            },
+            result,
         )
 
     def test__mapping_defaults(self):
@@ -445,7 +483,9 @@ class TestResource(base.TestCase):
 
     def test__getattribute__id_without_alternate(self):
         class Test(resource.Resource):
-            id = None
+            # deliberately override the id Body descriptor with None to
+            # exercise the no-id code path
+            id = None  # type: ignore[assignment]
 
         sot = Test()
         self.assertIsNone(sot.id)
@@ -624,7 +664,7 @@ class TestResource(base.TestCase):
             ],
         }
         self.assertEqual(expected, res.to_dict())
-        a_munch = res.to_dict(_to_munch=True)
+        a_munch = cast(utils.Munch, res.to_dict(_to_munch=True))
         self.assertEqual(a_munch.bar.id, 'ANOTHER_ID')
         self.assertEqual(a_munch.bar.sub, 'bar')
         self.assertEqual(a_munch.a_list[0].id, 'ANOTHER_ID')
@@ -736,7 +776,11 @@ class TestResource(base.TestCase):
             bar = resource.Body('bar')
             foot = resource.Body('foot')
 
-        data = {'foo': 'bar', 'bar': 'foo\n', 'foot': 'a:b:c:d'}
+        data: dict[str, Any] = {
+            'foo': 'bar',
+            'bar': 'foo\n',
+            'foot': 'a:b:c:d',
+        }
 
         res = Test(**data)
         for k, v in res.items():
@@ -1003,7 +1047,7 @@ class TestResource(base.TestCase):
         sot = Test.existing(id=the_id, x=1, y=2)
         sot.x = 3
 
-        params = [('foo', 'bar'), ('life', 42)]
+        params: dict[str, Any] = {'foo': 'bar', 'life': 42}
 
         result = sot._prepare_request(
             requires_id=True, patch=True, params=params
@@ -1035,7 +1079,6 @@ class TestResource(base.TestCase):
         response = FakeResponse(body)
 
         sot = Test()
-        sot._filter_component = mock.Mock(side_effect=[body, dict()])
 
         sot._translate_response(response, has_body=True)
 
@@ -1054,7 +1097,6 @@ class TestResource(base.TestCase):
         response = FakeResponse({key: body})
 
         sot = Test()
-        sot._filter_component = mock.Mock(side_effect=[body, dict()])
 
         sot._translate_response(response, has_body=True)
 
@@ -1082,7 +1124,7 @@ class TestResource(base.TestCase):
 
         # list is a generator so you need to begin consuming
         # it in order to exercise the failure.
-        the_list = sot.list("")
+        the_list = sot.list("")  # type: ignore[arg-type]
         self.assertRaises(exceptions.MethodNotSupported, next, the_list)
 
         # Update checks the dirty list first before even trying to see
@@ -1166,6 +1208,7 @@ class TestResource(base.TestCase):
         sot = Test.new(**{'dummy': 'value', 'properties': 'a,b,c'})
 
         request_body = sot._prepare_request(requires_id=False).body
+        assert isinstance(request_body, dict)
         self.assertEqual('value', request_body['dummy'])
         self.assertEqual('a,b,c', request_body['properties'])
 
@@ -1175,6 +1218,7 @@ class TestResource(base.TestCase):
         )
 
         request_body = sot._prepare_request(requires_id=False).body
+        assert isinstance(request_body, dict)
         self.assertEqual('value', request_body['dummy'])
         self.assertEqual('a,b,c', request_body['properties'])
 
@@ -1188,6 +1232,7 @@ class TestResource(base.TestCase):
         )
 
         request_body = sot._prepare_request(requires_id=False).body
+        assert isinstance(request_body, dict)
         self.assertDictEqual(
             {'dummy': 'value', 'properties': 'a,b,c'},
             request_body['properties'],
@@ -1199,11 +1244,13 @@ class TestResource(base.TestCase):
             _store_unknown_attrs_as_properties = True
             allow_patch = True
 
-        sot = Test.existing(**{'dummy': 'value', 'properties': 'a,b,c'})
+        attrs: dict[str, Any] = {'dummy': 'value', 'properties': 'a,b,c'}
+        sot = Test.existing(**attrs)
 
         sot._update(**{'properties': {'dummy': 'new_value'}})
 
         request_body = sot._prepare_request(requires_id=False, patch=True).body
+        assert isinstance(request_body, list)
         self.assertDictEqual(
             {'path': '/dummy', 'value': 'new_value', 'op': 'replace'},
             request_body[0],
@@ -1308,6 +1355,18 @@ class TestResource(base.TestCase):
         self.assertNotIn('unknown_param', sot)
 
 
+class _TestResource(resource.Resource):
+    service = "service"
+    base_path = "base_path"
+    resources_key: str | None = 'resources'
+    allow_create = True
+    allow_fetch = True
+    allow_head = True
+    allow_commit = True
+    allow_delete = True
+    allow_list = True
+
+
 class TestResourceActions(base.TestCase):
     def setUp(self):
         super().setUp()
@@ -1315,18 +1374,7 @@ class TestResourceActions(base.TestCase):
         self.service_name = "service"
         self.base_path = "base_path"
 
-        class Test(resource.Resource):
-            service = self.service_name
-            base_path = self.base_path
-            resources_key = 'resources'
-            allow_create = True
-            allow_fetch = True
-            allow_head = True
-            allow_commit = True
-            allow_delete = True
-            allow_list = True
-
-        self.test_class = Test
+        self.test_class = _TestResource
 
         self.request = mock.Mock(spec=resource._Request)
         self.request.url = "uri"
@@ -1335,9 +1383,14 @@ class TestResourceActions(base.TestCase):
 
         self.response = FakeResponse({})
 
-        self.sot = Test(id="id")
-        self.sot._prepare_request = mock.Mock(return_value=self.request)
-        self.sot._translate_response = mock.Mock()
+        self.sot = _TestResource(id="id")
+        self.mock_prepare_request = mock.patch.object(
+            self.sot, '_prepare_request', return_value=self.request
+        ).start()
+        self.mock_translate_response = mock.patch.object(
+            self.sot, '_translate_response'
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
         self.session = mock.Mock(spec=adapter.Adapter)
         self.session.create = mock.Mock(return_value=self.response)
@@ -1550,7 +1603,7 @@ class TestResourceActions(base.TestCase):
     def test_fetch(self):
         result = self.sot.fetch(self.session)
 
-        self.sot._prepare_request.assert_called_once_with(
+        self.mock_prepare_request.assert_called_once_with(
             requires_id=True, base_path=None
         )
         self.session.get.assert_called_once_with(
@@ -1558,7 +1611,7 @@ class TestResourceActions(base.TestCase):
         )
 
         self.assertIsNone(self.sot.microversion)
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response, error_message=None, resource_response_key=None
         )
         self.assertEqual(result, self.sot)
@@ -1566,7 +1619,7 @@ class TestResourceActions(base.TestCase):
     def test_fetch_with_override_key(self):
         result = self.sot.fetch(self.session, resource_response_key="SomeKey")
 
-        self.sot._prepare_request.assert_called_once_with(
+        self.mock_prepare_request.assert_called_once_with(
             requires_id=True, base_path=None
         )
         self.session.get.assert_called_once_with(
@@ -1574,7 +1627,7 @@ class TestResourceActions(base.TestCase):
         )
 
         self.assertIsNone(self.sot.microversion)
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response, error_message=None, resource_response_key="SomeKey"
         )
         self.assertEqual(result, self.sot)
@@ -1582,7 +1635,7 @@ class TestResourceActions(base.TestCase):
     def test_fetch_with_params(self):
         result = self.sot.fetch(self.session, fields='a,b')
 
-        self.sot._prepare_request.assert_called_once_with(
+        self.mock_prepare_request.assert_called_once_with(
             requires_id=True, base_path=None
         )
         self.session.get.assert_called_once_with(
@@ -1593,7 +1646,7 @@ class TestResourceActions(base.TestCase):
         )
 
         self.assertIsNone(self.sot.microversion)
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response, error_message=None, resource_response_key=None
         )
         self.assertEqual(result, self.sot)
@@ -1606,12 +1659,17 @@ class TestResourceActions(base.TestCase):
             _max_microversion = '1.42'
 
         sot = Test(id='id')
-        sot._prepare_request = mock.Mock(return_value=self.request)
-        sot._translate_response = mock.Mock()
+        mock_prepare_request = mock.patch.object(
+            sot, '_prepare_request', return_value=self.request
+        ).start()
+        mock_translate_response = mock.patch.object(
+            sot, '_translate_response'
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
         result = sot.fetch(self.session)
 
-        sot._prepare_request.assert_called_once_with(
+        mock_prepare_request.assert_called_once_with(
             requires_id=True, base_path=None
         )
         self.session.get.assert_called_once_with(
@@ -1619,7 +1677,7 @@ class TestResourceActions(base.TestCase):
         )
 
         self.assertEqual(sot.microversion, '1.42')
-        sot._translate_response.assert_called_once_with(
+        mock_translate_response.assert_called_once_with(
             self.response, error_message=None, resource_response_key=None
         )
         self.assertEqual(result, sot)
@@ -1632,12 +1690,17 @@ class TestResourceActions(base.TestCase):
             _max_microversion = '1.99'
 
         sot = Test(id='id')
-        sot._prepare_request = mock.Mock(return_value=self.request)
-        sot._translate_response = mock.Mock()
+        mock_prepare_request = mock.patch.object(
+            sot, '_prepare_request', return_value=self.request
+        ).start()
+        mock_translate_response = mock.patch.object(
+            sot, '_translate_response'
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
         result = sot.fetch(self.session, microversion='1.42')
 
-        sot._prepare_request.assert_called_once_with(
+        mock_prepare_request.assert_called_once_with(
             requires_id=True, base_path=None
         )
         self.session.get.assert_called_once_with(
@@ -1645,7 +1708,7 @@ class TestResourceActions(base.TestCase):
         )
 
         self.assertEqual(sot.microversion, '1.42')
-        sot._translate_response.assert_called_once_with(
+        mock_translate_response.assert_called_once_with(
             self.response, error_message=None, resource_response_key=None
         )
         self.assertEqual(result, sot)
@@ -1653,14 +1716,14 @@ class TestResourceActions(base.TestCase):
     def test_fetch_not_requires_id(self):
         result = self.sot.fetch(self.session, False)
 
-        self.sot._prepare_request.assert_called_once_with(
+        self.mock_prepare_request.assert_called_once_with(
             requires_id=False, base_path=None
         )
         self.session.get.assert_called_once_with(
             self.request.url, microversion=None, params={}, skip_cache=False
         )
 
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response, error_message=None, resource_response_key=None
         )
         self.assertEqual(result, self.sot)
@@ -1668,14 +1731,14 @@ class TestResourceActions(base.TestCase):
     def test_fetch_base_path(self):
         result = self.sot.fetch(self.session, False, base_path='dummy')
 
-        self.sot._prepare_request.assert_called_once_with(
+        self.mock_prepare_request.assert_called_once_with(
             requires_id=False, base_path='dummy'
         )
         self.session.get.assert_called_once_with(
             self.request.url, microversion=None, params={}, skip_cache=False
         )
 
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response, error_message=None, resource_response_key=None
         )
         self.assertEqual(result, self.sot)
@@ -1683,13 +1746,13 @@ class TestResourceActions(base.TestCase):
     def test_head(self):
         result = self.sot.head(self.session)
 
-        self.sot._prepare_request.assert_called_once_with(base_path=None)
+        self.mock_prepare_request.assert_called_once_with(base_path=None)
         self.session.head.assert_called_once_with(
             self.request.url, microversion=None
         )
 
         self.assertIsNone(self.sot.microversion)
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response,
             has_body=False,
         )
@@ -1698,13 +1761,13 @@ class TestResourceActions(base.TestCase):
     def test_head_base_path(self):
         result = self.sot.head(self.session, base_path='dummy')
 
-        self.sot._prepare_request.assert_called_once_with(base_path='dummy')
+        self.mock_prepare_request.assert_called_once_with(base_path='dummy')
         self.session.head.assert_called_once_with(
             self.request.url, microversion=None
         )
 
         self.assertIsNone(self.sot.microversion)
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response,
             has_body=False,
         )
@@ -1718,18 +1781,23 @@ class TestResourceActions(base.TestCase):
             _max_microversion = '1.42'
 
         sot = Test(id='id')
-        sot._prepare_request = mock.Mock(return_value=self.request)
-        sot._translate_response = mock.Mock()
+        mock_prepare_request = mock.patch.object(
+            sot, '_prepare_request', return_value=self.request
+        ).start()
+        mock_translate_response = mock.patch.object(
+            sot, '_translate_response'
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
         result = sot.head(self.session)
 
-        sot._prepare_request.assert_called_once_with(base_path=None)
+        mock_prepare_request.assert_called_once_with(base_path=None)
         self.session.head.assert_called_once_with(
             self.request.url, microversion='1.42'
         )
 
         self.assertEqual(sot.microversion, '1.42')
-        sot._translate_response.assert_called_once_with(
+        mock_translate_response.assert_called_once_with(
             self.response,
             has_body=False,
         )
@@ -1764,7 +1832,7 @@ class TestResourceActions(base.TestCase):
             **commit_args,
         )
 
-        self.sot._prepare_request.assert_called_once_with(
+        self.mock_prepare_request.assert_called_once_with(
             prepend_key=prepend_key, base_path=base_path, patch=False
         )
 
@@ -1794,7 +1862,7 @@ class TestResourceActions(base.TestCase):
             )
 
         self.assertEqual(self.sot.microversion, microversion)
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response,
             has_body=has_body,
         )
@@ -1968,7 +2036,7 @@ class TestResourceActions(base.TestCase):
 
         sot = Test.existing(id=1, attr=42, nested={'dog': 'bark'})
         sot.attr = 'new'
-        sot.patch(self.session, {'path': '/renamed/dog', 'op': 'remove'})
+        sot.patch(self.session, [{'path': '/renamed/dog', 'op': 'remove'}])
 
         expected = [
             {'path': '/attr', 'op': 'replace', 'value': 'new'},
@@ -1981,14 +2049,14 @@ class TestResourceActions(base.TestCase):
     def test_delete(self):
         result = self.sot.delete(self.session)
 
-        self.sot._prepare_request.assert_called_once_with(
+        self.mock_prepare_request.assert_called_once_with(
             params=None, base_path=None
         )
         self.session.delete.assert_called_once_with(
             self.request.url, headers='headers', microversion=None
         )
 
-        self.sot._translate_response.assert_called_once_with(
+        self.mock_translate_response.assert_called_once_with(
             self.response,
             has_body=False,
             error_message=None,
@@ -2003,19 +2071,24 @@ class TestResourceActions(base.TestCase):
             _max_microversion = '1.42'
 
         sot = Test(id='id')
-        sot._prepare_request = mock.Mock(return_value=self.request)
-        sot._translate_response = mock.Mock()
+        mock_prepare_request = mock.patch.object(
+            sot, '_prepare_request', return_value=self.request
+        ).start()
+        mock_translate_response = mock.patch.object(
+            sot, '_translate_response'
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
         result = sot.delete(self.session)
 
-        sot._prepare_request.assert_called_once_with(
+        mock_prepare_request.assert_called_once_with(
             params=None, base_path=None
         )
         self.session.delete.assert_called_once_with(
             self.request.url, headers='headers', microversion='1.42'
         )
 
-        sot._translate_response.assert_called_once_with(
+        mock_translate_response.assert_called_once_with(
             self.response,
             has_body=False,
             error_message=None,
@@ -2030,19 +2103,24 @@ class TestResourceActions(base.TestCase):
             _max_microversion = '1.99'
 
         sot = Test(id='id')
-        sot._prepare_request = mock.Mock(return_value=self.request)
-        sot._translate_response = mock.Mock()
+        mock_prepare_request = mock.patch.object(
+            sot, '_prepare_request', return_value=self.request
+        ).start()
+        mock_translate_response = mock.patch.object(
+            sot, '_translate_response'
+        ).start()
+        self.addCleanup(mock.patch.stopall)
 
         result = sot.delete(self.session, microversion='1.42')
 
-        sot._prepare_request.assert_called_once_with(
+        mock_prepare_request.assert_called_once_with(
             params=None, base_path=None
         )
         self.session.delete.assert_called_once_with(
             self.request.url, headers='headers', microversion='1.42'
         )
 
-        sot._translate_response.assert_called_once_with(
+        mock_translate_response.assert_called_once_with(
             self.response, has_body=False, error_message=None
         )
         self.assertEqual(result, sot)
@@ -2111,7 +2189,7 @@ class TestResourceActions(base.TestCase):
     def test_list_one_page_response_resources_key(self):
         key = "resources"
 
-        class Test(self.test_class):
+        class Test(_TestResource):
             resources_key = key
 
         id_value = 1
@@ -2260,7 +2338,7 @@ class TestResourceActions(base.TestCase):
 
         self.session.get.return_value = mock_response
 
-        class Test(self.test_class):
+        class Test(_TestResource):
             _query_mapping = resource.QueryParameters("limit")
 
         results = list(Test.list(self.session, paginated=True, limit=q_limit))
@@ -2525,7 +2603,7 @@ class TestResourceActions(base.TestCase):
 
         self.session.get.return_value = mock_response
 
-        class Test(self.test_class):
+        class Test(_TestResource):
             _query_mapping = resource.QueryParameters("limit")
 
         res = Test.list(self.session, paginated=True, limit=q_limit)
@@ -2550,7 +2628,7 @@ class TestResourceActions(base.TestCase):
 
         self.session.get.side_effect = [mock_response, mock_empty]
 
-        class Test(self.test_class):
+        class Test(_TestResource):
             _query_mapping = resource.QueryParameters(query_param=qp_name)
             base_path = "/%(something)s/blah"
             something = resource.URI("something")
@@ -2623,7 +2701,7 @@ class TestResourceActions(base.TestCase):
 
         self.session.get.side_effect = [mock_empty]
 
-        class Test(self.test_class):
+        class Test(_TestResource):
             _query_mapping = resource.QueryParameters(query_param=qp_name)
             base_path = "/%(something)s/blah"
             something = resource.URI("something")
@@ -2661,7 +2739,7 @@ class TestResourceActions(base.TestCase):
 
         self.session.get.side_effect = [mock_empty]
 
-        class Test(self.test_class):
+        class Test(_TestResource):
             _query_mapping = resource.QueryParameters('a')
             base_path = "/%(something)s/blah"
             something = resource.URI("something")
@@ -2706,17 +2784,18 @@ class TestResourceActions(base.TestCase):
 
         self.session.get.side_effect = [mock_response, mock_empty]
 
-        class Test(self.test_class):
+        class Test(_TestResource):
             _query_mapping = resource.QueryParameters(query_param=qp_name)
             base_path = "/%(something)s/blah"
             something = resource.URI("something")
 
+        query: dict[str, Any] = {qp_name: qp}
         results = list(
             Test.list(
                 self.session,
                 paginated=True,
                 something=uri_param,
-                **{qp_name: qp},
+                **query,
             )
         )
 
@@ -2752,18 +2831,19 @@ class TestResourceActions(base.TestCase):
 
         self.session.get.side_effect = [mock_response, mock_empty]
 
-        class Test(self.test_class):
+        class Test(_TestResource):
             _query_mapping = resource.QueryParameters(query_param=qp_name)
             base_path = "/%(something)s/blah"
             something = resource.URI("something")
 
+        query: dict[str, Any] = {qp_name: qp}
         results = list(
             Test.list(
                 self.session,
                 paginated=True,
                 query_param=qp2,
                 something=uri_param,
-                **{qp_name: qp},
+                **query,
             )
         )
 
@@ -2965,7 +3045,7 @@ class TestResourceActions(base.TestCase):
         self.assertEqual(3, len(self.session.get.call_args_list))
 
     def test_list_multi_page_header_count(self):
-        class Test(self.test_class):
+        class Test(_TestResource):
             resources_key = None
             pagination_key = 'X-Container-Object-Count'
 
@@ -3075,7 +3155,8 @@ class TestResourceActions(base.TestCase):
             create_method = 'POST'
             allow_create = True
 
-        Test._prepare_request = mock.Mock()
+        mock.patch.object(Test, '_prepare_request').start()
+        self.addCleanup(mock.patch.stopall)
         self.assertRaises(ValueError, Test.bulk_create, self.session, [])
         self.assertRaises(ValueError, Test.bulk_create, self.session, None)
         self.assertRaises(ValueError, Test.bulk_create, self.session, object)
@@ -3225,13 +3306,15 @@ class TestResourceFind(base.TestCase):
 
     class Base(resource.Resource):
         @classmethod
-        def existing(cls, **kwargs):
+        def existing(cls, connection=None, **kwargs):
             response = mock.Mock()
             response.status_code = 404
             raise exceptions.NotFoundException('Not Found', response=response)
 
+        # NOTE: this test double intentionally simplifies the list()
+        # signature, which is otherwise a paginating generator.
         @classmethod
-        def list(cls, session, **params):
+        def list(cls, session, **params):  # type: ignore[override]
             return []
 
     class OneResult(Base):
@@ -3258,7 +3341,7 @@ class TestResourceFind(base.TestCase):
 
         class Test(resource.Resource):
             @classmethod
-            def existing(cls, **kwargs):
+            def existing(cls, connection=None, **kwargs):
                 mock_match = mock.Mock()
                 mock_match.fetch.return_value = value
                 return mock_match

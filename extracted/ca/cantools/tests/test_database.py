@@ -299,6 +299,15 @@ class CanToolsDatabaseTest(unittest.TestCase):
         self.assertEqual(message.signals[0].is_float, False)
         self.assertEqual(message.signals[0].length, 64)
 
+    def test_dbc_load_bus_float_baudrate(self):
+        db = cantools.database.load_string(
+            'VERSION "1.0"\n'
+            'BA_DEF_ "Baudrate" FLOAT 0 1000000;\n'
+            'BA_ "Baudrate" 500000.0;\n')
+
+        self.assertEqual(len(db.buses), 1)
+        self.assertEqual(db.buses[0].baudrate, 500000)
+
     def test_foobar_encode_decode(self):
         db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/foobar.dbc')
@@ -1745,6 +1754,30 @@ class CanToolsDatabaseTest(unittest.TestCase):
             'KCD: "Expected root element tag '
             '{http://kayak.2codeornot2code.org/1.0}NetworkDefinition, but '
             'got WrongRootElement."')
+
+    def test_multiline_notes_kcd(self):
+        # A Notes element may hold more than a single text node. Make sure
+        # the whole note ends up in the comment instead of only the text
+        # before the first child element.
+        db = cantools.database.load_string(
+            '<NetworkDefinition '
+            'xmlns="http://kayak.2codeornot2code.org/1.0">'
+            '  <Node id="1" name="Node1"/>'
+            '  <Bus name="Bus1">'
+            '    <Message id="1" name="Message1">'
+            '      <Notes>First line<br/>Second line</Notes>'
+            '      <Producer><NodeRef id="1"/></Producer>'
+            '      <Signal name="Signal1" offset="0" length="8">'
+            '        <Notes>Alpha<br/>Beta</Notes>'
+            '      </Signal>'
+            '    </Message>'
+            '  </Bus>'
+            '</NetworkDefinition>',
+            database_format='kcd')
+
+        message = db.messages[0]
+        self.assertEqual(message.comment, 'First lineSecond line')
+        self.assertEqual(message.signals[0].comment, 'AlphaBeta')
 
     def test_jopp_5_0_sym(self):
         db = cantools.database.Database()

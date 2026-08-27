@@ -5,10 +5,10 @@ from .create_dubbing_job_data import CreateDubbingJobDataParams
 
 
 class CreateDubbingJobResponseParams(typing_extensions.TypedDict):
-    status: typing_extensions.NotRequired[str]
+    status: str
     """
     Response status, e.g. `success`.
     """
 
-    message: typing_extensions.NotRequired[str]
-    data: typing_extensions.NotRequired[CreateDubbingJobDataParams]
+    message: str
+    data: CreateDubbingJobDataParams

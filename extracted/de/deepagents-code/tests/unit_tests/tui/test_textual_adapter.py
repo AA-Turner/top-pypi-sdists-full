@@ -2721,6 +2721,42 @@ class _FailingApprovalStoreAgent(_SequencedAgent):
 class TestExecuteTaskTextualStreamCompletion:
     """Report only clean stream endings to the app."""
 
+    async def test_retry_event_ignores_untrusted_status_markup(self) -> None:
+        """Retry spinner text is rebuilt instead of parsing event-provided markup."""
+        statuses: list[str | None] = []
+
+        async def set_spinner(status: str | None) -> None:
+            await asyncio.sleep(0)
+            statuses.append(status)
+
+        adapter = TextualUIAdapter(
+            mount_message=_mock_mount,
+            update_status=_noop_status,
+            request_approval=_mock_approval,
+            set_spinner=set_spinner,
+        )
+        event = {
+            "type": "model_retry",
+            "attempt": 1,
+            "max_retries": 5,
+            "message": "[/tmp/x]",
+        }
+
+        with patch(
+            "deepagents_code.tui.textual_adapter.get_glyphs",
+            return_value=ASCII_GLYPHS,
+        ):
+            await execute_task_textual(
+                user_input="hello",
+                agent=_FakeAgent([((), "custom", event)]),
+                assistant_id="assistant",
+                session_state=_session_state(auto_approve=False),
+                adapter=adapter,
+            )
+
+        assert "Retrying model request 1/5" in statuses
+        assert all("[/tmp/x]" not in status for status in statuses if status)
+
     async def test_hook_stop_after_clean_stream_calls_completion_callback(self) -> None:
         mount_message = AsyncMock()
         adapter = TextualUIAdapter(
@@ -3498,6 +3534,128 @@ class TestExecuteTaskTextualUsageStats:
 
 class TestSessionCostEvents:
     """The graph's absolute cost total drives the client display."""
+
+    async def test_nested_usage_updates_provisional_cost(self) -> None:
+        async def mount_message(_: object) -> bool:
+            await asyncio.sleep(0)
+            return True
+
+        updates: list[float] = []
+        adapter = TextualUIAdapter(
+            mount_message=mount_message,
+            update_status=_noop_status,
+            request_approval=_mock_approval,
+        )
+        adapter._on_usage_update = lambda: None
+        adapter._on_provisional_cost = updates.append
+        chunks = [
+            (
+                ("tools:task",),
+                "custom",
+                {
+                    "type": "model_usage",
+                    "version": 1,
+                    "request_id": "child-1",
+                    "usage_metadata": {
+                        "input_tokens": 1_000,
+                        "output_tokens": 100,
+                        "total_tokens": 1_100,
+                    },
+                    "model_name": "gpt-5.5",
+                    "provider": "openai",
+                    "thread_id": "thread-1",
+                    "scope": "tools:task",
+                },
+            ),
+            ((), "messages", (_text_message("Done."), {})),
+        ]
+        turn_stats = SessionStats()
+
+        await execute_task_textual(
+            user_input="hello",
+            agent=_FakeAgent(chunks),
+            assistant_id="assistant",
+            session_state=_session_state(auto_approve=False),
+            adapter=adapter,
+            turn_stats=turn_stats,
+        )
+
+        assert len(updates) == 1
+        assert updates[0] > 0
+        assert turn_stats.per_kind["subagent"].request_count == 1
+
+    async def test_usage_already_counted_from_messages_is_not_added_twice(
+        self,
+    ) -> None:
+        """A nested request the message stream recorded stays a single charge.
+
+        The graph streams provisional usage for every nested call, including the
+        ones whose messages do reach this client. Both paths share one ledger, so
+        the second arrival must move neither the stats nor the displayed cost.
+        """
+        from langchain_core.messages import AIMessageChunk
+
+        async def mount_message(_: object) -> bool:
+            await asyncio.sleep(0)
+            return True
+
+        updates: list[float] = []
+        adapter = TextualUIAdapter(
+            mount_message=mount_message,
+            update_status=_noop_status,
+            request_approval=_mock_approval,
+        )
+        adapter._on_provisional_cost = updates.append
+        usage = {
+            "input_tokens": 1_000,
+            "output_tokens": 100,
+            "total_tokens": 1_100,
+        }
+        chunks = [
+            (
+                ("tools:task",),
+                "messages",
+                (
+                    AIMessageChunk(content="", id="child-1", usage_metadata=usage),  # ty: ignore[invalid-argument-type]
+                    {},
+                ),
+            ),
+            (
+                ("tools:task",),
+                "custom",
+                {
+                    "type": "model_usage",
+                    "version": 1,
+                    "request_id": "child-1",
+                    "usage_metadata": usage,
+                    "model_name": "gpt-5.5",
+                    "provider": "openai",
+                    "thread_id": "thread-1",
+                    "scope": "tools:task",
+                },
+            ),
+            ((), "messages", (_text_message("Done."), {})),
+        ]
+        turn_stats = SessionStats()
+
+        with (
+            patch("deepagents_code.config.settings") as mock_settings,
+            patch("deepagents_code.cost_tracking.estimate_cost", return_value=0.42),
+        ):
+            mock_settings.model_name = "gpt-5.5"
+            mock_settings.model_provider = "openai"
+            await execute_task_textual(
+                user_input="hello",
+                agent=_FakeAgent(chunks),
+                assistant_id="assistant",
+                session_state=_session_state(auto_approve=False),
+                adapter=adapter,
+                turn_stats=turn_stats,
+            )
+
+        assert updates == [pytest.approx(0.42)]
+        assert turn_stats.per_kind["subagent"].request_count == 1
+        assert turn_stats.total_cost_usd == pytest.approx(0.42)
 
     async def test_streamed_total_reaches_the_app(self) -> None:
         """A session-cost event is applied as the displayed lifetime total."""
@@ -5112,6 +5270,29 @@ class TestExecuteTaskTextualUserVisibleOutputStarted:
         )
 
         user_visible_output_started.assert_not_called()
+
+    async def test_nested_grader_output_is_not_mounted(self) -> None:
+        """Rubric-grader tokens stay hidden with other nested message streams."""
+        mount_message = AsyncMock(return_value=True)
+        grader_namespace = ("ReliableRubricMiddleware.after_agent:grader",)
+        chunks = [
+            (grader_namespace, "messages", (_text_message("partial verdict"), {}))
+        ]
+        adapter = TextualUIAdapter(
+            mount_message=mount_message,
+            update_status=_noop_status,
+            request_approval=_mock_approval,
+        )
+
+        await execute_task_textual(
+            user_input="hi",
+            agent=_FakeAgent(chunks),
+            assistant_id="assistant",
+            session_state=_session_state(auto_approve=True),
+            adapter=adapter,
+        )
+
+        mount_message.assert_not_awaited()
 
     async def test_not_fired_for_hidden_summarization_output(self) -> None:
         """Hidden main-namespace summarization text does not count."""

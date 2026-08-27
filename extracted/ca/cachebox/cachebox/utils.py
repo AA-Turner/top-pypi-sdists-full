@@ -1,13 +1,16 @@
+import _thread
+import asyncio
 import functools
 import inspect
+import threading
 import typing
+from collections.abc import Callable, Hashable
+from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from copy import copy as _shallow_copy
 from copy import deepcopy as _deep_copy
 
 from ._cachebox import BaseCacheImpl, LRUCache
 from ._wrappers import (
-    AbstractAsyncContextManager,
-    AbstractContextManager,
     CacheInfo,
     _async_cached_wrapper,
     _async_cached_wrapper_without_lock,
@@ -23,7 +26,7 @@ if typing.TYPE_CHECKING:
 KT = typing.TypeVar("KT")
 VT = typing.TypeVar("VT")
 DT = typing.TypeVar("DT")
-FT = typing.TypeVar("FT", bound=typing.Callable[..., typing.Any])
+FT = typing.TypeVar("FT", bound=Callable[..., typing.Any])
 
 
 _COPY_TYPES = frozenset((dict, list, set))
@@ -63,7 +66,7 @@ _KWDS_MARK = object()
 _FAST_TYPES = frozenset((int, str))
 
 
-def make_key(*args, **kwds) -> typing.Hashable:
+def make_key(*args: typing.Any, **kwds: typing.Any) -> Hashable:
     """
     Default cache key.
 
@@ -83,7 +86,7 @@ def make_key(*args, **kwds) -> typing.Hashable:
     return key
 
 
-def make_hash_key(*args, **kwds) -> int:
+def make_hash_key(*args: typing.Any, **kwds: typing.Any) -> int:
     """
     Key as the hash of all positional and keyword arguments.
 
@@ -98,7 +101,7 @@ def make_hash_key(*args, **kwds) -> int:
     return hash(key)
 
 
-def make_typed_key(*args, **kwds) -> tuple:
+def make_typed_key(*args: typing.Any, **kwds: typing.Any) -> tuple[typing.Any, ...]:
     """
     Key that includes the runtime type of every argument.
 
@@ -183,7 +186,7 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         return self.__cache.maxsize
 
     @property
-    def getsizeof(self) -> typing.Callable[[KT, VT], int] | None:
+    def getsizeof(self) -> Callable[[KT, VT], int] | None:
         """Callable or None: The configured ``getsizeof`` function."""
         return self.__cache.getsizeof
 
@@ -271,7 +274,7 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         value: VT,
         *args: typing.Any,
         **kwargs: typing.Any,
-    ) -> typing.Optional[VT]:
+    ) -> VT | None:
         return self._guard()
 
     def __setitem__(self, key: KT, value: VT) -> None:
@@ -285,7 +288,7 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
     ) -> None:
         return self._guard()
 
-    def get(self, key: KT, default: typing.Optional[DT] = None) -> typing.Union[VT, DT]:
+    def get(self, key: KT, default: DT | None = None) -> VT | DT:
         return self.__cache.get(key, default)
 
     def __getitem__(self, key: KT) -> VT:
@@ -294,13 +297,13 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
     def setdefault(
         self,
         key: KT,
-        default: typing.Optional[DT] = None,
+        default: DT | None = None,
         *args: typing.Any,
         **kwargs: typing.Any,
-    ) -> typing.Optional[VT | DT]:
+    ) -> VT | DT | None:
         return self._guard()
 
-    def pop(self, key: KT, default: DT = None) -> typing.Union[VT, DT]:
+    def pop(self, key: KT, default: DT | None = None) -> VT | DT:
         """
         Removes the specified key and returns the corresponding value.
 
@@ -319,7 +322,7 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
     def __delitem__(self, key: KT) -> None:
         return self._guard()
 
-    def popitem(self) -> typing.Tuple[KT, VT]:
+    def popitem(self) -> tuple[KT, VT]:
         return self._guard()  # type: ignore[return-value]
 
     def drain(self, n: int) -> int:
@@ -348,7 +351,7 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
         """
         return self._guard()
 
-    def items(self) -> typing.Iterable[typing.Tuple[KT, VT]]:
+    def items(self) -> typing.Iterable[tuple[KT, VT]]:
         return self.__cache.items()
 
     def values(self) -> typing.Iterable[VT]:
@@ -373,20 +376,9 @@ class Frozen(BaseCacheImpl[KT, VT]):  # pragma: no cover
 def _cast_lock(
     iscoroutinefunction: bool,
     lock: (
-        typing.Type[AbstractContextManager]
-        | typing.Type[AbstractAsyncContextManager]
-        | bool
-        | None
+        type[AbstractContextManager] | type[AbstractAsyncContextManager] | bool | None
     ) = True,
-) -> (
-    typing.Type[AbstractContextManager]
-    | typing.Type[AbstractAsyncContextManager]
-    | None
-):
-    import _thread
-    import asyncio
-    import threading
-
+) -> type[AbstractContextManager] | type[AbstractAsyncContextManager] | None:
     if lock is None or lock is False:
         return None
 
@@ -416,8 +408,8 @@ def _cast_lock(
 
 
 def cached(
-    cache: BaseCacheImpl | dict | typing.Callable[..., BaseCacheImpl] | None = None,
-    key_maker: typing.Callable[..., typing.Hashable] = make_key,
+    cache: BaseCacheImpl | dict | Callable[..., BaseCacheImpl] | None = None,
+    key_maker: Callable[..., Hashable] = make_key,
     clear_reuse: bool = False,
     callback: _Callback | None = None,
     copy_level: int = 1,
@@ -428,7 +420,7 @@ def cached(
         | bool
         | None
     ) = True,
-) -> typing.Callable[[FT], FT]:
+) -> Callable[[FT], FT]:
     """
     Decorator to memoize function/method results.
 

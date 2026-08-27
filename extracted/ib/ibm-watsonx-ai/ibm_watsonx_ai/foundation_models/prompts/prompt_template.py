@@ -10,9 +10,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Mapping, TypeAlias, cast, overload
 
 if TYPE_CHECKING:
-    import langchain
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.prompts import PromptTemplate as LcPromptTemplate
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.prompts import PromptTemplate as LcPromptTemplate
 
 import copy
 import inspect
@@ -1124,7 +1123,7 @@ class PromptTemplateManager(WMLResource):
         :type prompt_variables: dict[str, str]
 
         :return: prompt template asset
-        :rtype: FreeformPromptTemplate | PromptTemplate | DetachedPromptTemplate | ChatPrompt | str | langchain.prompts.PromptTemplate
+        :rtype: FreeformPromptTemplate | PromptTemplate | DetachedPromptTemplate | ChatPrompt | str | langchain_core.prompts.PromptTemplate
 
         **Example:**
 
@@ -1178,7 +1177,7 @@ class PromptTemplateManager(WMLResource):
                 )
 
                 if response_json.get("input_mode") == "chat":
-                    from langchain.prompts import ChatPromptTemplate
+                    from langchain_core.prompts import ChatPromptTemplate
 
                     system_prompt = response_json["prompt"].get("system_prompt")
                     chat_items = response_json["prompt"].get("chat_items")
@@ -1187,7 +1186,9 @@ class PromptTemplateManager(WMLResource):
 
                     return ChatPromptTemplate(messages)
                 else:
-                    from langchain.prompts import PromptTemplate as LcPromptTemplate
+                    from langchain_core.prompts import (
+                        PromptTemplate as LcPromptTemplate,
+                    )
 
                     return LcPromptTemplate.from_template(response_input)
         else:
@@ -1251,13 +1252,13 @@ class PromptTemplateManager(WMLResource):
             | PromptTemplate
             | DetachedPromptTemplate
             | ChatPrompt
-            | langchain.prompts.PromptTemplate
+            | "LcPromptTemplate"
         ),
     ) -> FreeformPromptTemplate | PromptTemplate | DetachedPromptTemplate | ChatPrompt:
         """Store a new prompt template.
 
         :param prompt_template: PromptTemplate to be stored.
-        :type prompt_template: (FreeformPromptTemplate | PromptTemplate | DetachedPromptTemplate | ChatPrompt | langchain.prompts.PromptTemplate)
+        :type prompt_template: (FreeformPromptTemplate | PromptTemplate | DetachedPromptTemplate | ChatPrompt | langchain_core.prompts.PromptTemplate)
 
         :return: PromptTemplate object that is initialized with values provided in the server response object.
         :rtype: FreeformPromptTemplate | PromptTemplate | DetachedPromptTemplate | ChatPrompt
@@ -1273,7 +1274,7 @@ class PromptTemplateManager(WMLResource):
         ):
             pass
         else:
-            from langchain.prompts import PromptTemplate as LcPromptTemplate
+            from langchain_core.prompts import PromptTemplate as LcPromptTemplate
 
             if isinstance(prompt_template, LcPromptTemplate):
 

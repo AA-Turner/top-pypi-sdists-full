@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keystoneauth1
-Version: 5.15.0
+Version: 5.16.0
 Summary: Authentication Library for OpenStack Identity
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License-Expression: Apache-2.0

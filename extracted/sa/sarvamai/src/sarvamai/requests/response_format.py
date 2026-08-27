@@ -8,10 +8,6 @@ import typing_extensions
 from .json_schema_definition import JsonSchemaDefinitionParams
 
 
-class ResponseFormat_TextParams(typing_extensions.TypedDict):
-    type: typing.Literal["text"]
-
-
 class ResponseFormat_JsonObjectParams(typing_extensions.TypedDict):
     type: typing.Literal["json_object"]
 
@@ -21,6 +17,10 @@ class ResponseFormat_JsonSchemaParams(typing_extensions.TypedDict):
     json_schema: JsonSchemaDefinitionParams
 
 
+class ResponseFormat_TextParams(typing_extensions.TypedDict):
+    type: typing.Literal["text"]
+
+
 ResponseFormatParams = typing.Union[
-    ResponseFormat_TextParams, ResponseFormat_JsonObjectParams, ResponseFormat_JsonSchemaParams
+    ResponseFormat_JsonObjectParams, ResponseFormat_JsonSchemaParams, ResponseFormat_TextParams
 ]

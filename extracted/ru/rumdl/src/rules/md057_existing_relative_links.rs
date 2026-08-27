@@ -487,11 +487,37 @@ impl MD057ExistingRelativeLinks {
     }
 
     /// Check if a link target exists in any of the additional search paths.
-    fn exists_in_search_paths(decoded_path: &str, search_paths: &[PathBuf]) -> bool {
+    fn exists_in_search_paths(
+        decoded_path: &str,
+        search_paths: &[PathBuf],
+        policy: Option<&crate::lint_context::LinkTargetPolicy>,
+    ) -> bool {
         search_paths.iter().any(|dir| {
             let candidate = dir.join(decoded_path);
-            file_exists_or_markdown_extension(&candidate)
+            Self::target_exists(&candidate, policy)
         })
+    }
+
+    fn target_exists(path: &Path, policy: Option<&crate::lint_context::LinkTargetPolicy>) -> bool {
+        Self::resolve_target(path, policy).is_some()
+    }
+
+    fn resolve_target(path: &Path, policy: Option<&crate::lint_context::LinkTargetPolicy>) -> Option<PathBuf> {
+        if let Some(supplied) = policy.and_then(|policy| policy.resolve_supplied(path)) {
+            return Some(supplied);
+        }
+        if policy.is_some_and(|policy| !policy.allow_disk_fallback()) {
+            return None;
+        }
+        resolve_existing_target(path)
+    }
+
+    fn missing_relative_message(url: &str, policy: Option<&crate::lint_context::LinkTargetPolicy>) -> String {
+        if policy.is_some_and(|policy| !policy.allow_disk_fallback()) {
+            format!("Relative link '{url}' target not in the supplied document set")
+        } else {
+            format!("Relative link '{url}' does not exist")
+        }
     }
 
     /// Check if a relative link can be compacted and return the simplified form.
@@ -535,6 +561,7 @@ impl MD057ExistingRelativeLinks {
         base_path: &Path,
         search_paths: &[PathBuf],
         source_file: Option<&Path>,
+        policy: Option<&crate::lint_context::LinkTargetPolicy>,
     ) -> Option<SelfReferentialLink> {
         if !self.config.self_referential_links {
             return None;
@@ -553,7 +580,7 @@ impl MD057ExistingRelativeLinks {
         // answers for a link that resolves nowhere else.
         let resolved = std::iter::once(base_path)
             .chain(search_paths.iter().map(PathBuf::as_path))
-            .find_map(|dir| resolve_existing_target(&Self::resolve_link_path_with_base(&decoded_path, dir)))?;
+            .find_map(|dir| Self::resolve_target(&Self::resolve_link_path_with_base(&decoded_path, dir), policy))?;
         if !Self::is_same_file(&resolved, source_file) {
             return None;
         }
@@ -679,7 +706,7 @@ impl MD057ExistingRelativeLinks {
                 continue;
             }
 
-            if Self::relative_target_exists(url, base_path, search_paths) {
+            if Self::relative_target_exists(url, base_path, search_paths, ctx.link_target_policy()) {
                 continue;
             }
 
@@ -689,7 +716,7 @@ impl MD057ExistingRelativeLinks {
                 column,
                 end_line: link.line,
                 end_column,
-                message: format!("Relative link '{url}' does not exist"),
+                message: Self::missing_relative_message(url, ctx.link_target_policy()),
                 severity: Severity::Error,
                 fix: None,
             });
@@ -702,12 +729,17 @@ impl MD057ExistingRelativeLinks {
     /// then resolved against `base_path`, with two fallbacks: an `.html`/`.htm`
     /// target passes when the markdown source it is generated from exists, and
     /// any target passes when one of `search_paths` holds it.
-    fn relative_target_exists(url: &str, base_path: &Path, search_paths: &[PathBuf]) -> bool {
+    fn relative_target_exists(
+        url: &str,
+        base_path: &Path,
+        search_paths: &[PathBuf],
+        policy: Option<&crate::lint_context::LinkTargetPolicy>,
+    ) -> bool {
         let decoded_path = Self::url_decode(Self::strip_query_and_fragment(url));
         let resolved_path = Self::resolve_link_path_with_base(&decoded_path, base_path);
 
         // An extensionless link is also tried with each markdown extension.
-        if file_exists_or_markdown_extension(&resolved_path) {
+        if Self::target_exists(&resolved_path, policy) {
             return true;
         }
 
@@ -719,12 +751,12 @@ impl MD057ExistingRelativeLinks {
             )
             && MARKDOWN_EXTENSIONS
                 .iter()
-                .any(|md_ext| file_exists_with_cache(&parent.join(format!("{stem}{md_ext}"))))
+                .any(|md_ext| Self::target_exists(&parent.join(format!("{stem}{md_ext}")), policy))
         {
             return true;
         }
 
-        Self::exists_in_search_paths(&decoded_path, search_paths)
+        Self::exists_in_search_paths(&decoded_path, search_paths, policy)
     }
 
     /// Whether any enabled check can offer a fix. Broken links and absolute
@@ -1433,6 +1465,7 @@ impl Rule for MD057ExistingRelativeLinks {
                             &base_path,
                             &extra_search_paths,
                             self_path.as_deref(),
+                            ctx.link_target_policy(),
                         ) {
                             let url_start = url_group.start();
                             let url_end = caps.get(2).map_or(url_group.end(), |frag| frag.end());
@@ -1475,7 +1508,8 @@ impl Rule for MD057ExistingRelativeLinks {
                             });
                         }
 
-                        if Self::relative_target_exists(url, &base_path, &extra_search_paths) {
+                        if Self::relative_target_exists(url, &base_path, &extra_search_paths, ctx.link_target_policy())
+                        {
                             continue;
                         }
 
@@ -1491,7 +1525,7 @@ impl Rule for MD057ExistingRelativeLinks {
                             column: byte_to_char_count(line, url_start),
                             end_line: link.line,
                             end_column: byte_to_char_count(line, url_end),
-                            message: format!("Relative link '{url}' does not exist"),
+                            message: Self::missing_relative_message(url, ctx.link_target_policy()),
                             severity: Severity::Error,
                             fix: None,
                         });
@@ -1578,7 +1612,7 @@ impl Rule for MD057ExistingRelativeLinks {
                 });
             }
 
-            if Self::relative_target_exists(url, &base_path, &extra_search_paths) {
+            if Self::relative_target_exists(url, &base_path, &extra_search_paths, ctx.link_target_policy()) {
                 continue;
             }
 
@@ -1590,7 +1624,7 @@ impl Rule for MD057ExistingRelativeLinks {
                 column: image.start_col + 1,
                 end_line: image.line,
                 end_column: image.start_col + 1 + url.chars().count(),
-                message: format!("Relative link '{url}' does not exist"),
+                message: Self::missing_relative_message(url, ctx.link_target_policy()),
                 severity: Severity::Error,
                 fix: None,
             });
@@ -1637,9 +1671,13 @@ impl Rule for MD057ExistingRelativeLinks {
             }
 
             // A definition whose destination is the file holding it.
-            if let Some(self_link) =
-                self.self_referential_link(url, &base_path, &extra_search_paths, self_path.as_deref())
-            {
+            if let Some(self_link) = self.self_referential_link(
+                url,
+                &base_path,
+                &extra_search_paths,
+                self_path.as_deref(),
+                ctx.link_target_policy(),
+            ) {
                 warnings.push(LintWarning {
                     rule_name: Some(self.name().to_string()),
                     line,
@@ -1672,7 +1710,7 @@ impl Rule for MD057ExistingRelativeLinks {
                 });
             }
 
-            if Self::relative_target_exists(url, &base_path, &extra_search_paths) {
+            if Self::relative_target_exists(url, &base_path, &extra_search_paths, ctx.link_target_policy()) {
                 continue;
             }
 
@@ -1683,7 +1721,7 @@ impl Rule for MD057ExistingRelativeLinks {
                 column: col,
                 end_line: line,
                 end_column: end_col,
-                message: format!("Relative link '{url}' does not exist"),
+                message: Self::missing_relative_message(url, ctx.link_target_policy()),
                 severity: Severity::Error,
                 fix: None,
             });

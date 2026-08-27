@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: langchain-baseten
-Version: 0.2.3
+Version: 0.2.4
 Summary: Integration package connecting Baseten and LangChain
 Project-URL: Homepage, https://docs.baseten.co/
 Project-URL: Documentation, https://github.com/basetenlabs/langchain-baseten/tree/main/libs/baseten

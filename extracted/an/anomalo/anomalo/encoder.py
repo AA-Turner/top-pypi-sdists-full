@@ -36,8 +36,8 @@ def _yaml_postimport(imported_pkg: Any) -> None:
 
 
 class Encoder:
-    ENCODER_ALIASES = {"yml": "yaml"}
-    ENCODERS = {
+    ENCODER_ALIASES = {"yml": "yaml"}  # noqa: RUF012 (mutable-class-default)
+    ENCODERS = {  # noqa: RUF012 (mutable-class-default)
         "yaml": Format(
             pkg="yaml",
             pkg_postimport=_yaml_postimport,

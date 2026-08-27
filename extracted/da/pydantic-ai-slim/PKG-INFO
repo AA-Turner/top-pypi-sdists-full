@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 2.35.0
+Version: 2.35.1
 Summary: AI Agent Framework, the Pydantic way, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -31,11 +31,11 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.7.0
 Requires-Dist: exceptiongroup>=1.2.2; python_version < '3.11'
-Requires-Dist: genai-prices>=0.1.0
+Requires-Dist: genai-prices>=0.1.4
 Requires-Dist: griffelib>=2.0
 Requires-Dist: httpx2>=2.7
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==2.35.0
+Requires-Dist: pydantic-graph==2.35.1
 Requires-Dist: pydantic>=2.12
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: ag-ui
@@ -61,11 +61,11 @@ Requires-Dist: cohere>=5.20.6; (platform_system != 'Emscripten') and extra == 'c
 Provides-Extra: crusoe
 Requires-Dist: openai>=3.0.0; extra == 'crusoe'
 Provides-Extra: dbos
-Requires-Dist: dbos>=2.10.0; extra == 'dbos'
+Requires-Dist: dbos<2.31.0,>=2.10.0; extra == 'dbos'
 Provides-Extra: duckduckgo
 Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==2.35.0; extra == 'evals'
+Requires-Dist: pydantic-evals==2.35.1; extra == 'evals'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.0.0; extra == 'exa'
 Provides-Extra: google

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: firecrawl-py
-Version: 4.38.0
+Version: 4.40.0
 Summary: Python SDK for the Firecrawl API: web scraping, crawling, web search, and scientific literature search over a research paper index of PubMed, bioRxiv, medRxiv and arXiv abstracts
 Home-page: https://github.com/firecrawl/firecrawl
 Author: Mendable.ai

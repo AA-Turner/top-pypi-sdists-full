@@ -19,6 +19,7 @@ import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING, Any, Literal, Never, TextIO
 
+from vercel_runtime import deadline
 from vercel_runtime.cache import (
     SC_HEADERS_ALWAYS_STRIP,
     SC_HEADERS_STRIP_ON_NO_LEAK,
@@ -38,10 +39,12 @@ from vercel_runtime.headers import (
     clear_vercel_headers_context,
     decode_header_bytes,
     get_oidc_token_for_request,
+    is_internal_header,
     normalize_event_header_pairs,
     normalize_event_headers,
     set_vercel_headers_from_asgi_pairs,
     set_vercel_headers_from_http_headers,
+    strip_internal_headers,
 )
 from vercel_runtime.resolver import (
     detect_app_type,
@@ -713,6 +716,7 @@ class ASGIMiddleware:
         new_headers: list[tuple[bytes, bytes]] = []
         invocation_id = "0"
         request_id = 0
+        deadline_value: str | None = None
         internal_oidc_token: str | None = None
         sc_pairs: list[tuple[bytes, bytes]] = []
         sc_no_header_leak = False
@@ -733,6 +737,9 @@ class ASGIMiddleware:
                 "x-vercel-internal-trace-id",
             ):
                 continue
+            if key == deadline.INTERNAL_DEADLINE_HEADER:
+                deadline_value = val
+                continue
             if key == INTERNAL_OIDC_HEADER_NAME:
                 internal_oidc_token = val
                 continue
@@ -744,6 +751,8 @@ class ASGIMiddleware:
                 sc_pairs.append((key_bytes, val_bytes))
                 if key == SC_NO_HEADER_LEAK_HEADER:
                     sc_no_header_leak = bool(val)
+                continue
+            if is_internal_header(key):
                 continue
             new_headers.append((key_bytes, val_bytes))
 
@@ -779,6 +788,7 @@ class ASGIMiddleware:
                 "requestId": request_id,
             }
         )
+        deadline_token = deadline.set_deadline(deadline_value)
         set_vercel_headers_from_asgi_pairs(new_headers)
         set_runtime_cache_from_asgi_pairs(sc_pairs)
         wait_until = begin_wait_until()
@@ -796,7 +806,10 @@ class ASGIMiddleware:
             finally:
                 clear_runtime_cache_context()
                 clear_vercel_headers_context()
-                storage.reset(token)
+                try:
+                    storage.reset(token)
+                except ValueError:
+                    storage.set(None)
                 send_message(
                     {
                         "type": "end",
@@ -843,7 +856,16 @@ class ASGIMiddleware:
         try:
             await self.app(new_scope, receive, send_wrapper)
         finally:
-            await finish_request()
+            try:
+                await finish_request()
+            finally:
+                # The deadline mirrors Node: it stays readable for the entire
+                # handler, including post-accept WebSocket streaming, because
+                # the platform still enforces maxDuration on the invocation.
+                # Reset here, in the task that created the token, rather than
+                # in finish_request, which WebSocket accepts may run from a
+                # child task with a copied context.
+                deadline.reset_deadline(deadline_token)
 
 
 if "VERCEL_IPC_PATH" in os.environ:
@@ -998,6 +1020,9 @@ if "VERCEL_IPC_PATH" in os.environ:
             del self.headers["x-vercel-internal-request-id"]
             del self.headers["x-vercel-internal-span-id"]
             del self.headers["x-vercel-internal-trace-id"]
+            deadline_value = self.headers.get(deadline.INTERNAL_DEADLINE_HEADER)
+            with contextlib.suppress(Exception):
+                del self.headers[deadline.INTERNAL_DEADLINE_HEADER]
             raw_internal_oidc_token = self.headers.get(
                 INTERNAL_OIDC_HEADER_NAME
             )
@@ -1014,6 +1039,7 @@ if "VERCEL_IPC_PATH" in os.environ:
                 self.headers[OIDC_HEADER_NAME] = oidc_token
             with contextlib.suppress(Exception):
                 del self.headers[INTERNAL_OIDC_HEADER_NAME]
+            strip_internal_headers(self.headers)
 
             sc_no_header_leak = bool(
                 self.headers.get(SC_NO_HEADER_LEAK_HEADER),
@@ -1046,13 +1072,22 @@ if "VERCEL_IPC_PATH" in os.environ:
                     "requestId": request_id,
                 }
             )
+            deadline_token = deadline.set_deadline(deadline_value)
             set_vercel_headers_from_http_headers(self.headers)
             self._vc_wait_until = begin_wait_until()
 
             try:
                 self.handle_request()  # type: ignore[attr-defined]
             finally:
-                self._vc_fire_end_once()
+                try:
+                    self._vc_fire_end_once()
+                finally:
+                    # For a WebSocket upgrade _vc_fire_end_once runs at the
+                    # 101 handshake while this thread keeps driving the
+                    # socket. Keep the deadline readable until the handler
+                    # returns, mirroring Node: the platform still enforces
+                    # maxDuration on the invocation.
+                    deadline.reset_deadline(deadline_token)
 
     try:
         app_name, app_obj = resolve_app(
@@ -1247,6 +1282,8 @@ if (
         payload = json.loads(event["body"])
         path, _ = apply_service_route_prefix_to_target(payload["path"])
         headers = normalize_event_headers(payload.get("headers", {}))
+        deadline_value = deadline.pop_deadline_header(headers)
+        strip_internal_headers(headers)
         method = payload["method"]
         encoding = payload.get("encoding")
         body = payload.get("body")
@@ -1258,6 +1295,7 @@ if (
         if sc_no_header_leak:
             for sc_header in SC_HEADERS_STRIP_ON_NO_LEAK:
                 headers.pop(sc_header, None)
+        deadline_token = deadline.set_deadline(deadline_value)
         set_vercel_headers_from_http_headers(headers)
         wait_until = begin_wait_until()
         try:
@@ -1303,6 +1341,7 @@ if (
             finally:
                 clear_runtime_cache_context()
                 clear_vercel_headers_context()
+                deadline.reset_deadline(deadline_token)
 
 else:
     try:
@@ -1351,6 +1390,8 @@ else:
             payload = json.loads(event["body"])
 
             raw_headers = normalize_event_headers(payload.get("headers", {}))
+            deadline_value = deadline.pop_deadline_header(raw_headers)
+            strip_internal_headers(raw_headers)
 
             sc_no_header_leak = bool(raw_headers.get(SC_NO_HEADER_LEAK_HEADER))
             set_runtime_cache_from_http_headers(raw_headers)
@@ -1408,29 +1449,30 @@ else:
                 if env_key not in ("HTTP_CONTENT_TYPE", "HTTP_CONTENT_LENGTH"):
                     environ[env_key] = value
 
+            deadline_token = deadline.set_deadline(deadline_value)
             set_vercel_headers_from_http_headers(raw_headers)
             wait_until = begin_wait_until()
             try:
                 response = Response.from_app(wsgi_user_app, environ)
+                return_dict: dict[str, Any] = {
+                    "statusCode": response.status_code,
+                    "headers": format_headers(response.headers),
+                }
+
+                if response.data:
+                    return_dict["body"] = base64.b64encode(
+                        response.data,
+                    ).decode("utf-8")
+                    return_dict["encoding"] = "base64"
+
+                return return_dict
             finally:
                 try:
                     finish_wait_until(wait_until)
                 finally:
                     clear_runtime_cache_context()
                     clear_vercel_headers_context()
-
-            return_dict: dict[str, Any] = {
-                "statusCode": response.status_code,
-                "headers": format_headers(response.headers),
-            }
-
-            if response.data:
-                return_dict["body"] = base64.b64encode(
-                    response.data,
-                ).decode("utf-8")
-                return_dict["encoding"] = "base64"
-
-            return return_dict
+                    deadline.reset_deadline(deadline_token)
 
     else:
         _stderr("using Asynchronous Server Gateway Interface (ASGI)")
@@ -1652,16 +1694,22 @@ else:
 
             sc_pairs: list[tuple[str, str]] = []
             sc_no_header_leak = False
+            deadline_value: str | None = None
             headers: dict[str, str] = {}
             headers_encoded: list[tuple[bytes, bytes]] = []
             for key, value in header_pairs:
                 key_lower = key.lower()
+                if key_lower == deadline.INTERNAL_DEADLINE_HEADER:
+                    deadline_value = value
+                    continue
                 if key_lower in SC_HEADERS_ALWAYS_STRIP:
                     continue
                 if key_lower in SC_HEADERS_STRIP_ON_NO_LEAK:
                     sc_pairs.append((key_lower, value))
                     if key_lower == SC_NO_HEADER_LEAK_HEADER:
                         sc_no_header_leak = bool(value)
+                    continue
+                if is_internal_header(key_lower):
                     continue
                 headers[key] = value
                 headers_encoded.append((key_lower.encode(), value.encode()))
@@ -1712,6 +1760,7 @@ else:
                 "raw_path": path.encode(),
             }
 
+            deadline_token = deadline.set_deadline(deadline_value)
             set_vercel_headers_from_http_headers(headers)
             wait_until = begin_wait_until()
             try:
@@ -1725,3 +1774,4 @@ else:
                     clear_wait_until_context()
                     clear_runtime_cache_context()
                     clear_vercel_headers_context()
+                    deadline.reset_deadline(deadline_token)

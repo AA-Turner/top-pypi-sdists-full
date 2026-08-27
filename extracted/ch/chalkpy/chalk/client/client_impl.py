@@ -180,6 +180,12 @@ from chalk.client.response import Dataset, FeatureReference, OnlineQueryResult
 from chalk.client.serialization.query_serialization import MULTI_QUERY_MAGIC_STR, write_query_to_buffer
 from chalk.config.auth_config import load_token
 from chalk.config.project_config import load_project_config
+from chalk.config.web_identity import (
+    WEB_IDENTITY_TOKEN_FILE_ENV_VAR,
+    get_web_identity_token,
+    invalidate_web_identity_token,
+    web_identity_token_file_from_env,
+)
 from chalk.features import (
     DataFrame,
     Feature,
@@ -1302,6 +1308,24 @@ class ChalkAPIClientImpl(ChalkClient):
 
         self._primary_environment: EnvironmentId | None = environment
 
+        # Rotating auth is resolved here rather than lazily in
+        # `_exchange_credentials`, which only consults `load_token` when one of the
+        # client id, secret, or api server is missing
+        self._web_identity_token_file: str | None = web_identity_token_file_from_env()
+        if self._web_identity_token_file is not None:
+            web_identity_config = load_token(
+                client_id=None,
+                client_secret=None,
+                active_environment=self._primary_environment,
+                api_server=self._api_server,
+                skip_cache=self._skip_token_cache,
+            )
+            assert web_identity_config is not None, "load_token always returns a config on the web identity path"
+            self._client_id = None
+            self._client_secret = None
+            self._api_server = web_identity_config.apiServer
+            self._primary_environment = web_identity_config.activeEnvironment
+
         self.__class__.latest_client = self
         if notebook.is_notebook():
             if local:
@@ -1369,6 +1393,11 @@ class ChalkAPIClientImpl(ChalkClient):
         return self._api_namespace
 
     def _exchange_credentials(self):
+        if self._web_identity_token_file is not None:
+            raise RuntimeError(
+                "Credentials are not exchanged when "
+                + f"{WEB_IDENTITY_TOKEN_FILE_ENV_VAR} is set; the token file supplies the bearer token directly"
+            )
         _logger.debug("Performing a credentials exchange")
         if self._client_id is None or self._client_secret is None or self._api_server is None:
             token = load_token(
@@ -1448,6 +1477,9 @@ class ChalkAPIClientImpl(ChalkClient):
 
         if not metadata_request and CHALK_DEPLOYMENT_TYPE_HEADER not in headers and branch is None:
             headers[CHALK_DEPLOYMENT_TYPE_HEADER] = "engine"
+
+        if self._web_identity_token_file is not None:
+            headers["Authorization"] = f"Bearer {get_web_identity_token(self._web_identity_token_file).value}"
 
         return headers
 
@@ -1608,8 +1640,10 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             and self._api_server is not None
         ):
             status_url = urljoin(self._api_server, "/v1/branches/start")
-            status_headers = dict(self._default_headers)
+            status_headers: MutableMapping[str, str] = requests.structures.CaseInsensitiveDict(self._default_headers)
             status_headers[CHALK_ENV_ID_HEADER] = headers[CHALK_ENV_ID_HEADER]
+            if self._web_identity_token_file is not None:
+                status_headers["Authorization"] = headers["Authorization"]
             # Use the same timeout logic for branch server checks
             if timeout is ...:
                 branch_timeout = self.default_request_timeout
@@ -1803,10 +1837,22 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         # then do not retry the credential exchange again.
         # Additional Note: if the user has explicitly provided an Authorization header, we should
         # not attempt to exchange credentials, as they are explicitly managing auth themselves.
-        allow_credential_exchange: bool = True
-        if self._access_token is None and not self._has_authorization_header():
+        allow_credential_exchange: bool
+        if self._web_identity_token_file is not None:
+            # Rotating auth: `_get_headers` supplies a fresh bearer token on every
+            # request, so there is nothing to exchange up front. A 401/403 is still
+            # worth one retry, since the producer may have rotated the file after we
+            # cached it but before the cache deadline lapsed.
+            allow_credential_exchange = True
+        elif self._has_authorization_header():
+            # The caller is managing auth themselves. Exchanging here would overwrite
+            # their header and surface a credentials error in place of the real one.
+            allow_credential_exchange = False
+        elif self._access_token is None:
             self._exchange_credentials()
             allow_credential_exchange = False
+        else:
+            allow_credential_exchange = True
 
         host = self._get_request_host(
             metadata_request=metadata_request,
@@ -1830,9 +1876,14 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         )
 
         if r.status_code in (401, 403) and allow_credential_exchange:
-            # It is possible that credentials expired, or that we changed permissions since we last
-            # got a token. Exchange them and try again
-            self._exchange_credentials()
+            if self._web_identity_token_file is not None:
+                # Drop the cached token so the retry re-reads the file, picking up a
+                # rotation that landed after we cached the previous token.
+                invalidate_web_identity_token(self._web_identity_token_file)
+            else:
+                # It is possible that credentials expired, or that we changed permissions since we last
+                # got a token. Exchange them and try again
+                self._exchange_credentials()
             host = self._get_request_host(
                 metadata_request=metadata_request,
                 environment_override=environment_override,
@@ -1871,22 +1922,40 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             safe_headers = {k: v for k, v in r.headers.items() if k.lower() not in sensitive_headers}
             formatted_headers = "\n".join([f"  {k}: {v}" for k, v in safe_headers.items()])
             # If still authenticated, raise a nice exception
-            raise ChalkCustomException(
-                f"""\
-We weren't able to authenticate you with the Chalk API. Authentication was attempted with the following credentials:
-
+            if self._web_identity_token_file is not None:
+                # Client id, client secret, and `chalk login` are all meaningless under
+                # rotating auth: point at the token file instead.
+                attempted_credentials = f"""\
+    Token File:    {self._web_identity_token_file}
+    Branch:        {self._branch or "<none>"}
+    Environment:   {self._primary_environment or "<none>"}
+    API Server:    {self._api_server or "<none>"}
+    chalkpy:       v{chalkpy_version}"""
+                remediation = f"""\
+The bearer token was read from the file named by {WEB_IDENTITY_TOKEN_FILE_ENV_VAR}. Check that the producer
+is writing a current, unexpired token, and that the environment above matches the token's environment_id
+claim. If you are still having trouble, please contact Chalk support."""
+            else:
+                attempted_credentials = f"""\
     Client ID:     {self._client_id or "<missing>"}
     Client Secret: {"*" * len(self._client_secret or "<missing>")}
     Branch:        {self._branch or "<none>"}
     Environment:   {self._primary_environment or "<none>"}
     API Server:    {self._api_server or "<none>"}
-    chalkpy:       v{chalkpy_version}
-
+    chalkpy:       v{chalkpy_version}"""
+                remediation = f"""\
 If these credentials look incorrect to you, try running
 
 >>> chalk login
 
-from the command line from '{os.getcwd()}'. If you are still having trouble, please contact Chalk support.
+from the command line from '{os.getcwd()}'. If you are still having trouble, please contact Chalk support."""
+            raise ChalkCustomException(
+                f"""\
+We weren't able to authenticate you with the Chalk API. Authentication was attempted with the following credentials:
+
+{attempted_credentials}
+
+{remediation}
 
 Additional Details:
 Response Status Code: {r.status_code}
@@ -6830,8 +6899,15 @@ https://docs.chalk.ai/cli/apply
     def _workflow_auth_context(self, environment: Optional[EnvironmentId]) -> tuple[str | None, str | None, str | None]:
         """Returns (api_server, bearer_token, environment_id) for reaching the
         environment's workflow orchestrator."""
-        if self._access_token is None and not self._has_authorization_header():
+        if (
+            self._web_identity_token_file is None
+            and self._access_token is None
+            and not self._has_authorization_header()
+        ):
             self._exchange_credentials()
+        # Note: under rotating auth `_get_headers` returns a token that is fresh as of
+        # this call, but the orchestrator captures it and does not refresh, so a
+        # long-lived handle can still outlive a short-lived JWT.
         headers = self._get_headers(
             environment_override=environment,
             preview_deployment_id=None,

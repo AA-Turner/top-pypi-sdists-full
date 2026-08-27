@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: awslabs.aws-api-mcp-server
-Version: 1.5.1
+Version: 1.5.2
 Summary: Model Context Protocol (MCP) server for interacting with AWS
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/aws-api-mcp-server/

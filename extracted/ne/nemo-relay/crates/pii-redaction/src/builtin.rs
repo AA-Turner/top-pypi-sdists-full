@@ -9,7 +9,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{Map, Value as Json};
 use sha2::{Digest, Sha256};
 
-use nemo_relay::api::event::{CategoryProfile, Event};
+use nemo_relay::api::event::{CategoryProfile, Event, MetricEnvelope, ScopeCategory};
 use nemo_relay::api::llm::LlmRequest;
 use nemo_relay::api::runtime::{
     BuiltinLlmCodec, EventSanitizeFn, LlmCodecIdentity, LlmSanitizeRequestFn,
@@ -26,7 +26,7 @@ use nemo_relay::plugin::{PluginError, Result as PluginResult};
 use super::component::BuiltinBackendConfig;
 use super::detectors::BuiltinDetector;
 use super::overlay::BuiltinCodecName;
-use super::trajectory::{CustomMarkPayloadPolicy, TrajectorySanitizer};
+use super::trajectory::{CustomMarkPayloadPolicy, TrajectorySanitizer, is_relay_metric_mark};
 
 #[derive(Clone)]
 pub(super) struct CompiledBuiltinBackend {
@@ -186,6 +186,116 @@ impl CompiledBuiltinBackend {
             .unwrap_or(Json::Null)
     }
 
+    /// Sanitize optional metric text without modifying required export fields.
+    fn sanitize_metric_envelope(&self, data: Json) -> Option<Json> {
+        let mut envelope = serde_json::from_value::<MetricEnvelope>(data).ok()?;
+        envelope.validate().ok()?;
+        for (index, measurement) in envelope.measurements.iter_mut().enumerate() {
+            measurement.description = measurement.description.take().and_then(|description| {
+                self.sanitize_metric_string_at_path(
+                    description,
+                    &[
+                        "measurements".to_string(),
+                        index.to_string(),
+                        "description".to_string(),
+                    ],
+                )
+            });
+            measurement.attributes = measurement
+                .attributes
+                .take()
+                .map(|attributes| self.sanitize_metric_attributes(attributes, index));
+        }
+        envelope.validate().ok()?;
+        serde_json::to_value(envelope).ok()
+    }
+
+    /// Sanitize metric text using its payload-relative JSON Pointer.
+    fn sanitize_metric_string_at_path(
+        &self,
+        value: String,
+        path_segments: &[String],
+    ) -> Option<String> {
+        let mut path_segments = path_segments.to_vec();
+        self.sanitize_json_preorder_dfs_at_path(Json::String(value), &mut path_segments)
+            .and_then(|value| value.as_str().map(str::to_string))
+    }
+
+    /// Sanitize string-valued attributes while retaining analytical values.
+    fn sanitize_metric_attributes(&self, attributes: Json, measurement_index: usize) -> Json {
+        let Json::Object(attributes) = attributes else {
+            return attributes;
+        };
+        Json::Object(
+            attributes
+                .into_iter()
+                .filter_map(|(key, value)| {
+                    self.sanitize_metric_attribute(value, measurement_index, &key)
+                        .map(|value| (key, value))
+                })
+                .collect(),
+        )
+    }
+
+    /// Sanitize one metric attribute without changing its scalar type.
+    fn sanitize_metric_attribute(
+        &self,
+        value: Json,
+        measurement_index: usize,
+        attribute_key: &str,
+    ) -> Option<Json> {
+        let base_path = [
+            "measurements".to_string(),
+            measurement_index.to_string(),
+            "attributes".to_string(),
+            escape_json_pointer_segment(attribute_key),
+        ];
+        match value {
+            Json::String(value) => self
+                .sanitize_metric_string_at_path(value, &base_path)
+                .map(Json::String),
+            Json::Array(values) if values.iter().all(Json::is_string) => {
+                if matches!(self.action, BuiltinAction::Remove)
+                    && self.matches_current_preorder_path(&base_path)
+                {
+                    return None;
+                }
+                Some(Json::Array(
+                    values
+                        .into_iter()
+                        .enumerate()
+                        .filter_map(|(index, value)| match value {
+                            Json::String(value) => self
+                                .sanitize_metric_string_at_path(
+                                    value,
+                                    &[
+                                        base_path[0].clone(),
+                                        base_path[1].clone(),
+                                        base_path[2].clone(),
+                                        base_path[3].clone(),
+                                        index.to_string(),
+                                    ],
+                                )
+                                .map(Json::String),
+                            _ => unreachable!("checked all metric attribute values are strings"),
+                        })
+                        .collect(),
+                ))
+            }
+            value => Some(value),
+        }
+    }
+
+    fn sanitize_tool_result_annotation(&self, profile: &mut CategoryProfile) {
+        let Some(annotation) = profile.tool_result_annotation.take() else {
+            return;
+        };
+        let sanitized = self.sanitize_json_preorder_dfs(annotation);
+        if !sanitized.is_null() {
+            profile.tool_result_annotation = Some(sanitized);
+        }
+    }
+
     fn sanitize_json_preorder_dfs_at_path(
         &self,
         value: Json,
@@ -304,6 +414,10 @@ impl CompiledBuiltinBackend {
             LlmCodecIdentity::BuiltIn(BuiltinLlmCodec::AnthropicMessages) => {
                 Some(ProviderSurface::AnthropicMessages)
             }
+            LlmCodecIdentity::BuiltIn(BuiltinLlmCodec::OCIGenAI) => Some(ProviderSurface::OCIGenAI),
+            LlmCodecIdentity::BuiltIn(BuiltinLlmCodec::GeminiGenerateContent) => {
+                Some(ProviderSurface::GeminiGenerateContent)
+            }
             LlmCodecIdentity::Runtime(_) | LlmCodecIdentity::Opaque => None,
         }
     }
@@ -396,7 +510,19 @@ impl CompiledBuiltinBackend {
                 .get("choices")
                 .and_then(Json::as_array)
                 .is_some_and(|choices| choices.len() > 1)
-            && self.targets_normalized_openai_chat_choice()
+            && self.targets_normalized_single_projected_response()
+        {
+            return None;
+        }
+        // Gemini responses with multiple candidates: the normalized layer only projects
+        // candidate[0], so candidate[1+] would survive in the raw payload unredacted.
+        // Fail closed identically to the OpenAI Chat multi-choice guard.
+        if surface == ProviderSurface::GeminiGenerateContent
+            && payload
+                .get("candidates")
+                .and_then(Json::as_array)
+                .is_some_and(|candidates| candidates.len() > 1)
+            && self.targets_normalized_single_projected_response()
         {
             return None;
         }
@@ -446,7 +572,7 @@ impl CompiledBuiltinBackend {
         })
     }
 
-    fn targets_normalized_openai_chat_choice(&self) -> bool {
+    fn targets_normalized_single_projected_response(&self) -> bool {
         self.target_paths.iter().any(|path| {
             json_pointer_segments(path)
                 .and_then(|segments| segments.into_iter().next())
@@ -509,12 +635,37 @@ fn event_sanitize_callback_with_scope_categories(
             if let Some(trajectory) = backend.trajectory.as_ref() {
                 return Ok(trajectory.sanitize_event_fields(&event, fields));
             }
+            if is_relay_metric_mark(&event) {
+                fields.data = fields
+                    .data
+                    .and_then(|data| backend.sanitize_metric_envelope(data));
+                fields.metadata = fields
+                    .metadata
+                    .map(|metadata| backend.sanitize_json_preorder_dfs(metadata));
+                fields.category_profile = fields.category_profile.and_then(|profile| {
+                    sanitize_serializable_with_backend::<CategoryProfile>(&backend, profile).ok()
+                });
+                return Ok(fields);
+            }
             let specialized_scope = matches!(event.as_ref(), Event::Scope(_))
                 && event
                     .category()
                     .is_some_and(|category| matches!(category.as_str(), "tool" | "llm"));
 
-            if !specialized_scope {
+            if specialized_scope {
+                let sanitize_tool_annotation = scope_categories
+                    .is_some_and(|(_, sanitize_tool)| sanitize_tool)
+                    && event.scope_category() == Some(ScopeCategory::End)
+                    && event
+                        .category()
+                        .is_some_and(|category| category.as_str() == "tool");
+                if sanitize_tool_annotation {
+                    fields.category_profile = fields.category_profile.map(|mut profile| {
+                        backend.sanitize_tool_result_annotation(&mut profile);
+                        profile
+                    });
+                }
+            } else {
                 fields.data = fields
                     .data
                     .map(|data| backend.sanitize_json_preorder_dfs(data));

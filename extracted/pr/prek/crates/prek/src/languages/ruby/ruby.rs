@@ -24,6 +24,7 @@ impl LanguageBackend for Ruby {
         &self,
         store: &Store,
         hook: Arc<Hook>,
+        install_cwd: &Path,
         reporter: &HookInstallReporter,
     ) -> Result<InstalledHook> {
         let progress = reporter.on_install_start(&hook);
@@ -35,7 +36,7 @@ impl LanguageBackend for Ruby {
         let request: &RubyRequest = hook.language_request.version();
 
         let ruby = installer
-            .install(store, request, hook.language_request.allows_download())
+            .install(store, request, hook.language_request.toolchain_policy())
             .await
             .context("Failed to install Ruby")?;
 
@@ -71,6 +72,7 @@ impl LanguageBackend for Ruby {
             &gem_home,
             hook.repo_path(),
             &hook.additional_dependencies,
+            install_cwd,
         )
         .await
         .context("Failed to install gems")?;

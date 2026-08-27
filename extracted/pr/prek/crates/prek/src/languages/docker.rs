@@ -447,6 +447,7 @@ impl LanguageBackend for Docker {
         &self,
         store: &Store,
         hook: Arc<Hook>,
+        _install_cwd: &Path,
         reporter: &HookInstallReporter,
     ) -> Result<InstalledHook> {
         let progress = reporter.on_install_start(&hook);
@@ -494,7 +495,7 @@ impl LanguageBackend for Docker {
         )
         .await
         .context("Failed to build docker image")?;
-        let entry = hook.entry.expect_direct().split()?;
+        let entry = hook.entry.expect_argv_entry().split()?;
 
         let run = async |batch: &[&Path]| {
             // docker run [OPTIONS] IMAGE [COMMAND] [ARG...]

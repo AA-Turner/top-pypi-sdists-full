@@ -52,6 +52,43 @@ class AccessInfo(TypedDict):
     will expire"""
 
 
+INACTIVE_APPLICATION_MESSAGE = (
+    "Your Strava API application is inactive, so Strava refuses every "
+    "request. The account that owns the application needs an active "
+    "Strava subscription. Log in with that account, subscribe, then "
+    "reactivate the application at https://www.strava.com/settings/api. "
+    "See "
+    "https://support.strava.com/en-us/articles/15401526-strava-api-and-mcp-faq"
+    " for details."
+)
+
+
+def _is_application_inactive(errors: list[Any]) -> bool:
+    """Checks whether a Strava error payload reports an inactive app.
+
+    Strava marks an application inactive when the account owning it has
+    no active subscription. It then answers every request with a 403
+    and an error entry identifying the application status.
+
+    Parameters
+    ----------
+    errors
+        The error entries from a Strava error response body.
+
+    Returns
+    -------
+    bool
+        True if the errors report an inactive application.
+    """
+    return any(
+        isinstance(error, dict)
+        and error.get("resource") == "Application"
+        and error.get("field") == "Status"
+        and error.get("code") == "Inactive"
+        for error in errors
+    )
+
+
 class ApiV3(metaclass=abc.ABCMeta):
     """This class is responsible for performing the HTTP requests, rate
     limiting, and error handling."""
@@ -164,6 +201,7 @@ class ApiV3(metaclass=abc.ABCMeta):
         params: dict[str, Any] | None = None,
         files: dict[str, SupportsRead[str | bytes]] | None = None,
         body: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
         method: RequestMethod = "GET",
         check_for_errors: bool = True,
     ) -> Any:
@@ -178,7 +216,9 @@ class ApiV3(metaclass=abc.ABCMeta):
         url : str
             The request URL.
         params : Dict[str,Any]
-            Request parameters sent as the URL query string.
+            Request parameters sent as the URL query string. Note that the
+            access token is not sent here; it is sent in the
+            `Authorization` request header.
         files : Dict[str,file]
             Dictionary of file name to file-like objects.
         body : Dict[str,Any]
@@ -186,6 +226,11 @@ class ApiV3(metaclass=abc.ABCMeta):
             endpoints that expect a JSON payload (e.g. PUT) so that values
             such as booleans are serialized as proper JSON types rather than
             query-string strings.
+        data : Dict[str,Any]
+            Request data sent as a form-encoded request body. Use this where
+            the endpoint expects form-encoded parameters, or to keep a
+            credential out of the URL query string, because URLs are logged
+            (RFC 6749 2.3.1).
         method : str
             The request method (GET/POST/etc.)
         check_for_errors : bool
@@ -197,16 +242,32 @@ class ApiV3(metaclass=abc.ABCMeta):
             The parsed JSON response.
         """
 
+        # The token endpoint authenticates with the client id and secret, so
+        # it gets no access token. On the refresh path that token is expired
+        # by definition.
+        is_token_request = "/oauth/token" in url
+
         # Only refresh token if we know the users' environment is setup
-        if "/oauth/token" not in url and self.client_id and self.client_secret:
+        if not is_token_request and self.client_id and self.client_secret:
             self.refresh_expired_token()
 
         url = self.resolve_url(url)
-        self.log.info(f"{method} {url!r} with params {params!r}")
+        # Log the names only. The token endpoint carries the client
+        # secret and the refresh token, and an application that sets this
+        # logger to INFO writes them to its own log file (issue #740).
+        sent_keys = sorted((params or {}) | (data or {}))
+        self.log.info(f"{method} {url!r} with params {sent_keys}")
         if params is None:
             params = {}
-        if self.access_token:
-            params["access_token"] = self.access_token
+
+        # Send the token as a bearer token in the request header. RFC 6750
+        # advises against the URL query parameter because URLs are often
+        # logged. The header is also the only method that Strava documents.
+        headers = (
+            {"Authorization": f"Bearer {self.access_token}"}
+            if self.access_token and not is_token_request
+            else {}
+        )
 
         methods = {
             "GET": self.rsession.get,
@@ -222,7 +283,9 @@ class ApiV3(metaclass=abc.ABCMeta):
                 f"Invalid/unsupported request method specified: {method}"
             )
 
-        raw = requester(url, params=params, json=body)  # type: ignore[operator]
+        raw = requester(  # type: ignore[operator]
+            url, params=params, data=data, json=body, headers=headers
+        )
         # Rate limits are taken from HTTP response headers
         # https://developers.strava.com/docs/rate-limits/
         if "/oauth/" not in url:
@@ -400,7 +463,7 @@ class ApiV3(metaclass=abc.ABCMeta):
         # The method returns: No rates present in response headers
         response = self._request(
             f"https://{self.server}/oauth/token",
-            params={
+            data={
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "code": code,
@@ -455,7 +518,7 @@ class ApiV3(metaclass=abc.ABCMeta):
         """
         response = self._request(
             f"https://{self.server}/oauth/token",
-            params={
+            data={
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "refresh_token": refresh_token,
@@ -512,16 +575,26 @@ class ApiV3(metaclass=abc.ABCMeta):
             If the response contains an error.
         """
         error_str = None
+        errors: list[Any] = []
         try:
             json_response = response.json()
         except ValueError:
             pass
         else:
-            if "message" in json_response or "errors" in json_response:
+            if isinstance(json_response, dict) and (
+                "message" in json_response or "errors" in json_response
+            ):
+                raw_errors = json_response.get("errors")
                 error_str = "{}: {}".format(
                     json_response.get("message", "Undefined error"),
-                    json_response.get("errors"),
+                    raw_errors,
                 )
+                # Strava documents "errors" as an array, but a single
+                # object is handled too, as it is in ActivityUploader.
+                if isinstance(raw_errors, list):
+                    errors = raw_errors
+                elif isinstance(raw_errors, dict):
+                    errors = [raw_errors]
 
         # Special subclasses for some errors
         if response.status_code == 404:
@@ -530,6 +603,9 @@ class ApiV3(metaclass=abc.ABCMeta):
         elif response.status_code == 401:
             msg = f"{response.reason}: {error_str}"
             raise exc.AccessUnauthorized(msg, response=response)
+        elif response.status_code == 403 and _is_application_inactive(errors):
+            msg = f"{INACTIVE_APPLICATION_MESSAGE} [{error_str}]"
+            raise exc.ApplicationInactive(msg, response=response)
         elif 400 <= response.status_code < 500:
             msg = f"{response.status_code} Client Error: {response.reason} [{error_str}]"
             raise exc.Fault(msg, response=response)
@@ -601,6 +677,7 @@ class ApiV3(metaclass=abc.ABCMeta):
         url: str,
         files: dict[str, SupportsRead[str | bytes]] | None = None,
         check_for_errors: bool = True,
+        data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
         """Performs a generic POST request for specified params, returning the
@@ -614,6 +691,11 @@ class ApiV3(metaclass=abc.ABCMeta):
             Dictionary of file name to file-like objects. Used by _requests
         check_for_errors: bool
             Whether to raise an error (or not)
+        data : dict, optional
+            Data to send as a form-encoded request body. Use this to keep a
+            credential out of the URL query string. Remaining keyword
+            arguments are used to format the URL and are sent as
+            query-string parameters.
 
         Returns
         -------
@@ -627,6 +709,7 @@ class ApiV3(metaclass=abc.ABCMeta):
             url,
             params=params,
             files=files,
+            data=data,
             method="POST",
             check_for_errors=check_for_errors,
         )
@@ -669,7 +752,11 @@ class ApiV3(metaclass=abc.ABCMeta):
         )
 
     def delete(
-        self, url: str, check_for_errors: bool = True, **kwargs: Any
+        self,
+        url: str,
+        check_for_errors: bool = True,
+        data: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> Any:
         """Performs a generic DELETE request for specified params, returning
         the response.
@@ -680,6 +767,11 @@ class ApiV3(metaclass=abc.ABCMeta):
             String representing url to access.
         check_for_errors: bool
             Whether to raise an error (or not)
+        data : dict, optional
+            Data to send as a form-encoded request body. Use this to keep a
+            credential out of the URL query string. Remaining keyword
+            arguments are used to format the URL and are sent as
+            query-string parameters.
 
         Returns
         -------
@@ -691,6 +783,7 @@ class ApiV3(metaclass=abc.ABCMeta):
         return self._request(
             url,
             params=params,
+            data=data,
             method="DELETE",
             check_for_errors=check_for_errors,
         )

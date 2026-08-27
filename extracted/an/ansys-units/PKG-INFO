@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansys-units
-Version: 0.12.1
+Version: 0.13.0
 Summary: Pythonic interface for units, unit systems, and unit conversions.
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -22,31 +22,31 @@ Requires-Dist: pandas-stubs>=2 ; extra == "additional"
 Requires-Dist: pydantic>=2.11.7 ; extra == "additional"
 Requires-Dist: pydantic_core>=2.33.2 ; extra == "additional"
 Requires-Dist: basedpyright ; extra == "ci-types"
-Requires-Dist: matplotlib==3.10.8 ; extra == "ci-types"
+Requires-Dist: matplotlib==3.10.9 ; extra == "ci-types"
 Requires-Dist: pandas>=3.0.0 ; extra == "ci-types" and ( python_version >= '3.11')
 Requires-Dist: pandas>=2.2,<3.0 ; extra == "ci-types" and ( python_version < '3.11')
 Requires-Dist: pandas-stubs>=2 ; extra == "ci-types"
 Requires-Dist: pydantic>=2.11.7 ; extra == "ci-types"
 Requires-Dist: pydantic_core>=2.33.2 ; extra == "ci-types"
-Requires-Dist: pytest==9.0.3 ; extra == "ci-types"
+Requires-Dist: pytest==9.1.1 ; extra == "ci-types"
 Requires-Dist: pytest-cov==7.1.0 ; extra == "ci-types"
 Requires-Dist: pytest-mock==3.15.1 ; extra == "ci-types"
 Requires-Dist: pint==0.24.4 ; extra == "ci-types"
-Requires-Dist: black==26.3.1 ; extra == "ci-types"
-Requires-Dist: ansys-sphinx-theme==1.7.2 ; extra == "doc"
+Requires-Dist: black==26.5.1 ; extra == "ci-types"
+Requires-Dist: ansys-sphinx-theme==1.9.0 ; extra == "doc"
 Requires-Dist: pdf2image==1.17.0 ; extra == "doc"
-Requires-Dist: quarto-cli==1.9.37 ; extra == "doc"
-Requires-Dist: matplotlib==3.10.8 ; extra == "doc"
+Requires-Dist: quarto-cli==1.9.38 ; extra == "doc"
+Requires-Dist: matplotlib==3.10.9 ; extra == "doc"
 Requires-Dist: numpydoc==1.10.0 ; extra == "doc"
 Requires-Dist: Sphinx==7.4.7 ; extra == "doc"
 Requires-Dist: sphinx-copybutton==0.5.2 ; extra == "doc"
-Requires-Dist: sphinx-gallery==0.20.0 ; extra == "doc"
+Requires-Dist: sphinx-gallery==0.21.0 ; extra == "doc"
 Requires-Dist: sphinx-toggleprompt==0.6.0 ; extra == "doc"
 Requires-Dist: numpy>=1.24,<3 ; extra == "tests"
 Requires-Dist: pandas>=3.0.0 ; extra == "tests" and ( python_version >= '3.11')
 Requires-Dist: pandas>=2.2,<3.0 ; extra == "tests" and ( python_version < '3.11')
 Requires-Dist: pandas-stubs>=2 ; extra == "tests"
-Requires-Dist: pytest==9.0.3 ; extra == "tests"
+Requires-Dist: pytest==9.1.1 ; extra == "tests"
 Requires-Dist: pytest-cov==7.1.0 ; extra == "tests"
 Requires-Dist: pytest-mock==3.15.1 ; extra == "tests"
 Requires-Dist: pint==0.24.4 ; extra == "tests"

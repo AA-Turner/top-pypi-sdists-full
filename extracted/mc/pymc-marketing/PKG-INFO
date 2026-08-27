@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pymc-marketing
-Version: 1.0.0
+Version: 1.1.0
 Summary: Marketing Statistical Models in PyMC
 Project-URL: repository, https://github.com/pymc-labs/pymc-marketing
 Project-URL: homepage, https://www.pymc-marketing.io
@@ -221,18 +221,18 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Typing :: Typed
 Requires-Python: >=3.12
 Requires-Dist: arviz-plots[matplotlib]<2.0,>=1.2.0
+Requires-Dist: arviz-stats<2.0,>=1.2.0
 Requires-Dist: arviz<2.0,>=1.2.0
-Requires-Dist: matplotlib<3.11,>=3.5.1
+Requires-Dist: matplotlib>=3.5.1
 Requires-Dist: narwhals
-Requires-Dist: numpy<3.0,>=2.0
+Requires-Dist: numpy<2.5,>=2.0
 Requires-Dist: pandas
 Requires-Dist: patsy
 Requires-Dist: preliz<1.0,>=0.20.0
 Requires-Dist: pydantic>=2.1.0
-Requires-Dist: pymc-extras<0.13.0,>=0.11.0
-Requires-Dist: pymc<6.1.0,>=6.0.0
+Requires-Dist: pymc-extras<0.15.0,>=0.14.0
+Requires-Dist: pymc<6.3.0,>=6.2.0
 Requires-Dist: pyprojroot
-Requires-Dist: pytensor<4.0,>=3.0.0
 Requires-Dist: pyyaml
 Requires-Dist: scikit-learn>=1.1.1
 Requires-Dist: seaborn>=0.12.2
@@ -290,6 +290,7 @@ Requires-Dist: graphviz>=0.20.1; extra == 'test'
 Requires-Dist: h5netcdf>=1.8.1; extra == 'test'
 Requires-Dist: h5py>=3.16.0; extra == 'test'
 Requires-Dist: ipykernel; extra == 'test'
+Requires-Dist: ipywidgets>=8.1.8; extra == 'test'
 Requires-Dist: jax; extra == 'test'
 Requires-Dist: mlflow>=2.0.0; extra == 'test'
 Requires-Dist: networkx; extra == 'test'

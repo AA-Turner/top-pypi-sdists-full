@@ -7,8 +7,8 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class DubbingStartData(UniversalBaseModel):
-    job_id: typing.Optional[str] = None
-    status: typing.Optional[str] = pydantic.Field(default=None)
+    job_id: str
+    status: str = pydantic.Field()
     """
     Job status after starting, e.g. `processing`.
     """

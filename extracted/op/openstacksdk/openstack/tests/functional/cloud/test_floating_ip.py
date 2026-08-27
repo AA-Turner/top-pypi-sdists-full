@@ -54,7 +54,7 @@ class TestFloatingIP(base.BaseFunctionalTest):
                 try:
                     if r['name'].startswith(self.new_item_name):
                         self.user_cloud.update_router(
-                            r, ext_gateway_net_id=None
+                            r['id'], ext_gateway_net_id=None
                         )
                         for s in self.user_cloud.list_subnets():
                             if s['name'].startswith(self.new_item_name):
@@ -182,7 +182,7 @@ class TestFloatingIP(base.BaseFunctionalTest):
             data = proxy._json_response(
                 self.user_cloud.compute.get('/os-tenant-networks')
             )
-            nets = meta.get_and_munchify('networks', data)
+            nets = meta.get_and_munchify('networks', data)  # type: ignore[arg-type]
             self.addDetail(
                 'networks-nova', content.text_content(pprint.pformat(nets))
             )
@@ -226,7 +226,9 @@ class TestFloatingIP(base.BaseFunctionalTest):
             ip = meta.get_server_external_ipv4(self.user_cloud, new_server)
             if ip is not None:
                 break
-            new_server = self.user_cloud.get_server(new_server.id)
+            fetched_server = self.user_cloud.get_server(new_server.id)
+            assert fetched_server is not None
+            new_server = fetched_server
 
         self.addCleanup(self._cleanup_ips, new_server)
 
@@ -250,13 +252,16 @@ class TestFloatingIP(base.BaseFunctionalTest):
             ip = meta.get_server_external_ipv4(self.user_cloud, new_server)
             if ip is not None:
                 break
-            new_server = self.user_cloud.get_server(new_server.id)
+            fetched_server = self.user_cloud.get_server(new_server.id)
+            assert fetched_server is not None
+            new_server = fetched_server
 
         self.addCleanup(self._cleanup_ips, new_server)
 
         f_ip = self.user_cloud.get_floating_ip(
             id=None, filters={'floating_ip_address': ip}
         )
+        assert f_ip is not None
         self.user_cloud.detach_ip_from_server(
             server_id=new_server.id, floating_ip_id=f_ip['id']
         )

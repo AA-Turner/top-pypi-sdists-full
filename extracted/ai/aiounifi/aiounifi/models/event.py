@@ -27,6 +27,7 @@ class EventKey(enum.Enum):
     ACCESS_POINT_DELETED = "EVT_AP_Deleted"
     ACCESS_POINT_DETECT_ROGUE_AP = "EVT_AP_DetectRogueAP"
     ACCESS_POINT_DISCOVERED_PENDING = "EVT_AP_DiscoveredPending"
+    ACCESS_POINT_HOST_KEY_MISMATCH = "EVT_AP_HostKeyMismatch"
     ACCESS_POINT_ISOLATED = "EVT_AP_Isolated"
     ACCESS_POINT_LOST_CONTACT = "EVT_AP_Lost_Contact"
     ACCESS_POINT_POSSIBLE_INTERFERENCE = "EVT_AP_PossibleInterference"
@@ -36,6 +37,8 @@ class EventKey(enum.Enum):
     ACCESS_POINT_UPGRADE_SCHEDULED = "EVT_AP_UpgradeScheduled"
     ACCESS_POINT_UPGRADE_FAILED = "EVT_AP_UpgradeFailed"
     ACCESS_POINT_UPGRADED = "EVT_AP_Upgraded"
+
+    BUILDING_BRIDGE_CHANNEL_CHANGED = "EVT_BB_ChannelChanged"
 
     DREAM_MACHINE_CONNECTED = "EVT_DM_Connected"
     DREAM_MACHINE_LOST_CONTACT = "EVT_DM_Lost_Contact"

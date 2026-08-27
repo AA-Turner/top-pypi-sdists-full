@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cached_property
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import msgpack
@@ -18,8 +19,6 @@ from robocop.config import defaults
 from robocop.source_file import SourceFile
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from robocop.config.schema import Config
     from robocop.linter.diagnostics import Diagnostic
     from robocop.runtime.resolved_config import ResolvedConfig
@@ -196,6 +195,87 @@ class FormatterCacheEntry:
         )
 
 
+@dataclass(frozen=True)
+class LibraryCacheEntry:
+    """Immutable cache entry with the keywords of an imported library."""
+
+    metadata: FileMetadata
+    environment_hash: str
+    source: str
+    response: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert to dictionary for serialization.
+
+        Returns:
+            Dictionary representation of the library cache entry.
+
+        """
+        return {
+            "mtime": self.metadata.mtime,
+            "size": self.metadata.size,
+            "environment_hash": self.environment_hash,
+            "source": self.source,
+            "response": self.response,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> LibraryCacheEntry:
+        """
+        Create from dictionary loaded from cache.
+
+        Returns:
+            LibraryCacheEntry: The library cache entry object.
+
+        """
+        return cls(
+            metadata=FileMetadata(mtime=data["mtime"], size=data["size"]),
+            environment_hash=data["environment_hash"],
+            source=data["source"],
+            response=data["response"],
+        )
+
+
+@dataclass(frozen=True)
+class ProjectCacheEntry:
+    """Immutable cache entry with the data collected from a single source file."""
+
+    metadata: FileMetadata
+    config_hash: str
+    collected: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert to dictionary for serialization.
+
+        Returns:
+            Dictionary representation of the project cache entry.
+
+        """
+        return {
+            "mtime": self.metadata.mtime,
+            "size": self.metadata.size,
+            "config_hash": self.config_hash,
+            "collected": self.collected,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ProjectCacheEntry:
+        """
+        Create from dictionary loaded from cache.
+
+        Returns:
+            ProjectCacheEntry: The project cache entry object.
+
+        """
+        return cls(
+            metadata=FileMetadata(mtime=data["mtime"], size=data["size"]),
+            config_hash=data["config_hash"],
+            collected=data["collected"],
+        )
+
+
 @dataclass
 class CacheData:
     """Mutable container for cache data."""
@@ -203,6 +283,8 @@ class CacheData:
     robocop_version: str = field(default_factory=lambda: __version__)
     linter: dict[str, LinterCacheEntry] = field(default_factory=dict)
     formatter: dict[str, FormatterCacheEntry] = field(default_factory=dict)
+    libraries: dict[str, LibraryCacheEntry] = field(default_factory=dict)
+    project: dict[str, ProjectCacheEntry] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -216,6 +298,8 @@ class CacheData:
             "robocop_version": self.robocop_version,
             "linter": {path: entry.to_dict() for path, entry in self.linter.items()},
             "formatter": {path: entry.to_dict() for path, entry in self.formatter.items()},
+            "libraries": {key: entry.to_dict() for key, entry in self.libraries.items()},
+            "project": {path: entry.to_dict() for path, entry in self.project.items()},
         }
 
     @classmethod
@@ -231,6 +315,8 @@ class CacheData:
             robocop_version=data.get("robocop_version", ""),
             linter={path: LinterCacheEntry.from_dict(entry) for path, entry in data.get("linter", {}).items()},
             formatter={path: FormatterCacheEntry.from_dict(entry) for path, entry in data.get("formatter", {}).items()},
+            libraries={key: LibraryCacheEntry.from_dict(entry) for key, entry in data.get("libraries", {}).items()},
+            project={path: ProjectCacheEntry.from_dict(entry) for path, entry in data.get("project", {}).items()},
         )
 
 
@@ -500,6 +586,108 @@ class RobocopCache:
         )
         str_path = self._normalize_path(path)
         self.data.formatter[str_path] = entry
+        self._dirty = True
+
+    # Library cache methods
+
+    def get_library_entry(self, key: str, environment_hash: str) -> dict[str, Any] | None:
+        """
+        Get the cached response of the library import if it is still valid.
+
+        The entry is invalidated when the library source file changes or when the environment used to import it
+        (Python interpreter, Robot Framework version) is different.
+
+        Args:
+            key: Key identifying the library import (name and arguments).
+            environment_hash: Hash of the environment used to import libraries.
+
+        Returns:
+            Cached worker response if valid, None otherwise.
+
+        """
+        if not self.enabled:
+            return None
+        entry = self.data.libraries.get(key)
+        if entry is None:
+            return None
+        if not self._is_entry_valid(Path(entry.source), entry.metadata, environment_hash, entry.environment_hash):
+            del self.data.libraries[key]
+            self._dirty = True
+            return None
+        return entry.response
+
+    def set_library_entry(self, key: str, environment_hash: str, source: Path, response: dict[str, Any]) -> None:
+        """
+        Store the response of the library import in the cache.
+
+        Args:
+            key: Key identifying the library import (name and arguments).
+            environment_hash: Hash of the environment used to import libraries.
+            source: Source file of the imported library, used to invalidate the entry.
+            response: Response returned by the library import process.
+
+        """
+        if not self.enabled:
+            return
+        try:
+            metadata = FileMetadata.from_path(source)
+        except OSError:
+            return
+        self.data.libraries[key] = LibraryCacheEntry(
+            metadata=metadata,
+            environment_hash=environment_hash,
+            source=str(source),
+            response=response,
+        )
+        self._dirty = True
+
+    # Project cache methods
+
+    def get_project_entry(self, path: Path, config_hash: str) -> dict[str, Any] | None:
+        """
+        Get the data collected from the source file if it is still valid.
+
+        Args:
+            path: Absolute path to the source file.
+            config_hash: Hash of the configuration that affects parsing and collecting.
+
+        Returns:
+            Cached collected data if valid, None otherwise.
+
+        """
+        if not self.enabled:
+            return None
+        str_path = self._normalize_path(path)
+        entry = self.data.project.get(str_path)
+        if entry is None:
+            return None
+        if not self._is_entry_valid(path, entry.metadata, config_hash, entry.config_hash):
+            del self.data.project[str_path]
+            self._dirty = True
+            return None
+        return entry.collected
+
+    def set_project_entry(self, path: Path, config_hash: str, collected: dict[str, Any]) -> None:
+        """
+        Store the data collected from the source file in the cache.
+
+        Args:
+            path: Absolute path to the source file.
+            config_hash: Hash of the configuration that affects parsing and collecting.
+            collected: Serialized data collected from the file.
+
+        """
+        if not self.enabled:
+            return
+        try:
+            metadata = FileMetadata.from_path(path)
+        except OSError:
+            return
+        self.data.project[self._normalize_path(path)] = ProjectCacheEntry(
+            metadata=metadata,
+            config_hash=config_hash,
+            collected=collected,
+        )
         self._dirty = True
 
 

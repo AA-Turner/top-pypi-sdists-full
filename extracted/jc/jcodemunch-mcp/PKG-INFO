@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jcodemunch-mcp
-Version: 1.108.299
+Version: 1.108.301
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -244,9 +244,9 @@ That's the highlight reel. The complete tour of 90+ tools, the MUNCH compact wir
 <!-- WHATSNEW:START -->
 #### What's new
 
+- **[v1.108.301](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.301)** (2026-08-26) — Green on a defect, three times
+- **[v1.108.300](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.300)** (2026-08-26) — Wider than reported
 - **[v1.108.299](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.299)** (2026-08-25) — A name the file never spells
-- **[v1.108.298](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.298)** (2026-08-25) — A campaign that saw nothing
-- **[v1.108.297](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.297)** (2026-08-25) — The counter that never moved
 <!-- WHATSNEW:END -->
 
 ---
@@ -309,6 +309,39 @@ Deferred definitions are excluded from the system-prompt prefix and appended inl
 ## Security, privacy, and background behavior
 
 Local-first by design: indexes live at `~/.code-index/`, and the base package's only default network behavior is an anonymous savings counter (random ID plus aggregate token counts, no code, no paths, no PII; opt out with `share_savings: false`). Everything the server does beyond answering a tool call (file watching, the opt-in login service, license validation, model downloads, org reporting) is opt-in or opt-out, visible, and reversible, and every item is enumerated in **[SECURITY.md](SECURITY.md#background-behavior-fully-disclosed)** alongside the path-traversal, symlink, and secret-redaction controls.
+
+---
+
+## Per-project configuration
+
+Most settings live in the global `~/.code-index/config.jsonc`, but any of them can be overridden for a single repository by dropping a `.jcodemunch.jsonc` at its root. It is an **overlay**: keys it declares win, keys it omits fall through to global and then to the built-in default, so it only needs to contain what differs.
+
+```jsonc
+// <your-repo>/.jcodemunch.jsonc
+{
+  "max_file_size": 1048576,
+  "languages": ["python", "typescript", "racket"]
+}
+```
+
+### Declaring Racket defining forms
+
+Racket projects routinely define their own defining forms with `define-syntax`, and a static parser cannot know what those bind — `(defstep (check-admin) ...)` is indistinguishable from a function call. Declaring them makes their bindings searchable:
+
+```jsonc
+{
+  "racket_definition_forms": {
+    "defstep":  "function",
+    "defstudy": "constant",
+    "defvar":   "constant",
+    "define-schema": "class"
+  }
+}
+```
+
+Each entry maps a form name to what it binds: `function`, `constant`, `class` or `type`. Where the name sits is read from the source rather than declared — `(defstep (check-admin) ...)` takes the head of the parameter list, `(defstudy consent ...)` takes the bare symbol — so a form that appears in both shapes works either way.
+
+⚠ This is an assertion, not something jCodeMunch can verify. A wrong declaration puts a name in the index that Racket does not actually bind. Declarations are also matched only after every built-in form, so declaring `define` or `struct` has no effect — the built-in handling wins.
 
 ---
 

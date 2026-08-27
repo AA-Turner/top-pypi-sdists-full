@@ -24,6 +24,7 @@ CODEC_H264: str = ...  # From codec_detect
 CODEC_H265: str = ...  # From codec_detect
 DEFAULT_CODEC: Any = ...  # From codec_detect
 logger: Any = ...  # From codec_detect
+logger: Any = ...  # From databus_backpressure
 logger: Any = ...  # From frame_optimizer
 DEFAULT_MAX_ENTRIES: int = ...  # From rtp_correlation
 GST_CLOCK_TIME_NONE: int = ...  # From rtp_correlation
@@ -162,6 +163,14 @@ class BackpressurePublisher:
     """
 
     def __init__(self: Any, producer: Any, camera_id: str, maxsize: Optional[int] = None, policy: Optional[BackpressurePolicy] = None) -> None: ...
+
+    def consume_overwrite_events(self: Any) -> int: ...
+        """
+        Return and zero the overwrite count accumulated since the last call.
+        
+                Keeps the wire counter a per-window delta so it does not smear across windows;
+                ``metrics.frames_overwritten`` remains the cumulative total.
+        """
 
     def depth(self: Any) -> int: ...
 

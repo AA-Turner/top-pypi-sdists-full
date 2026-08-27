@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.27.1
+Version: 0.28.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -30,6 +30,7 @@ Requires-Dist: tqdm
 Requires-Dist: blake3
 Requires-Dist: py-cpuinfo
 Requires-Dist: transformers>=5.5.3
+Requires-Dist: huggingface_hub>=1.27.0
 Requires-Dist: tokenizers>=0.21.1
 Requires-Dist: safetensors>=0.6.2
 Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6
@@ -88,13 +89,13 @@ Requires-Dist: apache-tvm-ffi==0.1.11
 Requires-Dist: tilelang==0.1.12
 Requires-Dist: nvidia-cudnn-frontend>=1.19.1
 Requires-Dist: nvtx==0.2.15
-Requires-Dist: fastsafetensors>=0.3.2
-Requires-Dist: nvidia-cutlass-dsl[cu13]==4.6.0
-Requires-Dist: quack-kernels==0.6.1
+Requires-Dist: fastsafetensors>=0.3.3
+Requires-Dist: nvidia-cutlass-dsl[cu13]==4.6.2
+Requires-Dist: quack-kernels==0.6.4
 Requires-Dist: tokenspeed-mla==0.1.8; platform_system == "Linux"
-Requires-Dist: humming-kernels[cu13]==0.1.10
+Requires-Dist: humming-kernels[cu13]==0.1.12
 Provides-Extra: zen
-Requires-Dist: zentorch==2.11.0.0; extra == "zen"
+Requires-Dist: zentorch==2.13.0.0; extra == "zen"
 Provides-Extra: bench
 Requires-Dist: pandas; extra == "bench"
 Requires-Dist: matplotlib; extra == "bench"
@@ -105,7 +106,7 @@ Requires-Dist: plotly; extra == "bench"
 Provides-Extra: tensorizer
 Requires-Dist: tensorizer==2.10.1; extra == "tensorizer"
 Provides-Extra: fastsafetensors
-Requires-Dist: fastsafetensors>=0.3.2; extra == "fastsafetensors"
+Requires-Dist: fastsafetensors>=0.3.3; extra == "fastsafetensors"
 Provides-Extra: instanttensor
 Requires-Dist: instanttensor>=0.1.9; extra == "instanttensor"
 Provides-Extra: runai
@@ -120,6 +121,8 @@ Provides-Extra: video
 Provides-Extra: deepstream
 Requires-Dist: nvidia-deepstream-videodecode-cu13>=9.0.2; extra == "deepstream"
 Provides-Extra: flashinfer
+Provides-Extra: b12x
+Requires-Dist: b12x==1.2.4; extra == "b12x"
 Provides-Extra: helion
 Requires-Dist: helion==1.4.0; extra == "helion"
 Provides-Extra: grpc

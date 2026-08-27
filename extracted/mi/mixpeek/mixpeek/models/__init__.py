@@ -881,6 +881,8 @@ from mixpeek.models.retriever_schema import RetrieverSchema
 from mixpeek.models.retriever_signal import RetrieverSignal
 from mixpeek.models.retriever_stage_definition import RetrieverStageDefinition
 from mixpeek.models.retriever_status import RetrieverStatus
+from mixpeek.models.retriever_transform_config_input import RetrieverTransformConfigInput
+from mixpeek.models.retriever_transform_config_output import RetrieverTransformConfigOutput
 from mixpeek.models.retriever_visibility import RetrieverVisibility
 from mixpeek.models.retry_batch_request import RetryBatchRequest
 from mixpeek.models.return_vector_names import ReturnVectorNames
@@ -1179,6 +1181,7 @@ from mixpeek.models.tokenizer_type import TokenizerType
 from mixpeek.models.tool_info import ToolInfo
 from mixpeek.models.transaction_info import TransactionInfo
 from mixpeek.models.transactions_list_response import TransactionsListResponse
+from mixpeek.models.transcoding_extractor_params import TranscodingExtractorParams
 from mixpeek.models.transition_lifecycle_request import TransitionLifecycleRequest
 from mixpeek.models.transition_path import TransitionPath
 from mixpeek.models.trigger_action_type import TriggerActionType
@@ -1196,6 +1199,7 @@ from mixpeek.models.typeahead_value_suggestion import TypeaheadValueSuggestion
 from mixpeek.models.umap_params import UMAPParams
 from mixpeek.models.unified_extractor_list_response import UnifiedExtractorListResponse
 from mixpeek.models.unified_extractor_response import UnifiedExtractorResponse
+from mixpeek.models.unique_id_field import UniqueIdField
 from mixpeek.models.unique_key_config import UniqueKeyConfig
 from mixpeek.models.universal_extractor_params import UniversalExtractorParams
 from mixpeek.models.update_app_request import UpdateAppRequest

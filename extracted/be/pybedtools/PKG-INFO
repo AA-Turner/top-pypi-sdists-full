@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pybedtools
-Version: 0.12.0
+Version: 0.12.1
 Summary: Wrapper around BEDTools for bioinformatics work
 Home-page: https://github.com/daler/pybedtools
 Download-URL: 
@@ -25,6 +25,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 

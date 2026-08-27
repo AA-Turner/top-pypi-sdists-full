@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddgs
-Version: 9.15.0
+Version: 9.16.0
 Summary: Dux Distributed Global Search. A metasearch library that aggregates results from diverse web search services.
 Author: deedy5
 License-Expression: MIT
@@ -25,10 +25,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: click>=8.1.8
-Requires-Dist: primp>=1.2.3
+Requires-Dist: primp>=1.3.1
 Requires-Dist: lxml>=4.9.4
-Requires-Dist: httpx[brotli,http2,socks]>=0.28.1
-Requires-Dist: fake-useragent>=2.2.0
 Provides-Extra: dev
 Requires-Dist: mypy>=1.17.1; extra == "dev"
 Requires-Dist: prek; extra == "dev"
@@ -40,12 +38,6 @@ Requires-Dist: types-Pygments; extra == "dev"
 Requires-Dist: types-pexpect; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: types-ujson; extra == "dev"
-Requires-Dist: types-PySocks; extra == "dev"
-Requires-Dist: types-colorama; extra == "dev"
-Requires-Dist: types-decorator; extra == "dev"
-Requires-Dist: types-jsonschema; extra == "dev"
-Requires-Dist: types-psutil; extra == "dev"
-Requires-Dist: types-pyasn1; extra == "dev"
 Provides-Extra: mcp
 Requires-Dist: mcp>=2.0; extra == "mcp"
 Provides-Extra: api

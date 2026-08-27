@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import threading
 import time
-from typing import TYPE_CHECKING, Awaitable, Callable, Literal, Sequence, TypeVar, final
+from typing import TYPE_CHECKING, Awaitable, Callable, Literal, Protocol, Sequence, TypeVar, final
 
 import grpc
 import grpc.aio
@@ -11,6 +12,7 @@ import grpc.aio
 from chalk._gen.chalk.server.v1.auth_pb2 import GetTokenRequest, GetTokenResponse
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
 from chalk.client.client_headers import CHALK_ENV_ID_HEADER_LOWERCASE, CHALK_SERVER_HEADER_LOWERCASE
+from chalk.config.web_identity import WebIdentityToken, get_web_identity_token
 
 if TYPE_CHECKING:
     from chalk import EnvironmentId
@@ -50,6 +52,74 @@ class TokenRefresher:
         return self._auth_token
 
 
+class TokenProvider(Protocol):
+    """The subset of a token refresher that the authenticated interceptors rely on.
+
+    Implemented by both `TokenRefresher`, which exchanges client credentials, and
+    `WebIdentityTokenRefresher`, which reads a rotating JWT from disk.
+    """
+
+    def get_token(self) -> GetTokenResponse: ...
+
+
+class AsyncTokenProvider(Protocol):
+    """The async counterpart of `TokenProvider`."""
+
+    async def get_token(self) -> GetTokenResponse: ...
+
+
+@final
+class WebIdentityTokenRefresher:
+    """Duck-types `TokenRefresher`, but reads a rotating JWT from disk instead of exchanging credentials.
+
+    Rotation is observed because `get_web_identity_token` re-reads the file once
+    its cache deadline lapses; this class only adapts the result to the shape the
+    interceptors expect. The JWT carries no engine routing, so `engines`,
+    `grpc_engines`, and `environment_id_to_name` are left empty -- callers must
+    treat those as "the issuer told us nothing" rather than as an error.
+    """
+
+    def __init__(self, token_file: str):
+        super().__init__()
+        self._token_file = token_file
+        self._lock = threading.Lock()
+        self._cached: tuple[WebIdentityToken, GetTokenResponse] | None = None
+
+    def get_token(self) -> GetTokenResponse:
+        token = get_web_identity_token(self._token_file)
+        with self._lock:
+            cached = self._cached
+            # `get_web_identity_token` returns the same frozen object for the whole
+            # cache window, so identity tells us the proto is still current and we
+            # build it once per rotation rather than once per RPC.
+            if cached is not None and cached[0] is token:
+                return cached[1]
+            response = GetTokenResponse(
+                access_token=token.value,
+                token_type="Bearer",
+                primary_environment=token.environment_id,
+            )
+            if token.expires_at is not None:
+                response.expires_at.FromSeconds(int(token.expires_at))
+            self._cached = (token, response)
+            return response
+
+
+@final
+class AsyncWebIdentityTokenRefresher:
+    """The async counterpart of `WebIdentityTokenRefresher`."""
+
+    def __init__(self, token_file: str):
+        super().__init__()
+        self._inner = WebIdentityTokenRefresher(token_file)
+
+    async def get_token(self) -> GetTokenResponse:
+        # Deliberately not run in an executor: on the common path this is a dict
+        # lookup, and even on a miss it is a small local file read that happens at
+        # most once per cache window. An executor hop would cost more than it saves.
+        return self._inner.get_token()
+
+
 RequestType = TypeVar("RequestType")
 ResponseType = TypeVar("ResponseType")
 
@@ -66,12 +136,12 @@ class AuthenticatedChalkClientInterceptor(
 
     def __init__(
         self,
-        refresher: TokenRefresher,
+        refresher: TokenProvider,
         environment_id: EnvironmentId | None,
         server: Literal["go-api", "engine"],
         additional_headers: list[tuple[str, str]],
     ):
-        self._refresher: TokenRefresher = refresher
+        self._refresher: TokenProvider = refresher
         self._constant_headers = [
             (CHALK_SERVER_HEADER_LOWERCASE, server),
             *additional_headers,
@@ -198,7 +268,7 @@ class AsyncAuthenticatedChalkClientInterceptor(
 
     def __init__(
         self,
-        refresher: AsyncTokenRefresher,
+        refresher: AsyncTokenProvider,
         environment_id: "EnvironmentId | None",
         server: Literal["go-api", "engine"],
         additional_headers: list[tuple[str, str]],

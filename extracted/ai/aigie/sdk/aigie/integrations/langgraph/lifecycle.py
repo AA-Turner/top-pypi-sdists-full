@@ -161,14 +161,19 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
                 return True
         return is_inside_traced_run()
 
-    def _make_handler(self, trace_id: str) -> Any:
+    def _make_handler(self, trace: Any) -> Any:
         classifier = self._adapter.event_classifier() if self._adapter is not None else None
-        return LangGraphNativeCallback(
+        handler = LangGraphNativeCallback(
             emitter=self._emitter,
             workflow_name=self._current_workflow_name,
             classifier=classifier,
             config=self._config,
         )
+        # Bound here, where the handler's type is known: a bridge-driven run
+        # never opens a callback root, so this is its only chance to count into
+        # the trace's tally rather than its own.
+        handler.bind_trace_tally(trace, owns_trace=getattr(trace, "_aigie_minted", True))
+        return handler
 
     _PLAN_CACHE_ATTR = "_aigie_reasoning_plan"
 
@@ -296,10 +301,9 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         On graph-done we also evict the resume-registry entry for this thread
         so long-running services don't accumulate Trace objects indefinitely.
         """
-        if self._is_controlled_pause(error):
-            self._pause_and_clear(handler)
-            return
-        if not self._graph_is_done(framework_handle, config) and error is None:
+        if self._is_controlled_pause(error) or (
+            not self._graph_is_done(framework_handle, config) and error is None
+        ):
             self._pause_and_clear(handler)
             return
         pop_resumable_trace(self._extract_thread_id(config))

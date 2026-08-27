@@ -88,6 +88,8 @@ LOCAL_IP_ID = 'lip-id-' + uuid.uuid4().hex
 BGPVPN_ID = 'bgpvpn-id-' + uuid.uuid4().hex
 PORT_ID = 'port-id-' + uuid.uuid4().hex
 
+_MOCK_METHOD = 'openstack.network.v2._proxy.Proxy._get_with_fields'
+
 
 class TestNetworkProxy(test_proxy_base.TestProxyBase):
     def setUp(self):
@@ -166,7 +168,10 @@ class TestNetworkAddressGroup(TestNetworkProxy):
 
     def test_address_group_get(self):
         self.verify_get(
-            self.proxy.get_address_group, address_group.AddressGroup
+            self.proxy.get_address_group,
+            address_group.AddressGroup,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_address_groups(self):
@@ -181,27 +186,23 @@ class TestNetworkAddressGroup(TestNetworkProxy):
         'openstack.network.v2._proxy.Proxy.add_addresses_to_address_group'
     )
     def test_add_addresses_to_address_group(self, add_addresses):
-        data = mock.sentinel
+        data = ['10.0.0.1/32']
 
-        self.proxy.add_addresses_to_address_group(
-            address_group.AddressGroup, data
-        )
+        self.proxy.add_addresses_to_address_group('address-group-id', data)
 
-        add_addresses.assert_called_once_with(address_group.AddressGroup, data)
+        add_addresses.assert_called_once_with('address-group-id', data)
 
     @mock.patch(
         'openstack.network.v2._proxy.Proxy.remove_addresses_from_address_group'
     )
     def test_remove_addresses_from_address_group(self, remove_addresses):
-        data = mock.sentinel
+        data = ['10.0.0.1/32']
 
         self.proxy.remove_addresses_from_address_group(
-            address_group.AddressGroup, data
+            'address-group-id', data
         )
 
-        remove_addresses.assert_called_once_with(
-            address_group.AddressGroup, data
-        )
+        remove_addresses.assert_called_once_with('address-group-id', data)
 
 
 class TestNetworkAddressScope(TestNetworkProxy):
@@ -227,7 +228,10 @@ class TestNetworkAddressScope(TestNetworkProxy):
 
     def test_address_scope_get(self):
         self.verify_get(
-            self.proxy.get_address_scope, address_scope.AddressScope
+            self.proxy.get_address_scope,
+            address_scope.AddressScope,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_address_scopes(self):
@@ -244,7 +248,12 @@ class TestNetworkAgent(TestNetworkProxy):
         self.verify_delete(self.proxy.delete_agent, agent.Agent, True)
 
     def test_agent_get(self):
-        self.verify_get(self.proxy.get_agent, agent.Agent)
+        self.verify_get(
+            self.proxy.get_agent,
+            agent.Agent,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_agents(self):
         self.verify_list(self.proxy.agents, agent.Agent)
@@ -315,7 +324,12 @@ class TestNetworkExtension(TestNetworkProxy):
         self.verify_find(self.proxy.find_ip, floating_ip.FloatingIP)
 
     def test_floating_ip_get(self):
-        self.verify_get(self.proxy.get_ip, floating_ip.FloatingIP)
+        self.verify_get(
+            self.proxy.get_ip,
+            floating_ip.FloatingIP,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_ips(self):
         self.verify_list(self.proxy.ips, floating_ip.FloatingIP)
@@ -464,7 +478,10 @@ class TestNetworkMeteringLabel(TestNetworkProxy):
 
     def test_metering_label_get(self):
         self.verify_get(
-            self.proxy.get_metering_label, metering_label.MeteringLabel
+            self.proxy.get_metering_label,
+            metering_label.MeteringLabel,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_metering_labels(self):
@@ -507,6 +524,8 @@ class TestNetworkMeteringLabel(TestNetworkProxy):
         self.verify_get(
             self.proxy.get_metering_label_rule,
             metering_label_rule.MeteringLabelRule,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_metering_label_rules(self):
@@ -565,7 +584,12 @@ class TestNetworkNetwork(TestNetworkProxy):
         )
 
     def test_network_get(self):
-        self.verify_get(self.proxy.get_network, network.Network)
+        self.verify_get(
+            self.proxy.get_network,
+            network.Network,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_networks(self):
         self.verify_list(self.proxy.networks, network.Network)
@@ -597,7 +621,12 @@ class TestNetworkFlavor(TestNetworkProxy):
         self.verify_find(self.proxy.find_flavor, flavor.Flavor)
 
     def test_flavor_get(self):
-        self.verify_get(self.proxy.get_flavor, flavor.Flavor)
+        self.verify_get(
+            self.proxy.get_flavor,
+            flavor.Flavor,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_flavor_update(self):
         self.verify_update(self.proxy.update_flavor, flavor.Flavor)
@@ -639,7 +668,12 @@ class TestNetworkLocalIp(TestNetworkProxy):
         self.verify_find(self.proxy.find_local_ip, local_ip.LocalIP)
 
     def test_local_ip_get(self):
-        self.verify_get(self.proxy.get_local_ip, local_ip.LocalIP)
+        self.verify_get(
+            self.proxy.get_local_ip,
+            local_ip.LocalIP,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_local_ips(self):
         self.verify_list(self.proxy.local_ips, local_ip.LocalIP)
@@ -710,14 +744,14 @@ class TestNetworkLocalIpAssociation(TestNetworkProxy):
         lip = local_ip.LocalIP.new(id=LOCAL_IP_ID)
 
         self._verify(
-            'openstack.proxy.Proxy._get',
+            _MOCK_METHOD,
             self.proxy.get_local_ip_association,
             method_args=['local_ip_association_id', lip],
             expected_args=[
                 local_ip_association.LocalIPAssociation,
                 'local_ip_association_id',
             ],
-            expected_kwargs={'local_ip_id': LOCAL_IP_ID},
+            expected_kwargs={'local_ip_id': LOCAL_IP_ID, 'fields': None},
         )
 
     def test_local_ip_associations(self):
@@ -749,7 +783,10 @@ class TestNetworkServiceProfile(TestNetworkProxy):
 
     def test_service_profile_get(self):
         self.verify_get(
-            self.proxy.get_service_profile, service_profile.ServiceProfile
+            self.proxy.get_service_profile,
+            service_profile.ServiceProfile,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_service_profiles(self):
@@ -774,6 +811,8 @@ class TestNetworkIpAvailability(TestNetworkProxy):
         self.verify_get(
             self.proxy.get_network_ip_availability,
             network_ip_availability.NetworkIPAvailability,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_network_ip_availabilities(self):
@@ -821,11 +860,11 @@ class TestNetworkPoolMember(TestNetworkProxy):
 
     def test_pool_member_get(self):
         self._verify(
-            'openstack.proxy.Proxy._get',
+            _MOCK_METHOD,
             self.proxy.get_pool_member,
             method_args=["MEMBER", "POOL"],
             expected_args=[pool_member.PoolMember, "MEMBER"],
-            expected_kwargs={"pool_id": "POOL"},
+            expected_kwargs={"pool_id": "POOL", 'fields': None},
         )
 
     def test_pool_members(self):
@@ -861,7 +900,12 @@ class TestNetworkPool(TestNetworkProxy):
         self.verify_find(self.proxy.find_pool, pool.Pool)
 
     def test_pool_get(self):
-        self.verify_get(self.proxy.get_pool, pool.Pool)
+        self.verify_get(
+            self.proxy.get_pool,
+            pool.Pool,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_pools(self):
         self.verify_list(self.proxy.pools, pool.Pool)
@@ -901,7 +945,12 @@ class TestNetworkPool(TestNetworkProxy):
         self.verify_find(self.proxy.find_port, port.Port)
 
     def test_port_get(self):
-        self.verify_get(self.proxy.get_port, port.Port)
+        self.verify_get(
+            self.proxy.get_port,
+            port.Port,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_ports(self):
         self.verify_list(self.proxy.ports, port.Port)
@@ -921,13 +970,14 @@ class TestNetworkPool(TestNetworkProxy):
             expected_kwargs={'x': 1, 'y': 2, 'z': 3, 'if_revision': 42},
         )
 
-    @mock.patch('openstack.network.v2._proxy.Proxy._bulk_create')
-    def test_ports_create(self, bc):
+    def test_ports_create(self):
         data = mock.sentinel
-
-        self.proxy.create_ports(data)
-
-        bc.assert_called_once_with(port.Port, data)
+        self._verify(
+            'openstack.proxy.Proxy._bulk_create',
+            self.proxy.create_ports,
+            method_args=[data],
+            expected_args=[port.Port, data],
+        )
 
 
 class TestNetworkQosBandwidth(TestNetworkProxy):
@@ -1318,7 +1368,10 @@ class TestNetworkQosRuleType(TestNetworkProxy):
 
     def test_qos_rule_type_get(self):
         self.verify_get(
-            self.proxy.get_qos_rule_type, qos_rule_type.QoSRuleType
+            self.proxy.get_qos_rule_type,
+            qos_rule_type.QoSRuleType,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_qos_rule_types(self):
@@ -1389,7 +1442,12 @@ class TestNetworkRbacPolicy(TestNetworkProxy):
         self.verify_find(self.proxy.find_rbac_policy, rbac_policy.RBACPolicy)
 
     def test_rbac_policy_get(self):
-        self.verify_get(self.proxy.get_rbac_policy, rbac_policy.RBACPolicy)
+        self.verify_get(
+            self.proxy.get_rbac_policy,
+            rbac_policy.RBACPolicy,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_rbac_policies(self):
         self.verify_list(self.proxy.rbac_policies, rbac_policy.RBACPolicy)
@@ -1433,7 +1491,12 @@ class TestNetworkRouter(TestNetworkProxy):
         self.verify_find(self.proxy.find_router, router.Router)
 
     def test_router_get(self):
-        self.verify_get(self.proxy.get_router, router.Router)
+        self.verify_get(
+            self.proxy.get_router,
+            router.Router,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_routers(self):
         self.verify_list(self.proxy.routers, router.Router)
@@ -1701,7 +1764,10 @@ class TestNetworkFirewallGroup(TestNetworkProxy):
 
     def test_firewall_group_get(self):
         self.verify_get(
-            self.proxy.get_firewall_group, firewall_group.FirewallGroup
+            self.proxy.get_firewall_group,
+            firewall_group.FirewallGroup,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_firewall_groups(self):
@@ -1742,7 +1808,10 @@ class TestNetworkPolicy(TestNetworkProxy):
 
     def test_firewall_policy_get(self):
         self.verify_get(
-            self.proxy.get_firewall_policy, firewall_policy.FirewallPolicy
+            self.proxy.get_firewall_policy,
+            firewall_policy.FirewallPolicy,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_firewall_policies(self):
@@ -1779,7 +1848,10 @@ class TestNetworkRule(TestNetworkProxy):
 
     def test_firewall_rule_get(self):
         self.verify_get(
-            self.proxy.get_firewall_rule, firewall_rule.FirewallRule
+            self.proxy.get_firewall_rule,
+            firewall_rule.FirewallRule,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_firewall_rules(self):
@@ -1822,6 +1894,8 @@ class TestNetworkNetworkSegment(TestNetworkProxy):
         self.verify_get(
             self.proxy.get_network_segment_range,
             network_segment_range.NetworkSegmentRange,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_network_segment_ranges(self):
@@ -1875,7 +1949,10 @@ class TestNetworkSecurityGroup(TestNetworkProxy):
 
     def test_security_group_get(self):
         self.verify_get(
-            self.proxy.get_security_group, security_group.SecurityGroup
+            self.proxy.get_security_group,
+            security_group.SecurityGroup,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_security_groups(self):
@@ -1939,6 +2016,8 @@ class TestNetworkSecurityGroup(TestNetworkProxy):
         self.verify_get(
             self.proxy.get_security_group_rule,
             security_group_rule.SecurityGroupRule,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_security_group_rules(self):
@@ -1947,13 +2026,14 @@ class TestNetworkSecurityGroup(TestNetworkProxy):
             security_group_rule.SecurityGroupRule,
         )
 
-    @mock.patch('openstack.network.v2._proxy.Proxy._bulk_create')
-    def test_security_group_rules_create(self, bc):
+    def test_security_group_rules_create(self):
         data = mock.sentinel
-
-        self.proxy.create_security_group_rules(data)
-
-        bc.assert_called_once_with(security_group_rule.SecurityGroupRule, data)
+        self._verify(
+            'openstack.proxy.Proxy._bulk_create',
+            self.proxy.create_security_group_rules,
+            method_args=[data],
+            expected_args=[security_group_rule.SecurityGroupRule, data],
+        )
 
 
 class TestNetworkSecurityGroupsDefaultStatefulness(TestNetworkProxy):
@@ -1987,6 +2067,8 @@ class TestNetworkSecurityGroupsDefaultStatefulness(TestNetworkProxy):
         self.verify_get(
             self.proxy.get_security_groups_default_statefulness,
             security_groups_default_statefulness.SecurityGroupsDefaultStatefulness,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_list(self):
@@ -2016,7 +2098,12 @@ class TestNetworkSegment(TestNetworkProxy):
         self.verify_find(self.proxy.find_segment, segment.Segment)
 
     def test_segment_get(self):
-        self.verify_get(self.proxy.get_segment, segment.Segment)
+        self.verify_get(
+            self.proxy.get_segment,
+            segment.Segment,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_segments(self):
         self.verify_list(self.proxy.segments, segment.Segment)
@@ -2058,7 +2145,12 @@ class TestNetworkSubnet(TestNetworkProxy):
         self.verify_find(self.proxy.find_subnet, subnet.Subnet)
 
     def test_subnet_get(self):
-        self.verify_get(self.proxy.get_subnet, subnet.Subnet)
+        self.verify_get(
+            self.proxy.get_subnet,
+            subnet.Subnet,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_subnets(self):
         self.verify_list(self.proxy.subnets, subnet.Subnet)
@@ -2089,7 +2181,12 @@ class TestNetworkSubnet(TestNetworkProxy):
         self.verify_find(self.proxy.find_subnet_pool, subnet_pool.SubnetPool)
 
     def test_subnet_pool_get(self):
-        self.verify_get(self.proxy.get_subnet_pool, subnet_pool.SubnetPool)
+        self.verify_get(
+            self.proxy.get_subnet_pool,
+            subnet_pool.SubnetPool,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_subnet_pools(self):
         self.verify_list(self.proxy.subnet_pools, subnet_pool.SubnetPool)
@@ -2131,6 +2228,8 @@ class TestNetworkVpnEndpointGroup(TestNetworkProxy):
         self.verify_get(
             self.proxy.get_vpn_endpoint_group,
             vpn_endpoint_group.VpnEndpointGroup,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_vpn_endpoint_groups(self):
@@ -2176,6 +2275,8 @@ class TestNetworkVpnSiteConnection(TestNetworkProxy):
         self.verify_get(
             self.proxy.get_vpn_ipsec_site_connection,
             vpn_ipsec_site_connection.VpnIPSecSiteConnection,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_ipsec_site_connections(self):
@@ -2216,7 +2317,10 @@ class TestNetworkVpnIkePolicy(TestNetworkProxy):
 
     def test_ike_policy_get(self):
         self.verify_get(
-            self.proxy.get_vpn_ike_policy, vpn_ike_policy.VpnIkePolicy
+            self.proxy.get_vpn_ike_policy,
+            vpn_ike_policy.VpnIkePolicy,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_ike_policies(self):
@@ -2257,7 +2361,10 @@ class TestNetworkVpnIpsecPolicy(TestNetworkProxy):
 
     def test_ipsec_policy_get(self):
         self.verify_get(
-            self.proxy.get_vpn_ipsec_policy, vpn_ipsec_policy.VpnIpsecPolicy
+            self.proxy.get_vpn_ipsec_policy,
+            vpn_ipsec_policy.VpnIpsecPolicy,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
         )
 
     def test_ipsec_policies(self):
@@ -2291,7 +2398,12 @@ class TestNetworkVpnService(TestNetworkProxy):
         self.verify_find(self.proxy.find_vpn_service, vpn_service.VpnService)
 
     def test_vpn_service_get(self):
-        self.verify_get(self.proxy.get_vpn_service, vpn_service.VpnService)
+        self.verify_get(
+            self.proxy.get_vpn_service,
+            vpn_service.VpnService,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_vpn_services(self):
         self.verify_list(self.proxy.vpn_services, vpn_service.VpnService)
@@ -2411,14 +2523,14 @@ class TestNetworkFloatingIp(TestNetworkProxy):
     def test_get_floating_ip_port_forwarding(self):
         fip = floating_ip.FloatingIP.new(id=FIP_ID)
         self._verify(
-            'openstack.proxy.Proxy._get',
+            _MOCK_METHOD,
             self.proxy.get_floating_ip_port_forwarding,
             method_args=[fip, 'port_forwarding_id'],
             expected_args=[
                 port_forwarding.PortForwarding,
                 'port_forwarding_id',
             ],
-            expected_kwargs={'floatingip_id': FIP_ID},
+            expected_kwargs={'floatingip_id': FIP_ID, 'fields': None},
         )
 
     def test_floating_ip_port_forwardings(self):
@@ -2528,7 +2640,12 @@ class TestNetworkNDPProxy(TestNetworkProxy):
         self.verify_find(self.proxy.find_ndp_proxy, ndp_proxy.NDPProxy)
 
     def test_ndp_proxy_get(self):
-        self.verify_get(self.proxy.get_ndp_proxy, ndp_proxy.NDPProxy)
+        self.verify_get(
+            self.proxy.get_ndp_proxy,
+            ndp_proxy.NDPProxy,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_ndp_proxies(self):
         self.verify_list(self.proxy.ndp_proxies, ndp_proxy.NDPProxy)
@@ -2607,7 +2724,12 @@ class TestNetworkBGPVPN(TestNetworkProxy):
         self.verify_find(self.proxy.find_bgpvpn, bgpvpn.BgpVpn)
 
     def test_bgpvpn_get(self):
-        self.verify_get(self.proxy.get_bgpvpn, bgpvpn.BgpVpn)
+        self.verify_get(
+            self.proxy.get_bgpvpn,
+            bgpvpn.BgpVpn,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_bgpvpns(self):
         self.verify_list(self.proxy.bgpvpns, bgpvpn.BgpVpn)
@@ -2649,7 +2771,8 @@ class TestNetworkBGPVPN(TestNetworkProxy):
             bgpvpn_network_association.BgpVpnNetworkAssociation,
             method_args=[BGPVPN_ID, self.NETWORK_ASSOCIATION],
             expected_args=[self.NETWORK_ASSOCIATION],
-            expected_kwargs={'bgpvpn_id': BGPVPN_ID},
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'bgpvpn_id': BGPVPN_ID, 'fields': None},
         )
 
     def test_bgpvpn_network_associations(self):
@@ -2707,7 +2830,8 @@ class TestNetworkBGPVPN(TestNetworkProxy):
             bgpvpn_port_association.BgpVpnPortAssociation,
             method_args=[BGPVPN_ID, self.PORT_ASSOCIATION],
             expected_args=[self.PORT_ASSOCIATION],
-            expected_kwargs={'bgpvpn_id': BGPVPN_ID},
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'bgpvpn_id': BGPVPN_ID, 'fields': None},
         )
 
     def test_bgpvpn_port_associations(self):
@@ -2765,7 +2889,8 @@ class TestNetworkBGPVPN(TestNetworkProxy):
             bgpvpn_router_association.BgpVpnRouterAssociation,
             method_args=[BGPVPN_ID, self.ROUTER_ASSOCIATION],
             expected_args=[self.ROUTER_ASSOCIATION],
-            expected_kwargs={'bgpvpn_id': BGPVPN_ID},
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'bgpvpn_id': BGPVPN_ID, 'fields': None},
         )
 
     def test_bgpvpn_router_associations(self):
@@ -2808,7 +2933,12 @@ class TestNetworkTapMirror(TestNetworkProxy):
         self.verify_find(self.proxy.find_tap_mirror, tap_mirror.TapMirror)
 
     def test_get_tap_mirror(self):
-        self.verify_get(self.proxy.get_tap_mirror, tap_mirror.TapMirror)
+        self.verify_get(
+            self.proxy.get_tap_mirror,
+            tap_mirror.TapMirror,
+            mock_method=_MOCK_METHOD,
+            expected_kwargs={'fields': None},
+        )
 
     def test_tap_mirrors(self):
         self.verify_list(self.proxy.tap_mirrors, tap_mirror.TapMirror)
@@ -2830,13 +2960,37 @@ class TestNetworkPortBinding(TestNetworkProxy):
             expected_kwargs={'port_id': PORT_ID},
         )
 
-    @mock.patch('openstack.network.v2._proxy.Proxy.activate_port_binding')
-    def test_activate_port_binding(self, activate_binding):
-        data = mock.sentinel
-        self.proxy.activate_port_binding(port_binding.PortBinding, data)
-        activate_binding.assert_called_once_with(
-            port_binding.PortBinding, data
+    @mock.patch.object(_proxy.Proxy, 'port_bindings')
+    @mock.patch.object(proxy_base.Proxy, '_get')
+    def test_activate_port_binding(self, mock_get, mock_port_bindings):
+        res_port = port.Port.new(id=PORT_ID)
+        mock_get.return_value = res_port
+        binding = mock.Mock(spec=port_binding.PortBinding)
+        mock_port_bindings.return_value = iter([binding])
+
+        result = self.proxy.activate_port_binding('port-id', 'host-id')
+
+        mock_get.assert_called_once_with(port.Port, 'port-id')
+        mock_port_bindings.assert_called_once_with(
+            port=PORT_ID, host='host-id'
         )
+        binding.activate_port_binding.assert_called_once_with(
+            self.proxy, 'host-id'
+        )
+        self.assertEqual(binding.activate_port_binding.return_value, result)
+
+    @mock.patch.object(_proxy.Proxy, 'port_bindings')
+    @mock.patch.object(proxy_base.Proxy, '_get')
+    def test_activate_port_binding_no_binding(
+        self, mock_get, mock_port_bindings
+    ):
+        res_port = port.Port.new(id=PORT_ID)
+        mock_get.return_value = res_port
+        mock_port_bindings.return_value = iter([])
+
+        result = self.proxy.activate_port_binding('port-id', 'host-id')
+
+        self.assertIsNone(result)
 
     @mock.patch.object(proxy_base.Proxy, '_get')
     def test_port_bindings(self, mock_get):
@@ -2850,14 +3004,61 @@ class TestNetworkPortBinding(TestNetworkProxy):
             expected_kwargs={'port_id': PORT_ID},
         )
 
-    @mock.patch('openstack.network.v2._proxy.Proxy.delete_port_binding')
+    @mock.patch.object(_proxy.Proxy, 'port_bindings')
     @mock.patch.object(proxy_base.Proxy, '_get')
-    def test_delete_port_binding(self, mock_get, delete_port_binding):
+    def test_delete_port_binding(self, mock_get, mock_port_bindings):
         res_port = port.Port.new(id=PORT_ID)
         mock_get.return_value = res_port
-        data = mock.sentinel
+        binding = mock.Mock(spec=port_binding.PortBinding)
+        mock_port_bindings.return_value = iter([binding])
 
-        self.proxy.delete_port_binding(port_binding.PortBinding, data)
-        delete_port_binding.assert_called_once_with(
-            port_binding.PortBinding, data
+        self.proxy.delete_port_binding('port-id', 'host-id')
+
+        mock_get.assert_called_once_with(port.Port, 'port-id')
+        mock_port_bindings.assert_called_once_with(
+            port=PORT_ID, host='host-id'
+        )
+        binding.delete_port_binding.assert_called_once_with(
+            self.proxy, 'host-id'
+        )
+
+    @mock.patch.object(_proxy.Proxy, 'port_bindings')
+    @mock.patch.object(proxy_base.Proxy, '_get')
+    def test_delete_port_binding_no_binding(
+        self, mock_get, mock_port_bindings
+    ):
+        res_port = port.Port.new(id=PORT_ID)
+        mock_get.return_value = res_port
+        mock_port_bindings.return_value = iter([])
+
+        # nothing to delete, but ignore_missing defaults to True
+        self.proxy.delete_port_binding('port-id', 'host-id')
+
+    @mock.patch.object(_proxy.Proxy, 'port_bindings')
+    @mock.patch.object(proxy_base.Proxy, '_get')
+    def test_delete_port_binding_no_binding_no_ignore(
+        self, mock_get, mock_port_bindings
+    ):
+        res_port = port.Port.new(id=PORT_ID)
+        mock_get.return_value = res_port
+        mock_port_bindings.return_value = iter([])
+
+        self.assertRaises(
+            exceptions.NotFoundException,
+            self.proxy.delete_port_binding,
+            'port-id',
+            'host-id',
+            ignore_missing=False,
+        )
+
+    @mock.patch.object(proxy_base.Proxy, '_get')
+    def test_delete_port_binding_no_port_no_ignore(self, mock_get):
+        mock_get.side_effect = exceptions.NotFoundException()
+
+        self.assertRaises(
+            exceptions.NotFoundException,
+            self.proxy.delete_port_binding,
+            'port-id',
+            'host-id',
+            ignore_missing=False,
         )

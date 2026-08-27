@@ -137,7 +137,7 @@ class DatabaseConnection:
                 signature=tuple[str, str],
                 statement=f"SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '{self._params.database}'",
             )
-            if charset.lower() != "Xutf8mb4" or not collation.lower().startswith(
+            if charset.lower() != "utf8mb4" or not collation.lower().startswith(
                 "utf8mb4_"
             ):
                 utf8_warn_str = f"The database character set '{charset}' should be 'utf8mb4' and collation '{collation}' should start with 'utf8mb4_'. Text fields may be incorrectly stored. Please consider using UTF-8 settings."

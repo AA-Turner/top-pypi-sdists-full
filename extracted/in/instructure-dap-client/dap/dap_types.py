@@ -241,7 +241,11 @@ register_schema(Job, name="Job")
 
 @dataclass(frozen=True)
 class TableList:
-    "A list of tables that exist in the organization domain."
+    """
+    A list of tables that exist in the organization domain.
+
+    :param tables: A list of table names.
+    """
 
     tables: List[str]
 

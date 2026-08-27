@@ -136,7 +136,11 @@ class PiiRedactionConfig:
     tool_output: bool = True
     mark: bool = True
     priority: int = 100
-    codec: Literal["openai_chat", "openai_responses", "anthropic_messages"] | str | None = None
+    codec: (
+        Literal["openai_chat", "openai_responses", "anthropic_messages", "oci_genai", "gemini_generate_content"]
+        | str
+        | None
+    ) = None
     builtin: BuiltinConfig | None = None
     local: LocalModelConfig | None = None
     policy: ConfigPolicy = field(default_factory=ConfigPolicy)
@@ -181,7 +185,15 @@ class ComponentSpec:
 
 
 def validate_config(config: PiiRedactionConfig | JsonObject) -> ConfigReport:
-    """Validate a PII redaction config document without activating it."""
+    """Validate a PII redaction config document without activating it.
+
+    Args:
+        config: PII-redaction configuration model or equivalent JSON object.
+
+    Returns:
+        ConfigReport: Diagnostics describing whether the configuration is
+        valid and can be activated.
+    """
     report = plugin_module.validate(
         plugin_module.PluginConfig(
             components=[ComponentSpec(config)],

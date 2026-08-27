@@ -2843,6 +2843,7 @@ class DenialReason(pycarlo.lib.types.Enum):
 
     * `ENTITLEMENTS`None
     * `INVALID_USER`None
+    * `MONTHLY_RUN_LIMIT_REACHED`None
     * `MONTHLY_USAGE_LIMIT_REACHED`None
     * `TROUBLESHOOTING_AGENT_OFF`None
     * `TSA_FEATURE_FLAG_OFF`None
@@ -2853,6 +2854,7 @@ class DenialReason(pycarlo.lib.types.Enum):
     __choices__ = (
         "ENTITLEMENTS",
         "INVALID_USER",
+        "MONTHLY_RUN_LIMIT_REACHED",
         "MONTHLY_USAGE_LIMIT_REACHED",
         "TROUBLESHOOTING_AGENT_OFF",
         "TSA_FEATURE_FLAG_OFF",
@@ -5932,6 +5934,32 @@ class OpenTelemetryStorageType(pycarlo.lib.types.Enum):
     __choices__ = ("S3",)
 
 
+class OpsAgentConversationRole(pycarlo.lib.types.Enum):
+    """Who authored a turn.
+
+    Enumeration Choices:
+
+    * `AGENT`None
+    * `USER`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT", "USER")
+
+
+class OpsAgentConversationSortField(pycarlo.lib.types.Enum):
+    """Timestamp the export stream advances by.
+
+    Enumeration Choices:
+
+    * `CREATED_TIME`None
+    * `UPDATED_TIME`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CREATED_TIME", "UPDATED_TIME")
+
+
 class OutputType(pycarlo.lib.types.Enum):
     """Score shape produced by an LLM-judge evaluation.
 
@@ -6090,10 +6118,12 @@ class Permission(pycarlo.lib.types.Enum):
     * `PerformanceAccess`None
     * `PerformanceInsightsEdit`None
     * `SettingsAccess`None
+    * `SettingsAgentConversationLogsAccess`None
     * `SettingsAgentsAccess`None
     * `SettingsAgentsEdit`None
     * `SettingsAiAgentsAccess`None
     * `SettingsAiAgentsEdit`None
+    * `SettingsAlertActionsEdit`None
     * `SettingsApiAccess`None
     * `SettingsApiEdit`None
     * `SettingsApiManageTokens`None
@@ -6213,10 +6243,12 @@ class Permission(pycarlo.lib.types.Enum):
         "PerformanceAccess",
         "PerformanceInsightsEdit",
         "SettingsAccess",
+        "SettingsAgentConversationLogsAccess",
         "SettingsAgentsAccess",
         "SettingsAgentsEdit",
         "SettingsAiAgentsAccess",
         "SettingsAiAgentsEdit",
+        "SettingsAlertActionsEdit",
         "SettingsApiAccess",
         "SettingsApiEdit",
         "SettingsApiManageTokens",
@@ -7249,6 +7281,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
     * `PerformancePropose`None
     * `PerformanceRead`None
     * `PerformanceWrite`None
+    * `SettingsAgentConversationLogsAll`None
+    * `SettingsAgentConversationLogsPropose`None
+    * `SettingsAgentConversationLogsRead`None
+    * `SettingsAgentConversationLogsWrite`None
     * `SettingsAgentsAll`None
     * `SettingsAgentsPropose`None
     * `SettingsAgentsRead`None
@@ -7257,6 +7293,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
     * `SettingsAiAgentsPropose`None
     * `SettingsAiAgentsRead`None
     * `SettingsAiAgentsWrite`None
+    * `SettingsAlertActionsAll`None
+    * `SettingsAlertActionsPropose`None
+    * `SettingsAlertActionsRead`None
+    * `SettingsAlertActionsWrite`None
     * `SettingsAll`None
     * `SettingsApiAll`None
     * `SettingsApiPropose`None
@@ -7455,6 +7495,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
         "PerformancePropose",
         "PerformanceRead",
         "PerformanceWrite",
+        "SettingsAgentConversationLogsAll",
+        "SettingsAgentConversationLogsPropose",
+        "SettingsAgentConversationLogsRead",
+        "SettingsAgentConversationLogsWrite",
         "SettingsAgentsAll",
         "SettingsAgentsPropose",
         "SettingsAgentsRead",
@@ -7463,6 +7507,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
         "SettingsAiAgentsPropose",
         "SettingsAiAgentsRead",
         "SettingsAiAgentsWrite",
+        "SettingsAlertActionsAll",
+        "SettingsAlertActionsPropose",
+        "SettingsAlertActionsRead",
+        "SettingsAlertActionsWrite",
         "SettingsAll",
         "SettingsApiAll",
         "SettingsApiPropose",
@@ -15637,6 +15685,7 @@ class NotificationExtra(sgqlc.types.Input):
         "turn_off_normalized_messages",
         "receive_normalized",
         "receive_monitor_changes",
+        "triage_threaded_reply",
         "disable_ssl_verification",
         "include_incident_fields",
         "jira_project_id",
@@ -15697,6 +15746,12 @@ class NotificationExtra(sgqlc.types.Input):
     receive_monitor_changes = sgqlc.types.Field(Boolean, graphql_name="receiveMonitorChanges")
     """True if monitor enable/disable/delete notifications should be
     received. Default false (opt-in).
+    """
+
+    triage_threaded_reply = sgqlc.types.Field(Boolean, graphql_name="triageThreadedReply")
+    """True if the triage summary should be posted as a threaded reply.
+    Default true (opt-out). Only supported for Slack and MS Teams; the
+    triage button on the alert is unaffected.
     """
 
     disable_ssl_verification = sgqlc.types.Field(Boolean, graphql_name="disableSslVerification")
@@ -24493,6 +24548,25 @@ class AlertAccessRequestOutput(sgqlc.types.Type):
     """The access request object"""
 
 
+class AlertActionPermissionSettings(sgqlc.types.Type):
+    """Account-wide control over who may act on alerts from connected
+    chat channels.  The value applies to every Slack and Microsoft
+    Teams integration in the account.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("enforcement_enabled",)
+    enforcement_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="enforcementEnabled"
+    )
+    """Whether acting on an alert from a connected Slack or Microsoft
+    Teams channel requires a matching Monte Carlo user with sufficient
+    permissions. When false, anyone in a connected channel can
+    interact with and resolve alerts, even without a Monte Carlo
+    account.
+    """
+
+
 class AlertConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges", "total_count")
@@ -30480,6 +30554,7 @@ class CreateOrUpdateComparisonMonitor(sgqlc.types.Type):
         "source_queries",
         "target_queries",
         "estimated_credits",
+        "persist_blocked_by",
     )
     comparison_monitor = sgqlc.types.Field(
         "ComparisonMonitorResponse", graphql_name="comparisonMonitor"
@@ -30533,6 +30608,15 @@ class CreateOrUpdateComparisonMonitor(sgqlc.types.Type):
       `segment_count_hint` on that monitor if no explicit hint is
       provided. Never triggers a live warehouse query. (default:
       `false`)
+    """
+
+    persist_blocked_by = sgqlc.types.Field(String, graphql_name="persistBlockedBy")
+    """On a dry run, the permission a save would require that the caller
+    does not hold — for example `monitors/management/metric/edit`.
+    Null when the caller can persist this monitor, or when the request
+    is not a dry run. Advisory only: it never changes what the preview
+    returns. A caller that lacks this permission can still save the
+    monitor as a draft if it holds the type's draft permission.
     """
 
 
@@ -30647,7 +30731,7 @@ class CreateOrUpdateCustomSqlRule(sgqlc.types.Type):
     """Create or update a custom SQL rule"""
 
     __schema__ = schema
-    __field_names__ = ("custom_rule", "yaml", "queries", "estimated_credits")
+    __field_names__ = ("custom_rule", "yaml", "queries", "estimated_credits", "persist_blocked_by")
     custom_rule = sgqlc.types.Field("CustomRule", graphql_name="customRule")
 
     yaml = sgqlc.types.Field(String, graphql_name="yaml")
@@ -30689,6 +30773,15 @@ class CreateOrUpdateCustomSqlRule(sgqlc.types.Type):
       `segment_count_hint` on that monitor if no explicit hint is
       provided. Never triggers a live warehouse query. (default:
       `false`)
+    """
+
+    persist_blocked_by = sgqlc.types.Field(String, graphql_name="persistBlockedBy")
+    """On a dry run, the permission a save would require that the caller
+    does not hold — for example `monitors/management/metric/edit`.
+    Null when the caller can persist this monitor, or when the request
+    is not a dry run. Advisory only: it never changes what the preview
+    returns. A caller that lacks this permission can still save the
+    monitor as a draft if it holds the type's draft permission.
     """
 
 
@@ -30868,7 +30961,13 @@ class CreateOrUpdateLineageNodeReplacementRule(sgqlc.types.Type):
 
 class CreateOrUpdateMetricMonitor(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("metric_monitor", "yaml", "queries", "estimated_credits")
+    __field_names__ = (
+        "metric_monitor",
+        "yaml",
+        "queries",
+        "estimated_credits",
+        "persist_blocked_by",
+    )
     metric_monitor = sgqlc.types.Field("MetricMonitoring", graphql_name="metricMonitor")
 
     yaml = sgqlc.types.Field(String, graphql_name="yaml")
@@ -30910,6 +31009,15 @@ class CreateOrUpdateMetricMonitor(sgqlc.types.Type):
       `segment_count_hint` on that monitor if no explicit hint is
       provided. Never triggers a live warehouse query. (default:
       `false`)
+    """
+
+    persist_blocked_by = sgqlc.types.Field(String, graphql_name="persistBlockedBy")
+    """On a dry run, the permission a save would require that the caller
+    does not hold — for example `monitors/management/metric/edit`.
+    Null when the caller can persist this monitor, or when the request
+    is not a dry run. Advisory only: it never changes what the preview
+    returns. A caller that lacks this permission can still save the
+    monitor as a draft if it holds the type's draft permission.
     """
 
 
@@ -31080,7 +31188,7 @@ class CreateOrUpdateTableMonitor(sgqlc.types.Type):
     """Create or update a table monitor"""
 
     __schema__ = schema
-    __field_names__ = ("table_monitor", "yaml", "estimated_credits")
+    __field_names__ = ("table_monitor", "yaml", "estimated_credits", "persist_blocked_by")
     table_monitor = sgqlc.types.Field("TableMonitor", graphql_name="tableMonitor")
 
     yaml = sgqlc.types.Field(String, graphql_name="yaml")
@@ -31118,6 +31226,15 @@ class CreateOrUpdateTableMonitor(sgqlc.types.Type):
       `segment_count_hint` on that monitor if no explicit hint is
       provided. Never triggers a live warehouse query. (default:
       `false`)
+    """
+
+    persist_blocked_by = sgqlc.types.Field(String, graphql_name="persistBlockedBy")
+    """On a dry run, the permission a save would require that the caller
+    does not hold — for example `monitors/management/metric/edit`.
+    Null when the caller can persist this monitor, or when the request
+    is not a dry run. Advisory only: it never changes what the preview
+    returns. A caller that lacks this permission can still save the
+    monitor as a draft if it holds the type's draft permission.
     """
 
 
@@ -31159,7 +31276,7 @@ class CreateOrUpdateValidation(sgqlc.types.Type):
     """Create or update a validation"""
 
     __schema__ = schema
-    __field_names__ = ("validation", "yaml", "queries", "estimated_credits")
+    __field_names__ = ("validation", "yaml", "queries", "estimated_credits", "persist_blocked_by")
     validation = sgqlc.types.Field("CustomRule", graphql_name="validation")
 
     yaml = sgqlc.types.Field(String, graphql_name="yaml")
@@ -31201,6 +31318,15 @@ class CreateOrUpdateValidation(sgqlc.types.Type):
       `segment_count_hint` on that monitor if no explicit hint is
       provided. Never triggers a live warehouse query. (default:
       `false`)
+    """
+
+    persist_blocked_by = sgqlc.types.Field(String, graphql_name="persistBlockedBy")
+    """On a dry run, the permission a save would require that the caller
+    does not hold — for example `monitors/management/metric/edit`.
+    Null when the caller can persist this monitor, or when the request
+    is not a dry run. Advisory only: it never changes what the preview
+    returns. A caller that lacks this permission can still save the
+    monitor as a draft if it holds the type's draft permission.
     """
 
 
@@ -45743,6 +45869,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_data_sampling_restrictions",
         "remove_data_sampling_restrictions",
         "delete_push_ingested_tables",
+        "update_troubleshooting_agent_config",
         "create_shared_query",
         "create_or_update_user_settings",
         "create_or_update_user_settings_batch",
@@ -45884,6 +46011,7 @@ class Mutation(sgqlc.types.Type):
         "upload_airflow_task_result",
         "upload_airflow_sla_misses",
         "update_assigned_assets",
+        "update_alert_action_permission_settings",
         "merge_alerts",
         "request_alert_access",
         "create_or_update_collibra_integration",
@@ -51945,6 +52073,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "auto_review_enabled",
+                    sgqlc.types.Arg(Boolean, graphql_name="autoReviewEnabled", default=None),
+                ),
+                (
                     "installation_uuid",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(UUID), graphql_name="installationUuid", default=None
@@ -51968,6 +52100,10 @@ class Mutation(sgqlc.types.Type):
 
     * `agent_enabled_repos` (`[String!]`): Repos that PR Agent is
       allowed to review
+    * `auto_review_enabled` (`Boolean`): Whether the agent reviews
+      newly opened pull requests in enabled repos. When false, it only
+      runs on an "mc review" comment. Only takes effect while the
+      account has unrestricted usage.
     * `installation_uuid` (`UUID!`): UUID of the installation to
       configure
     * `risk_factor_weights` (`PrAgentRiskFactorWeightsInput`): PR Risk
@@ -64915,6 +65051,34 @@ class Mutation(sgqlc.types.Type):
       other accounts cannot be deleted.
     """
 
+    update_troubleshooting_agent_config = sgqlc.types.Field(
+        "UpdateTroubleshootingAgentConfig",
+        graphql_name="updateTroubleshootingAgentConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "clear_max_runs_per_month",
+                    sgqlc.types.Arg(Boolean, graphql_name="clearMaxRunsPerMonth", default=None),
+                ),
+                (
+                    "max_runs_per_month",
+                    sgqlc.types.Arg(Int, graphql_name="maxRunsPerMonth", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set or clear the account's Troubleshooting Agent
+    monthly investigation cap.
+
+    Arguments:
+
+    * `clear_max_runs_per_month` (`Boolean`): When true, remove the
+      monthly investigation cap (no limit).
+    * `max_runs_per_month` (`Int`): Set the monthly investigation cap
+      (at least 1). Automated and user-initiated investigations both
+      count against it.
+    """
+
     create_shared_query = sgqlc.types.Field(
         CreateSharedQuery,
         graphql_name="createSharedQuery",
@@ -69973,6 +70137,38 @@ class Mutation(sgqlc.types.Type):
     * `table_mcon` (`String!`): MCON of the table
     """
 
+    update_alert_action_permission_settings = sgqlc.types.Field(
+        "UpdateAlertActionPermissionSettings",
+        graphql_name="updateAlertActionPermissionSettings",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "enforcement_enabled",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean),
+                        graphql_name="enforcementEnabled",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set whether the calling user's account requires a
+    permitted Monte Carlo user to act on alerts from connected Slack
+    and Microsoft Teams channels.
+
+    Arguments:
+
+    * `enforcement_enabled` (`Boolean!`): Whether acting on an alert
+      from a connected Slack or Microsoft Teams channel requires a
+      matching Monte Carlo user with sufficient permissions. When
+      false, anyone in a connected channel can interact with and
+      resolve alerts, even without a Monte Carlo account. Enabling
+      this can block people who act on alerts today, because it
+      requires the connected app to share their email and requires
+      that email to match an invited Monte Carlo user.
+    """
+
     merge_alerts = sgqlc.types.Field(
         MergeAlerts,
         graphql_name="mergeAlerts",
@@ -71624,7 +71820,11 @@ class NotificationSetting(sgqlc.types.Type):
 
 class NotificationTypeCapabilities(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("notification_type", "supports_monitor_changes")
+    __field_names__ = (
+        "notification_type",
+        "supports_monitor_changes",
+        "supports_triage_threaded_reply",
+    )
     notification_type = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="notificationType"
     )
@@ -71634,6 +71834,14 @@ class NotificationTypeCapabilities(sgqlc.types.Type):
         sgqlc.types.non_null(Boolean), graphql_name="supportsMonitorChanges"
     )
     """True if this notification type honors the `receiveMonitorChanges`
+    flag on `NotificationExtra`. The frontend should only render the
+    toggle for types where this is True.
+    """
+
+    supports_triage_threaded_reply = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsTriageThreadedReply"
+    )
+    """True if this notification type honors the `triageThreadedReply`
     flag on `NotificationExtra`. The frontend should only render the
     toggle for types where this is True.
     """
@@ -71859,6 +72067,98 @@ class OpenTelemetryDataStore(sgqlc.types.Type):
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When the data store was created"""
+
+
+class OpsAgentActor(sgqlc.types.Type):
+    """The identity that drove a conversation."""
+
+    __schema__ = schema
+    __field_names__ = ("user_id", "email", "display_name")
+    user_id = sgqlc.types.Field(String, graphql_name="userId")
+    """Cognito id of the user who drove the conversation; null for a
+    system- or schedule-triggered run with no human actor.
+    """
+
+    email = sgqlc.types.Field(String, graphql_name="email")
+    """Email of the acting user; null when the id resolves to no current
+    user.
+    """
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Display name of the acting user, when known."""
+
+
+class OpsAgentConversation(sgqlc.types.Type):
+    """One Operations Agent conversation and its turns."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "conversation_id",
+        "created_time",
+        "updated_time",
+        "title",
+        "actor",
+        "messages",
+    )
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Stable id grouping the turns of one conversation."""
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """When the conversation was created (UTC)."""
+
+    updated_time = sgqlc.types.Field(DateTime, graphql_name="updatedTime")
+    """When the conversation was last updated (UTC)."""
+
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """Generated conversation title, when present."""
+
+    actor = sgqlc.types.Field(sgqlc.types.non_null(OpsAgentActor), graphql_name="actor")
+    """The identity that drove the conversation."""
+
+    messages = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("OpsAgentMessage"))),
+        graphql_name="messages",
+    )
+    """The conversation's user and agent turns, in order."""
+
+
+class OpsAgentConversationConnection(sgqlc.types.relay.Connection):
+    """A page of Operations Agent conversations."""
+
+    __schema__ = schema
+    __field_names__ = ("conversations", "next_cursor", "has_more")
+    conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(OpsAgentConversation))),
+        graphql_name="conversations",
+    )
+    """The conversations in this page, newest first."""
+
+    next_cursor = sgqlc.types.Field(String, graphql_name="nextCursor")
+    """Cursor to pass as `after` for the next page; null when none
+    remain.
+    """
+
+    has_more = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasMore")
+    """Whether more conversations remain after this page."""
+
+
+class OpsAgentMessage(sgqlc.types.Type):
+    """One turn of a conversation: a user prompt or an agent final
+    answer.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("event_id", "role", "text")
+    event_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="eventId")
+    """Stable, unique id for the turn; safe to de-duplicate on across
+    reads.
+    """
+
+    role = sgqlc.types.Field(sgqlc.types.non_null(OpsAgentConversationRole), graphql_name="role")
+    """Whether the turn was authored by the user or the agent."""
+
+    text = sgqlc.types.Field(String, graphql_name="text")
+    """Displayable message body; null when the turn carries no text."""
 
 
 class OpsgenieIntegrationOutput(sgqlc.types.Type):
@@ -73587,6 +73887,7 @@ class PrAgentConfig(sgqlc.types.Type):
         "is_enabled",
         "available_repos",
         "agent_enabled_repos",
+        "auto_review_enabled",
         "risk_factor_weights",
     )
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
@@ -73605,6 +73906,17 @@ class PrAgentConfig(sgqlc.types.Type):
         graphql_name="agentEnabledRepos",
     )
     """Repos that PR Agent is allowed to review for this installation"""
+
+    auto_review_enabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="autoReviewEnabled"
+    )
+    """Whether the agent reviews newly opened pull requests in enabled
+    repos. When false, it only runs when a user comments "mc review"
+    on a pull request. Defaults to true. Only takes effect while the
+    account has unrestricted usage: an account limited to free usage
+    cannot use "mc review", so turning this off leaves it with no way
+    to run the agent.
+    """
 
     risk_factor_weights = sgqlc.types.Field(
         sgqlc.types.non_null("PrAgentRiskFactorWeights"), graphql_name="riskFactorWeights"
@@ -74601,6 +74913,7 @@ class Query(sgqlc.types.Type):
         "get_common_fields_v2",
         "get_tsa_availability",
         "is_tsa_available_for_alert",
+        "get_troubleshooting_agent_config",
         "get_user_settings",
         "get_use_cases",
         "get_use_case_table_summary",
@@ -74693,6 +75006,7 @@ class Query(sgqlc.types.Type):
         "get_job_dependencies",
         "get_tsa_analysis_result",
         "get_remediation_result",
+        "ops_agent_conversations",
         "get_agent_memories",
         "get_agent_context",
         "get_ai_agent_config",
@@ -84225,8 +84539,10 @@ class Query(sgqlc.types.Type):
 
     * `mcon` (`String!`): MCON of the table with agent observability
       traces
-    * `trace_mode` (`Boolean`): Consider all the spans (not only the
-      recent ones), and sort them by start date. (default: `false`)
+    * `trace_mode` (`Boolean`): Require `traceIds` to be supplied,
+      rejecting the request when it is not. It has no other effect: it
+      does not change which spans are returned, or the order they come
+      back in. (default: `false`)
     * `trace_ids` (`[String!]`): Filter by specific trace IDs
     * `trace_timestamp` (`DateTime`): Filter by trace timestamp
       (inclusive) +- 1 hr
@@ -84312,8 +84628,10 @@ class Query(sgqlc.types.Type):
     * `evaluation_mode` (`Boolean`): Return evaluation test columns
       only (prompts, completions, span_id, transform outputs)
       (default: `false`)
-    * `trace_mode` (`Boolean`): Consider all the spans (not only the
-      recent ones), and sort them by start date. (default: `false`)
+    * `trace_mode` (`Boolean`): Require `traceIds` to be supplied,
+      rejecting the request when it is not. It has no other effect: it
+      does not change which spans are returned, or the order they come
+      back in. (default: `false`)
     * `limit` (`Int`): Number of sample rows to return (max 100)
       (default: `10`)
     * `offset` (`Int`): Number of rows to skip before returning
@@ -94408,6 +94726,14 @@ class Query(sgqlc.types.Type):
     * `alert_sub_types` (`[AlertSubType]!`)None
     """
 
+    get_troubleshooting_agent_config = sgqlc.types.Field(
+        sgqlc.types.non_null("TroubleshootingAgentConfig"),
+        graphql_name="getTroubleshootingAgentConfig",
+    )
+    """(experimental) Get the caller's account Troubleshooting Agent
+    settings (the admin-set monthly investigation cap).
+    """
+
     get_user_settings = sgqlc.types.Field(
         sgqlc.types.list_of("UserSettings"),
         graphql_name="getUserSettings",
@@ -97548,6 +97874,47 @@ class Query(sgqlc.types.Type):
 
     * `alert_id` (`UUID!`): UUID of the alert to get the remediation
       result for
+    """
+
+    ops_agent_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(OpsAgentConversationConnection),
+        graphql_name="opsAgentConversations",
+        args=sgqlc.types.ArgDict(
+            (
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                (
+                    "sort_by",
+                    sgqlc.types.Arg(
+                        OpsAgentConversationSortField, graphql_name="sortBy", default=None
+                    ),
+                ),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+            )
+        ),
+    )
+    """(experimental) Export the account's Operations Agent conversation
+    logs for compliance and security review. Returns conversations
+    newest first, each with its user and agent turns; page with the
+    returned cursor. Delivery is at-least-once — de-duplicate on
+    `eventId`. Restricted to account owners.
+
+    Arguments:
+
+    * `first` (`Int`): Page size (1..200); defaults to 50. Larger
+      values are capped.
+    * `after` (`String`): Opaque cursor from a previous page; omit for
+      the first page.
+    * `sort_by` (`OpsAgentConversationSortField`): Timestamp the
+      stream advances by. `CREATED_TIME` (default) surfaces
+      conversations by when they began; `UPDATED_TIME` by their last
+      turn, so a conversation with new turns resurfaces. A cursor may
+      only be reused with the same value it was issued for.
+    * `start_time` (`DateTime`): Exclude conversations whose sort
+      timestamp is older than this (UTC).
+    * `end_time` (`DateTime`): Exclude conversations whose sort
+      timestamp is newer than this (UTC).
     """
 
     get_agent_memories = sgqlc.types.Field(
@@ -103190,7 +103557,16 @@ class SyncMonitorsToCollibra(sgqlc.types.Type):
 
 class TSAAvailability(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("enabled", "reasons", "unsupported_alert_types", "supported_alert_sub_types")
+    __field_names__ = (
+        "enabled",
+        "reasons",
+        "unsupported_alert_types",
+        "supported_alert_sub_types",
+        "monthly_free_limit",
+        "monthly_run_limit",
+        "monthly_run_count",
+        "remaining_monthly_runs",
+    )
     enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
     """If true, the Troubleshooting Agent is available to the
     user/account
@@ -103208,6 +103584,28 @@ class TSAAvailability(sgqlc.types.Type):
         sgqlc.types.list_of(AlertSubType), graphql_name="supportedAlertSubTypes"
     )
     """Alert sub types supported by Troubleshooting Agent"""
+
+    monthly_free_limit = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="monthlyFreeLimit"
+    )
+    """Fixed number of free investigations per calendar month (UTC)
+    enforced when the account is restricted to free usage.
+    """
+
+    monthly_run_limit = sgqlc.types.Field(Int, graphql_name="monthlyRunLimit")
+    """Effective monthly limit on investigations in force: the free-usage
+    ceiling when restricted to free usage, the admin-set cap when one
+    is configured, or null when the account is unrestricted. Automated
+    and user-initiated investigations both count against it.
+    """
+
+    monthly_run_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monthlyRunCount")
+    """Investigations for the account this calendar month (UTC)."""
+
+    remaining_monthly_runs = sgqlc.types.Field(Int, graphql_name="remainingMonthlyRuns")
+    """Investigations left this month (UTC) against the effective limit
+    (never negative); null when the account is unrestricted.
+    """
 
 
 class TableAnomalyConnection(sgqlc.types.relay.Connection):
@@ -103856,6 +104254,7 @@ class TableFieldImportance(sgqlc.types.Type):
         "importance_score",
         "field_type_db",
         "field_type",
+        "mode",
     )
     field_name = sgqlc.types.Field(String, graphql_name="fieldName")
     """Display name"""
@@ -103869,6 +104268,11 @@ class TableFieldImportance(sgqlc.types.Type):
 
     field_type = sgqlc.types.Field(FieldType, graphql_name="fieldType")
     """Display field type"""
+
+    mode = sgqlc.types.Field(String, graphql_name="mode")
+    """Field mode from the warehouse metadata (e.g. NULLABLE, REQUIRED,
+    REPEATED)
+    """
 
 
 class TableFields(sgqlc.types.Type):
@@ -107238,7 +107642,10 @@ class TriggerCircuitBreakerRuleV2(sgqlc.types.Type):
     job_execution_uuids = sgqlc.types.Field(
         sgqlc.types.list_of(UUID), graphql_name="jobExecutionUuids"
     )
-    """The UUIDs of the triggered rule job executions."""
+    """The UUIDs of the job executions that can be polled for a result. A
+    run may also dispatch data-collection-only executions, which are
+    not returned.
+    """
 
 
 class TriggerConnectionManifestJob(sgqlc.types.Type):
@@ -107340,6 +107747,17 @@ class TriggerReinforcementLoopDispatch(sgqlc.types.Type):
 
     queued_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="queuedCount")
     """Number of runs queued (0 when skipped)."""
+
+
+class TroubleshootingAgentConfig(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("max_runs_per_month",)
+    max_runs_per_month = sgqlc.types.Field(Int, graphql_name="maxRunsPerMonth")
+    """Admin-set monthly limit on Troubleshooting Agent investigations;
+    null when no monthly limit is configured. When set, the
+    Troubleshooting Agent stops for the rest of the calendar month
+    (UTC) once this many investigations are reached.
+    """
 
 
 class TsaAnalysis(sgqlc.types.Type):
@@ -107746,6 +108164,20 @@ class UpdateAlert(sgqlc.types.Type):
     __field_names__ = ("alert",)
     alert = sgqlc.types.Field("Alert", graphql_name="alert")
     """The updated alert"""
+
+
+class UpdateAlertActionPermissionSettings(sgqlc.types.Type):
+    """Set whether alert actions from connected chat channels require a
+    permitted user.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("alert_action_permission_settings",)
+    alert_action_permission_settings = sgqlc.types.Field(
+        sgqlc.types.non_null(AlertActionPermissionSettings),
+        graphql_name="alertActionPermissionSettings",
+    )
+    """The updated settings."""
 
 
 class UpdateAssignedAssets(sgqlc.types.Type):
@@ -108574,6 +109006,20 @@ class UpdateTriageAutomationConfig(sgqlc.types.Type):
     __field_names__ = ("config",)
     config = sgqlc.types.Field(
         sgqlc.types.non_null(TriageAutomationConfigOutput), graphql_name="config"
+    )
+
+
+class UpdateTroubleshootingAgentConfig(sgqlc.types.Type):
+    """Set or clear the account's Troubleshooting Agent monthly
+    investigation cap.  Provide ``maxRunsPerMonth`` (at least 1) to
+    set the cap, or ``clearMaxRunsPerMonth`` to remove it. Requires
+    account-settings edit access.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("config",)
+    config = sgqlc.types.Field(
+        sgqlc.types.non_null(TroubleshootingAgentConfig), graphql_name="config"
     )
 
 

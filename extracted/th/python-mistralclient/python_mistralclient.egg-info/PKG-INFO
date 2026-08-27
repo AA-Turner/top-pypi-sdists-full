@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-mistralclient
-Version: 6.2.0
+Version: 6.3.0
 Summary: Mistral Client Library
 Home-page: https://docs.openstack.org/python-mistralclient/latest/
 Author: OpenStack

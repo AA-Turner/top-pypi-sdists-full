@@ -78,8 +78,6 @@
       devstack_localrc:
         DISABLE_AMP_IMAGE_BUILD: true
         Q_SERVICE_PLUGIN_CLASSES: qos,trunk
-        # TODO(frickler): drop this once heat no longer needs it
-        KEYSTONE_ADMIN_ENDPOINT: true
       devstack_plugins:
         heat: https://opendev.org/openstack/heat
       tox_environment:
@@ -494,6 +492,31 @@
             libvirt:
               file_backed_memory: 4096
               mem_stats_period_s: 0
+
+- job:
+    name: openstacksdk-functional-devstack-cyborg
+    parent: openstacksdk-functional-devstack-minimum
+    description: |
+      Run openstacksdk functional tests against a master devstack with cyborg
+    required-projects:
+      - openstack/cyborg
+      - openstack/python-cyborgclient
+    vars:
+      devstack_plugins:
+        cyborg: https://opendev.org/openstack/cyborg
+      devstack_services:
+        cyborg-api: true
+        cyborg-cond: true
+        cyborg-agent: true
+        s-account: false
+        s-container: false
+        s-object: false
+        s-proxy: false
+      tox_environment:
+        OPENSTACKSDK_HAS_CYBORG: 1
+        OPENSTACKSDK_TESTS_SUBDIR: accelerator
+      zuul_copy_output:
+        '{{ devstack_base_dir }}/cyborg-logs': logs
 
 - project-template:
     name: openstacksdk-functional-tips

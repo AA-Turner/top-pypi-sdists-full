@@ -364,7 +364,7 @@ def do_start(
     if transport == "stdio":
         mcp.run(transport="stdio")
     elif transport == "streamable-http":
-        uvicorn.run(mcp.streamable_http_app, host="0.0.0.0", port=port)  # noqa: S104
+        uvicorn.run(mcp.streamable_http_app(), host="0.0.0.0", port=port)  # noqa: S104
     else:
         raise Exception("Transport should be `stdio` or `streamable-http`.")
 
@@ -413,7 +413,7 @@ def extract_output(output: dict | Any) -> str | ImageContent:
         if "image/png" in data:
             if ALLOW_IMG_OUTPUT:
                 try:
-                    return ImageContent(type="image", data=data["image/png"], mimeType="image/png")
+                    return ImageContent(type="image", data=data["image/png"], mime_type="image/png")
                 except Exception:
                     # Fallback to text placeholder on error
                     return "[Image Output (PNG) - Error processing image]"
@@ -651,13 +651,44 @@ def start_code_sandbox(notebook_manager, config, logger):
         raise
 
 
+def code_sandbox_is_alive(code_sandbox: Any) -> bool:
+    """Whether `code_sandbox` can still run code.
+
+    `CodeSandboxClient.is_alive()` returns `is_started`, a flag set when this
+    process called `start()`, so it stays True after the kernel goes away on the
+    server side. For a Jupyter-backed sandbox the server's kernel list is the
+    authority, the same check `use_notebook` and `execute_code` already make
+    before they accept a caller-supplied kernel id.
+    """
+    if not hasattr(code_sandbox, "is_alive") or not code_sandbox.is_alive():
+        return False
+    if getattr(code_sandbox, "variant", None) != "jupyter-server":
+        return True
+
+    from jupyter_mcp_server.server_context import ServerContext
+
+    kernel_id = getattr(code_sandbox, "id", None)
+    sandbox_server_client = ServerContext.get_instance().sandbox_server_client
+    if not kernel_id or sandbox_server_client is None:
+        return True
+    try:
+        kernels = sandbox_server_client.kernels.list_kernels()
+    except Exception:
+        # A failed lookup says nothing about the kernel, so keep the sandbox
+        # rather than discarding a working one on a transient error.
+        return True
+    return any(kernel.id == kernel_id for kernel in kernels)
+
+
 def ensure_code_sandbox_alive(
     notebook_manager, current_notebook, create_code_sandbox_fn: Callable[[], CodeSandboxClient]
 ) -> CodeSandboxClient:
     """Ensure the notebook's code sandbox is running, restart if needed."""
     return cast(
         CodeSandboxClient,
-        notebook_manager.ensure_code_sandbox_alive(current_notebook, create_code_sandbox_fn),
+        notebook_manager.ensure_code_sandbox_alive(
+            current_notebook, create_code_sandbox_fn, is_alive_fn=code_sandbox_is_alive
+        ),
     )
 
 
@@ -897,6 +928,25 @@ async def safe_notebook_operation(operation_func, max_retries=3):
 ###############################################################################
 
 
+class MissingKernelError(RuntimeError):
+    """The kernel an execution request targeted no longer exists on the server.
+
+    Callers that can start a replacement kernel and retry need this failure as an
+    exception; every other request-level failure stays a formatted output.
+    """
+
+
+def is_missing_kernel_message(message: Any) -> bool:
+    """Whether *message* reads as the server reporting an unknown kernel.
+
+    ExecutionStack reports this as free text rather than a code, so this matches
+    the same two words ``execute_cell`` already looks for before it starts a
+    replacement kernel.
+    """
+    text = str(message).lower()
+    return "kernel" in text and "not found" in text
+
+
 async def execute_via_execution_stack(
     serverapp: Any,
     kernel_id: str,
@@ -944,6 +994,7 @@ async def execute_via_execution_stack(
     Raises:
         RuntimeError: If jupyter-server-nbmodel extension is not installed
         TimeoutError: If execution exceeds timeout
+        MissingKernelError: If the request failed because ``kernel_id`` is gone
     """
     import logging as default_logging
 
@@ -1026,7 +1077,28 @@ async def execute_via_execution_stack(
                     # Check for errors
                     if "error" in result:
                         error_info = result["error"]
+                        if not isinstance(error_info, dict):
+                            # ExecutionStack reports a request-level failure as a
+                            # plain string: the kernel it could not connect to, a
+                            # request superseded by a newer one for the same cell,
+                            # a request cancelled after an earlier one failed. Only
+                            # an exception raised inside the kernel arrives as a
+                            # mapping with ename/evalue/traceback. Wrap the string
+                            # so the reason reaches the caller instead of being
+                            # lost to an attribute error on the lines below.
+                            error_info = {
+                                "ename": "ExecutionError",
+                                "evalue": str(error_info),
+                                "traceback": [],
+                            }
                         logger.error(f"Execution error: {error_info}")
+                        if is_missing_kernel_message(error_info.get("evalue", "")):
+                            # execute_cell starts a replacement kernel and retries
+                            # once when this happens, and it looks for the failure
+                            # in an exception. Leave as one so that path can run;
+                            # the handler at the end of this function fires the
+                            # single AFTER_EXECUTE this execution owes and re-raises.
+                            raise MissingKernelError(error_info.get("evalue", ""))
                         error_output = [
                             f"[ERROR: {error_info.get('ename', 'Unknown')}: {error_info.get('evalue', '')}]"
                         ]
@@ -1161,6 +1233,8 @@ async def execute_via_execution_stack(
                 error=e,
                 context=hook_ctx,
             )
+        if isinstance(e, MissingKernelError):
+            raise
         return [f"[ERROR: {e!s}]"]
 
 

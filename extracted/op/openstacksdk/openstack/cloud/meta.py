@@ -12,20 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 import ipaddress
 import socket
+from typing import Any, Literal, TypeVar, TYPE_CHECKING, cast, overload
 
 from openstack import _log
+from openstack.compute.v2 import server as _server
 from openstack import exceptions
 from openstack import utils
+
+if TYPE_CHECKING:
+    from openstack import connection
 
 
 NON_CALLABLES = (str, bool, dict, int, float, list, type(None))
 
 
 def find_nova_interfaces(
-    addresses, ext_tag=None, key_name=None, version=4, mac_addr=None
-):
+    addresses: dict[str, list[dict[str, Any]]],
+    ext_tag: str | None = None,
+    key_name: str | None = None,
+    version: int = 4,
+    mac_addr: str | None = None,
+) -> list[dict[str, Any]]:
     ret = []
     for k, v in iter(addresses.items()):
         if key_name is not None and k != key_name:
@@ -64,13 +76,17 @@ def find_nova_interfaces(
 
 
 def find_nova_addresses(
-    addresses, ext_tag=None, key_name=None, version=4, mac_addr=None
-):
+    addresses: dict[str, list[dict[str, Any]]],
+    ext_tag: str | None = None,
+    key_name: str | None = None,
+    version: int = 4,
+    mac_addr: str | None = None,
+) -> list[str]:
     interfaces = find_nova_interfaces(
         addresses, ext_tag, key_name, version, mac_addr
     )
-    floating_addrs = []
-    fixed_addrs = []
+    floating_addrs: list[str] = []
+    fixed_addrs: list[str] = []
     for i in interfaces:
         if i.get('OS-EXT-IPS:type') == 'floating':
             floating_addrs.append(i['addr'])
@@ -79,23 +95,41 @@ def find_nova_addresses(
     return floating_addrs + fixed_addrs
 
 
-def get_server_ip(server, public=False, cloud_public=True, **kwargs):
+def get_server_ip(
+    server: _server.Server,
+    public: bool = False,
+    cloud_public: bool = True,
+    *,
+    ext_tag: str | None = None,
+    key_name: str | None = None,
+    version: Literal[4, 6] = 4,
+    mac_addr: str | None = None,
+) -> str | None:
     """Get an IP from the Nova addresses dict
 
     :param server: The server to pull the address from
     :param public: Whether the address we're looking for should be considered
-                   'public' and therefore reachabiliity tests should be
-                   used. (defaults to False)
+        'public' and therefore reachabiliity tests should be used. (defaults to
+        False)
     :param cloud_public: Whether the cloud has been configured to use private
-                         IPs from servers as the interface_ip. This inverts the
-                         public reachability logic, as in this case it's the
-                         private ip we expect shade to be able to reach
+        IPs from servers as the interface_ip. This inverts the public
+        reachability logic, as in this case it's the private IP we expect to be
+        able to reach
     """
-    addrs = find_nova_addresses(server['addresses'], **kwargs)
+    addrs = find_nova_addresses(
+        server['addresses'],
+        ext_tag=ext_tag,
+        key_name=key_name,
+        version=version,
+        mac_addr=mac_addr,
+    )
     return find_best_address(addrs, public=public, cloud_public=cloud_public)
 
 
-def get_server_private_ip(server, cloud=None):
+def get_server_private_ip(
+    server: _server.Server,
+    cloud: connection.Connection | None = None,
+) -> str | None:
     """Find the private IP address
 
     If Neutron is available, search for a port on a network where
@@ -156,7 +190,10 @@ def get_server_private_ip(server, cloud=None):
     return get_server_ip(server, key_name='private')
 
 
-def get_server_external_ipv4(cloud, server):
+def get_server_external_ipv4(
+    cloud: connection.Connection,
+    server: _server.Server,
+) -> str | None:
     """Find an externally routable IP for the server.
 
     There are 5 different scenarios we have to account for:
@@ -180,7 +217,7 @@ def get_server_external_ipv4(cloud, server):
         return None
 
     if server['accessIPv4']:
-        return server['accessIPv4']
+        return cast(str, server['accessIPv4'])
 
     # Short circuit the ports/networks search below with a heavily cached
     # and possibly pre-configured network name
@@ -232,7 +269,11 @@ def get_server_external_ipv4(cloud, server):
     return None
 
 
-def find_best_address(addresses, public=False, cloud_public=True):
+def find_best_address(
+    addresses: list[str],
+    public: bool = False,
+    cloud_public: bool = True,
+) -> str | None:
     do_check = public == cloud_public
     if not addresses:
         return None
@@ -276,15 +317,19 @@ def find_best_address(addresses, public=False, cloud_public=True):
     if do_check:
         log = _log.setup_logging('openstack')
         log.debug(
-            f"The cloud returned multiple addresses ({addresses}) and we "
-            f"could not connect to port 22 on either. That might be what you "
-            f"wanted, but we have no clue what's going on, so we picked the "
-            f"first one {addresses[0]}"
+            "The cloud returned multiple addresses (%s) and we "
+            "could not connect to port 22 on either. That might be what you "
+            "wanted, but we have no clue what's going on, so we picked the "
+            "first one %s",
+            addresses,
+            addresses[0],
         )
     return addresses[0]
 
 
-def get_server_external_ipv6(server):
+def get_server_external_ipv6(
+    server: _server.Server,
+) -> str | None:
     """Get an IPv6 address reachable from outside the cloud.
 
     This function assumes that if a server has an IPv6 address, that address
@@ -295,12 +340,15 @@ def get_server_external_ipv6(server):
     """
     # Don't return ipv6 interfaces if forcing IPv4
     if server['accessIPv6']:
-        return server['accessIPv6']
+        return cast(str, server['accessIPv6'])
     addresses = find_nova_addresses(addresses=server['addresses'], version=6)
     return find_best_address(addresses, public=True)
 
 
-def get_server_default_ip(cloud, server):
+def get_server_default_ip(
+    cloud: connection.Connection,
+    server: _server.Server,
+) -> str | None:
     """Get the configured 'default' address
 
     It is possible in clouds.yaml to configure for a cloud a network that
@@ -316,7 +364,7 @@ def get_server_default_ip(cloud, server):
     if ext_net:
         if cloud._local_ipv6 and not cloud.force_ipv4:
             # try 6 first, fall back to four
-            versions = [6, 4]
+            versions: list[Literal[4, 6]] = [6, 4]
         else:
             versions = [4]
         for version in versions:
@@ -332,7 +380,10 @@ def get_server_default_ip(cloud, server):
     return None
 
 
-def _get_interface_ip(cloud, server):
+def _get_interface_ip(
+    cloud: connection.Connection,
+    server: _server.Server,
+) -> str | None:
     """Get the interface IP for the server
 
     Interface IP is the IP that should be used for communicating with the
@@ -346,20 +397,24 @@ def _get_interface_ip(cloud, server):
         return default_ip
 
     if cloud.private and server['private_v4']:
-        return server['private_v4']
+        return cast(str, server['private_v4'])
 
     if server['public_v6'] and cloud._local_ipv6 and not cloud.force_ipv4:
-        return server['public_v6']
+        return cast(str, server['public_v6'])
     else:
-        return server['public_v4']
+        return cast(str, server['public_v4'])
 
 
-def get_groups_from_server(cloud, server, server_vars):
-    groups = []
+def get_groups_from_server(
+    cloud: connection.Connection,
+    server: _server.Server,
+    server_vars: utils.Munch,
+) -> list[str]:
+    groups: list[str] = []
 
     # NOTE(efried): This is hardcoded to 'compute' because this method is only
     # used from ComputeCloudMixin.
-    region = cloud.config.get_region_name('compute')
+    region = cast(str, cloud.config.get_region_name('compute'))
     cloud_name = cloud.name
 
     # Create a group for the cloud
@@ -398,19 +453,28 @@ def get_groups_from_server(cloud, server, server_vars):
     return groups
 
 
-def expand_server_vars(cloud, server):
+def expand_server_vars(
+    cloud: connection.Connection,
+    server: _server.Server,
+) -> _server.Server:
     """Backwards compatibility function."""
     return add_server_interfaces(cloud, server)
 
 
-def _make_address_dict(fip, port):
-    address = dict(version=4, addr=fip['floating_ip_address'])
+def _make_address_dict(
+    fip: Any,
+    port: Any,
+) -> dict[str, Any]:
+    address: dict[str, Any] = dict(version=4, addr=fip['floating_ip_address'])
     address['OS-EXT-IPS:type'] = 'floating'
     address['OS-EXT-IPS-MAC:mac_addr'] = port['mac_address']
     return address
 
 
-def _get_supplemental_addresses(cloud, server):
+def _get_supplemental_addresses(
+    cloud: connection.Connection,
+    server: _server.Server,
+) -> dict[str, list[dict[str, Any]]]:
     fixed_ip_mapping = {}
     for name, network in server['addresses'].items():
         for address in network:
@@ -418,7 +482,9 @@ def _get_supplemental_addresses(cloud, server):
                 continue
             if address.get('OS-EXT-IPS:type') == 'floating':
                 # We have a floating IP that nova knows about, do nothing
-                return server['addresses']
+                return cast(
+                    dict[str, list[dict[str, Any]]], server['addresses']
+                )
             fixed_ip_mapping[address['addr']] = name
     try:
         # Don't bother doing this before the server is active, it's a waste
@@ -456,10 +522,13 @@ def _get_supplemental_addresses(cloud, server):
         # an attempt to provide additional data and should not block forward
         # progress
         pass
-    return server['addresses']
+    return cast(dict[str, list[dict[str, Any]]], server['addresses'])
 
 
-def add_server_interfaces(cloud, server):
+def add_server_interfaces(
+    cloud: connection.Connection,
+    server: _server.Server,
+) -> _server.Server:
     """Add network interface information to server.
 
     Query the cloud as necessary to add information to the server record
@@ -494,7 +563,10 @@ def add_server_interfaces(cloud, server):
     return server
 
 
-def expand_server_security_groups(cloud, server):
+def expand_server_security_groups(
+    cloud: connection.Connection,
+    server: _server.Server,
+) -> None:
     try:
         groups = cloud.list_server_security_groups(server)
     except exceptions.SDKException:
@@ -502,7 +574,11 @@ def expand_server_security_groups(cloud, server):
     server['security_groups'] = groups or []
 
 
-def get_hostvars_from_server(cloud, server, mounts=None):
+def get_hostvars_from_server(
+    cloud: connection.Connection,
+    server: _server.Server,
+    mounts: list[dict[str, Any]] | None = None,
+) -> utils.Munch:
     """Expand additional server information useful for ansible inventory.
 
     Variables in this function may make additional cloud queries to flesh out
@@ -510,7 +586,9 @@ def get_hostvars_from_server(cloud, server, mounts=None):
     expand_server_vars if caching is not set up. If caching is set up,
     the extra cost should be minimal.
     """
-    server_vars = obj_to_munch(add_server_interfaces(cloud, server))
+    server_vars = cast(
+        utils.Munch, obj_to_munch(add_server_interfaces(cloud, server))
+    )
 
     flavor_id = server['flavor'].get('id')
     if flavor_id:
@@ -562,7 +640,7 @@ def get_hostvars_from_server(cloud, server, mounts=None):
     return server_vars
 
 
-def obj_to_munch(obj):
+def obj_to_munch(obj: object | None) -> utils.Munch | None:
     """Turn an object with attributes into a dict suitable for serializing.
 
     Some of the things that are returned in OpenStack are objects with
@@ -576,7 +654,7 @@ def obj_to_munch(obj):
     elif isinstance(obj, utils.Munch) or hasattr(obj, 'mock_add_spec'):
         # If we obj_to_munch twice, don't fail, just return the munch
         # Also, don't try to modify Mock objects - that way lies madness
-        return obj
+        return cast(utils.Munch, obj)
     elif isinstance(obj, dict):
         # The new request-id tracking spec:
         # https://specs.openstack.org/openstack/nova-specs/specs/juno/approved/log-request-id-mappings.html
@@ -605,7 +683,7 @@ def obj_to_munch(obj):
 obj_to_dict = obj_to_munch
 
 
-def obj_list_to_munch(obj_list):
+def obj_list_to_munch(obj_list: list[object]) -> list[utils.Munch | None]:
     """Enumerate through lists of objects and return lists of dictonaries.
 
     Some of the objects returned in OpenStack are actually lists of objects,
@@ -618,7 +696,41 @@ def obj_list_to_munch(obj_list):
 obj_list_to_dict = obj_list_to_munch
 
 
-def get_and_munchify(key, data):
+_T = TypeVar('_T')
+
+
+@overload
+def get_and_munchify(
+    key: str, data: Mapping[str, list[object]]
+) -> list[utils.Munch]: ...
+
+
+@overload
+def get_and_munchify(
+    key: str, data: dict[str, Mapping[str, object]]
+) -> utils.Munch: ...
+
+
+@overload
+def get_and_munchify(key: str, data: Mapping[str, _T]) -> _T: ...
+
+
+@overload
+def get_and_munchify(key: None, data: list[object]) -> list[utils.Munch]: ...
+
+
+@overload
+def get_and_munchify(key: None, data: dict[str, object]) -> utils.Munch: ...
+
+
+@overload
+def get_and_munchify(key: None, data: _T) -> _T: ...
+
+
+def get_and_munchify(
+    key: str | None,
+    data: Any,
+) -> Any:
     """Get the value associated to key and convert it.
 
     The value will be converted in a Munch object or a list of Munch objects

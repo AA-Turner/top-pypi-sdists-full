@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from typing import Any
 from unittest import mock
 
 from openstack import exceptions
@@ -17,7 +18,7 @@ from openstack.network.v2 import router
 from openstack.tests.unit import base
 
 IDENTIFIER = 'IDENTIFIER'
-EXAMPLE = {
+EXAMPLE: dict[str, Any] = {
     'admin_state_up': True,
     'availability_zone_hints': ['1'],
     'availability_zones': ['2'],
@@ -25,6 +26,7 @@ EXAMPLE = {
     'description': '3',
     'distributed': False,
     'enable_ndp_proxy': True,
+    'evpn_vni': 10000,
     'external_gateway_info': {'4': 4},
     'flavor_id': '5',
     'ha': False,
@@ -37,7 +39,7 @@ EXAMPLE = {
     'updated_at': 'timestamp2',
 }
 
-EXAMPLE_WITH_OPTIONAL = {
+EXAMPLE_WITH_OPTIONAL: dict[str, Any] = {
     'admin_state_up': False,
     'availability_zone_hints': ['zone-1', 'zone-2'],
     'availability_zones': ['zone-2'],
@@ -79,6 +81,7 @@ class TestRouter(base.TestCase):
         self.assertEqual(EXAMPLE['created_at'], sot.created_at)
         self.assertEqual(EXAMPLE['description'], sot.description)
         self.assertTrue(sot.enable_ndp_proxy)
+        self.assertEqual(EXAMPLE['evpn_vni'], sot.evpn_vni)
         self.assertFalse(sot.is_distributed)
         self.assertEqual(
             EXAMPLE['external_gateway_info'], sot.external_gateway_info
@@ -214,7 +217,7 @@ class TestRouter(base.TestCase):
         r = router.Router(**EXAMPLE)
         response = mock.Mock()
         response.headers = {}
-        json_body = {'router': {}}
+        json_body: dict[str, dict[str, Any]] = {'router': {}}
         response.body = json_body
         response.json = mock.Mock(return_value=response.body)
         response.status_code = 200
@@ -230,7 +233,7 @@ class TestRouter(base.TestCase):
         r = router.Router(**EXAMPLE)
         response = mock.Mock()
         response.headers = {}
-        json_body = {'router': {}}
+        json_body: dict[str, dict[str, Any]] = {'router': {}}
         response.body = json_body
         response.json = mock.Mock(return_value=response.body)
         response.status_code = 200

@@ -7,8 +7,9 @@ use uuid::Uuid;
 
 use crate::api::event::{Event, EventSanitizeFields, ScopeCategory};
 use crate::api::llm::LlmRequest;
-use crate::api::registry::Guardrail;
+use crate::api::registry::{EventMetadataInjector, Guardrail, RuntimeRegistrationKind};
 use crate::api::runtime::global_context;
+use crate::api::runtime::scope_stack::traceparent_for_llm;
 use crate::api::runtime::{
     EventSanitizeFn, EventSubscriberFn, NemoRelayContextState, ScopeStackHandle,
 };
@@ -25,6 +26,8 @@ use crate::shared_runtime::ensure_process_runtime_owner;
 pub const DYNAMO_SESSION_ID_HEADER_KEY: &str = "x-dynamo-session-id";
 /// Header carrying the parent Dynamo agent session ID.
 pub const DYNAMO_PARENT_SESSION_ID_HEADER_KEY: &str = "x-dynamo-parent-session-id";
+/// Header carrying the W3C trace context for an outbound provider request.
+pub const TRACEPARENT_HEADER_KEY: &str = "traceparent";
 
 pub(crate) fn resolve_parent_uuid(parent: Option<&ScopeHandle>) -> Option<Uuid> {
     Some(
@@ -40,7 +43,8 @@ pub(crate) fn snapshot_event_subscribers(
     let context = global_context();
     let state = context
         .read()
-        .map_err(|error| FlowError::Internal(error.to_string()))?;
+        .map_err(|error| FlowError::Internal(error.to_string()))?
+        .registry_snapshot(&[RuntimeRegistrationKind::Subscriber]);
     Ok(state.collect_event_subscribers(&scope_local_subscribers))
 }
 
@@ -54,7 +58,7 @@ pub(crate) fn snapshot_event_sanitizers(
     event: &Event,
     scope_stack: &ScopeStackHandle,
 ) -> Option<Vec<Guardrail<EventSanitizeFn>>> {
-    let entries = {
+    let locals = {
         let scope_guard = match scope_stack.read() {
             Ok(guard) => guard,
             Err(error) => {
@@ -70,55 +74,98 @@ pub(crate) fn snapshot_event_sanitizers(
                 )]);
             }
         };
-        let context = global_context();
-        let state = match context.read() {
-            Ok(state) => state,
-            Err(error) => {
-                log::error!(
-                    target: "nemo_relay.runtime",
-                    event = "event_sanitizer_snapshot_failed";
-                    "Event sanitizer snapshot failed; clearing observability fields: {error}"
-                );
-                return Some(vec![Guardrail::new(
-                    "event-sanitizer-snapshot-failure",
-                    i32::MIN,
-                    Arc::new(|_, _| Box::pin(async { Ok(EventSanitizeFields::default()) })),
-                )]);
-            }
-        };
         match &event {
-            Event::Mark(_) => {
-                let locals = scope_guard.collect_scope_local_registries(|registries| {
-                    &registries.mark_sanitize_guardrails
-                });
-                NemoRelayContextState::event_sanitize_entries(
-                    &state.mark_sanitize_guardrails,
-                    &locals,
-                )
-            }
-            Event::Scope(scope) if scope.scope_category == ScopeCategory::Start => {
-                let locals = scope_guard.collect_scope_local_registries(|registries| {
+            Event::Mark(_) => scope_guard
+                .snapshot_scope_local_registries(|registries| &registries.mark_sanitize_guardrails),
+            Event::Scope(scope) if scope.scope_category == ScopeCategory::Start => scope_guard
+                .snapshot_scope_local_registries(|registries| {
                     &registries.scope_sanitize_start_guardrails
-                });
-                NemoRelayContextState::event_sanitize_entries(
-                    &state.scope_sanitize_start_guardrails,
-                    &locals,
-                )
-            }
-            Event::Scope(_) => {
-                let locals = scope_guard.collect_scope_local_registries(|registries| {
-                    &registries.scope_sanitize_end_guardrails
-                });
-                NemoRelayContextState::event_sanitize_entries(
-                    &state.scope_sanitize_end_guardrails,
-                    &locals,
-                )
-            }
+                }),
+            Event::Scope(_) => scope_guard.snapshot_scope_local_registries(|registries| {
+                &registries.scope_sanitize_end_guardrails
+            }),
         }
+    };
+    let local_refs = locals.iter().collect::<Vec<_>>();
+    let context = global_context();
+    let registration_kind = match event {
+        Event::Mark(_) => RuntimeRegistrationKind::MarkSanitizeGuardrail,
+        Event::Scope(scope) if scope.scope_category == ScopeCategory::Start => {
+            RuntimeRegistrationKind::ScopeSanitizeStartGuardrail
+        }
+        Event::Scope(_) => RuntimeRegistrationKind::ScopeSanitizeEndGuardrail,
+    };
+    let state = match context.read() {
+        Ok(state) => state.registry_snapshot(&[registration_kind]),
+        Err(error) => {
+            log::error!(
+                target: "nemo_relay.runtime",
+                event = "event_sanitizer_snapshot_failed";
+                "Event sanitizer snapshot failed; clearing observability fields: {error}"
+            );
+            return Some(vec![Guardrail::new(
+                "event-sanitizer-snapshot-failure",
+                i32::MIN,
+                Arc::new(|_, _| Box::pin(async { Ok(EventSanitizeFields::default()) })),
+            )]);
+        }
+    };
+    let entries = match &event {
+        Event::Mark(_) => NemoRelayContextState::event_sanitize_entries(
+            &state.mark_sanitize_guardrails,
+            &local_refs,
+            RuntimeRegistrationKind::MarkSanitizeGuardrail,
+        ),
+        Event::Scope(scope) if scope.scope_category == ScopeCategory::Start => {
+            NemoRelayContextState::event_sanitize_entries(
+                &state.scope_sanitize_start_guardrails,
+                &local_refs,
+                RuntimeRegistrationKind::ScopeSanitizeStartGuardrail,
+            )
+        }
+        Event::Scope(_) => NemoRelayContextState::event_sanitize_entries(
+            &state.scope_sanitize_end_guardrails,
+            &local_refs,
+            RuntimeRegistrationKind::ScopeSanitizeEndGuardrail,
+        ),
     };
     Some(entries)
 }
 
+/// Snapshot the Event metadata injectors visible to a queued Event.
+pub(crate) fn snapshot_event_metadata_injectors(
+    scope_stack: &ScopeStackHandle,
+) -> Vec<EventMetadataInjector> {
+    let locals = match scope_stack.read() {
+        Ok(guard) => guard,
+        Err(error) => {
+            log::error!(
+                target: "nemo_relay.runtime",
+                event = "event_metadata_injector_snapshot_failed";
+                "Event metadata injector snapshot failed; continuing without injection: {error}"
+            );
+            return Vec::new();
+        }
+    }
+    .snapshot_scope_local_registries(|registries| &registries.event_metadata_injectors);
+    let context = global_context();
+    let state = match context.read() {
+        Ok(state) => state.registry_snapshot(&[RuntimeRegistrationKind::EventMetadataInjector]),
+        Err(error) => {
+            log::error!(
+                target: "nemo_relay.runtime",
+                event = "event_metadata_injector_snapshot_failed";
+                "Event metadata injector snapshot failed; continuing without injection: {error}"
+            );
+            return Vec::new();
+        }
+    };
+    let local_refs = locals.iter().collect::<Vec<_>>();
+    NemoRelayContextState::event_metadata_injector_entries(
+        &state.event_metadata_injectors,
+        &local_refs,
+    )
+}
 pub(crate) fn ensure_runtime_owner() -> Result<()> {
     ensure_process_runtime_owner()
 }
@@ -180,6 +227,21 @@ pub(crate) fn inject_dynamo_session_ids(request: &mut LlmRequest) {
             request.headers.remove(DYNAMO_PARENT_SESSION_ID_HEADER_KEY);
         }
     }
+}
+
+pub(crate) fn inject_traceparent_value(request: &mut LlmRequest, value: String) {
+    request
+        .headers
+        .retain(|key, _| !key.eq_ignore_ascii_case(TRACEPARENT_HEADER_KEY));
+    request
+        .headers
+        .insert(TRACEPARENT_HEADER_KEY.to_string(), Json::String(value));
+}
+
+pub(crate) fn inject_traceparent(request: &mut LlmRequest, parent_uuid: Uuid) -> Result<()> {
+    let value = traceparent_for_llm(parent_uuid)?;
+    inject_traceparent_value(request, value);
+    Ok(())
 }
 
 pub(crate) fn metadata_with_otel_status(
@@ -269,17 +331,18 @@ async fn run_request_intercepts_with_codec_inner(
 
     let entries = {
         let scope_stack = current_scope_stack();
-        let scope_guard = scope_stack
+        let scope_locals = scope_stack
             .read()
-            .map_err(|error| FlowError::Internal(error.to_string()))?;
-        let scope_locals = scope_guard
-            .collect_scope_local_registries(|registries| &registries.llm_request_intercepts);
+            .map_err(|error| FlowError::Internal(error.to_string()))?
+            .snapshot_scope_local_registries(|registries| &registries.llm_request_intercepts);
+        let scope_local_refs = scope_locals.iter().collect::<Vec<_>>();
 
         let context = global_context();
         let state = context
             .read()
-            .map_err(|error| FlowError::Internal(error.to_string()))?;
-        state.llm_request_intercept_entries(&scope_locals)
+            .map_err(|error| FlowError::Internal(error.to_string()))?
+            .registry_snapshot(&[RuntimeRegistrationKind::LlmRequestIntercept]);
+        state.llm_request_intercept_entries(&scope_local_refs)
     };
 
     let outcome = crate::api::runtime::NemoRelayContextState::llm_request_intercepts_snapshot_chain_with_recorder(

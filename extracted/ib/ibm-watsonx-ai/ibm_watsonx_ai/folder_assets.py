@@ -290,7 +290,7 @@ class FolderAssets(WMLResource):
         :param purge_on_delete: if set to True will purge the asset
         :type purge_on_delete: bool, optional
 
-        :return: status ("SUCCESS" or "FAILED") or dictionary, if deleted asynchronously
+        :return: status "SUCCESS" or dictionary, if deleted asynchronously
         :rtype: str or dict
 
         **Example:**

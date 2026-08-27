@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: uipath-llm-client
-Version: 1.17.2
+Version: 1.18.0
 Summary: UiPath LLM Client
 Author-email: Cosmin Maria <cosmin.maria@uipath.com>, Dragos Bobolea <dragos.bobolea@uipath.com>
 License-File: LICENSE
@@ -9,7 +9,7 @@ Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: pydantic-settings<3.0.0,>=2.14.0
 Requires-Dist: pydantic<3.0.0,>=2.12.5
 Requires-Dist: tenacity<10.0.0,>=9.1.4
-Requires-Dist: uipath-platform<1.0.0,>=0.1.91
+Requires-Dist: uipath-platform<1.0.0,>=0.2.19
 Provides-Extra: all
 Requires-Dist: anthropic<1.0.0,>=0.96.0; extra == 'all'
 Requires-Dist: google-genai<2.0.0,>=1.73.1; extra == 'all'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 27.0.0
+Version: 28.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -513,7 +513,9 @@ Class | Method | HTTP request | Description
 *ReportsBetaApi* | [**get_report**](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportsBetaApi.md#get_report) | **GET** /reports/{reportId} | Get report status
 *ReportsBetaApi* | [**list_reports**](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportsBetaApi.md#list_reports) | **GET** /reports | List reports
 *ResetDeviceApi* | [**reset_device**](https://github.com/fireblocks/py-sdk/tree/master/docs/ResetDeviceApi.md#reset_device) | **POST** /management/users/{id}/reset_device | Resets device
+*SecurityPostureManagementApi* | [**get_security_finding_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/SecurityPostureManagementApi.md#get_security_finding_by_id) | **GET** /security/fspm/findings/{id} | Get a FSPM security finding by ID
 *SecurityPostureManagementApi* | [**get_security_findings**](https://github.com/fireblocks/py-sdk/tree/master/docs/SecurityPostureManagementApi.md#get_security_findings) | **GET** /security/fspm/findings | Get FSPM security findings
+*SecurityPostureManagementApi* | [**update_security_finding_by_id**](https://github.com/fireblocks/py-sdk/tree/master/docs/SecurityPostureManagementApi.md#update_security_finding_by_id) | **PATCH** /security/fspm/findings/{id} | Update a FSPM security finding by ID
 *SmartTransferApi* | [**approve_dv_p_ticket_term**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#approve_dv_p_ticket_term) | **PUT** /smart_transfers/{ticketId}/terms/{termId}/dvp/approve | Set funding source and approval
 *SmartTransferApi* | [**cancel_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#cancel_ticket) | **PUT** /smart-transfers/{ticketId}/cancel | Cancel Ticket
 *SmartTransferApi* | [**create_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#create_ticket) | **POST** /smart-transfers | Create Ticket
@@ -728,6 +730,7 @@ Class | Method | HTTP request | Description
  - [APIUser](https://github.com/fireblocks/py-sdk/tree/master/docs/APIUser.md)
  - [AbaPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/AbaPaymentInfo.md)
  - [AbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/AbiFunction.md)
+ - [AcceptFindingRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/AcceptFindingRequest.md)
  - [AccessRegistryAddressItem](https://github.com/fireblocks/py-sdk/tree/master/docs/AccessRegistryAddressItem.md)
  - [AccessRegistryCurrentStateResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/AccessRegistryCurrentStateResponse.md)
  - [AccessRegistryCurrentStateResponse2](https://github.com/fireblocks/py-sdk/tree/master/docs/AccessRegistryCurrentStateResponse2.md)
@@ -915,6 +918,7 @@ Class | Method | HTTP request | Description
  - [CollectionTokenMetadataAttributeDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionTokenMetadataAttributeDto.md)
  - [CollectionTokenMetadataDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionTokenMetadataDto.md)
  - [CollectionType](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionType.md)
+ - [ComplianceRequirement](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceRequirement.md)
  - [ComplianceResultFullPayload](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceResultFullPayload.md)
  - [ComplianceResultStatusesEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceResultStatusesEnum.md)
  - [ComplianceResults](https://github.com/fireblocks/py-sdk/tree/master/docs/ComplianceResults.md)
@@ -1473,6 +1477,7 @@ Class | Method | HTTP request | Description
  - [RenameConnectedAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RenameConnectedAccountResponse.md)
  - [RenameCosigner](https://github.com/fireblocks/py-sdk/tree/master/docs/RenameCosigner.md)
  - [RenameVaultAccountResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/RenameVaultAccountResponse.md)
+ - [ReopenFindingRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ReopenFindingRequest.md)
  - [ReportConflictResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportConflictResponse.md)
  - [ReportJob](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportJob.md)
  - [ReportJobLinks](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportJobLinks.md)
@@ -1539,6 +1544,7 @@ Class | Method | HTTP request | Description
  - [ScreeningVerdictMatchedRule](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningVerdictMatchedRule.md)
  - [SearchNetworkIdsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/SearchNetworkIdsResponse.md)
  - [SecurityFinding](https://github.com/fireblocks/py-sdk/tree/master/docs/SecurityFinding.md)
+ - [SecurityFindingDetailed](https://github.com/fireblocks/py-sdk/tree/master/docs/SecurityFindingDetailed.md)
  - [SepaPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/SepaPaymentInfo.md)
  - [SessionDTO](https://github.com/fireblocks/py-sdk/tree/master/docs/SessionDTO.md)
  - [SessionMetadata](https://github.com/fireblocks/py-sdk/tree/master/docs/SessionMetadata.md)
@@ -1858,6 +1864,7 @@ Class | Method | HTTP request | Description
  - [UpdateCallbackHandlerResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateCallbackHandlerResponse.md)
  - [UpdateCounterpartyGroupRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateCounterpartyGroupRequest.md)
  - [UpdateDraftRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateDraftRequest.md)
+ - [UpdateFindingExternalRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateFindingExternalRequest.md)
  - [UpdateLegalEntityRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateLegalEntityRequest.md)
  - [UpdateTagRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateTagRequest.md)
  - [UpdateTokenOwnershipStatusDto](https://github.com/fireblocks/py-sdk/tree/master/docs/UpdateTokenOwnershipStatusDto.md)

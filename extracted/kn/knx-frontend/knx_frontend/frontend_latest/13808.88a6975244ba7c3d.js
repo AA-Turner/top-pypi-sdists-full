@@ -1,0 +1,2 @@
+export const __rspack_esm_id=13808;export const __rspack_esm_ids=[13808];export const __webpack_modules__={95571(r,e,o){o.r(e);var s=o(15697),t=o(57527),d=o(8399);class a extends t.WF{render(){return t.qy`<hr/>`}}a.styles=t.AH`:host{display:block}hr{border:none;border-top:1px solid var(--ha-color-border-neutral-quiet);margin:0}`,(0,s.Cg)([(0,d.MZ)({attribute:!1})],a.prototype,"schema",void 0),a=(0,s.Cg)([(0,d.EM)("ha-form-divider")],a),o.d(e,{HaFormDivider:()=>a})}};
+//# sourceMappingURL=13808.88a6975244ba7c3d.js.map

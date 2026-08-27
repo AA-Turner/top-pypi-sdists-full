@@ -9,6 +9,7 @@ from typing import Any, AsyncIterator, Iterator, Literal, overload
 import httpx
 
 from ibm_watsonx_ai import APIClient, Credentials
+from ibm_watsonx_ai._wrappers.httpx import RateLimitedRetryDecorator, TokenBucket
 from ibm_watsonx_ai.gateway.models import Models
 from ibm_watsonx_ai.gateway.policies import Policies
 from ibm_watsonx_ai.gateway.providers import Providers
@@ -83,7 +84,44 @@ async def _streaming_acreate(
 
 
 class Gateway(WMLResource):
-    """Model Gateway class."""
+    """Model Gateway client.
+
+    Provides access to providers, models, policies, rate limits, and inference
+    endpoints (chat completions, text completions, and embeddings) registered
+    in IBM watsonx.ai Model Gateway.
+
+    :param credentials: credentials for the watsonx.ai instance;
+        mutually exclusive with ``api_client``
+    :type credentials: Credentials, optional
+
+    :param verify: SSL certificate verification setting:
+
+        * path to a CA_BUNDLE file or directory of trusted CA certificates
+        * ``True`` — use the default truststore
+        * ``False`` — disable verification (not recommended for production)
+    :type verify: bool or str, optional
+
+    :param api_client: pre-initialised :class:`~ibm_watsonx_ai.APIClient` with a
+        project or space ID already set; if provided, ``credentials`` is not required
+    :type api_client: APIClient, optional
+
+    :param max_retries: maximum number of retries when a request fails with a
+        status code in ``retry_status_codes``; defaults to ``10``
+    :type max_retries: int, optional
+
+    :param delay_time: base delay (in seconds) for the exponential back-off
+        formula ``delay_time * 2 ** attempt``; defaults to ``0.5``
+    :type delay_time: float, optional
+
+    :param retry_status_codes: HTTP status codes that trigger the retry
+        mechanism; defaults to ``[429, 503, 504, 520]``
+    :type retry_status_codes: list[int], optional
+
+    :raises InvalidMultipleArguments: if neither ``credentials`` nor ``api_client``
+        is provided
+    :raises WMLClientError: if the connected platform release does not support
+        Model Gateway (CPD < 5.2)
+    """
 
     def __init__(
         self,
@@ -91,6 +129,9 @@ class Gateway(WMLResource):
         credentials: Credentials | None = None,
         verify: bool | str | None = None,
         api_client: APIClient | None = None,
+        max_retries: int | None = None,
+        delay_time: float | None = None,
+        retry_status_codes: list[int] | None = None,
     ):
         if credentials:
             api_client = APIClient(credentials, verify=verify)
@@ -110,10 +151,31 @@ class Gateway(WMLResource):
         self.policies = Policies(self._client)
         self.rate_limits = RateLimits(self._client)
 
+        _retry_decorator = RateLimitedRetryDecorator(
+            api_client=self._client,
+            rate_limiter=TokenBucket(rate=8, capacity=8),
+            retry_status_codes=retry_status_codes,
+            max_retries=max_retries,
+            delay_time=delay_time,
+        )
+        _post_with_retry = _retry_decorator.rate_limited_retry(
+            self._client.httpx_client.post
+        )
+        _async_post_with_retry = _retry_decorator.rate_limited_async_retry(
+            self._client.async_httpx_client.post
+        )
+
         # Chat completions
         class _ChatCompletions(WMLResource):
-            def __init__(self, api_client: APIClient):
+            def __init__(
+                self,
+                api_client: APIClient,
+                post_with_retry: Any,
+                async_post_with_retry: Any,
+            ):
                 WMLResource.__init__(self, __name__, api_client)
+                self._post_with_retry = post_with_retry
+                self._async_post_with_retry = async_post_with_retry
 
             @overload
             def create(
@@ -168,7 +230,7 @@ class Gateway(WMLResource):
                         api_client=self._client, url=url, request_json=request_json
                     )
 
-                response = self._client.httpx_client.post(
+                response = self._post_with_retry(
                     url=url,
                     headers=self._client._get_headers(include_container_id=True),
                     json=request_json,
@@ -229,7 +291,7 @@ class Gateway(WMLResource):
                         api_client=self._client, url=url, request_json=request_json
                     )
 
-                response = await self._client.async_httpx_client.post(
+                response = await self._async_post_with_retry(
                     url=url,
                     headers=await self._client._aget_headers(include_container_id=True),
                     json=request_json,
@@ -238,15 +300,29 @@ class Gateway(WMLResource):
                 return self._handle_response(200, "chat completion creation", response)
 
         class _Chat:
-            def __init__(self, api_client: APIClient):
-                self.completions = _ChatCompletions(api_client)
+            def __init__(
+                self,
+                api_client: APIClient,
+                post_with_retry: Any,
+                async_post_with_retry: Any,
+            ):
+                self.completions = _ChatCompletions(
+                    api_client, post_with_retry, async_post_with_retry
+                )
 
-        self.chat = _Chat(self._client)
+        self.chat = _Chat(self._client, _post_with_retry, _async_post_with_retry)
 
         # Text completions
         class _Completions(WMLResource):
-            def __init__(self, api_client: APIClient):
+            def __init__(
+                self,
+                api_client: APIClient,
+                post_with_retry: Any,
+                async_post_with_retry: Any,
+            ):
                 WMLResource.__init__(self, __name__, api_client)
+                self._post_with_retry = post_with_retry
+                self._async_post_with_retry = async_post_with_retry
 
             @overload
             def create(
@@ -301,7 +377,7 @@ class Gateway(WMLResource):
                         api_client=self._client, url=url, request_json=request_json
                     )
                 else:
-                    response = self._client.httpx_client.post(
+                    response = self._post_with_retry(
                         url=url,
                         headers=self._client._get_headers(include_container_id=True),
                         json=request_json,
@@ -364,7 +440,7 @@ class Gateway(WMLResource):
                         api_client=self._client, url=url, request_json=request_json
                     )
                 else:
-                    response = await self._client.async_httpx_client.post(
+                    response = await self._async_post_with_retry(
                         url=url,
                         headers=await self._client._aget_headers(
                             include_container_id=True
@@ -376,15 +452,24 @@ class Gateway(WMLResource):
                         200, "text completion creation", response
                     )
 
-        self.completions = _Completions(self._client)
+        self.completions = _Completions(
+            self._client, _post_with_retry, _async_post_with_retry
+        )
 
         # Embeddings
         class _Embeddings(WMLResource):
             # Maximum number of inputs allowed per request by Model Gateway
             _MAX_BATCH_SIZE = 1000
 
-            def __init__(self, api_client: APIClient):
+            def __init__(
+                self,
+                api_client: APIClient,
+                post_with_retry: Any,
+                async_post_with_retry: Any,
+            ):
                 WMLResource.__init__(self, __name__, api_client)
+                self._post_with_retry = post_with_retry
+                self._async_post_with_retry = async_post_with_retry
 
             def _batch_inputs(self, inputs: PromptInput) -> BatchedPromptInput:
                 """Split input into batches of maximum size.
@@ -473,7 +558,7 @@ class Gateway(WMLResource):
                     try:
                         request_json = {"input": batch, "model": model, **kwargs}
 
-                        response = self._client.httpx_client.post(
+                        response = self._post_with_retry(
                             self._client._href_definitions.get_gateway_embeddings_href(),
                             headers=self._client._get_headers(
                                 include_container_id=True
@@ -519,7 +604,7 @@ class Gateway(WMLResource):
                     try:
                         request_json = {"input": batch, "model": model, **kwargs}
 
-                        response = await self._client.async_httpx_client.post(
+                        response = await self._async_post_with_retry(
                             self._client._href_definitions.get_gateway_embeddings_href(),
                             headers=await self._client._aget_headers(
                                 include_container_id=True
@@ -542,4 +627,6 @@ class Gateway(WMLResource):
 
                 return self._merge_responses(responses)
 
-        self.embeddings = _Embeddings(self._client)
+        self.embeddings = _Embeddings(
+            self._client, _post_with_retry, _async_post_with_retry
+        )

@@ -223,6 +223,7 @@ from chalk.client.serialization.protos import (
     UploadFeaturesBulkConverter,
 )
 from chalk.config.auth_config import TokenConfig, load_token
+from chalk.config.web_identity import invalidate_web_identity_token
 from chalk.features import live_updates
 from chalk.features._encoding.inputs import (
     GRPC_ENCODE_OPTIONS,
@@ -252,7 +253,13 @@ from chalk.scalinggroup.spec import (
 from chalk.utils import df_utils
 from chalk.utils.cached_member_fn import cached_member_fn
 from chalk.utils.df_utils import record_batch_to_arrow_ipc
-from chalk.utils.grpc import AuthenticatedChalkClientInterceptor, TokenRefresher, UnauthenticatedChalkClientInterceptor
+from chalk.utils.grpc import (
+    AuthenticatedChalkClientInterceptor,
+    TokenProvider,
+    TokenRefresher,
+    UnauthenticatedChalkClientInterceptor,
+    WebIdentityTokenRefresher,
+)
 from chalk.utils.tracing import (
     TraceContext,
     current_or_new_trace_context,
@@ -470,6 +477,11 @@ class StubProvider:
         if target == _EngineTarget.GRPC_ENGINE:
             channel = self._engine_channel
             if channel is None:
+                if self._uses_web_identity:
+                    raise ValueError(
+                        "No GRPC engine target is configured. Chalk identity JWTs carry no engine routing, so it "
+                        + "cannot be discovered automatically: set CHALK_GRPC_ENGINE or pass query_server=..."
+                    )
                 raise ValueError(
                     "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
                 )
@@ -661,7 +673,14 @@ class StubProvider:
     ):
         super().__init__()
         additional_headers_nonempty: List[tuple[str, str]] = [] if additional_headers is None else additional_headers
-        token_refresher: TokenRefresher | None = None
+        token_refresher: TokenProvider | None = None
+        # Only the credential-exchange path builds one; skipping the API server and
+        # rotating auth both have nothing to exchange. Declared here so those paths
+        # read as None rather than raising AttributeError.
+        self._auth_stub: Optional[AuthServiceStub] = None
+        # Retained only so a missing engine target can be explained accurately: under
+        # rotating auth it can never be discovered, rather than merely being absent.
+        self._uses_web_identity: bool = token_config.webIdentityTokenFile is not None
         channel_options_merged: Dict[str, str | int] = _DEFAULT_CHANNEL_OPTIONS.copy()
         if channel_options:
             channel_options_merged.update(dict(channel_options))
@@ -701,37 +720,48 @@ class StubProvider:
                 )
             )
 
-            self._auth_stub: AuthServiceStub = AuthServiceStub(
-                grpc.intercept_channel(
-                    _unauthenticated_server_channel,
-                    UnauthenticatedChalkClientInterceptor(
-                        server="go-api",
-                        additional_headers=additional_headers_nonempty,
-                    ),
+            if token_config.webIdentityTokenFile is not None:
+                # Rotating auth: there are no credentials to exchange, so no auth stub
+                # and no GetToken call.
+                token_refresher = WebIdentityTokenRefresher(token_config.webIdentityTokenFile)
+                self.environment_id = token_config.activeEnvironment
+                if not self.environment_id:
+                    raise ValueError("No environment specified")
+            else:
+                auth_stub = AuthServiceStub(
+                    grpc.intercept_channel(
+                        _unauthenticated_server_channel,
+                        UnauthenticatedChalkClientInterceptor(
+                            server="go-api",
+                            additional_headers=additional_headers_nonempty,
+                        ),
+                    )
                 )
-            )
+                self._auth_stub = auth_stub
 
-            token_refresher = TokenRefresher(
-                auth_stub=self._auth_stub,
-                client_id=token_config.clientId,
-                client_secret=token_config.clientSecret,
-            )
+                token_refresher = TokenRefresher(
+                    auth_stub=auth_stub,
+                    client_id=token_config.clientId,
+                    client_secret=token_config.clientSecret,
+                )
 
-            t = token_refresher.get_token()
+                t = token_refresher.get_token()
 
-            self.environment_id = token_config.activeEnvironment or t.primary_environment
-            if not self.environment_id:
-                raise ValueError("No environment specified")
+                self.environment_id = token_config.activeEnvironment or t.primary_environment
+                if not self.environment_id:
+                    raise ValueError("No environment specified")
 
-            if self.environment_id not in t.environment_id_to_name:
-                lower_env_id = self.environment_id.lower()
-                valid = [eid for eid, ename in t.environment_id_to_name.items() if ename.lower() == lower_env_id]
-                if len(valid) > 1:
-                    raise ValueError(f"Multiple environments with name {self.environment_id}: {valid}")
-                elif len(valid) == 0:
-                    raise ValueError(f"No environment with name {self.environment_id}: {t.environment_id_to_name}")
-                else:
-                    self.environment_id = valid[0]
+                if self.environment_id not in t.environment_id_to_name:
+                    lower_env_id = self.environment_id.lower()
+                    valid = [eid for eid, ename in t.environment_id_to_name.items() if ename.lower() == lower_env_id]
+                    if len(valid) > 1:
+                        raise ValueError(f"Multiple environments with name {self.environment_id}: {valid}")
+                    elif len(valid) == 0:
+                        raise ValueError(f"No environment with name {self.environment_id}: {t.environment_id_to_name}")
+                    else:
+                        self.environment_id = valid[0]
+
+                query_server = query_server or t.grpc_engines.get(self.environment_id, None)
 
             self._server_channel: Optional[grpc.Channel] = grpc.intercept_channel(
                 _unauthenticated_server_channel,
@@ -743,7 +773,11 @@ class StubProvider:
                 ),
             )
 
-            query_server = query_server or t.grpc_engines.get(self.environment_id, None)
+            if token_config.webIdentityTokenFile is not None and query_server is None:
+                # Warn so a misconfiguration surfaces at startup instead of only at the first engine query.
+                warnings.warn(
+                    "No gRPC engine target is configured. Chalk identity JWTs carry no engine routing, so engine queries will fail until CHALK_GRPC_ENGINE is set or query_server is passed."
+                )
         engine_headers = additional_headers_nonempty + [(CHALK_DEPLOYMENT_TYPE_HEADER_LOWERCASE, "engine-grpc")]
         if deployment_tag is not None:
             engine_headers += [(CHALK_DEPLOYMENT_TAG_HEADER_LOWERCASE, deployment_tag)]
@@ -786,7 +820,7 @@ class StubProvider:
             )
 
         # Retained to mint Bearer tokens for direct (non-proxied) calls; None when skipping auth.
-        self._token_refresher: TokenRefresher | None = token_refresher
+        self._token_refresher: TokenProvider | None = token_refresher
 
     def get_remote_call_metadata(self) -> List[tuple[str, str]]:
         """Bearer token + env id for a direct scaling-group call."""
@@ -854,6 +888,14 @@ class StubRefresher:
                     self._refresh_stub()
                     old_stub.close()
                     return fn(get_service())
+            web_identity_token_file = self._token_config.webIdentityTokenFile
+            if e.code() == grpc.StatusCode.UNAUTHENTICATED and web_identity_token_file is not None:
+                # the producer may have rotated the token file after we cached it
+                # but before the cache deadline lapsed. Drop the cached token so the interceptor re-reads the file,
+                # and retry once.
+                chalk_logger.info("Received UNAUTHENTICATED; re-reading the web identity token file and retrying")
+                invalidate_web_identity_token(web_identity_token_file)
+                return fn(get_service())
             raise
 
     def call_deploy_stub(self, fn: Callable[[DeployServiceStub], T]) -> T:
@@ -1010,8 +1052,26 @@ class ChalkGRPCClient:
             Additional client metadata to send with GRPC requests.
         query_server
             Hardcoded URI for Chalk query server, if available.
+
+            Required when authenticating with `CHALK_WEB_IDENTITY_TOKEN_FILE`,
+            either here or via the `CHALK_GRPC_ENGINE` environment variable: a
+            Chalk identity JWT carries no engine routing, so the engine target
+            cannot be discovered. Metadata-plane calls still work without it;
+            only engine queries fail.
         deployment_tag
             Tag of the deployment to query. If omitted, the active deployment is used.
+
+        Notes
+        -----
+        If the environment variable `CHALK_WEB_IDENTITY_TOKEN_FILE` names a file
+        holding a Chalk JWT, that token is used directly and takes precedence over
+        `client_id`/`client_secret` and `~/.chalk.yml`; no credential exchange is
+        performed, and the file is re-read as the token nears expiry so it can be
+        rotated externally. The JWT's `environment_id` claim selects the
+        environment unless `environment` or `CHALK_ENVIRONMENT` is given, in which
+        case that must be an environment id rather than a name. A missing or
+        malformed token file raises `WebIdentityTokenError` rather than falling
+        back to stored credentials.
         """
         super().__init__()
         self._input_compression: typing.Literal["lz4", "zstd", "uncompressed"] = input_compression
@@ -1040,6 +1100,9 @@ class ChalkGRPCClient:
         )
         if token_config is None:
             raise ChalkAuthException()
+
+        if token_config.webIdentityTokenFile is not None and query_server is None:
+            query_server = os.environ.get("CHALK_GRPC_ENGINE") or None
 
         # using for instantiation of ChalkClient(). Can remove if we exclusively start using GRPC client
         self._client_id = token_config.clientId

@@ -60,6 +60,14 @@ class TestDescribeRule:
 
             robocop check --configure line-too-long.ignore_pattern=pattern
 
+        Lines that are part of a documentation (the ``Documentation`` setting or the ``[Documentation]`` setting of a
+        test case or keyword, together with their ``...`` continuation lines) can be ignored using the following option:
+
+            robocop check --configure line-too-long.ignore_docs=True
+
+        This rule is not fixed by ``robocop check --fix``. Use the ``SplitTooLongLine`` formatter
+        (``robocop format``) to fix it.
+
 
         Configurables:
             severity_threshold = None
@@ -70,6 +78,9 @@ class TestDescribeRule:
             ignore_pattern = None
                 type: pattern_type
                 info: ignore lines that contain configured pattern
+            ignore_docs = False
+                type: str2bool
+                info: ignore lines that are part of a documentation
 
         """).lstrip()
         assert expected == out
@@ -102,6 +113,14 @@ class TestDescribeRule:
 
             robocop check --configure line-too-long.ignore_pattern=pattern
 
+        Lines that are part of a documentation (the ``Documentation`` setting or the ``[Documentation]`` setting of a
+        test case or keyword, together with their ``...`` continuation lines) can be ignored using the following option:
+
+            robocop check --configure line-too-long.ignore_docs=True
+
+        This rule is not fixed by ``robocop check --fix``. Use the ``SplitTooLongLine`` formatter
+        (``robocop format``) to fix it.
+
 
         Configurables:
             severity_threshold = E=150:W=100
@@ -112,6 +131,9 @@ class TestDescribeRule:
             ignore_pattern = None
                 type: pattern_type
                 info: ignore lines that contain configured pattern
+            ignore_docs = False
+                type: str2bool
+                info: ignore lines that are part of a documentation
 
         """).lstrip()
         assert expected == out

@@ -66,7 +66,6 @@ class TestPricingConfigResponse(unittest.TestCase):
                     null
                     ],
                 usage_pools = { },
-                storage = { },
                 reads = { },
                 full_res_multiplier = 1.337
             )

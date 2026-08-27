@@ -5,10 +5,10 @@ from .dubbing_export_status_data import DubbingExportStatusDataParams
 
 
 class DubbingExportStatusResponseParams(typing_extensions.TypedDict):
-    status: typing_extensions.NotRequired[str]
+    status: str
     """
     Response status, e.g. `success`.
     """
 
-    message: typing_extensions.NotRequired[str]
-    data: typing_extensions.NotRequired[DubbingExportStatusDataParams]
+    message: str
+    data: DubbingExportStatusDataParams

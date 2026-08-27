@@ -70,22 +70,27 @@ class OrionPyClient:
                 Vector,
             )
 
-            # Only consider derived_fp32 feature group
-            feature_group_schema = []
-            if "derived_fp32" in self.onfs_fg_to_onfs_feat_map:
-                feature_group_schema = [
-                    FeatureGroupSchema(label="derived_fp32", feature_labels=self.onfs_fg_to_onfs_feat_map["derived_fp32"])
-                ]
+            feature_group_schema = [
+                FeatureGroupSchema(label=label, feature_labels=features)
+                for label, features in self.onfs_fg_to_onfs_feat_map.items()
+            ]
 
             current_batch = []
             batch_id = 0
+            fg_positions = None
+            key_positions = None
 
             for row in iterator:
-                feature_values = self._create_feature_values(row)
-                
+                if fg_positions is None:
+                    # Every row in a partition shares one schema, so resolve
+                    # feature name -> position once instead of per lookup.
+                    fg_positions, key_positions = self._build_fg_positions(row)
+
+                feature_values = self._create_feature_values(row, fg_positions)
+
                 # Construct Data message for current row
                 data_msg = Data(
-                    key_values=[str(row[col]) for col in self.entity_column_names],
+                    key_values=[str(row[p]) for p in key_positions],
                     feature_values=feature_values,
                 )
 
@@ -138,22 +143,27 @@ class OrionPyClient:
                 Vector,
             )
 
-            # Only consider derived_fp32 feature group
-            feature_group_schema = []
-            if "derived_fp32" in self.onfs_fg_to_onfs_feat_map:
-                feature_group_schema = [
-                    FeatureGroupSchema(label="derived_fp32", feature_labels=self.onfs_fg_to_onfs_feat_map["derived_fp32"])
-                ]
+            feature_group_schema = [
+                FeatureGroupSchema(label=label, feature_labels=features)
+                for label, features in self.onfs_fg_to_onfs_feat_map.items()
+            ]
 
             current_batch = []
             batch_id = 0
+            fg_positions = None
+            key_positions = None
 
             for row in iterator:
-                feature_values = self._create_feature_values(row)
-                
+                if fg_positions is None:
+                    # Every row in a partition shares one schema, so resolve
+                    # feature name -> position once instead of per lookup.
+                    fg_positions, key_positions = self._build_fg_positions(row)
+
+                feature_values = self._create_feature_values(row, fg_positions)
+
                 # Construct Data message for current row
                 data_msg = Data(
-                    key_values=[str(row[col]) for col in self.entity_column_names],
+                    key_values=[str(row[p]) for p in key_positions],
                     feature_values=feature_values,
                 )
 
@@ -167,15 +177,12 @@ class OrionPyClient:
                         feature_group_schema=feature_group_schema,
                         data=current_batch,
                     )
-                    
+
                     # Create partition key from the FIRST row in the batch (since all rows in batch should have same entity)
                     first_row_entity_values = [str(current_batch[0].key_values[i]) for i in range(len(self.entity_column_names))]
                     partition_key = "|".join(first_row_entity_values)
-                    print(f"DEBUG: Entity columns: {self.entity_column_names}")
-                    print(f"DEBUG: First row key_values: {current_batch[0].key_values}")
-                    print(f"DEBUG: Partition key: {partition_key}")
                     yield (query.SerializeToString(), batch_id, partition_key)
-                    
+
                     current_batch = []
                     batch_id += 1
 
@@ -191,9 +198,6 @@ class OrionPyClient:
                 # For the last batch, use the first row's entity values
                 first_row_entity_values = [str(current_batch[0].key_values[i]) for i in range(len(self.entity_column_names))]
                 partition_key = "|".join(first_row_entity_values)
-                print(f"DEBUG: Last batch - Entity columns: {self.entity_column_names}")
-                print(f"DEBUG: Last batch - First row key_values: {current_batch[0].key_values}")
-                print(f"DEBUG: Last batch - Partition key: {partition_key}")
                 yield (query.SerializeToString(), batch_id, partition_key)
 
         # Define output schema with partition key
@@ -207,170 +211,200 @@ class OrionPyClient:
         out_df = df.rdd.mapPartitions(process_partition).toDF(protobuf_schema)
         return out_df
 
-    def _create_feature_values(self, row):
-        """Create feature values for a given row."""
+    def _build_fg_positions(self, row):
+        """Resolve every feature name to a positional index, once per partition.
+
+        PySpark's Row.__getitem__(str) resolves a name via
+        self.__fields__.index(name) -- a linear scan. Looking up F features that
+        way costs O(F^2) per row: on the catalog batch jobs F is 1295, so ~1.7M
+        string comparisons for every single row. Resolving positions once and
+        indexing by integer makes per-row access O(1).
+
+        Falls back to the feature name when a row exposes no __fields__, or when
+        a feature is missing from it, so lookup behaviour (and the resulting
+        error) is unchanged in those cases.
+        """
+        fields = getattr(row, "__fields__", None)
+        if fields:
+            pos = {name: i for i, name in enumerate(fields)}
+            resolve = lambda name: pos.get(name, name)
+        else:
+            resolve = lambda name: name
+
+        return (
+            {
+                fg_label: [resolve(f) for f in features]
+                for fg_label, features in self.onfs_fg_to_ofs_feat_map.items()
+            },
+            [resolve(col) for col in self.entity_column_names],
+        )
+
+    def _create_feature_values(self, row, fg_positions):
+        """Create feature values for a given row.
+
+        `fg_positions` maps each feature group to its features' positional
+        indices, as built once per partition by _build_fg_positions.
+        """
         from .proto.persist.persist_pb2 import FeatureValues, Values, Vector
-        
+
         feature_values = []
-        # Only process derived_fp32 feature group
-        if "derived_fp32" in self.onfs_fg_to_ofs_feat_map:
-            fg_label = "derived_fp32"
-            features = self.onfs_fg_to_ofs_feat_map[fg_label]
+        for fg_label, features in self.onfs_fg_to_ofs_feat_map.items():
             curr_datatype = self.fg_to_datatype_map[fg_label]
+            fpositions = fg_positions[fg_label]
 
             values = Values()
             # For Scalar Data types
             
             if curr_datatype == "DataTypeFP8E5M2":
                 values.fp32_values.extend(
-                    [np.float32(row[feature]) for feature in features]
+                    [np.float32(row[fpos]) for fpos in fpositions]
                 )                        
             elif curr_datatype == "DataTypeFP8E4M3":
                 values.fp32_values.extend(
-                    [np.float32(row[feature]) for feature in features]
+                    [np.float32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeFP16":
                 values.fp32_values.extend(
-                    [np.float32(row[feature]) for feature in features]
+                    [np.float32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeFP32":
                 values.fp32_values.extend(
-                    [np.float32(row[feature]) for feature in features]
+                    [np.float32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeFP64":
                 values.fp64_values.extend(
-                    [np.float64(row[feature]) for feature in features]
+                    [np.float64(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeInt8":
                 values.int32_values.extend(
-                    [np.int32(row[feature]) for feature in features]
+                    [np.int32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeInt16":
                 values.int32_values.extend(
-                    [np.int32(row[feature]) for feature in features]
+                    [np.int32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeInt32":
                 values.int32_values.extend(
-                    [np.int32(row[feature]) for feature in features]
+                    [np.int32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeInt64":
                 values.int64_values.extend(
-                    [np.int64(row[feature]) for feature in features]
+                    [np.int64(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeUint8":
                 values.uint32_values.extend(
-                    [np.uint32(row[feature]) for feature in features]
+                    [np.uint32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeUint16":
                 values.uint32_values.extend(
-                    [np.uint32(row[feature]) for feature in features]
+                    [np.uint32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeUint32":
                 values.uint32_values.extend(
-                    [np.uint32(row[feature]) for feature in features]
+                    [np.uint32(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeUint64":
                 values.uint64_values.extend(
-                    [np.uint64(row[feature]) for feature in features]
+                    [np.uint64(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeString":
                 values.string_values.extend(
-                    [str(row[feature]) for feature in features]
+                    [str(row[fpos]) for fpos in fpositions]
                 )
             elif curr_datatype == "DataTypeBool":
                 values.bool_values.extend(
-                    [bool(row[feature]) for feature in features]
+                    [bool(row[fpos]) for fpos in fpositions]
                 )
 
             # For Vector Data types
             elif curr_datatype == "DataTypeFP16Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        fp32_values=[np.float32(x) for x in row[feature]]
+                        fp32_values=[np.float32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeFP8E5M2Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        fp32_values=[np.float32(x) for x in row[feature]]
+                        fp32_values=[np.float32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeFP8E4M3Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        fp32_values=[np.float32(x) for x in row[feature]]
+                        fp32_values=[np.float32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))                            
             elif curr_datatype == "DataTypeFP32Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        fp32_values=[np.float32(x) for x in row[feature]]
+                        fp32_values=[np.float32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeFP64Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        fp64_values=[np.float64(x) for x in row[feature]]
+                        fp64_values=[np.float64(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeInt8Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        int32_values=[np.int32(x) for x in row[feature]]
+                        int32_values=[np.int32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeInt16Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        int32_values=[np.int32(x) for x in row[feature]]
+                        int32_values=[np.int32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))                            
             elif curr_datatype == "DataTypeInt32Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        int32_values=[np.int32(x) for x in row[feature]]
+                        int32_values=[np.int32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeInt64Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        int64_values=[np.int64(x) for x in row[feature]]
+                        int64_values=[np.int64(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeUint8Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        uint32_values=[np.uint32(x) for x in row[feature]]
+                        uint32_values=[np.uint32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeUint16Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        uint32_values=[np.uint32(x) for x in row[feature]]
+                        uint32_values=[np.uint32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeUint32Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        uint32_values=[np.uint32(x) for x in row[feature]]
+                        uint32_values=[np.uint32(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeUint64Vector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        uint64_values=[np.uint64(x) for x in row[feature]]
+                        uint64_values=[np.uint64(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeStringVector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        string_values=[str(x) for x in row[feature]]
+                        string_values=[str(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             elif curr_datatype == "DataTypeBoolVector":
-                for feature in features:
+                for fpos in fpositions:
                     vector_values = Values(
-                        bool_values=[bool(x) for x in row[feature]]
+                        bool_values=[bool(x) for x in row[fpos]]
                     )
                     values.vector.append(Vector(values=vector_values))
             else:

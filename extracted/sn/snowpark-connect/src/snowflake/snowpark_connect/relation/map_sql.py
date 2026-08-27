@@ -39,7 +39,10 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
 )
 from snowflake.snowpark._internal.type_utils import convert_sp_to_sf_type
 from snowflake.snowpark._internal.utils import is_sql_select_statement, quote_name
-from snowflake.snowpark.exceptions import SnowparkSQLException
+from snowflake.snowpark.exceptions import (
+    SnowparkInvalidObjectNameException,
+    SnowparkSQLException,
+)
 from snowflake.snowpark.functions import when_matched, when_not_matched
 from snowflake.snowpark.types import (
     ArrayType,
@@ -72,6 +75,7 @@ from snowflake.snowpark_connect.config import (
     is_dynamic_partition_overwrite_enabled,
     is_flatten_chained_union_enabled,
     is_iceberg_sql_extensions_enabled,
+    raise_if_unsupported_data_source,
     record_table_metadata,
     sessions_config,
     set_config_param,
@@ -122,7 +126,13 @@ from snowflake.snowpark_connect.relation.map_relation import (
     NATURAL_JOIN_TYPE_BASE,
     map_relation,
 )
-from snowflake.snowpark_connect.relation.read.map_read_table import post_process_df
+from snowflake.snowpark_connect.relation.read.map_read_table import (
+    _iceberg_cld_unsupported_error,
+    _looks_like_cld_qualified_name,
+    _looks_like_missing_iceberg_metadata_function,
+    _refresh_iceberg_table_metadata,
+    post_process_df,
+)
 
 # Import from utils for consistency
 from snowflake.snowpark_connect.relation.utils import (
@@ -637,6 +647,204 @@ def _merge_dml_target(target_rel) -> IcebergRefDmlTarget:
     return _resolve_sql_dml_target(target_rel.child(), is_multi_part=True)
 
 
+def _iceberg_call_literal_value(expr: object) -> object:
+    """Read the Python value out of a Spark `Literal` CALL argument expression."""
+    simple_name = str(expr.getClass().getSimpleName())
+    if simple_name != "Literal":
+        raise AnalysisException(
+            "Iceberg procedure arguments must be literals; got " f"{simple_name}."
+        )
+    return expr.value()
+
+
+def _parse_ancestors_of_args(logical_plan: object) -> tuple[str, int | None]:
+    """Extract (table, snapshot_id) from a parsed `ancestors_of` CallStatement.
+
+    Supports positional (`ancestors_of('db.t', 123)`) and named
+    (`ancestors_of(snapshot_id => 123, table => 'db.t')`) argument forms.
+    """
+    positional: list = []
+    named: dict = {}
+    for arg in as_java_list(logical_plan.args()):
+        value = _iceberg_call_literal_value(arg.expr())
+        if str(arg.getClass().getSimpleName()) == "NamedArgument":
+            named[str(arg.name()).lower()] = value
+        else:
+            positional.append(value)
+
+    table_val = named.get("table", positional[0] if positional else None)
+    snapshot_val = named.get(
+        "snapshot_id", positional[1] if len(positional) > 1 else None
+    )
+
+    if table_val is None:
+        exception = AnalysisException(
+            "Iceberg procedure `system.ancestors_of` requires a `table` argument."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    if snapshot_val is None:
+        snapshot_id = None
+    else:
+        try:
+            snapshot_id = int(str(snapshot_val))
+        except (TypeError, ValueError):
+            exception = AnalysisException(
+                "Iceberg procedure `system.ancestors_of` `snapshot_id` must be "
+                f"an integer; got `{snapshot_val}`."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception from None
+    return str(table_val), snapshot_id
+
+
+def _build_ancestors_of_query(
+    base_table_name: str, snapshot_id: int | None
+) -> tuple[str, int]:
+    """Build the recursive snapshot-ancestry query backing `ancestors_of`.
+
+    Walks `parent_id` from the given snapshot (or the current snapshot when none
+    is provided) back to the root, yielding only snapshots still present in the
+    table's metadata (Iceberg's "live" semantics — expired ancestors stop the
+    chain). Column names/order and the epoch-millis `timestamp` mirror Spark's
+    `ancestors_of` output. Binds the base table name twice
+    (ICEBERG_TABLE_METADATA + ICEBERG_TABLE_SNAPSHOTS).
+    """
+    # snapshot_id is validated to an int in _parse_ancestors_of_args, so inlining
+    # it is injection-safe (the base table name is bound as a parameter).
+    start = "NULL" if snapshot_id is None else str(int(snapshot_id))
+    query = f"""
+        WITH RECURSIVE meta AS (
+            SELECT METADATA:"current-snapshot-id"::NUMBER AS current_snapshot_id
+            FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?))
+        ),
+        snaps AS (
+            SELECT snapshot_id, parent_id, committed_at
+            FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_SNAPSHOTS(?))
+        ),
+        ancestry AS (
+            SELECT s.snapshot_id, s.parent_id, s.committed_at
+            FROM snaps s
+            WHERE s.snapshot_id = COALESCE({start}, (SELECT current_snapshot_id FROM meta))
+            UNION ALL
+            SELECT s.snapshot_id, s.parent_id, s.committed_at
+            FROM snaps s
+            JOIN ancestry a ON s.snapshot_id = a.parent_id
+        )
+        SELECT
+            snapshot_id AS "snapshot_id",
+            -- Spark parity: Iceberg's `ancestors_of` emits `timestamp` as a
+            -- BIGINT of epoch milliseconds (the snapshot's creation time,
+            -- i.e. `Snapshot.timestampMillis()`), not a TIMESTAMP type.
+            DATE_PART(EPOCH_MILLISECOND, committed_at)::BIGINT AS "timestamp"
+        FROM ancestry
+        ORDER BY committed_at DESC, snapshot_id DESC
+    """
+    return query, 2
+
+
+# Spark-parity output schema for `system.ancestors_of` (two LongType columns):
+# see https://iceberg.apache.org/docs/latest/spark-procedures/#ancestors_of. Used
+# so an empty ancestry (unknown/expired snapshot_id) still returns typed columns
+# rather than an empty struct.
+_ANCESTORS_OF_SCHEMA_JSON = (
+    '{"type":"struct","fields":['
+    '{"name":"snapshot_id","type":"long","nullable":true,"metadata":{}},'
+    '{"name":"timestamp","type":"long","nullable":true,"metadata":{}}]}'
+)
+
+
+def _ancestors_of_cld_unsupported(table_name: str) -> AnalysisException:
+    """Actionable error for `system.ancestors_of` against a catalog-linked
+    Iceberg table (Glue / Unity Iceberg REST).
+
+    Mirrors the metadata-table CLD message: Snowflake's
+    ``INFORMATION_SCHEMA.ICEBERG_TABLE_*`` functions only resolve
+    managed-Iceberg tables, so the recursive ancestry query can't run against
+    a CLD table even though the table is readable via ``SELECT``.
+    """
+    return _iceberg_cld_unsupported_error(
+        "procedure `system.ancestors_of`",
+        table_name,
+        "Workarounds: (a) query snapshot ancestry from the external catalog "
+        "directly, or (b) re-create the table as a Managed Iceberg table.",
+    )
+
+
+def _resolve_ancestors_of_procedure(proc_name_parts: list[str]) -> None:
+    """Validate that a parsed CALL targets the Iceberg `system.ancestors_of`
+    procedure.     A `CallStatement` node is only produced by the Iceberg SQL
+    extension parser (core Spark SQL has no CALL), but the same node shape is
+    reused for any procedure namespace, so gate on the Iceberg `system`
+    namespace and the trailing procedure name. Iceberg only allows
+    `[catalog.]system.<proc>`, so require `system` to be the *immediate* parent
+    rather than merely present (rejects e.g. `system.evil.ancestors_of`).
+    Anything else raises `SnowparkConnectNotImplementedError` (only
+    `system.ancestors_of` is implemented).
+    """
+    proc = proc_name_parts[-1].lower() if proc_name_parts else ""
+    immediate_namespace = (
+        proc_name_parts[-2].lower() if len(proc_name_parts) >= 2 else ""
+    )
+    if immediate_namespace != "system" or proc != "ancestors_of":
+        exception = SnowparkConnectNotImplementedError(
+            f"Iceberg procedure '{'.'.join(proc_name_parts)}' is not supported."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+
+def _raise_mapped_ancestors_of_error(
+    e: Exception,
+    table_name: str,
+    base_table_parts: list[str],
+    session: snowpark.Session,
+) -> typing.NoReturn:
+    """Translate a Snowflake error from the `ancestors_of` query into an
+    actionable exception (always raises).
+
+    ``INFORMATION_SCHEMA.ICEBERG_TABLE_*`` functions only resolve Managed
+    Iceberg tables, so disambiguate the failure modes rather than blaming CLD
+    for every 2003/2004.
+    """
+    if isinstance(e, SnowparkInvalidObjectNameException):
+        # Unity Iceberg REST (and some Glue rollouts): Snowpark rejects the
+        # CLD-qualified param client-side (1500) before the query runs. Same
+        # root cause as the 2003 path below.
+        if _looks_like_cld_qualified_name(base_table_parts, session):
+            raise _ancestors_of_cld_unsupported(table_name) from e
+        raise e
+
+    code = getattr(e, "sql_error_code", None)
+    #  - 2003 on a catalog-linked table -> genuine CLD gap.
+    if code == 2003 and _looks_like_cld_qualified_name(base_table_parts, session):
+        raise _ancestors_of_cld_unsupported(table_name) from e
+    #  - 2004 "Invalid identifier ICEBERG_TABLE_*" -> the table function isn't
+    #    available in this region/edition yet.
+    if code == 2004 and _looks_like_missing_iceberg_metadata_function(
+        e, "ancestors_of"
+    ):
+        exception = AnalysisException(
+            "Iceberg procedure `system.ancestors_of` requires the Snowflake "
+            "`INFORMATION_SCHEMA.ICEBERG_TABLE_*` table functions, which are not "
+            "yet available in this Snowflake region/edition. Track availability "
+            f"with your Snowflake account team. Table: `{table_name}`."
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception from e
+    #  - 2003 on a managed table -> the table really is missing; surface Spark's
+    #    TABLE_OR_VIEW_NOT_FOUND, not a CLD error.
+    if code == 2003:
+        exception = AnalysisException(
+            "[TABLE_OR_VIEW_NOT_FOUND] The table or view cannot "
+            f"be found. {table_name}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+        raise exception from None
+    raise e
+
+
 def _get_original_identifier_from_origin(rel) -> str | None:
     """
     Extract the original identifier text from a parsed relation's Origin.
@@ -743,6 +951,7 @@ def _create_table_as_select(logical_plan, mode: str) -> None:
     )
     comment = logical_plan.tableSpec().comment()
     data_source = _extract_table_provider(logical_plan)
+    raise_if_unsupported_data_source(data_source, get_or_create_snowpark_session())
 
     container = execute_logical_plan(logical_plan.query())
     df = container.dataframe
@@ -2254,6 +2463,44 @@ def map_sql_to_pandas_df(
 
         # TODO: Add support for temporary views for SQL cases such as ShowViews, ShowColumns ect. (Currently the cases are not compatible with Spark, returning raw Snowflake rows)
         match class_name:
+            case "CallStatement":
+                # SNOW-3527695: Iceberg `CALL [<catalog>.]system.<proc>(...)`.
+                # A `CallStatement` node is only produced by the Iceberg SQL
+                # extension parser (core Spark SQL has no CALL), but the same
+                # node shape is reused for any procedure namespace, so we gate
+                # on the Iceberg `system` namespace and dispatch on the trailing
+                # procedure name. Only `system.ancestors_of` is implemented.
+                proc_name_parts = [
+                    str(part) for part in as_java_list(logical_plan.name())
+                ]
+                _resolve_ancestors_of_procedure(proc_name_parts)
+
+                table_sql, snapshot_id = _parse_ancestors_of_args(logical_plan)
+                table_name = _spark_table_sql_to_snowflake(table_sql)
+                base_table_parts = split_fully_qualified_spark_name(table_name)
+                # ICEBERG_TABLE_SNAPSHOTS/METADATA are populated asynchronously on
+                # Managed Iceberg, so force a synchronous refresh first.
+                _refresh_iceberg_table_metadata(session, table_name)
+                query, n_binds = _build_ancestors_of_query(table_name, snapshot_id)
+                try:
+                    rows = session.sql(query, params=[table_name] * n_binds).collect()
+                except (
+                    SnowparkInvalidObjectNameException,
+                    SnowparkSQLException,
+                ) as e:
+                    _raise_mapped_ancestors_of_error(
+                        e, table_name, base_table_parts, session
+                    )
+
+                # Spark returns the `snapshot_id`/`timestamp` columns even when
+                # the ancestry is empty (unknown/expired snapshot_id), so emit
+                # the typed schema explicitly instead of falling through to the
+                # shared empty-struct return.
+                pdf = pandas.DataFrame(
+                    [{"snapshot_id": row[0], "timestamp": row[1]} for row in rows],
+                    columns=["snapshot_id", "timestamp"],
+                )
+                return pdf, _ANCESTORS_OF_SCHEMA_JSON
             case "AddColumns":
                 # Handle ALTER TABLE ... ADD COLUMNS (col_name data_type) -> ADD COLUMN col_name data_type
                 table_name = get_relation_identifier_name(logical_plan.table(), True)
@@ -2441,6 +2688,9 @@ def map_sql_to_pandas_df(
                 )
 
                 data_source = _extract_table_provider(logical_plan)
+                raise_if_unsupported_data_source(
+                    data_source, get_or_create_snowpark_session()
+                )
 
                 # NOTE: We are intentionally ignoring any FORMAT=... parameters here.
                 # For USING iceberg, generate CREATE ICEBERG TABLE (required for CLDs)

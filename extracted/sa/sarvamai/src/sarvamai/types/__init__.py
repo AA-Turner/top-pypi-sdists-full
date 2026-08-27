@@ -17,13 +17,8 @@ if typing.TYPE_CHECKING:
     from .chat_completion_named_tool_choice import ChatCompletionNamedToolChoice
     from .chat_completion_named_tool_choice_function import ChatCompletionNamedToolChoiceFunction
     from .chat_completion_request_assistant_message import ChatCompletionRequestAssistantMessage
-    from .chat_completion_request_message import (
-        ChatCompletionRequestMessage,
-        ChatCompletionRequestMessage_Assistant,
-        ChatCompletionRequestMessage_System,
-        ChatCompletionRequestMessage_Tool,
-        ChatCompletionRequestMessage_User,
-    )
+    from .chat_completion_request_generic_message import ChatCompletionRequestGenericMessage
+    from .chat_completion_request_message import ChatCompletionRequestMessage
     from .chat_completion_request_system_message import ChatCompletionRequestSystemMessage
     from .chat_completion_request_tool_message import ChatCompletionRequestToolMessage
     from .chat_completion_request_user_message import ChatCompletionRequestUserMessage
@@ -41,9 +36,14 @@ if typing.TYPE_CHECKING:
     from .configure_connection_data_output_audio_codec import ConfigureConnectionDataOutputAudioCodec
     from .configure_connection_data_speaker import ConfigureConnectionDataSpeaker
     from .connection_sample_rate import ConnectionSampleRate
+    from .content import Content
+    from .content_one_item import ContentOneItem, ContentOneItem_ImageUrl, ContentOneItem_Text
     from .create_chat_completion_response import CreateChatCompletionResponse
+    from .create_chat_completion_v2response import CreateChatCompletionV2Response
+    from .create_document_job_response import CreateDocumentJobResponse
     from .create_dubbing_job_data import CreateDubbingJobData
     from .create_dubbing_job_response import CreateDubbingJobResponse
+    from .detail import Detail
     from .diarized_entry import DiarizedEntry
     from .diarized_transcript import DiarizedTranscript
     from .doc_ai_digitise_results import DocAiDigitiseResults
@@ -71,6 +71,12 @@ if typing.TYPE_CHECKING:
     from .doc_digitization_page_error import DocDigitizationPageError
     from .doc_digitization_supported_language import DocDigitizationSupportedLanguage
     from .doc_digitization_upload_files_response import DocDigitizationUploadFilesResponse
+    from .document_genre import DocumentGenre
+    from .document_job_export_status_response import DocumentJobExportStatusResponse
+    from .document_language import DocumentLanguage
+    from .document_translation_export_state import DocumentTranslationExportState
+    from .document_translation_job_state import DocumentTranslationJobState
+    from .document_translation_state import DocumentTranslationState
     from .dubbing_export_item import DubbingExportItem
     from .dubbing_export_item_status import DubbingExportItemStatus
     from .dubbing_export_option import DubbingExportOption
@@ -100,6 +106,7 @@ if typing.TYPE_CHECKING:
     from .event_response_data import EventResponseData
     from .events_data import EventsData
     from .events_data_signal_type import EventsDataSignalType
+    from .export_format import ExportFormat
     from .file_signed_url_details import FileSignedUrlDetails
     from .files_download_response import FilesDownloadResponse
     from .files_request import FilesRequest
@@ -108,13 +115,20 @@ if typing.TYPE_CHECKING:
     from .flush_signal import FlushSignal
     from .function_call import FunctionCall
     from .function_definition import FunctionDefinition
+    from .image_part import ImagePart
+    from .image_url import ImageUrl
     from .input_audio_codec import InputAudioCodec
+    from .job_live_status_response import JobLiveStatusResponse
     from .job_state import JobState
     from .job_status_response import JobStatusResponse
     from .json_schema_definition import JsonSchemaDefinition
     from .language_identification_response import LanguageIdentificationResponse
     from .mode import Mode
+    from .model_list_response import ModelListResponse
+    from .model_object import ModelObject
+    from .model_type import ModelType
     from .numerals_format import NumeralsFormat
+    from .page_metrics import PageMetrics
     from .ping_signal import PingSignal
     from .pronunciation_dictionary_data import PronunciationDictionaryData
     from .pronunciation_dictionary_delete_response import PronunciationDictionaryDeleteResponse
@@ -175,12 +189,14 @@ if typing.TYPE_CHECKING:
     from .speech_to_text_translate_streaming_response import SpeechToTextTranslateStreamingResponse
     from .speech_to_text_translate_transcription_data import SpeechToTextTranslateTranscriptionData
     from .spoken_form_numerals_format import SpokenFormNumeralsFormat
+    from .start_job_response import StartJobResponse
     from .stop_configuration import StopConfiguration
     from .storage_container_type import StorageContainerType
     from .stt_flush_signal import SttFlushSignal
     from .task_detail import TaskDetail
     from .task_file_details import TaskFileDetails
     from .task_state import TaskState
+    from .text_part import TextPart
     from .text_to_speech_language import TextToSpeechLanguage
     from .text_to_speech_model import TextToSpeechModel
     from .text_to_speech_output_audio_codec import TextToSpeechOutputAudioCodec
@@ -194,11 +210,14 @@ if typing.TYPE_CHECKING:
     from .translate_source_language import TranslateSourceLanguage
     from .translate_speaker_gender import TranslateSpeakerGender
     from .translate_target_language import TranslateTargetLanguage
+    from .translation_language_metrics import TranslationLanguageMetrics
     from .translation_response import TranslationResponse
+    from .translation_status_item import TranslationStatusItem
     from .translatiterate_target_language import TranslatiterateTargetLanguage
     from .transliterate_mode import TransliterateMode
     from .transliterate_source_language import TransliterateSourceLanguage
     from .transliteration_response import TransliterationResponse
+    from .v2model_ids import V2ModelIds
 _dynamic_imports: typing.Dict[str, str] = {
     "AudioData": ".audio_data",
     "AudioMessage": ".audio_message",
@@ -211,11 +230,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionNamedToolChoice": ".chat_completion_named_tool_choice",
     "ChatCompletionNamedToolChoiceFunction": ".chat_completion_named_tool_choice_function",
     "ChatCompletionRequestAssistantMessage": ".chat_completion_request_assistant_message",
+    "ChatCompletionRequestGenericMessage": ".chat_completion_request_generic_message",
     "ChatCompletionRequestMessage": ".chat_completion_request_message",
-    "ChatCompletionRequestMessage_Assistant": ".chat_completion_request_message",
-    "ChatCompletionRequestMessage_System": ".chat_completion_request_message",
-    "ChatCompletionRequestMessage_Tool": ".chat_completion_request_message",
-    "ChatCompletionRequestMessage_User": ".chat_completion_request_message",
     "ChatCompletionRequestSystemMessage": ".chat_completion_request_system_message",
     "ChatCompletionRequestToolMessage": ".chat_completion_request_tool_message",
     "ChatCompletionRequestUserMessage": ".chat_completion_request_user_message",
@@ -233,9 +249,16 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConfigureConnectionDataOutputAudioCodec": ".configure_connection_data_output_audio_codec",
     "ConfigureConnectionDataSpeaker": ".configure_connection_data_speaker",
     "ConnectionSampleRate": ".connection_sample_rate",
+    "Content": ".content",
+    "ContentOneItem": ".content_one_item",
+    "ContentOneItem_ImageUrl": ".content_one_item",
+    "ContentOneItem_Text": ".content_one_item",
     "CreateChatCompletionResponse": ".create_chat_completion_response",
+    "CreateChatCompletionV2Response": ".create_chat_completion_v2response",
+    "CreateDocumentJobResponse": ".create_document_job_response",
     "CreateDubbingJobData": ".create_dubbing_job_data",
     "CreateDubbingJobResponse": ".create_dubbing_job_response",
+    "Detail": ".detail",
     "DiarizedEntry": ".diarized_entry",
     "DiarizedTranscript": ".diarized_transcript",
     "DocAiDigitiseResults": ".doc_ai_digitise_results",
@@ -263,6 +286,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocDigitizationPageError": ".doc_digitization_page_error",
     "DocDigitizationSupportedLanguage": ".doc_digitization_supported_language",
     "DocDigitizationUploadFilesResponse": ".doc_digitization_upload_files_response",
+    "DocumentGenre": ".document_genre",
+    "DocumentJobExportStatusResponse": ".document_job_export_status_response",
+    "DocumentLanguage": ".document_language",
+    "DocumentTranslationExportState": ".document_translation_export_state",
+    "DocumentTranslationJobState": ".document_translation_job_state",
+    "DocumentTranslationState": ".document_translation_state",
     "DubbingExportItem": ".dubbing_export_item",
     "DubbingExportItemStatus": ".dubbing_export_item_status",
     "DubbingExportOption": ".dubbing_export_option",
@@ -292,6 +321,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EventResponseData": ".event_response_data",
     "EventsData": ".events_data",
     "EventsDataSignalType": ".events_data_signal_type",
+    "ExportFormat": ".export_format",
     "FileSignedUrlDetails": ".file_signed_url_details",
     "FilesDownloadResponse": ".files_download_response",
     "FilesRequest": ".files_request",
@@ -300,13 +330,20 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FlushSignal": ".flush_signal",
     "FunctionCall": ".function_call",
     "FunctionDefinition": ".function_definition",
+    "ImagePart": ".image_part",
+    "ImageUrl": ".image_url",
     "InputAudioCodec": ".input_audio_codec",
+    "JobLiveStatusResponse": ".job_live_status_response",
     "JobState": ".job_state",
     "JobStatusResponse": ".job_status_response",
     "JsonSchemaDefinition": ".json_schema_definition",
     "LanguageIdentificationResponse": ".language_identification_response",
     "Mode": ".mode",
+    "ModelListResponse": ".model_list_response",
+    "ModelObject": ".model_object",
+    "ModelType": ".model_type",
     "NumeralsFormat": ".numerals_format",
+    "PageMetrics": ".page_metrics",
     "PingSignal": ".ping_signal",
     "PronunciationDictionaryData": ".pronunciation_dictionary_data",
     "PronunciationDictionaryDeleteResponse": ".pronunciation_dictionary_delete_response",
@@ -365,12 +402,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SpeechToTextTranslateStreamingResponse": ".speech_to_text_translate_streaming_response",
     "SpeechToTextTranslateTranscriptionData": ".speech_to_text_translate_transcription_data",
     "SpokenFormNumeralsFormat": ".spoken_form_numerals_format",
+    "StartJobResponse": ".start_job_response",
     "StopConfiguration": ".stop_configuration",
     "StorageContainerType": ".storage_container_type",
     "SttFlushSignal": ".stt_flush_signal",
     "TaskDetail": ".task_detail",
     "TaskFileDetails": ".task_file_details",
     "TaskState": ".task_state",
+    "TextPart": ".text_part",
     "TextToSpeechLanguage": ".text_to_speech_language",
     "TextToSpeechModel": ".text_to_speech_model",
     "TextToSpeechOutputAudioCodec": ".text_to_speech_output_audio_codec",
@@ -384,11 +423,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TranslateSourceLanguage": ".translate_source_language",
     "TranslateSpeakerGender": ".translate_speaker_gender",
     "TranslateTargetLanguage": ".translate_target_language",
+    "TranslationLanguageMetrics": ".translation_language_metrics",
     "TranslationResponse": ".translation_response",
+    "TranslationStatusItem": ".translation_status_item",
     "TranslatiterateTargetLanguage": ".translatiterate_target_language",
     "TransliterateMode": ".transliterate_mode",
     "TransliterateSourceLanguage": ".transliterate_source_language",
     "TransliterationResponse": ".transliteration_response",
+    "V2ModelIds": ".v2model_ids",
 }
 
 
@@ -425,11 +467,8 @@ __all__ = [
     "ChatCompletionNamedToolChoice",
     "ChatCompletionNamedToolChoiceFunction",
     "ChatCompletionRequestAssistantMessage",
+    "ChatCompletionRequestGenericMessage",
     "ChatCompletionRequestMessage",
-    "ChatCompletionRequestMessage_Assistant",
-    "ChatCompletionRequestMessage_System",
-    "ChatCompletionRequestMessage_Tool",
-    "ChatCompletionRequestMessage_User",
     "ChatCompletionRequestSystemMessage",
     "ChatCompletionRequestToolMessage",
     "ChatCompletionRequestUserMessage",
@@ -447,9 +486,16 @@ __all__ = [
     "ConfigureConnectionDataOutputAudioCodec",
     "ConfigureConnectionDataSpeaker",
     "ConnectionSampleRate",
+    "Content",
+    "ContentOneItem",
+    "ContentOneItem_ImageUrl",
+    "ContentOneItem_Text",
     "CreateChatCompletionResponse",
+    "CreateChatCompletionV2Response",
+    "CreateDocumentJobResponse",
     "CreateDubbingJobData",
     "CreateDubbingJobResponse",
+    "Detail",
     "DiarizedEntry",
     "DiarizedTranscript",
     "DocAiDigitiseResults",
@@ -477,6 +523,12 @@ __all__ = [
     "DocDigitizationPageError",
     "DocDigitizationSupportedLanguage",
     "DocDigitizationUploadFilesResponse",
+    "DocumentGenre",
+    "DocumentJobExportStatusResponse",
+    "DocumentLanguage",
+    "DocumentTranslationExportState",
+    "DocumentTranslationJobState",
+    "DocumentTranslationState",
     "DubbingExportItem",
     "DubbingExportItemStatus",
     "DubbingExportOption",
@@ -506,6 +558,7 @@ __all__ = [
     "EventResponseData",
     "EventsData",
     "EventsDataSignalType",
+    "ExportFormat",
     "FileSignedUrlDetails",
     "FilesDownloadResponse",
     "FilesRequest",
@@ -514,13 +567,20 @@ __all__ = [
     "FlushSignal",
     "FunctionCall",
     "FunctionDefinition",
+    "ImagePart",
+    "ImageUrl",
     "InputAudioCodec",
+    "JobLiveStatusResponse",
     "JobState",
     "JobStatusResponse",
     "JsonSchemaDefinition",
     "LanguageIdentificationResponse",
     "Mode",
+    "ModelListResponse",
+    "ModelObject",
+    "ModelType",
     "NumeralsFormat",
+    "PageMetrics",
     "PingSignal",
     "PronunciationDictionaryData",
     "PronunciationDictionaryDeleteResponse",
@@ -579,12 +639,14 @@ __all__ = [
     "SpeechToTextTranslateStreamingResponse",
     "SpeechToTextTranslateTranscriptionData",
     "SpokenFormNumeralsFormat",
+    "StartJobResponse",
     "StopConfiguration",
     "StorageContainerType",
     "SttFlushSignal",
     "TaskDetail",
     "TaskFileDetails",
     "TaskState",
+    "TextPart",
     "TextToSpeechLanguage",
     "TextToSpeechModel",
     "TextToSpeechOutputAudioCodec",
@@ -598,9 +660,12 @@ __all__ = [
     "TranslateSourceLanguage",
     "TranslateSpeakerGender",
     "TranslateTargetLanguage",
+    "TranslationLanguageMetrics",
     "TranslationResponse",
+    "TranslationStatusItem",
     "TranslatiterateTargetLanguage",
     "TransliterateMode",
     "TransliterateSourceLanguage",
     "TransliterationResponse",
+    "V2ModelIds",
 ]

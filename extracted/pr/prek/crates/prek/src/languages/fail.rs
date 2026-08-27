@@ -19,6 +19,7 @@ impl LanguageBackend for Fail {
         &self,
         _store: &Store,
         hook: Arc<Hook>,
+        _install_cwd: &Path,
         _reporter: &HookInstallReporter,
     ) -> Result<InstalledHook> {
         Ok(InstalledHook::NoNeedInstall(hook))
@@ -35,8 +36,9 @@ impl LanguageBackend for Fail {
         filenames: &[&Path],
         _reporter: &HookRunReporter,
     ) -> Result<(i32, Vec<u8>)> {
+        let entry = hook.entry.expect_argv_entry();
         let mut out = Vec::new();
-        writeln!(out, "{}\n", hook.entry.expect_direct().raw())?;
+        writeln!(out, "{}\n", entry.raw())?;
         for f in filenames {
             out.extend(f.to_string_lossy().as_bytes());
             out.push(b'\n');

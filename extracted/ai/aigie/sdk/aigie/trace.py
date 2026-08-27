@@ -10,6 +10,8 @@ from uuid import uuid4
 from aigie.buffer import EventBuffer
 from aigie.sampling import should_send_event
 from aigie.span import SpanContext
+from aigie.tracing.execution_state import build_execution_plan
+from aigie.tracing.lc_trace_boundary import record_status
 from aigie.tracing.trace_state import deregister_open_span, register_open_span
 
 logger = logging.getLogger(__name__)
@@ -207,12 +209,39 @@ class TraceContext:
             # Never re-raise from __aexit__ - this would crash the caller's app
             logger.warning(f"Failed to send trace update for {self.id}: {e}")
 
+    def _run_summary(self, status: str) -> dict[str, Any] | None:
+        """The trace-wide run summary, or None if no run counted into it.
+
+        Both close paths need it. A caller may finalize with ``complete()``
+        instead of leaving the ``async with``, and a run that shares this trace
+        no longer stamps a plan of its own — so a summary missed here is one the
+        row never gets at all.
+        """
+        counters = getattr(self, "_aigie_run_counters", None)
+        if counters is None:
+            return None
+        if counters.get("open_runs"):
+            # Still in flight when the caller finalized: abandoned, not done.
+            record_status(counters, "interrupted")
+        failed = status in ("failure", "error")
+        return build_execution_plan(
+            agent=counters.get("agent") or self.name,
+            tool_calls=counters["tool_calls"],
+            turn_count=counters["turn_count"],
+            status=counters.get("status") or ("error" if failed else "success"),
+        )
+
     def _build_finalize_payload(self, status: str, error_data: dict[str, Any]) -> dict[str, Any]:
         """Root-span finalize payload. The trace IS the root span (span_id ==
         trace_id, parent_id None) — the platform mints the trace row from it.
-        Final status + end_time only; cost/token/execution rollups are derived
-        server-side from child spans, never computed in the SDK."""
+        Cost and token rollups stay server-side, derived from child spans. The
+        run summary cannot: a judge binds it, and only this close sees the whole
+        trace — a run that finishes before another one's tools have run would
+        otherwise leave its own counts on the row as the trace's."""
         end_time = datetime.now(timezone.utc)
+        metadata = dict(self.metadata)
+        if (plan := self._run_summary(status)) is not None:
+            metadata["execution_plan"] = plan
         return {
             "id": self.id,
             "trace_id": self.id,
@@ -223,7 +252,7 @@ class TraceContext:
             "status": status,
             "start_time": self.start_time.isoformat(),
             "end_time": end_time.isoformat(),
-            "metadata": dict(self.metadata),
+            "metadata": metadata,
             **error_data,
         }
 
@@ -361,7 +390,7 @@ class TraceContext:
             return
 
         # The trace IS the root span (span_id == trace_id, parent_id None).
-        data = {
+        data: dict[str, Any] = {
             "id": self.id,
             "span_id": self.id,
             "trace_id": self.id,
@@ -370,6 +399,8 @@ class TraceContext:
             "type": "workflow",
             "status": status,
         }
+        if (plan := self._run_summary(status)) is not None:
+            data["metadata"] = {"execution_plan": plan}
         if error:
             data.update({"error_message": str(error), "error_type": type(error).__name__})
 

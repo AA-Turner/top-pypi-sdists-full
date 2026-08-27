@@ -1,5 +1,6 @@
 use super::*;
 
+use foldhash::fast::RandomState;
 use indexmap::{self, IndexMap};
 
 use std::convert::Infallible;
@@ -11,7 +12,7 @@ use std::ops;
 #[derive(Debug)]
 pub(super) struct Store {
     slab: slab::Slab<Stream>,
-    ids: IndexMap<StreamId, SlabIndex>,
+    ids: IndexMap<StreamId, SlabIndex, RandomState>,
 }
 
 /// "Pointer" to an entry in the store
@@ -82,15 +83,12 @@ impl Store {
     pub fn new() -> Self {
         Store {
             slab: slab::Slab::new(),
-            ids: IndexMap::new(),
+            ids: IndexMap::default(),
         }
     }
 
     pub fn find_mut(&mut self, id: &StreamId) -> Option<Ptr<'_>> {
-        let index = match self.ids.get(id) {
-            Some(key) => *key,
-            None => return None,
-        };
+        let index = *self.ids.get(id)?;
 
         Some(Ptr {
             key: Key {
@@ -191,6 +189,17 @@ impl ops::Index<Key> for Store {
             .unwrap_or_else(|| {
                 panic!("dangling store key for stream_id={:?}", key.stream_id);
             })
+    }
+}
+
+impl Store {
+    /// Safe lookup for paths that may race with stream release (e.g. a
+    /// WINDOW_UPDATE queued for a stream that finished before the driver
+    /// flushed it). Returns `None` instead of panicking on a dangling key.
+    pub(super) fn get_mut(&mut self, key: Key) -> Option<&mut Stream> {
+        self.slab
+            .get_mut(key.index.0 as usize)
+            .filter(|s| s.id == key.stream_id)
     }
 }
 

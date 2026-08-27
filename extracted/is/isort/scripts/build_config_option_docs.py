@@ -30,7 +30,7 @@ isort will disagree but commit to your way of formatting. To enable this, isort 
 how you want your imports sorted, organized, and formatted.
 
 Too busy to build your perfect isort configuration? For curated common configurations, see isort's [built-in
-profiles](https://pycqa.github.io/isort/docs/configuration/profiles.html).
+profiles](https://isort.readthedocs.io/en/latest/configuration/profiles.html).
 """
 parser = _build_arg_parser()
 
@@ -128,7 +128,6 @@ description_mapping = {
     "auto_identify_namespace_packages": "Automatically determine local namespace packages, generally by lack of any src files before a src containing directory.",
     "namespace_packages": "Manually specify one or more namespace packages.",
     "follow_links": "If `True` isort will follow symbolic links when doing recursive sorting.",
-    "git_ignore": "If `True` isort will honor ignores within locally defined .git_ignore files.",
     "formatting_function": "The fully qualified Python path of a function to apply to format code sorted by isort.",
     "group_by_package": "If `True` isort will automatically create section groups by the top-level package they come from.",
     "indented_import_headings": "If `True` isort will apply import headings to indented imports the same way it does unindented ones.",

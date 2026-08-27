@@ -1,14 +1,67 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+from robot.api import Token
+
 from robocop.linter import sonar_qube
-from robocop.linter.rules import Rule, RuleParam, RuleSeverity
+from robocop.linter.fix import Fix, FixApplicability, FixAvailability, TextEdit
+from robocop.linter.rules import FixableRule, Rule, RuleParam, RuleSeverity
+from robocop.linter.utils import misc as utils
+from robocop.version_handling import TYPE_SUPPORTED
+
+if TYPE_CHECKING:
+    from robot.parsing.model.statements import Node, Statement, Var, Variable
+    from robot.variables.search import SearchResult
+
+    from robocop.linter.diagnostics import Diagnostic
+
+EMPTY_VALUE_SEPARATOR = "    "
+
+RESERVED_VARIABLES = {
+    "testname": "${TEST_NAME}",
+    "testtags": "@{TEST_TAGS}",
+    "testdocumentation": "${TEST_DOCUMENTATION}",
+    "teststatus": "${TEST_STATUS}",
+    "testmessage": "${TEST_MESSAGE}",
+    "prevtestname": "${PREV_TEST_NAME}",
+    "prevteststatus": "${PREV_TEST_STATUS}",
+    "prevtestmessage": "${PREV_TEST_MESSAGE}",
+    "suitename": "${SUITE_NAME}",
+    "suitesource": "${SUITE_SOURCE}",
+    "suitedocumentation": "${SUITE_DOCUMENTATION}",
+    "suitemetadata": "&{SUITE_METADATA}",
+    "suitestatus": "${SUITE_STATUS}",
+    "suitemessage": "${SUITE_MESSAGE}",
+    "keywordstatus": "${KEYWORD_STATUS}",
+    "keywordmessage": "${KEYWORD_MESSAGE}",
+    "loglevel": "${LOG_LEVEL}",
+    "outputfile": "${OUTPUT_FILE}",
+    "logfile": "${LOG_FILE}",
+    "reportfile": "${REPORT_FILE}",
+    "debugfile": "${DEBUG_FILE}",
+    "outputdir": "${OUTPUT_DIR}",
+    # "options": "&{OPTIONS}", This variable is widely used and is relatively safe to overwrite
+}
 
 
 def comma_separated_list(value: str) -> list[str]:
     return value.split(",")
 
 
-class EmptyVariableRule(Rule):
+def report_non_local_scope(rule: Rule, node: Node) -> None:
+    """Report a variable scope rule on the token that defines the scope."""
+    if not rule.enabled:
+        return
+    rule.report(
+        node=node,
+        lineno=node.lineno,
+        col=node.col_offset + 1,
+        end_col=node.col_offset + len(node.value) + 1,
+    )
+
+
+class EmptyVariableRule(FixableRule):
     r"""
     Variable without value.
 
@@ -50,12 +103,16 @@ class EmptyVariableRule(Rule):
     You can configure ``empty-variable`` rule to run only in ```*** Variables ***``` section or on
     ``VAR`` statements using ``variable_source`` parameter.
 
+    The fix adds the explicit empty value, using the variable type to select it: ``${EMPTY}`` for scalars,
+    ``@{EMPTY}`` for lists and ``&{EMPTY}`` for dictionaries. Empty values in a list and the ``\`` values are
+    always replaced with ``${EMPTY}``.
+
     """
 
     name = "empty-variable"
     rule_id = "VAR01"
     message = "Empty variable value"
-    severity = RuleSeverity.INFO
+    severity = RuleSeverity.WARNING
     parameters = [
         RuleParam(
             name="variable_source",
@@ -70,6 +127,83 @@ class EmptyVariableRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0912",)
+    fix_availability = FixAvailability.ALWAYS
+
+    def check_variable(self, node: Variable) -> None:
+        """Check variable defined in the ``*** Variables ***`` section."""
+        if not self.enabled or node.errors:
+            return
+        if not node.value:  # catch variable declaration without any value
+            self.report(node=node, end_col=node.end_col_offset)
+        for token in node.get_tokens(Token.ARGUMENT):
+            if not token.value or token.value == "\\":
+                self.report(node=node, lineno=token.lineno, col=1, end_col=token.end_col_offset + 1)
+
+    def check_var(self, node: Var) -> None:
+        """Check variable defined with the ``VAR`` syntax."""
+        if not self.enabled or node.errors:
+            return
+        if not node.value:  # catch variable declaration without any value
+            first_data = node.data_tokens[0]
+            self.report(
+                node=node,
+                col=first_data.col_offset + 1,
+                end_col=first_data.end_col_offset + 1,
+            )
+        for token in node.get_tokens(Token.ARGUMENT):
+            if not token.value or token.value == "\\":
+                self.report(
+                    node=node,
+                    lineno=token.lineno,
+                    col=token.col_offset + 1,
+                    end_col=token.end_col_offset + 1,
+                )
+
+    @staticmethod
+    def _find_empty_value(node: Statement, diag: Diagnostic) -> Token | None:
+        """Find the empty argument token reported by the diagnostic using its end position."""
+        return next(
+            (
+                token
+                for token in node.get_tokens(Token.ARGUMENT)
+                if (not token.value or token.value == "\\")
+                and token.lineno == diag.range.start.line
+                and token.end_col_offset + 1 == diag.range.end.character
+            ),
+            None,
+        )
+
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:  # noqa: ARG002
+        """Replace the empty value with the explicit ``${EMPTY}`` variable."""
+        node = diag.node
+        if node is None:
+            return None
+        empty_value = self._find_empty_value(node, diag)
+        if empty_value is not None:
+            # empty values are zero-width tokens and require the separator, the backslash is replaced in place
+            start_col = empty_value.col_offset + 1
+            end_col = empty_value.end_col_offset + 1
+            separator = "" if empty_value.value else EMPTY_VALUE_SEPARATOR
+            replacement = f"{separator}${{EMPTY}}"
+            message = "Replace the empty value with ${EMPTY}"
+        else:
+            name = node.get_token(Token.VARIABLE)
+            if name is None or not name.value:
+                return None
+            start_col = end_col = name.end_col_offset + 1
+            replacement = f"{EMPTY_VALUE_SEPARATOR}{name.value[0]}{{EMPTY}}"
+            message = f"Add the explicit {name.value[0]}{{EMPTY}} value"
+            empty_value = name
+        edit = TextEdit(
+            rule_id=self.rule_id,
+            rule_name=self.name,
+            start_line=empty_value.lineno,
+            start_col=start_col,
+            end_line=empty_value.lineno,
+            end_col=end_col,
+            replacement=replacement,
+        )
+        return Fix(edits=[edit], message=message, applicability=FixApplicability.SAFE)
 
 
 class UnusedVariableRule(Rule):
@@ -113,7 +247,7 @@ class UnusedVariableRule(Rule):
     name = "unused-variable"
     rule_id = "VAR02"
     message = "Variable '{name}' is assigned but not used"
-    severity = RuleSeverity.INFO
+    severity = RuleSeverity.WARNING
     parameters = [
         RuleParam(
             name="ignore",
@@ -221,6 +355,9 @@ class NoGlobalVariableRule(Rule):
     )
     deprecated_names = ("0929",)
 
+    def check(self, node: Node) -> None:
+        report_non_local_scope(self, node)
+
 
 class NoSuiteVariableRule(Rule):
     """
@@ -273,6 +410,9 @@ class NoSuiteVariableRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0930",)
+
+    def check(self, node: Node) -> None:
+        report_non_local_scope(self, node)
 
 
 class NoTestVariableRule(Rule):
@@ -327,6 +467,9 @@ class NoTestVariableRule(Rule):
     )
     deprecated_names = ("0931",)
 
+    def check(self, node: Node) -> None:
+        report_non_local_scope(self, node)
+
 
 class NonLocalVariablesShouldBeUppercaseRule(Rule):
     """
@@ -364,6 +507,18 @@ class NonLocalVariablesShouldBeUppercaseRule(Rule):
     )
     deprecated_names = ("0310",)
 
+    def check(self, variable_name: str, node: Node, token: Token) -> None:
+        normalized_var_name = utils.remove_nested_variables(variable_name)
+        if not normalized_var_name:
+            return
+        if TYPE_SUPPORTED:
+            normalized_var_name, *_ = normalized_var_name.split(": ", 1)
+        # a variable as a keyword argument can contain lowercase nested variable
+        # because the actual value of it may be uppercase
+        if normalized_var_name.isupper():
+            return
+        self.report(node=node, col=token.col_offset + 1, end_col=token.end_col_offset + 1)
+
 
 class PossibleVariableOverwritingRule(Rule):
     """
@@ -385,7 +540,7 @@ class PossibleVariableOverwritingRule(Rule):
     name = "possible-variable-overwriting"
     rule_id = "VAR08"
     message = "Variable '{variable_name}' may overwrite similar variable inside '{block_name}' {block_type}"
-    severity = RuleSeverity.INFO
+    severity = RuleSeverity.WARNING
     added_in_version = "1.10.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
@@ -422,12 +577,22 @@ class HyphenInVariableNameRule(Rule):
     name = "hyphen-in-variable-name"
     rule_id = "VAR09"
     message = "Hyphen in variable name '{variable_name}'"
-    severity = RuleSeverity.INFO
+    severity = RuleSeverity.WARNING
     added_in_version = "1.10.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0317",)
+
+    def check(self, token: Token, name: str) -> None:
+        if "-" not in name:
+            return
+        self.report(
+            variable_name=token.value,
+            lineno=token.lineno,
+            col=token.col_offset + 1,
+            end_col=token.end_col_offset + 1,
+        )
 
 
 class InconsistentVariableNameRule(Rule):
@@ -496,6 +661,22 @@ class OverwritingReservedVariableRule(Rule):
     )
     deprecated_names = ("0324",)
 
+    def check(self, token: Token, variable_match: SearchResult, name: str, var_or_arg: str) -> None:
+        if variable_match.items:  # item assignments ${dict}[key] =
+            return
+        reserved_variable = RESERVED_VARIABLES.get(utils.normalize_robot_name(name))
+        if reserved_variable is None:
+            return
+        self.report(
+            var_or_arg=var_or_arg,
+            variable_name=variable_match.match,
+            reserved_variable=reserved_variable,
+            node=token,
+            lineno=token.lineno,
+            col=token.col_offset + 1,
+            end_col=token.col_offset + len(variable_match.match) + 1,
+        )
+
 
 class DuplicatedAssignedVarNameRule(Rule):
     """
@@ -519,9 +700,95 @@ class DuplicatedAssignedVarNameRule(Rule):
     name = "duplicated-assigned-var-name"
     rule_id = "VAR12"
     message = "Assigned variable name '{variable_name}' is already used"
-    severity = RuleSeverity.INFO
+    severity = RuleSeverity.WARNING
     added_in_version = "1.12.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.DISTINCT, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0812",)
+
+
+class AutomaticVariableNotAvailableRule(Rule):
+    """
+    Automatic variable used in a context where Robot Framework does not provide it.
+
+    Robot Framework has several automatic variables whose availability is limited to a specific execution context:
+
+    - ``${TEST NAME}``, ``@{TEST TAGS}``, and ``${TEST DOCUMENTATION}`` are available while a test is running.
+    - ``${TEST STATUS}`` and ``${TEST MESSAGE}`` are available only in a test teardown.
+    - ``${SUITE STATUS}`` and ``${SUITE MESSAGE}`` are available only in a suite teardown.
+    - ``${KEYWORD STATUS}`` and ``${KEYWORD MESSAGE}`` are available only in a user keyword teardown.
+
+    Using one of these variables directly in another context fails at runtime:
+
+        *** Test Cases ***
+        Invalid automatic variables
+            Log    ${KEYWORD STATUS}
+            Log    ${TEST STATUS}
+            [Teardown]    Log    ${SUITE STATUS}
+
+    Use each variable in the context where Robot Framework makes it available:
+
+        *** Settings ***
+        Suite Teardown    Log    ${SUITE STATUS}
+        Test Teardown     Log    ${TEST STATUS}
+
+        *** Test Cases ***
+        Valid automatic variables
+            Log    ${TEST NAME}
+
+        *** Keywords ***
+        Keyword with teardown
+            No Operation
+            [Teardown]    Log    ${KEYWORD STATUS}
+
+    Robocop deliberately does not report these variables inside user keyword definitions. A user keyword can be called
+    from a test, test teardown, suite teardown, or another user keyword teardown, so its actual execution context cannot
+    be determined reliably from the file where it is defined. For example, ``${TEST NAME}`` in a user keyword can be
+    valid when called by a test but invalid when called by a suite setup. This conservative behavior avoids presenting
+    call-context guesses as certain errors.
+
+    See the official
+    [automatic variable scope table](https://robotframework.org/robotframework/latest/RobotFrameworkUserGuide.html#automatic-variables).
+    The rule has no automatic fix because choosing a replacement or moving code requires understanding its intent.
+
+    """
+
+    name = "automatic-variable-not-available"
+    rule_id = "VAR13"
+    message = "Automatic variable '{variable}' is not available in {context}; it is only available in {available_in}"
+    severity = RuleSeverity.WARNING
+    added_in_version = "9.0.0"
+    sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
+        clean_code=sonar_qube.CleanCodeAttribute.LOGICAL, issue_type=sonar_qube.SonarQubeIssueType.BUG
+    )
+
+    scopes = {
+        "testname": ("test case", frozenset({"test setup", "test case body", "test teardown"})),
+        "testtags": ("test case", frozenset({"test setup", "test case body", "test teardown"})),
+        "testdocumentation": ("test case", frozenset({"test setup", "test case body", "test teardown"})),
+        "teststatus": ("test teardown", frozenset({"test teardown"})),
+        "testmessage": ("test teardown", frozenset({"test teardown"})),
+        "suitestatus": ("suite teardown", frozenset({"suite teardown"})),
+        "suitemessage": ("suite teardown", frozenset({"suite teardown"})),
+        "keywordstatus": ("user keyword teardown", frozenset({"user keyword teardown"})),
+        "keywordmessage": ("user keyword teardown", frozenset({"user keyword teardown"})),
+    }
+
+    def check(self, token: Token, variable: str, normalized_name: str, context: str, offset: int) -> None:
+        scope = self.scopes.get(normalized_name)
+        if scope is None:
+            return
+        available_in, valid_contexts = scope
+        if context in valid_contexts:
+            return
+        col = token.col_offset + offset + 1
+        self.report(
+            variable=variable,
+            context=context,
+            available_in=available_in,
+            node=token,
+            lineno=token.lineno,
+            col=col,
+            end_col=col + len(variable),
+        )

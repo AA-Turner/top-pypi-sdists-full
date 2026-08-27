@@ -20,7 +20,6 @@ from ..types.dubbing_live_status_response import DubbingLiveStatusResponse
 from ..types.dubbing_pace_preset import DubbingPacePreset
 from ..types.dubbing_register import DubbingRegister
 from ..types.dubbing_start_response import DubbingStartResponse
-from ..types.error_message import ErrorMessage
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -69,7 +68,7 @@ class RawDubbingClient:
             One or more target languages to dub into. A single job dubs into all of them.
 
         export_options : typing.Optional[typing.Sequence[DubbingExportOption]]
-            Which formats to auto-produce per target language.
+            Which formats to auto-produce per target language. When provided, only the listed formats are auto-exported. When omitted, the dubbed video, the isolated audio track, and an MP3 of that track are produced — but never SRT, which must be requested explicitly. Audio-only sources cannot produce a video, so `video` resolves to `audio` for them.
 
         voice_cloning : typing.Optional[bool]
             Clone the original speaker's voice. Set `false` to use a preset `voice_id` instead.
@@ -90,7 +89,7 @@ class RawDubbingClient:
             Translation-style / tone register.
 
         editor_flow : typing.Optional[bool]
-            Keep `false` for API integrations so exports fire automatically once TTS finishes. When `true`, auto-export is suppressed: the pipeline completes but `export-status` stays empty.
+            Keep `false` for API integrations so exports fire automatically once TTS finishes. When `true`, auto-export is suppressed: the pipeline completes but `export-status` stays empty until exports are triggered manually in Creator Studio. **Billing:** `true` charges the editor-flow rate (₹80/min on Starter — double the default API rate). See Pricing for plan-specific rates.
 
         job_name : typing.Optional[str]
             Human-readable label to identify the job later. Recommended (e.g. the source file's name).
@@ -140,9 +139,9 @@ class RawDubbingClient:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -215,9 +214,9 @@ class RawDubbingClient:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -290,9 +289,9 @@ class RawDubbingClient:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -377,9 +376,9 @@ class RawDubbingClient:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -455,7 +454,7 @@ class AsyncRawDubbingClient:
             One or more target languages to dub into. A single job dubs into all of them.
 
         export_options : typing.Optional[typing.Sequence[DubbingExportOption]]
-            Which formats to auto-produce per target language.
+            Which formats to auto-produce per target language. When provided, only the listed formats are auto-exported. When omitted, the dubbed video, the isolated audio track, and an MP3 of that track are produced — but never SRT, which must be requested explicitly. Audio-only sources cannot produce a video, so `video` resolves to `audio` for them.
 
         voice_cloning : typing.Optional[bool]
             Clone the original speaker's voice. Set `false` to use a preset `voice_id` instead.
@@ -476,7 +475,7 @@ class AsyncRawDubbingClient:
             Translation-style / tone register.
 
         editor_flow : typing.Optional[bool]
-            Keep `false` for API integrations so exports fire automatically once TTS finishes. When `true`, auto-export is suppressed: the pipeline completes but `export-status` stays empty.
+            Keep `false` for API integrations so exports fire automatically once TTS finishes. When `true`, auto-export is suppressed: the pipeline completes but `export-status` stays empty until exports are triggered manually in Creator Studio. **Billing:** `true` charges the editor-flow rate (₹80/min on Starter — double the default API rate). See Pricing for plan-specific rates.
 
         job_name : typing.Optional[str]
             Human-readable label to identify the job later. Recommended (e.g. the source file's name).
@@ -526,9 +525,9 @@ class AsyncRawDubbingClient:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -601,9 +600,9 @@ class AsyncRawDubbingClient:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -676,9 +675,9 @@ class AsyncRawDubbingClient:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -763,9 +762,9 @@ class AsyncRawDubbingClient:
                 raise UnauthorizedError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        ErrorMessage,
+                        typing.Any,
                         parse_obj_as(
-                            type_=ErrorMessage,  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

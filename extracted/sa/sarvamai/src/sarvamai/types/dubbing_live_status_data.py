@@ -9,9 +9,9 @@ from .dubbing_live_status_export_info import DubbingLiveStatusExportInfo
 
 
 class DubbingLiveStatusData(UniversalBaseModel):
-    job_id: typing.Optional[str] = None
+    job_id: str
     job_name: typing.Optional[str] = None
-    status: typing.Optional[DubbingJobStatus] = None
+    status: DubbingJobStatus
     current_step: typing.Optional[str] = pydantic.Field(default=None)
     """
     Current pipeline step key.
@@ -22,7 +22,7 @@ class DubbingLiveStatusData(UniversalBaseModel):
     Human-readable label of the current pipeline step.
     """
 
-    progress: typing.Optional[int] = pydantic.Field(default=None)
+    progress: int = pydantic.Field()
     """
     Overall progress percentage (0–100).
     """

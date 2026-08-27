@@ -198,6 +198,7 @@ class RawSemanticModelClient:
         dimensions: typing.Optional[typing.Sequence[str]] = OMIT,
         filters: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
         limit: typing.Optional[int] = OMIT,
+        order: typing.Optional[typing.Sequence[typing.Sequence[str]]] = OMIT,
         time_dimensions: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SemanticModelQueryResponseOut]:
@@ -218,7 +219,10 @@ class RawSemanticModelClient:
             Optional filters
 
         limit : typing.Optional[int]
-            Maximum rows to return
+            Maximum rows to return (default 100). When the result was cut at this limit the response sets "truncated": true.
+
+        order : typing.Optional[typing.Sequence[typing.Sequence[str]]]
+            Optional ordering as [member, direction] pairs applied before "limit", e.g. [["orders.count", "desc"]] for a server-side top-N. Direction must be "asc" or "desc".
 
         time_dimensions : typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]]
             Optional time dimension configs
@@ -239,6 +243,7 @@ class RawSemanticModelClient:
                 "filters": filters,
                 "limit": limit,
                 "measures": measures,
+                "order": order,
                 "time_dimensions": time_dimensions,
             },
             headers={
@@ -483,6 +488,7 @@ class AsyncRawSemanticModelClient:
         dimensions: typing.Optional[typing.Sequence[str]] = OMIT,
         filters: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
         limit: typing.Optional[int] = OMIT,
+        order: typing.Optional[typing.Sequence[typing.Sequence[str]]] = OMIT,
         time_dimensions: typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SemanticModelQueryResponseOut]:
@@ -503,7 +509,10 @@ class AsyncRawSemanticModelClient:
             Optional filters
 
         limit : typing.Optional[int]
-            Maximum rows to return
+            Maximum rows to return (default 100). When the result was cut at this limit the response sets "truncated": true.
+
+        order : typing.Optional[typing.Sequence[typing.Sequence[str]]]
+            Optional ordering as [member, direction] pairs applied before "limit", e.g. [["orders.count", "desc"]] for a server-side top-N. Direction must be "asc" or "desc".
 
         time_dimensions : typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]]
             Optional time dimension configs
@@ -524,6 +533,7 @@ class AsyncRawSemanticModelClient:
                 "filters": filters,
                 "limit": limit,
                 "measures": measures,
+                "order": order,
                 "time_dimensions": time_dimensions,
             },
             headers={

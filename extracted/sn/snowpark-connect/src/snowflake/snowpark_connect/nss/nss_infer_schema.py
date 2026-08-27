@@ -17,7 +17,12 @@ intermediate ``StructType``.
 
 import json
 
+from pyspark.errors.exceptions.base import AnalysisException
+
 from snowflake import snowpark
+from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.nss.nss_scan_options import (
     NssColumn,
     _stringify_reader_option,
@@ -26,6 +31,117 @@ from snowflake.snowpark_connect.nss.nss_scan_options import (
     sql_quote_literal,
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.telemetry import telemetry
+
+
+def empty_nss_file_read_result(
+    session: snowpark.Session,
+    stage_path: str,
+    file_format: str,
+) -> DataFrameContainer:
+    """Resolve an inferred empty schema using Spark's matched-file contract."""
+    ensure_nss_empty_schema_has_visible_files(session, stage_path, file_format)
+
+    from snowflake.snowpark_connect.relation.map_local_relation import (
+        _create_zero_column_relation,
+    )
+
+    # The helper resolves the same request-bound Snowpark session from context.
+    return _create_zero_column_relation().without_materialization()
+
+
+def ensure_nss_empty_schema_has_visible_files(
+    session: snowpark.Session,
+    stage_path: str,
+    file_format: str,
+) -> None:
+    """Raise Spark's inference error when an empty schema matched no input files."""
+    if not stage_location_has_spark_visible_files(session, stage_path):
+        exception = AnalysisException(
+            error_class="UNABLE_TO_INFER_SCHEMA",
+            message_parameters={"format": file_format.upper()},
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+
+def stage_location_has_spark_visible_files(
+    session: snowpark.Session,
+    stage_path: str,
+) -> bool:
+    """Return whether Spark file discovery would find an input at ``stage_path``.
+
+    This check is intentionally format-agnostic: Spark's CSV and JSON readers do
+    not select files by extension, so any non-hidden file under a requested
+    directory is an input candidate. Parsing and schema inference remain the
+    responsibility of the selected reader.
+
+    Snowflake ``LIST`` returns prefix matches. After normalizing each result to a
+    stage-relative path, accept either the exact requested entry or a descendant
+    separated by ``/``. Thus ``file.csv`` and ``file.csv/part-00000`` can satisfy
+    ``@stage/file.csv``, which may identify either a file or a directory, while
+    the prefix sibling ``file.csv.bak`` cannot.
+
+    During directory discovery, exclude any descendant path component beginning
+    with ``_`` or ``.`` (for example ``_SUCCESS`` or ``.crc``), matching Spark's
+    hidden-file rules. An exact match is accepted before this filter because Spark
+    permits a hidden file when the user names that file explicitly.
+
+    The result distinguishes an existing input whose NSS schema inference is empty
+    from a location with no matched files; it does not inspect contents or size.
+
+    This intentionally follows the current NSS stage scan's file set. NSS does not
+    yet enforce Spark's ``recursiveFileLookup`` or ``pathGlobFilter`` during the
+    stage scan; applying those filters only to this existence check would make schema
+    inference and row scanning disagree.
+    """
+    from snowflake.snowpark_connect.relation.read.source_resolution import (
+        expand_dir_to_stage_files,
+    )
+    from snowflake.snowpark_connect.relation.read.utils import (
+        cloud_list_path_to_relative,
+    )
+
+    unquoted_path = stage_path
+    if (
+        len(unquoted_path) >= 2
+        and unquoted_path[0] == unquoted_path[-1]
+        and unquoted_path[0] in ("'", '"')
+    ):
+        unquoted_path = unquoted_path[1:-1]
+    relative_location = cloud_list_path_to_relative(unquoted_path)
+    if relative_location is None:
+        relative_location = (
+            unquoted_path.split("/", 1)[1] if "/" in unquoted_path else ""
+        )
+    relative_location = relative_location.rstrip("/")
+
+    def is_visible(listed_path: str) -> bool:
+        normalized = listed_path.strip("/")
+        if normalized == relative_location:
+            return True
+
+        if relative_location:
+            prefix = f"{relative_location}/"
+            if not normalized.startswith(prefix):
+                return False
+            descendant = normalized[len(prefix) :]
+        else:
+            descendant = normalized
+
+        return bool(descendant) and not any(
+            part.startswith(("_", ".")) for part in descendant.split("/") if part
+        )
+
+    return bool(
+        expand_dir_to_stage_files(
+            f"'{sql_quote_literal(unquoted_path)}'",
+            session,
+            skip_success_markers=False,
+            path_filter=is_visible,
+            max_results=1,
+        )
+    )
 
 
 def infer_via_stage_file_schema(
@@ -45,8 +161,9 @@ def infer_via_stage_file_schema(
     Contract (SNOW-3715056): named args ``LOCATION`` / ``FILE_FORMAT`` / ``OPTIONS_JSON``
     (top-level ``sparkConf`` / ``readerOptions``, matched case-insensitively); output is one
     row per column ``(COLUMN_NAME, SPARK_TYPE, NULLABLE, ORDER_ID)`` sorted by ``ORDER_ID``.
-    ``SPARK_TYPE`` (Spark ``DataType.json()``) is carried through verbatim. RAISES on empty
-    rather than falling back to COPY, so NSS gaps surface in tests.
+    ``SPARK_TYPE`` (Spark ``DataType.json()``) is carried through verbatim. An empty result
+    represents a valid inferred ``StructType([])`` only when the caller confirms that the
+    location matched at least one Spark-visible file (SNOW-3968261).
     """
     # Forward the caller's format reader options so inference splits/labels columns exactly
     # as the read will. For CSV this is essential: header/sep/delimiter/quote/escape drive
@@ -97,11 +214,8 @@ def infer_via_stage_file_schema(
     )
     # NSS schema-inference path (keyword kept out of the customer-visible log message)
     logger.info(f"INFER_STAGE_FILE_SCHEMA query: {query}")
+    telemetry.report_nss_tvf("INFER_STAGE_FILE_SCHEMA")
     rows = session.sql(query).collect()
-    if not rows:
-        raise ValueError(
-            f"NSS INFER_STAGE_FILE_SCHEMA returned no rows for {stage_path}."
-        )
     return [
         NssColumn(
             name=row[0],

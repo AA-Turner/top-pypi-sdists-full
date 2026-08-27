@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.27.0, <2.0.0", "hatch-vcs"]
+requires = ["hatchling>=1.29.0, <2.0.0", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
@@ -40,20 +40,38 @@ dbt-score = "dbt_score.__main__:main"
 [dependency-groups]
 dev = [
     "dbt-core>=1.5",
-    "tox-uv~=1.28",
+    "tox-uv~=1.35",
     "tox~=4.13",
 ]
 lint = [
-    "ruff~=0.14.10",
+    "ruff~=0.15.12",
     "mypy~=1.8",
 ]
 test = [
     "pytest~=9.0",
-    "coverage[toml]~=7.4"
+    "coverage[toml]~=7.13"
 ]
 docs = [
-    "mkdocs-material~=9.5",
-    "mkdocstrings[python]~=1.0.0"
+    "mkdocstrings[python]~=1.0.4",
+    "zensical~=0.0.52",
+]
+# Used by the tox matrix (see tox.ini) to pin a specific dbt-core version per
+# test env. Mutually exclusive, see tool.uv.conflicts below.
+dbt15 = ["dbt-core>=1.5,<1.6"]
+dbt16 = ["dbt-core>=1.6,<1.7"]
+dbt17 = ["dbt-core>=1.7,<1.8"]
+dbt110 = ["dbt-core>=1.10,<1.11"]
+dbt111 = ["dbt-core>=1.11,<1.12"]
+
+[tool.uv]
+conflicts = [
+    [
+        { group = "dbt15" },
+        { group = "dbt16" },
+        { group = "dbt17" },
+        { group = "dbt110" },
+        { group = "dbt111" },
+    ],
 ]
 
 ### Mypy ###

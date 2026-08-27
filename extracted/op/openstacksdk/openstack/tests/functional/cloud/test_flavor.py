@@ -133,6 +133,7 @@ class TestFlavor(base.BaseFunctionalTest):
         # We need the tenant ID for the 'demo' user
         project = self.operator_cloud.get_project('demo')
         self.assertIsNotNone(project)
+        assert project is not None
 
         # Now give 'demo' access
         self.operator_cloud.add_flavor_access(new_flavor['id'], project['id'])
@@ -175,6 +176,7 @@ class TestFlavor(base.BaseFunctionalTest):
         mod_flavor = self.operator_cloud.get_flavor(
             new_flavor['id'], get_extra=True
         )
+        assert mod_flavor is not None
 
         # Verify extra_specs were set
         self.assertIn('extra_specs', mod_flavor)

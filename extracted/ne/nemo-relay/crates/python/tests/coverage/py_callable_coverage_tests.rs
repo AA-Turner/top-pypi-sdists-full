@@ -118,7 +118,7 @@ fn sync_wrappers_and_codec_errors_cover_remaining_branches() {
             py,
             r#"
 def sync_tool_exec(args):
-    return {"sync_tool": args["x"] + 1}
+    return ToolResult({"sync_tool": args["x"] + 1})
 
 def sync_tool_intercept(name, args, next):
     return ToolOutcome({"name": name, "value": args["x"] + 2})
@@ -175,6 +175,12 @@ class RaisingResponseCodec:
                 py.get_type::<crate::py_types::PyToolExecutionInterceptOutcome>(),
             )
             .unwrap();
+        module
+            .setattr(
+                "ToolResult",
+                py.get_type::<crate::py_types::PyToolExecutionResult>(),
+            )
+            .unwrap();
 
         let tool_exec_py: Py<PyAny> = module.getattr("sync_tool_exec").unwrap().unbind();
         let tool_intercept_py: Py<PyAny> = module.getattr("sync_tool_intercept").unwrap().unbind();
@@ -186,12 +192,12 @@ class RaisingResponseCodec:
             let tool_exec = wrap_py_tool_exec_fn(tool_exec_py);
             assert_eq!(
                 tool_exec(json!({"x": 2})).await.unwrap(),
-                json!({"sync_tool": 3})
+                nemo_relay::api::tool::ToolExecutionResult::new(json!({"sync_tool": 3}))
             );
 
             let tool_intercept = wrap_py_tool_exec_intercept_fn(tool_intercept_py);
             let tool_next: ToolExecutionNextFn =
-                Arc::new(|args| Box::pin(async move { Ok(json!({"next": args["x"]})) }));
+                Arc::new(|args| Box::pin(async move { Ok(json!({"next": args["x"]}).into()) }));
             assert_eq!(
                 tool_intercept("tool", json!({"x": 3}), tool_next)
                     .await
@@ -596,7 +602,14 @@ async def collect_stream(awaitable):
             pyo3_async_runtimes::tokio::run_until_complete(event_loop, async move {
                 let continuation_context = MiddlewareContinuationContext::capture();
                 let tool_next = PyToolNextFn {
-                    inner: Arc::new(|args| Box::pin(async move { Ok(json!({"echo": args["x"]})) })),
+                    inner: Arc::new(|args| {
+                        Box::pin(async move {
+                            Ok(nemo_relay::api::tool::ToolExecutionResult::annotated(
+                                json!({"echo": args["x"]}),
+                                json!({"source": "next"}),
+                            ))
+                        })
+                    }),
                     context: continuation_context.clone(),
                 };
                 let tool_awaitable = Python::attach(|py| {
@@ -609,10 +622,22 @@ async def collect_stream(awaitable):
                     pyo3_async_runtimes::tokio::into_future(helper_call.into_bound(py)).unwrap()
                 });
                 let tool_result = tool_future.await.unwrap();
-                assert_eq!(
-                    Python::attach(|py| crate::convert::py_to_json(tool_result.bind(py)).unwrap()),
-                    json!({"echo": 7})
-                );
+                Python::attach(|py| {
+                    assert_eq!(
+                        crate::convert::py_to_json(
+                            &tool_result.bind(py).getattr("result").unwrap()
+                        )
+                        .unwrap(),
+                        json!({"echo": 7})
+                    );
+                    assert_eq!(
+                        crate::convert::py_to_json(
+                            &tool_result.bind(py).getattr("annotation").unwrap()
+                        )
+                        .unwrap(),
+                        json!({"source": "next"})
+                    );
+                });
 
                 let tool_next_err = PyToolNextFn {
                     inner: Arc::new(|_| {
@@ -845,6 +870,57 @@ def invalid(event, fields):
         invalid
             .to_string()
             .contains("invalid event sanitizer result")
+    );
+}
+
+#[test]
+fn event_metadata_injector_wrapper_covers_sync_async_and_invalid_results() {
+    use nemo_relay::api::event::{BaseEvent, MarkEvent};
+
+    let _python = crate::test_support::init_python_test();
+    let (_context_module, sync_injector, async_injector, invalid_injector) = Python::attach(|py| {
+        let context_module = install_event_sanitizer_context_module(py);
+        let module = load_module(
+            py,
+            r#"
+import asyncio
+
+def inject(event):
+    return {"python.sync": event.name}
+
+async def inject_async(event):
+    await asyncio.sleep(0)
+    return {"python.async": True}
+
+def invalid(event):
+    return [event.name]
+"#,
+        );
+        (
+            context_module,
+            wrap_py_event_metadata_injector_fn(module.getattr("inject").unwrap().unbind()),
+            wrap_py_event_metadata_injector_fn(module.getattr("inject_async").unwrap().unbind()),
+            wrap_py_event_metadata_injector_fn(module.getattr("invalid").unwrap().unbind()),
+        )
+    });
+    let event = Arc::new(Event::Mark(MarkEvent::new(
+        BaseEvent::builder().name("checkpoint").build(),
+        None,
+        None,
+    )));
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+
+    let sync_values = runtime.block_on(sync_injector(event.clone())).unwrap();
+    assert_eq!(sync_values.get("python.sync"), Some(&json!("checkpoint")));
+
+    let async_values = runtime.block_on(async_injector(event.clone())).unwrap();
+    assert_eq!(async_values.get("python.async"), Some(&json!(true)));
+
+    let invalid = runtime.block_on(invalid_injector(event)).unwrap_err();
+    assert!(
+        invalid
+            .to_string()
+            .contains("invalid event metadata injector result")
     );
 }
 

@@ -16,9 +16,19 @@ class SemanticModelQueryResponseOut(UniversalBaseModel):
     Query result rows
     """
 
+    elapsed_ms: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Server-side execution time in milliseconds (semantic layer + engine, excluding network) — surface it to show how fast the engine answered
+    """
+
     row_count: int = pydantic.Field()
     """
     Number of rows returned
+    """
+
+    truncated: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    True when the query produced more rows than 'limit' and the result was cut; raise 'limit' or add filters to see the rest
     """
 
     if IS_PYDANTIC_V2:

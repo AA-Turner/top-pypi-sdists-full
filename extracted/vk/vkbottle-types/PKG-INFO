@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: vkbottle-types
-Version: 5.199.99.21
+Version: 5.199.99.22
 Summary: VK API methods & types for vkbottle.
 Author: timoniq
 Maintainer-email: luwqz1 <howluwqz1@gmail.com>
@@ -21,8 +21,8 @@ Classifier: Typing :: Typed
 Requires-Python: <4.0,>=3.10
 Requires-Dist: msgspec<0.22.0,>=0.21.1
 Requires-Dist: pydantic<3.0.0,>=2.13.4
-Requires-Dist: typing-extensions<5.0.0,>=4.15.0
-Requires-Dist: vkbottle<5.0.0,>=4.8.2
+Requires-Dist: typing-extensions<5.0.0,>=4.16.0
+Requires-Dist: vkbottle<5.0.0,>=4.10.0
 Description-Content-Type: text/markdown
 
 # vkbottle-types

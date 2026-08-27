@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: linq-python
-Version: 0.32.0
+Version: 0.33.1
 Summary: The official Python library for the linq-api-v3 API
 Project-URL: Homepage, https://github.com/linq-team/linq-python
 Project-URL: Repository, https://github.com/linq-team/linq-python
@@ -31,6 +31,8 @@ Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
+Provides-Extra: webhooks
+Requires-Dist: standardwebhooks<2,>=1.0.1; extra == 'webhooks'
 Description-Content-Type: text/markdown
 
 # Linq API V3 Python API library

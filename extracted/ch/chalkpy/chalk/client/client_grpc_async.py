@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import random
 import typing
 import warnings
@@ -49,6 +50,7 @@ from chalk.client.models import (
 )
 from chalk.client.serialization.protos import ChalkErrorConverter, OnlineQueryConverter, UploadFeaturesBulkConverter
 from chalk.config.auth_config import TokenConfig, load_token
+from chalk.config.web_identity import invalidate_web_identity_token
 from chalk.features import live_updates
 from chalk.features._encoding.inputs import GRPC_ENCODE_OPTIONS, InputSchemaHint
 from chalk.features._encoding.json import FeatureEncodingOptions
@@ -59,8 +61,10 @@ from chalk.importer import CHALK_IMPORT_FLAG
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.utils.grpc import (
     AsyncAuthenticatedChalkClientInterceptor,
+    AsyncTokenProvider,
     AsyncTokenRefresher,
     AsyncUnauthenticatedChalkClientInterceptor,
+    AsyncWebIdentityTokenRefresher,
 )
 from chalk.utils.tracing import current_or_new_trace_context, current_trace_context, safe_trace
 
@@ -135,7 +139,10 @@ class AsyncStubProvider:
             channel_options_merged.update(dict(channel_options))
         channel_options_list = list(channel_options_merged.items())
 
-        async_token_refresher: AsyncTokenRefresher | None = None
+        async_token_refresher: AsyncTokenProvider | None = None
+        # Retained only so a missing engine target can be explained accurately: under
+        # rotating auth it can never be discovered, rather than merely being absent.
+        self._uses_web_identity: bool = token_config.webIdentityTokenFile is not None
 
         self._auth_channel: Optional[grpc.aio.Channel] = None
         if skip_api_server:
@@ -161,24 +168,29 @@ class AsyncStubProvider:
             server_host = _bootstrap.server_host
             query_server = _bootstrap.query_server
 
-            # aio channel for server (used to create the async auth stub and authenticated server calls)
-            self._auth_channel: Optional[grpc.aio.Channel] = (
-                grpc.aio.insecure_channel(target=server_host, options=channel_options_list)
-                if server_host.startswith("localhost") or server_host.startswith("127.0.0.1")
-                else grpc.aio.secure_channel(
-                    target=server_host,
-                    credentials=grpc.ssl_channel_credentials(),
-                    options=channel_options_list,
+            if token_config.webIdentityTokenFile is not None:
+                # Rotating auth: nothing to exchange, so neither an auth channel nor an
+                # auth stub is needed. The refresher re-reads the token file instead.
+                async_token_refresher = AsyncWebIdentityTokenRefresher(token_config.webIdentityTokenFile)
+            else:
+                # aio channel for server (used to create the async auth stub and authenticated server calls)
+                self._auth_channel = (
+                    grpc.aio.insecure_channel(target=server_host, options=channel_options_list)
+                    if server_host.startswith("localhost") or server_host.startswith("127.0.0.1")
+                    else grpc.aio.secure_channel(
+                        target=server_host,
+                        credentials=grpc.ssl_channel_credentials(),
+                        options=channel_options_list,
+                    )
                 )
-            )
-            _aio_auth_stub = AuthServiceStub(self._auth_channel)  # pyright: ignore[reportArgumentType]
+                _aio_auth_stub = AuthServiceStub(self._auth_channel)  # pyright: ignore[reportArgumentType]
 
-            async_token_refresher = AsyncTokenRefresher(
-                initial_token=initial_token,
-                async_auth_stub=_aio_auth_stub,
-                client_id=token_config.clientId,
-                client_secret=token_config.clientSecret,
-            )
+                async_token_refresher = AsyncTokenRefresher(
+                    initial_token=initial_token,
+                    async_auth_stub=_aio_auth_stub,
+                    client_id=token_config.clientId,
+                    client_secret=token_config.clientSecret,
+                )
 
             server_interceptor = AsyncAuthenticatedChalkClientInterceptor(
                 refresher=async_token_refresher,
@@ -220,6 +232,13 @@ class AsyncStubProvider:
         )
 
         self._engine_channel: Optional[grpc.aio.Channel] = None
+        if query_server is None and self._uses_web_identity and not skip_api_server:
+            # Fail lazily rather than here: the server channel carries the whole
+            # metadata plane, none of which needs an engine. Warn so a misconfiguration
+            # surfaces at startup instead of only at the first engine query.
+            warnings.warn(
+                "No gRPC engine target is configured. Chalk identity JWTs carry no engine routing, so engine queries will fail until CHALK_GRPC_ENGINE is set or query_server is passed."
+            )
         if query_server is not None:
             parsed_uri = _parse_uri_for_engine(query_server_uri=query_server)
             self._engine_channel = (
@@ -249,6 +268,23 @@ class AsyncStubProvider:
         server_host = token_config.apiServer or "api.chalk.ai"
         for pfx in ("https://", "http://", "www."):
             server_host = server_host.removeprefix(pfx)
+
+        if token_config.webIdentityTokenFile is not None:
+            # Rotating auth: nothing to exchange, so no temporary channel and no
+            # GetToken round trip. `load_token` has already resolved the environment,
+            # and a JWT names an environment *id* directly, so there is no name->id
+            # map to consult. It carries no engine routing either, so `query_server`
+            # is left to the caller or CHALK_GRPC_ENGINE.
+            environment_id = token_config.activeEnvironment
+            if not environment_id:
+                raise ValueError("No environment specified")
+            return _Bootstrap(
+                initial_token=None,
+                environment_id=environment_id,
+                server_host=server_host,
+                query_server=query_server,
+            )
+
         _temp_interceptor = AsyncUnauthenticatedChalkClientInterceptor(
             server="go-api",
             additional_headers=additional_headers_nonempty,
@@ -341,6 +377,11 @@ class AsyncStubProvider:
     @cached_property
     def query_stub(self) -> QueryServiceStub:
         if self._engine_channel is None:
+            if self._uses_web_identity:
+                raise ValueError(
+                    "No GRPC engine target is configured. Chalk identity JWTs carry no engine routing, so it "
+                    + "cannot be discovered automatically: set CHALK_GRPC_ENGINE or pass query_server=..."
+                )
             raise ValueError(
                 "The GRPC engine service is not available. If you would like to set up a GRPC service, please contact Chalk."
             )
@@ -454,6 +495,15 @@ class AsyncStubRefresher:
                     self._stub = await self._async_create_stub()
                     await old_stub.close()
                     return await fn(get_service())
+            web_identity_token_file = self._token_config.webIdentityTokenFile
+            if e.code() == grpc.StatusCode.UNAUTHENTICATED and web_identity_token_file is not None:
+                # Mirrors the HTTP client's 401 handling: the producer may have rotated
+                # the token file after we cached it but before the cache deadline
+                # lapsed. Drop the cached token so the interceptor re-reads the file,
+                # and retry once. The channel is still good, so it is not rebuilt.
+                chalk_logger.info("Received UNAUTHENTICATED; re-reading the web identity token file and retrying")
+                invalidate_web_identity_token(web_identity_token_file)
+                return await fn(get_service())
             raise
 
     async def call_query_stub(self, fn: Callable[[QueryServiceStub], Any]) -> Any:
@@ -529,6 +579,14 @@ class AsyncChalkGRPCClient:
         query_server
             Override the query server URL. If not provided, the query server
             is resolved from the API server.
+
+            Required when authenticating with `CHALK_WEB_IDENTITY_TOKEN_FILE`,
+            either here or via the `CHALK_GRPC_ENGINE` environment variable: a
+            Chalk identity JWT carries no engine routing, so the engine target
+            cannot be resolved. Metadata-plane calls still work without it; only
+            engine queries fail. On this path the JWT's `environment_id` claim
+            selects the environment unless `environment` or `CHALK_ENVIRONMENT`
+            is given, in which case that must be an environment id, not a name.
         input_compression
             Compression algorithm to use for query inputs. One of "lz4",
             "zstd", or "uncompressed". Defaults to "lz4".
@@ -574,6 +632,11 @@ class AsyncChalkGRPCClient:
         )
         if token_config is None:
             raise ChalkAuthException()
+        if token_config.webIdentityTokenFile is not None and self._query_server is None:
+            # A Chalk identity JWT carries no engine routing, so there is no
+            # `grpc_engines` map to fall back to. CHALK_GRPC_ENGINE is the ambient
+            # equivalent of passing `query_server` explicitly.
+            self._query_server = os.environ.get("CHALK_GRPC_ENGINE") or None
         self._stub_refresher = await AsyncStubRefresher.create(
             token_config=token_config,
             query_server=self._query_server,

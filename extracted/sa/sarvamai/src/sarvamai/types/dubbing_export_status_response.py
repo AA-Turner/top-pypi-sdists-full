@@ -8,13 +8,13 @@ from .dubbing_export_status_data import DubbingExportStatusData
 
 
 class DubbingExportStatusResponse(UniversalBaseModel):
-    status: typing.Optional[str] = pydantic.Field(default=None)
+    status: str = pydantic.Field()
     """
     Response status, e.g. `success`.
     """
 
-    message: typing.Optional[str] = None
-    data: typing.Optional[DubbingExportStatusData] = None
+    message: str
+    data: DubbingExportStatusData
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -561,12 +561,15 @@ fn observation_content_value(value: &Json) -> Option<Json> {
     }
 }
 
-fn observation_extra(event: &Event, output: &Json) -> Json {
+fn observation_extra(event: &Event, output: Option<&Json>) -> Json {
     let mut extra = event_extra(event);
-    if let Some(tool_result) = observation_tool_result_extra(output)
-        && let Json::Object(extra_object) = &mut extra
-    {
-        extra_object.insert("tool_result".to_string(), tool_result);
+    if let Json::Object(extra_object) = &mut extra {
+        if let Some(tool_result) = output.and_then(observation_tool_result_extra) {
+            extra_object.insert("tool_result".to_string(), tool_result);
+        }
+        if let Some(annotation) = super::tool_result_annotation(event) {
+            extra_object.insert("tool_result_annotation".to_string(), annotation);
+        }
     }
     extra
 }
@@ -1147,31 +1150,35 @@ fn openai_responses_input_content_message(content: &Json) -> Option<Json> {
     None
 }
 
-/// Try to promote `tool_calls` from the raw LLM response into `AtifToolCall` entries.
+/// Try to promote provider tool calls from a raw LLM response into `AtifToolCall` entries.
 ///
-/// Expected shape per OpenAI convention:
-/// ```json
-/// "tool_calls": [{ "id": "...", "type": "function", "function": { "name": "...", "arguments": "..." } }]
-/// ```
+/// Supports generic/OpenAI Chat `tool_calls`, OpenAI Responses `function_call`
+/// output items, and Anthropic `tool_use` content blocks. Provider-specific ID
+/// semantics are preserved so later observations can correlate to the call.
 ///
 /// String `arguments` are parsed into JSON for consistency with NeMo Relay tool events
 /// which always provide parsed arguments.
 ///
 /// Returns `None` if there are no tool calls or the structure is unrecognized.
 fn extract_tool_calls(output: &Json) -> Option<Vec<AtifToolCall>> {
-    let arr = tool_call_array(output)
-        .filter(|arr| !arr.is_empty())
-        .map(|arr| arr.iter().collect::<Vec<_>>())
-        .or_else(|| openai_responses_function_call_items(output))
-        .or_else(|| anthropic_messages_tool_use_items(output))?;
+    let (arr, origin) = if let Some(tool_calls) = tool_call_array(output).filter(|a| !a.is_empty())
+    {
+        (
+            tool_calls.iter().collect::<Vec<_>>(),
+            ToolCallOrigin::Generic,
+        )
+    } else if let Some(function_calls) = openai_responses_function_call_items(output) {
+        (function_calls, ToolCallOrigin::OpenAiResponses)
+    } else {
+        (
+            anthropic_messages_tool_use_items(output)?,
+            ToolCallOrigin::AnthropicMessages,
+        )
+    };
     let mut calls = Vec::with_capacity(arr.len());
     for (index, tc) in arr.iter().enumerate() {
         let tc_obj = tc.as_object()?;
-        let mut id = tc_obj
-            .get("id")
-            .or_else(|| tc_obj.get("tool_call_id"))
-            .or_else(|| tc_obj.get("call_id"))
-            .and_then(Json::as_str)
+        let mut id = tool_call_id_for_origin(tc_obj, origin)
             .unwrap_or("")
             .to_string();
         let func = tc_obj.get("function").and_then(Json::as_object);
@@ -1205,6 +1212,41 @@ fn extract_tool_calls(output: &Json) -> Option<Vec<AtifToolCall>> {
         });
     }
     if calls.is_empty() { None } else { Some(calls) }
+}
+
+/// Provider payload shape governing tool-call identifier semantics.
+#[derive(Clone, Copy)]
+enum ToolCallOrigin {
+    Generic,
+    OpenAiResponses,
+    AnthropicMessages,
+}
+
+/// Select the first usable correlation identifier for the provider payload shape.
+fn tool_call_id_for_origin(
+    tool_call: &serde_json::Map<String, Json>,
+    origin: ToolCallOrigin,
+) -> Option<&str> {
+    match origin {
+        // Responses distinguishes the output item `id` (`fc_*`) from the
+        // invocation `call_id` used by function_call_output and tool events.
+        ToolCallOrigin::OpenAiResponses => {
+            ["call_id", "id", "tool_call_id"].iter().find_map(|field| {
+                tool_call
+                    .get(*field)
+                    .and_then(Json::as_str)
+                    .filter(|value| !value.is_empty())
+            })
+        }
+        ToolCallOrigin::Generic | ToolCallOrigin::AnthropicMessages => {
+            ["id", "tool_call_id", "call_id"].iter().find_map(|field| {
+                tool_call
+                    .get(*field)
+                    .and_then(Json::as_str)
+                    .filter(|value| !value.is_empty())
+            })
+        }
+    }
 }
 
 // Annotation adapters: read the normalized message from an annotation, returning
@@ -2744,13 +2786,14 @@ impl StepConversionState {
 
     fn handle_tool_end(&mut self, event: &Event, lookups: &EventLookupMaps) {
         let source_call_id = self.resolve_source_call_id(event, lookups);
-        if let Some(output) = event.data() {
+        let output = event.data();
+        if output.is_some() || super::tool_result_annotation(event).is_some() {
             if self.pending_obs_timestamp.is_none() {
                 self.pending_obs_timestamp = Some(event.timestamp().to_rfc3339());
             }
             self.pending_observations.push(AtifObservationResult {
                 source_call_id: source_call_id.clone(),
-                content: observation_content_value(output),
+                content: output.and_then(observation_content_value),
                 subagent_trajectory_ref: None,
                 extra: Some(observation_extra(event, output)),
             });
@@ -3162,7 +3205,9 @@ fn observation_result_has_tool_result_extra(result: &AtifObservationResult) -> b
         .extra
         .as_ref()
         .and_then(|extra| extra.as_object())
-        .is_some_and(|extra| extra.contains_key("tool_result"))
+        .is_some_and(|extra| {
+            extra.contains_key("tool_result") || extra.contains_key("tool_result_annotation")
+        })
 }
 
 fn refresh_tool_call_lookup(

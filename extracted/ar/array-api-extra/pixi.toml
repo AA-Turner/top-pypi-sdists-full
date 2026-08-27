@@ -15,6 +15,9 @@ preview = ["pixi-build"]
 requires-pixi = ">=0.73.0"  # for TOML 1.1 support
 exclude-newer = "7d"
 
+[exclude-newer]
+pixi-build-python = "5d"  # for compatibility with pixi-build-api-version 7
+
 ### array-api-extra package definition ###
 
 [package]
@@ -95,7 +98,7 @@ array-api-extra.path = "."
 
 [feature.lint.dependencies]
 typing-extensions = ">=4.16.0"
-pylint = ">=4.0.6"
+pylint = ">=4.0.7"
 mypy = ">=2.3.0"
 basedpyright = ">=1.39.8"
 numpydoc = ">=1.10.0"
@@ -106,15 +109,15 @@ hypothesis = ">=6.155.7"
 dask-core = ">=2026.7.1"  # No distributed, tornado, etc.
 dprint = ">=0.50.0"
 lefthook = ">=2.1.10"
-ruff = ">=0.16.0"
-typos = ">=1.48.0"
+ruff = ">=0.16.2"
+typos = ">=1.49.0"
 actionlint-with-all = ">=1.7.12"
 blacken-docs = ">=1.20.0"
 pytest = ">=9.1.1"
 validate-pyproject = ">=0.25"
-pyrefly = ">=1.1.1"
-zizmor = ">=1.28.0"
-tombi = ">=1.2.6"
+pyrefly = ">=1.2.0"
+zizmor = ">=1.29.0"
+tombi = ">=1.2.10"
 # NOTE: don't add cupy, jax, pytorch, or sparse here,
 # as they slow down mypy and are not portable across target OSs
 
@@ -220,16 +223,22 @@ hypothesis = ">=6.155.7"
 array-api-strict = ">=2.6.1"
 numpy = ">=1.22.0"
 scipy = ">=1.15.2"
+scipy-doctest = ">=2.2.0,<3"
 
 [feature.tests.tasks]
 tests = {
   description = "Run tests",
-  cmd = "pytest -v",
+  cmd = "pytest -v tests/main",
+  default-environment = "tests",
+}
+doctests = {
+  description = "Run public API doctests",
+  cmd = "pytest --pyargs array_api_extra --doctest-modules --doctest-collect=api --doctest-only-doctests=true",
   default-environment = "tests",
 }
 tests-cov = {
   description = "Run tests with coverage",
-  cmd = "pytest -v -ra --cov --cov-report=xml --cov-report=term --durations=20",
+  cmd = "pytest -v -ra --cov --cov-report=xml --cov-report=term --durations=20 tests/main",
   default-environment = "tests",
 }
 
@@ -248,36 +257,36 @@ open-coverage = {
 
 clean-vendor-compat = {
   description = "Delete the existing vendored version of array-api-compat",
-  cmd = "rm -rf vendor_tests/array_api_compat",
+  cmd = "rm -rf tests/vendoring/array_api_compat",
   default-environment = "tests",
 }
 clean-vendor-extra = {
   description = "Delete the existing vendored version of array-api-extra",
-  cmd = "rm -rf vendor_tests/array_api_extra",
+  cmd = "rm -rf tests/vendoring/array_api_extra",
   default-environment = "tests",
 }
 copy-vendor-compat = {
   description = "Vendor a clean copy of array-api-compat",
   depends-on = ["clean-vendor-compat"],
-  cmd = "cp -r $(python -c 'import array_api_compat, pathlib; print(pathlib.Path(array_api_compat.__file__).parent)') vendor_tests/ && rm -rf vendor_tests/array_api_compat/vendor_tests && rm -rf vendor_tests/array_api_compat/tests",
+  cmd = "cp -r $(python -c 'import array_api_compat, pathlib; print(pathlib.Path(array_api_compat.__file__).parent)') tests/vendoring/ && rm -rf tests/vendoring/array_api_compat/vendor_tests && rm -rf tests/vendoring/array_api_compat/tests",
   default-environment = "tests",
 }
 copy-vendor-extra = {
   description = "Vendor a clean copy of array-api-extra",
   depends-on = ["clean-vendor-extra"],
-  cmd = "cp -r src/array_api_extra vendor_tests/",
+  cmd = "cp -r src/array_api_extra tests/vendoring/",
   default-environment = "tests",
 }
-tests-vendor = {
+tests-vendoring = {
   description = "Check that array-api-extra and array-api-compat can be vendored together",
   depends-on = ["copy-vendor-compat", "copy-vendor-extra"],
-  cmd = "pytest -v vendor_tests",
+  cmd = "pytest -v tests/vendoring",
   default-environment = "tests",
 }
 
 tests-ci = {
   description = "Run tests with coverage and vendor tests",
-  depends-on = ["tests-cov", "tests-vendor"],
+  depends-on = ["tests-cov", "tests-vendoring"],
 }
 
 # tests with only run dependencies
@@ -288,12 +297,12 @@ pytest-cov = ">=7.1.0"
 [feature.tests-run-deps.tasks]
 tests-run-deps = {
   description = "Run run-dependency tests",
-  cmd = "pytest -v run_deps_tests",
+  cmd = "pytest --confcutdir=tests/run_deps -v tests/run_deps",
   default-environment = "tests-run-deps",
 }
 tests-run-deps-cov = {
   description = "Run run-dependency tests with coverage",
-  cmd = "pytest -v -ra --cov --cov-report=xml --cov-report=term --durations=20 run_deps_tests",
+  cmd = "pytest --confcutdir=tests/run_deps -v -ra --cov --cov-report=xml --cov-report=term --durations=20 tests/run_deps",
   default-environment = "tests-run-deps",
 }
 
@@ -312,14 +321,14 @@ numpy = ">=2.1.3"
 [feature.docs.tasks]
 docs = {
   description = "Build docs",
-  cwd = "docs",
+  cwd = "docs/sphinx/",
   cmd = "sphinx-build -E -W . build/",
   default-environment = "docs",
 }
 open-docs = {
   description = "Open the generated docs",
   depends-on = ["docs"],
-  cwd = "docs",
+  cwd = "docs/sphinx/",
   cmd = "open build/index.html",
   default-environment = "docs",
 }
@@ -328,13 +337,13 @@ open-docs = {
 open-docs = {
   description = "Open the generated docs",
   depends-on = ["docs"],
-  cwd = "docs",
+  cwd = "docs/sphinx/",
   cmd = "cmd /c start build/index.html",
   default-environment = "docs",
 }
 
 [feature.dev.dependencies]
-ipython = ">=9.15.0"
+ipython = ">=9.16.1"
 
 [feature.dev.tasks]
 ipython = {
@@ -362,7 +371,7 @@ numpy = "=1.24.1"
 [feature.backends.dependencies]
 pytorch = ">=2.12.0"
 dask-core = ">=2026.7.1"  # No distributed, tornado, etc.
-sparse = ">=0.19.0"
+sparse = ">=0.19.1"
 
 [feature.backends.target.unix.dependencies]
 jax = ">=0.10.2"  # waiting for conda-forge/jaxlib-feedstock#326
@@ -380,7 +389,7 @@ pytorch = ">=2.12.0"
 jaxlib = ">=0.10.2"
 
 [feature.nogil.dependencies]
-pytest-run-parallel = ">=0.9.1"
+pytest-run-parallel = ">=0.10.0"
 numpy = ">=2.3.5"
 dask-core = ">=2026.7.1"  # No distributed, tornado, etc.
 # sparse = ">=0.19.1"  # flaky, see data-apis/array-api-extra#900

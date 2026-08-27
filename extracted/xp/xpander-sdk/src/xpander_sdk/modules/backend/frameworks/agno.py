@@ -1647,6 +1647,36 @@ def _unprefixed_mcp_tool(name: str) -> str:
     return name[len(MCP_TOOL_PREFIX) :]
 
 
+def _graph_item_for_mcp(agent: Any, mcp: Any) -> Optional[Any]:
+    """The graph node a runtime MCP server came from, whose id keys ``task.user_tokens``.
+
+    Joined on the registry id, which is the only thing that tells apart two nodes pointing at
+    the same server under different names - a shape the registry allows. A server carrying an
+    id that matches no node resolves to nothing rather than guessing by url: the node it would
+    land on belongs to a different server, and its token is not this server's to receive. Url
+    equality is the path for a task-supplied server or a backend too old to send the id, and it
+    answers only when exactly one node claims that url.
+    """
+    nodes = [
+        gi
+        for gi in (getattr(getattr(agent, "graph", None), "items", None) or [])
+        if gi.type == AgentGraphItemType.MCP
+        and getattr(gi, "settings", None)
+        and getattr(gi.settings, "mcp_settings", None)
+    ]
+    wanted_id = getattr(mcp, "id", None)
+    if wanted_id:
+        return next(
+            (gi for gi in nodes if gi.settings.mcp_settings.id == wanted_id), None
+        )
+    by_url = [
+        gi
+        for gi in nodes
+        if gi.settings.mcp_settings.url and gi.settings.mcp_settings.url == mcp.url
+    ]
+    return by_url[0] if len(by_url) == 1 else None
+
+
 def _mcp_gated_servers(agent: Any) -> List[Tuple[str, List[str], List[str]]]:
     """(item_id, keys, tool_names) for every MCP server node whose approval rule is on.
 
@@ -1675,7 +1705,9 @@ def _mcp_gated_servers(agent: Any) -> List[Tuple[str, List[str], List[str]]]:
                     return str(mcp_settings.get(attribute) or "").strip().lower()
                 return str(getattr(mcp_settings, attribute, "") or "").strip().lower()
 
-            keys = [_setting(attribute) for attribute in ("url", "name", "command")]
+            keys = [
+                _setting(attribute) for attribute in ("id", "url", "name", "command")
+            ]
             keys.append(str(getattr(item, "name", "") or "").strip().lower())
             keys = [key for key in keys if key]
             scoped = [
@@ -6205,7 +6237,10 @@ async def _resolve_agent_tools(
             gated_server_ids.setdefault(_key, _item_id)
 
     async def _record_gate_map(
-        toolkit: MCPTools, server_name: str, server_url: Optional[str]
+        toolkit: MCPTools,
+        server_name: str,
+        server_url: Optional[str],
+        server_id: Optional[str] = None,
     ) -> bool:
         """Remember which tools came from a gated server, so the hook can recognise them.
 
@@ -6214,10 +6249,12 @@ async def _resolve_agent_tools(
         being held. Only a server carrying an enabled rule is enumerated, so an ungated run
         costs exactly what it costs today.
         """
-        # A url identifies a server; a display name does not, so it is consulted only for one
-        # that has no url, where two servers sharing a name are indistinguishable anyway.
+        # The registry id is the only key that survives two servers sharing a url; a url comes
+        # next, and a display name only for a server with neither, where two servers sharing a
+        # name are indistinguishable anyway.
+        id_key = (server_id or "").strip().lower()
         url_key = (server_url or "").strip().lower()
-        item_id = (
+        item_id = (gated_server_ids.get(id_key) if id_key else None) or (
             gated_server_ids.get(url_key)
             if url_key
             else gated_server_ids.get((server_name or "").strip().lower())
@@ -6258,13 +6295,16 @@ async def _resolve_agent_tools(
         return True
 
     async def _finalize_toolkit(
-        toolkit: MCPTools, server_name: str, server_url: Optional[str] = None
+        toolkit: MCPTools,
+        server_name: str,
+        server_url: Optional[str] = None,
+        server_id: Optional[str] = None,
     ) -> Optional[MCPTools]:
         """Non-dynamic: return the toolkit for agno to own (today's behavior).
         Dynamic: connect + enumerate now, register proxies, keep the toolkit out of
         the agent's tools (hidden from the LLM), and return None. The SDK owns the
         session; the worker closes it post-run."""
-        if not await _record_gate_map(toolkit, server_name, server_url):
+        if not await _record_gate_map(toolkit, server_name, server_url, server_id):
             # Withheld rather than run ungated: the rule says a person authorizes these calls.
             try:
                 await toolkit.close()
@@ -6368,7 +6408,7 @@ async def _resolve_agent_tools(
         if not toolkit.functions:
             notes.append(f"{mcp.name or mcp.command}: started but exposed no tools.")
             return None
-        return await _finalize_toolkit(toolkit, mcp.name or mcp.command, None)
+        return await _finalize_toolkit(toolkit, mcp.name or mcp.command, None, mcp.id)
 
     # Build one MCPTools per server. Remote servers each run a preflight probe
     # (~100-800ms); gathering them concurrently makes the wall-time the slowest
@@ -6417,6 +6457,7 @@ async def _resolve_agent_tools(
                 ),
                 mcp.name or mcp.command,
                 None,
+                mcp.id,
             )
         elif mcp.url:
             params_cls = (
@@ -6455,18 +6496,7 @@ async def _resolve_agent_tools(
                         )
 
                     # check if we have user tokens for this mcp
-                    graph_item = next(
-                        (
-                            gi
-                            for gi in agent.graph.items
-                            if gi.type == AgentGraphItemType.MCP
-                            and gi.settings
-                            and gi.settings.mcp_settings
-                            and gi.settings.mcp_settings.url
-                            and gi.settings.mcp_settings.url == mcp.url
-                        ),
-                        None,
-                    )
+                    graph_item = _graph_item_for_mcp(agent, mcp)
                     if (
                         graph_item
                         and task.user_tokens
@@ -6538,18 +6568,7 @@ async def _resolve_agent_tools(
                         mcp.api_key = auth_result.data.access_token
 
             # check if we have user tokens for this mcp
-            graph_item = next(
-                (
-                    gi
-                    for gi in agent.graph.items
-                    if gi.type == AgentGraphItemType.MCP
-                    and gi.settings
-                    and gi.settings.mcp_settings
-                    and gi.settings.mcp_settings.url
-                    and gi.settings.mcp_settings.url == mcp.url
-                ),
-                None,
-            )
+            graph_item = _graph_item_for_mcp(agent, mcp)
             if (
                 graph_item
                 and task
@@ -6595,6 +6614,7 @@ async def _resolve_agent_tools(
                 ),
                 mcp.name or mcp.url,
                 mcp.url,
+                mcp.id,
             )
 
         # Remote entry with no url: a ghost registry reference (the registry row was

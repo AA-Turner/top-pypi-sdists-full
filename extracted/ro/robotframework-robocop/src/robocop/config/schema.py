@@ -30,6 +30,11 @@ def validate_config_fields(config_dict: dict[str, Any], known_fields: set[str], 
         raise typer.Exit(code=1)
 
 
+def _is_report_path(report: str) -> bool:
+    """Check if the report configuration value points to the file or directory with the custom reports."""
+    return "/" in report or "\\" in report or report.endswith(".py")
+
+
 @dataclass
 class RawWhitespaceConfig:
     space_count: int | None = None
@@ -89,6 +94,13 @@ class RawLinterConfig:
             config_dict["custom_rules"] = [
                 resolve_relative_path(path, config_path.parent, ensure_exists=True)
                 for path in config_dict["custom_rules"]
+            ]
+        if "reports" in config_dict:
+            config_dict["reports"] = [
+                resolve_relative_path(report, config_path.parent, ensure_exists=True)
+                if _is_report_path(report)
+                else report
+                for report in config_dict["reports"]
             ]
         return cls(**config_dict, silent=silent)
 
@@ -317,6 +329,14 @@ class RawConfig:
     formatter: RawFormatterConfig | None = None
     cache: RawCacheConfig | None = None
     language: list[str] | None = None
+    variables: dict[str, str] | None = None
+    variable_files: list[str] | None = None
+    python_path: list[str] | None = None
+    project: bool | None = None
+    analyze_libraries: bool | None = None
+    load_library_timeout: int | None = None
+    library_workers: bool | None = None
+    ignored_libraries: list[str] | None = None
     force_exclude: bool | None = None
     verbose: bool | None = None
     silent: bool | None = None
@@ -333,6 +353,14 @@ class RawConfig:
             "cache",
             "cache_dir",
             "language",
+            "variables",
+            "variable_files",
+            "python_path",
+            "project",
+            "analyze_libraries",
+            "load_library_timeout",
+            "library_workers",
+            "ignored_libraries",
             "force_exclude",
             "verbose",
             "silent",
@@ -354,6 +382,12 @@ class RawConfig:
             raw_dict["formatter"] = None
         if "target_version" in raw_dict:
             raw_dict["target_version"] = TargetVersion.from_string(str(raw_dict["target_version"]))
+        for path_field in ("variable_files", "python_path"):
+            if path_field in raw_dict:
+                raw_dict[path_field] = [
+                    resolve_relative_path(path, config_path.parent, ensure_exists=False)
+                    for path in raw_dict[path_field]
+                ]
         raw_dict["cache"] = RawCacheConfig.from_dict(raw_dict, config_path.parent)
         raw_dict["file_filters"] = RawFileFiltersOptions.from_dict(config_dict)
         raw_dict["config_source"] = str(config_path)
@@ -368,6 +402,14 @@ class Config:
     formatter: FormatterConfig
     cache: CacheConfig
     languages: Languages | None
+    variables: dict[str, str]
+    variable_files: list[str]
+    python_path: list[str]
+    project: bool | None
+    analyze_libraries: bool
+    load_library_timeout: int
+    library_workers: bool
+    ignored_libraries: list[str]
     force_exclude: bool
     verbose: bool
     silent: bool
@@ -391,6 +433,14 @@ class Config:
             and self.linter == other.linter
             and self.formatter == other.formatter
             and self.cache.enabled == other.cache.enabled
+            and self.variables == other.variables
+            and self.variable_files == other.variable_files
+            and self.python_path == other.python_path
+            and self.project == other.project
+            and self.analyze_libraries == other.analyze_libraries
+            and self.load_library_timeout == other.load_library_timeout
+            and self.library_workers == other.library_workers
+            and self.ignored_libraries == other.ignored_libraries
             and self.verbose == other.verbose
             and self.silent == other.silent
             and self.target_version == other.target_version

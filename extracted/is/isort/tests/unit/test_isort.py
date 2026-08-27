@@ -1703,6 +1703,30 @@ def test_custom_lines_before_import_section(has_body: bool) -> None:
     )
 
 
+def test_check_code_detects_lines_before_import_changes() -> None:
+    """check_code must return False when lines_before_imports requires adding or removing blank
+    lines before the import section, even if the imports themselves are already sorted.
+
+    Regression test for https://github.com/PyCQA/isort/issues/2242
+    """
+    code = """from a import b, x
+
+foo = 'bar'
+"""
+
+    # Adding a blank line before imports (0 present, 1 required)
+    assert isort.code(code, lines_before_imports=1) == "\n" + code
+    assert not isort.check_code(code, lines_before_imports=1)
+
+    # Removing a blank line before imports (1 present, 0 required)
+    assert isort.code("\n" + code, lines_before_imports=0) == code
+    assert not isort.check_code("\n" + code, lines_before_imports=0)
+
+    # Already correct: no change needed
+    assert isort.check_code(code, lines_before_imports=0)
+    assert isort.check_code("\n" + code, lines_before_imports=1)
+
+
 def test_custom_lines_after_import_section() -> None:
     """Test the case where the number of lines to output after imports has been explicitly set."""
     test_input = "from a import b\nfoo = 'bar'\n"
@@ -5319,18 +5343,6 @@ from future import *
     assert isort.code(input_text, combine_star=True) == expected_output
 
 
-def test_deprecated_settings():
-    """Test to ensure isort warns when deprecated settings are used, but doesn't fail to run"""
-    with pytest.warns(UserWarning):
-        assert isort.code("hi", not_skip=True)
-
-
-def test_deprecated_settings_no_warn_in_quiet_mode(recwarn):
-    """Test to ensure isort does NOT warn in quiet mode even though settings are deprecated"""
-    assert isort.code("hi", not_skip=True, quiet=True)
-    assert not recwarn
-
-
 def test_only_sections() -> None:
     """Test to ensure that the within sections relative position of imports are maintained"""
     test_input = (
@@ -5475,6 +5487,96 @@ def test_split_on_trailing_comma_wih_as() -> None:
     assert output == expected_output
 
 
+def test_split_on_trailing_comma_stable_with_mixed_as_imports_issue_2352() -> None:
+    """Regression test for https://github.com/PyCQA/isort/issues/2352.
+
+    isort should produce stable output when a module has both aliased and non-aliased imports with
+    `include_trailing_comma` enabled. A single non-aliased import remaining after the aliased
+    imports should not be force-wrapped into multi-line format merely because a trailing comma was
+    recorded for the module.
+    """
+    # Test case from the original issue report
+    test_input = """from django.db.models.sql.compiler import (
+    SQLAggregateCompiler,
+    SQLCompiler,
+    SQLDeleteCompiler,
+)
+from django.db.models.sql.compiler import SQLInsertCompiler as BaseSQLInsertCompiler
+from django.db.models.sql.compiler import SQLUpdateCompiler
+"""
+    output = isort.code(
+        test_input,
+        include_trailing_comma=True,
+        split_on_trailing_comma=True,
+        line_length=88,
+    )
+    assert output == test_input
+
+    expected_output_with_combine = """from django.db.models.sql.compiler import (
+    SQLAggregateCompiler,
+    SQLCompiler,
+    SQLDeleteCompiler,
+    SQLInsertCompiler as BaseSQLInsertCompiler,
+    SQLUpdateCompiler,
+)
+"""
+    output = isort.code(
+        test_input,
+        include_trailing_comma=True,
+        split_on_trailing_comma=True,
+        line_length=88,
+        combine_as_imports=True,
+    )
+    assert (
+        output
+        == expected_output_with_combine
+        == isort.code(
+            expected_output_with_combine,
+            include_trailing_comma=True,
+            split_on_trailing_comma=True,
+            line_length=88,
+            combine_as_imports=True,
+        )
+    )
+
+
+def test_split_on_trailing_comma_stable_with_use_parentheses_2352() -> None:
+    """Regression test for https://github.com/PyCQA/isort/issues/2352.
+
+    isort should produce stable output when a module has both aliased and non-aliased imports with
+    `include_trailing_comma` and `use_parentheses` enabled. A single non-aliased import remaining
+    after the aliased imports should not be force-wrapped into multi-line format merely because a
+    trailing comma was recorded for the module.
+    """
+    test_input = r"""
+from another_file_aaaaaaaaaaaaaaaaaa import \
+    SOME_THING_CONSTANT as SOME_THING_CONSTANT_RENAMED
+from another_file_aaaaaaaaaaaaaaaaaa import some_func
+"""
+
+    expected_output = """
+from another_file_aaaaaaaaaaaaaaaaaa import (
+    SOME_THING_CONSTANT as SOME_THING_CONSTANT_RENAMED,
+)
+from another_file_aaaaaaaaaaaaaaaaaa import some_func
+"""
+
+    output = isort.code(
+        test_input,
+        include_trailing_comma=True,
+        use_parentheses=True,
+        multi_line_output=3,
+    )
+    assert output == expected_output
+    # Run again on actual output
+    assert output == isort.code(
+        output,
+        include_trailing_comma=True,
+        use_parentheses=True,
+        multi_line_output=3,
+    )
+
+
 def test_infinite_loop_in_unmatched_parenthesis() -> None:
     test_input = "from os import ("
 
@@ -5496,7 +5598,7 @@ def test_infinite_loop_in_unmatched_parenthesis() -> None:
 def test_reexport() -> None:
     test_input = """__all__ = ('foo', 'bar')
 """
-    expd_output = """__all__ = ('bar', 'foo')
+    expd_output = """__all__ = ("bar", "foo")
 """
     assert isort.code(test_input, config=Config(sort_reexports=True)) == expd_output
 
@@ -5513,7 +5615,7 @@ def test_reexport_multiline() -> None:
     'bar',
 )
 """
-    expd_output = """__all__ = ('bar', 'foo')
+    expd_output = """__all__ = ("bar", "foo")
 """
     assert isort.code(test_input, config=Config(sort_reexports=True)) == expd_output
 
@@ -5521,7 +5623,7 @@ def test_reexport_multiline() -> None:
 def test_reexport_list() -> None:
     test_input = """__all__ = ['foo', 'bar']
 """
-    expd_output = """__all__ = ['bar', 'foo']
+    expd_output = """__all__ = ["bar", "foo"]
 """
     assert isort.code(test_input, config=Config(sort_reexports=True)) == expd_output
 
@@ -5529,7 +5631,7 @@ def test_reexport_list() -> None:
 def test_reexport_set() -> None:
     test_input = """__all__ = {'foo', 'bar'}
 """
-    expd_output = """__all__ = {'bar', 'foo'}
+    expd_output = """__all__ = {"bar", "foo"}
 """
     assert isort.code(test_input, config=Config(sort_reexports=True)) == expd_output
 
@@ -5537,7 +5639,7 @@ def test_reexport_set() -> None:
 def test_reexport_bare() -> None:
     test_input = """__all__ = 'foo', 'bar'
 """
-    expd_output = """__all__ = ('bar', 'foo')
+    expd_output = """__all__ = ("bar", "foo")
 """
     assert isort.code(test_input, config=Config(sort_reexports=True)) == expd_output
 
@@ -5545,7 +5647,7 @@ def test_reexport_bare() -> None:
 def test_reexport_no_spaces() -> None:
     test_input = """__all__=('foo', 'bar')
 """
-    expd_output = """__all__ = ('bar', 'foo')
+    expd_output = """__all__ = ("bar", "foo")
 """
     assert isort.code(test_input, config=Config(sort_reexports=True)) == expd_output
 
@@ -5557,7 +5659,7 @@ def test_reexport_not_first_line() -> None:
 """
     expd_output = """import random
 
-    __all__ = ('bar', 'foo')
+    __all__ = ("bar", "foo")
 """
     assert isort.code(test_input, config=Config(sort_reexports=True)) == expd_output
 
@@ -5567,7 +5669,7 @@ def test_reexport_not_last_line() -> None:
 
     meme = "rickroll"
 """
-    expd_output = """__all__ = ('bar', 'foo')
+    expd_output = """__all__ = ("bar", "foo")
 
     meme = "rickroll"
 """
@@ -5586,7 +5688,7 @@ __all__ = [
 """
     expd_output = """from m import bar, foo
 
-__all__ = ['bar', 'foo']
+__all__ = ["bar", "foo"]
 """
     assert isort.code(test_input, config=Config(sort_reexports=True)) == expd_output
 
@@ -5605,7 +5707,7 @@ test
 """
     expd_output = """from m import bar, foo
 
-__all__ = ['bar', 'foo']
+__all__ = ["bar", "foo"]
 
 test
 """
@@ -5622,7 +5724,7 @@ test
 """
     expd_output = """from m import bar, foo
 
-__all__ = ['bar', 'foo']
+__all__ = ["bar", "foo"]
 
 test
 """
@@ -5711,3 +5813,23 @@ def test_noqa_multiline_hanging_indent() -> None:
 def test_dunder_future_import(actual_imports: str, expected_sort: str) -> None:
     output = isort.code(actual_imports)
     assert output == expected_sort
+
+
+def test_builtin_modules() -> None:
+    test_input = (
+        "from typing import Iterable, Iterator, TypeVar, cast\n"
+        "\n"
+        "from _collections_abc import dict_items, dict_keys, dict_values\n"
+        "from python_none_objects import NoneIterable\n"
+        "from _codecs import encode\n"
+        "from nt import environ\n"
+    )
+    test_output = (
+        "from _codecs import encode\n"
+        "from _collections_abc import dict_items, dict_keys, dict_values\n"
+        "from nt import environ\n"
+        "from typing import Iterable, Iterator, TypeVar, cast\n"
+        "\n"
+        "from python_none_objects import NoneIterable\n"
+    )
+    assert isort.code(test_input) == test_output

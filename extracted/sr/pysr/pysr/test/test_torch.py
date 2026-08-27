@@ -51,7 +51,7 @@ class TestTorch(unittest.TestCase):
 
         for fname in ["hall_of_fame.csv.bak", "hall_of_fame.csv"]:
             equations["Complexity Loss Equation".split(" ")].to_csv(
-                Path(model.output_directory_) / model.run_id_ / fname
+                Path(model.output_directory_) / model.run_id_ / fname, index=False
             )
 
         model.refresh(run_directory=str(Path(model.output_directory_) / model.run_id_))
@@ -85,7 +85,7 @@ class TestTorch(unittest.TestCase):
 
         for fname in ["hall_of_fame.csv.bak", "hall_of_fame.csv"]:
             equations["Complexity Loss Equation".split(" ")].to_csv(
-                Path(model.output_directory_) / model.run_id_ / fname
+                Path(model.output_directory_) / model.run_id_ / fname, index=False
             )
 
         model.refresh(run_directory=str(Path(model.output_directory_) / model.run_id_))
@@ -138,7 +138,7 @@ class TestTorch(unittest.TestCase):
 
         for fname in ["hall_of_fame.csv.bak", "hall_of_fame.csv"]:
             equations["Complexity Loss Equation".split(" ")].to_csv(
-                Path(model.output_directory_) / model.run_id_ / fname
+                Path(model.output_directory_) / model.run_id_ / fname, index=False
             )
 
         MyCustomOperator = sympy.Function("mycustomoperator")
@@ -189,6 +189,32 @@ class TestTorch(unittest.TestCase):
         np.testing.assert_almost_equal(
             m(self.torch.tensor(X)).detach().numpy(),
             np.exp(1) + X[:, 0],
+            decimal=3,
+        )
+
+    def test_constant_arguments(self):
+        # Test that functions with constant arguments work correctly
+        # Regression test for https://github.com/astroautomata/PySR/issues/656
+        test_cases = [
+            (pysr.export_sympy.pysr2sympy("sqrt(2)"), np.sqrt(2)),
+            (sympy.exp(2), np.exp(2)),
+            (sympy.log(4), np.log(4)),
+            (sympy.sin(1), np.sin(1)),
+        ]
+
+        for expr, expected in test_cases:
+            m = pysr.export_torch.sympy2torch(expr, [])
+            result = m(self.torch.randn(10, 1))
+            np.testing.assert_almost_equal(result.item(), expected, decimal=3)
+
+        # Test with variables: sqrt(2) * x
+        x = sympy.symbols("x")
+        expr = sympy.sqrt(2) * x
+        m = pysr.export_torch.sympy2torch(expr, [x])
+        X = np.random.randn(10, 1)
+        np.testing.assert_almost_equal(
+            m(self.torch.tensor(X)).detach().numpy().flatten(),
+            np.sqrt(2) * X[:, 0],
             decimal=3,
         )
 

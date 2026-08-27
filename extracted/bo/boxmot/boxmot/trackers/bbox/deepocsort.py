@@ -24,14 +24,17 @@ from boxmot.trackers.common.association.velocity import (
     linear_assignment as legacy_linear_assignment,
 )
 from boxmot.trackers.common.motion.cmc import create_cmc
-from boxmot.trackers.common.track_models.deepocsort import KalmanBoxTracker, k_previous_obs
+from boxmot.trackers.common.track_models.deepocsort import DeepOBBKalmanBoxTracker, KalmanBoxTracker
+from boxmot.trackers.common.track_models.ocsort import k_previous_obs
 
 
 class DeepOcSort(BaseTracker):
+    supports_obb = True
+
     """Initialize the DeepOcSort tracker.
 
     Args:
-        reid_model: Pre-built ReID backend model (e.g. ``ReID(...).model``).
+        reid_model (Any | None): Pre-built ReID backend model (e.g. ``ReID(...).model``).
         delta_t (int): Time window used for motion estimation.
         inertia (float): Motion-consistency weight.
         w_association_emb (float): Weight applied to appearance distance during
@@ -44,7 +47,7 @@ class DeepOcSort(BaseTracker):
         aw_off (bool): Whether to disable adaptive appearance weighting.
         Q_xy_scaling (float): Process-noise scaling for position coordinates.
         Q_s_scaling (float): Process-noise scaling for scale coordinates.
-        **kwargs: Base tracker settings forwarded to :class:`BaseTracker`,
+        **kwargs (Any): Base tracker settings forwarded to :class:`BaseTracker`,
             including ``det_thresh``, ``max_age``, ``max_obs``, ``min_hits``,
             ``iou_threshold``, ``per_class``, ``class_ids``, ``class_names``,
             ``asso_func``, and ``is_obb``.
@@ -91,7 +94,7 @@ class DeepOcSort(BaseTracker):
         # "similarity transforms using feature point extraction, optical flow, and RANSAC"
         self.cmc = create_cmc("sof", enabled=not self.cmc_off)
 
-    def _update_impl(
+    def _track_detections(
         self,
         dets: np.ndarray,
         img: np.ndarray,
@@ -147,13 +150,13 @@ class DeepOcSort(BaseTracker):
         )
 
         # get predicted locations from existing trackers.
-        trks = np.zeros((len(self.active_tracks), 5))
+        trks = np.zeros((len(self.active_tracks), self.detection_layout.box_with_conf_cols))
         trk_embs = []
         to_del = []
         ret = []
         for t, trk in enumerate(trks):
             pos = self.active_tracks[t].predict()[0]
-            trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
+            trk[:] = [*pos[: self.detection_layout.box_cols], 0]
             if np.any(np.isnan(pos)):
                 to_del.append(t)
             else:
@@ -173,7 +176,7 @@ class DeepOcSort(BaseTracker):
         )
         last_boxes = np.array([trk.last_observation for trk in self.active_tracks])
         k_observations = np.array(
-            [k_previous_obs(trk.observations, trk.age, self.delta_t) for trk in self.active_tracks]
+            [k_previous_obs(trk.observations, trk.age, self.delta_t, is_obb=self.is_obb) for trk in self.active_tracks]
         )
 
         """
@@ -189,7 +192,7 @@ class DeepOcSort(BaseTracker):
             threshold=self.iou_threshold,
             matcher=lambda _tracks, _detections: detection_track_tuple_to_association_result(
                 associate(
-                    dets[:, 0:5],
+                    dets[:, : self.detection_layout.box_with_conf_cols],
                     trks,
                     self.asso_func,
                     self.iou_threshold,
@@ -202,6 +205,7 @@ class DeepOcSort(BaseTracker):
                     self.w_association_emb,
                     self.aw_off,
                     self.aw_param,
+                    is_obb=self.is_obb,
                 )
             ),
         )
@@ -249,7 +253,8 @@ class DeepOcSort(BaseTracker):
 
         # create and initialise new trackers for unmatched detections
         for i in unmatched_dets:
-            trk = KalmanBoxTracker(
+            tracker_cls = DeepOBBKalmanBoxTracker if self.is_obb else KalmanBoxTracker
+            trk = tracker_cls(
                 dets[i],
                 delta_t=self.delta_t,
                 emb=dets_embs[i],
@@ -262,14 +267,14 @@ class DeepOcSort(BaseTracker):
             self.active_tracks.append(trk)
         i = len(self.active_tracks)
         for trk in reversed(self.active_tracks):
-            if trk.last_observation.sum() < 0:
+            if trk.last_observation[-1] < 0:
                 d = trk.get_state()[0]
             else:
                 """
                 this is optional to use the recent observation or the kalman filter prediction,
                 we didn't notice significant difference here
                 """
-                d = trk.last_observation[:4]
+                d = trk.last_observation[: self.detection_layout.box_cols]
             if (trk.time_since_update < 1) and (trk.hit_streak >= self.min_hits or self.frame_count <= self.min_hits):
                 ret.append(self.format_output_row(d, trk.id, trk.conf, trk.cls, trk.det_ind))
             i -= 1

@@ -1581,6 +1581,14 @@ class WMLEngine(BaseEngine):
                 reason=f"Fit finished but there was some error during loading a pipeline from WML. Error: {e}",
             )
 
+        if self._onnx_model and persist:
+            onnx_pipeline_loading_warning = (
+                "For loading an onnx pipeline from file in your local environment, out of initial context, "
+                "you may need to import `autoai_libs` or `autoai_ts_libs` depending on the pipeline type. "
+                "Imported modules will provide necessary converters in the environment."
+            )
+            warn(onnx_pipeline_loading_warning)
+
         return pipelines.get(pipeline_name), check_lale
 
     def get_pipeline_notebook(

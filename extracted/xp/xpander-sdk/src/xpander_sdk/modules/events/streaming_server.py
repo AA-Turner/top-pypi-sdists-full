@@ -32,6 +32,8 @@ import httpx
 from loguru import logger
 from pydantic import BaseModel
 
+from xpander_sdk.utils.agno_output_parsing import normalize_json_mode_result
+
 from xpander_sdk.consts.api_routes import APIRoute
 from xpander_sdk.core.xpander_api_client import APIClient
 from xpander_sdk.models.configuration import Configuration
@@ -132,6 +134,9 @@ async def _finalize_task(task: Task, error: Optional[str] = None) -> None:
                 task.result = task.result.model_dump_json()
             if isinstance(task.result, dict) or isinstance(task.result, list):
                 task.result = py_json.dumps(task.result)
+            # a str here means schema validation failed; it may still be repairable JSON
+            if isinstance(task.result, str):
+                task.result = normalize_json_mode_result(task.result) or task.result
     except Exception:
         pass
 

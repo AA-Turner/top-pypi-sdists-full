@@ -20,10 +20,13 @@ from matrice_streaming.url_redact import redact_url
 from orin_nvdec import OrinNVDECDecoderPool
 from orin_nvdec import OrinNVDECDecoderPool
 from pathlib import Path
+from restart_policy import StreamSupervisor, resolve_restart_policy
 from urllib.parse import urlparse, urlunparse
 import PyNvVideoCodec as nvc
 import argparse
 import cupy as cp
+import faulthandler
+import glob
 import hashlib
 import logging
 import math
@@ -32,6 +35,7 @@ import numpy as np
 import os
 import queue as thread_queue
 import requests
+import signal
 import tempfile
 import threading
 import time
@@ -46,6 +50,7 @@ GPU_CAMERA_MAP_AVAILABLE: bool
 GSTREAMER_DEMUXER_AVAILABLE: bool
 GstRTPDemuxer: None
 ORIN_NVDEC_AVAILABLE: bool
+RTP_CLOCK_RATE: int
 logger: Any
 
 # Functions
@@ -55,6 +60,31 @@ def create_decoder_pool(pool_size: int, gpu_id: int = 0, demuxer_type: str = 'nv
     
         On Orin (MATRICE_PLATFORM=orin), returns OrinNVDECDecoderPool (gst-launch-1.0).
         On desktop/Thor, returns NVDECDecoderPool (PyNvVideoCodec CUVID).
+    """
+def effective_frame_dims(declared_w: int, declared_h: int, native_w: int, native_h: int) -> Tuple[int, int]: ...
+    """
+    The geometry the decoder will actually emit: ``min(declared, native)``.
+    
+        This is the single source of truth for ring-buffer sizing, and it exists
+        because the two used to be resolved independently and could disagree
+        permanently:
+    
+        * the ring was created from the DECLARED per-camera size (the API's
+          ``customStreamSettings``), before any source was open, and
+        * the decoder clamps a target larger than native down to native and never
+          upsamples (``surface_to_nv12_with_src_dims``, the F08 rule).
+    
+        So a config declaring 1920x1080 for a camera that really sends 1280x720
+        produced a 1920x1080 ring fed 1280x720 tensors — ``_validate_frame_shape``
+        rejected every frame, the camera published nothing, and because the frame
+        counter only advances AFTER a successful ring write the manager's watchdog
+        read the whole GPU as stalled. Deriving both from this function makes that
+        disagreement unrepresentable.
+    
+        A declared dimension of 0 means "native" and yields the native value. An
+        unknown native (0) yields the declared value unchanged: with nothing to
+        clamp against, the declared target is still the best available answer, and
+        the first-frame reconcile is what settles it.
     """
 def get_video_downloader() -> Any: ...
     """
@@ -67,6 +97,15 @@ def nv12_resize(y_plane: Any, uv_plane: Any, y_stride: int, uv_stride: int, src_
     
         Output: concatenated Y (H*W) + UV ((H/2)*W) as single buffer.
         Total size: H*W + (H/2)*W = H*W*1.5 bytes (50% of RGB).
+    """
+def nv12_ring_height(frame_h: int) -> int: ...
+    """
+    Ring-buffer row count for an NV12 frame of ``frame_h`` luma rows.
+    
+        NV12 packs a full-height Y plane plus a half-height interleaved CbCr plane,
+        so the ring is 1.5x the frame height. Named because the ``h + h // 2``
+        expression was open-coded at four sites that all had to agree with
+        ``_validate_frame_shape``'s inverse (``nv12_h * 2 // 3``).
     """
 def nvdec_pool_process(process_id: int, camera_configs: List[StreamConfig], pool_size: int, duration_sec: float, result_queue: Any, stop_event: Any, burst_size: Optional[int] = None, num_slots: int = 64, target_fps: int = 0, shared_frame_count: Optional[mp.Value] = None, gpu_frame_counts: Optional[Dict[int, mp.Value]] = None, total_num_streams: int = 0, total_num_gpus: int = 1, demuxer_type: str = 'nvc', benchmark_mode: bool = False, command_queue: Optional[mp.Queue] = None, worker_status_queue: Optional[mp.Queue] = None, optimizer_config: Optional[Dict[str, Any]] = None, output_fps_cap: float = DEFAULT_OUTPUT_FPS_CAP) -> Any: ...
     """
@@ -99,6 +138,13 @@ def nvdec_pool_worker(worker_id: int, decoder_idx: int, pool: Any, ring_buffers:
             shared_frame_count: Global counter (all GPUs)
             gpu_frame_count: Per-GPU counter (this GPU only)
             benchmark_mode: Enable granular per-stage timing
+    """
+def ring_frame_dims(producer: Any) -> Tuple[int, int]: ...
+    """
+    A producer's ``(frame_w, frame_h)`` in luma pixels, or ``(0, 0)``.
+    
+        The ring stores ``height`` as NV12 rows, so the luma height is ``* 2 // 3``
+        — the same inverse ``_validate_frame_shape`` applies to a tensor.
     """
 def setup_logging(quiet: bool = True) -> Any: ...
     """
@@ -235,6 +281,20 @@ class NVDECDecoderPool:
         Get camera IDs for a decoder.
         """
 
+    def get_native_dims_for_camera(self: Any, camera_id: str) -> Optional[Tuple[int, int]]: ...
+        """
+        The source's own ``(width, height)`` as the demuxer reported it, or ``None``.
+        
+                Mirrors :meth:`get_source_fps_for_camera`: a per-camera fact learned at
+                assignment, recorded on ``StreamState`` and read back here, because it
+                cannot be recovered later.
+        
+                ``None`` means "the demuxer supplied no usable geometry" (either
+                accessor missing, or a non-positive value) — NOT "square" or "default".
+                The caller must treat it as unknown and leave the ring's geometry to be
+                settled by the first decoded frame instead of inventing a size.
+        """
+
     def get_source_fps_for_camera(self: Any, camera_id: str) -> float: ...
         """
         Detected source FPS for one camera (for the publish-rate decimator).
@@ -253,6 +313,25 @@ class NVDECDecoderPool:
     def remove_stream(self: Any, camera_id: str) -> bool: ...
         """
         Remove a specific stream by camera_id, closing its demuxer resources.
+        """
+
+    def stream_target_dims(stream: Any, fallback_h: int = 0, fallback_w: int = 0) -> Tuple[int, int]: ...
+        """
+        This stream's decode target as ``(target_h, target_w)``.
+        
+                Per-camera, from the camera's own declared size clamped to its own source
+                — not the worker-global pair, which is ``camera_configs[0]``'s size applied
+                to every camera in the sub-process. That global was the bug behind the
+                "F08 per-camera resize" log line: any sub-process holding two cameras with
+                different declared sizes resized both to the first one's target while each
+                ring was built at its own size, so every camera but the first failed the
+                shape check on every frame.
+        
+                Derived from the same :func:`effective_frame_dims` the ring is sized with,
+                so decode target and ring geometry cannot disagree.
+        
+                ``fallback_*`` is used only when this stream declares nothing AND its
+                source reported nothing, i.e. there is genuinely no per-camera answer.
         """
 
 class StreamConfig:

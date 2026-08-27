@@ -134,6 +134,7 @@ if typing.TYPE_CHECKING:
     from .table_row_data import TableRowData
     from .text_content import TextContent
     from .text_format_model import TextFormatModel
+    from .text_format_model_baseline_offset import TextFormatModelBaselineOffset
     from .theme_color import ThemeColor
     from .thinking_content import ThinkingContent
     from .thread_batch_stop_request import ThreadBatchStopRequest
@@ -284,6 +285,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TableRowData": ".table_row_data",
     "TextContent": ".text_content",
     "TextFormatModel": ".text_format_model",
+    "TextFormatModelBaselineOffset": ".text_format_model_baseline_offset",
     "ThemeColor": ".theme_color",
     "ThinkingContent": ".thinking_content",
     "ThreadBatchStopRequest": ".thread_batch_stop_request",
@@ -458,6 +460,7 @@ __all__ = [
     "TableRowData",
     "TextContent",
     "TextFormatModel",
+    "TextFormatModelBaselineOffset",
     "ThemeColor",
     "ThinkingContent",
     "ThreadBatchStopRequest",

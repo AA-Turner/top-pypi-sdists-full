@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: home-assistant-frontend
-Version: 20260729.7
+Version: 20260826.0
 Summary: The Home Assistant frontend
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License-Expression: Apache-2.0
@@ -24,7 +24,7 @@ This is the repository for the official [Home Assistant](https://home-assistant.
 
 - Initial setup: `script/setup`
 - Development: [Instructions](https://developers.home-assistant.io/docs/frontend/development/)
-- Production build: `script/build_frontend`
+- Production build: `yarn build`
 - Gallery: `cd gallery && script/develop_gallery`
 
 ## Frontend development

@@ -1,2 +1,0 @@
-"use strict";(self.rspackChunkknx_frontend=self.rspackChunkknx_frontend||[]).push([[55245],{3484:function(n,t,r){r.a(n,async function(n,e){try{r.r(t);var c=r(25979),a=r(57567),o=r(12463),u=r(16472),s=r(15697),f=r(51209),i=r(57237),h=n([i]),d=function(n){function t(){return(0,a.A)(this,t),(0,u.A)(this,t,arguments)}return(0,o.A)(t,n),(0,c.A)(t)}((i=(h.then?(await h)():h)[0]).HaAppSelector);d=(0,s.Cg)([(0,f.EM)("ha-selector-addon")],d),r.d(t,{HaAddonSelector:function(){return d}}),e()}catch(k){e(k)}})}}]);
-//# sourceMappingURL=55245.9d45f0cdc264602a.js.map

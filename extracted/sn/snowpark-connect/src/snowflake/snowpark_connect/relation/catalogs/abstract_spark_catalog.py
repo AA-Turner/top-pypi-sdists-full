@@ -241,7 +241,10 @@ class AbstractSparkCatalog(ABC):
             sf_database = _get_current_snowflake_database()
         if sf_schema is None:
             sf_schema = _get_current_snowflake_schema()
-        self.cache.remove(
+        # Spark treats uncaching a table that is not cached as a no-op, so discard
+        # rather than remove: set.remove raises KeyError for an absent entry, which
+        # surfaced to the client as error 5001 carrying the internal cache key.
+        self.cache.discard(
             (
                 sf_database,
                 sf_schema,

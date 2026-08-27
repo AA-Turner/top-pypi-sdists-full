@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyperlight-sandbox-python-guest
-Version: 0.5.0
+Version: 0.6.0
 Summary: Packaged Hyperlight Wasm Python guest exposed as python_guest.path
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3

@@ -10,19 +10,6 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .json_schema_definition import JsonSchemaDefinition
 
 
-class ResponseFormat_Text(UniversalBaseModel):
-    type: typing.Literal["text"] = "text"
-
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            frozen = True
-            smart_union = True
-            extra = pydantic.Extra.allow
-
-
 class ResponseFormat_JsonObject(UniversalBaseModel):
     type: typing.Literal["json_object"] = "json_object"
 
@@ -50,7 +37,20 @@ class ResponseFormat_JsonSchema(UniversalBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ResponseFormat_Text(UniversalBaseModel):
+    type: typing.Literal["text"] = "text"
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 ResponseFormat = typing_extensions.Annotated[
-    typing.Union[ResponseFormat_Text, ResponseFormat_JsonObject, ResponseFormat_JsonSchema],
+    typing.Union[ResponseFormat_JsonObject, ResponseFormat_JsonSchema, ResponseFormat_Text],
     pydantic.Field(discriminator="type"),
 ]

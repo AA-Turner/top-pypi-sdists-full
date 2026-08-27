@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
+import warnings
 from tensordict import TensorDict
 
 from rsl_rl.env import VecEnv
 from rsl_rl.models import MLPModel
 from rsl_rl.storage import RolloutStorage
-from rsl_rl.utils import compile_model, resolve_callable, resolve_obs_groups, resolve_optimizer
+from rsl_rl.utils import compile_model, resolve_class, resolve_obs_groups, resolve_optimizer
 
 
 class Distillation:
@@ -39,6 +40,7 @@ class Distillation:
         max_grad_norm: float | None = None,
         loss_type: str = "mse",
         optimizer: str = "adam",
+        use_mixed_precision: bool = False,
         device: str = "cpu",
         # Distributed training parameters
         multi_gpu_cfg: dict | None = None,
@@ -61,8 +63,7 @@ class Distillation:
         self.student = student.to(self.device)
         self.teacher = teacher.to(self.device)
 
-        # Handles to the uncompiled modules for state_dict operations and export. If compilation is disabled, these
-        # simply alias ``self.student`` / ``self.teacher``.
+        # Handles to the uncompiled modules for state_dict operations and export
         self._raw_student = self.student
         self._raw_teacher = self.teacher
 
@@ -79,6 +80,18 @@ class Distillation:
         self.gradient_length = gradient_length
         self.learning_rate = learning_rate
         self.max_grad_norm = max_grad_norm
+        self.use_mixed_precision = use_mixed_precision
+
+        # Warn about rollout steps not used for optimization
+        total_steps = num_learning_epochs * storage.num_transitions_per_env
+        if total_steps % gradient_length != 0:
+            warnings.warn(
+                f"The product of 'num_learning_epochs' ({num_learning_epochs}) and 'num_steps_per_env'"
+                f" ({storage.num_transitions_per_env}) is not divisible by 'gradient_length' ({gradient_length})."
+                f" The last {total_steps % gradient_length} of {total_steps} steps per update are accumulated but"
+                f" never backpropagated. Consider setting 'gradient_length' to a divisor of {total_steps}.",
+                stacklevel=2,
+            )
 
         # Initialize the loss function
         loss_fn_dict = {
@@ -104,9 +117,7 @@ class Distillation:
     def process_env_step(
         self, obs: TensorDict, rewards: torch.Tensor, dones: torch.Tensor, extras: dict[str, torch.Tensor]
     ) -> None:
-        """Record one environment step and update the normalizers."""
-        # Update the normalizers
-        self.student.update_normalization(obs)
+        """Record one environment step."""
         # Record the rewards and dones
         self.transition.rewards = rewards
         self.transition.dones = dones
@@ -133,11 +144,15 @@ class Distillation:
             self.teacher.reset(hidden_state=self.last_hidden_states[1])
             self.student.detach_hidden_state()
             for batch in self.storage.generator():
-                # Inference of the student for gradient computation
-                actions = self.student(batch.observations)
+                # Optionally use mixed precision for the forward pass and loss computation
+                with torch.amp.autocast(  # type: ignore
+                    device_type=torch.device(self.device).type, enabled=self.use_mixed_precision, dtype=torch.bfloat16
+                ):
+                    # Inference of the student for gradient computation
+                    actions = self.student(batch.observations)
 
-                # Behavior cloning loss
-                behavior_loss = self.loss_fn(actions, batch.privileged_actions)
+                    # Behavior cloning loss
+                    behavior_loss = self.loss_fn(actions, batch.privileged_actions)
 
                 # Total loss
                 loss = loss + behavior_loss
@@ -161,13 +176,21 @@ class Distillation:
                 self.teacher.reset(batch.dones.view(-1))
                 self.student.detach_hidden_state(batch.dones.view(-1))
 
-        mean_behavior_loss /= cnt
-        self.storage.clear()
+        # Store the last hidden states for the next update
         self.last_hidden_states = (self.student.get_hidden_state(), self.teacher.get_hidden_state())
         self.student.detach_hidden_state()
 
+        # Update the normalizer
+        self.student.update_normalization(self.storage.observations.flatten(0, 1))  # type: ignore
+
+        # Divide the loss by the number of updates
+        mean_behavior_loss /= cnt
+
         # Construct the loss dictionary
         loss_dict = {"behavior": mean_behavior_loss}
+
+        # Clear the storage
+        self.storage.clear()
 
         return loss_dict
 
@@ -234,31 +257,27 @@ class Distillation:
     @staticmethod
     def construct_algorithm(obs: TensorDict, env: VecEnv, cfg: dict, device: str) -> Distillation:
         """Construct the distillation algorithm."""
-        # Resolve class callables
-        alg_class: type[Distillation] = resolve_callable(cfg["algorithm"].pop("class_name"))  # type: ignore
-        student_class: type[MLPModel] = resolve_callable(cfg["student"].pop("class_name"))  # type: ignore
-        teacher_class: type[MLPModel] = resolve_callable(cfg["teacher"].pop("class_name"))  # type: ignore
+        # Resolve class callables and configs
+        alg_class, alg_cfg = resolve_class(cfg["algorithm"])
+        student_class, student_cfg = resolve_class(cfg["student"])
+        teacher_class, teacher_cfg = resolve_class(cfg["teacher"])
 
         # Resolve observation groups
         default_sets = ["student", "teacher"]
         cfg["obs_groups"] = resolve_obs_groups(obs, cfg["obs_groups"], default_sets)
 
         # Distillation is not compatible with RND and symmetry extensions
-        if cfg["algorithm"].get("rnd_cfg") is not None:
+        if alg_cfg.get("rnd_cfg") is not None:
             raise ValueError("The RND extension is not compatible with Distillation.")
-        cfg["algorithm"]["rnd_cfg"] = None
-        if cfg["algorithm"].get("symmetry_cfg") is not None:
+        alg_cfg["rnd_cfg"] = None
+        if alg_cfg.get("symmetry_cfg") is not None:
             raise ValueError("The symmetry extension is not compatible with Distillation.")
-        cfg["algorithm"]["symmetry_cfg"] = None
+        alg_cfg["symmetry_cfg"] = None
 
         # Initialize the policy
-        student: MLPModel = student_class(obs, cfg["obs_groups"], "student", env.num_actions, **cfg["student"]).to(
-            device
-        )
+        student: MLPModel = student_class(obs, cfg["obs_groups"], "student", env.num_actions, **student_cfg).to(device)
         print(f"Student Model: {student}")
-        teacher: MLPModel = teacher_class(obs, cfg["obs_groups"], "teacher", env.num_actions, **cfg["teacher"]).to(
-            device
-        )
+        teacher: MLPModel = teacher_class(obs, cfg["obs_groups"], "teacher", env.num_actions, **teacher_cfg).to(device)
         print(f"Teacher Model: {teacher}")
 
         # Initialize the storage
@@ -266,7 +285,7 @@ class Distillation:
 
         # Initialize the algorithm
         alg: Distillation = alg_class(
-            student, teacher, storage, device=device, **cfg["algorithm"], multi_gpu_cfg=cfg["multi_gpu"]
+            student, teacher, storage, device=device, **alg_cfg, multi_gpu_cfg=cfg["multi_gpu"]
         )
 
         # Compile the algorithm's models if requested

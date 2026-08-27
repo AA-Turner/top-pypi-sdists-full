@@ -14,6 +14,8 @@
 //! skip-list drops volatile/identity fields, tool-call IDs are normalized, and
 //! only allowlisted headers plus Relay-owned routing partitions fold in.
 
+use std::collections::BTreeSet;
+
 use nemo_relay::api::llm::LlmRequest;
 use nemo_relay::codec::request::AnnotatedLlmRequest;
 use nemo_relay::codec::resolve::{
@@ -23,13 +25,14 @@ use serde_json::{Map, Value as Json, json};
 use sha2::{Digest, Sha256};
 
 use crate::config::ResponseCacheConfig;
+use crate::response_cache::mark::CacheReason;
 use crate::response_cache::store::CACHE_SCHEMA_VERSION;
 
 /// Top-level request-body keys that never affect the answer and are always
 /// dropped before fingerprinting (IDs, routing, bookkeeping, streaming flag).
 pub const DEFAULT_SKIP_KEYS: &[&str] = &["stream", "user", "metadata", "store"];
 
-/// Relay-owned Switchyard backend partition. It is always keyed and never
+/// Relay-owned routing backend partition. It is always keyed and never
 /// depends on the user-configured header allowlist.
 const INTERNAL_DISPATCH_BACKEND_HEADER: &str = "x-nemo-relay-internal-dispatch-backend";
 
@@ -40,7 +43,7 @@ pub enum KeyOutcome {
     Key(String),
     /// The request is intentionally not cacheable; the reason is a short,
     /// stable label suitable for telemetry.
-    Bypass(&'static str),
+    Bypass(CacheReason),
 }
 
 /// Derives the cache key for a request, or decides it must bypass the cache.
@@ -74,9 +77,10 @@ pub fn build_cache_key(
         normalize_tool_call_ids(object);
     }
 
-    let headers = cache_key_headers(&request.headers, &config.header_allowlist);
+    let header_allowlist = normalized_header_allowlist(&config.header_allowlist);
+    let headers = cache_key_headers(&request.headers, &header_allowlist);
 
-    let key_doc = json!({
+    let mut key_doc = json!({
         "v": CACHE_SCHEMA_VERSION,
         "ns": config.namespace,
         "provider": provider,
@@ -86,19 +90,28 @@ pub fn build_cache_key(
         "body": body,
         "headers": headers,
     });
+    // Preserve the original v1 key document for the default empty policy. A
+    // non-empty policy intentionally partitions entries from older policy
+    // configurations, including requests where the allowlisted header is absent.
+    if !header_allowlist.is_empty() {
+        key_doc
+            .as_object_mut()
+            .expect("cache key document is an object")
+            .insert("header_allowlist".to_string(), json!(header_allowlist));
+    }
     if contains_unrepresentable_int(&key_doc) {
-        return KeyOutcome::Bypass("unrepresentable_number");
+        return KeyOutcome::Bypass(CacheReason::UnrepresentableNumber);
     }
 
     match fingerprint(&key_doc) {
         Some(key) => KeyOutcome::Key(key),
-        None => KeyOutcome::Bypass("canonicalization_failed"),
+        None => KeyOutcome::Bypass(CacheReason::CanonicalizationFailed),
     }
 }
 
-fn cache_bypass_reason(request: &LlmRequest, config: &ResponseCacheConfig) -> Option<&'static str> {
+fn cache_bypass_reason(request: &LlmRequest, config: &ResponseCacheConfig) -> Option<CacheReason> {
     if request.content.is_null() {
-        return Some("unparseable_body");
+        return Some(CacheReason::UnparseableBody);
     }
     if let Some(reason) = request
         .content
@@ -109,21 +122,21 @@ fn cache_bypass_reason(request: &LlmRequest, config: &ResponseCacheConfig) -> Op
     }
     (!config.cache_nondeterministic
         && request_temperature(&request.content).is_none_or(|temperature| temperature > 0.0))
-    .then_some("nondeterministic_temperature")
+    .then_some(CacheReason::NondeterministicTemperature)
 }
 
-fn stateful_request_bypass_reason(object: &Map<String, Json>) -> Option<&'static str> {
+fn stateful_request_bypass_reason(object: &Map<String, Json>) -> Option<CacheReason> {
     if object
         .get("store")
         .is_some_and(|value| !matches!(value, Json::Bool(false) | Json::Null))
     {
-        return Some("stateful_store");
+        return Some(CacheReason::StatefulStore);
     }
     if object.contains_key("previous_response_id") {
-        return Some("stateful_previous_response_id");
+        return Some(CacheReason::StatefulPreviousResponseId);
     }
     if object.contains_key("conversation") || object.contains_key("container") {
-        return Some("stateful_conversation");
+        return Some(CacheReason::StatefulConversation);
     }
     let responses_surface = object.contains_key("input")
         || object.contains_key("instructions")
@@ -131,7 +144,7 @@ fn stateful_request_bypass_reason(object: &Map<String, Json>) -> Option<&'static
     let explicitly_stateless = object
         .get("store")
         .is_some_and(|store| store == &Json::Bool(false));
-    (responses_surface && !explicitly_stateless).then_some("stateful_store")
+    (responses_surface && !explicitly_stateless).then_some(CacheReason::StatefulStore)
 }
 
 /// Preserves which OpenAI Chat token-cap field the caller sent.
@@ -208,6 +221,47 @@ impl std::io::Write for HashWriter<'_> {
 
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
+    }
+}
+
+/// Builds a tool-result key from its name, version, canonicalized arguments,
+/// and the effective cache policies.
+pub fn build_tool_cache_key(
+    namespace: &str,
+    tool_name: &str,
+    tool_version: Option<&str>,
+    args: &Json,
+    arg_skip: &[String],
+    cache_errors: bool,
+) -> KeyOutcome {
+    let arg_skip = normalized_arg_skip(arg_skip);
+    let mut args = args.clone();
+    if !arg_skip.is_empty()
+        && let Some(object) = args.as_object_mut()
+    {
+        for key in &arg_skip {
+            object.remove(key);
+        }
+    }
+
+    if contains_unrepresentable_int(&args) {
+        return KeyOutcome::Bypass(CacheReason::UnrepresentableNumber);
+    }
+
+    let key_doc = json!({
+        "v": CACHE_SCHEMA_VERSION,
+        "surface": "tool_result",
+        "ns": namespace,
+        "tool": tool_name,
+        "tool_version": tool_version,
+        "arg_skip": arg_skip,
+        "cache_errors": cache_errors,
+        "args": args,
+    });
+
+    match fingerprint(&key_doc) {
+        Some(key) => KeyOutcome::Key(key),
+        None => KeyOutcome::Bypass(CacheReason::CanonicalizationFailed),
     }
 }
 
@@ -338,6 +392,34 @@ fn lossy_request_shape(surface: ProviderSurface, content: &Json) -> bool {
                     .is_some_and(|blocks| blocks.iter().any(lossy_system_block))
         }
         ProviderSurface::OpenAIResponses => false,
+        // OCI GenAI requests carry an envelope (`compartmentId`, `servingMode`)
+        // whose unmodeled fields the decode does not preserve in `extra`, and
+        // the generic scalar checks above target OpenAI-shaped keys rather
+        // than OCI camelCase. Keep OCI raw-keyed — a fallback only ever costs
+        // a miss.
+        ProviderSurface::OCIGenAI => true,
+        ProviderSurface::GeminiGenerateContent => {
+            object
+                .get("generationConfig")
+                .is_some_and(|generation_config| {
+                    let Some(generation_config) = generation_config.as_object() else {
+                        return true;
+                    };
+                    generation_config.keys().any(|key| {
+                        !matches!(
+                            key.as_str(),
+                            "temperature" | "topP" | "maxOutputTokens" | "stopSequences"
+                        )
+                    })
+                })
+                || object
+                    .get("systemInstruction")
+                    .is_some_and(lossy_gemini_system_instruction)
+                || object
+                    .get("contents")
+                    .and_then(Json::as_array)
+                    .is_some_and(|items| items.iter().any(lossy_gemini_content_item))
+        }
     }
 }
 
@@ -360,6 +442,139 @@ fn lossy_system_block(block: &Json) -> bool {
         || fields
             .keys()
             .any(|key| !matches!(key.as_str(), "type" | "text" | "cache_control"))
+}
+
+/// Whether a Gemini `systemInstruction` would lose detail in the normalized
+/// request key. The Gemini codec flattens it to a single system text string, so
+/// only one non-empty plain text part without sibling fields is lossless.
+fn lossy_gemini_system_instruction(value: &Json) -> bool {
+    let Some(object) = value.as_object() else {
+        return true;
+    };
+    if object.keys().any(|key| key != "parts") {
+        return true;
+    }
+    let Some(parts) = object.get("parts").and_then(Json::as_array) else {
+        return true;
+    };
+    let [part] = parts.as_slice() else {
+        return true;
+    };
+    let Some(part_object) = part.as_object() else {
+        return true;
+    };
+    if part_object.len() != 1 {
+        return true;
+    }
+    part_object
+        .get("text")
+        .and_then(Json::as_str)
+        .is_none_or(str::is_empty)
+}
+
+fn lossy_gemini_content_item(item: &Json) -> bool {
+    let Some(object) = item.as_object() else {
+        return true;
+    };
+    if object
+        .keys()
+        .any(|key| !matches!(key.as_str(), "role" | "parts"))
+    {
+        return true;
+    }
+    let Some(parts) = object.get("parts").and_then(Json::as_array) else {
+        return true;
+    };
+
+    let mut plain_text_parts = 0usize;
+    for part in parts {
+        if lossy_gemini_part(part, &mut plain_text_parts) {
+            return true;
+        }
+    }
+    plain_text_parts > 1
+}
+
+fn lossy_gemini_part(part: &Json, plain_text_parts: &mut usize) -> bool {
+    let Some(object) = part.as_object() else {
+        return true;
+    };
+    if object.get("thought").and_then(Json::as_bool) == Some(true) {
+        return true;
+    }
+    let data_keys = object
+        .keys()
+        .filter(|key| is_gemini_part_data_key(key))
+        .collect::<Vec<_>>();
+    if data_keys.len() > 1 {
+        return true;
+    }
+    let Some(data_key) = data_keys.first().map(|key| key.as_str()) else {
+        return true;
+    };
+    match data_key {
+        "text" => lossy_gemini_text_part(object, plain_text_parts),
+        "functionCall" => lossy_gemini_function_call_part(object),
+        "functionResponse" => lossy_gemini_function_response_part(object),
+        _ => false,
+    }
+}
+
+fn lossy_gemini_text_part(
+    object: &serde_json::Map<String, Json>,
+    plain_text_parts: &mut usize,
+) -> bool {
+    if !object.get("text").is_some_and(Json::is_string) {
+        return true;
+    }
+    if object.len() == 1 {
+        *plain_text_parts += 1;
+    }
+    false
+}
+
+fn lossy_gemini_function_call_part(object: &serde_json::Map<String, Json>) -> bool {
+    object.keys().any(|key| key != "functionCall")
+        || match object.get("functionCall").and_then(Json::as_object) {
+            Some(call) => {
+                call.keys()
+                    .any(|key| !matches!(key.as_str(), "name" | "id" | "args"))
+                    || call.get("args").is_some_and(|args| !args.is_object())
+            }
+            None => true,
+        }
+}
+
+fn lossy_gemini_function_response_part(object: &serde_json::Map<String, Json>) -> bool {
+    object.keys().any(|key| key != "functionResponse")
+        || match object.get("functionResponse").and_then(Json::as_object) {
+            Some(response) => {
+                response
+                    .keys()
+                    .any(|key| !matches!(key.as_str(), "id" | "name" | "response" | "parts"))
+                    || match (
+                        response.get("id").and_then(Json::as_str),
+                        response.get("name").and_then(Json::as_str),
+                    ) {
+                        (Some(id), Some(name)) => id != name,
+                        _ => false,
+                    }
+            }
+            None => true,
+        }
+}
+
+fn is_gemini_part_data_key(key: &str) -> bool {
+    matches!(
+        key,
+        "text"
+            | "inlineData"
+            | "fileData"
+            | "functionCall"
+            | "functionResponse"
+            | "executableCode"
+            | "codeExecutionResult"
+    )
 }
 
 /// Whether the raw request body carries a non-empty `messages` (chat) or `input`
@@ -400,8 +615,28 @@ fn allowlisted_headers(headers: &Map<String, Json>, allowlist: &[String]) -> Map
     kept
 }
 
+/// Normalizes case-insensitive header policy names before keying them.
+fn normalized_header_allowlist(allowlist: &[String]) -> Vec<String> {
+    allowlist
+        .iter()
+        .map(|name| name.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// Normalizes the case-sensitive tool argument keys dropped before keying.
+fn normalized_arg_skip(arg_skip: &[String]) -> Vec<String> {
+    arg_skip
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
 /// Builds the key's header partition from configured headers plus the
-/// Relay-owned Switchyard backend ID.
+/// Relay-owned routing backend ID.
 fn cache_key_headers(headers: &Map<String, Json>, allowlist: &[String]) -> Map<String, Json> {
     let mut kept = allowlisted_headers(headers, allowlist);
     for (header_name, value) in headers {

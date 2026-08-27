@@ -7,6 +7,11 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class ChatCompletionRequestToolMessage(UniversalBaseModel):
+    role: typing.Literal["tool"] = pydantic.Field(default="tool")
+    """
+    The role of the messages author, in this case `tool`.
+    """
+
     content: str = pydantic.Field()
     """
     The contents of the tool message.

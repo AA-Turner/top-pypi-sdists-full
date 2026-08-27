@@ -1,19 +1,40 @@
+import errno
 import json
+import os
 import subprocess
+import time
 from collections import Counter
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pygitguardian import GGClient
-from pygitguardian.models import MCPActivityResponse
+from pygitguardian.config import DOCUMENT_SIZE_THRESHOLD_BYTES, MAXIMUM_PAYLOAD_SIZE
+from pygitguardian.models import MCPActivityResponse, MultiScanResult
+from pygitguardian.models import ScanResult as ApiScanResult
 
-from ggshield.core.scan import ScanContext, ScanMode
+from ggshield.core.config.user_config import SecretConfig
+from ggshield.core.filter import init_exclusion_regexes
+from ggshield.core.scan import File, ScanContext, ScanMode, StringScannable
 from ggshield.utils.git_shell import Filemode
-from ggshield.verticals.ai.agents import Agent, Claude, Codex, Copilot, Cursor, VSCode
+from ggshield.verticals.ai.agents import (
+    Agent,
+    Claude,
+    Codex,
+    Copilot,
+    Cursor,
+    Vibe,
+    VSCode,
+)
+from ggshield.verticals.ai.cache import (
+    _verdict_cache_path,
+    has_clean_verdict,
+    verdict_key,
+)
 from ggshield.verticals.ai.hooks import (
     AIHookScanner,
+    _send_desktop_notification,
     build_agent_headers,
     find_filepaths,
     has_already_been_seen,
@@ -22,8 +43,14 @@ from ggshield.verticals.ai.hooks import (
 from ggshield.verticals.ai.mcp import send_mcp_activity
 from ggshield.verticals.ai.models import EventType, HookPayload, HookResult, Tool
 from ggshield.verticals.secret import SecretScanner
+from ggshield.verticals.secret.secret_scan_collection import IgnoreKind
 from ggshield.verticals.secret.secret_scan_collection import Result as ScanResult
 from ggshield.verticals.secret.secret_scan_collection import Results, Secret
+from tests.conftest import skipwindows
+
+
+INSTANCE = "https://api.example.com"
+API_KEY = "some-api-key"
 
 
 def _dummy_payload(event_type: EventType = EventType.OTHER) -> HookPayload:
@@ -45,24 +72,42 @@ def tmp_file(tmp_path: Path) -> Path:
     return file
 
 
-def _mock_scanner(matches: List[str]) -> MagicMock:
+def _mock_scanner(
+    matches: List[str],
+    secret_config: Optional[SecretConfig] = None,
+    ignored_secrets_count_by_kind: Optional[Counter] = None,
+) -> MagicMock:
     """Create a mock SecretScanner that returns the given Results from scan()."""
     mock = MagicMock(spec=SecretScanner)
     mock.client = MagicMock(spec=GGClient)
-    scan_result = Results(
-        results=[
-            ScanResult(
-                filename="url",
-                filemode=Filemode.FILE,
-                path=Path("."),
-                url="url",
-                secrets=[_make_secret(match) for match in matches],
-                ignored_secrets_count_by_kind=Counter(),
-            )
-        ],
-        errors=[],
-    )
-    mock.scan.return_value = scan_result
+    # Annotation-only attributes on GGClient, so spec= does not provide them,
+    # and the verdict cache key needs both.
+    mock.client.base_uri = INSTANCE
+    mock.client.api_key = API_KEY
+    # Set in SecretScanner.__init__, so spec= does not provide it either.
+    mock.secret_config = secret_config or SecretConfig()
+
+    def scan(scannables, scanner_ui=None, **kwargs):
+        # Answers about the first document sent, carrying its url (all a
+        # single-payload test needs).
+        first = list(scannables)[0]
+        return Results(
+            results=[
+                ScanResult(
+                    filename=first.filename,
+                    filemode=Filemode.FILE,
+                    path=Path("."),
+                    url=first.url,
+                    secrets=[_make_secret(match) for match in matches],
+                    ignored_secrets_count_by_kind=(
+                        ignored_secrets_count_by_kind or Counter()
+                    ),
+                )
+            ],
+            errors=[],
+        )
+
+    mock.scan.side_effect = scan
     return mock
 
 
@@ -72,10 +117,13 @@ def _make_secret(
     incident_url: Optional[str] = None,
 ):
     """Minimal Secret for tests; _message_from_secrets only uses
-    detector_display_name, validity, matches[].match, known_secret and
-    incident_url."""
+    detector_display_name, validity, matches[].match, matches[].match_type,
+    known_secret and incident_url."""
     mock_match = MagicMock()
     mock_match.match = match_str
+    # get_ignore_sha() hashes "<match>,<match_type>": a MagicMock would hash its
+    # repr, unique per instance, and the sha reaches the message.
+    mock_match.match_type = "client_secret"
     return Secret(
         detector_display_name="dummy-detector",
         detector_name="dummy-detector",
@@ -133,6 +181,556 @@ class TestAIHookScannerScanContent:
         assert "dummy-detector" in result.message
         assert "secret" in result.message.lower()
         assert "remove the secret from your prompt" in result.message
+
+
+class TestVerdictCacheShortCircuit:
+    """The clean-verdict cache must skip the API call, and only when it is safe to."""
+
+    @staticmethod
+    def _payload(
+        content: str = "safe content", identifier: str = "id", **kwargs
+    ) -> HookPayload:
+        return HookPayload(
+            event_type=EventType.USER_PROMPT,
+            tool=None,
+            content=content,
+            identifier=identifier,
+            agent=Cursor(),
+            raw={},
+            **kwargs,
+        )
+
+    @staticmethod
+    def _key(content: str = "safe content") -> str:
+        # A payload with no tool becomes a StringScannable whose filename is the
+        # payload identifier.
+        return verdict_key(INSTANCE, API_KEY, SecretConfig(), "id", content)
+
+    def test_second_scan_of_identical_content_skips_the_api(self):
+        """GIVEN a clean scan WHEN the same content is scanned again THEN no API call."""
+        mock_scanner = _mock_scanner([])
+        hook_scanner = AIHookScanner(mock_scanner)
+        assert hook_scanner._scan_content(self._payload()).block is False
+        assert hook_scanner._scan_content(self._payload()).block is False
+        mock_scanner.scan.assert_called_once()
+
+    def test_different_content_still_hits_the_api(self):
+        """A cached verdict must not leak onto different content."""
+        mock_scanner = _mock_scanner([])
+        hook_scanner = AIHookScanner(mock_scanner)
+        hook_scanner._scan_content(self._payload("safe content"))
+        hook_scanner._scan_content(self._payload("other content"))
+        assert mock_scanner.scan.call_count == 2
+
+    def test_pre_and_post_tool_use_of_a_read_share_one_api_call(self):
+        """Both Read events resolve to the same file, so the second is served locally."""
+        mock_scanner = _mock_scanner([])
+        hook_scanner = AIHookScanner(mock_scanner)
+        pre = json.dumps(
+            {
+                "hook_event_name": "PreToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": __file__},
+                "cursor_version": "1.2.3",
+            }
+        )
+        post = json.dumps(
+            {
+                "hook_event_name": "PostToolUse",
+                "tool_name": "Read",
+                "tool_input": {"file_path": __file__},
+                "tool_response": {"file": {"filePath": __file__}},
+                "cursor_version": "1.2.3",
+            }
+        )
+        assert hook_scanner.scan(pre) == 0
+        assert hook_scanner.scan(post) == 0
+        mock_scanner.scan.assert_called_once()
+
+    def test_scan_with_secrets_is_not_cached(self):
+        """A blocking verdict is never remembered as clean."""
+        mock_scanner = _mock_scanner(["sk-xxx"])
+        hook_scanner = AIHookScanner(mock_scanner)
+        assert hook_scanner._scan_content(self._payload("content sk-xxx")).block is True
+        assert not has_clean_verdict(self._key("content sk-xxx"))
+
+    def test_degraded_scan_is_not_cached(self):
+        """A scan that returned no Result at all is not a verdict, so it is not cached."""
+        mock_scanner = _mock_scanner([])
+        mock_scanner.scan.side_effect = lambda *args, **kwargs: Results(
+            results=[], errors=[]
+        )
+        hook_scanner = AIHookScanner(mock_scanner)
+        assert hook_scanner._scan_content(self._payload()).block is False
+        assert not has_clean_verdict(self._key())
+        # ... and the next identical payload is scanned again.
+        hook_scanner._scan_content(self._payload())
+        assert mock_scanner.scan.call_count == 2
+
+    def test_locally_filtered_verdict_is_not_cached(self):
+        """The API reported secrets and the local config dropped them: that "clean"
+        answer belongs to this config only, so it must not be remembered."""
+        mock_scanner = _mock_scanner(
+            [],
+            ignored_secrets_count_by_kind=Counter({IgnoreKind.IGNORED_DETECTOR: 1}),
+        )
+        hook_scanner = AIHookScanner(mock_scanner)
+        assert hook_scanner._scan_content(self._payload()).block is False
+        assert not has_clean_verdict(self._key())
+        hook_scanner._scan_content(self._payload())
+        assert mock_scanner.scan.call_count == 2
+
+    def test_another_instance_or_token_does_not_reuse_the_verdict(self):
+        """Custom detectors and dashboard exclusions are per-workspace."""
+        mock_scanner = _mock_scanner([])
+        AIHookScanner(mock_scanner)._scan_content(self._payload())
+        for attribute, value in (
+            ("base_uri", "https://other.example.com"),
+            ("api_key", "other-key"),
+        ):
+            other = _mock_scanner([])
+            setattr(other.client, attribute, value)
+            AIHookScanner(other)._scan_content(self._payload())
+            other.scan.assert_called_once()
+
+    def test_another_secret_config_does_not_reuse_the_verdict(self):
+        """filename_only changes the document we send, so the verdict is not reusable."""
+        AIHookScanner(_mock_scanner([]))._scan_content(self._payload())
+        other = _mock_scanner([], SecretConfig(filename_only=True))
+        AIHookScanner(other)._scan_content(self._payload())
+        other.scan.assert_called_once()
+
+    def test_same_content_under_another_filename_is_rescanned(self):
+        """The filename is part of the document we send, so it is part of the key."""
+        mock_scanner = _mock_scanner([])
+        hook_scanner = AIHookScanner(mock_scanner)
+        hook_scanner._scan_content(self._payload())
+        hook_scanner._scan_content(self._payload(identifier="other-id"))
+        assert mock_scanner.scan.call_count == 2
+
+    @skipwindows
+    def test_untrustworthy_cache_falls_back_to_scanning(self):
+        """A world-writable cache is ignored, so the hook scans rather than allows."""
+        mock_scanner = _mock_scanner([])
+        hook_scanner = AIHookScanner(mock_scanner)
+        hook_scanner._scan_content(self._payload())
+        _verdict_cache_path().chmod(0o666)
+        hook_scanner._scan_content(self._payload())
+        assert mock_scanner.scan.call_count == 2
+
+
+def _scanner_per_document(
+    secrets_by_url: Optional[Dict[str, List[str]]] = None,
+    skipped_urls: Set[str] = frozenset(),
+    ignored_urls: Set[str] = frozenset(),
+    reverse: bool = False,
+) -> MagicMock:
+    """A scanner answering one result per document, keyed by url.
+
+    `skipped_urls` documents get no result at all; `reverse` returns results in
+    another order than they were sent.
+    """
+    secrets_by_url = secrets_by_url or {}
+    mock = _mock_scanner([])
+
+    def scan(scannables, scanner_ui=None, **kwargs):
+        results = [
+            ScanResult(
+                filename=scannable.filename,
+                filemode=Filemode.FILE,
+                path=Path("."),
+                url=scannable.url,
+                secrets=[
+                    _make_secret(match)
+                    for match in secrets_by_url.get(scannable.url, [])
+                ],
+                ignored_secrets_count_by_kind=(
+                    Counter({IgnoreKind.IGNORED_DETECTOR: 1})
+                    if scannable.url in ignored_urls
+                    else Counter()
+                ),
+            )
+            for scannable in scannables
+            if scannable.url not in skipped_urls
+        ]
+        return Results(
+            results=list(reversed(results)) if reverse else results, errors=[]
+        )
+
+    mock.scan.side_effect = scan
+    return mock
+
+
+def _scanned_urls(mock_scanner: MagicMock, call: int = 0) -> List[str]:
+    """The urls of the documents sent to the API on the `call`-th scan."""
+    return [scannable.url for scannable in mock_scanner.scan.call_args_list[call][0][0]]
+
+
+class TestBatchedPayloadScan:
+    """Several payloads of one event cost one API call, not one each, and block on
+    the payload that holds a secret.
+    """
+
+    @staticmethod
+    def _payload(identifier: str, content: str = "some content") -> HookPayload:
+        return HookPayload(
+            event_type=EventType.USER_PROMPT,
+            tool=None,
+            content=content,
+            identifier=identifier,
+            agent=Cursor(),
+            raw={},
+        )
+
+    @staticmethod
+    def _read_payload(path: Path) -> HookPayload:
+        return HookPayload(
+            event_type=EventType.PRE_TOOL_USE,
+            tool=Tool.READ,
+            content="",
+            identifier=str(path),
+            agent=Cursor(),
+            raw={},
+        )
+
+    def test_documents_sharing_a_url_are_never_in_the_same_batch(self):
+        """GIVEN two payloads whose documents share a url
+        WHEN they are scanned
+        THEN every batch holds distinct urls, so no document can inherit another's
+        verdict from the by_url() lookup."""
+        payloads = [self._payload("same-url"), self._payload("same-url")]
+        mock_scanner = _scanner_per_document()
+
+        results = AIHookScanner(mock_scanner)._scan_contents(payloads)
+
+        assert len(results) == len(payloads)
+        assert mock_scanner.scan.call_count == 2
+        for call in mock_scanner.scan.call_args_list:
+            urls = [document.url for document in call.args[0]]
+            assert len(urls) == len(set(urls))
+
+    def test_a_read_of_an_ignored_path_is_never_scanned(self, tmp_path: Path):
+        """GIVEN secret.ignored_paths covering the file a READ names
+        WHEN the hook scans the event
+        THEN the file is never sent to the API and the read is allowed."""
+        file = tmp_path / "fixtures" / "creds.py"
+        file.parent.mkdir()
+        file.write_text("token = 'xxx'")
+        mock_scanner = _scanner_per_document()
+
+        results = AIHookScanner(
+            mock_scanner, init_exclusion_regexes(["fixtures/**"])
+        )._scan_contents([self._read_payload(file)])
+
+        mock_scanner.scan.assert_not_called()
+        assert [result.block for result in results] == [False]
+
+    def test_a_read_outside_the_ignored_paths_is_still_scanned(self, tmp_path: Path):
+        """GIVEN secret.ignored_paths that does not cover the file a READ names
+        WHEN the hook scans the event
+        THEN the file is scanned: an exclusion must not widen past its glob."""
+        file = tmp_path / "src" / "creds.py"
+        file.parent.mkdir()
+        file.write_text("token = 'xxx'")
+        mock_scanner = _scanner_per_document()
+
+        AIHookScanner(
+            mock_scanner, init_exclusion_regexes(["fixtures/**"])
+        )._scan_contents([self._read_payload(file)])
+
+        mock_scanner.scan.assert_called_once()
+
+    def test_an_ignored_path_does_not_exclude_a_command_that_mentions_it(self):
+        """GIVEN a BASH payload whose command text contains an excluded path
+        WHEN the hook scans it
+        THEN it is still scanned: a command is not a file, so a substring match
+        must not silence it."""
+        payload = HookPayload(
+            event_type=EventType.PRE_TOOL_USE,
+            tool=Tool.BASH,
+            content="cat fixtures/creds.py && export TOKEN=xxx",
+            identifier="cat fixtures/creds.py && export TOKEN=xxx",
+            agent=Cursor(),
+            raw={},
+        )
+        mock_scanner = _scanner_per_document()
+
+        AIHookScanner(
+            mock_scanner, init_exclusion_regexes(["fixtures/**"])
+        )._scan_contents([payload])
+
+        mock_scanner.scan.assert_called_once()
+
+    def test_a_prompt_mentioning_files_makes_a_single_api_call(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """GIVEN a UserPromptSubmit prompt mentioning three files
+        WHEN the hook scans it
+        THEN the four resulting payloads are sent in one call, all of them."""
+        # Relative name from inside tmp_path: an absolute Windows path (@C:/...) trips
+        # the @file regex on the drive-letter colon, which this test is not about.
+        monkeypatch.chdir(tmp_path)
+        files = []
+        for index in range(3):
+            file = tmp_path / f"file{index}.txt"
+            file.write_text(f"content {index}")
+            files.append(file)
+        mock_scanner = _scanner_per_document()
+        prompt = "look at " + " ".join(f"@{file.name}" for file in files)
+        data = {
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": prompt,
+            "cursor_version": "1.2.3",
+        }
+
+        assert AIHookScanner(mock_scanner).scan(json.dumps(data)) == 0
+
+        mock_scanner.scan.assert_called_once()
+        urls = _scanned_urls(mock_scanner)
+        assert len(urls) == 4  # the three files, plus the prompt itself
+        for file in files:
+            assert any(url.endswith(file.name) for url in urls)
+
+    def test_prompt_mention_and_tool_read_of_one_file_scan_it_once(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """GIVEN a UserPromptSubmit mentioning @secret.txt (a relative path)
+        followed by a PreToolUse Read of the same file by its absolute path,
+        both events reporting the same cwd
+        WHEN the hook scans them
+        THEN the file's path is canonicalized to the same absolute path both
+        times, so it shares one verdict-cache key: it is scanned on the prompt
+        and the Read is served from the cache -- one API call, not two.
+
+        Without the canonicalization the two events key the cache on different
+        filenames (relative vs absolute) and the file is scanned twice.
+        """
+        # The real hook runs in the agent's cwd, which is why the relative
+        # @-mention resolves to a real file; mirror that here.
+        monkeypatch.chdir(tmp_path)
+        file = tmp_path / "secret.txt"
+        file.write_text("clean file content")
+        mock_scanner = _scanner_per_document()
+        hook_scanner = AIHookScanner(mock_scanner)
+
+        # Cursor reports its cwd as workspace_roots (exercises the override).
+        prompt = json.dumps(
+            {
+                "hook_event_name": "beforeSubmitPrompt",
+                "prompt": "please read @secret.txt",
+                "workspace_roots": [str(tmp_path)],
+                "cursor_version": "1.2.3",
+            }
+        )
+        read = json.dumps(
+            {
+                "hook_event_name": "preToolUse",
+                "tool_name": "read",
+                "tool_input": {"file_path": str(file)},
+                "workspace_roots": [str(tmp_path)],
+                "cursor_version": "1.2.3",
+            }
+        )
+
+        assert hook_scanner.scan(prompt) == 0
+        assert hook_scanner.scan(read) == 0
+
+        # The prompt scanned the file (and the prompt text); the Read added no
+        # call because the file's absolute-path key was already cached.
+        mock_scanner.scan.assert_called_once()
+        absolute = os.path.abspath(os.path.join(str(tmp_path), "secret.txt"))
+        key = verdict_key(
+            INSTANCE, API_KEY, SecretConfig(), absolute, "clean file content"
+        )
+        assert has_clean_verdict(key)
+
+    def test_secret_in_the_second_payload_blocks_with_the_same_message(
+        self, tmp_path: Path
+    ):
+        """GIVEN three payloads, the second one holding a secret
+        WHEN they are scanned together
+        THEN that payload blocks, with the message the per-payload scan gives."""
+        files = []
+        for index in range(3):
+            file = tmp_path / f"file{index}.txt"
+            file.write_text(f"content {index}")
+            files.append(file)
+        payloads = [self._read_payload(file) for file in files]
+        secrets = {payloads[1].scannable.url: ["sk-xxx"]}
+
+        result = AIHookScanner(_scanner_per_document(secrets))._scan_payloads(payloads)
+
+        assert result.block is True
+        assert result.payload is payloads[1]
+        assert result.nbr_secrets == 1
+        # The exact wording of the PreToolUse/Read block.
+        assert f"Detected 1 secret in {payloads[1].identifier}" in result.message
+        assert "The file content was not shown to the agent" in result.message
+        # ... and it matches the message a one-payload scan produces.
+        alone = AIHookScanner(_scanner_per_document(secrets))._scan_content(payloads[1])
+        assert result.message == alone.message
+
+    def test_the_secret_is_attributed_to_the_document_it_was_found_in(self):
+        """GIVEN three documents, only the last one holding a secret, and results
+        coming back in another order than they were sent
+        WHEN they are scanned together
+        THEN the block names that document, not one of its siblings."""
+        payloads = [self._payload(f"payload-{index}") for index in range(3)]
+        mock_scanner = _scanner_per_document({"payload-2": ["sk-xxx"]}, reverse=True)
+
+        results = AIHookScanner(mock_scanner)._scan_contents(payloads)
+
+        assert [result.block for result in results] == [False, False, True]
+        assert results[2].payload is payloads[2]
+
+    def test_a_skipped_document_does_not_shift_the_others(self):
+        """GIVEN a document the scanner skipped, so it gets no result at all
+        WHEN a sibling holds a secret
+        THEN the secret is still attributed to the sibling, not to the gap."""
+        payloads = [self._payload(f"payload-{index}") for index in range(3)]
+        mock_scanner = _scanner_per_document(
+            {"payload-2": ["sk-xxx"]}, skipped_urls={"payload-0"}
+        )
+
+        results = AIHookScanner(mock_scanner)._scan_contents(payloads)
+
+        assert [result.block for result in results] == [False, False, True]
+
+    def test_a_cached_document_is_left_out_of_the_batch(self):
+        """GIVEN a document with a clean verdict already cached
+        WHEN it is part of an event with other payloads
+        THEN it is not sent, and the others still are."""
+        mock_scanner = _scanner_per_document()
+        hook_scanner = AIHookScanner(mock_scanner)
+        cached = self._payload("cached")
+        hook_scanner._scan_content(cached)
+
+        hook_scanner._scan_contents([cached, self._payload("fresh")])
+
+        assert mock_scanner.scan.call_count == 2
+        assert _scanned_urls(mock_scanner, call=1) == ["fresh"]
+
+    def test_a_locally_filtered_document_is_not_cached_but_its_sibling_is(self):
+        """GIVEN two documents in one batch, one of them with secrets the local
+        config filtered out
+        WHEN they are scanned
+        THEN only the unambiguous one is remembered as clean."""
+        payloads = [self._payload("clean"), self._payload("filtered")]
+        hook_scanner = AIHookScanner(
+            _scanner_per_document(ignored_urls={"filtered"}, reverse=True)
+        )
+
+        results = hook_scanner._scan_contents(payloads)
+
+        assert [result.block for result in results] == [False, False]
+        key = verdict_key(INSTANCE, API_KEY, SecretConfig(), "clean", "some content")
+        assert has_clean_verdict(key)
+        filtered_key = verdict_key(
+            INSTANCE, API_KEY, SecretConfig(), "filtered", "some content"
+        )
+        assert not has_clean_verdict(filtered_key)
+
+    def test_a_skipped_document_is_not_cached(self):
+        """A document the scan said nothing about has no verdict to remember."""
+        payloads = [self._payload("answered"), self._payload("skipped")]
+        hook_scanner = AIHookScanner(_scanner_per_document(skipped_urls={"skipped"}))
+
+        hook_scanner._scan_contents(payloads)
+
+        assert has_clean_verdict(
+            verdict_key(INSTANCE, API_KEY, SecretConfig(), "answered", "some content")
+        )
+        assert not has_clean_verdict(
+            verdict_key(INSTANCE, API_KEY, SecretConfig(), "skipped", "some content")
+        )
+
+    def test_empty_payloads_never_reach_the_api(self):
+        """An empty payload costs no API call, batched or not."""
+        mock_scanner = _scanner_per_document()
+        payloads = [
+            self._payload("empty", content=""),
+            self._payload("full"),
+            self._payload("also-empty", content=""),
+        ]
+
+        results = AIHookScanner(mock_scanner)._scan_contents(payloads)
+
+        assert [result.block for result in results] == [False, False, False]
+        mock_scanner.scan.assert_called_once()
+        assert _scanned_urls(mock_scanner) == ["full"]
+
+    def test_an_unreadable_file_does_not_stop_the_rest_of_the_event(
+        self, tmp_path: Path
+    ):
+        """GIVEN an event holding a secret plus a read of a file that stats but
+        cannot be opened
+        WHEN the event is scanned
+        THEN the unreadable document is dropped and the secret still reaches the
+        API, where the read error used to abort the whole event and allow it."""
+        locked = tmp_path / "locked.env"
+        locked.write_text("TOKEN=abc")
+        scanner = _real_secret_scanner()
+        scanner.client.base_uri = INSTANCE
+        scanner.client.api_key = API_KEY
+
+        def multi_content_scan(documents, *args, **kwargs):
+            result = MultiScanResult(
+                [
+                    ApiScanResult(policy_break_count=0, policy_breaks=[], policies=[])
+                    for _ in documents
+                ]
+            )
+            result.status_code = 200
+            return result
+
+        scanner.client.multi_content_scan.side_effect = multi_content_scan
+        payloads = [self._read_payload(locked), self._payload("prompt")]
+        error = PermissionError(errno.EACCES, "Permission denied")
+
+        with patch.object(File, "is_longer_than", side_effect=error):
+            results = AIHookScanner(scanner)._scan_contents(payloads)
+
+        assert [result.block for result in results] == [False, False]
+        sent = [
+            document["filename"]
+            for call in scanner.client.multi_content_scan.call_args_list
+            for document in call.args[0]
+        ]
+        assert sent == ["prompt"]
+
+    def test_no_payload_to_scan_makes_no_api_call(self):
+        """All payloads empty means nothing to send at all."""
+        mock_scanner = _scanner_per_document()
+        AIHookScanner(mock_scanner)._scan_contents([self._payload("empty", content="")])
+        mock_scanner.scan.assert_not_called()
+
+    def test_more_than_twenty_payloads_are_all_scanned(self):
+        """GIVEN more payloads than the API accepts in one call
+        WHEN they are scanned
+        THEN the scanner chunks them and not a single one is dropped."""
+        scanner = _real_secret_scanner()
+        scanner.client.base_uri = INSTANCE
+        scanner.client.api_key = API_KEY
+
+        def multi_content_scan(documents, *args, **kwargs):
+            result = MultiScanResult(
+                [
+                    ApiScanResult(policy_break_count=0, policy_breaks=[], policies=[])
+                    for _ in documents
+                ]
+            )
+            result.status_code = 200
+            return result
+
+        scanner.client.multi_content_scan.side_effect = multi_content_scan
+        payloads = [self._payload(f"payload-{index}") for index in range(25)]
+
+        assert AIHookScanner(scanner)._scan_payloads(payloads).block is False
+
+        calls = scanner.client.multi_content_scan.call_args_list
+        assert len(calls) == 2  # 20 + 5, the API's per-call document limit
+        sent = [document["filename"] for call in calls for document in call.args[0]]
+        assert sorted(sent) == sorted(payload.identifier for payload in payloads)
 
 
 class TestHasAlreadyBeenSeen:
@@ -366,6 +964,131 @@ class TestMCPActivity:
         assert call_payload.tool == Tool.MCP
 
 
+class TestMCPActivityOverlap:
+    """The secret scan and the MCP activity call are two blocking round trips against
+    the same API: for an MCP PreToolUse they must run concurrently."""
+
+    def _payload(
+        self,
+        event_type: EventType = EventType.PRE_TOOL_USE,
+        tool: Optional[Tool] = Tool.MCP,
+    ) -> HookPayload:
+        return HookPayload(
+            event_type=event_type,
+            tool=tool,
+            content="some tool input",
+            identifier="mcp__some_server__some_tool",
+            agent=MagicMock(),
+            raw={},
+        )
+
+    @staticmethod
+    def _timed(intervals: dict, name: str, duration: float, result: object):
+        """Return a callable that sleeps and records the interval it ran over."""
+
+        def _run(*args, **kwargs):
+            start = time.monotonic()
+            time.sleep(duration)
+            intervals[name] = (start, time.monotonic())
+            return result
+
+        return _run
+
+    def test_scan_and_activity_run_concurrently(self):
+        """Their execution intervals must intersect: if a refactor serialises them
+        again, this fails."""
+        intervals: dict = {}
+        scanner = _mock_scanner([])
+        scanner.scan.side_effect = self._timed(
+            intervals, "scan", 0.2, scanner.scan.return_value
+        )
+
+        with patch(
+            "ggshield.verticals.ai.hooks.send_mcp_activity",
+            side_effect=self._timed(
+                intervals, "mcp", 0.2, MCPActivityResponse(allowed=True, reason="")
+            ),
+        ):
+            result = AIHookScanner(scanner)._scan_payloads([self._payload()])
+
+        assert not result.block
+        scan_start, scan_end = intervals["scan"]
+        mcp_start, mcp_end = intervals["mcp"]
+        assert scan_start < mcp_end and mcp_start < scan_end
+
+    def test_scan_block_wins_over_the_mcp_verdict(self):
+        """Same verdict as when the scan short-circuited the activity call."""
+        scanner = _mock_scanner(["sk-secret"])
+        with patch(
+            "ggshield.verticals.ai.hooks.send_mcp_activity",
+            return_value=MCPActivityResponse(allowed=False, reason="blocked by policy"),
+        ) as mock_send:
+            result = AIHookScanner(scanner)._scan_payloads([self._payload()])
+
+        assert result.block
+        assert result.nbr_secrets == 1
+        assert "blocked by policy" not in result.message
+        # Approved behaviour change: the activity is logged even when we block.
+        mock_send.assert_called_once()
+
+    def test_mcp_block_returned_when_the_scan_allows(self):
+        scanner = _mock_scanner([])
+        with patch(
+            "ggshield.verticals.ai.hooks.send_mcp_activity",
+            return_value=MCPActivityResponse(allowed=False, reason="blocked by policy"),
+        ):
+            result = AIHookScanner(scanner)._scan_payloads([self._payload()])
+
+        assert result.block
+        assert result.message == "blocked by policy"
+
+    def test_api_failure_on_the_worker_thread_fails_open(self):
+        """An exception raised while logging the activity must not escape the thread
+        and kill the hook."""
+        scanner = _mock_scanner([])
+        scanner.client.log_mcp_activity.side_effect = RuntimeError("network")
+        with patch("ggshield.verticals.ai.mcp.refresh_and_maybe_submit_discovery"):
+            result = AIHookScanner(scanner)._scan_payloads([self._payload()])
+
+        assert not result.block
+
+    @pytest.mark.parametrize(
+        ("event_type", "tool"),
+        [
+            (EventType.PRE_TOOL_USE, Tool.BASH),
+            (EventType.PRE_TOOL_USE, None),
+            (EventType.POST_TOOL_USE, Tool.MCP),
+            (EventType.USER_PROMPT, None),
+        ],
+    )
+    def test_non_mcp_payloads_stay_on_the_serial_path(
+        self, event_type: EventType, tool: Optional[Tool]
+    ):
+        """send_mcp_activity would no-op for these, so they must not pay for a thread."""
+        scanner = _mock_scanner([])
+        with patch("ggshield.verticals.ai.hooks.send_mcp_activity") as mock_send:
+            result = AIHookScanner(scanner)._scan_payloads(
+                [self._payload(event_type=event_type, tool=tool)]
+            )
+
+        assert not result.block
+        mock_send.assert_not_called()
+
+    def test_first_blocking_payload_wins_across_payloads(self):
+        """_parse_command can yield several payloads: the first block still wins."""
+        allowed = self._payload(event_type=EventType.PRE_TOOL_USE, tool=Tool.BASH)
+        blocked = self._payload()
+        scanner = _mock_scanner([])
+        with patch(
+            "ggshield.verticals.ai.hooks.send_mcp_activity",
+            return_value=MCPActivityResponse(allowed=False, reason="blocked by policy"),
+        ):
+            result = AIHookScanner(scanner)._scan_payloads([allowed, blocked])
+
+        assert result.block
+        assert result.payload is blocked
+
+
 class TestMessageFromSecrets:
     """Unit tests for AIHookScanner._message_from_secrets with different payload types."""
 
@@ -391,6 +1114,19 @@ class TestMessageFromSecrets:
         assert "in your prompt" in message
         assert "The prompt was not sent to the agent" in message
         assert "remove the secret from your prompt" in message
+
+    def test_message_for_file_mentioned_in_user_prompt(self):
+        """USER_PROMPT + Read: a file mentioned in the prompt gets the file wording,
+        not the prompt wording, since the secret is in the file."""
+        payload = self._payload(
+            event_type=EventType.USER_PROMPT,
+            tool=Tool.READ,
+            identifier="/tmp/config.py",
+        )
+        message = AIHookScanner._message_from_secrets([_make_secret("sk-xxx")], payload)
+        assert "in /tmp/config.py" in message
+        assert "in your prompt" not in message
+        assert "remove the secret from your prompt" not in message
 
     def test_escape_markdown_adds_hard_breaks(self):
         """escape_markdown turns single newlines into markdown hard breaks
@@ -561,11 +1297,14 @@ class TestMessageFromSecrets:
     def test_message_always_ends_with_false_positive_block(
         self, event_type: EventType, tool: Optional[Tool]
     ):
-        """Every message ends with the false positive escape hatch."""
+        """Every message ends with the false positive escape hatch, and with the
+        `ignored_matches` entry it would write."""
         payload = self._payload(event_type=event_type, tool=tool)
-        message = AIHookScanner._message_from_secrets([_make_secret("sk-xxx")], payload)
-        assert message.endswith("    ggshield secret ignore --last-found")
+        secret = _make_secret("sk-xxx")
+        message = AIHookScanner._message_from_secrets([secret], payload)
+        assert "    ggshield secret ignore --last-found" in message
         assert "> If this is a false positive, run:" in message
+        assert message.endswith(f"    - match: {secret.get_ignore_sha()}")
 
     def test_false_positive_block_is_plural_for_several_secrets(self):
         """The false positive block says "these are false positives" when
@@ -776,7 +1515,7 @@ class TestAIHookScannerParseInput:
         payload = parse_hook_input(json.dumps(data))[0]
         assert payload.event_type == EventType.PRE_TOOL_USE
         assert payload.tool == Tool.READ
-        assert payload.identifier == tmp_file.as_posix()
+        assert payload.identifier == os.path.abspath(tmp_file)
         assert payload.content == ""
         assert payload.scannable.content == "this is the content"
         assert isinstance(payload.agent, Cursor)
@@ -856,7 +1595,7 @@ class TestAIHookScannerParseInput:
         payload = parse_hook_input(json.dumps(data))[0]
         assert payload.event_type == EventType.PRE_TOOL_USE
         assert payload.tool == Tool.READ
-        assert payload.identifier == tmp_file.as_posix()
+        assert payload.identifier == os.path.abspath(tmp_file)
         assert payload.content == ""
         assert payload.scannable.content == "this is the content"
         assert isinstance(payload.agent, Claude)
@@ -927,7 +1666,9 @@ class TestAIHookScannerParseInput:
         payload = payloads[0]
         assert payload.event_type == EventType.USER_PROMPT
         assert payload.tool == Tool.READ
-        assert payload.identifier == "folder/file.txt"
+        # The relative @-mention is canonicalized against the event's cwd so it
+        # shares a verdict-cache key with the tool's (absolute) read of the file.
+        assert payload.identifier == os.path.abspath("/home/user1/foo/folder/file.txt")
         assert payload.content == ""  # empty because inexistent file
         assert isinstance(payload.agent, Claude)
 
@@ -1007,7 +1748,7 @@ class TestAIHookScannerParseInput:
         payload = parse_hook_input(json.dumps(data))[0]
         assert payload.event_type == EventType.PRE_TOOL_USE
         assert payload.tool == Tool.READ
-        assert payload.identifier == tmp_file.as_posix()
+        assert payload.identifier == os.path.abspath(tmp_file)
         assert payload.content == ""
         assert payload.scannable.content == "this is the content"
         assert isinstance(payload.agent, VSCode)
@@ -1113,7 +1854,7 @@ class TestAIHookScannerParseInput:
         payload = parse_hook_input(json.dumps(data))[0]
         assert payload.event_type == EventType.PRE_TOOL_USE
         assert payload.tool == Tool.READ
-        assert payload.identifier == tmp_file.as_posix()
+        assert payload.identifier == os.path.abspath(tmp_file)
         assert payload.content == ""
         assert payload.scannable.content == "this is the content"
         assert isinstance(payload.agent, Copilot)
@@ -1229,6 +1970,112 @@ class TestAIHookScannerParseInput:
         assert payload.tool == Tool.BASH
         assert isinstance(payload.agent, Codex)
 
+    def test_vibe_pre_tool_bash(self):
+        data = {
+            "session_id": "session-123",
+            "parent_session_id": None,
+            "transcript_path": "/home/user/.vibe/logs/session-123.jsonl",
+            "cwd": "/home/user/project",
+            "hook_event_name": "pre_tool",
+            "tool_name": "bash",
+            "tool_call_id": "call-123",
+            "tool_input": {"command": "whoami"},
+        }
+
+        payload = parse_hook_input(json.dumps(data))[0]
+
+        assert payload.event_type == EventType.PRE_TOOL_USE
+        assert payload.tool == Tool.BASH
+        assert payload.content == "whoami"
+        assert isinstance(payload.agent, Vibe)
+
+    def test_vibe_post_tool_read(self):
+        data = {
+            "session_id": "session-123",
+            "parent_session_id": None,
+            "transcript_path": "/home/user/.vibe/logs/session-123.jsonl",
+            "cwd": "/home/user/project",
+            "hook_event_name": "post_tool",
+            "tool_name": "read_file",
+            "tool_call_id": "call-123",
+            "tool_input": {"path": "/tmp/secret.txt"},
+            "tool_status": "success",
+            "tool_output": {"content": "file content"},
+            "tool_output_text": "file content",
+            "tool_error": None,
+            "duration_ms": 42.5,
+        }
+
+        payload = parse_hook_input(json.dumps(data))[0]
+
+        assert payload.event_type == EventType.POST_TOOL_USE
+        assert payload.tool == Tool.READ
+        # Canonicalized against the event's cwd (see _abs_read_path).
+        assert payload.identifier == os.path.abspath("/tmp/secret.txt")
+        assert payload.content == '{"content": "file content"}'
+        assert isinstance(payload.agent, Vibe)
+
+    def test_vibe_failed_post_tool_scans_output_text(self):
+        data = {
+            "session_id": "session-123",
+            "parent_session_id": None,
+            "transcript_path": "/home/user/.vibe/logs/session-123.jsonl",
+            "cwd": "/home/user/project",
+            "hook_event_name": "post_tool",
+            "tool_name": "bash",
+            "tool_call_id": "call-123",
+            "tool_input": {"command": "failing-command"},
+            "tool_status": "failure",
+            "tool_output": None,
+            "tool_output_text": "failure output",
+            "tool_error": "failed",
+            "duration_ms": 42.5,
+        }
+
+        payload = parse_hook_input(json.dumps(data))[0]
+
+        assert payload.event_type == EventType.POST_TOOL_USE
+        assert payload.content == "failure output"
+        assert isinstance(payload.agent, Vibe)
+
+    @pytest.mark.parametrize("tool_name", ["bash", "git_bash", "powershell"])
+    def test_vibe_shell_tools_are_bash(self, tool_name: str):
+        """Every Vibe shell tool is treated as BASH, so the command is parsed for
+        file reads instead of being scanned as an opaque tool input."""
+        data = {
+            "session_id": "session-123",
+            "transcript_path": "/home/user/.vibe/logs/session-123.jsonl",
+            "cwd": "/home/user/project",
+            "hook_event_name": "pre_tool",
+            "tool_name": tool_name,
+            "tool_call_id": "call-123",
+            "tool_input": {"command": "cat /tmp/secret.txt"},
+        }
+
+        payloads = parse_hook_input(json.dumps(data))
+
+        assert payloads[-1].tool == Tool.BASH
+        assert payloads[-1].identifier == "cat /tmp/secret.txt"
+        # The command references a file, so it is also scanned as a read.
+        assert Tool.READ in {payload.tool for payload in payloads}
+
+    def test_vibe_wins_over_claude_when_path_contains_claude(self):
+        """Vibe's event names are unambiguous, so they take precedence over
+        Claude's transcript_path substring heuristic."""
+        data = {
+            "session_id": "session-123",
+            "transcript_path": "/home/claude/.vibe/logs/session-123.jsonl",
+            "cwd": "/home/user/project",
+            "hook_event_name": "pre_tool",
+            "tool_name": "bash",
+            "tool_call_id": "call-123",
+            "tool_input": {"command": "whoami"},
+        }
+
+        payload = parse_hook_input(json.dumps(data))[0]
+
+        assert isinstance(payload.agent, Vibe)
+
     def test_pre_tool_use_read_with_missing_file(self):
         """PRE_TOOL_USE with tool_name 'read' and non-existing file yields empty content."""
         content = json.dumps(
@@ -1317,7 +2164,57 @@ class TestAIHookScannerParseInput:
         payload = parse_hook_input(json.dumps(data))[0]
         assert payload.event_type == EventType.PRE_TOOL_USE
         assert payload.tool == Tool.READ
-        assert payload.identifier == "README.md"
+        # Canonicalized against the event's cwd (see _abs_read_path).
+        assert payload.identifier == os.path.abspath("/home/user/project/README.md")
+
+    @staticmethod
+    def _bash_hook_input(command: str) -> str:
+        return json.dumps(
+            {
+                "session_id": "273ad859-3608-4799-9971-fa15ecb1a65c",
+                "transcript_path": "/home/user/.codex/sessions/2026/04/30/session.jsonl",
+                "cwd": "/home/user/project",
+                "hook_event_name": "PreToolUse",
+                "turn_id": "turn_123",
+                "model": "gpt-5.4",
+                "tool_name": "Bash",
+                "tool_input": {"command": command},
+                "tool_use_id": "call_123",
+            }
+        )
+
+    def test_cat_command_yields_file_scannable(self, tmp_path: Path):
+        """`cat <existing file>` is still parsed as a file read."""
+        target = tmp_path / "code.py"
+        target.write_text("secret = 'abc'")
+        payloads = parse_hook_input(self._bash_hook_input(f"cat {target}"))
+        read = next(p for p in payloads if p.tool == Tool.READ)
+        assert read.identifier == str(target)
+        assert isinstance(read.scannable, File)
+
+    def test_cat_heredoc_command_is_still_scanned_as_string(self):
+        """A `cat > file <<EOF` heredoc must not abort the scan.
+
+        Everything after "cat " used to be treated as a file name, and
+        Path.is_file() raised OSError (ENAMETOOLONG) on it, so the command --
+        which is precisely a secret being written to a file -- was never
+        scanned. Python < 3.13 raises for real here; force the error so the
+        regression is covered on every supported version.
+        """
+        command = "cat > /tmp/script.py <<'EOF'\n" + "x = 1\n" * 2000 + "EOF"
+        error = OSError(errno.ENAMETOOLONG, "File name too long")
+        with patch.object(Path, "is_file", side_effect=error):
+            payloads = parse_hook_input(self._bash_hook_input(command))
+            # The bogus "file" payload must not raise, and must be dropped
+            # before any API call.
+            read = next(p for p in payloads if p.tool == Tool.READ)
+            assert isinstance(read.scannable, StringScannable)
+            assert read.empty
+        bash = payloads[-1]
+        assert bash.tool == Tool.BASH
+        assert isinstance(bash.scannable, StringScannable)
+        assert not bash.empty
+        assert bash.scannable.content == command
 
 
 class TestFlavorOutputResult:
@@ -1638,6 +2535,45 @@ class TestFlavorOutputResult:
         out = json.loads(mock_echo.call_args[0][0])
         assert out == {"systemMessage": "could not scan"}
 
+    @patch("ggshield.verticals.ai.agents.vibe.click.echo")
+    def test_vibe_output_result_allow(self, mock_echo: MagicMock):
+        result = HookResult.allow(_dummy_payload(EventType.PRE_TOOL_USE))
+
+        code = Vibe().output_result(result)
+
+        assert code == 0
+        mock_echo.assert_not_called()
+
+    @patch("ggshield.verticals.ai.agents.vibe.click.echo")
+    def test_vibe_output_result_block(self, mock_echo: MagicMock):
+        result = HookResult(
+            block=True,
+            message="Secrets detected in command",
+            nbr_secrets=1,
+            payload=_dummy_payload(EventType.PRE_TOOL_USE),
+        )
+
+        code = Vibe().output_result(result)
+
+        assert code == 0
+        out = json.loads(mock_echo.call_args[0][0])
+        assert out == {
+            "decision": "deny",
+            "reason": "Secrets detected in command",
+        }
+
+    @patch("ggshield.verticals.ai.agents.vibe.click.echo")
+    def test_vibe_output_result_allow_with_warning(self, mock_echo: MagicMock):
+        result = HookResult.allow_with_warning(
+            _dummy_payload(EventType.PRE_TOOL_USE), "could not scan"
+        )
+
+        code = Vibe().output_result(result)
+
+        assert code == 0
+        out = json.loads(mock_echo.call_args[0][0])
+        assert out == {"system_message": "could not scan"}
+
     @patch("ggshield.verticals.ai.agents.cursor.click.echo")
     def test_cursor_output_result_allow_with_warning(self, mock_echo: MagicMock):
         """Cursor allow with a warning: permission allow plus user_message."""
@@ -1703,3 +2639,330 @@ class TestFlavorOutputResult:
 def test_find_filepaths(prompt: str, filepaths: Set[str]):
     """Test filepath regex."""
     assert find_filepaths(prompt) == filepaths, prompt
+
+
+def _numbered_file(
+    directory: Path, nb_lines: int, name: str = "numbered.txt", newline: str = "\n"
+) -> Path:
+    """A file whose content is `nb_lines` distinguishable lines, "line 1" first.
+
+    Bytes with an explicit terminator, because `write_text` translates "\\n" to
+    os.linesep: the fixture would be CRLF on Windows and LF elsewhere, and the
+    tests would only ever exercise the host's convention.
+    """
+    file = directory / name
+    file.write_bytes(newline.join(f"line {i}" for i in range(1, nb_lines + 1)).encode())
+    return file
+
+
+def _assert_scanned_lines(payload: HookPayload, file: Path, expected: range) -> None:
+    """The scannable holds exactly lines `expected` of `file`, byte for byte.
+
+    Asserted separately so neither can paper over the other: it is a verbatim
+    extract (no newline rewriting, no stripped "\\r" — we scan what the agent
+    reads, not a normalised lookalike), and it is the right window.
+    `splitlines()` here — never in `line_slice`, which must not guess at line
+    boundaries — only makes the second check terminator agnostic.
+    """
+    content = payload.scannable.content
+    assert content in file.read_bytes().decode()
+    assert content.splitlines() == [f"line {i}" for i in expected]
+
+
+def _claude_read(file_path: str, event: str = "PreToolUse", **tool_input: int) -> str:
+    """A Claude Code Read hook payload, optionally carrying a range."""
+    data: dict = {
+        "session_id": "3b7ae0c5",
+        "transcript_path": "/home/user1/.claude/projects/foo/3b7ae0c5.jsonl",
+        "cwd": "/home/user1/foo",
+        "hook_event_name": event,
+        "tool_name": "Read",
+        "tool_input": {"file_path": file_path, **tool_input},
+    }
+    if event == "PostToolUse":
+        # The tool response is not what we scan for a Read: the file on disk is,
+        # so that Pre and Post produce the same document.
+        data["tool_response"] = {"content": "whatever the agent got back"}
+    return json.dumps(data)
+
+
+def _scanner_finding(needle: str) -> MagicMock:
+    """A scanner that reports a secret only if `needle` is in what it is handed."""
+    mock = MagicMock(spec=SecretScanner)
+    mock.client = MagicMock(spec=GGClient)
+    # spec= only provides what the class declares, and the verdict cache key
+    # reads all three: base_uri and api_key are annotation-only on GGClient,
+    # secret_config is set in SecretScanner.__init__.
+    mock.client.base_uri = "https://api.example.com"
+    mock.client.api_key = "some-api-key"
+    mock.secret_config = SecretConfig()
+
+    def scan(scannables, scanner_ui=None, **kwargs):
+        # One answer per document, carrying its url, as the real scanner does.
+        return Results(
+            results=[
+                ScanResult(
+                    filename=scannable.filename,
+                    filemode=Filemode.FILE,
+                    path=Path("."),
+                    url=scannable.url,
+                    secrets=(
+                        [_make_secret(needle)] if needle in scannable.content else []
+                    ),
+                    ignored_secrets_count_by_kind=Counter(),
+                )
+                for scannable in scannables
+            ],
+            errors=[],
+        )
+
+    mock.scan.side_effect = scan
+    return mock
+
+
+def _real_secret_scanner() -> SecretScanner:
+    """A real SecretScanner with a stubbed client, to exercise the size limits."""
+    client = MagicMock()
+    client.maximum_payload_size = MAXIMUM_PAYLOAD_SIZE
+    client.secret_scan_preferences.maximum_document_size = DOCUMENT_SIZE_THRESHOLD_BYTES
+    client.secret_scan_preferences.maximum_documents_per_scan = 20
+    return SecretScanner(
+        client=client,
+        cache=MagicMock(),
+        scan_context=ScanContext(
+            scan_mode=ScanMode.AI_HOOK, command_path="ggshield secret scan ai-hook"
+        ),
+        secret_config=SecretConfig(),
+        check_api_key=False,
+    )
+
+
+class TestReadRange:
+    """A `Tool.READ` must scan the lines the agent is actually reading.
+
+    The part that bites: `SecretScanner._start_scans` silently skips any
+    document over `maximum_document_size` (1 MiB), so over-scanning a large
+    file ends up scanning nothing and allowing the read, where the slice would
+    have scanned fine.
+
+    `line_slice` takes one line of slack on each side, hence the ranges
+    asserted below.
+
+    Tests that assert on sliced bytes run against LF and CRLF on every
+    platform: line numbering must not depend on the terminator, and a CRLF file
+    really does carry "\\r", which the agent's context contains and we must not
+    normalise away.
+    """
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_claude_offset_and_limit_scans_only_that_window(
+        self, tmp_path: Path, newline: str
+    ):
+        """GIVEN a Claude Read of lines 10-14 THEN only that window is scanned."""
+        file = _numbered_file(tmp_path, 1000, newline=newline)
+        payload = parse_hook_input(_claude_read(file.as_posix(), offset=10, limit=5))[0]
+        assert payload.read_range == (10, 14)
+        _assert_scanned_lines(payload, file, range(9, 16))
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_claude_offset_only_reads_to_the_end(self, tmp_path: Path, newline: str):
+        """An open-ended read must scan to the end, not stop at some assumed cap."""
+        file = _numbered_file(tmp_path, 1000, newline=newline)
+        payload = parse_hook_input(_claude_read(file.as_posix(), offset=500))[0]
+        assert payload.read_range == (500, None)
+        _assert_scanned_lines(payload, file, range(499, 1001))
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_claude_limit_only_starts_at_the_top(self, tmp_path: Path, newline: str):
+        """No offset means "from the first line", not "from nowhere"."""
+        file = _numbered_file(tmp_path, 1000, newline=newline)
+        payload = parse_hook_input(_claude_read(file.as_posix(), limit=5))[0]
+        assert payload.read_range == (1, 5)
+        _assert_scanned_lines(payload, file, range(1, 7))
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_no_range_still_scans_the_whole_file(self, tmp_path: Path, newline: str):
+        """Absent range parameters mean everything: the previous behaviour."""
+        file = _numbered_file(tmp_path, 1000, newline=newline)
+        payload = parse_hook_input(_claude_read(file.as_posix()))[0]
+        assert payload.read_range is None
+        assert isinstance(payload.scannable, File)
+        assert payload.scannable.content == file.read_bytes().decode()
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_secret_inside_the_range_still_blocks_at_pre(
+        self, tmp_path: Path, newline: str
+    ):
+        """The whole point of the Pre hook: a secret about to be read is blocked."""
+        file = tmp_path / "conf.txt"
+        file.write_bytes(
+            newline.join(
+                ["padding"] * 20 + ["token=SECRET_IN_RANGE"] + ["padding"] * 500
+            ).encode()
+        )
+        # The secret sits on line 21, the agent reads lines 15 to 25.
+        payload = parse_hook_input(_claude_read(file.as_posix(), offset=15, limit=11))[
+            0
+        ]
+        assert payload.event_type == EventType.PRE_TOOL_USE
+        result = AIHookScanner(_scanner_finding("SECRET_IN_RANGE"))._scan_content(
+            payload
+        )
+        assert result.block is True
+        assert result.nbr_secrets == 1
+        # The PreToolUse wording: nothing has reached the agent yet.
+        assert "was not shown to the agent" in result.message
+
+    def test_secret_outside_the_range_is_not_reported(self, tmp_path: Path):
+        """A secret on a line the agent never reads never enters its context."""
+        file = tmp_path / "conf.txt"
+        file.write_bytes(
+            "\n".join(
+                ["padding"] * 400 + ["token=SECRET_OUT_OF_RANGE"] + ["padding"]
+            ).encode()
+        )
+        payload = parse_hook_input(_claude_read(file.as_posix(), offset=1, limit=10))[0]
+        scanner = _scanner_finding("SECRET_OUT_OF_RANGE")
+        result = AIHookScanner(scanner)._scan_content(payload)
+        assert result.block is False
+        scanned = scanner.scan.call_args[0][0][0].content
+        assert "SECRET_OUT_OF_RANGE" not in scanned
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_pre_and_post_scan_the_same_bytes(self, tmp_path: Path, newline: str):
+        """One read must yield one identical document at both events: the
+        verdict cache is keyed on (filename, content), and Pre is the only event
+        that can block. CRLF included — a terminator handled differently between
+        the two would miss every cache hit, or hide a Pre block behind a Post
+        entry."""
+        file = _numbered_file(tmp_path, 1000, newline=newline)
+        pre = parse_hook_input(_claude_read(file.as_posix(), offset=10, limit=5))[0]
+        post = parse_hook_input(
+            _claude_read(file.as_posix(), "PostToolUse", offset=10, limit=5)
+        )[0]
+        assert pre.event_type == EventType.PRE_TOOL_USE
+        assert post.event_type == EventType.POST_TOOL_USE
+        assert pre.read_range == post.read_range == (10, 14)
+        assert pre.scannable.content == post.scannable.content
+        assert pre.scannable.filename == post.scannable.filename
+
+    def test_the_sliced_scannable_is_built_once(self, tmp_path: Path):
+        """Slicing reads the file, and `_scan_content` asks twice (`empty`, then
+        the scan itself): the second must not re-read it."""
+        file = _numbered_file(tmp_path, 1000)
+        payload = parse_hook_input(_claude_read(file.as_posix(), offset=10, limit=5))[0]
+        assert payload.scannable is payload.scannable
+
+    def test_oversized_file_scans_once_only_a_slice_is_read(self, tmp_path: Path):
+        """The headline case: a file too big to be scanned at all is skipped
+        outright, while the slice the agent actually reads scans fine."""
+        file = _numbered_file(tmp_path, 120_000)
+        assert file.stat().st_size > DOCUMENT_SIZE_THRESHOLD_BYTES
+
+        whole = parse_hook_input(_claude_read(file.as_posix()))[0]
+        sliced = parse_hook_input(_claude_read(file.as_posix(), offset=1, limit=500))[0]
+
+        scanner = _real_secret_scanner()
+
+        whole_ui = MagicMock()
+        assert scanner._start_scans(MagicMock(), [whole.scannable], whole_ui) == {}
+        assert whole_ui.on_skipped.called  # nothing was sent to the API at all
+
+        sliced_ui = MagicMock()
+        assert scanner._start_scans(MagicMock(), [sliced.scannable], sliced_ui) != {}
+        assert not sliced_ui.on_skipped.called
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+    def test_vscode_start_and_end_line(self, tmp_path: Path, newline: str):
+        """VS Code's read_file sends startLine/endLine, 1-based and inclusive."""
+        file = _numbered_file(tmp_path, 1000, newline=newline)
+        data = {
+            "session_id": "69cc6a03",
+            "transcript_path": (
+                "/home/user1/.config/Code/User/workspaceStorage/"
+                "abc123/GitHub.copilot-chat/transcripts/69cc6a03.jsonl"
+            ),
+            "hook_event_name": "PreToolUse",
+            "tool_name": "read_file",
+            "tool_input": {
+                "filePath": file.as_posix(),
+                "startLine": 20,
+                "endLine": 24,
+            },
+            "cwd": "/home/user1/foo",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert isinstance(payload.agent, VSCode)
+        assert payload.read_range == (20, 24)
+        _assert_scanned_lines(payload, file, range(19, 26))
+
+    def test_cursor_falls_back_to_the_whole_file(self, tmp_path: Path):
+        """Cursor's Read payload mimics Claude's and may carry a range of its
+        own, but we have never seen one: reading Claude's `offset`/`limit` here
+        would be a guess, and a wrong guess under-scans. Whole file, as before.
+        """
+        file = _numbered_file(tmp_path, 1000)
+        data = {
+            "cursor_version": "2.5.25",
+            "hook_event_name": "preToolUse",
+            "tool_name": "Read",
+            "tool_input": {"file_path": file.as_posix(), "offset": 10, "limit": 5},
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert isinstance(payload.agent, Cursor)
+        assert payload.read_range is None
+        assert payload.scannable.content == file.read_bytes().decode()
+
+    def test_copilot_view_falls_back_to_the_whole_file(self, tmp_path: Path):
+        """Every Copilot CLI `view` payload we have carries only `path`, with no
+        range parameter to read: whole file, exactly as before."""
+        file = _numbered_file(tmp_path, 1000)
+        data = {
+            "timestamp": "2026-02-26T11:53:49.593Z",
+            "hook_event_name": "PreToolUse",
+            "session_id": "69cc6a03",
+            "tool_name": "view",
+            "tool_input": {"path": file.as_posix()},
+            "cwd": "/home/user1/foo",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert isinstance(payload.agent, Copilot)
+        assert payload.read_range is None
+        assert payload.scannable.content == file.read_bytes().decode()
+
+    def test_codex_command_read_falls_back_to_the_whole_file(self, tmp_path: Path):
+        """The only Codex commands we treat as a read are `cat` and
+        `Get-Content`, which read the whole file. A partial read (`sed -n`,
+        `head`) stays a Bash payload, never a Tool.READ, so there is no range to
+        apply here."""
+        file = _numbered_file(tmp_path, 1000)
+        data = {
+            "turn_id": "t1",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "shell",
+            "tool_input": {"command": f"cat {file.as_posix()}"},
+        }
+        payloads = parse_hook_input(json.dumps(data))
+        read_payload = next(p for p in payloads if p.tool == Tool.READ)
+        assert isinstance(read_payload.agent, Codex)
+        assert read_payload.read_range is None
+        assert read_payload.scannable.content == file.read_bytes().decode()
+
+
+@pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", ""])
+@patch("ggshield.verticals.ai.hooks.subprocess.run")
+def test_no_notification_switch_delivers_nothing(mock_run, monkeypatch, value):
+    """GGSHIELD_NO_NOTIFICATION withholds the banner without reaching a backend."""
+    monkeypatch.setenv("GGSHIELD_NO_NOTIFICATION", value)
+    _send_desktop_notification("ggshield - Secrets Detected", "nothing appears")
+    mock_run.assert_not_called()
+
+
+@pytest.mark.parametrize("value", ["0", "false", "False"])
+@patch("ggshield.verticals.ai.hooks.sys.platform", "darwin")
+@patch("ggshield.verticals.ai.hooks.subprocess.run")
+def test_a_falsy_no_notification_switch_still_notifies(mock_run, monkeypatch, value):
+    """The switch reads like every other ggshield boolean: 0 and false are off."""
+    monkeypatch.setenv("GGSHIELD_NO_NOTIFICATION", value)
+    _send_desktop_notification("ggshield - Secrets Detected", "a banner appears")
+    mock_run.assert_called_once()

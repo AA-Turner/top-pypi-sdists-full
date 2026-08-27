@@ -25,6 +25,7 @@ from nvdec import CUPY_AVAILABLE, DEFAULT_OUTPUT_FPS_CAP, ORIN_NVDEC_AVAILABLE, 
 from nvdec import _get_nv12_resize_kernel
 from orin_nvdec import OrinNVDECDecoderPool
 from pathlib import Path
+from restart_policy import StreamSupervisor, resolve_restart_policy
 from rtp_correlation import DEFAULT_MAX_ENTRIES
 from rtp_correlation import RtpPtsCorrelator
 from shm_liveness import camera_has_live_shm
@@ -34,6 +35,7 @@ import PyNvVideoCodec as nvc
 import argparse
 import cupy as _cp
 import cupy as cp
+import faulthandler
 import gi
 import glob
 import hashlib
@@ -74,13 +76,18 @@ GPU_CAMERA_MAP_AVAILABLE: bool = ...  # From nvdec
 GSTREAMER_DEMUXER_AVAILABLE: bool = ...  # From nvdec
 GstRTPDemuxer: None = ...  # From nvdec
 ORIN_NVDEC_AVAILABLE: bool = ...  # From nvdec
+RTP_CLOCK_RATE: int = ...  # From nvdec
 logger: Any = ...  # From nvdec
+CIRCUIT_BREAKER_COOLDOWN_SEC: Any = ...  # From nvdec_worker_manager
 CIRCUIT_BREAKER_MAX_RESTARTS: Any = ...  # From nvdec_worker_manager
+CIRCUIT_BREAKER_WARN_INTERVAL_SEC: Any = ...  # From nvdec_worker_manager
 CIRCUIT_BREAKER_WINDOW_SEC: Any = ...  # From nvdec_worker_manager
 FRAME_STALL_THRESHOLD_SEC: Any = ...  # From nvdec_worker_manager
+HANDLER_STALE_SEC: Any = ...  # From nvdec_worker_manager
 HOTADD_MAX_ATTEMPTS: Any = ...  # From nvdec_worker_manager
 HOTADD_RETRY_BACKOFF_SEC: Any = ...  # From nvdec_worker_manager
 PRODUCER_READY_TIMEOUT_SEC: Any = ...  # From nvdec_worker_manager
+REMOVE_ACK_TIMEOUT_SEC: Any = ...  # From nvdec_worker_manager
 logger: Any = ...  # From nvdec_worker_manager
 DEFAULT_SOURCE_FPS: float = ...  # From orin_nvdec
 FRAME_SIZE: Any = ...  # From orin_nvdec
@@ -89,6 +96,7 @@ RTP_CLOCK_RATE: int = ...  # From orin_nvdec
 TARGET_HEIGHT: int = ...  # From orin_nvdec
 TARGET_WIDTH: int = ...  # From orin_nvdec
 logger: Any = ...  # From orin_nvdec
+log: Any = ...  # From restart_policy
 
 # Functions
 # From nvdec
@@ -98,6 +106,33 @@ def create_decoder_pool(pool_size: int, gpu_id: int = 0, demuxer_type: str = 'nv
     
         On Orin (MATRICE_PLATFORM=orin), returns OrinNVDECDecoderPool (gst-launch-1.0).
         On desktop/Thor, returns NVDECDecoderPool (PyNvVideoCodec CUVID).
+    """
+
+# From nvdec
+def effective_frame_dims(declared_w: int, declared_h: int, native_w: int, native_h: int) -> Tuple[int, int]: ...
+    """
+    The geometry the decoder will actually emit: ``min(declared, native)``.
+    
+        This is the single source of truth for ring-buffer sizing, and it exists
+        because the two used to be resolved independently and could disagree
+        permanently:
+    
+        * the ring was created from the DECLARED per-camera size (the API's
+          ``customStreamSettings``), before any source was open, and
+        * the decoder clamps a target larger than native down to native and never
+          upsamples (``surface_to_nv12_with_src_dims``, the F08 rule).
+    
+        So a config declaring 1920x1080 for a camera that really sends 1280x720
+        produced a 1920x1080 ring fed 1280x720 tensors — ``_validate_frame_shape``
+        rejected every frame, the camera published nothing, and because the frame
+        counter only advances AFTER a successful ring write the manager's watchdog
+        read the whole GPU as stalled. Deriving both from this function makes that
+        disagreement unrepresentable.
+    
+        A declared dimension of 0 means "native" and yields the native value. An
+        unknown native (0) yields the declared value unchanged: with nothing to
+        clamp against, the declared target is still the best available answer, and
+        the first-frame reconcile is what settles it.
     """
 
 # From nvdec
@@ -116,6 +151,17 @@ def nv12_resize(y_plane: Any, uv_plane: Any, y_stride: int, uv_stride: int, src_
     
         Output: concatenated Y (H*W) + UV ((H/2)*W) as single buffer.
         Total size: H*W + (H/2)*W = H*W*1.5 bytes (50% of RGB).
+    """
+
+# From nvdec
+def nv12_ring_height(frame_h: int) -> int: ...
+    """
+    Ring-buffer row count for an NV12 frame of ``frame_h`` luma rows.
+    
+        NV12 packs a full-height Y plane plus a half-height interleaved CbCr plane,
+        so the ring is 1.5x the frame height. Named because the ``h + h // 2``
+        expression was open-coded at four sites that all had to agree with
+        ``_validate_frame_shape``'s inverse (``nv12_h * 2 // 3``).
     """
 
 # From nvdec
@@ -152,6 +198,15 @@ def nvdec_pool_worker(worker_id: int, decoder_idx: int, pool: Any, ring_buffers:
             shared_frame_count: Global counter (all GPUs)
             gpu_frame_count: Per-GPU counter (this GPU only)
             benchmark_mode: Enable granular per-stage timing
+    """
+
+# From nvdec
+def ring_frame_dims(producer: Any) -> Tuple[int, int]: ...
+    """
+    A producer's ``(frame_w, frame_h)`` in luma pixels, or ``(0, 0)``.
+    
+        The ring stores ``height`` as NV12 rows, so the luma height is ``* 2 // 3``
+        — the same inverse ``_validate_frame_shape`` applies to a tensor.
     """
 
 # From nvdec
@@ -207,6 +262,28 @@ def is_nvdec_available() -> bool: ...
         On desktop/Thor: Requires CuPy, PyNvVideoCodec, ring buffer.
         On Orin (MATRICE_PLATFORM=orin): Requires CuPy, gst-launch-1.0, ring buffer.
         PyNvVideoCodec is NOT needed on Orin (CUVID API unavailable).
+    """
+
+# From restart_policy
+def resolve_restart_policy(env: Optional[Mapping[str, str]] = None) -> Any: ...
+    """
+    Build a :class:`RestartPolicy` from the environment.
+    
+        Reads all six operator-facing knobs the decode loop honours:
+        ``MATRICE_SG_RESTART_COOLDOWN``, ``MATRICE_SG_GIVEUP_COOLDOWN``,
+        ``MATRICE_SG_MAX_RESTARTS``, ``MATRICE_SG_RESTART_WINDOW``,
+        ``MATRICE_SG_STALL_SEC`` and ``MATRICE_SG_BOOTSTRAP_SEC``.
+    
+        Malformed values fall back to the documented default with a warning; this
+        function never raises, because a typo in a deployment env var must not stop
+        the gateway from starting.
+    
+        Args:
+            env: mapping to read from. Defaults to ``os.environ``; injectable so
+                callers (and tests) need no process-global mutation.
+    
+        Returns:
+            The resolved policy.
     """
 
 # Classes
@@ -565,6 +642,20 @@ class NVDECDecoderPool:
         Get camera IDs for a decoder.
         """
 
+    def get_native_dims_for_camera(self: Any, camera_id: str) -> Optional[Tuple[int, int]]: ...
+        """
+        The source's own ``(width, height)`` as the demuxer reported it, or ``None``.
+        
+                Mirrors :meth:`get_source_fps_for_camera`: a per-camera fact learned at
+                assignment, recorded on ``StreamState`` and read back here, because it
+                cannot be recovered later.
+        
+                ``None`` means "the demuxer supplied no usable geometry" (either
+                accessor missing, or a non-positive value) — NOT "square" or "default".
+                The caller must treat it as unknown and leave the ring's geometry to be
+                settled by the first decoded frame instead of inventing a size.
+        """
+
     def get_source_fps_for_camera(self: Any, camera_id: str) -> float: ...
         """
         Detected source FPS for one camera (for the publish-rate decimator).
@@ -583,6 +674,25 @@ class NVDECDecoderPool:
     def remove_stream(self: Any, camera_id: str) -> bool: ...
         """
         Remove a specific stream by camera_id, closing its demuxer resources.
+        """
+
+    def stream_target_dims(stream: Any, fallback_h: int = 0, fallback_w: int = 0) -> Tuple[int, int]: ...
+        """
+        This stream's decode target as ``(target_h, target_w)``.
+        
+                Per-camera, from the camera's own declared size clamped to its own source
+                — not the worker-global pair, which is ``camera_configs[0]``'s size applied
+                to every camera in the sub-process. That global was the bug behind the
+                "F08 per-camera resize" log line: any sub-process holding two cameras with
+                different declared sizes resized both to the first one's target while each
+                ring was built at its own size, so every camera but the first failed the
+                shape check on every frame.
+        
+                Derived from the same :func:`effective_frame_dims` the ring is sized with,
+                so decode target and ring geometry cannot disagree.
+        
+                ``fallback_*`` is used only when this stream declares nothing AND its
+                source reported nothing, i.e. there is genuinely no per-camera answer.
         """
 
 
@@ -763,7 +873,10 @@ class NVDECWorkerManager:
                     stream_key: Camera ID / stream key to remove
         
                 Returns:
-                    True if the camera was found and removed
+                    True if the removal was effected (worker ACKed, or nothing was
+                    running to stop). False only if the command was sent but the worker
+                    did not ACK within the timeout — DCM then keeps the camera and the
+                    next refresh retries, which self-heals (the retry no-ops and ACKs).
         """
 
     def restart_workers(self: Any) -> None: ...
@@ -888,4 +1001,114 @@ class OrinStreamState:
 
     pass
 
-from . import gstreamer_rtp_demuxer, gstreamer_subprocess_demuxer, nvdec, nvdec_worker_manager, orin_nvdec
+# From restart_policy
+class RestartPolicy:
+    """
+    Resolved restart / stall tunables for the decode loop.
+    
+        Frozen: the policy is resolved once at construction and shared across decode
+        threads, so it must not be mutable state anybody can drift.
+    
+        INVARIANT — ``window_sec / cooldown_sec >= max_restarts``. Only one restart
+        is *accepted* per ``cooldown_sec``, so at most ``window_sec / cooldown_sec``
+        of them can ever sit inside the rolling window at once. If that ratio drops
+        below ``max_restarts`` the count can never exceed the threshold and give-up
+        becomes unreachable: a dead camera retries at full volume forever, which is
+        the exact failure this module exists to end. With the defaults the budget is
+        ``300 / 30 = 10`` against a threshold of ``3``, so a dead source gives up
+        after ~4 accepted failures (~120s). :func:`resolve_restart_policy` warns when
+        an override breaks the invariant; see :attr:`giveup_reachable`.
+    
+        Attributes:
+            cooldown_sec: minimum seconds between error-triggered restarts.
+            giveup_cooldown_sec: slow-probe cooldown once given up.
+            max_restarts: accepted restarts within ``window_sec`` before give-up.
+            window_sec: rolling window for the restart count (0 disables pruning).
+            stall_sec: seconds of no frames before the stream counts as stalled.
+            bootstrap_sec: grace period before stall detection arms.
+    """
+
+    def giveup_reachable(self: Any) -> bool: ...
+        """
+        True if the give-up threshold can actually be crossed.
+        
+                See the invariant on the class: give-up needs *more* than
+                ``max_restarts`` accepted restarts inside the window, and the cooldown
+                caps how many can fit.
+        """
+
+    def restart_budget_per_window(self: Any) -> float: ...
+        """
+        How many restarts the cooldown lets into one window (``inf`` if 0).
+        """
+
+
+# From restart_policy
+class StreamSupervisor:
+    """
+    Cooldown-aware restart supervisor for a single decode worker.
+    
+        Args:
+            cooldown_sec: minimum seconds between error-triggered restarts.
+            eof_cooldown_sec: minimum seconds between EOF-triggered restarts.
+            max_restarts: max restarts within *window_sec* before give-up.
+            window_sec: rolling window for the max_restarts count.
+            clock: injectable time function (seconds); defaults to time.monotonic.
+            on_give_up: optional callback invoked once when the give-up threshold
+                is first reached (receives the camera_id).
+            giveup_cooldown_sec: slow-probe cooldown applied once given up; floored
+                at cooldown_sec so it is never shorter than the normal cadence.
+    """
+
+    def __init__(self: Any, cooldown_sec: float = _DEFAULT_COOLDOWN_SEC, eof_cooldown_sec: float = _DEFAULT_EOF_COOLDOWN_SEC, max_restarts: int = _DEFAULT_MAX_RESTARTS, window_sec: float = _DEFAULT_WINDOW_SEC, clock: Optional[Callable[[], float]] = None, on_give_up: Optional[Callable[[str], None]] = None, giveup_cooldown_sec: float = _DEFAULT_GIVEUP_COOLDOWN_SEC) -> None: ...
+
+    def from_policy(cls: Any, policy: Any, clock: Optional[Callable[[], float]] = None, on_give_up: Optional[Callable[[str], None]] = None, eof_cooldown_sec: float = _DEFAULT_EOF_COOLDOWN_SEC) -> Any: ...
+        """
+        Build a supervisor from a resolved :class:`RestartPolicy`.
+        
+                The policy's stall knobs are deliberately not consumed here: stall
+                detection is the decode loop's job, not the supervisor's.
+        """
+
+    def on_eof(self: Any, camera_id: str) -> bool: ...
+        """
+        Record an EOF; return True if a restart should proceed now.
+        """
+
+    def on_error(self: Any, camera_id: str, exc: Optional[Exception] = None) -> bool: ...
+        """
+        Record an error; return True if a restart should proceed now.
+        
+                Returns False if inside the cooldown window (caller should skip restart).
+        """
+
+    def reset(self: Any, camera_id: str, keep_anchor: bool = False) -> None: ...
+        """
+        Clear restart history for a camera (call on *proven* recovery).
+        
+                This is the only thing that clears the sticky give-up flag, so a source
+                that comes back returns to the normal cadence immediately.
+        
+                Args:
+                    camera_id: the camera whose history to clear.
+                    keep_anchor: keep ``last_attempt`` — the cooldown anchor — instead of
+                        dropping the whole state. Recovery must not shorten the minimum
+                        spacing between restarts: dropping the anchor let a camera that
+                        *reopens* fine but immediately re-stalls restart once per stall
+                        detection (10s) instead of once per ``cooldown_sec`` (30s), which
+                        is the 15-30 restarts/min flapping this class exists to prevent.
+                        Keeping the anchor costs a genuinely-recovered camera nothing —
+                        by the time it errors again the anchor is older than the cooldown,
+                        so the next restart is accepted immediately.
+        """
+
+    def should_give_up(self: Any, camera_id: str) -> bool: ...
+        """
+        Return True if max_restarts within window_sec has been exceeded.
+        
+                Sticky: once set it stays until :meth:`reset` is called on recovery, so
+                the slow-probe cadence does not oscillate as old timestamps age out.
+        """
+
+
+from . import gstreamer_rtp_demuxer, gstreamer_subprocess_demuxer, nvdec, nvdec_worker_manager, orin_nvdec, restart_policy

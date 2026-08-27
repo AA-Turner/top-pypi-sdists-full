@@ -25,6 +25,7 @@ from mixpeek.models.bucket_schema_input import BucketSchemaInput
 from mixpeek.models.cluster_application_config import ClusterApplicationConfig
 from mixpeek.models.collection_schedule_config import CollectionScheduleConfig
 from mixpeek.models.retriever_enrichment_config_input import RetrieverEnrichmentConfigInput
+from mixpeek.models.retriever_transform_config_input import RetrieverTransformConfigInput
 from mixpeek.models.shared_collection_features_extractors_models_feature_extractor_config_input import SharedCollectionFeaturesExtractorsModelsFeatureExtractorConfigInput
 from mixpeek.models.source_config_input import SourceConfigInput
 from mixpeek.models.taxonomy_application_config_input import TaxonomyApplicationConfigInput
@@ -39,7 +40,7 @@ class CreateCollectionRequest(BaseModel):
     description: Optional[StrictStr] = Field(default=None, description="Description of the collection")
     source: SourceConfigInput = Field(description="Source configuration (bucket or collection) for this collection")
     input_schema: Optional[BucketSchemaInput] = Field(default=None, description="Input schema for the collection. If not provided, inferred from source bucket's bucket_schema or source collection's output_schema. REQUIRED for input_mappings to work - defines what fields can be mapped to feature extractors.")
-    feature_extractor: SharedCollectionFeaturesExtractorsModelsFeatureExtractorConfigInput = Field(description="Single feature extractor for this collection. Use field_passthrough within the extractor config to include additional source fields. For multiple extractors, create multiple collections and use collection-to-collection pipelines. DEPRECATED for direct use: prefer `features: [...]` (contract v2 §6.2, D9) — extractor names are internal implementation.")
+    feature_extractor: Optional[SharedCollectionFeaturesExtractorsModelsFeatureExtractorConfigInput] = Field(default=None, description="Single feature extractor for this collection. Use field_passthrough within the extractor config to include additional source fields. For multiple extractors, create multiple collections and use collection-to-collection pipelines. DEPRECATED for direct use: prefer `features: [...]` (contract v2 §6.2, D9) — extractor names are internal implementation. MUTUALLY EXCLUSIVE with `retriever_transform` (provide exactly one).")
     features: Optional[List[StrictStr]] = Field(default=None, description="What you want to search by: feature keys from GET /v1/collections/features (e.g. ['faces'] or ['custom:<plugin>']). Resolved to the processing pipeline server-side — the preferred alternative to `feature_extractor`. Provide one or the other.")
     enabled: Optional[StrictBool] = Field(default=True, description="Whether the collection is enabled")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the collection")
@@ -48,8 +49,9 @@ class CreateCollectionRequest(BaseModel):
     cluster_applications: Optional[List[ClusterApplicationConfig]] = Field(default=None, description="Optional cluster applications to automatically execute when batch processing completes. Each cluster enriches documents with cluster assignments (cluster_id, cluster_label, etc.).")
     alert_applications: Optional[List[AlertApplicationConfigInput]] = Field(default=None, description="Optional alert applications to automatically execute when documents are ingested. Each alert runs a retriever against new documents and sends notifications if matches are found. Supports both ON_INGEST (triggered per batch) and SCHEDULED (periodic) execution modes.")
     retriever_enrichments: Optional[List[RetrieverEnrichmentConfigInput]] = Field(default=None, description="Optional retriever enrichments to run on documents during post-processing. Each enrichment executes a retriever pipeline and writes selected result fields back to the document. Use for: LLM classification, cross-collection joins, multi-stage enrichment at ingestion time.")
+    retriever_transform: Optional[RetrieverTransformConfigInput] = Field(default=None, description="BACKE-3572 (#11): define this collection's BUILD STEP as an inline retriever pipeline run over an UPSTREAM COLLECTION (a materialized view). MUTUALLY EXCLUSIVE with feature_extractor/features — a collection is EITHER extractor-based OR transform-based. When set, source.type MUST be 'collection' (buckets have no retrievers over them; a bucket source is rejected with 422). Distinct from retriever_enrichments (per-document post-processing referencing an existing retriever_id).")
     embedding_task: Optional[StrictStr] = Field(default=None, description="Override the embedding task hint for instruction-aware models (E5, Gemini). Defaults to 'retrieval_document' for indexing pipelines. Values: retrieval_document, retrieval_query, semantic_similarity, classification, clustering. Only change this if your primary use case is not retrieval (e.g., clustering or classification). Applied to all task-aware embedding models in this collection's extractor pipeline.")
-    __properties: ClassVar[List[str]] = ["collection_name", "description", "source", "input_schema", "feature_extractor", "features", "enabled", "metadata", "schedule", "taxonomy_applications", "cluster_applications", "alert_applications", "retriever_enrichments", "embedding_task"]
+    __properties: ClassVar[List[str]] = ["collection_name", "description", "source", "input_schema", "feature_extractor", "features", "enabled", "metadata", "schedule", "taxonomy_applications", "cluster_applications", "alert_applications", "retriever_enrichments", "retriever_transform", "embedding_task"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -130,6 +132,9 @@ class CreateCollectionRequest(BaseModel):
                 if _item_retriever_enrichments:
                     _items.append(_item_retriever_enrichments.to_dict())
             _dict['retriever_enrichments'] = _items
+        # override the default output from pydantic by calling `to_dict()` of retriever_transform
+        if self.retriever_transform:
+            _dict['retriever_transform'] = self.retriever_transform.to_dict()
         return _dict
 
     @classmethod
@@ -155,6 +160,7 @@ class CreateCollectionRequest(BaseModel):
             "cluster_applications": [ClusterApplicationConfig.from_dict(_item) for _item in obj["cluster_applications"]] if obj.get("cluster_applications") is not None else None,
             "alert_applications": [AlertApplicationConfigInput.from_dict(_item) for _item in obj["alert_applications"]] if obj.get("alert_applications") is not None else None,
             "retriever_enrichments": [RetrieverEnrichmentConfigInput.from_dict(_item) for _item in obj["retriever_enrichments"]] if obj.get("retriever_enrichments") is not None else None,
+            "retriever_transform": RetrieverTransformConfigInput.from_dict(obj["retriever_transform"]) if obj.get("retriever_transform") is not None else None,
             "embedding_task": obj.get("embedding_task")
         })
         return _obj

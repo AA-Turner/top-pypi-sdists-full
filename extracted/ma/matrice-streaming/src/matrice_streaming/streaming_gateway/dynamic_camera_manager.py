@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from .streaming_gateway_utils import (
     InstanceStreamingGatewayUtil,
@@ -177,6 +177,48 @@ def _resolve_hotadd_publish_fps(
     return fps
 
 
+def _resolve_hotadd_resolution(
+    camera_data: Dict[str, Any],
+    instance_util: Optional[InstanceStreamingGatewayUtil],
+    camera_id: Optional[str],
+) -> Tuple[int, int]:
+    """Resolve the per-camera target resolution (w, h) for a hot-added camera.
+
+    Mirrors :func:`_resolve_hotadd_publish_fps` for F08 ``min_resolution``. A
+    concrete target lets the decode sub-process create the ring buffer EAGERLY
+    and emit ``producer_ready`` immediately, instead of deferring to the first
+    decoded frame — which is what made a slow / wrong-codec hot-add miss the ACK
+    deadline and get torn down + re-added in a loop.
+
+    Uses the consuming-topics aggregation (``_aggregate_camera_demand`` already
+    parses ``min_resolution`` into ``w``/``h``). Returns ``(0, 0)`` when no
+    resolution is declared → native-res / lazy ring buffer, the historical
+    default (unavoidable: native dims are unknown until the first frame). Never
+    raises.
+    """
+    if instance_util is not None and camera_id:
+        try:
+            rows = [t for t in (instance_util.get_consuming_topics() or []) if t.get("cameraId") == camera_id]
+        except Exception as e:
+            _logger.warning(f"[F08] Camera {camera_id}: resolution lookup failed ({e}); native/lazy")
+            rows = []
+        if rows:
+            agg = _aggregate_camera_demand(rows).get(camera_id)
+            if agg is not None:
+                try:
+                    aw, ah = int(agg.get("w", 0) or 0), int(agg.get("h", 0) or 0)
+                except (TypeError, ValueError):
+                    aw, ah = 0, 0
+                if aw > 0 and ah > 0:
+                    _logger.info(
+                        f"[F08] Camera {camera_id}: target resolution {aw}x{ah} "
+                        f"(eager ring buffer, producer_ready without waiting for first frame)"
+                    )
+                    return aw, ah
+    _logger.info(f"[F08] Camera {camera_id}: no declared min_resolution; native-res (lazy ring buffer)")
+    return 0, 0
+
+
 def build_nvdec_camera_config(
     camera_data: Dict[str, Any],
     instance_util: Optional[InstanceStreamingGatewayUtil],
@@ -198,6 +240,10 @@ def build_nvdec_camera_config(
         # cameraFPS). NOT cameraFPS — that is the source rate, and using it here
         # is what neutered the publish cap on every hot-added camera.
         fps = _resolve_hotadd_publish_fps(camera_data, instance_util, camera_id)
+        # F08 target resolution: a declared min_resolution lets the sub-process
+        # create the ring buffer eagerly and ACK producer_ready without waiting
+        # for the first decoded frame (0/0 => native-res / lazy, as before).
+        target_w, target_h = _resolve_hotadd_resolution(camera_data, instance_util, camera_id)
         camera_name = camera_data.get("cameraName", f"Camera_{camera_id}")
         simulate_video = camera_data.get("protocolType") == "FILE"
 
@@ -222,8 +268,8 @@ def build_nvdec_camera_config(
             "source": source,
             "video_path": source,
             "fps": fps,
-            "width": DEFAULT_CAMERA_WIDTH,
-            "height": DEFAULT_CAMERA_HEIGHT,
+            "width": target_w or DEFAULT_CAMERA_WIDTH,
+            "height": target_h or DEFAULT_CAMERA_HEIGHT,
             "codec": cam_codec,
             "_camera_name": camera_name,
             "_original_camera_id": camera_id,

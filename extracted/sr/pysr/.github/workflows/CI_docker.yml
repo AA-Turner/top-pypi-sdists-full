@@ -1,19 +1,19 @@
 name: Docker
 
 on:
-  push:
-    branches:
-      - 'master'
-    paths:
-      - '**'
-    tags:
-      - 'v*.*.*'
   pull_request:
     branches:
       - 'master'
-      - 'release-v1'
+      - 'release-*'
     paths:
-      - '**'
+      - '.github/workflows/CI_docker.yml'
+      - 'Dockerfile'
+      - 'pyproject.toml'
+      - 'pysr/juliapkg.json'
+      - 'uv.lock'
+  schedule:
+    - cron: "0 10 1 * *"
+  workflow_dispatch:
 
 jobs:
   test:
@@ -28,7 +28,7 @@ jobs:
         arch: ['linux/amd64']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build docker
         run: docker build --platform=${{ matrix.arch }} -t pysr .
       - name: Test docker

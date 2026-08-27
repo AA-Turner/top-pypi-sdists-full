@@ -1,6 +1,8 @@
+import ctypes
+import platform
 import socket
 import struct
-from typing import Optional
+from typing import Any, Optional, cast
 
 import pytest
 
@@ -48,6 +50,117 @@ def test_parse_tcp_pcbs_stops_on_truncated_record() -> None:
     # keep the already-parsed connection and stop rather than read out of bounds.
     truncated = full[:-8] + struct.pack("<II", 4096, native_tunnel._XSO_INPCB)
     assert native_tunnel.parse_tcp_pcbs(truncated) == [(4321, native_tunnel._INP_IPV6, addr, 50881)]
+
+
+@pytest.mark.skipif(platform.system() != "Darwin", reason="libxpc is macOS-only")
+def test_xpc_to_python_converts_nested_objects() -> None:
+    xpc = native_tunnel._libxpc()
+    lib = xpc._lib
+    vp = ctypes.c_void_p
+
+    def bind(name: str, argtypes: list[Any]) -> Any:
+        fn = getattr(lib, name)
+        fn.restype = vp
+        fn.argtypes = argtypes
+        return fn
+
+    string_create = bind("xpc_string_create", [ctypes.c_char_p])
+    data_create = bind("xpc_data_create", [ctypes.c_char_p, ctypes.c_size_t])
+    uuid_create = bind("xpc_uuid_create", [ctypes.c_char_p])
+    fd_create = bind("xpc_fd_create", [ctypes.c_int])
+    array_create = bind("xpc_array_create", [vp, ctypes.c_size_t])
+    array_append = lib.xpc_array_append_value
+    array_append.restype = None
+    array_append.argtypes = [vp, vp]
+
+    root = xpc.dictionary_create(None, None, 0)
+    xpc.dictionary_set_string(root, b"udid", b"00008120-000000000000001E")
+    xpc.dictionary_set_int64(root, b"answer", -42)
+    xpc.dictionary_set_bool(root, b"paired", True)
+    xpc.dictionary_set_value(root, b"blob", data_create(b"\x00\x01\x02", 3))
+    xpc.dictionary_set_value(root, b"identifier", uuid_create(b"\x01" * 16))
+    xpc.dictionary_set_value(root, b"endpoint", fd_create(0))  # no data representation -> placeholder
+
+    array = array_create(None, 0)
+    array_append(array, string_create(b"first"))
+    array_append(array, string_create(b"second"))
+    xpc.dictionary_set_value(root, b"names", array)
+
+    nested = xpc.dictionary_create(None, None, 0)
+    xpc.dictionary_set_string(nested, b"inner", b"value")
+    xpc.dictionary_set_value(root, b"info", nested)
+
+    assert native_tunnel.xpc_to_python(xpc, root) == {
+        "udid": "00008120-000000000000001E",
+        "answer": -42,
+        "paired": True,
+        "blob": b"\x00\x01\x02",
+        "identifier": "01010101-0101-0101-0101-010101010101",
+        "endpoint": "<fd>",
+        "names": ["first", "second"],
+        "info": {"inner": "value"},
+    }
+
+
+def test_xpc_to_python_null_pointer_is_none() -> None:
+    if platform.system() != "Darwin":
+        pytest.skip("libxpc is macOS-only")
+    assert native_tunnel.xpc_to_python(native_tunnel._libxpc(), 0) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scans", [[[51011], [51013]], [[], [51013]]])
+async def test_aopen_retries_handshake_with_fresh_port_scan(
+    monkeypatch: pytest.MonkeyPatch, scans: list[list[int]]
+) -> None:
+    """Right after tunnel establishment the device may reset the initial RSD connection ("Device
+    must renegotiate TLS") and remoted transparently redials — onto a NEW device port. aopen must
+    re-scan and retry instead of failing on the first RST (or on a scan that ran before remoted
+    connected at all)."""
+    scan_iter = iter(scans)
+    scan_count = 0
+
+    class FakeSession:
+        def __init__(self, xpc: object) -> None:
+            self.auxiliary_metadata: dict[str, dict[str, object]] = {}
+
+        def browse(self, serial: Optional[str]) -> None:
+            pass
+
+        def open_tunnel(self) -> str:
+            return "fdcd:5fb2:b94b::1"
+
+        def close(self) -> None:
+            pass
+
+    class FakeRsd:
+        def __init__(self, address: tuple[str, int], auxiliary_metadata: object = None) -> None:
+            self.address = address
+            self.auxiliary_metadata = auxiliary_metadata
+
+        async def connect(self) -> None:
+            if self.address[1] == 51011:
+                raise ConnectionError("RST_STREAM error_code=5")
+
+        async def close(self) -> None:
+            pass
+
+    def fake_find_rsd_port(xpc: object, tunnel_ip: str) -> list[int]:
+        nonlocal scan_count
+        scan_count += 1
+        return next(scan_iter)
+
+    monkeypatch.setattr(native_tunnel, "_libxpc", lambda: object())
+    monkeypatch.setattr(native_tunnel, "_RemotePairingSession", FakeSession)
+    monkeypatch.setattr(native_tunnel, "find_rsd_port", fake_find_rsd_port)
+    monkeypatch.setattr(native_tunnel, "RemoteServiceDiscoveryService", FakeRsd)
+    monkeypatch.setattr(native_tunnel, "_RSD_CONNECT_RETRY_DELAY", 0, raising=False)
+
+    tunnel = native_tunnel.NativeRemotedTunnel()
+    rsd = cast(Any, await tunnel.aopen())
+    assert rsd.address == ("fdcd:5fb2:b94b::1", 51013)
+    assert scan_count == 2
+    await tunnel.aclose()
 
 
 def test_libxpc_requires_darwin(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -234,3 +347,121 @@ def test_default_transport_preference_env(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setenv("PYMOBILEDEVICE3_DEFAULT_FALLBACK", "bogus")  # invalid -> built-in default (Linux here)
     assert cli_common.default_transport_preference() == "userspace"
+
+
+class _FakeXpcForTargeting:
+    """Minimal ``_LibXpc`` stand-in recording the retargeting calls made before activation."""
+
+    def __init__(self, has_spi: bool = True) -> None:
+        self.calls: list[tuple[int, int]] = []
+        self.connection_set_target_uid: Optional[Any] = self._record if has_spi else None
+
+    def _record(self, conn: int, uid: int) -> None:
+        self.calls.append((conn, uid))
+
+    def connection_create_mach_service(self, name: bytes, queue: Optional[int], flags: int) -> int:
+        return 0xC0FFEE
+
+
+@pytest.fixture(autouse=True)
+def _reset_target_uid_memo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The resolved domain is memoized per process; keep it from leaking between tests."""
+    monkeypatch.setattr(native_tunnel, "_remotepairing_target_uid", None, raising=False)
+    monkeypatch.delenv(native_tunnel.NATIVE_TARGET_UID_ENV_VAR, raising=False)
+
+
+def test_seeded_target_uid_is_none_without_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    # No env and nothing established yet: the ordinary lookup is tried first, unaimed.
+    assert native_tunnel._seeded_target_uid() is None
+
+
+def test_seeded_target_uid_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(native_tunnel.NATIVE_TARGET_UID_ENV_VAR, " 502 ")
+    assert native_tunnel._seeded_target_uid() == 502
+
+
+def test_seeded_target_uid_zero_pins_the_ordinary_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(native_tunnel.NATIVE_TARGET_UID_ENV_VAR, "0")
+    assert native_tunnel._seeded_target_uid() is None
+    assert native_tunnel._remotepairing_target_uid == 0  # memoized, so retargeting stays disabled
+
+
+def test_seeded_target_uid_ignores_invalid_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(native_tunnel.NATIVE_TARGET_UID_ENV_VAR, "not-a-uid")
+    assert native_tunnel._seeded_target_uid() is None
+
+
+def test_remember_plain_lookup_works_memoizes(monkeypatch: pytest.MonkeyPatch) -> None:
+    native_tunnel._remember_plain_lookup_works()
+    assert native_tunnel._remotepairing_target_uid == 0
+    assert native_tunnel._seeded_target_uid() is None
+
+
+def test_resolve_after_invalid_is_none_when_unprivileged(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Not root: there is no second thing to try, and the SPI would trap.
+    monkeypatch.setattr(native_tunnel.os, "geteuid", lambda: 501, raising=False)
+    monkeypatch.setattr(native_tunnel, "_console_user_uid", lambda: 501)
+    assert native_tunnel._resolve_target_uid_after_invalid(cast(Any, _FakeXpcForTargeting())) is None
+
+
+def test_resolve_after_invalid_returns_console_user_and_memoizes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(native_tunnel.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(native_tunnel, "_console_user_uid", lambda: 501)
+    assert native_tunnel._resolve_target_uid_after_invalid(cast(Any, _FakeXpcForTargeting())) == 501
+    assert native_tunnel._remotepairing_target_uid == 501
+    assert native_tunnel._seeded_target_uid() == 501  # later browses go straight to that domain
+
+
+def test_resolve_after_invalid_none_without_console_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(native_tunnel.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(native_tunnel, "_console_user_uid", lambda: None)
+    assert native_tunnel._resolve_target_uid_after_invalid(cast(Any, _FakeXpcForTargeting())) is None
+
+
+def test_resolve_after_invalid_none_when_spi_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A future macOS could drop the SPI the way xpc_connection_set_target_gid was dropped.
+    monkeypatch.setattr(native_tunnel.os, "geteuid", lambda: 0, raising=False)
+    monkeypatch.setattr(native_tunnel, "_console_user_uid", lambda: 501)
+    xpc = _FakeXpcForTargeting(has_spi=False)
+    assert native_tunnel._resolve_target_uid_after_invalid(cast(Any, xpc)) is None
+
+
+def test_console_user_uid_reads_dev_console_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    real_stat = native_tunnel.os.stat
+
+    def fake_stat(path: Any, *args: Any, **kwargs: Any) -> Any:
+        if path == "/dev/console":
+            return real_stat("/dev/console" if platform.system() == "Darwin" else ".")
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(native_tunnel.os, "stat", fake_stat)
+    uid = native_tunnel._console_user_uid()
+    assert uid is None or uid > 0  # root-owned (logged out) reports None rather than uid 0
+
+
+def test_create_connection_retargets_when_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(native_tunnel.os, "geteuid", lambda: 0, raising=False)
+    xpc = _FakeXpcForTargeting()
+    assert native_tunnel._create_remotepairing_connection(cast(Any, xpc), 0, 501) == 0xC0FFEE
+    assert xpc.calls == [(0xC0FFEE, 501)]
+
+
+def test_create_connection_without_target_is_a_plain_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(native_tunnel.os, "geteuid", lambda: 0, raising=False)
+    xpc = _FakeXpcForTargeting()
+    native_tunnel._create_remotepairing_connection(cast(Any, xpc), 0, None)
+    assert xpc.calls == []
+
+
+def test_create_connection_never_retargets_unprivileged(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Honouring a seeded uid without root would trap the process (SIGTRAP), so it must be refused.
+    monkeypatch.setattr(native_tunnel.os, "geteuid", lambda: 501, raising=False)
+    xpc = _FakeXpcForTargeting()
+    native_tunnel._create_remotepairing_connection(cast(Any, xpc), 0, 501)
+    assert xpc.calls == []
+
+
+def test_create_connection_survives_missing_spi(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(native_tunnel.os, "geteuid", lambda: 0, raising=False)
+    xpc = _FakeXpcForTargeting(has_spi=False)
+    assert native_tunnel._create_remotepairing_connection(cast(Any, xpc), 0, 501) == 0xC0FFEE

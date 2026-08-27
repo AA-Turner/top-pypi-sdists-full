@@ -16,6 +16,12 @@ readme = "README.md"
 authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
 license = {text = "MIT"}
 requires-python = ">=3.8"
+# psutil is a HARD runtime import (streaming_gateway/camera_streamer/opencv/
+# async_camera_worker.py imports it at module top level, and that module is
+# re-exported from camera_streamer/__init__.py), so a plain
+# `pip install matrice_streaming` must pull it. Left UNPINNED on purpose:
+# the dependency-approval gate only version-checks a spec that carries an
+# operator, and an image-provided psutil must not be force-upgraded (§8.9).
 dependencies = ["psutil"]
 keywords = ["matrice", "streaming", "utilities", "mypyc", "compiled"]
 classifiers = [

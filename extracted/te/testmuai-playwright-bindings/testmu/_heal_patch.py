@@ -178,7 +178,7 @@ def _make_wrapper(name, original, heal_fn):
                 except Exception:
                     heal_desc = step.description
             handled = await heal_fn(
-                self.page, heal_desc, name, self, *args, **kwargs
+                self.page, heal_desc, name, self, *args, _reprobe=True, **kwargs
             )
             if not handled:
                 raise _TIMEOUT_EXCS[0](

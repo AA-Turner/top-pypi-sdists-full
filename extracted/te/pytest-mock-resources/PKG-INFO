@@ -1,21 +1,46 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: pytest-mock-resources
-Version: 2.12.4
+Version: 2.13.0
 Summary: A pytest plugin for easily instantiating reproducible mock resources.
-Home-page: https://github.com/schireson/pytest-mock-resources
-License: MIT
 Keywords: pytest,sqlalchemy,docker,fixture,mock
-Author: Omar Khan
-Author-email: oakhan3@gmail.com
-Requires-Python: >=3.7,<4
+Author: Omar Khan, Dan Cardin, Gabriel Michael, Prateek Pisat
+Author-email: Omar Khan <oakhan3@gmail.com>, Dan Cardin <ddcardin@gmail.com>, Gabriel Michael <gabriel.j.michael@gmail.com>, Prateek Pisat <pisatprateek12@gmail.com>
+License: MIT
 Classifier: Framework :: Pytest
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: pytest>=1.0
+Requires-Dist: sqlalchemy>1.0,!=1.4.0,!=1.4.1,!=1.4.2,!=1.4.3,!=1.4.4,!=1.4.5,!=1.4.6,!=1.4.7,!=1.4.8,!=1.4.9,!=1.4.10,!=1.4.11,!=1.4.12,!=1.4.13,!=1.4.14,!=1.4.15,!=1.4.16,!=1.4.17,!=1.4.18,!=1.4.19,!=1.4.20,!=1.4.21,!=1.4.22,!=1.4.23
+Requires-Dist: typing-extensions
+Requires-Dist: importlib-metadata ; python_full_version < '3.8'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'docker'
+Requires-Dist: filelock ; extra == 'docker'
+Requires-Dist: pymongo ; extra == 'mongo'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'mongo'
+Requires-Dist: filelock ; extra == 'mongo'
+Requires-Dist: boto3 ; extra == 'moto'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'moto'
+Requires-Dist: filelock ; extra == 'moto'
+Requires-Dist: pymysql>=1.0 ; extra == 'mysql'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'mysql'
+Requires-Dist: filelock ; extra == 'mysql'
+Requires-Dist: psycopg2 ; extra == 'postgres'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'postgres'
+Requires-Dist: filelock ; extra == 'postgres'
+Requires-Dist: asyncpg ; extra == 'postgres-async'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'postgres-async'
+Requires-Dist: filelock ; extra == 'postgres-async'
+Requires-Dist: psycopg2-binary ; extra == 'postgres-binary'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'postgres-binary'
+Requires-Dist: filelock ; extra == 'postgres-binary'
+Requires-Dist: redis ; extra == 'redis'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'redis'
+Requires-Dist: filelock ; extra == 'redis'
+Requires-Dist: boto3 ; extra == 'redshift'
+Requires-Dist: moto ; extra == 'redshift'
+Requires-Dist: sqlparse ; extra == 'redshift'
+Requires-Dist: python-on-whales>=0.22.0 ; extra == 'redshift'
+Requires-Dist: filelock ; extra == 'redshift'
+Requires-Python: >=3.8, <4
+Project-URL: Repository, https://github.com/schireson/pytest-mock-resources
 Provides-Extra: docker
 Provides-Extra: mongo
 Provides-Extra: moto
@@ -25,22 +50,6 @@ Provides-Extra: postgres-async
 Provides-Extra: postgres-binary
 Provides-Extra: redis
 Provides-Extra: redshift
-Requires-Dist: asyncpg ; extra == "postgres-async"
-Requires-Dist: boto3 ; extra == "redshift" or extra == "moto"
-Requires-Dist: filelock ; extra == "docker" or extra == "postgres" or extra == "postgres-binary" or extra == "postgres-async" or extra == "redshift" or extra == "mongo" or extra == "moto" or extra == "redis" or extra == "mysql"
-Requires-Dist: importlib-metadata ; python_version < "3.8"
-Requires-Dist: moto ; extra == "redshift"
-Requires-Dist: psycopg2 ; extra == "postgres"
-Requires-Dist: psycopg2-binary ; extra == "postgres-binary"
-Requires-Dist: pymongo ; extra == "mongo"
-Requires-Dist: pymysql (>=1.0) ; extra == "mysql"
-Requires-Dist: pytest (>=1.0)
-Requires-Dist: python-on-whales (>=0.22.0) ; extra == "docker" or extra == "postgres" or extra == "postgres-binary" or extra == "postgres-async" or extra == "redshift" or extra == "mongo" or extra == "moto" or extra == "redis" or extra == "mysql"
-Requires-Dist: redis ; extra == "redis"
-Requires-Dist: sqlalchemy (>1.0,!=1.4.0,!=1.4.1,!=1.4.2,!=1.4.3,!=1.4.4,!=1.4.5,!=1.4.6,!=1.4.7,!=1.4.8,!=1.4.9,!=1.4.10,!=1.4.11,!=1.4.12,!=1.4.13,!=1.4.14,!=1.4.15,!=1.4.16,!=1.4.17,!=1.4.18,!=1.4.19,!=1.4.20,!=1.4.21,!=1.4.22,!=1.4.23)
-Requires-Dist: sqlparse ; extra == "redshift"
-Requires-Dist: typing_extensions
-Project-URL: Repository, https://github.com/schireson/pytest-mock-resources
 Description-Content-Type: text/markdown
 
 ![CircleCI](https://img.shields.io/circleci/build/gh/schireson/pytest-mock-resources/master)
@@ -229,4 +238,3 @@ any bugs or want to start a conversation around a mock resource you want impleme
 Releases in the 1.x series were supportive of python 2. However starting from 2.0.0, support for
 python 2 was dropped. We may accept bugfix PRs for the 1.x series, however new development and
 features will not be backported.
-

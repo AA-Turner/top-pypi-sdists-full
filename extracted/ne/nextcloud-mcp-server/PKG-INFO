@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nextcloud-mcp-server
-Version: 0.181.0
+Version: 0.182.0
 Summary: Model Context Protocol (MCP) server for Nextcloud integration - enables AI assistants to interact with Nextcloud data
 Keywords: nextcloud,mcp,model-context-protocol,llm,ai,claude,webdav,caldav,carddav
 Author: Chris Coutinho

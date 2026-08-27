@@ -5,14 +5,14 @@ from .dubbing_start_data import DubbingStartDataParams
 
 
 class DubbingStartResponseParams(typing_extensions.TypedDict):
-    status: typing_extensions.NotRequired[str]
+    status: str
     """
     Response status, e.g. `success`.
     """
 
-    message: typing_extensions.NotRequired[str]
+    message: str
     """
     Human-readable confirmation that the dubbing pipeline has started.
     """
 
-    data: typing_extensions.NotRequired[DubbingStartDataParams]
+    data: DubbingStartDataParams

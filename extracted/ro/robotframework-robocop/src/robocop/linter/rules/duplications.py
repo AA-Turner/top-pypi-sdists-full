@@ -2,37 +2,39 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import TYPE_CHECKING, TypeVar
 
-from robot.api import Token
-
 from robocop.linter import sonar_qube
-from robocop.linter.rules import Rule, RuleSeverity, VisitorChecker, arguments, order, variables
-from robocop.linter.utils.misc import (
-    normalize_robot_name,
-    normalize_robot_var_name,
-    strip_equals_from_assignment,
-)
-from robocop.version_handling import TYPE_SUPPORTED
+from robocop.linter.fix import FixAvailability, remove_statement_fix
+from robocop.linter.rules import FixableRule, Rule, RuleSeverity
 
 if TYPE_CHECKING:
-    from robot.parsing import File
-    from robot.parsing.model.blocks import Keyword, TestCase, VariableSection
     from robot.parsing.model.statements import (
-        Arguments,
-        Error,
-        KeywordCall,
-        LibraryImport,
-        Metadata,
         Node,
-        ResourceImport,
         SectionHeader,
-        Variable,
-        VariablesImport,
     )
 
+    from robocop.linter.diagnostics import Diagnostic
+    from robocop.linter.fix import Fix
+
 NodeT = TypeVar("NodeT", bound="Node")
+
+
+class DuplicatedImportRule(FixableRule):
+    """
+    Base class for the rules reporting the same import used more than once.
+
+    The fix removes the duplicated import. Only imports that are exactly the same (including the arguments and
+    the alias) are reported, so removing them does not change the behaviour. Comments are not removed.
+    """
+
+    fix_availability = FixAvailability.ALWAYS
+
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:
+        """Remove the duplicated import."""
+        if diag.node is None:
+            return None
+        return remove_statement_fix(self, diag.node, source_lines, "Remove the duplicated import")
 
 
 class DuplicatedTestCaseRule(Rule):
@@ -96,7 +98,7 @@ class DuplicatedKeywordRule(Rule):
     deprecated_names = ("0802",)
 
 
-class DuplicatedVariableRule(Rule):
+class DuplicatedVariableRule(FixableRule):
     """
     Multiple variables with the same name in the file.
 
@@ -110,6 +112,9 @@ class DuplicatedVariableRule(Rule):
         ${v ariabl e}  c
         ${v_ariable}   d
 
+    Only the first definition is used by Robot Framework, so the duplicated definitions can be safely removed
+    with the ``--fix`` option.
+
     """
 
     name = "duplicated-variable"
@@ -119,13 +124,20 @@ class DuplicatedVariableRule(Rule):
     )
     severity = RuleSeverity.ERROR
     added_in_version = "1.0.0"
+    fix_availability = FixAvailability.ALWAYS
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.DISTINCT, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
     deprecated_names = ("0803",)
 
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:
+        """Remove the duplicated, and therefore ignored, variable definition."""
+        if diag.node is None:
+            return None
+        return remove_statement_fix(self, diag.node, source_lines, "Remove the duplicated variable")
 
-class DuplicatedResourceRule(Rule):
+
+class DuplicatedResourceRule(DuplicatedImportRule):
     """
     Duplicated resource imports.
 
@@ -137,6 +149,8 @@ class DuplicatedResourceRule(Rule):
         Resource    path.resource
         Resource    other_path.resource
         Resource    path.resource
+
+    The fix removes the duplicated import.
 
     """
 
@@ -151,7 +165,7 @@ class DuplicatedResourceRule(Rule):
     deprecated_names = ("0804",)
 
 
-class DuplicatedLibraryRule(Rule):
+class DuplicatedLibraryRule(DuplicatedImportRule):
     """
     Duplicated library imports.
 
@@ -160,6 +174,8 @@ class DuplicatedLibraryRule(Rule):
         *** Settings ***
         Library  RobotLibrary
         Library  RobotLibrary  AS  OtherRobotLibrary
+
+    The fix removes the duplicated import. Only imports with the same name, arguments and alias are reported.
 
     """
 
@@ -191,8 +207,12 @@ class DuplicatedMetadataRule(Rule):
     deprecated_names = ("0806",)
 
 
-class DuplicatedVariablesImportRule(Rule):
-    """Duplicated variables import."""
+class DuplicatedVariablesImportRule(DuplicatedImportRule):
+    """
+    Duplicated variables import.
+
+    The fix removes the duplicated import.
+    """
 
     name = "duplicated-variables-import"
     rule_id = "DUP07"
@@ -233,12 +253,22 @@ class SectionAlreadyDefinedRule(Rule):
     message = (
         "'{section_name}' section header already defined in file (first occurrence in line {first_occurrence_line})"
     )
-    severity = RuleSeverity.WARNING
+    severity = RuleSeverity.INFO
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.DISTINCT, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0808",)
+
+    def check(self, node: SectionHeader, first_occurrence_line: int | None) -> None:
+        if not self.enabled or first_occurrence_line is None:
+            return
+        self.report(
+            section_name=node.data_tokens[0].value,
+            first_occurrence_line=first_occurrence_line,
+            node=node,
+            end_col=node.end_col_offset,
+        )
 
 
 class BothTestsAndTasksRule(Rule):
@@ -262,6 +292,11 @@ class BothTestsAndTasksRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.DISTINCT, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
     deprecated_names = ("0810",)
+
+    def check(self, node: SectionHeader, other_kind_already_defined: bool) -> None:
+        if not self.enabled or not other_kind_already_defined:
+            return
+        self.report(node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
 
 
 class DuplicatedSettingRule(Rule):
@@ -289,236 +324,34 @@ class DuplicatedSettingRule(Rule):
     deprecated_names = ("0813",)
 
 
-class DuplicationsChecker(VisitorChecker):
-    """Checker for duplicated names."""
+class DuplicatedVariableInProjectRule(Rule):
+    """
+    Variable with the same name defined in multiple files visible together.
 
-    duplicated_test_case: DuplicatedTestCaseRule
-    duplicated_keyword: DuplicatedKeywordRule
-    duplicated_variable: DuplicatedVariableRule
-    duplicated_resource: DuplicatedResourceRule
-    duplicated_library: DuplicatedLibraryRule
-    duplicated_metadata: DuplicatedMetadataRule
-    duplicated_variables_import: DuplicatedVariablesImportRule
-    duplicated_argument_name: arguments.DuplicatedArgumentRule
-    duplicated_assigned_var_name: variables.DuplicatedAssignedVarNameRule
-    duplicated_setting: DuplicatedSettingRule
+    Robot Framework does not report an error when the same variable is defined in a suite and in a resource file
+    imported by it, or in two resource files imported by the same suite. The value used at runtime depends on the
+    import order, which makes such duplications a common source of hard to debug problems.
 
-    def __init__(self) -> None:
-        self.test_cases: defaultdict[str, list[TestCase]] = defaultdict(list)
-        self.keywords: defaultdict[str, list[Keyword]] = defaultdict(list)
-        self.variables: defaultdict[str, list[Variable]] = defaultdict(list)
-        self.resources: defaultdict[str, list[ResourceImport]] = defaultdict(list)
-        self.libraries: defaultdict[str, list[LibraryImport]] = defaultdict(list)
-        self.metadata: defaultdict[str, list[Metadata]] = defaultdict(list)
-        self.variable_imports: defaultdict[str, list[VariablesImport]] = defaultdict(list)
-        super().__init__()
+    Example of rule violation:
 
-    def visit_File(self, node: File) -> None:  # noqa: N802
-        self.test_cases = defaultdict(list)
-        self.keywords = defaultdict(list)
-        self.variables = defaultdict(list)
-        self.resources = defaultdict(list)
-        self.libraries = defaultdict(list)
-        self.metadata = defaultdict(list)
-        self.variable_imports = defaultdict(list)
-        super().visit_File(node)
-        self.check_duplicates(self.test_cases, self.duplicated_test_case)
-        self.check_duplicates(self.keywords, self.duplicated_keyword)
-        self.check_duplicates(self.variables, self.duplicated_variable)
-        self.check_duplicates(self.resources, self.duplicated_resource, underline_whole_line=True)
-        self.check_duplicates(self.metadata, self.duplicated_metadata, underline_whole_line=True)
-        self.check_duplicates(self.variable_imports, self.duplicated_variables_import, underline_whole_line=True)
-        self.check_library_duplicates(self.libraries, self.duplicated_library)
+        *** Settings ***
+        Resource    variables.resource
 
-    def check_duplicates(
-        self, container: defaultdict[str, list[NodeT]], rule: Rule, underline_whole_line: bool = False
-    ) -> None:
-        for nodes in container.values():
-            for duplicate in nodes[1:]:
-                if underline_whole_line:
-                    end_col = duplicate.end_col_offset
-                else:
-                    end_col = duplicate.col_offset + len(duplicate.name) + 1
-                self.report(
-                    rule, name=duplicate.name, first_occurrence_line=nodes[0].lineno, node=duplicate, end_col=end_col
-                )
+        *** Variables ***
+        ${BROWSER}    firefox  # variables.resource also defines ${BROWSER}
 
-    def check_library_duplicates(self, container: defaultdict[str, list[LibraryImport]], rule: Rule) -> None:
-        for nodes in container.values():
-            for duplicate in nodes[1:]:
-                lib_token = duplicate.get_token(Token.NAME)
-                self.report(
-                    rule,
-                    name=duplicate.name,
-                    first_occurrence_line=nodes[0].lineno,
-                    node=duplicate,
-                    col=lib_token.col_offset + 1,
-                    end_col=lib_token.end_col_offset + 1,
-                )
+    Only variables defined in the ``*** Variables ***`` section are compared. Variable names are normalized, so
+    ``${my var}``, ``${MY_VAR}`` and ``${myvar}`` are treated as the same variable.
 
-    def visit_TestCase(self, node: TestCase) -> None:  # noqa: N802
-        testcase_name = normalize_robot_name(node.name)
-        self.test_cases[testcase_name].append(node)
-        self.generic_visit(node)
+    """
 
-    def visit_Keyword(self, node: Keyword) -> None:  # noqa: N802
-        keyword_name = normalize_robot_name(node.name)
-        self.keywords[keyword_name].append(node)
-        self.generic_visit(node)
-
-    def visit_KeywordCall(self, node: KeywordCall) -> None:  # noqa: N802
-        assign = node.get_tokens(Token.ASSIGN)
-        seen = set()
-        for var in assign:
-            var_name = strip_equals_from_assignment(var.value)
-            name = normalize_robot_var_name(var_name, strip_type=TYPE_SUPPORTED)
-            if not name:  # i.e. "${_}" -> ""
-                return
-            if name in seen:
-                self.report(
-                    self.duplicated_assigned_var_name,
-                    variable_name=var_name,
-                    node=node,
-                    lineno=var.lineno,
-                    col=var.col_offset + 1,
-                    end_col=var.col_offset + len(var.value) + 1,
-                )
-            else:
-                seen.add(name)
-
-    def visit_VariableSection(self, node: VariableSection) -> None:  # noqa: N802
-        self.generic_visit(node)
-
-    def visit_Variable(self, node: Variable) -> None:  # noqa: N802
-        if not node.name or node.errors:
-            return
-        var_name = normalize_robot_name(self.replace_chars(node.name, "${}@&"))
-        self.variables[var_name].append(node)
-
-    @staticmethod
-    def replace_chars(name: str, chars: str) -> str:
-        return "".join(c for c in name if c not in chars)
-
-    def visit_ResourceImport(self, node: ResourceImport) -> None:  # noqa: N802
-        if node.name:
-            self.resources[node.name].append(node)
-
-    def visit_LibraryImport(self, node: LibraryImport) -> None:  # noqa: N802
-        if not node.name:
-            return
-        lib_name = node.alias if node.alias else node.name
-        name_with_args = lib_name + "".join(token.value for token in node.get_tokens(Token.ARGUMENT))
-        self.libraries[name_with_args].append(node)
-
-    def visit_Metadata(self, node: Metadata) -> None:  # noqa: N802
-        if node.name is not None:
-            self.metadata[node.name + node.value].append(node)
-
-    def visit_VariablesImport(self, node: VariablesImport) -> None:  # noqa: N802
-        if not node.name:
-            return
-        # only YAML files can't have arguments - covered in E0404 variables-import-with-args
-        if node.name.endswith((".yaml", ".yml")) and node.get_token(Token.ARGUMENT):
-            return
-        name_with_args = node.name + "".join(token.value for token in node.data_tokens[2:])
-        self.variable_imports[name_with_args].append(node)
-
-    def visit_Arguments(self, node: Arguments) -> None:  # noqa: N802
-        args = set()
-        for arg in node.get_tokens(Token.ARGUMENT):
-            orig, *_ = arg.value.split("=", maxsplit=1)
-            name = normalize_robot_var_name(orig, strip_type=TYPE_SUPPORTED)
-            if name in args:  # TODO could be handled with other variables rules
-                self.report(
-                    self.duplicated_argument_name,
-                    argument_name=orig,
-                    node=node,
-                    lineno=arg.lineno,
-                    col=arg.col_offset + 1,
-                    end_col=arg.col_offset + len(orig) + 1,
-                )
-            else:
-                args.add(name)
-
-    def visit_Error(self, node: Error) -> None:  # noqa: N802
-        for error in node.errors:
-            if "is allowed only once" in error:
-                self.report(
-                    self.duplicated_setting,
-                    error_msg=error,
-                    node=node,
-                    col=node.data_tokens[0].col_offset + 1,
-                    end_col=node.data_tokens[0].end_col_offset + 1,
-                )
-
-
-class SectionHeadersChecker(VisitorChecker):
-    """Checker for duplicated or out of order section headers."""
-
-    section_already_defined: SectionAlreadyDefinedRule
-    section_out_of_order: order.SectionOutOfOrderRule
-    both_tests_and_tasks: BothTestsAndTasksRule
-
-    def __init__(self) -> None:
-        self.sections_by_order: list[int] = []
-        self.sections_by_existence: dict[str, int] = {}
-        super().__init__()
-
-    @staticmethod
-    def section_order_to_str(order: dict[str, int]) -> str:
-        by_index = sorted(order.items(), key=lambda x: x[1])
-        name_map = {
-            Token.COMMENT_HEADER: "Comments",
-            Token.SETTING_HEADER: "Settings",
-            Token.VARIABLE_HEADER: "Variables",
-            Token.TESTCASE_HEADER: "Test Cases / Tasks",
-            "TASK HEADER": "Test Cases / Tasks",
-            Token.KEYWORD_HEADER: "Keywords",
-        }
-        order_str = []
-        for name, _ in by_index:
-            mapped_name = name_map[name]
-            if mapped_name not in order_str:
-                order_str.append(mapped_name)
-        return " > ".join(order_str)
-
-    def visit_File(self, node: File) -> None:  # noqa: N802
-        self.sections_by_order = []
-        self.sections_by_existence = {}
-        super().visit_File(node)
-
-    def visit_SectionHeader(self, node: SectionHeader) -> None:  # noqa: N802
-        section_name = node.type
-        if section_name not in self.section_out_of_order.sections_order:
-            return
-        if section_name in (Token.TESTCASE_HEADER, "TASK HEADER"):
-            # a bit awkward implementation because before RF 6.0 task header used TESTCASE_HEADER type
-            if "task" in node.name.lower():
-                section_name = "TASK HEADER"
-                if Token.TESTCASE_HEADER in self.sections_by_existence:
-                    self.report(
-                        self.both_tests_and_tasks, node=node, col=node.col_offset + 1, end_col=node.end_col_offset
-                    )
-            elif "TASK HEADER" in self.sections_by_existence:
-                self.report(self.both_tests_and_tasks, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-        order_id = self.section_out_of_order.sections_order[section_name]
-        if section_name in self.sections_by_existence:
-            self.report(
-                self.section_already_defined,
-                section_name=node.data_tokens[0].value,
-                first_occurrence_line=self.sections_by_existence[section_name],
-                node=node,
-                end_col=node.end_col_offset,
-            )
-        else:
-            self.sections_by_existence[section_name] = node.lineno
-        if any(previous_id > order_id for previous_id in self.sections_by_order):
-            token = node.data_tokens[0]
-            self.report(
-                self.section_out_of_order,
-                section_name=token.value,
-                recommended_order=self.section_order_to_str(self.section_out_of_order.sections_order),
-                node=node,
-                end_col=token.end_col_offset + 1,
-            )
-        self.sections_by_order.append(order_id)
+    name = "duplicated-variable-in-project"
+    project_rule = True
+    rule_id = "DUP11"
+    message = "Variable '{name}' is also defined in '{first_source}' (line {first_occurrence_line})"
+    severity = RuleSeverity.WARNING
+    enabled = False
+    added_in_version = "9.0.0"
+    sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
+        clean_code=sonar_qube.CleanCodeAttribute.DISTINCT, issue_type=sonar_qube.SonarQubeIssueType.BUG
+    )

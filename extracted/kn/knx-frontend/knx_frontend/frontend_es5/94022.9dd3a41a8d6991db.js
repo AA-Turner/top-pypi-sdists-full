@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkknx_frontend=self.rspackChunkknx_frontend||[]).push([[94022],{77509(e,t,a){a.r(t);a(3362);var s=a(15697),r=a(57527),n=a(51209);class i extends r.mN{static async generate(e){return{views:[{strategy:e}]}}static getCreateSuggestions(e){return{title:e.localize("panel.map"),icon:"mdi:map"}}}i.registryDependencies=[],i.noEditor=!0,i=(0,s.Cg)([(0,n.EM)("map-dashboard-strategy")],i),a.d(t,{MapDashboardStrategy:()=>i})}}]);
+//# sourceMappingURL=94022.9dd3a41a8d6991db.js.map

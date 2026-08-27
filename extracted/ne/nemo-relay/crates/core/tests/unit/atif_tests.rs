@@ -668,6 +668,38 @@ fn test_exporter_omits_null_tool_observation_content() {
 }
 
 #[test]
+fn test_exporter_preserves_annotation_when_tool_result_is_null() {
+    let exporter = AtifExporter::new("session-1".to_string(), make_agent_info());
+    let tool_uuid = Uuid::now_v7();
+    let annotation = json!({"cache": {"hit": true}});
+
+    // Managed execution normalizes a JSON-null result to absent event data,
+    // while the opaque result annotation remains in the category profile.
+    let mut end = event_builder(tool_uuid, EventType::End)
+        .name("noop")
+        .scope_type(ScopeType::Tool)
+        .tool_call_id("call_123")
+        .build();
+    end.category_profile_mut().unwrap().tool_result_annotation = Some(annotation.clone());
+
+    {
+        let mut state = exporter.state.lock().unwrap();
+        state.events.push(end);
+    }
+
+    let trajectory = exporter.export().unwrap();
+    let result = &trajectory.steps[0].observation.as_ref().unwrap().results[0];
+
+    assert_eq!(result.content, None);
+    assert_eq!(
+        result.extra.as_ref().unwrap()["tool_result_annotation"],
+        annotation
+    );
+    assert!(result.extra.as_ref().unwrap().get("tool_result").is_none());
+    assert!(observation_result_has_tool_result_extra(result));
+}
+
+#[test]
 fn test_exporter_moves_structured_tool_close_result_to_observation_extra() {
     let exporter = AtifExporter::new("session-1".to_string(), make_agent_info());
     let tool_uuid = Uuid::now_v7();
@@ -2311,6 +2343,7 @@ fn test_exporter_openai_responses_function_calls_promoted_and_correlated() {
                 },
                 {
                     "type": "function_call",
+                    "id": "fc_terminal_item_1",
                     "call_id": "call_terminal_1",
                     "name": "terminal",
                     "arguments": "{\"command\":\"pwd\"}",
@@ -2328,13 +2361,15 @@ fn test_exporter_openai_responses_function_calls_promoted_and_correlated() {
         .output(json!({"stdout": "/workspace"}))
         .build();
 
-    for (offset, event) in [&mut llm_end, &mut tool_end].into_iter().enumerate() {
+    // Streaming clients can execute and finish a tool before Relay receives the
+    // delayed LLM end event containing the complete Responses output.
+    for (offset, event) in [&mut tool_end, &mut llm_end].into_iter().enumerate() {
         set_event_timestamp(event, base + chrono::Duration::seconds(offset as i64));
     }
 
     {
         let mut state = exporter.state.lock().unwrap();
-        state.events.extend([llm_end, tool_end]);
+        state.events.extend([tool_end, llm_end]);
     }
 
     let trajectory = exporter.export().unwrap();
@@ -2353,6 +2388,165 @@ fn test_exporter_openai_responses_function_calls_promoted_and_correlated() {
     let result = &agent_step.observation.as_ref().unwrap().results[0];
     assert_eq!(result.source_call_id.as_deref(), Some("call_terminal_1"));
     assert_structured_observation_result_extra(result, json!({"stdout": "/workspace"}));
+}
+
+#[test]
+fn test_openai_responses_tool_call_ids_use_invocation_ids_with_fallbacks() {
+    let calls = extract_tool_calls(&json!({
+        "output": [
+            {
+                "type": "function_call",
+                "id": "fc_item_1",
+                "call_id": "call_1",
+                "name": "first",
+                "arguments": "{}"
+            },
+            {
+                "type": "function_call",
+                "id": "fc_item_2",
+                "call_id": null,
+                "name": "second",
+                "arguments": "{}"
+            },
+            {
+                "type": "function_call",
+                "id": "fc_item_3",
+                "call_id": "",
+                "name": "third",
+                "arguments": "{}"
+            },
+            {
+                "type": "function_call",
+                "tool_call_id": "legacy_call_4",
+                "name": "fourth",
+                "arguments": "{}"
+            },
+            {
+                "type": "function_call",
+                "name": "fifth",
+                "arguments": "{}"
+            },
+            {
+                "type": "function_call",
+                "id": "fc_item_6",
+                "call_id": 42,
+                "name": "sixth",
+                "arguments": "{}"
+            }
+        ]
+    }))
+    .expect("Responses function calls");
+
+    assert_eq!(calls.len(), 6);
+    assert_eq!(calls[0].tool_call_id, "call_1");
+    assert_eq!(calls[1].tool_call_id, "fc_item_2");
+    assert_eq!(calls[2].tool_call_id, "fc_item_3");
+    assert_eq!(calls[3].tool_call_id, "legacy_call_4");
+    assert_eq!(calls[4].tool_call_id, "fifth:5");
+    assert_eq!(calls[5].tool_call_id, "fc_item_6");
+}
+
+#[test]
+fn test_non_responses_tool_calls_preserve_provider_id_semantics() {
+    let chat_calls = extract_tool_calls(&json!({
+        "tool_calls": [
+            {
+                "type": "function",
+                "id": "chat_call_1",
+                "call_id": "responses_call_1",
+                "tool_call_id": "legacy_call_1",
+                "function": {"name": "chat_tool", "arguments": "{}"}
+            },
+            {
+                "type": "function",
+                "call_id": "responses_call_2",
+                "tool_call_id": "legacy_call_2",
+                "function": {"name": "chat_tool_2", "arguments": "{}"}
+            },
+            {
+                "type": "function",
+                "id": null,
+                "tool_call_id": "legacy_call_3",
+                "function": {"name": "chat_tool_3", "arguments": "{}"}
+            },
+            {
+                "type": "function",
+                "id": "",
+                "call_id": "responses_call_4",
+                "function": {"name": "chat_tool_4", "arguments": "{}"}
+            },
+            {
+                "type": "function",
+                "id": 42,
+                "tool_call_id": "legacy_call_5",
+                "function": {"name": "chat_tool_5", "arguments": "{}"}
+            },
+            {
+                "type": "function",
+                "id": null,
+                "tool_call_id": "",
+                "call_id": false,
+                "function": {"name": "chat_tool_6", "arguments": "{}"}
+            }
+        ]
+    }))
+    .expect("Chat Completions tool call");
+    assert_eq!(chat_calls[0].tool_call_id, "chat_call_1");
+    assert_eq!(chat_calls[1].tool_call_id, "legacy_call_2");
+    assert_eq!(chat_calls[2].tool_call_id, "legacy_call_3");
+    assert_eq!(chat_calls[3].tool_call_id, "responses_call_4");
+    assert_eq!(chat_calls[4].tool_call_id, "legacy_call_5");
+    assert_eq!(chat_calls[5].tool_call_id, "chat_tool_6:6");
+
+    let anthropic_calls = extract_tool_calls(&json!({
+        "type": "message",
+        "content": [
+            {
+                "type": "tool_use",
+                "id": "toolu_1",
+                "call_id": "responses_call_1",
+                "name": "anthropic_tool",
+                "input": {}
+            },
+            {
+                "type": "tool_use",
+                "id": null,
+                "tool_call_id": "toolu_2",
+                "name": "anthropic_tool_2",
+                "input": {}
+            }
+        ]
+    }))
+    .expect("Anthropic tool use");
+    assert_eq!(anthropic_calls[0].tool_call_id, "toolu_1");
+    assert_eq!(anthropic_calls[1].tool_call_id, "toolu_2");
+}
+
+#[test]
+fn test_generic_tool_calls_keep_precedence_over_responses_output() {
+    let calls = extract_tool_calls(&json!({
+        "tool_calls": [
+            {
+                "type": "function",
+                "id": "generic_call_1",
+                "function": {"name": "generic_tool", "arguments": "{}"}
+            }
+        ],
+        "output": [
+            {
+                "type": "function_call",
+                "id": "fc_item_1",
+                "call_id": "responses_call_1",
+                "name": "responses_tool",
+                "arguments": "{}"
+            }
+        ]
+    }))
+    .expect("generic tool calls");
+
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].tool_call_id, "generic_call_1");
+    assert_eq!(calls[0].function_name, "generic_tool");
 }
 
 #[test]

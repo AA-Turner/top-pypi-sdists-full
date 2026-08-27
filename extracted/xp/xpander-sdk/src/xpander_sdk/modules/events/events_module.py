@@ -22,6 +22,7 @@ from httpx_sse import aconnect_sse
 from loguru import logger
 from pydantic import BaseModel
 
+from xpander_sdk.utils.agno_output_parsing import normalize_json_mode_result
 from xpander_sdk.utils.answer_guards import (
     PROMISE_CONTINUATION_NUDGE,
     is_promise_only_answer,
@@ -686,6 +687,9 @@ class Events(ModuleBase):
                         task.result = task.result.model_dump_json()
                     if isinstance(task.result, dict) or isinstance(task.result, list):
                         task.result = py_json.dumps(task.result)
+                    # a str here means schema validation failed; it may still be repairable JSON
+                    if isinstance(task.result, str):
+                        task.result = normalize_json_mode_result(task.result) or task.result
             except Exception:
                 pass
 

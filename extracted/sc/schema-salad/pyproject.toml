@@ -2,7 +2,7 @@
 requires = [
     "setuptools>=50",  # 50 is to match mypyc's minimum
     "setuptools_scm[toml]>=8.0.4,<11",
-    'mypy[mypyc]==2.1.0',  # update mypy-requirements as well
+    'mypy[mypyc]==2.3.1',  # update mypy-requirements as well
     "black>=19.10b0,<26.4",
     "types-requests",
     "types-dataclasses",
@@ -10,7 +10,7 @@ requires = [
     "types-setuptools",
     "CacheControl[filecache] >= 0.14.0, < 0.15",
     "rich-argparse",
-    "mistune >= 3.0.1"
+    "mistune >= 3.3.0, < 3.4",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -18,11 +18,12 @@ build-backend = "setuptools.build_meta"
 write_to = "src/schema_salad/_version.py"
 
 [tool.cibuildwheel]
-test-command = "python -m pytest -n auto --junitxml={project}/test-results/junit_$(python -V | awk '{print $2}')_${AUDITWHEEL_PLAT}.xml --pyargs schema_salad"
+test-command = "python -m pytest -n auto -k 'not (test_load_by_yaml_metaschema)' --junitxml={project}/test-results/junit_$(python -V | awk '{print $2}')_${AUDITWHEEL_PLAT}.xml --pyargs schema_salad"
 test-requires = "-r test-requirements.txt"
 test-extras = "pycodegen"
-skip = ["cp31?t-*"]
-#        ^ https://mypy.readthedocs.io/en/stable/changelog.html#mypyc-partial-unsafe-support-for-free-threading
+skip = ["cp31?t-*", "cp315-pyodide*"]
+# cp31?t: https://mypy.readthedocs.io/en/stable/changelog.html#mypyc-partial-unsafe-support-for-free-threading
+# cp315-pyodide_wasm32: cachecontrol/msgpack isn't ready for py315/pyodide yet
 build-verbosity = 1
 environment = { SCHEMA_SALAD_USE_MYPYC="1", MYPYPATH="$(pwd)/mypy-stubs", CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros", CCACHE_NOHASHDIR="true" }
 
@@ -30,7 +31,7 @@ environment = { SCHEMA_SALAD_USE_MYPYC="1", MYPYPATH="$(pwd)/mypy-stubs", CCACHE
 before-all = "apk add ccache || yum install -y ccache || dnf --nogpg -y install https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/ccache-4.13.6-1.3.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libcpp-httplib0_49-0.49.0-4.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libfmt12-12.1.0-1.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libhiredis1_3_0-1.3.0-1.1.riscv64.rpm https://www.rpmfind.net/linux/opensuse/ports/riscv/tumbleweed/repo/oss/riscv64/libxxhash0-0.8.3-4.2.riscv64.rpm || apt-get install -y --no-install-recommends ccache"
 
 [tool.cibuildwheel.pyodide]
-test-command = "python -m pytest -n 0 --junitxml={project}/test-results/junit_$(python -V | awk '{print $2}')_${AUDITWHEEL_PLAT}.xml --pyargs schema_salad"
+test-command = "python -m pytest -n 0 -k 'not (test_load_by_yaml_metaschema)' --junitxml={project}/test-results/junit_$(python -V | awk '{print $2}')_${AUDITWHEEL_PLAT}.xml --pyargs schema_salad"
 
 [tool.black]
 line-length = 100

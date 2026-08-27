@@ -950,7 +950,7 @@ class SweepIntervalMixin(BaseMixin):
         cache = self._create_sweep_cache(maxsize=10)
         assert cache.sweep_interval is None
         assert cache._thread is None
-        assert cache._thread_is_running is False
+        assert cache._stop_event.is_set() is False
 
     def test_numeric_sweep_interval_starts_thread(self):
         cache = self._create_sweep_cache(maxsize=10, sweep_interval=1)
@@ -958,7 +958,7 @@ class SweepIntervalMixin(BaseMixin):
         try:
             assert cache._thread is not None
             assert cache._thread.is_alive()
-            assert cache._thread_is_running is True
+            assert cache._stop_event.is_set() is False
         finally:
             cache.stop_sweeper()
 
@@ -990,7 +990,7 @@ class SweepIntervalMixin(BaseMixin):
 
     def test_sweep_interval_below_1_raises(self):
         with pytest.raises(
-            ValueError, match="sweep_interval must be more than 1 seconds"
+            ValueError, match="sweep_interval must be at least 1 second."
         ):
             self._create_sweep_cache(maxsize=10, sweep_interval=0.5)
 
@@ -1018,20 +1018,20 @@ class SweepIntervalMixin(BaseMixin):
 
     def test_stop_sets_flag_false(self):
         cache = self._create_sweep_cache(maxsize=10, sweep_interval=1)
-        assert cache._thread_is_running is True
+        assert cache._stop_event.is_set() is False
         cache.stop_sweeper()
-        assert cache._thread_is_running is False
+        assert cache._stop_event.is_set() is True
 
     def test_stop_on_cache_without_sweeper_is_safe(self):
         cache = self._create_sweep_cache(maxsize=10)
         cache.stop_sweeper()  # should not raise
-        assert cache._thread_is_running is False
+        assert cache._stop_event.is_set() is True
 
     def test_stop_idempotent(self):
         cache = self._create_sweep_cache(maxsize=10, sweep_interval=1)
         cache.stop_sweeper()
         cache.stop_sweeper()  # second call must not raise
-        assert cache._thread_is_running is False
+        assert cache._stop_event.is_set() is True
 
     def test_thread_eventually_stops_after_signal(self):
         cache = self._create_sweep_cache(maxsize=10, sweep_interval=1)
@@ -1091,14 +1091,14 @@ class SweepIntervalMixin(BaseMixin):
         cache = self._create_sweep_cache(maxsize=10, sweep_interval=30)  # long interval
         thread = cache._thread
         cache.stop_sweeper()
-        assert cache._thread_is_running is False
+        assert cache._stop_event.is_set() is True
         assert thread is not None
 
     def test_del_stops_sweeper(self):
         cache = self._create_sweep_cache(maxsize=10, sweep_interval=1)
-        assert cache._thread_is_running is True
+        assert cache._stop_event.is_set() is False
         cache.__del__()
-        assert cache._thread_is_running is False
+        assert cache._stop_event.is_set() is True
 
     def test_del_without_sweeper_is_safe(self):
         cache = self._create_sweep_cache(maxsize=10)

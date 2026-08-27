@@ -57,6 +57,16 @@ logger = logging.getLogger(__name__)
 # does not start racing a legitimately slow add.
 PRODUCER_READY_TIMEOUT_SEC = float(os.environ.get("MATRICE_PRODUCER_READY_TIMEOUT_SEC", "60.0"))
 
+# How long remove_camera() waits for the worker's "removed" ACK before returning.
+# The worker emits it after _terminate_subprocess (terminate→join 5s→kill→join 3s),
+# so this must be > ~8s.
+REMOVE_ACK_TIMEOUT_SEC = float(os.environ.get("MATRICE_REMOVE_ACK_TIMEOUT_SEC", "10.0"))
+
+# If a GPU worker's command handler stops emitting "handler_alive" for this long
+# while the process is alive and frames still advance, the watchdog treats the
+# handler as wedged and restarts the worker.
+HANDLER_STALE_SEC = float(os.environ.get("MATRICE_HANDLER_STALE_SEC", "30.0"))
+
 # How many times add_camera() attempts the ADD -> producer_ready handshake before
 # giving up and rolling the camera back. A transient RTSP blip or a media server
 # mid-bounce should cost a retry, not the camera: the old single-shot behaviour
@@ -82,11 +92,25 @@ FRAME_STALL_THRESHOLD_SEC = float(os.environ.get("MATRICE_FRAME_STALL_THRESHOLD_
 
 # Circuit breaker: if a single GPU worker triggers more than this many
 # stuck-but-alive restarts inside CIRCUIT_BREAKER_WINDOW_SEC, the watchdog
-# stops restarting it and emits a critical warning instead. This prevents
-# thrashing where each restart blows away SHM files for all cameras on
-# the GPU and starts the cycle again. Override via MATRICE_WATCHDOG_*.
+# PARKS it -- slowing restarts to one per CIRCUIT_BREAKER_COOLDOWN_SEC rather
+# than stopping them. This prevents thrashing where each restart blows away SHM
+# files for all cameras on the GPU and starts the cycle again, without ever
+# abandoning the GPU. Override via MATRICE_WATCHDOG_*.
 CIRCUIT_BREAKER_MAX_RESTARTS = int(os.environ.get("MATRICE_WATCHDOG_MAX_RESTARTS", "3"))
 CIRCUIT_BREAKER_WINDOW_SEC = float(os.environ.get("MATRICE_WATCHDOG_WINDOW_SEC", "300.0"))
+
+#: How long a tripped breaker stays parked before it re-arms ITSELF and resumes
+#: restarting. The breaker exists to stop thrashing, not to abandon a GPU: every
+#: restart wipes SHM for every camera on it, so restarting once per cooldown is
+#: right and restarting every 120s is not. It used to have no expiry at all --
+#: a tripped GPU stayed dark for the life of the process, its cameras silently
+#: at 0 fps, and only a gateway restart brought them back.
+CIRCUIT_BREAKER_COOLDOWN_SEC = float(os.environ.get("MATRICE_WATCHDOG_BREAKER_COOLDOWN_SEC", "600.0"))
+
+#: How often to say a GPU is still parked. The park used to be completely silent
+#: after its one ERROR, so a GPU dark for hours was indistinguishable in the logs
+#: from a healthy one.
+CIRCUIT_BREAKER_WARN_INTERVAL_SEC = float(os.environ.get("MATRICE_WATCHDOG_BREAKER_WARN_SEC", "300.0"))
 
 
 def is_nvdec_available() -> bool:
@@ -259,6 +283,25 @@ class NVDECWorkerManager:
         self._pending_adds: Dict[str, Dict[str, Any]] = {}
         self._pending_adds_lock = threading.Lock()
 
+        # Per-camera pending-REMOVE state, mirroring pending-adds: remove_camera()
+        # arms an entry, sends the IPC command, and waits for the worker's
+        # "removed" ACK so it does not blind-return success.
+        self._pending_removes: Dict[str, Dict[str, Any]] = {}
+        self._pending_removes_lock = threading.Lock()
+
+        # Last time each GPU's command handler emitted a "handler_alive"
+        # heartbeat. The watchdog uses this to detect a wedged handler (process
+        # alive + frames advancing, but not consuming commands).
+        self._handler_last_seen: Dict[int, float] = {}
+
+        # Serializes mutations to camera_configs / _camera_to_gpu / _stream_configs
+        # / _gpu_camera_assignments across the main add/remove/update threads AND
+        # the status-drain / watchdog threads (which previously mutated/read them
+        # with no lock — a torn-config race). Re-entrant so a holder may call
+        # _prepare_camera_configs(). LOCK ORDERING: DCM._lock (outer) → this
+        # (inner); never call back into DCM while holding this lock.
+        self._config_lock = threading.RLock()
+
         # Last time the per-GPU frame counter was observed to advance. Used by
         # the readiness watchdog to detect "alive but stuck" workers.
         self._gpu_last_advance_at: Dict[int, float] = {}
@@ -272,6 +315,11 @@ class NVDECWorkerManager:
         # Set of GPUs the circuit breaker has tripped on; remains tripped until
         # a manual reset (e.g., via gateway restart).
         self._gpu_circuit_tripped: Set[int] = set()
+        # When each parked GPU was parked, and when it last said so. Both are what
+        # let the park expire and stay audible instead of being a one-line ERROR
+        # followed by permanent silence.
+        self._gpu_circuit_tripped_at: Dict[int, float] = {}
+        self._gpu_circuit_last_warn: Dict[int, float] = {}
 
         # Callback into DynamicCameraManager so a worker-reported add_failed
         # cleans up the parent's `cameras` dict / GpuCameraMap entry.
@@ -378,7 +426,10 @@ class NVDECWorkerManager:
         if self.num_gpus <= 1:
             return self.gpu_id
 
-        # 2) Deterministic MD5 consistent hash.
+        # 2) Deterministic MD5 consistent hash. Placement only, never a security
+        # digest, and usedforsecurity=False is already set. Changing the algorithm
+        # would re-place every existing camera onto a different GPU.
+        # nosemgrep: hashlib-md5-or-sha1
         hash_bytes = hashlib.md5(camera_id.encode(), usedforsecurity=False).digest()[:4]
         hash_val = int.from_bytes(hash_bytes, "little")
         return (self.gpu_id + hash_val) % self.num_gpus
@@ -388,6 +439,19 @@ class NVDECWorkerManager:
     # ========================================================================
 
     def _prepare_camera_configs(self):
+        """Serialized entry point for the config rebuild.
+
+        Holds ``_config_lock`` so a status-drain / watchdog thread cannot rebuild
+        the config concurrently with a main-thread add/remove (a torn-state race).
+        Re-entrant: callers already holding the lock re-enter harmlessly.
+        """
+        with self._config_lock:
+            self._prepare_camera_configs_unlocked()
+        # Outside the lock: this touches only breaker state, and the watchdog thread
+        # reads it without the config lock.
+        self._reset_restart_circuit_breakers("camera configuration was rebuilt")
+
+    def _prepare_camera_configs_unlocked(self):
         """Convert dict configs to StreamConfig and distribute across GPUs.
 
         Ring buffers are named using camera_id for SHM identification.
@@ -1021,6 +1085,128 @@ class NVDECWorkerManager:
         except (ValueError, AttributeError):
             return f" (signal {-exit_code})"
 
+    def _breaker_parks_gpu(self, gpu_id: int, now: float, cameras: int) -> bool:
+        """True if the restart breaker is currently holding this GPU back.
+
+        Three behaviours the old ``if gpu_id in self._gpu_circuit_tripped: continue``
+        did not have:
+
+        * **It expires.** After ``CIRCUIT_BREAKER_COOLDOWN_SEC`` the park lifts by
+          itself and restarts resume, so a GPU is never abandoned for the life of
+          the process. The breaker's job is to stop a 120s restart *thrash* -- each
+          one wipes SHM for every camera on the GPU -- not to stop trying.
+        * **It says so.** A parked GPU logs a WARNING every
+          ``CIRCUIT_BREAKER_WARN_INTERVAL_SEC`` carrying how long it has been dark,
+          how many cameras are on it, and when the next attempt is due. Previously
+          the park emitted one ERROR and then nothing at all.
+        * **It clears its strikes on re-arm**, so the next trip needs a fresh run of
+          ``CIRCUIT_BREAKER_MAX_RESTARTS`` rather than tripping again on the first
+          stall because the old timestamps were still inside the window.
+        """
+        if gpu_id not in self._gpu_circuit_tripped:
+            return False
+
+        parked_at = self._gpu_circuit_tripped_at.get(gpu_id)
+        if parked_at is None:
+            # Parked by an older code path (or a test) that recorded no timestamp:
+            # anchor it now rather than parking it forever, which is the bug this
+            # method exists to remove.
+            parked_at = now
+            self._gpu_circuit_tripped_at[gpu_id] = now
+
+        parked_for = now - parked_at
+        if parked_for >= CIRCUIT_BREAKER_COOLDOWN_SEC:
+            self._gpu_circuit_tripped.discard(gpu_id)
+            self._gpu_circuit_tripped_at.pop(gpu_id, None)
+            self._gpu_circuit_last_warn.pop(gpu_id, None)
+            self._gpu_restart_history.pop(gpu_id, None)
+            logger.warning(
+                "Watchdog: GPU %s restart breaker re-armed by itself after %.0fs parked "
+                "(%d camera(s)); resuming restart attempts.",
+                gpu_id,
+                parked_for,
+                cameras,
+            )
+            return False
+
+        last_warn = self._gpu_circuit_last_warn.get(gpu_id, 0.0)
+        if now - last_warn >= CIRCUIT_BREAKER_WARN_INTERVAL_SEC:
+            self._gpu_circuit_last_warn[gpu_id] = now
+            logger.warning(
+                "Watchdog: GPU %s still parked by the restart breaker - dark %.0fs, "
+                "%d camera(s) affected, next restart attempt in %.0fs. "
+                "Investigate the root cause (slow RTSP source? NVDEC saturation? "
+                "stale declared resolution? driver wedge?).",
+                gpu_id,
+                parked_for,
+                cameras,
+                CIRCUIT_BREAKER_COOLDOWN_SEC - parked_for,
+            )
+        return True
+
+    def _breaker_admit_restart(self, gpu_id: int, now: float, cameras: int, kind: str) -> Optional[int]:
+        """May the watchdog restart this GPU right now? Returns the attempt number.
+
+        ``None`` means no: either the breaker already has the GPU parked (see
+        ``_breaker_parks_gpu``), or this attempt would exceed
+        ``CIRCUIT_BREAKER_MAX_RESTARTS`` inside ``CIRCUIT_BREAKER_WINDOW_SEC``, in
+        which case the GPU is parked here. Restarting is expensive -- each one wipes
+        the SHM segments of every camera on the GPU and cascades reconnects on the
+        inference side -- so a GPU that stays stuck through repeated restarts is
+        slowed to one attempt per cooldown rather than thrashed. It is never
+        abandoned: the park expires by itself.
+
+        Shared by both watchdog paths (a wedged command handler and a stalled frame
+        counter), which previously carried near-identical copies of this budget logic
+        and could therefore drift apart.
+        """
+        if self._breaker_parks_gpu(gpu_id, now, cameras):
+            return None
+        history = self._gpu_restart_history.setdefault(gpu_id, [])
+        cutoff = now - CIRCUIT_BREAKER_WINDOW_SEC
+        history[:] = [ts for ts in history if ts >= cutoff]
+        if len(history) >= CIRCUIT_BREAKER_MAX_RESTARTS:
+            self._gpu_circuit_tripped.add(gpu_id)
+            self._gpu_circuit_tripped_at[gpu_id] = now
+            logger.error(
+                f"Watchdog: GPU {gpu_id} {kind} restart circuit breaker TRIPPED after "
+                f"{len(history)} restarts in {CIRCUIT_BREAKER_WINDOW_SEC:.0f}s "
+                f"({cameras} cameras assigned). Slowing to one attempt every "
+                f"{CIRCUIT_BREAKER_COOLDOWN_SEC:.0f}s - retries continue and each is logged; "
+                f"investigate the root cause (slow RTSP source? NVDEC saturation? stale "
+                f"declared resolution? driver wedge?)."
+            )
+            return None
+        history.append(now)
+        return len(history)
+
+    def _reset_restart_circuit_breakers(self, reason: str) -> None:
+        """Re-arm every parked GPU, because the inputs just changed.
+
+        A config rebuild is an operator action -- an add, a remove, an update, a
+        corrected resolution. The breaker's premise ("stuck for hours despite
+        repeated restarts, so stop thrashing it") no longer holds against inputs
+        that just changed, so release it rather than making the operator wait out
+        the cooldown. Before this existed there was no reset path at all: a
+        corrected config could not revive a parked GPU and only a gateway restart
+        would.
+
+        Also clears the restart history, so the next trip needs a fresh
+        CIRCUIT_BREAKER_MAX_RESTARTS run rather than inheriting old strikes.
+        """
+        tripped = sorted(self._gpu_circuit_tripped)
+        self._gpu_circuit_tripped.clear()
+        self._gpu_circuit_tripped_at.clear()
+        self._gpu_circuit_last_warn.clear()
+        self._gpu_restart_history.clear()
+        if tripped:
+            logger.warning(
+                "Watchdog: restart circuit breaker re-armed for GPU(s) %s (%s). "
+                "Restart attempts resume at the normal cadence.",
+                tripped,
+                reason,
+            )
+
     def _worker_watchdog(self) -> None:
         """Periodically check for dead OR stuck-but-alive GPU workers.
 
@@ -1046,9 +1232,42 @@ class NVDECWorkerManager:
                     exit_code = p.exitcode if p is not None else None
                     signal_name = self._format_exit_signal(exit_code)
                     logger.warning(f"Watchdog: GPU {gpu_id} worker died (exit={exit_code}{signal_name}), restarting")
+                    # Signal any decode sub-processes orphaned by the dead
+                    # orchestrator to stop (they watch this shared event via
+                    # _AnyStop) so they stop writing their SHM before the
+                    # replacement spawns on the same segments — prevents the
+                    # duplicate-producer split brain. They close but do NOT unlink
+                    # (unlink is REMOVE-only), so the segments are cleanly reused.
+                    _old_stop = self._gpu_stop_events.get(gpu_id)
+                    if _old_stop is not None:
+                        try:
+                            _old_stop.set()
+                        except Exception:  # nosec B110
+                            pass
                     self._gpu_workers.pop(gpu_id, None)
                     self._gpu_stop_events.pop(gpu_id, None)
+                    self._handler_last_seen.pop(gpu_id, None)
                     # Persistent queue preserved (step 6).
+                    self._start_gpu_worker(gpu_id)
+                    continue
+
+                # Handler-wedge path: the process is alive (and frames may still
+                # be advancing for existing cameras), but the command handler
+                # stopped consuming commands, so add/remove/update silently wedge.
+                # Detect via the handler_alive heartbeat and restart to recover.
+                last_hb = self._handler_last_seen.get(gpu_id)
+                if last_hb is not None and (time.monotonic() - last_hb) > HANDLER_STALE_SEC:
+                    cameras = len(self._gpu_camera_assignments.get(gpu_id, []))
+                    attempt = self._breaker_admit_restart(gpu_id, now, cameras, "handler-wedge")
+                    if attempt is None:
+                        continue
+                    logger.warning(
+                        f"Watchdog: GPU {gpu_id} command-handler heartbeat stale "
+                        f"({time.monotonic() - last_hb:.0f}s > {HANDLER_STALE_SEC:.0f}s) while the "
+                        f"process is alive — handler wedged; restarting worker."
+                    )
+                    self._stop_gpu_worker(gpu_id, timeout=5.0)
+                    self._handler_last_seen.pop(gpu_id, None)
                     self._start_gpu_worker(gpu_id)
                     continue
 
@@ -1062,35 +1281,19 @@ class NVDECWorkerManager:
                     continue
                 stuck_for = now - self._gpu_last_advance_at.get(gpu_id, now)
                 if stuck_for > FRAME_STALL_THRESHOLD_SEC:
-                    # Circuit breaker: if this GPU has been restarted too many
-                    # times in the recent window, stop restarting it. Each
-                    # restart blows away all SHM files for cameras on this GPU
-                    # and triggers a cascade of reconnects on the IE side; a
-                    # GPU stuck for hours despite repeated restarts is better
-                    # left alone with a loud warning than thrashed forever.
-                    if gpu_id in self._gpu_circuit_tripped:
+                    # Restarting is expensive: each one blows away all SHM files for
+                    # cameras on this GPU and triggers a cascade of reconnects on the
+                    # IE side. The breaker slows a persistently-stuck GPU to one
+                    # attempt per cooldown -- it no longer abandons it.
+                    cameras = len(self._gpu_camera_assignments.get(gpu_id, []))
+                    attempt = self._breaker_admit_restart(gpu_id, now, cameras, "frame-stall")
+                    if attempt is None:
                         continue
-                    history = self._gpu_restart_history.setdefault(gpu_id, [])
-                    cutoff = now - CIRCUIT_BREAKER_WINDOW_SEC
-                    history[:] = [t for t in history if t >= cutoff]
-                    if len(history) >= CIRCUIT_BREAKER_MAX_RESTARTS:
-                        self._gpu_circuit_tripped.add(gpu_id)
-                        logger.error(
-                            f"Watchdog: GPU {gpu_id} restart circuit breaker TRIPPED "
-                            f"after {len(history)} restarts in "
-                            f"{CIRCUIT_BREAKER_WINDOW_SEC:.0f}s "
-                            f"({len(self._gpu_camera_assignments.get(gpu_id, []))} cameras "
-                            f"assigned). Leaving worker alone — investigate root cause "
-                            f"(slow RTSP source? NVDEC saturation? driver wedge?)."
-                        )
-                        continue
-                    history.append(now)
                     logger.warning(
                         f"Watchdog: GPU {gpu_id} worker alive but frame counter "
                         f"has not advanced for {stuck_for:.0f}s "
-                        f"({len(self._gpu_camera_assignments.get(gpu_id, []))} cameras "
-                        f"assigned). Restarting (attempt "
-                        f"{len(history)}/{CIRCUIT_BREAKER_MAX_RESTARTS} in "
+                        f"({cameras} cameras assigned). Restarting (attempt "
+                        f"{attempt}/{CIRCUIT_BREAKER_MAX_RESTARTS} in "
                         f"{CIRCUIT_BREAKER_WINDOW_SEC:.0f}s window)."
                     )
                     self._stop_gpu_worker(gpu_id, timeout=5.0)
@@ -1134,6 +1337,15 @@ class NVDECWorkerManager:
                 "reason": None,
             }
 
+    def _arm_pending_remove(self, camera_id: str) -> None:
+        """Create/replace pending-remove state before sending the REMOVE command.
+
+        Mirrors _arm_pending_add so a fast worker's "removed" ACK is not lost in
+        the window before remove_camera() enters _wait_for_removed().
+        """
+        with self._pending_removes_lock:
+            self._pending_removes[camera_id] = {"event": threading.Event()}
+
     def _drain_worker_status(self) -> None:
         """Consume producer_ready / add_failed messages from worker processes.
 
@@ -1164,8 +1376,25 @@ class NVDECWorkerManager:
 
     def _handle_worker_status(self, msg: Dict[str, Any]) -> None:
         msg_type = msg.get("type")
+
+        # Handler liveness heartbeat carries no camera_id — handle it before the
+        # cam-id guard below.
+        if msg_type == "handler_alive":
+            gpu_id = msg.get("gpu_id")
+            if gpu_id is not None:
+                self._handler_last_seen[gpu_id] = time.monotonic()
+            return
+
         cam_id = msg.get("camera_id")
         if not cam_id:
+            return
+
+        if msg_type == "removed":
+            with self._pending_removes_lock:
+                entry = self._pending_removes.get(cam_id)
+                if entry is not None:
+                    entry["event"].set()
+            logger.info(f"Camera {cam_id}: worker ACKed removed (owned={msg.get('owned')})")
             return
 
         if msg_type == "producer_ready":
@@ -1176,6 +1405,22 @@ class NVDECWorkerManager:
                 if entry is not None:
                     entry["result"] = "ready"
                     entry["event"].set()
+            # S9 reconciliation: a producer_ready with NO pending add AND no
+            # tracked GPU assignment means the manager already timed out and
+            # rolled this camera back, but the worker produced a live producer
+            # anyway (a post-timeout ACK). Do not leave it orphaned/untracked —
+            # send an explicit REMOVE so the worker tears it down.
+            if not has_pending and cam_id not in self._camera_to_gpu:
+                logger.warning(
+                    f"Camera {cam_id}: producer_ready with no pending add and not tracked "
+                    f"(post-timeout orphan) — sending reconcile REMOVE to GPU {gpu_id}"
+                )
+                if gpu_id is not None:
+                    try:
+                        self._send_worker_command(gpu_id, {"type": "remove", "camera_id": cam_id})
+                    except Exception as e:
+                        logger.warning(f"Failed to send reconcile-REMOVE for {cam_id}: {e}")
+                return
             # Publish the GpuCameraMap entry only now that the producer
             # actually exists (step 3 in fix plan).
             if gpu_id is not None and self._gpu_map is not None and (has_pending or cam_id in self._camera_to_gpu):
@@ -1239,29 +1484,39 @@ class NVDECWorkerManager:
         self.evict_camera_mapping(camera_id, reason=f"add_failed:{reason}")
 
     def _unregister_failed_camera(self, camera_id: str, reason: str) -> None:
-        """Drop a failed camera from internal state and notify DCM."""
-        # Tear the WORKER-side camera down FIRST — while _camera_to_gpu still
-        # holds its GPU assignment. See _teardown_worker_side_camera.
-        self._teardown_worker_side_camera(camera_id, reason)
+        """Drop a failed camera from internal state and notify DCM.
 
-        # Remove from local config / assignment dicts.
-        self.camera_configs = [
-            c for c in self.camera_configs if (c.get("camera_id") or c.get("stream_key")) != camera_id
-        ]
-        self._camera_to_gpu.pop(camera_id, None)
-        # Re-prepare so _stream_configs / _gpu_camera_assignments are consistent.
-        try:
-            self._prepare_camera_configs()
-        except Exception as e:
-            logger.warning(f"_prepare_camera_configs after failure cleanup raised: {e}")
-        # Clear from GpuCameraMap.
-        if self._gpu_map is not None:
+        Runs on the status-drain thread, so the config mutations are serialized
+        under ``_config_lock`` against a concurrent main-thread add/remove. The
+        DCM callback is invoked OUTSIDE the lock: it may take DCM._lock, and the
+        ordering is DCM._lock → _config_lock, so calling it while holding
+        _config_lock could deadlock.
+        """
+        with self._config_lock:
+            # Tear the WORKER-side camera down FIRST — while _camera_to_gpu still
+            # holds its GPU assignment. See _teardown_worker_side_camera.
+            self._teardown_worker_side_camera(camera_id, reason)
+
+            # Remove from local config / assignment dicts.
+            self.camera_configs = [
+                c for c in self.camera_configs if (c.get("camera_id") or c.get("stream_key")) != camera_id
+            ]
+            self._camera_to_gpu.pop(camera_id, None)
+            # Re-prepare so _stream_configs / _gpu_camera_assignments are consistent.
             try:
-                mappings = {cfg.camera_id: cfg.gpu_id for cfg in self._stream_configs}
-                self._gpu_map.set_bulk_mapping(mappings)
+                self._prepare_camera_configs()
             except Exception as e:
-                logger.warning(f"Failed to rewrite GpuCameraMap after failure: {e}")
+                logger.warning(f"_prepare_camera_configs after failure cleanup raised: {e}")
+            # Clear from GpuCameraMap.
+            if self._gpu_map is not None:
+                try:
+                    mappings = {cfg.camera_id: cfg.gpu_id for cfg in self._stream_configs}
+                    self._gpu_map.set_bulk_mapping(mappings)
+                except Exception as e:
+                    logger.warning(f"Failed to rewrite GpuCameraMap after failure: {e}")
+
         # Notify DCM so the upstream `cameras` dict and stats are reconciled.
+        # OUTSIDE _config_lock to avoid a DCM._lock ↔ _config_lock inversion.
         cb = self._on_camera_failed
         if cb is not None:
             try:
@@ -1281,7 +1536,8 @@ class NVDECWorkerManager:
             # nosec B310 - hardcoded http://localhost MediaMTX broker URL on
             # the same host network; not user-controlled, scheme is fixed http.
             with urllib.request.urlopen(  # nosec B310
-                f"http://localhost:9997/v3/paths/get/{camera_id}", timeout=2.0  # NOSONAR S5332: fixed internal loopback MediaMTX API, not user-controlled, scheme fixed http
+                f"http://localhost:9997/v3/paths/get/{camera_id}",
+                timeout=2.0,  # NOSONAR S5332: fixed internal loopback MediaMTX API, not user-controlled, scheme fixed http
             ) as r:
                 info = _json.loads(r.read())
             if not info.get("ready"):
@@ -1320,6 +1576,23 @@ class NVDECWorkerManager:
         if popped.get("result") == "ready":
             return True, None
         return False, popped.get("reason") or "unknown failure"
+
+    def _wait_for_removed(self, camera_id: str, timeout: float = REMOVE_ACK_TIMEOUT_SEC) -> bool:
+        """Block until the GPU worker ACKs 'removed' for camera_id.
+
+        Best-effort: returns True if the ACK arrived within ``timeout``, else
+        False (the caller falls back to its SHM backstop). The pending entry is
+        always cleared.
+        """
+        with self._pending_removes_lock:
+            entry = self._pending_removes.get(camera_id)
+            if entry is None:
+                entry = {"event": threading.Event()}
+                self._pending_removes[camera_id] = entry
+        signalled = entry["event"].wait(timeout=timeout)
+        with self._pending_removes_lock:
+            self._pending_removes.pop(camera_id, None)
+        return signalled
 
     def stop(self, timeout: float = 15.0) -> None:
         """Stop all worker processes and cancel any pending restart.
@@ -1407,8 +1680,9 @@ class NVDECWorkerManager:
             logger.debug(f"Camera {camera_id} already exists in NVDEC config, skipping add")
             return False
 
-        self.camera_configs.append(camera_config)
-        self._prepare_camera_configs()
+        with self._config_lock:
+            self.camera_configs.append(camera_config)
+            self._prepare_camera_configs()
         # NOTE: do NOT publish to GpuCameraMap yet — the producer SHM does
         # not exist until the worker emits producer_ready (drain thread
         # handles it). Optimistic mapping was the phantom-camera root cause
@@ -1469,8 +1743,7 @@ class NVDECWorkerManager:
                 # No running worker — start one with full config.
                 self._start_gpu_worker(gpu_id)
                 logger.info(
-                    f"Camera {camera_id}: started new GPU {gpu_id} worker "
-                    f"(attempt {attempt}/{HOTADD_MAX_ATTEMPTS})"
+                    f"Camera {camera_id}: started new GPU {gpu_id} worker (attempt {attempt}/{HOTADD_MAX_ATTEMPTS})"
                 )
 
             ok, reason = self._wait_for_producer_ready(camera_id)
@@ -1479,8 +1752,7 @@ class NVDECWorkerManager:
                     logger.info(f"Camera {camera_id}: hot-add succeeded on attempt {attempt}")
                 break
             logger.warning(
-                f"Camera {camera_id}: producer_ready NOT received on attempt "
-                f"{attempt}/{HOTADD_MAX_ATTEMPTS} ({reason})"
+                f"Camera {camera_id}: producer_ready NOT received on attempt {attempt}/{HOTADD_MAX_ATTEMPTS} ({reason})"
             )
 
         # All attempts exhausted: treat the camera as failed and roll back local
@@ -1504,34 +1776,55 @@ class NVDECWorkerManager:
             stream_key: Camera ID / stream key to remove
 
         Returns:
-            True if the camera was found and removed
+            True if the removal was effected (worker ACKed, or nothing was
+            running to stop). False only if the command was sent but the worker
+            did not ACK within the timeout — DCM then keeps the camera and the
+            next refresh retries, which self-heals (the retry no-ops and ACKs).
         """
-        # Get GPU assignment BEFORE removing from config
-        old_gpu_id = self._camera_to_gpu.get(stream_key)
+        # Capture the GPU assignment BEFORE dropping from config, then mutate the
+        # config under _config_lock (serialized vs the status-drain/watchdog).
+        with self._config_lock:
+            old_gpu_id = self._camera_to_gpu.get(stream_key)
 
-        found = False
-        for i, config in enumerate(self.camera_configs):
-            cid = config.get("camera_id") or config.get("stream_key")
-            if cid == stream_key:
-                del self.camera_configs[i]
-                found = True
-                break
+            found = False
+            for i, config in enumerate(self.camera_configs):
+                cid = config.get("camera_id") or config.get("stream_key")
+                if cid == stream_key:
+                    del self.camera_configs[i]
+                    found = True
+                    break
 
-        if not found:
-            logger.warning(f"Camera {stream_key} not found in NVDEC config")
-            return False
+            if not found:
+                logger.warning(f"Camera {stream_key} not found in NVDEC config")
+                return False
 
-        self._prepare_camera_configs()
+            self._prepare_camera_configs()
 
         if not self._is_running:
             logger.info(f"Camera {stream_key} removed from config (manager not yet started)")
             return True
 
+        # Send REMOVE and wait for the worker's "removed" ACK so we do not
+        # blind-return success while the decoder keeps running.
+        sent = False
+        acked = False
         if old_gpu_id is not None:
-            if self._send_worker_command(old_gpu_id, {"type": "remove", "camera_id": stream_key}):
+            self._arm_pending_remove(stream_key)
+            sent = self._send_worker_command(old_gpu_id, {"type": "remove", "camera_id": stream_key})
+            if sent:
                 logger.info(f"Camera {stream_key} → REMOVE command sent to GPU {old_gpu_id} worker")
+                acked = self._wait_for_removed(stream_key)
+                if not acked:
+                    logger.warning(
+                        f"Camera {stream_key}: no 'removed' ACK from GPU {old_gpu_id} within "
+                        f"{REMOVE_ACK_TIMEOUT_SEC:.0f}s"
+                    )
             else:
                 logger.warning(f"Camera {stream_key}: GPU {old_gpu_id} worker not running")
+                with self._pending_removes_lock:
+                    self._pending_removes.pop(stream_key, None)
+        else:
+            logger.warning(f"Camera {stream_key}: no GPU assignment recorded; nothing to REMOVE")
 
         # Explicitly evict the stale GpuCameraMap + placement-registry entry
         # for the removed camera so IE consumers don't keep retrying a cam
@@ -1543,7 +1836,20 @@ class NVDECWorkerManager:
             mappings = {cfg.camera_id: cfg.gpu_id for cfg in self._stream_configs}
             self._gpu_map.set_bulk_mapping(mappings)
 
-        return True
+        # Backstop: reap a genuinely-orphaned SHM segment. _clean_stale_shm_for
+        # refuses to unlink a segment a live process still holds, so this is safe
+        # and only covers a sub that was SIGKILLed after the terminate grace
+        # before it could self-clean.
+        try:
+            self._clean_stale_shm_for(stream_key)
+        except Exception as e:
+            logger.debug(f"remove_camera SHM backstop for {stream_key} failed: {e}")
+
+        # Truthful outcome. Nothing to stop (no GPU / dead worker) counts as
+        # removed; a sent-but-unacked removal returns False so DCM retries.
+        if old_gpu_id is None or not sent:
+            return True
+        return acked
 
     @staticmethod
     def _stream_config_materially_equal(a, b) -> bool:
@@ -1578,28 +1884,32 @@ class NVDECWorkerManager:
             logger.error("Camera config missing camera_id/stream_key")
             return False
 
-        found = False
-        for i, config in enumerate(self.camera_configs):
-            cid = config.get("camera_id") or config.get("stream_key")
-            if cid == camera_id:
-                self.camera_configs[i] = camera_config
-                found = True
-                break
+        # Mutation + rebuild under _config_lock (serialized vs the status-drain
+        # / watchdog threads); reads that must be consistent with the rebuild are
+        # inside too.
+        with self._config_lock:
+            found = False
+            for i, config in enumerate(self.camera_configs):
+                cid = config.get("camera_id") or config.get("stream_key")
+                if cid == camera_id:
+                    self.camera_configs[i] = camera_config
+                    found = True
+                    break
 
-        if not found:
-            logger.warning(f"Camera {camera_id} not found in NVDEC config for update")
-            return False
+            if not found:
+                logger.warning(f"Camera {camera_id} not found in NVDEC config for update")
+                return False
 
-        old_gpu_id = self._camera_to_gpu.get(camera_id)
-        # Capture the currently-running StreamConfig BEFORE reassignment so we can
-        # detect a no-op update and avoid a needless producer teardown/respawn.
-        old_stream_config = None
-        for sc in self._gpu_camera_assignments.get(old_gpu_id or 0, []):
-            if getattr(sc, "camera_id", None) == camera_id:
-                old_stream_config = sc
-                break
-        self._prepare_camera_configs()
-        new_gpu_id = self._camera_to_gpu.get(camera_id)
+            old_gpu_id = self._camera_to_gpu.get(camera_id)
+            # Capture the currently-running StreamConfig BEFORE reassignment so we
+            # can detect a no-op update and avoid a needless producer respawn.
+            old_stream_config = None
+            for sc in self._gpu_camera_assignments.get(old_gpu_id or 0, []):
+                if getattr(sc, "camera_id", None) == camera_id:
+                    old_stream_config = sc
+                    break
+            self._prepare_camera_configs()
+            new_gpu_id = self._camera_to_gpu.get(camera_id)
 
         if not self._is_running:
             logger.info(f"Camera {camera_id} updated in config (manager not yet started)")
@@ -1693,6 +2003,31 @@ class NVDECWorkerManager:
     # Statistics & Properties
     # ========================================================================
 
+    def _watchdog_stats(self) -> Dict[str, Any]:
+        """What the restart watchdog is currently doing, for the stats payload.
+
+        A GPU the breaker has parked used to be visible only in the one ERROR line
+        logged at the moment it tripped, so a permanently dark GPU was findable by
+        log archaeology and by nothing else. These fields make it alertable: which
+        GPUs are parked, how long each has been parked (a number that keeps climbing
+        past ``breaker_cooldown_sec`` means genuinely stuck and still being retried,
+        not forgotten), how many restarts each GPU has spent in the current window,
+        and the thresholds those numbers should be read against.
+        """
+        now = time.monotonic()
+        return {
+            "circuit_tripped_gpus": sorted(self._gpu_circuit_tripped),
+            "parked_for_sec": {
+                gpu_id: round(now - parked_at, 1) for gpu_id, parked_at in sorted(self._gpu_circuit_tripped_at.items())
+            },
+            "breaker_cooldown_sec": CIRCUIT_BREAKER_COOLDOWN_SEC,
+            "restarts_in_window": {
+                gpu_id: len(history) for gpu_id, history in sorted(self._gpu_restart_history.items()) if history
+            },
+            "window_sec": CIRCUIT_BREAKER_WINDOW_SEC,
+            "max_restarts": CIRCUIT_BREAKER_MAX_RESTARTS,
+        }
+
     def get_worker_statistics(self) -> Dict[str, Any]:
         """Return statistics from workers.
 
@@ -1715,6 +2050,7 @@ class NVDECWorkerManager:
                 "target_fps": self.target_fps,
                 "demuxer_type": self.demuxer_type,
             },
+            "watchdog": self._watchdog_stats(),
         }
 
         # Compute elapsed once for consistent FPS across all stats sections

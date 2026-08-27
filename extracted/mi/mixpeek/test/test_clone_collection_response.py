@@ -159,7 +159,20 @@ class TestCloneCollectionResponse(unittest.TestCase):
                             priority = 0.0, 
                             scroll_filters = { }, 
                             enabled = True, )
-                        ], ),
+                        ], 
+                    retriever_transform = mixpeek.models.retriever_transform_config.RetrieverTransformConfig(
+                        stages = [
+                            mixpeek.models.stage_config.StageConfig(
+                                stage_name = '0', 
+                                stage_type = 'filter', 
+                                config = { }, 
+                                batch_size = '', 
+                                description = '', 
+                                on_error = '', 
+                                output_alias = '', 
+                                parameters = { }, )
+                            ], 
+                        unique_id_field = null, ), ),
                 source_collection_id = ''
             )
         else:
@@ -287,7 +300,20 @@ class TestCloneCollectionResponse(unittest.TestCase):
                             priority = 0.0, 
                             scroll_filters = { }, 
                             enabled = True, )
-                        ], ),
+                        ], 
+                    retriever_transform = mixpeek.models.retriever_transform_config.RetrieverTransformConfig(
+                        stages = [
+                            mixpeek.models.stage_config.StageConfig(
+                                stage_name = '0', 
+                                stage_type = 'filter', 
+                                config = { }, 
+                                batch_size = '', 
+                                description = '', 
+                                on_error = '', 
+                                output_alias = '', 
+                                parameters = { }, )
+                            ], 
+                        unique_id_field = null, ), ),
                 source_collection_id = '',
         )
         """

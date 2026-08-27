@@ -12,13 +12,16 @@ import stat
 import subprocess  # nosec # Needed for gitignore support.
 import sys
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from importlib.metadata import EntryPoints
 from pathlib import Path
 from re import Pattern
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from warnings import warn
 
-from . import sorting, stdlibs
+from mypy_extensions import mypyc_attr
+
+from . import stdlibs
 from .exceptions import (
     FormattingPluginDoesNotExist,
     InvalidSettingsPath,
@@ -33,15 +36,10 @@ from .utils import Trie
 from .wrap_modes import WrapModes
 from .wrap_modes import from_string as wrap_mode_from_string
 
-if TYPE_CHECKING:
-    from importlib.metadata import EntryPoints
-
-    tomllib: Any
+if sys.version_info >= (3, 11):
+    import tomllib
 else:
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        from ._vendored import tomli as tomllib
+    from ._vendored import tomli as tomllib
 
 _SHEBANG_RE = re.compile(rb"^#!.*\bpython[23w]?\b")
 CYTHON_EXTENSIONS = frozenset({"pyx", "pxd"})
@@ -109,8 +107,6 @@ KNOWN_SECTION_MAPPING: dict[str, str] = {
 
 RUNTIME_SOURCE = "runtime"
 
-DEPRECATED_SETTINGS = ("not_skip", "keep_direct_and_as_imports")
-
 _STR_BOOLEAN_MAPPING = {
     "y": True,
     "yes": True,
@@ -127,6 +123,8 @@ _STR_BOOLEAN_MAPPING = {
 }
 
 
+# TODO: Make this work as native class, see https://github.com/PyCQA/isort/issues/2629
+@mypyc_attr(native_class=False)
 @dataclass(frozen=True)
 class _Config:
     """Defines the data schema and defaults used for isort configuration.
@@ -154,7 +152,7 @@ class _Config:
     known_standard_library: frozenset[str] = frozenset()
     extra_standard_library: frozenset[str] = frozenset()
     known_other: dict[str, frozenset[str]] = field(default_factory=dict)
-    multi_line_output: WrapModes = WrapModes.GRID  # type: ignore
+    multi_line_output: WrapModes = WrapModes.GRID
     forced_separate: tuple[str, ...] = ()
     indent: str = " " * 4
     comment_prefix: str = "  #"
@@ -191,6 +189,7 @@ class _Config:
     force_sort_within_sections: bool = False
     lexicographical: bool = False
     group_by_package: bool = False
+    separate_packages: frozenset[str] = frozenset()
     ignore_whitespace: bool = False
     no_lines_before: frozenset[str] = frozenset()
     no_inline_sort: bool = False
@@ -230,7 +229,6 @@ class _Config:
     overwrite_in_place: bool = False
     reverse_sort: bool = False
     star_first: bool = False
-    import_dependencies = dict[str, str]
     git_ls_files: dict[Path, set[str]] = field(default_factory=dict)
     format_error: str = "{error}: {message}"
     format_success: str = "{success}: {message}"
@@ -258,8 +256,8 @@ class _Config:
                 self, "known_standard_library", frozenset(getattr(stdlibs, self.py_version).stdlib)
             )
 
-        if self.multi_line_output == WrapModes.VERTICAL_GRID_GROUPED_NO_COMMA:  # type: ignore
-            vertical_grid_grouped = WrapModes.VERTICAL_GRID_GROUPED  # type: ignore
+        if self.multi_line_output == WrapModes.VERTICAL_GRID_GROUPED_NO_COMMA:
+            vertical_grid_grouped = WrapModes.VERTICAL_GRID_GROUPED
             object.__setattr__(self, "multi_line_output", vertical_grid_grouped)
         if self.force_alphabetical_sort:
             object.__setattr__(self, "force_alphabetical_sort_within_sections", True)
@@ -276,14 +274,16 @@ class _Config:
         return id(self)
 
 
-_DEFAULT_SETTINGS = {**vars(_Config()), "source": "defaults"}
+_DEFAULT_SETTINGS = {**asdict(_Config()), "source": "defaults"}
 
 
+# TODO: Make this work as native class, see https://github.com/PyCQA/isort/issues/2629
+@mypyc_attr(native_class=False)
 class Config(_Config):
     def __init__(
         self,
         settings_file: str = "",
-        settings_path: str = "",
+        settings_path: str | Path = "",
         config: _Config | None = None,
         **config_overrides: Any,
     ):
@@ -291,19 +291,14 @@ class Config(_Config):
         self._section_comments: tuple[str, ...] | None = None
         self._section_comments_end: tuple[str, ...] | None = None
         self._skips: frozenset[str] | None = None
+        self._posix_skips: frozenset[str] | None = None
         self._skip_globs: frozenset[str] | None = None
         self._sorting_function: Callable[..., list[str]] | None = None
 
         if config:
-            config_vars = vars(config).copy()
+            config_vars = asdict(config).copy()
             config_vars.update(config_overrides)
             config_vars["py_version"] = config_vars["py_version"].replace("py", "")
-            config_vars.pop("_known_patterns")
-            config_vars.pop("_section_comments")
-            config_vars.pop("_section_comments_end")
-            config_vars.pop("_skips")
-            config_vars.pop("_skip_globs")
-            config_vars.pop("_sorting_function")
             super().__init__(**config_vars)
             return
 
@@ -312,7 +307,7 @@ class Config(_Config):
         # Therefore we extract quiet early here in a variable and use that in warning conditions.
         quiet = config_overrides.get("quiet", False)
 
-        sources: list[dict[str, Any]] = [_DEFAULT_SETTINGS]
+        sources: list[dict[str, object]] = [_DEFAULT_SETTINGS]
 
         config_settings: dict[str, Any]
         project_root: str
@@ -327,7 +322,7 @@ class Config(_Config):
                     f"A custom settings file was specified: {settings_file} but no configuration "
                     "was found inside. This can happen when [settings] is used as the config "
                     "header instead of [isort]. "
-                    "See: https://pycqa.github.io/isort/docs/configuration/config_files"
+                    "See: https://isort.readthedocs.io/en/latest/configuration/config_files.html"
                     "#custom-config-files for more information.",
                     stacklevel=2,
                 )
@@ -394,7 +389,7 @@ class Config(_Config):
                             f"Can't set both {key} and {section_name} in the same config file.\n"
                             f"Default to {section_name} if unsure."
                             "\n\n"
-                            "See: https://pycqa.github.io/isort/"
+                            "See: https://isort.readthedocs.io/en/latest/index.html"
                             "#custom-sections-and-ordering.",
                             stacklevel=2,
                         )
@@ -407,7 +402,7 @@ class Config(_Config):
                             f"`{key}` setting is defined, but {maps_to_section} is not"
                             " included in `sections` config option:"
                             f" {combined_config.get('sections', SECTION_DEFAULTS)}.\n\n"
-                            "See: https://pycqa.github.io/isort/"
+                            "See: https://isort.readthedocs.io/en/latest/index.html"
                             "#custom-sections-and-ordering.",
                             stacklevel=2,
                         )
@@ -438,7 +433,7 @@ class Config(_Config):
 
         if "directory" not in combined_config:
             combined_config["directory"] = (
-                os.path.dirname(config_settings["source"])
+                os.path.dirname(str(config_settings["source"]))
                 if config_settings.get("source", None)
                 else os.getcwd()
             )
@@ -472,21 +467,6 @@ class Config(_Config):
         combined_config.pop("source", None)
         combined_config.pop("sources", None)
         combined_config.pop("runtime_src_paths", None)
-
-        deprecated_options_used = [
-            option for option in combined_config if option in DEPRECATED_SETTINGS
-        ]
-        if deprecated_options_used:
-            for deprecated_option in deprecated_options_used:
-                combined_config.pop(deprecated_option)
-            if not quiet:
-                warn(
-                    "W0503: Deprecated config options were used: "
-                    f"{', '.join(deprecated_options_used)}."
-                    "Please see the 5.0.0 upgrade guide: "
-                    "https://pycqa.github.io/isort/docs/upgrade_guides/5.0.0.html",
-                    stacklevel=2,
-                )
 
         if known_other:
             combined_config["known_other"] = known_other
@@ -585,14 +565,14 @@ class Config(_Config):
 
         os_path = str(file_path)
 
+        # Normalize the path to POSIX-style for consistent comparison with skip paths and globs
         normalized_path = os_path.replace("\\", "/")
         if normalized_path[1:2] == ":":
             normalized_path = normalized_path[2:]
+        normalized_path = posixpath.abspath(normalized_path)
 
-        for skip_path in self.skips:
-            if posixpath.abspath(normalized_path) == posixpath.abspath(
-                skip_path.replace("\\", "/")
-            ):
+        for skip_path in self.posix_skips:
+            if normalized_path == skip_path:
                 return True
 
         position = os.path.split(file_name)
@@ -682,6 +662,17 @@ class Config(_Config):
         return self._skips
 
     @property
+    def posix_skips(self) -> frozenset[str]:
+        """Returns a frozenset of absolute paths to skip, normalized to POSIX-style paths."""
+        if self._posix_skips is not None:
+            return self._posix_skips
+
+        self._posix_skips = frozenset(
+            posixpath.abspath(skip_path.replace("\\", "/")) for skip_path in self.skips
+        )
+        return self._posix_skips
+
+    @property
     def skip_globs(self) -> frozenset[str]:
         if self._skip_globs is not None:
             return self._skip_globs
@@ -695,6 +686,8 @@ class Config(_Config):
             return self._sorting_function
 
         if self.sort_order == "natural":
+            from . import sorting  # noqa: PLC0415 # Circular import...
+
             self._sorting_function = sorting.naturally
         elif self.sort_order == "native":
             self._sorting_function = sorted
@@ -724,17 +717,17 @@ class Config(_Config):
         return patterns
 
 
-def _get_str_to_type_converter(setting_name: str) -> Callable[[str], Any] | type[Any]:
-    type_converter: Callable[[str], Any] | type[Any] = type(_DEFAULT_SETTINGS.get(setting_name, ""))
+def _get_str_to_type_converter(setting_name: str) -> Callable[[object], object]:
+    type_converter: Callable[[object], object] = type(_DEFAULT_SETTINGS.get(setting_name, ""))
     if type_converter == WrapModes:
         type_converter = wrap_mode_from_string
     return type_converter
 
 
-def _as_list(value: str) -> list[str]:
+def _as_list(value: object) -> list[str]:
     if isinstance(value, list):
         return [item.strip() for item in value]
-    filtered = [item.strip() for item in value.replace("\n", ",").split(",") if item.strip()]
+    filtered = [item.strip() for item in str(value).replace("\n", ",").split(",") if item.strip()]
     return filtered
 
 
@@ -816,8 +809,8 @@ def find_all_configs(path: str) -> Trie:
     return trie_root
 
 
-def _get_config_data(file_path: str, sections: tuple[str, ...]) -> dict[str, Any]:
-    settings: dict[str, Any] = {}
+def _get_config_data(file_path: str, sections: tuple[str, ...]) -> dict[str, object]:
+    settings: dict[str, object] = {}
 
     if file_path.endswith(".toml"):
         with open(file_path, "rb") as bin_config_file:
@@ -839,31 +832,31 @@ def _get_config_data(file_path: str, sections: tuple[str, ...]) -> dict[str, Any
                         break
                     last_position = config_file.tell()
 
-            config = configparser.ConfigParser(strict=False)
-            config.read_file(config_file)
+            config_parser = configparser.ConfigParser(strict=False)
+            config_parser.read_file(config_file)
         for section in sections:
             if section.startswith("*.{") and section.endswith("}"):
                 extension = section[len("*.{") : -1]
-                for config_key in config:
+                for config_key in config_parser:
                     if (
                         config_key.startswith("*.{")
                         and config_key.endswith("}")
                         and extension
                         in (text.strip() for text in config_key[len("*.{") : -1].split(","))
                     ):
-                        settings.update(config.items(config_key))
+                        settings.update(config_parser.items(config_key))
 
-            elif config.has_section(section):
-                settings.update(config.items(section))
+            elif config_parser.has_section(section):
+                settings.update(config_parser.items(section))
 
     if settings:
         settings["source"] = file_path
 
         if file_path.endswith(".editorconfig"):
-            indent_style = settings.pop("indent_style", "").strip()
-            indent_size = settings.pop("indent_size", "").strip()
+            indent_style = str(settings.pop("indent_style", "")).strip()
+            indent_size = str(settings.pop("indent_size", "")).strip()
             if indent_size == "tab":
-                indent_size = settings.pop("tab_width", "").strip()
+                indent_size = str(settings.pop("tab_width", "")).strip()
 
             if indent_style == "space":
                 settings["indent"] = " " * ((indent_size and int(indent_size)) or 4)
@@ -871,7 +864,7 @@ def _get_config_data(file_path: str, sections: tuple[str, ...]) -> dict[str, Any
             elif indent_style == "tab":
                 settings["indent"] = "\t" * ((indent_size and int(indent_size)) or 1)
 
-            max_line_length = settings.pop("max_line_length", "").strip()
+            max_line_length = str(settings.pop("max_line_length", "")).strip()
             if max_line_length and (max_line_length == "off" or max_line_length.isdigit()):
                 settings["line_length"] = (
                     float("inf") if max_line_length == "off" else int(max_line_length)
@@ -887,7 +880,7 @@ def _get_config_data(file_path: str, sections: tuple[str, ...]) -> dict[str, Any
             if existing_value_type is tuple:
                 settings[key] = tuple(_as_list(value))
             elif existing_value_type is frozenset:
-                settings[key] = frozenset(_as_list(settings.get(key)))  # type: ignore
+                settings[key] = frozenset(_as_list(settings.get(key)))
             elif existing_value_type is bool:
                 # Only some configuration formats support native boolean values.
                 if not isinstance(value, bool):
@@ -899,7 +892,7 @@ def _get_config_data(file_path: str, sections: tuple[str, ...]) -> dict[str, Any
                 try:
                     result = existing_value_type(value)
                 except ValueError:  # backwards compatibility for true / false force grid wrap
-                    result = 0 if value.lower().strip() == "false" else 2
+                    result = 0 if str(value).lower().strip() == "false" else 2
                 settings[key] = result
             elif key == "comment_prefix":
                 settings[key] = str(value).strip("'").strip('"')
@@ -909,12 +902,12 @@ def _get_config_data(file_path: str, sections: tuple[str, ...]) -> dict[str, Any
     return settings
 
 
-def _as_bool(value: str) -> bool:
+def _as_bool(value: object) -> bool:
     """Given a string value that represents True or False, returns the Boolean equivalent.
     Heavily inspired from distutils strtobool.
     """
     try:
-        return _STR_BOOLEAN_MAPPING[value.lower()]
+        return _STR_BOOLEAN_MAPPING[str(value).lower()]
     except KeyError:
         raise ValueError(f"invalid truth value {value}")
 

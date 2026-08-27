@@ -279,7 +279,6 @@ class bithumb(Exchange, ImplicitAPI):
                 },
             },
             'commonCurrencies': {
-                'ALT': 'ArchLoot',
                 'FTC': 'FTC2',
                 'SOC': 'Soda Coin',
             },
@@ -1189,7 +1188,7 @@ class bithumb(Exchange, ImplicitAPI):
         url = self.implode_hostname(self.urls['api'][api]) + endpoint
         query = self.omit(params, self.extract_params(path))
         if api == 'public':
-            if query:
+            if len(query) > 0:
                 url += '?' + self.urlencode(query)
         else:
             self.check_required_credentials()

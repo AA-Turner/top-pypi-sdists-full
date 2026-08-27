@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: finvizfinance
-Version: 1.3.0
+Version: 1.4.0
 Summary: Finviz Finance. Information downloader.
 Home-page: https://github.com/lit26/finvizfinance
 Author: Tianning Li
@@ -17,6 +17,17 @@ Requires-Dist: pandas
 Requires-Dist: requests
 Requires-Dist: beautifulsoup4
 Requires-Dist: lxml
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/finvizfinance)
 ![PyPI](https://img.shields.io/pypi/v/finvizfinance)

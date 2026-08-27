@@ -3,7 +3,6 @@
 #
 
 import base64
-import hashlib
 import inspect
 import json
 import sys
@@ -648,10 +647,15 @@ def create_cogroup_udtf_in_sproc(
     )
 
     udtf_base64 = base64.b64encode(udtf_proto.python_udf.command).decode("ascii")
-    base_name = (
-        "cogroup_pandas_udtf_" + hashlib.md5(udtf_proto.python_udf.command).hexdigest()
+    # In-sproc twin of create_cogroup_pandas_udtf; same collision, so the same body parts.
+    udtf_name = pandas_udtf_utils.hashed_udtf_name(
+        "cogroup_pandas_udtf",
+        udtf_proto,
+        session_id,
+        input1_columns,
+        input2_columns,
+        output_schema.json_value(),
     )
-    udtf_name = f"{base_name}_{session_id.replace('-','_')}"
 
     output_column_original_names = [
         field.original_column_identifier for field in output_schema.fields

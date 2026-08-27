@@ -87,7 +87,7 @@ ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDA
 ContainerMonitoringTypeType = Literal["ECS", "EKS"]
 EnabledAnalysisTypeType = Literal["HTTP_HOST", "TLS_SNI"]
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_KMS"]
-FirewallStatusValueType = Literal["DELETING", "PROVISIONING", "READY"]
+FirewallStatusValueType = Literal["DELETING", "FAILED", "PROVISIONING", "READY"]
 FlowOperationStatusType = Literal["COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "IN_PROGRESS"]
 FlowOperationTypeType = Literal["FLOW_CAPTURE", "FLOW_FLUSH"]
 GeneratedRulesTypeType = Literal["ALERTLIST", "ALLOWLIST", "DENYLIST", "REJECTLIST"]
@@ -180,8 +180,11 @@ NetworkFirewallServiceName = Literal["network-firewall"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -356,6 +359,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",

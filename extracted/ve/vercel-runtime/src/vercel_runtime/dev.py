@@ -7,12 +7,14 @@ import os
 import sys
 from typing import TYPE_CHECKING, Any, cast
 
+from vercel_runtime import deadline
 from vercel_runtime._vendor import uvicorn as vendored_uvicorn
 from vercel_runtime._vendor.uvicorn.config import (
     LOGGING_CONFIG as UVICORN_LOGGING_CONFIG,
 )
 from vercel_runtime._vendor.werkzeug.serving import run_simple
 from vercel_runtime.crons import bootstrap_cron_service_app, is_cron_service
+from vercel_runtime.headers import is_internal_header
 from vercel_runtime.resolver import detect_app_type, import_module, resolve_app
 from vercel_runtime.routing import (
     apply_service_route_prefix_to_asgi_scope,
@@ -292,6 +294,35 @@ async def asgi_app(
     send: Callable[[Any], Awaitable[None]],
 ) -> None:
     effective_scope = dict(scope)
+    deadline_value: str | None = None
+    headers: list[tuple[bytes | str, bytes | str]] = (
+        effective_scope.get("headers", []) or []
+    )
+    visible_headers: list[tuple[bytes | str, bytes | str]] = []
+    for key, value in headers:
+        key_bytes = key if isinstance(key, bytes) else key.encode()
+        key_name = key_bytes.decode(errors="ignore").lower()
+        if key_name == deadline.INTERNAL_DEADLINE_HEADER:
+            value_bytes = value if isinstance(value, bytes) else value.encode()
+            deadline_value = value_bytes.decode(errors="ignore")
+            continue
+        if is_internal_header(key_name):
+            continue
+        visible_headers.append((key, value))
+    effective_scope["headers"] = visible_headers
+
+    deadline_token = deadline.set_deadline(deadline_value)
+    try:
+        await _asgi_app(effective_scope, receive, send)
+    finally:
+        deadline.reset_deadline(deadline_token)
+
+
+async def _asgi_app(
+    effective_scope: dict[str, Any],
+    receive: Callable[[], Awaitable[Any]],
+    send: Callable[[Any], Awaitable[None]],
+) -> None:
     apply_service_route_prefix_to_asgi_scope(effective_scope)
 
     if static_asgi is not None and effective_scope.get("type") == "http":
@@ -331,6 +362,7 @@ async def asgi_app(
 def _wait_until_wsgi_result(
     result: Iterable[bytes],
     wait_until: WaitUntilCollector,
+    deadline_token: Any,
 ) -> Iterator[bytes]:
     try:
         yield from result
@@ -340,13 +372,41 @@ def _wait_until_wsgi_result(
             if callable(close):
                 close()
         finally:
-            finish_wait_until(wait_until)
+            try:
+                finish_wait_until(wait_until)
+            finally:
+                deadline.reset_deadline(deadline_token)
+
+
+def _deadline_wsgi_result(
+    result: Iterable[bytes],
+    deadline_token: Any,
+) -> Iterator[bytes]:
+    try:
+        yield from result
+    finally:
+        try:
+            close = getattr(result, "close", None)
+            if callable(close):
+                close()
+        finally:
+            deadline.reset_deadline(deadline_token)
 
 
 def wsgi_app(
     environ: dict[str, Any],
     start_response: Callable[..., Any],
 ) -> Any:
+    deadline_value = environ.pop(
+        "HTTP_X_VERCEL_INTERNAL_DEADLINE",
+        None,
+    )
+    for key in tuple(environ):
+        if not key.startswith("HTTP_"):
+            continue
+        header_name = key[5:].replace("_", "-")
+        if is_internal_header(header_name):
+            environ.pop(key, None)
     path_info, matched_prefix = strip_service_route_prefix(
         environ.get("PATH_INFO", "/") or "/"
     )
@@ -389,16 +449,29 @@ def wsgi_app(
 
     # Otherwise, delegate to user's WSGI app
     assert _wsgi_user_app is not None
+    deadline_token = deadline.set_deadline(deadline_value)
     if environ.get("PATH_INFO") == "/_vercel/ping":
-        return _wsgi_user_app(environ, start_response)
+        try:
+            user_result = _wsgi_user_app(environ, start_response)
+        except BaseException:
+            deadline.reset_deadline(deadline_token)
+            raise
+        return _deadline_wsgi_result(user_result, deadline_token)
 
     wait_until = begin_wait_until()
     try:
         user_result = _wsgi_user_app(environ, start_response)
     except BaseException:
-        finish_wait_until(wait_until)
+        try:
+            finish_wait_until(wait_until)
+        finally:
+            deadline.reset_deadline(deadline_token)
         raise
-    return _wait_until_wsgi_result(user_result, wait_until)
+    return _wait_until_wsgi_result(
+        user_result,
+        wait_until,
+        deadline_token,
+    )
 
 
 def _start_wsgi(host: str, port: int) -> None:

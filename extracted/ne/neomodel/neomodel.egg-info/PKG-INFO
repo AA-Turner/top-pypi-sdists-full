@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neomodel
-Version: 6.2.0
+Version: 7.0.0
 Summary: An object mapper for the neo4j graph database.
 Author-email: Robin Edwards <robin.ge@gmail.com>
 Maintainer-email: Marius Conjeaud <marius.conjeaud@outlook.com>, Antoine Nguyen <tonio@ngyn.org>, Athanasios Anastasiou <athanastasiou@gmail.com>
@@ -39,12 +39,15 @@ Requires-Dist: isort; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
 Requires-Dist: types-shapely; extra == "dev"
+Requires-Dist: pydantic>=2.0; extra == "dev"
 Provides-Extra: shapely
 Requires-Dist: Shapely>=2.0.0; extra == "shapely"
 Provides-Extra: pandas
 Requires-Dist: pandas; extra == "pandas"
 Provides-Extra: numpy
 Requires-Dist: numpy; extra == "numpy"
+Provides-Extra: pydantic
+Requires-Dist: pydantic>=2.0; extra == "pydantic"
 Provides-Extra: rust-driver-ext
 Requires-Dist: neo4j-rust-ext~=6.1.0.0; extra == "rust-driver-ext"
 Dynamic: license-file

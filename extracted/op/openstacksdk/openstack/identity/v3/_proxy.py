@@ -24,6 +24,7 @@ from openstack.identity.v3 import credential as _credential
 from openstack.identity.v3 import domain as _domain
 from openstack.identity.v3 import domain_config as _domain_config
 from openstack.identity.v3 import endpoint as _endpoint
+from openstack.identity.v3 import endpoint_group as _endpoint_group
 from openstack.identity.v3 import federation_protocol as _federation_protocol
 from openstack.identity.v3 import group as _group
 from openstack.identity.v3 import identity_provider as _identity_provider
@@ -74,6 +75,7 @@ class Proxy(proxy.Proxy):
         "credential": _credential.Credential,
         "domain": _domain.Domain,
         "endpoint": _endpoint.Endpoint,
+        "endpoint_group": _endpoint_group.EndpointGroup,
         "federation_protocol": _federation_protocol.FederationProtocol,
         "group": _group.Group,
         "identity_provider": _identity_provider.IdentityProvider,
@@ -506,6 +508,30 @@ class Proxy(proxy.Proxy):
         """
         return self._update(_endpoint.Endpoint, endpoint, **attrs)
 
+    def endpoint_group_endpoints(
+        self,
+        endpoint_group: str | _endpoint_group.EndpointGroup,
+        **query: Any,
+    ) -> Generator[_endpoint.EndpointGroupEndpoint, None, None]:
+        """Retrieve a generator of endpoints which are associated with the
+        endpoint_group.
+
+        :param endpoint_group: Either the endpoint_group ID or an instance of
+            :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`
+        :param query: Optional query parameters to be sent to limit
+            the resources being returned.
+
+        :returns: A generator of endpoint instances.
+        """
+        endpoint_group_id = self._get_resource(
+            _endpoint_group.EndpointGroup, endpoint_group
+        ).id
+        return self._list(
+            _endpoint.EndpointGroupEndpoint,
+            endpoint_group_id=endpoint_group_id,
+            **query,
+        )
+
     # ========== Project endpoints ==========
 
     def project_endpoints(
@@ -561,6 +587,151 @@ class Proxy(proxy.Proxy):
         project = self._get_resource(_project.Project, project)
         endpoint = self._get_resource(_endpoint.Endpoint, endpoint)
         project.disassociate_endpoint(self, endpoint.id)
+
+    # ========== Endpoint Groups ==========
+
+    def create_endpoint_group(
+        self, **attrs: Any
+    ) -> _endpoint_group.EndpointGroup:
+        """Create a new endpoint group from attributes
+
+        :param attrs: Keyword arguments which will be used to create
+            a :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`,
+            comprised of the properties on the EndpointGroup class.
+
+        :returns: The results of endpoint group creation
+        """
+        return self._create(_endpoint_group.EndpointGroup, **attrs)
+
+    def delete_endpoint_group(
+        self,
+        endpoint_group: str | _endpoint_group.EndpointGroup,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Delete an endpoint group
+
+        :param endpoint_group: The value can be either the ID of an endpoint
+            group or a
+            :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`
+            instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be
+            raised when the endpoint group does not exist.
+            When set to ``True``, no exception will be set when
+            attempting to delete a nonexistent endpoint group.
+
+        :returns: ``None``
+        """
+        self._delete(
+            _endpoint_group.EndpointGroup,
+            endpoint_group,
+            ignore_missing=ignore_missing,
+        )
+
+    @overload
+    def find_endpoint_group(
+        self,
+        name_or_id: str,
+        ignore_missing: Literal[False],
+    ) -> _endpoint_group.EndpointGroup: ...
+
+    @overload
+    def find_endpoint_group(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+    ) -> _endpoint_group.EndpointGroup | None: ...
+
+    def find_endpoint_group(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+    ) -> _endpoint_group.EndpointGroup | None:
+        """Find a single endpoint group
+
+        :param name_or_id: The name or ID of a endpoint group.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be
+            raised when the resource does not exist.
+            When set to ``True``, None will be returned when
+            attempting to find a nonexistent resource.
+        :returns: One
+            :class:`~openstack.identity.v3.endpoint_group.EndpointGroup` or
+            None
+        """
+        return self._find(
+            _endpoint_group.EndpointGroup,
+            name_or_id,
+            ignore_missing=ignore_missing,
+        )
+
+    def get_endpoint_group(
+        self, endpoint_group: str | _endpoint_group.EndpointGroup
+    ) -> _endpoint_group.EndpointGroup:
+        """Get a single endpoint group
+
+        :param endpoint_group: The value can be the ID of an endpoint group or
+            a :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`
+            instance.
+
+        :returns: One
+            :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+            when no resource can be found.
+        """
+        return self._get(_endpoint_group.EndpointGroup, endpoint_group)
+
+    def endpoint_groups(
+        self,
+        **query: Any,
+    ) -> Generator[_endpoint_group.EndpointGroup, None, None]:
+        """Retrieve a generator of endpoint groups
+
+        :param query: Optional query parameters to be sent to limit
+            the resources being returned.
+
+        :returns: A generator of endpoint group instances.
+        """
+        return self._list(_endpoint_group.EndpointGroup, **query)
+
+    def update_endpoint_group(
+        self, endpoint_group: str | _endpoint_group.EndpointGroup, **attrs: Any
+    ) -> _endpoint_group.EndpointGroup:
+        """Update an endpoint group
+
+        :param endpoint_group: Either the ID of an endpoint group or a
+            :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`
+            instance.
+        :param attrs: The attributes to update on the endpoint group
+            represented by ``endpoint_group``.
+
+        :returns: The updated endpoint group
+        """
+        return self._update(
+            _endpoint_group.EndpointGroup, endpoint_group, **attrs
+        )
+
+    def project_endpoint_groups(
+        self,
+        project: str | _project.Project,
+        **query: Any,
+    ) -> Generator[_endpoint_group.ProjectEndpointGroup, None, None]:
+        """Retrieve a generator of endpoint groups which are associated with
+        the project.
+
+        :param project: Either the project ID or an instance of
+            :class:`~openstack.identity.v3.project.Project`
+        :param query: Optional query parameters to be sent to limit
+            the resources being returned.
+
+        :returns: A generator of endpoint group instances.
+        """
+        project_id = self._get_resource(_project.Project, project).id
+        return self._list(
+            _endpoint_group.ProjectEndpointGroup,
+            project_id=project_id,
+            **query,
+        )
 
     # ========== Groups ==========
 
@@ -989,6 +1160,72 @@ class Proxy(proxy.Proxy):
         :returns: The updated project
         """
         return self._update(_project.Project, project, **attrs)
+
+    # ========== Endpoint group projects ==========
+
+    def endpoint_group_projects(
+        self,
+        endpoint_group: str | _endpoint_group.EndpointGroup,
+        **query: Any,
+    ) -> Generator[_project.EndpointGroupProject, None, None]:
+        """Retrieve a generator of projects which are associated with the
+        endpoint group.
+
+        :param endpoint group: Either the endpoint group ID or an instance of
+            :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`
+        :param query: Optional query parameters to be sent to limit
+            the resources being returned.
+
+        :returns: A generator of project instances.
+        """
+        endpoint_group_id = self._get_resource(
+            _endpoint_group.EndpointGroup, endpoint_group
+        ).id
+        return self._list(
+            _project.EndpointGroupProject,
+            endpoint_group_id=endpoint_group_id,
+            **query,
+        )
+
+    def associate_project_with_endpoint_group(
+        self,
+        endpoint_group: str | _endpoint_group.EndpointGroup,
+        project: str | _project.Project,
+    ) -> None:
+        """Create a direct association between the endpoint group and project
+
+        :param endpoint_group: Either the ID of an endpoint group or a
+            :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`
+            instance.
+        :param project: Either the ID of a project or a
+            :class:`~openstack.identity.v3.project.Project` instance.
+        :returns: None
+        """
+        endpoint_group = self._get_resource(
+            _endpoint_group.EndpointGroup, endpoint_group
+        )
+        project = self._get_resource(_project.Project, project)
+        endpoint_group.associate_project(self, project.id)
+
+    def disassociate_project_from_endpoint_group(
+        self,
+        endpoint_group: str | _endpoint_group.EndpointGroup,
+        project: str | _project.Project,
+    ) -> None:
+        """Removes a direct association between endpoint group and project
+
+        :param endpoint_group: Either the ID of an endpoint group or a
+            :class:`~openstack.identity.v3.endpoint_group.EndpointGroup`
+            instance.
+        :param project: Either the ID of a project or a
+            :class:`~openstack.identity.v3.project.Project` instance.
+        :returns: None
+        """
+        endpoint_group = self._get_resource(
+            _endpoint_group.EndpointGroup, endpoint_group
+        )
+        project = self._get_resource(_project.Project, project)
+        endpoint_group.disassociate_project(self, project.id)
 
     # ========== Services ==========
 
@@ -1562,14 +1799,98 @@ class Proxy(proxy.Proxy):
 
     # ========== Role assignments ==========
 
+    @overload
+    def role_assignments_filter(
+        self,
+        domain: str | _domain.Domain,
+        project: None = None,
+        system: None = None,
+        group: str | _group.Group = ...,
+        user: None = None,
+    ) -> Generator[
+        _role_domain_group_assignment.RoleDomainGroupAssignment, None, None
+    ]: ...
+
+    @overload
+    def role_assignments_filter(
+        self,
+        domain: str | _domain.Domain,
+        project: None = None,
+        system: None = None,
+        group: None = None,
+        *,
+        user: str | _user.User,
+    ) -> Generator[
+        _role_domain_user_assignment.RoleDomainUserAssignment, None, None
+    ]: ...
+
+    @overload
+    def role_assignments_filter(
+        self,
+        domain: None = None,
+        project: str | _project.Project = ...,
+        system: None = None,
+        group: str | _group.Group = ...,
+        user: None = None,
+    ) -> Generator[
+        _role_project_group_assignment.RoleProjectGroupAssignment, None, None
+    ]: ...
+
+    @overload
+    def role_assignments_filter(
+        self,
+        domain: None = None,
+        project: str | _project.Project = ...,
+        system: None = None,
+        group: None = None,
+        *,
+        user: str | _user.User,
+    ) -> Generator[
+        _role_project_user_assignment.RoleProjectUserAssignment, None, None
+    ]: ...
+
+    @overload
+    def role_assignments_filter(
+        self,
+        domain: None = None,
+        project: None = None,
+        system: str | _system.System = ...,
+        group: str | _group.Group = ...,
+        user: None = None,
+    ) -> Generator[
+        _role_system_group_assignment.RoleSystemGroupAssignment, None, None
+    ]: ...
+
+    @overload
+    def role_assignments_filter(
+        self,
+        domain: None = None,
+        project: None = None,
+        system: str | _system.System = ...,
+        group: None = None,
+        *,
+        user: str | _user.User,
+    ) -> Generator[
+        _role_system_user_assignment.RoleSystemUserAssignment, None, None
+    ]: ...
+
     def role_assignments_filter(
         self,
         domain: str | _domain.Domain | None = None,
         project: str | _project.Project | None = None,
-        system: str | None = None,
+        system: str | _system.System | None = None,
         group: str | _group.Group | None = None,
         user: str | _user.User | None = None,
-    ) -> Generator[resource.Resource, None, None]:
+    ) -> Generator[
+        _role_domain_group_assignment.RoleDomainGroupAssignment
+        | _role_domain_user_assignment.RoleDomainUserAssignment
+        | _role_project_group_assignment.RoleProjectGroupAssignment
+        | _role_project_user_assignment.RoleProjectUserAssignment
+        | _role_system_group_assignment.RoleSystemGroupAssignment
+        | _role_system_user_assignment.RoleSystemUserAssignment,
+        None,
+        None,
+    ]:
         """Retrieve a generator of roles assigned to user/group
 
         :param domain: Either the ID of a domain or a

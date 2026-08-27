@@ -64,18 +64,16 @@ nav:
   - Formatter:
       - Formatter: formatter/formatter.md
       - Formatters:
+          - AlignBDDStatements: formatter/formatters/AlignBDDStatements.md
           - AlignKeywordsSection: formatter/formatters/AlignKeywordsSection.md
           - AlignSettingsSection: formatter/formatters/AlignSettingsSection.md
           - AlignTemplatedTestCases: formatter/formatters/AlignTemplatedTestCases.md
           - AlignTestCasesSection: formatter/formatters/AlignTestCasesSection.md
           - AlignVariablesSection: formatter/formatters/AlignVariablesSection.md
-          - DiscardEmptySections: formatter/formatters/DiscardEmptySections.md
           - GenerateDocumentation: formatter/formatters/GenerateDocumentation.md
           - IndentNestedKeywords: formatter/formatters/IndentNestedKeywords.md
           - InlineIf: formatter/formatters/InlineIf.md
           - MergeAndOrderSections: formatter/formatters/MergeAndOrderSections.md
-          - NormalizeAssignments: formatter/formatters/NormalizeAssignments.md
-          - NormalizeComments: formatter/formatters/NormalizeComments.md
           - NormalizeNewLines: formatter/formatters/NormalizeNewLines.md
           - NormalizeSectionHeaderName: formatter/formatters/NormalizeSectionHeaderName.md
           - NormalizeSeparators: formatter/formatters/NormalizeSeparators.md
@@ -84,13 +82,9 @@ nav:
           - OrderSettings: formatter/formatters/OrderSettings.md
           - OrderSettingsSection: formatter/formatters/OrderSettingsSection.md
           - OrderTags: formatter/formatters/OrderTags.md
-          - RemoveEmptySettings: formatter/formatters/RemoveEmptySettings.md
           - RenameKeywords: formatter/formatters/RenameKeywords.md
           - RenameTestCases: formatter/formatters/RenameTestCases.md
           - RenameVariables: formatter/formatters/RenameVariables.md
-          - ReplaceBreakContinue: formatter/formatters/ReplaceBreakContinue.md
-          - ReplaceEmptyValues: formatter/formatters/ReplaceEmptyValues.md
-          - ReplaceRunKeywordIf: formatter/formatters/ReplaceRunKeywordIf.md
           - ReplaceWithVAR: formatter/formatters/ReplaceWithVAR.md
           - SmartSortKeywords: formatter/formatters/SmartSortKeywords.md
           - SplitTooLongLine: formatter/formatters/SplitTooLongLine.md
@@ -101,6 +95,7 @@ nav:
     - configuration/index.md
     - Reference: configuration/configuration_reference.md
     - Disablers: configuration/disablers.md
+  - Plugins: plugins.md
   - Integrations:
       - Pre-commit: integrations/precommit.md
       - SonarQube: integrations/sonarqube.md

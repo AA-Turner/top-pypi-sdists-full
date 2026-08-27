@@ -147,6 +147,7 @@ def is_valid(
     http_options: HttpOptions | None = None,
     keywords: dict[str, type[KeywordValidator]] | None = None,
     vocabularies: list[str] | None = None,
+    offline: bool | None = None,
 ) -> bool:
     """Check if a JSON instance is valid against a schema.
 
@@ -170,6 +171,7 @@ def validate(
     http_options: HttpOptions | None = None,
     keywords: dict[str, type[KeywordValidator]] | None = None,
     vocabularies: list[str] | None = None,
+    offline: bool | None = None,
 ) -> None:
     """Validate a JSON instance against a schema.
 
@@ -193,6 +195,7 @@ def iter_errors(
     http_options: HttpOptions | None = None,
     keywords: dict[str, type[KeywordValidator]] | None = None,
     vocabularies: list[str] | None = None,
+    offline: bool | None = None,
 ) -> Iterator[ValidationError]:
     """Iterate over all validation errors.
 
@@ -215,6 +218,7 @@ def evaluate(
     http_options: HttpOptions | None = None,
     keywords: dict[str, type[KeywordValidator]] | None = None,
     vocabularies: list[str] | None = None,
+    offline: bool | None = None,
 ) -> Evaluation:
     """Evaluate an instance and return structured output.
 
@@ -348,6 +352,7 @@ class ValidationError(ValueError):
     evaluation_path: list[str | int]
     kind: ValidationErrorKind
     instance: JsonValue
+    absolute_keyword_location: str | None
 
 Draft4: int
 Draft6: int
@@ -371,6 +376,7 @@ class Draft4Validator:
         http_options: HttpOptions | None = None,
         keywords: dict[str, type[KeywordValidator]] | None = None,
         vocabularies: list[str] | None = None,
+        offline: bool | None = None,
     ) -> None: ...
     def is_valid(self, instance: Any) -> bool: ...
     def validate(self, instance: Any) -> None: ...
@@ -394,6 +400,7 @@ class Draft6Validator:
         http_options: HttpOptions | None = None,
         keywords: dict[str, type[KeywordValidator]] | None = None,
         vocabularies: list[str] | None = None,
+        offline: bool | None = None,
     ) -> None: ...
     def is_valid(self, instance: Any) -> bool: ...
     def validate(self, instance: Any) -> None: ...
@@ -417,6 +424,7 @@ class Draft7Validator:
         http_options: HttpOptions | None = None,
         keywords: dict[str, type[KeywordValidator]] | None = None,
         vocabularies: list[str] | None = None,
+        offline: bool | None = None,
     ) -> None: ...
     def is_valid(self, instance: Any) -> bool: ...
     def validate(self, instance: Any) -> None: ...
@@ -440,6 +448,7 @@ class Draft201909Validator:
         http_options: HttpOptions | None = None,
         keywords: dict[str, type[KeywordValidator]] | None = None,
         vocabularies: list[str] | None = None,
+        offline: bool | None = None,
     ) -> None: ...
     def is_valid(self, instance: Any) -> bool: ...
     def validate(self, instance: Any) -> None: ...
@@ -463,6 +472,7 @@ class Draft202012Validator:
         http_options: HttpOptions | None = None,
         keywords: dict[str, type[KeywordValidator]] | None = None,
         vocabularies: list[str] | None = None,
+        offline: bool | None = None,
     ) -> None: ...
     def is_valid(self, instance: Any) -> bool: ...
     def validate(self, instance: Any) -> None: ...
@@ -486,6 +496,7 @@ def validator_for(
     http_options: HttpOptions | None = None,
     keywords: dict[str, type[KeywordValidator]] | None = None,
     vocabularies: list[str] | None = None,
+    offline: bool | None = None,
 ) -> Validator:
     """Create a validator for the given schema.
 
@@ -527,6 +538,7 @@ def validator_map_for(
     http_options: HttpOptions | None = None,
     keywords: dict[str, type[KeywordValidator]] | None = None,
     vocabularies: list[str] | None = None,
+    offline: bool | None = None,
 ) -> ValidatorMap:
     """Compile all subschemas in *schema* into a map keyed by URI-fragment JSON pointer.
 
@@ -542,6 +554,7 @@ def bundle(
     registry: Registry | None = None,
     draft: int | None = None,
     base_uri: str | None = None,
+    offline: bool | None = None,
 ) -> dict[str, Any]:
     """Bundle a JSON Schema into a Compound Schema Document.
 
@@ -560,6 +573,7 @@ def dereference(
     registry: Registry | None = None,
     draft: int | None = None,
     base_uri: str | None = None,
+    offline: bool | None = None,
 ) -> _SchemaT:
     """Recursively inline all $ref values in a JSON Schema.
 
@@ -697,6 +711,7 @@ def canonicalize(
     retriever: RetrieverProtocol | None = None,
     registry: Registry | None = None,
     base_uri: str | None = None,
+    offline: bool | None = None,
 ) -> CanonicalSchema:
     """Parse and normalize a JSON Schema to its canonical form.
 

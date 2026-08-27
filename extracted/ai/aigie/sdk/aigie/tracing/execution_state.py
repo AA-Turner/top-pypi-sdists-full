@@ -65,12 +65,6 @@ class ExecutionState:
         if error_message and status == "error":
             self.execution_errors[name] = error_message
 
-    def increment_turn(self) -> None:
-        self.turn_count += 1
-
-    def increment_tool_calls(self) -> None:
-        self.tool_call_count += 1
-
     def track_agent_iteration(self, agent_name: str) -> None:
         self.agent_iterations[agent_name] = self.agent_iterations.get(agent_name, 0) + 1
 

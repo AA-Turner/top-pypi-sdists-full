@@ -5,8 +5,8 @@
 
 use super::*;
 use crate::api::event::{
-    BaseEvent, CategoryProfile, Event, EventCategory, MarkEvent, ScopeCategory, ScopeEvent,
-    tool_attributes_to_strings,
+    BaseEvent, CategoryProfile, DataSchema, Event, EventCategory, METRIC_DATA_SCHEMA_NAME,
+    METRIC_DATA_SCHEMA_VERSION, MarkEvent, ScopeCategory, ScopeEvent, tool_attributes_to_strings,
 };
 use crate::api::runtime::{
     NemoRelayContextState, PropagationContext, ThreadScopeStackBinding,
@@ -24,6 +24,10 @@ use crate::codec::response::{
 };
 use crate::json::Json;
 use crate::observability::atif::{AtifAgentInfo, AtifExporter, AtifStepExtra};
+use crate::observability::otel_logs::{OpenTelemetryLogConfig, OpenTelemetryLogSubscriber};
+use crate::observability::otel_metrics::{
+    OpenTelemetryMetricConfig, OpenTelemetryMetricSubscriber,
+};
 use crate::observability::{relay_span_id, relay_trace_id};
 use opentelemetry::trace::TraceContextExt;
 use opentelemetry_sdk::trace::{BatchConfigBuilder, InMemorySpanExporterBuilder};
@@ -32,6 +36,7 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::net::TcpListener;
+use std::sync::atomic::AtomicUsize;
 use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -51,6 +56,97 @@ impl Drop for ClearPluginConfigurationGuard {
     fn drop(&mut self) {
         let _ = crate::plugin::clear_plugin_configuration();
     }
+}
+
+#[test]
+fn provider_errors_identify_their_telemetry_signal() {
+    for (error, expected) in [
+        (
+            OpenTelemetryError::TraceProvider("trace failure".to_string()),
+            "OpenTelemetry tracer provider error: trace failure",
+        ),
+        (
+            OpenTelemetryError::LogProvider("log failure".to_string()),
+            "OpenTelemetry log provider error: log failure",
+        ),
+        (
+            OpenTelemetryError::MetricProvider("metric failure".to_string()),
+            "OpenTelemetry metric provider error: metric failure",
+        ),
+    ] {
+        assert_eq!(error.to_string(), expected);
+    }
+}
+
+#[test]
+fn shutdown_is_idempotent_for_all_otlp_subscribers() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+
+    let trace = OpenTelemetrySubscriber::from_tracer_provider(
+        SdkTracerProvider::builder().build(),
+        "shutdown-idempotency-test",
+    );
+    trace.shutdown().unwrap();
+    trace.shutdown().unwrap();
+
+    let logs = OpenTelemetryLogSubscriber::new(OpenTelemetryLogConfig::new(
+        "http://127.0.0.1:4318/v1/logs",
+    ))
+    .unwrap();
+    logs.shutdown().unwrap();
+    logs.shutdown().unwrap();
+    assert!(logs.force_flush().is_err());
+
+    let metrics = OpenTelemetryMetricSubscriber::new(OpenTelemetryMetricConfig::new(
+        "http://127.0.0.1:4318/v1/metrics",
+    ))
+    .unwrap();
+    metrics.shutdown().unwrap();
+    metrics.shutdown().unwrap();
+    assert!(metrics.force_flush().is_err());
+}
+
+#[test]
+fn shutdown_normalization_preserves_provider_failures() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+
+    assert!(normalize_shutdown_result(Err(OTelSdkError::AlreadyShutdown)).is_ok());
+
+    let error = normalize_shutdown_result(Err(OTelSdkError::InternalFailure(
+        "collector unavailable".to_string(),
+    )))
+    .unwrap_err();
+    assert!(matches!(
+        error,
+        OTelSdkError::InternalFailure(message) if message == "collector unavailable"
+    ));
+
+    let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
+        AlwaysFailingSpanExporter,
+        "https://collector.example/v1/traces".to_string(),
+        SignalRuntimeDiagnostics::new(Some("opentelemetry.traces[0].endpoint".to_string())),
+        BatchConfigBuilder::default()
+            .with_max_export_batch_size(1)
+            .build(),
+    );
+    let provider = SdkTracerProvider::builder()
+        .with_span_processor(processor)
+        .build();
+    provider
+        .tracer("first-shutdown-failure-test")
+        .start("export-fails")
+        .end();
+    provider.force_flush().unwrap_err();
+    let subscriber =
+        OpenTelemetrySubscriber::from_tracer_provider(provider, "first-shutdown-failure-test");
+
+    let error = subscriber.shutdown().unwrap_err();
+    assert!(matches!(
+        error,
+        OpenTelemetryError::TraceProvider(message)
+            if message.contains(OTEL_RUNTIME_DELIVERY_FAILURE_MARKER)
+    ));
+    subscriber.shutdown().unwrap();
 }
 
 struct RestoreThreadScopeStackGuard(ThreadScopeStackBinding);
@@ -105,6 +201,131 @@ impl SpanExporter for BlockingSpanExporter {
             state = changed.wait(state).unwrap();
         }
         Ok(())
+    }
+}
+
+#[test]
+fn slow_trace_flush_does_not_block_other_subscribers_or_lifecycle_barriers() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+    reset_global();
+
+    let exporter = BlockingSpanExporter::default();
+    let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
+        exporter.clone(),
+        "https://collector.example/v1/traces".to_string(),
+        SignalRuntimeDiagnostics::new(None),
+        BatchConfigBuilder::default()
+            .with_max_queue_size(1)
+            .with_max_export_batch_size(1)
+            .with_scheduled_delay(Duration::from_secs(60))
+            .build(),
+    );
+    let provider = SdkTracerProvider::builder()
+        .with_span_processor(processor)
+        .build();
+    let trace_subscriber = OpenTelemetrySubscriber::from_tracer_provider(provider, "trace");
+    let trace_name = format!("slow-trace-{}", Uuid::now_v7().simple());
+    trace_subscriber.register(&trace_name).unwrap();
+
+    let (healthy_tx, healthy_rx) = mpsc::channel();
+    let healthy_name = format!("healthy-{}", Uuid::now_v7().simple());
+    crate::api::subscriber::register_subscriber(
+        &healthy_name,
+        Arc::new(move |event| {
+            if event.name() == "healthy-event" {
+                healthy_tx.send(()).unwrap();
+            }
+        }),
+    )
+    .unwrap();
+
+    let trace_callback = trace_subscriber.subscriber();
+    let trace_uuid = Uuid::now_v7();
+    trace_callback(&make_start_event(
+        trace_uuid,
+        None,
+        "slow-trace",
+        ScopeType::Agent,
+        None,
+    ));
+    trace_callback(&make_end_event(
+        trace_uuid,
+        None,
+        "slow-trace",
+        ScopeType::Agent,
+        None,
+    ));
+
+    let flush_trace = trace_subscriber.clone();
+    let trace_flush = thread::spawn(move || flush_trace.force_flush());
+    exporter.wait_until_export_starts();
+
+    crate::api::scope::event(
+        crate::api::scope::EmitMarkEventParams::builder()
+            .name("healthy-event")
+            .build(),
+    )
+    .unwrap();
+
+    let (barrier_tx, barrier_rx) = mpsc::channel();
+    let barrier = thread::spawn(move || {
+        barrier_tx
+            .send(crate::api::subscriber::flush_subscribers())
+            .unwrap();
+    });
+
+    healthy_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("a slow trace flush must not delay another subscriber");
+    barrier_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("a slow trace flush must not delay the subscriber lifecycle barrier")
+        .unwrap();
+
+    exporter.release();
+    trace_flush.join().unwrap().unwrap();
+    barrier.join().unwrap();
+    trace_subscriber.deregister(&trace_name).unwrap();
+    crate::api::subscriber::deregister_subscriber(&healthy_name).unwrap();
+    trace_subscriber.shutdown().unwrap();
+}
+
+#[derive(Clone, Debug, Default)]
+struct FailingThenRecoveringSpanExporter {
+    attempts: Arc<AtomicUsize>,
+}
+
+impl SpanExporter for FailingThenRecoveringSpanExporter {
+    async fn export(&self, _batch: Vec<SpanData>) -> OTelSdkResult {
+        if self.attempts.fetch_add(1, Ordering::Relaxed) == 0 {
+            Err(OTelSdkError::InternalFailure(
+                "collector unavailable".to_string(),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct SensitiveFailingSpanExporter;
+
+impl SpanExporter for SensitiveFailingSpanExporter {
+    async fn export(&self, _batch: Vec<SpanData>) -> OTelSdkResult {
+        Err(OTelSdkError::InternalFailure(
+            "Authorization: Bearer exporter-secret".to_string(),
+        ))
+    }
+}
+
+#[derive(Clone, Debug)]
+struct AlwaysFailingSpanExporter;
+
+impl SpanExporter for AlwaysFailingSpanExporter {
+    async fn export(&self, _batch: Vec<SpanData>) -> OTelSdkResult {
+        Err(OTelSdkError::InternalFailure(
+            "collector unavailable".to_string(),
+        ))
     }
 }
 
@@ -492,6 +713,342 @@ fn rootless_propagation_starts_a_new_otel_trace() {
     assert!(!span.parent_span_is_remote);
 }
 
+#[test]
+fn promotes_final_scope_and_mark_metadata_without_duplicate_span_keys() {
+    for otel_type in [OpenTelemetryType::Full, OpenTelemetryType::OpenInference] {
+        let (provider, exporter) = make_provider();
+        let mut processor =
+            OtelEventProcessor::new_with_mark_projection_and_exclusions_and_mappings_and_runtime_diagnostics(
+                provider,
+                "metadata-promotion-test".into(),
+                otel_type,
+                MarkProjection::default(),
+                default_mark_exclude_names(),
+                Vec::new(),
+                vec!["nv.".to_string(), "nemo_relay.".to_string()],
+                SignalRuntimeDiagnostics::new(None),
+            );
+        let uuid = Uuid::now_v7();
+        processor.process(&make_start_event_with_metadata(
+            uuid,
+            None,
+            "metadata-promotion-scope",
+            json!({
+                "nv.source": "start",
+                "nemo_relay.scope_type": "attempted-overwrite"
+            }),
+        ));
+        processor.process(&make_mark_event_with_metadata(
+            Some(uuid),
+            json!({"nv.source": "mark"}),
+        ));
+        processor.process(&make_end_event_with_metadata(
+            uuid,
+            None,
+            "metadata-promotion-scope",
+            ScopeType::Agent,
+            json!({
+                "nv.source": "end",
+                "nv.completed": true,
+                "nemo_relay.scope_type": "attempted-overwrite"
+            }),
+        ));
+        processor.force_flush().unwrap();
+
+        let spans = exporter.get_finished_spans().unwrap();
+        assert_eq!(spans.len(), 1);
+        let span = &spans[0];
+        assert_eq!(
+            span.attributes
+                .iter()
+                .filter(|attribute| attribute.key.as_str() == "nv.source")
+                .count(),
+            1
+        );
+        let attributes = attr_map(&span.attributes);
+        assert_eq!(attributes.get("nv.source"), Some(&"end".to_string()));
+        assert_eq!(attributes.get("nv.completed"), Some(&"true".to_string()));
+        assert_eq!(
+            attributes.get("nemo_relay.scope_type"),
+            Some(&"agent".to_string())
+        );
+        let mark_attributes = attr_map(&span.events.events[0].attributes);
+        assert_eq!(mark_attributes.get("nv.source"), Some(&"mark".to_string()));
+    }
+}
+
+#[test]
+fn promotes_orphan_and_tool_projection_mark_metadata() {
+    for otel_type in [OpenTelemetryType::Full, OpenTelemetryType::OpenInference] {
+        let (provider, exporter) = make_provider();
+        let mut processor =
+            OtelEventProcessor::new_with_mark_projection_and_exclusions_and_mappings_and_runtime_diagnostics(
+                provider,
+                "metadata-promotion-mark-test".into(),
+                otel_type,
+                MarkProjection::Tool,
+                default_mark_exclude_names(),
+                Vec::new(),
+                vec!["nv.".to_string()],
+                SignalRuntimeDiagnostics::new(None),
+            );
+        let parent_uuid = Uuid::now_v7();
+        processor.process(&Event::Mark(MarkEvent::new(
+            BaseEvent::builder()
+                .name("metadata.orphan")
+                .metadata(json!({"nv.source": "orphan"}))
+                .build(),
+            None,
+            None,
+        )));
+        processor.process(&make_start_event(
+            parent_uuid,
+            None,
+            "metadata-promotion-parent",
+            ScopeType::Agent,
+            None,
+        ));
+        processor.process(&Event::Mark(MarkEvent::new(
+            BaseEvent::builder()
+                .parent_uuid(parent_uuid)
+                .name("metadata.projected")
+                .metadata(json!({"nv.source": "projected"}))
+                .build(),
+            None,
+            None,
+        )));
+        processor.process(&make_end_event(
+            parent_uuid,
+            None,
+            "metadata-promotion-parent",
+            ScopeType::Agent,
+            None,
+        ));
+        processor.force_flush().unwrap();
+
+        let spans = exporter.get_finished_spans().unwrap();
+        assert_eq!(spans.len(), 3);
+        let parent = finished_span_named(&spans, "metadata-promotion-parent");
+        let orphan = finished_span_named(&spans, "mark:metadata.orphan");
+        let projected = finished_span_named(&spans, "mark:metadata.projected");
+        assert!(!attr_map(&parent.attributes).contains_key("nv.source"));
+        assert_eq!(
+            attr_map(&orphan.attributes).get("nv.source"),
+            Some(&"orphan".to_string())
+        );
+        assert_eq!(
+            attr_map(&projected.attributes).get("nv.source"),
+            Some(&"projected".to_string())
+        );
+        assert_eq!(projected.parent_span_id, parent.span_context.span_id());
+    }
+}
+
+#[test]
+fn promotes_final_scope_metadata_across_trace_projections() {
+    for otel_type in [
+        OpenTelemetryType::Full,
+        OpenTelemetryType::GenAi,
+        OpenTelemetryType::OpenInference,
+    ] {
+        let (provider, exporter) = make_provider();
+        let mut processor =
+            OtelEventProcessor::new_with_mark_projection_and_exclusions_and_mappings_and_runtime_diagnostics(
+                provider,
+                "metadata-promotion-projection-test".into(),
+                otel_type,
+                MarkProjection::default(),
+                default_mark_exclude_names(),
+                Vec::new(),
+                vec!["nv.".to_string()],
+                SignalRuntimeDiagnostics::new(None),
+            );
+        let uuid = Uuid::now_v7();
+        processor.process(&make_start_event_with_metadata(
+            uuid,
+            None,
+            "metadata-promotion-projection-scope",
+            json!({"nv.source": "start"}),
+        ));
+        processor.process(&make_end_event_with_metadata(
+            uuid,
+            None,
+            "metadata-promotion-projection-scope",
+            ScopeType::Agent,
+            json!({"nv.source": "end"}),
+        ));
+        processor.force_flush().unwrap();
+
+        let spans = exporter.get_finished_spans().unwrap();
+        assert_eq!(spans.len(), 1);
+        assert_eq!(
+            attr_map(&spans[0].attributes).get("nv.source"),
+            Some(&"end".to_string())
+        );
+    }
+}
+
+#[test]
+fn omits_scope_metadata_when_final_value_is_unsupported_across_trace_projections() {
+    for otel_type in [
+        OpenTelemetryType::Full,
+        OpenTelemetryType::GenAi,
+        OpenTelemetryType::OpenInference,
+    ] {
+        let (provider, exporter) = make_provider();
+        let runtime_diagnostics = SignalRuntimeDiagnostics::new(None);
+        let mut processor =
+            OtelEventProcessor::new_with_mark_projection_and_exclusions_and_mappings_and_runtime_diagnostics(
+                provider,
+                "unsupported-final-metadata-promotion-test".into(),
+                otel_type,
+                MarkProjection::default(),
+                default_mark_exclude_names(),
+                Vec::new(),
+                vec!["nv.".to_string()],
+                runtime_diagnostics.clone(),
+            );
+        let uuid = Uuid::now_v7();
+        processor.process(&make_start_event_with_metadata(
+            uuid,
+            None,
+            "unsupported-final-metadata-promotion-scope",
+            json!({"nv.source": "start"}),
+        ));
+        processor.process(&make_end_event_with_metadata(
+            uuid,
+            None,
+            "unsupported-final-metadata-promotion-scope",
+            ScopeType::Agent,
+            json!({"nv.source": {"unsupported": true}}),
+        ));
+        processor.force_flush().unwrap();
+
+        let spans = exporter.get_finished_spans().unwrap();
+        assert_eq!(spans.len(), 1);
+        assert!(!attr_map(&spans[0].attributes).contains_key("nv.source"));
+
+        let diagnostics = runtime_diagnostics.snapshot();
+        let diagnostic = diagnostics
+            .get("otel.metadata_promotion_value_unsupported.nv.source")
+            .expect("unsupported final metadata diagnostic");
+        assert_eq!(diagnostic.count, 1);
+        assert!(diagnostic.message.contains("nv.source"));
+    }
+}
+
+#[test]
+fn reports_each_unsupported_metadata_key_with_a_deterministic_diagnostic_code() {
+    let (provider, exporter) = make_provider();
+    let runtime_diagnostics = SignalRuntimeDiagnostics::new(None);
+    let mut processor =
+        OtelEventProcessor::new_with_mark_projection_and_exclusions_and_mappings_and_runtime_diagnostics(
+            provider,
+            "unsupported-metadata-promotion-keys-test".into(),
+            OpenTelemetryType::Full,
+            MarkProjection::default(),
+            default_mark_exclude_names(),
+            Vec::new(),
+            vec!["tenant.".to_string()],
+            runtime_diagnostics.clone(),
+        );
+    let uuid = Uuid::now_v7();
+    let unsupported_metadata = json!({
+        "tenant.plan": {"name": "enterprise"},
+        "tenant.flags": null,
+        "tenant.tags": [["nested"]],
+        "tenant.mixed": [1, "string"],
+    });
+
+    processor.process(&make_start_event_with_metadata(
+        uuid,
+        None,
+        "unsupported-metadata-promotion-keys-scope",
+        unsupported_metadata.clone(),
+    ));
+    processor.process(&make_end_event_with_metadata(
+        uuid,
+        None,
+        "unsupported-metadata-promotion-keys-scope",
+        ScopeType::Agent,
+        unsupported_metadata,
+    ));
+    processor.force_flush().unwrap();
+
+    let spans = exporter.get_finished_spans().unwrap();
+    assert_eq!(spans.len(), 1);
+    let span_attributes = attr_map(&spans[0].attributes);
+    for key in ["tenant.flags", "tenant.mixed", "tenant.plan", "tenant.tags"] {
+        assert!(!span_attributes.contains_key(key));
+    }
+
+    let diagnostics = runtime_diagnostics.snapshot();
+    let expected_keys = ["tenant.flags", "tenant.mixed", "tenant.plan", "tenant.tags"];
+    assert_eq!(
+        diagnostics
+            .entries()
+            .iter()
+            .map(|diagnostic| diagnostic.code.as_str())
+            .collect::<Vec<_>>(),
+        expected_keys
+            .iter()
+            .map(|key| format!("otel.metadata_promotion_value_unsupported.{key}"))
+            .collect::<Vec<_>>()
+    );
+    for key in expected_keys {
+        let code = format!("otel.metadata_promotion_value_unsupported.{key}");
+        let diagnostic = diagnostics
+            .get(&code)
+            .expect("metadata-key-specific promotion diagnostic");
+        assert_eq!(diagnostic.count, 2);
+        assert!(diagnostic.message.contains(key));
+    }
+}
+
+#[test]
+fn promotes_start_only_scope_metadata_across_trace_projections() {
+    for otel_type in [
+        OpenTelemetryType::Full,
+        OpenTelemetryType::GenAi,
+        OpenTelemetryType::OpenInference,
+    ] {
+        let (provider, exporter) = make_provider();
+        let mut processor =
+            OtelEventProcessor::new_with_mark_projection_and_exclusions_and_mappings_and_runtime_diagnostics(
+                provider,
+                "start-metadata-promotion-projection-test".into(),
+                otel_type,
+                MarkProjection::default(),
+                default_mark_exclude_names(),
+                Vec::new(),
+                vec!["nv.".to_string()],
+                SignalRuntimeDiagnostics::new(None),
+            );
+        let uuid = Uuid::now_v7();
+        processor.process(&make_start_event_with_metadata(
+            uuid,
+            None,
+            "start-metadata-promotion-projection-scope",
+            json!({"nv.start_only": "configured"}),
+        ));
+        processor.process(&make_end_event_with_metadata(
+            uuid,
+            None,
+            "start-metadata-promotion-projection-scope",
+            ScopeType::Agent,
+            json!({}),
+        ));
+        processor.force_flush().unwrap();
+
+        let spans = exporter.get_finished_spans().unwrap();
+        assert_eq!(spans.len(), 1);
+        assert_eq!(
+            attr_map(&spans[0].attributes).get("nv.start_only"),
+            Some(&"configured".to_string())
+        );
+    }
+}
+
 fn make_start_event_with_metadata(
     uuid: Uuid,
     parent_uuid: Option<Uuid>,
@@ -771,7 +1328,7 @@ fn assert_config_defaults(defaults: &OpenTelemetryConfig) {
 }
 
 #[test]
-fn http_trace_endpoint_resolution_completes_only_bare_http_urls() {
+fn http_trace_endpoint_resolution_preserves_an_explicit_root_path() {
     for (endpoint, expected) in [
         ("http://localhost:4318", "http://localhost:4318/v1/traces"),
         ("http://localhost:4318/", "http://localhost:4318/"),
@@ -782,6 +1339,10 @@ fn http_trace_endpoint_resolution_completes_only_bare_http_urls() {
         (
             "https://collector.example/?tenant=one",
             "https://collector.example/?tenant=one",
+        ),
+        (
+            "https://collector.example/#root",
+            "https://collector.example/#root",
         ),
         (
             "http://localhost:4318/v1/traces",
@@ -820,6 +1381,116 @@ fn direct_config_rejects_a_blank_endpoint_before_exporter_construction() {
     assert!(
         matches!(error, OpenTelemetryError::ExporterBuild(message) if message.contains("nonblank"))
     );
+}
+
+#[test]
+fn trace_subscriber_constructors_reject_zero_completed_context_ttl() {
+    let config = OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://127.0.0.1:4318")
+        .with_completed_span_context_ttl(std::time::Duration::ZERO);
+    let error = match OpenTelemetrySubscriber::new(config) {
+        Ok(_) => panic!("zero TTL must be rejected"),
+        Err(error) => error,
+    };
+    assert!(
+        matches!(error, OpenTelemetryError::ExporterBuild(message) if message.contains("completed_span_context_ttl must be greater than 0"))
+    );
+
+    for typed in [false, true] {
+        let (provider, _exporter) = make_provider();
+        let options = OpenTelemetrySubscriberOptions {
+            completed_span_context_ttl: std::time::Duration::ZERO,
+            ..Default::default()
+        };
+        let result = if typed {
+            OpenTelemetrySubscriber::from_tracer_provider_with_type_and_options(
+                provider,
+                "test-scope",
+                OpenTelemetryType::OpenInference,
+                options,
+            )
+        } else {
+            OpenTelemetrySubscriber::from_tracer_provider_with_options(
+                provider,
+                "test-scope",
+                options,
+            )
+        };
+        let error = match result {
+            Ok(_) => panic!("zero TTL must be rejected"),
+            Err(error) => error,
+        };
+        assert!(
+            matches!(error, OpenTelemetryError::ExporterBuild(message) if message.contains("completed_span_context_ttl must be greater than 0"))
+        );
+    }
+}
+
+#[test]
+fn subscriber_options_apply_custom_completed_context_ttl_at_the_boundary() {
+    let (provider, exporter) = make_provider();
+    let subscriber = OpenTelemetrySubscriber::from_tracer_provider_with_options(
+        provider,
+        "test-scope",
+        OpenTelemetrySubscriberOptions {
+            completed_span_context_ttl: std::time::Duration::from_millis(10),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let callback = subscriber.subscriber();
+    let uuid = Uuid::now_v7();
+    let closed_at = chrono::Utc::now();
+    let scope_event = |category| {
+        Event::Scope(ScopeEvent::new(
+            BaseEvent::builder()
+                .uuid(uuid)
+                .name("completed")
+                .timestamp(closed_at)
+                .build(),
+            category,
+            Vec::new(),
+            EventCategory::from(ScopeType::Tool),
+            None,
+        ))
+    };
+    let mark_event = |name, timestamp| {
+        Event::Mark(MarkEvent::new(
+            BaseEvent::builder()
+                .parent_uuid(uuid)
+                .name(name)
+                .timestamp(timestamp)
+                .build(),
+            None,
+            None,
+        ))
+    };
+
+    callback(&scope_event(ScopeCategory::Start));
+    callback(&scope_event(ScopeCategory::End));
+    callback(&mark_event(
+        "at-boundary",
+        closed_at + chrono::Duration::milliseconds(10),
+    ));
+    callback(&mark_event(
+        "after-boundary",
+        closed_at + chrono::Duration::milliseconds(11),
+    ));
+    subscriber.force_flush().unwrap();
+
+    let spans = exporter.get_finished_spans().unwrap();
+    let parent = finished_span_named(&spans, "completed");
+    let boundary_mark = finished_span_named(&spans, "mark:at-boundary");
+    let expired_mark = finished_span_named(&spans, "mark:after-boundary");
+    assert_eq!(
+        boundary_mark.span_context.trace_id(),
+        parent.span_context.trace_id()
+    );
+    assert_eq!(boundary_mark.parent_span_id, parent.span_context.span_id());
+    assert_ne!(
+        expired_mark.span_context.trace_id(),
+        parent.span_context.trace_id()
+    );
+    assert_ne!(expired_mark.parent_span_id, parent.span_context.span_id());
 }
 
 #[test]
@@ -932,6 +1603,8 @@ fn mapped_aliases_are_typed_and_cannot_replace_projected_span_fields() {
                 ),
                 crate::observability::OtlpAttributeMapping::new("missing.source", "ignored.alias"),
             ],
+            promote_metadata_prefixes: Vec::new(),
+            completed_span_context_ttl: DEFAULT_COMPLETED_SPAN_CONTEXT_TTL,
         },
     )
     .unwrap();
@@ -2656,6 +3329,123 @@ fn records_span_start_mark_and_end() {
 }
 
 #[test]
+fn metric_schema_marks_are_not_projected_to_direct_traces() {
+    let (provider, exporter) = make_provider();
+    let mut processor = OtelEventProcessor::new(provider.clone(), "test-scope".to_string());
+    let root_uuid = Uuid::now_v7();
+
+    processor.process(&make_start_event(
+        root_uuid,
+        None,
+        "agent",
+        ScopeType::Agent,
+        None,
+    ));
+    processor.process(&Event::Mark(MarkEvent::new(
+        BaseEvent::builder()
+            .parent_uuid(root_uuid)
+            .name("tokens-saved")
+            .data(json!({
+                "measurements": [{
+                    "name": "example.tokens.saved",
+                    "kind": "counter",
+                    "value_type": "u64",
+                    "value": 42
+                }]
+            }))
+            .data_schema(
+                DataSchema::builder()
+                    .name(METRIC_DATA_SCHEMA_NAME)
+                    .version(METRIC_DATA_SCHEMA_VERSION)
+                    .build(),
+            )
+            .build(),
+        None,
+        None,
+    )));
+    processor.process(&Event::Mark(MarkEvent::new(
+        BaseEvent::builder()
+            .parent_uuid(root_uuid)
+            .name("future-metric")
+            .data(json!({"measurements": []}))
+            .data_schema(
+                DataSchema::builder()
+                    .name(METRIC_DATA_SCHEMA_NAME)
+                    .version("999")
+                    .build(),
+            )
+            .build(),
+        None,
+        None,
+    )));
+    processor.process(&Event::Mark(MarkEvent::new(
+        BaseEvent::builder()
+            .parent_uuid(root_uuid)
+            .name("invalid-metric")
+            .data(json!({"measurements": []}))
+            .data_schema(
+                DataSchema::builder()
+                    .name(METRIC_DATA_SCHEMA_NAME)
+                    .version(METRIC_DATA_SCHEMA_VERSION)
+                    .build(),
+            )
+            .build(),
+        None,
+        None,
+    )));
+    processor.process(&make_mark_event(Some(root_uuid), "routing-decision", None));
+    processor.process(&make_end_event(
+        root_uuid,
+        None,
+        "agent",
+        ScopeType::Agent,
+        None,
+    ));
+    processor.force_flush().unwrap();
+
+    let spans = exporter.get_finished_spans().unwrap();
+    assert_eq!(spans.len(), 1);
+    assert_eq!(spans[0].events.events.len(), 1);
+    assert_eq!(spans[0].events.events[0].name.as_ref(), "routing-decision");
+    assert_eq!(processor.invalid_metric_count, 2);
+}
+
+#[test]
+fn direct_trace_subscriber_exposes_runtime_diagnostics() {
+    let (provider, _exporter) = make_provider();
+    let subscriber = OpenTelemetrySubscriber::from_tracer_provider(provider, "diagnostics");
+    let event = Event::Mark(MarkEvent::new(
+        BaseEvent::builder()
+            .name("invalid-metric")
+            .data(json!({"measurements": []}))
+            .data_schema(
+                DataSchema::builder()
+                    .name(METRIC_DATA_SCHEMA_NAME)
+                    .version("999")
+                    .build(),
+            )
+            .build(),
+        None,
+        None,
+    ));
+
+    for _ in 0..3 {
+        (subscriber.subscriber())(&event);
+    }
+
+    let diagnostics = subscriber.runtime_diagnostics();
+    let diagnostic = diagnostics
+        .get("otel.metric_mark_invalid")
+        .expect("invalid metric diagnostic");
+    assert_eq!(diagnostic.count, 3);
+    assert!(
+        diagnostic
+            .message
+            .contains("unsupported metric schema version")
+    );
+}
+
+#[test]
 fn derives_span_ids_from_relay_uuids() {
     let (provider, exporter) = make_provider();
     let mut processor = OtelEventProcessor::new_with_mark_projection(
@@ -3093,7 +3883,7 @@ fn late_parented_marks_reuse_completed_parent_trace_context() {
 }
 
 #[test]
-fn process_start_removes_completed_span_order_entry() {
+fn process_start_removes_completed_span_expiry_index_entry() {
     let (provider, _exporter) = make_provider();
     let mut processor = OtelEventProcessor::new(provider, "test-scope".to_string());
     let tool_uuid = Uuid::now_v7();
@@ -3115,9 +3905,9 @@ fn process_start_removes_completed_span_order_entry() {
     assert!(processor.completed_span_contexts.contains_key(&tool_uuid));
     assert_eq!(
         processor
-            .completed_span_order
-            .iter()
-            .filter(|uuid| **uuid == tool_uuid)
+            .completed_span_expiry_index
+            .values()
+            .filter(|uuids| uuids.contains(&tool_uuid))
             .count(),
         1
     );
@@ -3130,7 +3920,12 @@ fn process_start_removes_completed_span_order_entry() {
         None,
     ));
     assert!(!processor.completed_span_contexts.contains_key(&tool_uuid));
-    assert!(!processor.completed_span_order.contains(&tool_uuid));
+    assert!(
+        processor
+            .completed_span_expiry_index
+            .values()
+            .all(|uuids| !uuids.contains(&tool_uuid))
+    );
 
     processor.process(&make_end_event(
         tool_uuid,
@@ -3142,9 +3937,9 @@ fn process_start_removes_completed_span_order_entry() {
     assert!(processor.completed_span_contexts.contains_key(&tool_uuid));
     assert_eq!(
         processor
-            .completed_span_order
-            .iter()
-            .filter(|uuid| **uuid == tool_uuid)
+            .completed_span_expiry_index
+            .values()
+            .filter(|uuids| uuids.contains(&tool_uuid))
             .count(),
         1
     );
@@ -3438,7 +4233,11 @@ fn assert_otel_tool_attribute_branches() {
         Some(&"true".to_string())
     );
 
-    let tool_end_attributes = attr_map(&end_attributes(&Event::Scope(ScopeEvent::new(
+    let tool_end_profile = CategoryProfile::builder()
+        .tool_call_id("call-456")
+        .tool_result_annotation(json!({"opaque": {"rank": 1}}))
+        .build();
+    let tool_end_event = Event::Scope(ScopeEvent::new(
         BaseEvent::builder()
             .name("lookup")
             .metadata(json!({"phase": "complete"}))
@@ -3447,12 +4246,37 @@ fn assert_otel_tool_attribute_branches() {
         ScopeCategory::End,
         Vec::new(),
         EventCategory::tool(),
-        Some(CategoryProfile::builder().tool_call_id("call-456").build()),
-    ))));
+        Some(tool_end_profile),
+    ));
+    let tool_end_attributes = attr_map(&end_attributes(&tool_end_event));
     assert_eq!(
         tool_end_attributes.get("nemo_relay.end.data.result"),
         Some(&"true".to_string())
     );
+    assert_eq!(
+        tool_end_attributes.get("nemo_relay.tool.result.annotation"),
+        Some(&r#"{"opaque":{"rank":1}}"#.to_string())
+    );
+
+    let llm_profile = CategoryProfile::builder()
+        .tool_result_annotation(json!({"must_not_project": true}))
+        .build();
+    let llm_end_event = Event::Scope(ScopeEvent::new(
+        BaseEvent::builder().name("chat").build(),
+        ScopeCategory::End,
+        Vec::new(),
+        EventCategory::llm(),
+        Some(llm_profile),
+    ));
+    assert!(
+        !attr_map(&end_attributes(&llm_end_event))
+            .contains_key("nemo_relay.tool.result.annotation")
+    );
+
+    let gen_ai_attributes = attr_map(&crate::observability::otel_genai::end_attributes(
+        &tool_end_event,
+    ));
+    assert!(!gen_ai_attributes.contains_key("nemo_relay.tool.result.annotation"));
 }
 
 fn assert_otel_catalog_cost_branches() {
@@ -3533,6 +4357,39 @@ fn assert_otel_catalog_cost_branches() {
             provider_qualified_cost_attributes.get("nemo_relay.llm.cost.currency"),
             Some(&"USD".to_string())
         );
+    }
+
+    {
+        let _pricing_guard = pricing_test_mutex().lock().unwrap();
+        install_test_pricing("priced-model");
+        let _reset_guard = ResetPricingResolverGuard;
+        let partial_cost_event = make_scope_event_with_profile(
+            ScopeCategory::End,
+            Uuid::now_v7(),
+            None,
+            "test",
+            ScopeType::Llm,
+            Some(json!({"answer": "ok"})),
+            Some(
+                CategoryProfile::builder()
+                    .model_name("priced-model")
+                    .annotated_response(std::sync::Arc::new(AnnotatedLlmResponse {
+                        usage: Some(Usage {
+                            prompt_tokens: Some(1_000),
+                            completion_tokens: Some(500),
+                            total_tokens: Some(1_500),
+                            cache_read_tokens: Some(200),
+                            cache_write_tokens: Some(10),
+                            cost: None,
+                        }),
+                        ..empty_annotated_response()
+                    }))
+                    .build(),
+            ),
+        );
+        let partial_cost_attributes = attr_map(&end_attributes(&partial_cost_event));
+        assert!(!partial_cost_attributes.contains_key("nemo_relay.llm.cost.total"));
+        assert!(!partial_cost_attributes.contains_key("nemo_relay.llm.cost.currency"));
     }
 }
 
@@ -3788,8 +4645,11 @@ fn provider_builders_cover_success_paths() {
             .with_header("authorization", "Bearer token")
             .with_resource_attribute("deployment.environment", "test")
             .with_service_namespace("agents")
-            .with_service_version("1.2.3"),
-        None,
+            .with_service_version("1.2.3")
+            .with_max_queue_size(16)
+            .with_max_export_batch_size(4)
+            .with_scheduled_delay(Duration::from_millis(10)),
+        SignalRuntimeDiagnostics::new(None),
     )
     .unwrap();
     http_provider.force_flush().unwrap();
@@ -3815,10 +4675,12 @@ fn dropped_spans_are_recorded_in_the_active_plugin_report() {
     .unwrap();
 
     let exporter = BlockingSpanExporter::default();
+    let runtime_diagnostics =
+        SignalRuntimeDiagnostics::new(Some("opentelemetry.traces[2].endpoint".to_string()));
     let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
         exporter.clone(),
         "https://collector.example/v1/traces".to_string(),
-        Some("opentelemetry.endpoints[2].endpoint".to_string()),
+        runtime_diagnostics.clone(),
         BatchConfigBuilder::default()
             .with_max_queue_size(1)
             .with_max_export_batch_size(1)
@@ -3852,13 +4714,252 @@ fn dropped_spans_are_recorded_in_the_active_plugin_report() {
     assert_eq!(diagnostic.count, 2);
     assert_eq!(
         diagnostic.field.as_deref(),
-        Some("opentelemetry.endpoints[2].endpoint")
+        Some("opentelemetry.traces[2].endpoint")
+    );
+    assert!(diagnostic.message.contains("https://collector.example:443"));
+    assert_eq!(
+        runtime_diagnostics
+            .snapshot()
+            .get("otel.spans_dropped")
+            .map(|diagnostic| diagnostic.count),
+        Some(2)
+    );
+}
+
+#[test]
+fn direct_trace_processor_records_cumulative_queue_drops_on_flush_and_shutdown() {
+    let runtime_diagnostics = SignalRuntimeDiagnostics::new(None);
+    let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
+        InMemorySpanExporterBuilder::new().build(),
+        "https://collector.example/v1/traces".to_string(),
+        runtime_diagnostics.clone(),
+        BatchConfigBuilder::default().build(),
+    );
+    processor.completed_spans.store(3, Ordering::Relaxed);
+    processor.accepted_spans.store(1, Ordering::Relaxed);
+
+    processor.force_flush().unwrap();
+    assert_eq!(
+        runtime_diagnostics
+            .snapshot()
+            .get("otel.spans_dropped")
+            .map(|diagnostic| diagnostic.count),
+        Some(2)
+    );
+
+    processor.completed_spans.store(5, Ordering::Relaxed);
+    processor
+        .shutdown_with_timeout(Duration::from_secs(1))
+        .unwrap();
+    let diagnostics = runtime_diagnostics.snapshot();
+    let diagnostic = diagnostics
+        .get("otel.spans_dropped")
+        .expect("direct trace drop diagnostic");
+    assert_eq!(diagnostic.count, 4);
+    assert!(diagnostic.message.contains("https://collector.example:443"));
+}
+
+#[test]
+fn plugin_trace_subscriber_runtime_diagnostics_use_trace_field() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+    let _ = crate::plugin::clear_plugin_configuration();
+    let _clear_guard = ClearPluginConfigurationGuard;
+    futures::executor::block_on(crate::plugin::initialize_plugins_exact(
+        crate::plugin::PluginConfig::default(),
+    ))
+    .unwrap();
+
+    let subscriber = OpenTelemetrySubscriber::new_for_plugin(
+        OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces"),
+        2,
+    )
+    .unwrap();
+    let event = Event::Mark(MarkEvent::new(
+        BaseEvent::builder()
+            .name("invalid-metric")
+            .data(json!({"measurements": []}))
+            .data_schema(
+                DataSchema::builder()
+                    .name(METRIC_DATA_SCHEMA_NAME)
+                    .version("999")
+                    .build(),
+            )
+            .build(),
+        None,
+        None,
+    ));
+
+    (subscriber.subscriber())(&event);
+
+    let report = crate::plugin::active_plugin_report().unwrap();
+    let diagnostic = report
+        .runtime_diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "otel.metric_mark_invalid")
+        .expect("invalid metric diagnostic");
+    assert_eq!(
+        diagnostic.field.as_deref(),
+        Some("opentelemetry.traces[2].endpoint")
+    );
+}
+
+#[test]
+fn trace_export_failures_are_diagnosed_until_a_later_export_recovers() {
+    let runtime_diagnostics = SignalRuntimeDiagnostics::new(None);
+    let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
+        FailingThenRecoveringSpanExporter::default(),
+        "https://collector.example/v1/traces".to_string(),
+        runtime_diagnostics.clone(),
+        BatchConfigBuilder::default()
+            .with_max_export_batch_size(1)
+            .build(),
+    );
+    let provider = SdkTracerProvider::builder()
+        .with_span_processor(processor)
+        .build();
+    let tracer = provider.tracer("trace-export-failure-diagnostics-test");
+
+    tracer.start("first-export-fails").end();
+    assert!(provider.force_flush().is_err());
+
+    let diagnostics = runtime_diagnostics.snapshot();
+    let diagnostic = diagnostics
+        .get("otel.traces_export_failed")
+        .expect("trace export failure diagnostic");
+    assert_eq!(diagnostic.count, 1);
+    assert!(diagnostic.message.contains("https://collector.example:443"));
+    assert!(!diagnostic.message.contains("collector unavailable"));
+
+    let repeated_flush = provider.force_flush().unwrap_err();
+    assert!(
+        repeated_flush
+            .to_string()
+            .contains("otel.traces_export_failed (1)")
+    );
+
+    tracer.start("recovery-export").end();
+    provider.force_flush().unwrap();
+    provider.shutdown().unwrap();
+}
+
+#[test]
+fn trace_endpoint_log_identity_redacts_and_validates_urls() {
+    for (endpoint, expected) in [
+        ("not a URL", "an invalid OTLP endpoint"),
+        ("ftp://collector.example/secret", "an invalid OTLP endpoint"),
+        (
+            "https://[::1]:4318/private?access_token=url-secret",
+            "https://[::1]:4318",
+        ),
+        (
+            "https://user:password@collector.example:4318/private?access_token=url-secret#fragment-secret",
+            "https://collector.example:4318",
+        ),
+    ] {
+        assert_eq!(trace_endpoint_log_identity(endpoint), expected);
+    }
+}
+
+#[test]
+fn trace_export_failures_use_a_safe_endpoint_identity() {
+    let endpoint = "https://user:password@collector.example:4318/private-path?access_token=url-secret#fragment-secret";
+    let runtime_diagnostics = SignalRuntimeDiagnostics::new(None);
+    let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
+        SensitiveFailingSpanExporter,
+        endpoint.to_string(),
+        runtime_diagnostics.clone(),
+        BatchConfigBuilder::default()
+            .with_max_export_batch_size(1)
+            .build(),
+    );
+    let provider = SdkTracerProvider::builder()
+        .with_span_processor(processor)
+        .build();
+    let tracer = provider.tracer("safe-trace-export-failure-test");
+
+    tracer.start("export-fails").end();
+    let error = provider.force_flush().unwrap_err().to_string();
+    let diagnostic = runtime_diagnostics
+        .snapshot()
+        .get("otel.traces_export_failed")
+        .expect("trace export failure diagnostic")
+        .message
+        .clone();
+
+    for message in [&error, &diagnostic] {
+        assert!(message.contains("https://collector.example:4318"));
+        for secret in [
+            "user",
+            "password",
+            "private-path",
+            "url-secret",
+            "fragment-secret",
+            "exporter-secret",
+            "Authorization",
+        ] {
+            assert!(
+                !message.contains(secret),
+                "trace export failure leaked {secret:?}: {message}"
+            );
+        }
+    }
+
+    provider.shutdown().unwrap();
+}
+
+#[test]
+fn unrecovered_trace_export_failure_is_retained_in_the_active_plugin_report() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+    let _ = crate::plugin::clear_plugin_configuration();
+    let _clear_guard = ClearPluginConfigurationGuard;
+    futures::executor::block_on(crate::plugin::initialize_plugins_exact(
+        crate::plugin::PluginConfig::default(),
+    ))
+    .unwrap();
+
+    let runtime_diagnostics =
+        SignalRuntimeDiagnostics::new(Some("opentelemetry.traces[2].endpoint".to_string()));
+    let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
+        FailingThenRecoveringSpanExporter::default(),
+        "https://collector.example/v1/traces".to_string(),
+        runtime_diagnostics.clone(),
+        BatchConfigBuilder::default()
+            .with_max_export_batch_size(1)
+            .build(),
+    );
+    let provider = SdkTracerProvider::builder()
+        .with_span_processor(processor)
+        .build();
+    let tracer = provider.tracer("unrecovered-trace-export-failure-test");
+
+    tracer.start("export-fails").end();
+    assert!(provider.force_flush().is_err());
+
+    let shutdown = provider.shutdown().unwrap_err();
+    assert!(
+        shutdown
+            .to_string()
+            .contains(OTEL_RUNTIME_DELIVERY_FAILURE_MARKER)
     );
     assert!(
-        diagnostic
-            .message
-            .contains("https://collector.example/v1/traces")
+        shutdown
+            .to_string()
+            .contains("otel.traces_export_failed (1)")
     );
+
+    let report = crate::plugin::active_plugin_report().unwrap();
+    let diagnostic = report
+        .runtime_diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "otel.traces_export_failed")
+        .expect("trace export failure diagnostic");
+    assert_eq!(diagnostic.count, 1);
+    assert_eq!(
+        diagnostic.field.as_deref(),
+        Some("opentelemetry.traces[2].endpoint")
+    );
+    assert!(diagnostic.message.contains("https://collector.example:443"));
+    assert!(!diagnostic.message.contains("collector unavailable"));
 }
 
 #[test]
@@ -3882,7 +4983,7 @@ fn grpc_metadata_and_runtime_builder_paths_succeed() {
             &OpenTelemetryConfig::grpc("grpc-demo")
                 .with_endpoint("http://127.0.0.1:4317")
                 .with_header("authorization", "Bearer token"),
-            None,
+            SignalRuntimeDiagnostics::new(None),
         )
         .unwrap();
         provider.force_flush().ok();

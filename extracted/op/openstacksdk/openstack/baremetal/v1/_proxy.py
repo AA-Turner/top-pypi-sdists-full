@@ -488,7 +488,7 @@ class Proxy(proxy.Proxy):
 
     def patch_node(
         self,
-        node: _node.Node,
+        node: str | _node.Node,
         patch: list[dict[str, Any]],
         reset_interfaces: bool | None = None,
         retry_on_conflict: bool = True,
@@ -652,6 +652,26 @@ class Proxy(proxy.Proxy):
         """
         res = self._get_resource(_node.Node, node)
         res.inject_nmi(self)
+
+    @overload
+    def wait_for_nodes_provision_state(
+        self,
+        nodes: list[str | _node.Node],
+        expected_state: str,
+        timeout: float | None = None,
+        abort_on_failed_state: bool = True,
+        fail: Literal[False] = False,
+    ) -> _node.WaitResult: ...
+
+    @overload
+    def wait_for_nodes_provision_state(
+        self,
+        nodes: list[str | _node.Node],
+        expected_state: str,
+        timeout: float | None = None,
+        abort_on_failed_state: bool = True,
+        fail: bool = True,
+    ) -> list[_node.Node]: ...
 
     def wait_for_nodes_provision_state(
         self,
@@ -2292,6 +2312,51 @@ class Proxy(proxy.Proxy):
         :returns: The updated runbook.
         """
         return self._patch(_runbooks.Runbook, runbook, patch)
+
+    def add_runbook_trait(
+        self, runbook: str | _runbooks.Runbook, trait: str
+    ) -> None:
+        """Add a trait to a runbook.
+
+        :param runbook: The value can be the ID of a runbook or a
+            :class:`~openstack.baremetal.v1.runbooks.Runbook` instance.
+        :param trait: trait to add to the runbook.
+        :returns: ``None``
+        """
+        res = self._get_resource(_runbooks.Runbook, runbook)
+        return res.add_trait(self, trait)
+
+    def remove_runbook_trait(
+        self, runbook: str | _runbooks.Runbook, trait: str
+    ) -> None:
+        """Remove a trait from a runbook.
+
+        Removing a trait the runbook does not have is a no-op on the server
+        side.
+
+        :param runbook: The value can be the ID of a runbook or a
+            :class:`~openstack.baremetal.v1.runbooks.Runbook` instance.
+        :param trait: trait to remove from the runbook.
+        :returns: ``None``
+        """
+        res = self._get_resource(_runbooks.Runbook, runbook)
+        return res.remove_trait(self, trait)
+
+    def set_runbook_traits(
+        self, runbook: str | _runbooks.Runbook, traits: list[str]
+    ) -> None:
+        """Set traits for a runbook.
+
+        Removes any existing traits and adds the traits passed in to this
+        method. Pass an empty list to remove all traits.
+
+        :param runbook: The value can be the ID of a runbook or a
+            :class:`~openstack.baremetal.v1.runbooks.Runbook` instance.
+        :param traits: list of traits to set on the runbook.
+        :returns: ``None``
+        """
+        res = self._get_resource(_runbooks.Runbook, runbook)
+        return res.set_traits(self, traits)
 
     # ========== Conductors ==========
 

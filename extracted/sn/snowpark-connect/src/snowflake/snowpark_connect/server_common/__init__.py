@@ -425,7 +425,19 @@ def get_session(url: Optional[str] = None, conf: SparkConf = None) -> SparkSessi
 
 def _setup_spark_environment(setup_java_home: bool = True) -> None:
     """
-    Set up environment variables required for Spark Connect.
+    Set up server-side environment variables needed by the Spark JVM
+    started under ``start_jvm``.
+
+    Sets ``JAVA_HOME`` (optional) and ``SPARK_LOCAL_HOSTNAME``. Does NOT
+    set ``SPARK_CONNECT_MODE_ENABLED``: that env var is a Python-side hint
+    read only by ``pyspark.SparkSession.builder.getOrCreate()`` /
+    ``pyspark.SparkContext.__init__``, and setting it here would break
+    tests / customer scripts that legitimately construct a classic
+    ``SparkContext`` in the same process as the SCOS server (e.g.
+    ``tests/sas_tests/conftest.py::native_spark``, which spins up a local
+    PySpark alongside the SCOS session). The two ``init_spark_session``
+    entry points set it themselves when the caller actually wants a
+    Python-side Connect Session.
 
     Parameters:
         setup_java_home: If True, configures JAVA_HOME. Set to False for
@@ -493,9 +505,7 @@ def _setup_spark_environment(setup_java_home: bool = True) -> None:
                     f"Using customized Java version for JAVA_HOME={java_home}: {java_version}"
                 )
         logger.info("JAVA_HOME=%s", os.environ.get("JAVA_HOME", "Not defined"))
-
-    os.environ["SPARK_LOCAL_HOSTNAME"] = "127.0.0.1"
-    os.environ["SPARK_CONNECT_MODE_ENABLED"] = "1"
+        os.environ["SPARK_LOCAL_HOSTNAME"] = "127.0.0.1"
 
 
 def _disable_protobuf_recursion_limit() -> None:

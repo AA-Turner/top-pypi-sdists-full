@@ -20,6 +20,7 @@ from jwcrypto.common import JWSEHeaderParameter
 from jwcrypto.common import base64url_decode, base64url_encode
 from jwcrypto.common import json_decode, json_encode
 
+
 jwe_algs_and_rsa1_5 = jwe.default_allowed_algs + ['RSA1_5']
 
 # RFC 7517 - A.1
@@ -571,11 +572,25 @@ class TestJWK(unittest.TestCase):
             '{}',
             '{"keys": 1}',
             '{"keys": [1]}',
-            '{"keys": [{"kty": "invalid"}]}'
         ]
         for inp in invalid_inputs:
             with self.assertRaises(jwk.InvalidJWKValue):
                 ks.import_keyset(inp)
+
+    def test_import_keyset_skips_unknown_kty(self):
+        keyset = '{"keys": [{"kty": "unknown"}, %s]}' % json_encode(
+            PublicKeys['keys'][0])
+        ks = jwk.JWKSet.from_json(keyset)
+        self.assertEqual(len(ks['keys']), 1)
+
+    def test_import_keyset_unknown_kty_then_ec(self):
+        ec_key = PublicKeys['keys'][0]
+        keyset = '{"keys": [{"kty": "future"}, %s]}' % json_encode(ec_key)
+        ks = jwk.JWKSet.from_json(keyset)
+        self.assertEqual(len(ks['keys']), 1)
+        imported = list(ks['keys'])[0]
+        self.assertEqual(imported['kty'], 'EC')
+        self.assertEqual(imported['kid'], ec_key['kid'])
 
     def test_thumbprint(self):
         for i in range(0, len(PublicKeys['keys'])):
@@ -1173,6 +1188,23 @@ class TestJWS(unittest.TestCase):
 
         self.assertEqual(header, header_copy)
 
+    def test_compact_invalid_dots(self):
+        key = jwk.JWK.generate(kty='oct', size=256)
+        s = jws.JWS(payload='test')
+        s.add_signature(key, protected={"alg": "HS256"})
+        compact = s.serialize(compact=True)
+        self.assertEqual(compact.count('.'), 2)
+
+        token_3_dots = compact + ".extra"
+        token_10_dots = compact + "." + ".".join(["extra"] * 8)
+
+        j = jws.JWS()
+        with self.assertRaises(jws.InvalidJWSObject):
+            j.deserialize(token_3_dots)
+
+        with self.assertRaises(jws.InvalidJWSObject):
+            j.deserialize(token_10_dots)
+
     def test_decrypt_keyset(self):
         ks = jwk.JWKSet()
         key1 = jwk.JWK.generate(kty='oct', alg='HS256', kid='key1')
@@ -1465,6 +1497,22 @@ class TestJWE(unittest.TestCase):
                         recipient=E_A1_ex['key'])
             e.serialize(compact=True)
 
+    def test_compact_invalid_dots(self):
+        e = jwe.JWE(E_A1_ex['plaintext'], E_A1_ex['protected'])
+        e.add_recipient(E_A1_ex['key'])
+        compact = e.serialize(compact=True)
+        self.assertEqual(compact.count('.'), 4)
+
+        token_5_dots = compact + ".extra"
+        token_10_dots = compact + "." + ".".join(["extra"] * 6)
+
+        d = jwe.JWE()
+        with self.assertRaises(jwe.InvalidJWEData):
+            d.deserialize(token_5_dots)
+
+        with self.assertRaises(jwe.InvalidJWEData):
+            d.deserialize(token_10_dots)
+
     def test_JWE_Issue_136(self):
         plaintext = "plain"
         protected = json_encode(Issue_136_Protected_Header_no_epk)
@@ -1514,6 +1562,27 @@ class TestJWE(unittest.TestCase):
             e2 = jwe.JWE()
             e2.deserialize(enc, x25519key)
             self.assertEqual(e2.payload, plaintext)
+
+    def test_bare_ecdh_with_ek_fails(self):
+        payload = b'test data'
+        key = jwk.JWK.generate(kty='EC', crv='P-256')
+        jwetoken = jwe.JWE(
+            plaintext=payload,
+            protected=json_encode({'alg': 'ECDH-ES', 'enc': 'A128GCM'}))
+        jwetoken.add_recipient(key)
+        serialized = jwetoken.serialize(compact=True)
+        parts = serialized.split('.')
+        parts[1] = base64url_encode(b'bogus')
+        corrupted = '.'.join(parts)
+        with self.assertRaises(jwe.InvalidJWEData):
+            e = jwe.JWE()
+            e.deserialize(corrupted, key)
+
+        parts[1] = ''
+        restored = '.'.join(parts)
+        e = jwe.JWE()
+        e.deserialize(restored, key)
+        self.assertEqual(e.payload, payload)
 
     def test_decrypt_keyset(self):
         ks = jwk.JWKSet()
@@ -2295,7 +2364,11 @@ class JWATests(unittest.TestCase):
         for name, cls in jwa.JWA.algorithms_registry.items():
             self.assertEqual(cls.name, name)
             self.assertIn(cls.algorithm_usage_location, {'alg', 'enc'})
-            if name in ('ECDH-ES', 'EdDSA', 'Ed25519', 'Ed448'):
+            keysize_must_be_none = (
+                'ECDH-ES', 'EdDSA', 'Ed25519', 'Ed448',
+                'ML-DSA-44', 'ML-DSA-65', 'ML-DSA-87',
+            )
+            if name in keysize_must_be_none:
                 self.assertIs(cls.keysize, None)
             else:
                 self.assertIsInstance(cls.keysize, int)
@@ -2637,3 +2710,30 @@ class TestRfc9864(unittest.TestCase):
         jws_obj.deserialize(serialized_jws, key)
         self.assertTrue(jws_obj.is_valid)
         self.assertEqual(jws_obj.payload, payload)
+
+    def test_eddsa_deprecation_warning(self):
+        import warnings
+        old = jwa.default_warn_deprecated_algorithms
+        try:
+            jwa.default_warn_deprecated_algorithms = True
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                jwa.JWA.signing_alg('EdDSA')
+                self.assertEqual(len(w), 1)
+                self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+                self.assertIn('EdDSA', str(w[0].message))
+                self.assertIn('Ed25519 or Ed448', str(w[0].message))
+        finally:
+            jwa.default_warn_deprecated_algorithms = old
+
+    def test_eddsa_no_warning_by_default(self):
+        import warnings
+        old = jwa.default_warn_deprecated_algorithms
+        try:
+            jwa.default_warn_deprecated_algorithms = False
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                jwa.JWA.signing_alg('EdDSA')
+                self.assertEqual(len(w), 0)
+        finally:
+            jwa.default_warn_deprecated_algorithms = old

@@ -1,8 +1,9 @@
 """All isort specific exception classes should be defined here"""
 
+from __future__ import annotations
+
 from functools import partial
 from pathlib import Path
-from typing import Any
 
 from .profiles import profiles
 
@@ -10,14 +11,14 @@ from .profiles import profiles
 class ISortError(Exception):
     """Base isort exception object from which all isort sourced exceptions should inherit"""
 
-    def __reduce__(self):  # type: ignore
+    def __reduce__(self) -> tuple[partial[ISortError], tuple[()]]:
         return (partial(type(self), **self.__dict__), ())
 
 
 class InvalidSettingsPath(ISortError):
     """Raised when a settings path is provided that is neither a valid file or directory"""
 
-    def __init__(self, settings_path: str):
+    def __init__(self, settings_path: str | Path):
         super().__init__(
             f"isort was told to use the settings_path: {settings_path} as the base directory or "
             "file that represents the starting point of config file discovery, but it does not "
@@ -160,10 +161,10 @@ class UnsupportedSettings(ISortError):
     """
 
     @staticmethod
-    def _format_option(name: str, value: Any, source: str) -> str:
+    def _format_option(name: str, value: object, source: object) -> str:
         return f"\t- {name} = {value}  (source: '{source}')"
 
-    def __init__(self, unsupported_settings: dict[str, dict[str, str]]):
+    def __init__(self, unsupported_settings: dict[str, dict[str, object]]):
         errors = "\n".join(
             self._format_option(name, **option) for name, option in unsupported_settings.items()
         )
@@ -172,7 +173,7 @@ class UnsupportedSettings(ISortError):
             "isort was provided settings that it doesn't support:\n\n"
             f"{errors}\n\n"
             "For a complete and up-to-date listing of supported settings see: "
-            "https://pycqa.github.io/isort/docs/configuration/options.\n"
+            "https://isort.readthedocs.io/en/latest/configuration/options.html.\n"
         )
         self.unsupported_settings = unsupported_settings
 
@@ -192,6 +193,6 @@ class MissingSection(ISortError):
         super().__init__(
             f"Found {import_module} import while parsing, but {section} was not included "
             "in the `sections` setting of your config. Please add it before continuing\n"
-            "See https://pycqa.github.io/isort/#custom-sections-and-ordering "
+            "See https://isort.readthedocs.io/en/latest/index.html#custom-sections-and-ordering "
             "for more info."
         )

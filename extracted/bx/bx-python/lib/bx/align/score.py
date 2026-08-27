@@ -48,11 +48,11 @@ class ScoringScheme:
         # implement a different underlying table object
 
     def _set_score(self, a_b_pair, val):
-        (a, b) = a_b_pair
+        a, b = a_b_pair
         self.table[a, b] = val
 
     def _get_score(self, a_b_pair):
-        (a, b) = a_b_pair
+        a, b = a_b_pair
         return self.table[a, b]
 
     def set_score(self, a, b, val, foldcase1=False, foldcase2=False):
@@ -100,8 +100,7 @@ class ScoringScheme:
                     s = f"{score:8.6f}"
                 else:
                     s = f"{score}"
-                if len(s) + 1 > width:
-                    width = len(s) + 1
+                width = max(width, len(s) + 1)
         lines = []
         line = []
         if labelRows:

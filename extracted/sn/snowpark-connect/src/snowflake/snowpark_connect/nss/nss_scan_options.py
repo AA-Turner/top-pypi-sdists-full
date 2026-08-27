@@ -39,10 +39,12 @@ from pyspark.sql.types import (
 )
 
 from snowflake.snowpark import DataFrame
+from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark.types import (
     ArrayType,
     DataType,
     MapType,
+    StructField,
     StructType,
     TimestampType,
 )
@@ -91,11 +93,15 @@ _SPARK_JSON_READ_OPTIONS = {
     "samplingratio",
     "locale",
     "ignorenullfields",
+    "infertimestamp",
+    "enabledatetimeparsingfallback",
 }
 
 # Spark CSV *read* options (lowercased) the real CSVFileFormat accepts on read.
-# Excludes write-only keys, SCOS-internal keys (path), inferSchema, encoding/charset.
+# Excludes write-only keys, SCOS-internal keys (path), inferSchema.
 _SPARK_CSV_READ_OPTIONS = {
+    "encoding",
+    "charset",
     "sep",
     "delimiter",
     "quote",
@@ -124,6 +130,7 @@ _SPARK_CSV_READ_OPTIONS = {
     "unescapedquotehandling",
     "enforceschema",
     "enabledatetimeparsingfallback",
+    "preferdate",
 }
 
 _ALLOWED_READ_OPTIONS = {
@@ -145,6 +152,7 @@ _RELEVANT_SPARK_CONF_KEYS = (
     "spark.sql.session.timeZone",
     "spark.sql.timestampType",
     "spark.sql.ansi.enabled",
+    "spark.sql.caseSensitive",
     "spark.sql.legacy.timeParserPolicy",
     "spark.sql.parquet.inferTimestampNTZ.enabled",
     "spark.sql.snowflake.arrow.typeMappingVersion",
@@ -158,6 +166,12 @@ _RELEVANT_SPARK_CONF_KEYS = (
     # fires and a short row is never malformed -- DROPMALFORMED then keeps rows it should
     # drop whenever the query projects a subset of columns.
     "spark.sql.csv.parser.columnPruning.enabled",
+    # SNOW-3968584: Spark's legacy date/time parsing-fallback confs, one per format
+    # (SQLConf.scala LEGACY_JSON/CSV_ENABLE_DATE_TIME_PARSING_FALLBACK). Both must also be in
+    # SESSION_CONFIG_KEY_WHITELIST -- an unwhitelisted key makes SessionConfig.set a silent
+    # no-op, so there would be nothing here to forward.
+    "spark.sql.legacy.json.enableDateTimeParsingFallback",
+    "spark.sql.legacy.csv.enableDateTimeParsingFallback",
 )
 
 
@@ -284,15 +298,16 @@ def build_spark_conf() -> dict:
     return conf
 
 
-def _unquote_name(name: str) -> str:
-    """Strip one surrounding double-quote layer from a SCOS field name (``"a"`` -> ``a``).
+def _nss_column_name(name: str, index: int) -> str:
+    """Unquote an NSS column name, falling back to ``_c{index}`` when empty.
 
-    SCOS field names arrive double-quoted; the sandbox reader matches the raw JSON/column
-    key, so the quotes must be removed or every field reads back NULL.
+    Snowpark's ``unquote_if_quoted`` leaves ``""`` unchanged (``ALREADY_QUOTED`` is
+    ``^(".+")$``), so treat that as empty before the ``_c{i}`` default.
     """
-    if isinstance(name, str) and len(name) >= 2 and name[0] == '"' and name[-1] == '"':
-        return name[1:-1]
-    return name
+    unquoted = unquote_if_quoted(name)
+    if unquoted == '""':
+        unquoted = ""
+    return unquoted or f"_c{index}"
 
 
 def cache_if_corrupt_record_present(
@@ -320,7 +335,7 @@ def cache_if_corrupt_record_present(
     (verified against Spark 3.5.3: ``.schema`` succeeds, ``collect()`` raises).
     """
     effective = corrupt_record_column_name or "_corrupt_record"
-    names = [_unquote_name(c.name) for c in columns]
+    names = [unquote_if_quoted(c.name) for c in columns]
     if effective in names and len(names) > 1:
         return df.cache_result()
     return df
@@ -352,7 +367,8 @@ def _sf_data_type(dt: DataType) -> str:
         return f"MAP({_sf_data_type(dt.key_type)}, {_sf_data_type(dt.value_type)})"
     if isinstance(dt, StructType) and dt.fields:
         fields = ", ".join(
-            f"{_unquote_name(f.name)} {_sf_data_type(f.datatype)}" for f in dt.fields
+            f"{unquote_if_quoted(f.name)} {_sf_data_type(f.datatype)}"
+            for f in dt.fields
         )
         return f"OBJECT({fields})"
     if isinstance(dt, TimestampType):
@@ -383,48 +399,68 @@ def _snowpark_type_from_spark_json(spark_type_json: str) -> DataType:
     return map_pyspark_types_to_snowpark_types(py_dt)
 
 
-def _is_top_level_scalar(dt: DataType) -> bool:
-    """A column whose top-level type is neither struct, array, nor map."""
-    return not isinstance(dt, (StructType, ArrayType, MapType))
+def _unquote_nested_field_names(dt: DataType) -> DataType:
+    """Rebuild a Snowpark type with its nested struct field names unquoted.
+
+    ``_snowpark_type_from_spark_json`` double-quotes nested struct field names so the
+    pyspark -> Snowpark hop preserves their case, and ``_sf_data_type`` unquotes them
+    again when it renders ``DATA_SCHEMA``. A *reported* type must carry the raw name
+    instead: a nested field literally named ``"field1"`` matches no key in the column the
+    reader returns, so every leaf under it reads back NULL.
+
+    Case preservation of the unquoted name (e.g. ``MixedCase`` not ``MIXEDCASE``) requires
+    both ``_is_column=False`` on each nested ``StructField`` *and* SCOS structured-type
+    semantics (``context._use_structured_type_semantics``, set in ``server.py``). Under
+    that contract ``StructField.name`` returns the raw ``_name``; without it Snowpark
+    would uppercase via ``column_identifier``. Keep the ``structured`` flags so the result
+    has the shape Snowpark's own ``describe`` produces for a structured column.
+    """
+    if isinstance(dt, StructType):
+        return StructType(
+            [
+                StructField(
+                    unquote_if_quoted(f.name),
+                    _unquote_nested_field_names(f.datatype),
+                    f.nullable,
+                    _is_column=False,
+                )
+                for f in dt.fields
+            ],
+            structured=dt.structured,
+        )
+    if isinstance(dt, ArrayType):
+        return ArrayType(
+            _unquote_nested_field_names(dt.element_type),
+            structured=dt.structured,
+            contains_null=dt.contains_null,
+        )
+    if isinstance(dt, MapType):
+        if dt.key_type is None or dt.value_type is None:
+            return dt
+        return MapType(
+            _unquote_nested_field_names(dt.key_type),
+            _unquote_nested_field_names(dt.value_type),
+            structured=dt.structured,
+            value_contains_null=dt.value_contains_null,
+        )
+    return dt
 
 
-def snowpark_types_from_columns(
-    columns: list[NssColumn],
-    dataframe: DataFrame,
-) -> list[DataType]:
+def snowpark_types_from_columns(columns: list[NssColumn]) -> list[DataType]:
     """Snowpark column types for ``DataFrameContainer.create_with_column_mapping``.
 
-    For **top-level scalar** columns the type is derived from each column's
-    ``spark_type`` — the Spark type INFER_STAGE_FILE_SCHEMA returned or the caller
-    declared — so the schema SCOS reports is the one it was given. This preserves the
-    Integer-vs-Long (both ``NUMBER(38,0)``) and TIMESTAMP_NTZ-vs-TIMESTAMP distinctions
-    the TVF's Snowflake column metadata cannot express (SNOW-3891973).
-
-    Complex (struct / array / map) columns are deliberately **not** reported from the
-    NSS Spark type: the nested Arrow / ``NUMBER(38,0)`` round-trip cannot honor a nested
-    Spark schema, and reporting it regresses complex reads (null-collapsed nested values,
-    pushdown type clashes). Those columns fall back to the schema SCOS derives from the
-    dataframe itself — the pre-fix behavior. The fallback ``describe`` runs only when a
-    complex column is actually present.
-
-    Reading ``dataframe.schema`` populates Snowpark's ``@cached_property`` schema on the
-    df. ``DataFrameContainer.create_with_column_mapping`` then calls ``set_schema_getter``,
-    which *keeps* any already-cached schema instead of installing the mixed NSS types.
-    Clear the cache after the fallback read so scalar Integer / TIMESTAMP_NTZ fidelity
-    survives on mixed (scalar + complex) schemas.
+    Every column's type is derived from its ``spark_type`` — the Spark type
+    INFER_STAGE_FILE_SCHEMA returned or the caller declared — so the schema SCOS reports
+    is the one it was given, for nested (struct / array / map) columns as well as
+    top-level scalars. Passing ``None`` as ``create_with_column_mapping``'s
+    ``snowpark_column_types`` instead makes the container re-derive the schema from the
+    reader's *Snowflake* column metadata, which cannot express the difference between
+    Integer and Long (both ``NUMBER(38,0)``) or between TIMESTAMP_NTZ and TIMESTAMP
+    (SNOW-3891973), and widens nested element types the same way.
     """
-    types = [_snowpark_type_from_spark_json(c.spark_type) for c in columns]
-    if all(_is_top_level_scalar(t) for t in types):
-        return types
-    fallback_fields = dataframe.schema.fields
-    assert len(fallback_fields) == len(
-        types
-    ), f"schema mismatch: {len(fallback_fields)} dataframe fields vs {len(types)} nss columns"
-    # Drop the Snowflake-derived schema cache so set_schema_getter installs ours.
-    dataframe.__dict__.pop("schema", None)
     return [
-        t if _is_top_level_scalar(t) else fallback_fields[i].datatype
-        for i, t in enumerate(types)
+        _unquote_nested_field_names(_snowpark_type_from_spark_json(c.spark_type))
+        for c in columns
     ]
 
 
@@ -455,7 +491,7 @@ def _quote_py(dt: PyDataType) -> PyDataType:
     downstream Snowpark conversion preserves their case)."""
 
     def q(name: str) -> str:
-        name = _unquote_name(name)
+        name = unquote_if_quoted(name)
         return '"' + name.replace('"', '""') + '"'
 
     return _map_py_field_names(dt, q)
@@ -535,7 +571,7 @@ def build_data_schema(columns: list[NssColumn]) -> list[dict]:
     """
     return [
         {
-            "COLUMN_NAME": _unquote_name(c.name) or f"_c{i}",
+            "COLUMN_NAME": _nss_column_name(c.name, i),
             # Emit the *parsed* DataType.json() value, not the raw json() string. The
             # sandbox ColumnDescriptor (ScanReadOptions, PR #23) expects a scalar as a
             # bare type name ("long") — which it re-quotes before DataType.fromJson —

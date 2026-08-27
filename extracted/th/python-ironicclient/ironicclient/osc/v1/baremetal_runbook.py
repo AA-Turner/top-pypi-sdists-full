@@ -59,12 +59,6 @@ class CreateBaremetalRunbook(command.ShowOne):
             help=_('Description of the runbook.')
         )
         parser.add_argument(
-            '--traits',
-            metavar='<trait>',
-            action='append',
-            help=_('Trait for this runbook. Can be specified multiple times.')
-        )
-        parser.add_argument(
             '--uuid',
             dest='uuid',
             metavar='<uuid>',
@@ -94,6 +88,15 @@ class CreateBaremetalRunbook(command.ShowOne):
             required=True,
             help=_RUNBOOK_STEPS_HELP
         )
+        parser.add_argument(
+            '--disable-ramdisk',
+            action='store_true',
+            default=None,
+            help=_("ironic-python-agent will not be booted when this "
+                   "runbook is used. Only steps explicitly marked as not "
+                   "requiring ironic-python-agent can be executed with "
+                   "this set.")
+        )
         return parser
 
     def take_action(
@@ -105,19 +108,20 @@ class CreateBaremetalRunbook(command.ShowOne):
 
         steps = utils.handle_json_arg(parsed_args.steps, 'runbook steps')
 
-        field_list: list[str] = ['name', 'uuid', 'owner', 'public', 'extra']
+        field_list: list[str] = [
+            'name', 'uuid', 'owner', 'public', 'extra', 'disable_ramdisk',
+        ]
 
-        # Check if API version supports new fields (description and traits)
+        # Check if API version supports the description field. Note that
+        # traits cannot be set at creation time: the API only accepts them
+        # via the /runbooks/<ident>/traits sub-resource (see the
+        # AddTraitBaremetalRunbook/RemoveTraitBaremetalRunbook commands).
         if utils.check_api_version_support(
                 baremetal_client.current_api_version, "1.112"):
-            field_list.extend(['description', 'traits'])
-        else:
-            if parsed_args.description is not None:
-                raise exc.UnsupportedVersion(
-                    _("--description requires API version 1.112 or later"))
-            if parsed_args.traits is not None:
-                raise exc.UnsupportedVersion(
-                    _("--traits requires API version 1.112 or later"))
+            field_list.append('description')
+        elif parsed_args.description is not None:
+            raise exc.UnsupportedVersion(
+                _("--description requires API version 1.112 or later"))
 
         fields = dict((k, v) for (k, v) in vars(parsed_args).items()
                       if k in field_list and v is not None)
@@ -230,6 +234,15 @@ class SetBaremetalRunbook(command.Command):
             help=_('Extra to set on this baremetal runbook '
                    '(repeat option to set multiple extras).'),
         )
+        parser.add_argument(
+            '--disable-ramdisk',
+            dest='disable_ramdisk',
+            nargs='?',
+            const='true',
+            metavar='<disable_ramdisk>',
+            help=_('Whether ironic-python-agent should not be booted when '
+                   'this runbook is used.')
+        )
         return parser
 
     def take_action(self, parsed_args: argparse.Namespace) -> None:
@@ -267,6 +280,14 @@ class SetBaremetalRunbook(command.Command):
         if parsed_args.extra:
             properties.extend(utils.args_array_to_patch(
                 'add', ['extra/' + x for x in parsed_args.extra]))
+        if parsed_args.disable_ramdisk is not None:
+            to_bool = utils.bool_argument_value(
+                '--disable-ramdisk', parsed_args.disable_ramdisk,
+                strict=True)
+            disable_ramdisk = [
+                "disable_ramdisk=%s" % json.dumps(to_bool)]
+            properties.extend(
+                utils.args_array_to_patch('add', disable_ramdisk))
 
         if properties:
             baremetal_client.runbook.update(parsed_args.runbook,
@@ -312,18 +333,17 @@ class UnsetBaremetalRunbook(command.Command):
             help=_('Unset owner of a runbook.')
         )
         parser.add_argument(
-            "--step",
-            metavar="<key>",
-            action='append',
-            help=_('Step to unset on this baremetal runbook '
-                   '(repeat option to unset multiple steps).'),
-        )
-        parser.add_argument(
             "--extra",
             metavar="<key>",
             action='append',
             help=_('Extra to unset on this baremetal runbook '
                    '(repeat option to unset multiple extras).'),
+        )
+        parser.add_argument(
+            '--disable-ramdisk',
+            dest='disable_ramdisk',
+            action='store_true',
+            help=_('Unset disable_ramdisk of a runbook.')
         )
 
         return parser
@@ -339,7 +359,7 @@ class UnsetBaremetalRunbook(command.Command):
         supports_new_fields = utils.check_api_version_support(
             baremetal_client.current_api_version, "1.112")
 
-        for field in ['name', 'owner', 'public']:
+        for field in ['name', 'owner', 'public', 'disable_ramdisk']:
             if getattr(parsed_args, field):
                 properties.extend(utils.args_array_to_patch('remove', [field]))
 
@@ -354,9 +374,6 @@ class UnsetBaremetalRunbook(command.Command):
         if parsed_args.extra:
             properties.extend(utils.args_array_to_patch('remove',
                               ['extra/' + x for x in parsed_args.extra]))
-        if parsed_args.step:
-            properties.extend(utils.args_array_to_patch('remove',
-                              ['step/' + x for x in parsed_args.step]))
 
         if properties:
             baremetal_client.runbook.update(parsed_args.runbook,

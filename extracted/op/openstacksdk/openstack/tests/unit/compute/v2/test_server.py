@@ -11,6 +11,7 @@
 # under the License.
 
 import http
+from typing import Any
 from unittest import mock
 
 from openstack.compute.v2 import flavor
@@ -20,7 +21,7 @@ from openstack.tests.unit import base
 from openstack.tests.unit import fakes
 
 IDENTIFIER = 'IDENTIFIER'
-EXAMPLE = {
+EXAMPLE: dict[str, Any] = {
     'OS-DCF:diskConfig': 'AUTO',
     'OS-EXT-AZ:availability_zone': 'us-west',
     'OS-EXT-SRV-ATTR:host': 'compute',
@@ -275,6 +276,7 @@ class TestServer(base.TestCase):
         data = 2
         hints = {"hint": 3}
         hostname = 'foo'
+        hypervisor_hostname = 'bar'
 
         sot = server.Server(
             id=1,
@@ -284,8 +286,10 @@ class TestServer(base.TestCase):
             min_count=2,
             max_count=3,
             hostname=hostname,
+            hypervisor_hostname=hypervisor_hostname,
         )
         request = sot._prepare_request()
+        assert isinstance(request.body, dict)
 
         self.assertNotIn(
             "OS-EXT-AZ:availability_zone", request.body[sot.resource_key]
@@ -303,11 +307,19 @@ class TestServer(base.TestCase):
             "OS-SCH-HNT:scheduler_hints", request.body[sot.resource_key]
         )
         self.assertEqual(request.body["OS-SCH-HNT:scheduler_hints"], hints)
-
         self.assertNotIn(
             "OS-EXT-SRV-ATTR:hostname", request.body[sot.resource_key]
         )
         self.assertEqual(request.body[sot.resource_key]["hostname"], hostname)
+
+        self.assertNotIn(
+            "OS-EXT-SRV-ATTR:hypervisor_hostname",
+            request.body[sot.resource_key],
+        )
+        self.assertEqual(
+            request.body[sot.resource_key]["hypervisor_hostname"],
+            hypervisor_hostname,
+        )
 
         self.assertEqual(2, request.body[sot.resource_key]['min_count'])
         self.assertEqual(3, request.body[sot.resource_key]['max_count'])
@@ -387,7 +399,8 @@ class TestServer(base.TestCase):
     def test_rebuild(self):
         sot = server.Server(**EXAMPLE)
         # Let the translate pass through, that portion is tested elsewhere
-        sot._translate_response = lambda arg: arg
+        mock.patch.object(sot, '_translate_response').start()
+        self.addCleanup(mock.patch.stopall)
 
         result = sot.rebuild(
             self.sess,
@@ -435,7 +448,8 @@ class TestServer(base.TestCase):
     def test_rebuild_minimal(self):
         sot = server.Server(**EXAMPLE)
         # Let the translate pass through, that portion is tested elsewhere
-        sot._translate_response = lambda arg: arg
+        mock.patch.object(sot, '_translate_response').start()
+        self.addCleanup(mock.patch.stopall)
 
         result = sot.rebuild(
             self.sess,
@@ -465,7 +479,8 @@ class TestServer(base.TestCase):
     def test_rebuild_none_values(self):
         sot = server.Server(**EXAMPLE)
         # Let the translate pass through, that portion is tested elsewhere
-        sot._translate_response = lambda arg: arg
+        mock.patch.object(sot, '_translate_response').start()
+        self.addCleanup(mock.patch.stopall)
 
         result = sot.rebuild(
             self.sess,
@@ -972,7 +987,7 @@ class TestServer(base.TestCase):
 
         self.assertIsNone(res)
         url = 'servers/IDENTIFIER/action'
-        body = {"rescue": {}}
+        body: dict[str, dict[str, Any]] = {"rescue": {}}
         headers = {'Accept': ''}
         self.sess.post.assert_called_with(
             url,
@@ -984,7 +999,11 @@ class TestServer(base.TestCase):
     def test_rescue_with_options(self):
         sot = server.Server(**EXAMPLE)
 
-        res = sot.rescue(self.sess, admin_pass='SECRET', image_ref='IMG-ID')
+        # 'image_ref' is a deprecated alias for 'image', renamed at runtime by
+        # the @renamed_param decorator which mypy cannot see through
+        res = sot.rescue(  # type: ignore[call-arg]
+            self.sess, admin_pass='SECRET', image_ref='IMG-ID'
+        )
 
         self.assertIsNone(res)
         url = 'servers/IDENTIFIER/action'
@@ -1022,7 +1041,7 @@ class TestServer(base.TestCase):
 
         self.assertIsNone(res)
         url = 'servers/IDENTIFIER/action'
-        body = {"evacuate": {}}
+        body: dict[str, dict[str, Any]] = {"evacuate": {}}
         headers = {'Accept': ''}
         self.sess.post.assert_called_with(
             url,
@@ -1253,7 +1272,7 @@ class TestServer(base.TestCase):
 
         self.assertIsNone(res)
         url = 'servers/IDENTIFIER/action'
-        body = {'os-getConsoleOutput': {}}
+        body: dict[str, dict[str, Any]] = {'os-getConsoleOutput': {}}
         headers = {'Accept': ''}
         self.sess.post.assert_called_with(
             url,

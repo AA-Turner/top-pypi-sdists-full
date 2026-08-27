@@ -202,6 +202,16 @@ class MetricsManager:
 
         total_throughput_mbps = total_throughput_kbps / 1024
 
+        # Backpressure figures, aggregated by WorkerManager.get_worker_statistics().
+        # 0 for NVDEC, which has no per-camera backpressure yet.
+        pool_exhausted_total = worker_stats.get("pool_exhausted_total", 0)
+        frames_dropped_bp_total = worker_stats.get("frames_dropped_bp_total", 0)
+        # Frames the producer DID write over a slot the slowest consumer had not read.
+        # Rendered beside frames_dropped rather than added to it: the two are different
+        # events, and a panel showing only the first would report a consumer losing every
+        # other frame as a healthy gateway.
+        frames_overwritten_bp_total = worker_stats.get("frames_overwritten_bp_total", 0)
+
         B = self.BOLD
         R = self.RESET
 
@@ -237,6 +247,10 @@ class MetricsManager:
             f"{B}THROUGHPUT:{R}\n"
             f"  • Avg Frame Size: {avg_frame_size_kb:.1f} KB\n"
             f"  • {B}TOTAL: {total_throughput_mbps:.2f} MB/s ({total_throughput_kbps:.1f} KB/s){R}\n"
+            f"{B}{'─' * 80}{R}\n"
+            f"{B}BACKPRESSURE:{R} frames_dropped={frames_dropped_bp_total} | "
+            f"frames_overwritten={frames_overwritten_bp_total} | "
+            f"pool_exhausted={pool_exhausted_total}\n"
             f"{B}{'=' * 80}{R}"
         )
 

@@ -104,6 +104,7 @@ async def run_locator_heal(
     previous_selectors: str = "",
     *,
     confidence_floor: float = 0.7,
+    reprobe: bool = False,
 ) -> dict[str, Any] | None:
     if not _config.smart or action_type not in _VALID:
         return None
@@ -117,6 +118,10 @@ async def run_locator_heal(
             "action_type": action_type,
             "dom_snapshot": doc,
             "previous_selectors": previous_selectors or "",
+            # Variable-target re-probe: the recorded locator holds a PRIOR run's
+            # value, so the server heals on the current target value and treats
+            # the locator as role/structure only. Only sent when True.
+            "reprobe": reprobe,
         }
         resp = await _post_ax_heal(_URL, body, _TIMEOUT)
         if not resp or not resp.get("ref"):

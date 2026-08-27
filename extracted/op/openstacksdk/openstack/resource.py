@@ -412,11 +412,11 @@ class CreateOpts:
     #: Key to use when enveloping requests. If unset, defaults to the
     #: ``resource_key`` attribute of the resource. Set to None to disable
     #: enveloping.
-    request_key: str | None | types.Unset = types.UNSET
+    request_key: str | types.Unset | None = types.UNSET
     #: Key to use when de-enveloping responses. If unset, defaults to the
     #: ``resource_key`` attribute of the resource. Set to None to disable
     #: de-enveloping.
-    response_key: str | None | types.Unset = types.UNSET
+    response_key: str | types.Unset | None = types.UNSET
     # TODO(stephenfin): Change default to PORT once Resource.create_method is
     # gone.
     #: Method to use for create requests.
@@ -932,7 +932,7 @@ class Resource(dict[str, Any]):
         same source dict several times.
         """
         relevant_attrs = {}
-        consumed_keys = []
+        consumed_keys = set()
         for key, value in attrs.items():
             # We want the key lookup in mapping to be case insensitive if the
             # mapping is, thus the use of get. We want value to be exact.
@@ -944,7 +944,7 @@ class Resource(dict[str, Any]):
                 for map_key, map_value in mapping.items():
                     if key.lower() in (map_key.lower(), map_value.lower()):
                         relevant_attrs[map_key] = value
-                        consumed_keys.append(key)
+                        consumed_keys.add(key)
                 continue
 
         for key in consumed_keys:
@@ -2594,10 +2594,10 @@ def _normalize_status(status: str | None) -> str | None:
 def wait_for_status(
     session: adapter.Adapter,
     resource: ResourceT,
-    status: str,
+    status: str | None,
     failures: list[str] | None = None,
     interval: int | float | None = 2,
-    wait: int | None = None,
+    wait: int | float | None = None,
     attribute: str = 'status',
     callback: Callable[[int], None] | None = None,
 ) -> ResourceT:
@@ -2674,7 +2674,7 @@ def wait_for_delete(
     session: adapter.Adapter,
     resource: ResourceT,
     interval: int | float | None = 2,
-    wait: int | None = None,
+    wait: int | float | None = None,
     callback: Callable[[int], None] | None = None,
 ) -> ResourceT:
     """Wait for a resource to be deleted.

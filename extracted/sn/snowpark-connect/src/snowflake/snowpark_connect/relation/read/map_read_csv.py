@@ -43,7 +43,7 @@ from snowflake.snowpark_connect.config import (
     get_string_session_config_param,
     get_timestamp_type,
     global_config,
-    is_nss_enabled,
+    resolve_nss_path,
     str_to_bool,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
@@ -94,6 +94,7 @@ from snowflake.snowpark_connect.utils.io_utils import (
 )
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
+    telemetry,
 )
 
 logger = logging.getLogger("snowflake_connect_server")
@@ -130,7 +131,18 @@ def _nss_read_csv(
     ``relax_schema_nullability`` mirrors the caller's ``_make_schema_nullable`` decision
     onto the proto schema this branch re-parses (SNOW-3891605).
     """
-    if not is_nss_enabled():
+    nss_enabled, nss_reason = resolve_nss_path()
+    # SNOW-3957228: record the EFFECTIVE path at the point the read dispatches, so NSS vs
+    # COPY is separable in telemetry. Reported for both paths -- a COPY read whose reason is
+    # "session_conf" means the customer explicitly rolled back, which is a distinct signal
+    # from never having opted in.
+    #
+    # Attempted, not successful: this fires once per logical read ahead of every NSS
+    # sub-guard below, so a read that then raises still leaves path="nss" behind. Join to
+    # `was_successful` on the same summary row to count successes. Streaming reads raise
+    # UNSUPPORTED_OPERATION above and so produce no entry at all.
+    telemetry.report_file_read_path("csv", "nss" if nss_enabled else "copy", nss_reason)
+    if not nss_enabled:
         return None
 
     # STAGE_FILE_READER's LOCATION is single-valued; a multi-path read would silently
@@ -144,15 +156,37 @@ def _nss_read_csv(
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
 
+    from snowflake.snowpark_connect.nss.nss_file_format import (
+        ensure_nss_temp_file_format,
+        resolve_nss_compression_option,
+        resolve_nss_multiline_option,
+        resolve_nss_record_delimiter_option,
+    )
+
+    # Resolved above the format-name check so the option validation these perform (e.g.
+    # a non-boolean multiLine) runs whether or not this read creates the FILE FORMAT —
+    # otherwise snowpark.connect.nss.csv_format_name would silently skip it, and the same
+    # option would raise on a JSON read but not a CSV one.
+    nss_compression = resolve_nss_compression_option(options.config, "csv")
+    nss_multiline = resolve_nss_multiline_option(options.config)
+    # GS places chunk boundaries using the format's RECORD_DELIMITER while the sandbox
+    # parses on the forwarded lineSep, so a custom separator has to be declared or the
+    # two disagree and split records get torn.
+    nss_record_delimiter = resolve_nss_record_delimiter_option(
+        options.config, options.user_option_keys
+    )
+
     format_name = get_string_session_config_param(
         "snowpark.connect.nss.csv_format_name"
     )
     if not format_name:
-        from snowflake.snowpark_connect.nss.nss_file_format import (
-            ensure_nss_temp_file_format,
+        format_name = ensure_nss_temp_file_format(
+            session,
+            "csv",
+            compression=nss_compression,
+            multi_line=nss_multiline,
+            record_delimiter=nss_record_delimiter,
         )
-
-        format_name = ensure_nss_temp_file_format(session, "csv")
     # paths[0] arrives SQL-quoted (see _quote_stage_path); the NSS readers re-quote
     # it, so strip one layer to avoid a doubled-quote syntax error.
     stage_path = paths[0]
@@ -181,7 +215,7 @@ def _nss_read_csv(
     # — no per-schema decoder UDTF. Filter to Spark CSV read options (also collapses
     # the 2-char COPY-escaped escape/quote/sep back to a single char for Spark).
     from snowflake.snowpark_connect.nss.nss_scan_options import (
-        _unquote_name,
+        _nss_column_name,
         as_all_string_columns,
         cache_if_corrupt_record_present,
         columns_from_spark_schema,
@@ -207,7 +241,18 @@ def _nss_read_csv(
 
     if schema is None:
         from snowflake.snowpark_connect.nss.nss_infer_schema import (
+            empty_nss_file_read_result,
             infer_via_stage_file_schema,
+        )
+
+        # Forward the user's inferSchema to the *inference* TVF only (the read path never
+        # consumes it -- only CSVInferSchema does). With inferSchema=false the sandbox takes
+        # Spark's own short-circuit and returns header -> StringType without tokenizing or
+        # type-aggregating the rows, instead of typing the whole file so that
+        # as_all_string_columns below can throw the types away.
+        nss_infer_reader_options = dict(nss_reader_options)
+        nss_infer_reader_options["inferschema"] = (
+            "true" if options._get_config_setting("inferschema") else "false"
         )
 
         nss_columns = infer_via_stage_file_schema(
@@ -219,8 +264,12 @@ def _nss_read_csv(
             ),
             mode=str(options.config.get("mode", "PERMISSIVE")).upper(),
             corrupt_record_column=corrupt_record_column_name,
-            reader_options=nss_reader_options,
+            reader_options=nss_infer_reader_options,
         )
+        if not nss_columns:
+            # Any non-empty CSV record has at least one positional field, so an
+            # inferred zero-column schema cannot carry rows as JSON {} records can.
+            return empty_nss_file_read_result(session, stage_path, "CSV")
         if not options._get_config_setting("inferschema"):
             nss_columns = as_all_string_columns(nss_columns)
     else:
@@ -269,7 +318,7 @@ def _nss_read_csv(
     # (This doesn't avoid a describe round-trip — rename_columns_as_snowflake_standard reads
     # df.columns anyway — but it uses the authoritative original names.)
     spark_column_names = [
-        _unquote_name(c.name) or f"_c{i}" for i, c in enumerate(nss_columns)
+        _nss_column_name(c.name, i) for i, c in enumerate(nss_columns)
     ]
     renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
         df, rel.common.plan_id
@@ -290,9 +339,9 @@ def _nss_read_csv(
         dataframe=renamed_df,
         spark_column_names=spark_column_names,
         snowpark_column_names=snowpark_column_names,
-        # Report the Spark types NSS was given for top-level scalars; complex columns
-        # fall back to the dataframe-derived schema (SNOW-3891973).
-        snowpark_column_types=snowpark_types_from_columns(nss_columns, renamed_df),
+        # Report the Spark types NSS was given, not ones re-derived from the TVF's
+        # Snowflake columns (SNOW-3891973).
+        snowpark_column_types=snowpark_types_from_columns(nss_columns),
     ).without_materialization()
 
 

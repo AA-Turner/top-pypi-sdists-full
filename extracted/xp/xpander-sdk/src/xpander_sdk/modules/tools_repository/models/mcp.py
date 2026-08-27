@@ -25,6 +25,8 @@ class MCPServerTransport(str, Enum):
 
 
 class MCPServerDetails(BaseModel):
+    # the registry row this server came from; absent for a task-supplied or pre-registry server
+    id: Optional[str] = None
     type: Optional[MCPServerType] = MCPServerType.Remote
     name: Optional[str] = None
     command: Optional[str] = None

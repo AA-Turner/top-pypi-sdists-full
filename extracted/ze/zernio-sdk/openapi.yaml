@@ -114,8 +114,8 @@ x-documentation:
     | TikTok | Yes | - | Yes | - |
     | YouTube | Yes | Shorts | Yes | Yes |
     | Pinterest | Yes | - | Yes | - |
-    | Reddit | Yes | - | - | Yes |
-    | Bluesky | Yes | - | - | Yes |
+    | Reddit | Yes | - | Partial | Yes |
+    | Bluesky | Yes | - | Partial | Yes |
     | Threads | Yes | - | Yes | Yes |
     | Google Business | Yes | - | - | Yes |
     | Telegram | Yes | - | - | - |
@@ -163,7 +163,7 @@ x-documentation:
     - `conversation.started` - A new conversation opened between one of your accounts and a contact, in either direction (any DM platform, and SMS); fires only the first time the thread appears
     - `message.sent` - DM sent via the API
     - `message.edited` - A sender edited a message (Instagram, Messenger, Telegram)
-    - `message.deleted` - A sender deleted ("unsent") a message (Instagram; WhatsApp when the business deletes a sent message)
+    - `message.deleted` - A sender deleted ("unsent") a message (Instagram; WhatsApp in both directions, whether the business deleted a message it sent or the customer deleted one they sent). `message.direction` tells the two apart.
     - `message.delivered` - An outgoing message was delivered (WhatsApp, Messenger, SMS)
     - `message.read` - An outgoing message was read by the recipient (WhatsApp, Messenger, Instagram)
     - `message.failed` - An outgoing message failed delivery (WhatsApp, SMS; on SMS the carrier's error code rides in `error`)
@@ -740,6 +740,36 @@ components:
                   effective_account_limit: 2000
                   current_account_count: 2000
   schemas:
+    GoogleBusinessReview:
+      type: object
+      description: A Google Business Profile review, as returned by every gmb-reviews read endpoint.
+      properties:
+        id: { type: string, description: Review ID }
+        name: { type: string, description: Full resource name }
+        reviewer:
+          type: object
+          properties:
+            displayName: { type: string }
+            profilePhotoUrl: { type: [string, "null"] }
+            isAnonymous: { type: boolean }
+        rating: { type: integer, minimum: 0, maximum: 5, description: 'Numeric star rating (0 when Google sends no rating)' }
+        starRating: { type: string, enum: [ONE, TWO, THREE, FOUR, FIVE], description: "Google's string rating" }
+        comment: { type: string, description: Review text }
+        createTime: { type: string, format: date-time }
+        updateTime: { type: string, format: date-time }
+        reviewReply:
+          type: [object, "null"]
+          properties:
+            comment: { type: string, description: Business owner reply }
+            updateTime: { type: string, format: date-time }
+        photoCount: { type: integer, description: 'Number of photos attached to the review (photos only, videos are not counted)' }
+        photos:
+          type: array
+          description: Photos attached to the review by the reviewer
+          items:
+            type: object
+            properties:
+              url: { type: string, format: uri }
     Verification:
       type: object
       description: 'A managed OTP verification. The code itself is never returned or stored (hash only).'
@@ -3633,6 +3663,14 @@ components:
               description: 'When the message was sent, as reported by the platform and passed through unmodified. Full ISO 8601 date-time: Instagram and Facebook carry millisecond precision, while some platforms (for example WhatsApp and Telegram) report whole seconds. Use this field as the chronological ordering key. If two messages share the same value, fetch the conversation messages with sortOrder=desc for the deterministic order.'
             isRead:
               type: boolean
+            sentVia:
+              type: [string, "null"]
+              enum: [human, api, broadcast, sequence, workflow, comment_automation, bulk-api, null]
+              description: |
+                Which Zernio surface produced the message. Always present and
+                always `null` on this event, since nobody on our side produced an
+                inbound message; it is only informative on `message.sent`, which
+                documents the vocabulary.
         conversation:
           $ref: '#/components/schemas/InboxWebhookConversation'
         account:
@@ -3646,8 +3684,8 @@ components:
               description: |
                 platformMessageId of the message this one is a quote-reply to.
                 WhatsApp (`context.id`), Instagram and Facebook Messenger
-                (`reply_to.mid`). On `message.sent` echoes (operator replied
-                from the native app) this is the only metadata field populated.
+                (`reply_to.mid`). Outgoing quote-replies carry the same field on
+                `message.sent`; see WebhookPayloadMessageSent.metadata.
             quickReplyPayload:
               type: string
               description: Payload from a quick reply tap (Facebook/Instagram Messenger).
@@ -3934,7 +3972,8 @@ components:
               description: Internal conversation ID
             platform:
               type: string
-              enum: [instagram, facebook, telegram, whatsapp]
+              enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, slack]
+              description: 'Every platform whose outgoing messages Zernio observes. sms is absent on purpose: its carrier receipts update delivery status and never raise message.sent.'
             platformMessageId:
               type: string
               description: Platform's message ID
@@ -3989,11 +4028,46 @@ components:
             source:
               type: string
               enum: [whatsapp_business_app, cloud_api]
-              description: 'WhatsApp send origin. whatsapp_business_app when sent from the WhatsApp Business phone app on a Coexistence number; cloud_api when sent through Zernio (dashboard, API, or broadcasts). Absent on non-WhatsApp platforms. This is not the inbox metadata.source lineage field.'
+              description: 'WhatsApp send origin. whatsapp_business_app when sent from the WhatsApp Business phone app on a Coexistence number; cloud_api when sent through Zernio (dashboard, API, or broadcasts). Absent on non-WhatsApp platforms. Says where WhatsApp saw the send come from, not which Zernio surface produced it: read sentVia for that.'
+            sentVia:
+              type: [string, "null"]
+              enum: [human, api, broadcast, sequence, workflow, comment_automation, bulk-api, null]
+              description: |
+                Which Zernio surface produced this message: `human` (an operator
+                in the Zernio inbox), `api` (a call to this API), `broadcast`,
+                `sequence`, `workflow`, `comment_automation`, or `bulk-api`
+                (POST /v1/whatsapp/bulk). Same vocabulary as the `source` filter
+                on the inbox analytics endpoints, and the same value a later
+                GET on this message returns.
+
+                Always present, and `null` whenever the lineage is unknown: a
+                message sent from the platform's own app, and every message
+                stored before this field shipped (2026-08). Existing messages
+                are NOT backfilled, so treat `null` as "unknown", never as
+                "sent by a human".
         conversation:
           $ref: '#/components/schemas/InboxWebhookConversation'
         account:
           $ref: '#/components/schemas/InboxWebhookAccount'
+        metadata:
+          type: object
+          description: 'Platform-specific context for the sent message. The key is present only when the send carried some context, and absent otherwise: it is never null and never an empty object.'
+          properties:
+            quotedMessageId:
+              type: string
+              description: |
+                platformMessageId of the message this send is a quote-reply to.
+                Set when the reply was sent through Zernio with `replyTo` on the
+                inbox send API (WhatsApp and Telegram), and when the operator
+                replied from the native WhatsApp Business, Instagram or Messenger
+                app. WhatsApp API sends carry it on the event fired from the
+                delivery status, so it arrives on the same `message.sent` as any
+                other WhatsApp send.
+            threadTs:
+              type: string
+              description: |
+                Slack only. Parent thread ts of the sent message. Pass it back as
+                `replyTo` on the inbox send API to keep replying inside the thread.
         timestamp:
           type: string
           format: date-time
@@ -4059,8 +4133,10 @@ components:
       description: |
         Webhook payload for message.deleted events. Fires when the sender
         deletes (unsends) a message. Supported platforms: Instagram (incoming
-        unsend) and WhatsApp (when the business deletes an outgoing message
-        via the Cloud API).
+        unsend) and WhatsApp, in both directions: an outgoing message the
+        business deleted (via the Cloud API, or from the WhatsApp Business app
+        on a Coexistence number) and an incoming message the customer deleted.
+        Read `message.direction` to tell the two apart.
 
         The message.text and message.attachments fields retain the content
         that existed before the delete. The Zernio dashboard UI does not show
@@ -5337,6 +5413,10 @@ components:
           minLength: 1
           maxLength: 50
           description: Topic tag for post categorization and discoverability on Threads. Must be 1-50 characters, cannot contain periods (.) or ampersands (&). Overrides auto-extraction from content hashtags when provided.
+        firstComment:
+          type: string
+          maxLength: 500
+          description: 'Optional first comment to post immediately after publishing, as a reply to the published post. With threadItems, it replies to the root post. Up to 500 characters (the Threads post limit). The reply is itself a Threads post, so it consumes one of the 250 posts a profile may publish per 24 hours.'
         threadItems:
           type: array
           description: >
@@ -5518,6 +5598,11 @@ components:
               maximum: 100
               description: 'Volume of the video''s own sound, 0-100. Defaults to 100. Set 0 to mute the original video audio.'
               example: 100
+        muteAudio:
+          type: boolean
+          default: false
+          description: 'Publish the video without sound. Applies to Reels, Stories, and video carousel slides; ignored for images. Instagram has no mute parameter, so we strip the audio track from the file before handing it to Instagram: the published video is permanently silent and the original audio cannot be restored from Instagram. If the audio cannot be stripped the post fails rather than publishing with sound; videos above 200MB cannot be muted at all, so mute them before uploading. Unrelated to audioConfiguration.videoVolume, which only lowers the original sound when a catalog track is attached.'
+          example: true
         thumbOffset:
           type: integer
           minimum: 0
@@ -5535,7 +5620,7 @@ components:
           type: boolean
           default: false
           description: When true, the post is labeled by Instagram as containing AI-generated media. Per Meta, this self-disclosure label is for AI-generated media, not AI-written captions. Applies to feed posts, Reels, Stories, and carousels.
-      description: Feed aspect ratio 0.8-1.91, carousels up to 10 items, stories require media (no captions). User tag coordinates 0.0-1.0 from top-left. Images over 8 MB and videos over platform limits are auto-compressed.
+      description: Feed aspect ratio 0.5625-1.91, carousels up to 10 items, stories require media (no captions). User tag coordinates 0.0-1.0 from top-left. Images over 8 MB and videos over platform limits are auto-compressed.
 
     InstagramAudioAsset:
       type: object
@@ -5947,6 +6032,9 @@ components:
         boardId:
           type: string
           description: Target Pinterest board ID. If omitted, the first available board is used.
+        boardSectionId:
+          type: string
+          description: 'Target section inside the board. Optional; the pin lands on the board itself when omitted. Pinterest rejects the pin if the section does not belong to boardId, so send both together.'
         link:
           type: string
           format: uri
@@ -5958,6 +6046,10 @@ components:
         coverImageKeyFrameTime:
           type: integer
           description: Optional key frame time in seconds for derived video cover
+        isAiGenerated:
+          type: boolean
+          default: false
+          description: 'When true, the Pin is created with Pinterest''s AI_MODIFIED disclosure (ai_disclosures), which shows an "AI modified" label. Applies to image and video Pins. Pinterest offers no "not AI" value, so false simply omits the disclosure. Pinterest may still label a Pin on its own detection.'
 
     YouTubePlatformData:
       type: object
@@ -7091,6 +7183,8 @@ components:
         follows: { type: integer, example: 0, description: 'Instagram feed posts and stories only: organic accounts that started following from this post. 0 for reels and other platforms.' }
         igReelsAvgWatchTime: { type: integer, example: 0, description: 'Instagram Reels only: average watch time per play, in milliseconds. 0 for non-Reels media and other platforms.' }
         igReelsVideoViewTotalTime: { type: integer, example: 0, description: 'Instagram Reels only: total watch time including replays, in milliseconds. 0 for non-Reels media and other platforms.' }
+        reelsSkipRate: { type: number, example: 0, description: 'Instagram Reels only: the rate of initial views that skipped the reel within its first 3 seconds, as reported by Meta. Passed through exactly as Meta reports it, with no rescaling, so do not assume a 0-1 share. Meta labels the metric estimated and in development, so it can move between syncs. 0 for non-Reels media and other platforms. When a post is published to several accounts, the aggregate is weighted by views.' }
+        reposts: { type: integer, example: 0, description: 'Instagram only: reposts of the media by other users, minus deleted reposts. Available on feed posts, reels and stories. 0 for other platforms, including Threads, where reposts are counted in shares instead.' }
         videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Currently Instagram Reels only; combine with igReelsAvgWatchTime (ms) to estimate retention. Null when unknown (other platforms, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio).' }
         engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. The engagementRate on the LinkedIn account endpoints is a different formula.' }
         lastUpdated: { type: string, format: date-time }
@@ -8118,8 +8212,8 @@ components:
                   distanceUnit: { type: string, enum: [mile, kilometer] }
                   name: { type: string }
                   address: { type: string, description: "Optional label, sent to Meta as `address_string`. latitude/longitude take precedence for the pin location." }
-        ageMin: { type: integer, minimum: 13, maximum: 100 }
-        ageMax: { type: integer, minimum: 13, maximum: 100 }
+        ageMin: { type: integer, minimum: 13, maximum: 100, description: "Minimum age. Applied on Meta, TikTok and Pinterest; ignored on Google, LinkedIn and X. Each platform clamps to its own range: Meta and Pinterest effectively cap at 65 (65 = 65+), TikTok maps up to 100. Pinterest has no under-18 bucket, so an ageMin below 18 starts at 18 there." }
+        ageMax: { type: integer, minimum: 13, maximum: 100, description: "Maximum age. Same per-platform application and clamping as ageMin." }
         gender: { type: string, enum: [all, male, female], description: "Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X." }
         incomeTier:
           type: string
@@ -8484,8 +8578,12 @@ components:
           description: "Google-only. Raw campaign.advertising_channel_type (SEARCH, PERFORMANCE_MAX, LOCAL_SERVICES, VIDEO, DEMAND_GEN, DISPLAY, SHOPPING, ...). Serving surface, distinct from platformObjective (advertiser intent). Null/absent for non-Google platforms."
         platformObjective: { type: [string, "null"], description: "Raw Meta campaign objective (e.g. OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_TRAFFIC)" }
         optimizationGoal:
-          type: [string, array]
-          items: { type: string }
+          # anyOf, not type: [string, array]: hey-api resolves a type-array carrying items
+          # through the array branch and drops the string one (@zernio/node 0.2.640).
+          anyOf:
+            - type: string
+            - type: array
+              items: { type: string }
           description: 'A single string when every ad set shares one optimization goal; a JSON array of the distinct goals when ad sets differ (never a comma-joined string); array element order is not guaranteed, treat it as an unordered set; the key is absent when no ad set carries a goal. Meta: e.g. OFFSITE_CONVERSIONS, VALUE, LEAD_GENERATION. LinkedIn: the campaign optimizationTargetType (e.g. MAX_CLICK, MAX_IMPRESSION, NONE); `NONE` with a manual costType is a campaign LinkedIn will not deliver.'
         bidStrategy:
           anyOf:
@@ -8562,8 +8660,12 @@ components:
           description: "Google-only. Raw campaign.advertising_channel_type. See AdTreeCampaign.advertisingChannelType."
         platformObjective: { type: [string, "null"], description: "Raw Meta campaign objective (e.g. OUTCOME_SALES, OUTCOME_LEADS, OUTCOME_TRAFFIC)" }
         optimizationGoal:
-          type: [string, array]
-          items: { type: string }
+          # anyOf, not type: [string, array]: hey-api resolves a type-array carrying items
+          # through the array branch and drops the string one (@zernio/node 0.2.640).
+          anyOf:
+            - type: string
+            - type: array
+              items: { type: string }
           description: 'A single string when every ad set shares one optimization goal; a JSON array of the distinct goals when ad sets differ (never a comma-joined string); array element order is not guaranteed, treat it as an unordered set; the key is absent when no ad set carries a goal. Meta: e.g. OFFSITE_CONVERSIONS, VALUE, LEAD_GENERATION. LinkedIn: the campaign optimizationTargetType (e.g. MAX_CLICK, MAX_IMPRESSION, NONE); `NONE` with a manual costType is a campaign LinkedIn will not deliver.'
         bidStrategy:
           anyOf:
@@ -9219,7 +9321,11 @@ webhooks:
     post:
       operationId: onMessageSent
       summary: Message sent event
-      description: Fired when a message is sent via the API, or from the WhatsApp Business app on Coexistence numbers.
+      description: |
+        Fired when a message is sent via the API, or from the WhatsApp Business app on
+        Coexistence numbers. Sends that carry platform-specific context deliver it under
+        `metadata`, so a quote-reply arrives with `metadata.quotedMessageId` and mirroring
+        CRMs can thread it without a lookup.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -9254,10 +9360,13 @@ webhooks:
       summary: Message deleted event
       description: |
         Fired when a sender deletes (unsends) a message. Supported on Instagram
-        (incoming unsend) and WhatsApp (when the business deletes an outgoing
-        message via the Cloud API). The payload retains the pre-delete text
-        and attachments so API consumers can access the original content for
-        moderation or compliance — the Zernio dashboard UI hides it.
+        (incoming unsend) and WhatsApp in both directions: an outgoing message
+        the business deleted (via the Cloud API, or from the WhatsApp Business
+        app on a Coexistence number) and an incoming message the customer
+        deleted. Read `message.direction` to tell the two apart. The payload
+        retains the pre-delete text and attachments so API consumers can access
+        the original content for moderation or compliance; the Zernio dashboard
+        UI hides it.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -10368,8 +10477,8 @@ paths:
           description: Page number (default 1)
         - name: sortBy
           in: query
-          schema: { type: string, enum: [date, engagement, impressions, reach, likes, comments, shares, saves, clicks, views, follows], default: date }
-          description: Sort by date, engagement, or a specific metric
+          schema: { type: string, enum: [date, engagement, impressions, reach, likes, comments, shares, saves, clicks, views, follows, ig_reels_avg_watch_time, ig_reels_video_view_total_time, reposts, reels_skip_rate], default: date }
+          description: 'Sort by date, engagement, or a specific metric. Instagram-only metrics (follows, reposts, reels_skip_rate, ig_reels_*) sort posts with no value as 0.'
         - name: order
           in: query
           schema: { type: string, enum: [asc, desc], default: desc }
@@ -15554,6 +15663,10 @@ paths:
                           type: array
                           items: { type: string }
                         createdAt: { type: string, format: date-time }
+                        lastLoginAt:
+                          type: string
+                          format: date-time
+                          description: 'Last sign-in, stamped at most once an hour, so it is accurate to within an hour rather than to the exact session. Omitted for members with no recorded sign-in since the field shipped, which does not mean they never signed in.'
               example:
                 currentUserId: "6507a1b2c3d4e5f6a7b8c9d0"
                 users:
@@ -15564,6 +15677,7 @@ paths:
                     isRoot: true
                     profileAccess: ["all"]
                     createdAt: "2024-01-15T10:30:00Z"
+                    lastLoginAt: "2024-06-02T09:12:00Z"
                   - _id: "6507a1b2c3d4e5f6a7b8c9d1"
                     name: "Jane Smith"
                     email: "jane@example.com"
@@ -15573,6 +15687,7 @@ paths:
                       - "64f0a1b2c3d4e5f6a7b8c9d0"
                       - "64f0a1b2c3d4e5f6a7b8c9d1"
                     createdAt: "2024-03-20T14:45:00Z"
+                    lastLoginAt: "2024-05-28T16:03:00Z"
         '401': { $ref: '#/components/responses/Unauthorized' }
   /v1/users/{userId}:
     get:
@@ -17069,7 +17184,17 @@ paths:
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
-          description: Custom redirect URL after OAuth completes (same-token platforms only). Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path.
+          description: |
+            Custom URL the browser is sent to once the OAuth flow finishes. Honored on
+            every ads platform, including the separate-token (`tiktok`, `twitter`) and
+            standalone (`googleads`) flows. Accepts an http(s) URL, a custom app scheme
+            for mobile deeplinks (e.g. myapp://callback), or a relative path. On success
+            `tiktok`, `twitter` and `googleads` land on the URL unchanged, while the
+            same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`)
+            append `connected`, `profileId`, `accountId`, `username` and, on API-key
+            calls, `connect_token`. On failure every platform appends error details,
+            starting with `error` and `platform`. When omitted, the browser lands on
+            the Zernio dashboard.
         - name: headless
           in: query
           schema: { type: boolean, default: false }
@@ -17882,35 +18007,7 @@ paths:
                   locationId: { type: string }
                   reviews:
                     type: array
-                    items:
-                      type: object
-                      properties:
-                        id: { type: string, description: Review ID }
-                        name: { type: string, description: Full resource name }
-                        reviewer:
-                          type: object
-                          properties:
-                            displayName: { type: string }
-                            profilePhotoUrl: { type: [string, "null"] }
-                            isAnonymous: { type: boolean }
-                        rating: { type: integer, minimum: 1, maximum: 5, description: Numeric star rating }
-                        starRating: { type: string, enum: [ONE, TWO, THREE, FOUR, FIVE], description: Google's string rating }
-                        comment: { type: string, description: Review text }
-                        createTime: { type: string, format: date-time }
-                        updateTime: { type: string, format: date-time }
-                        reviewReply:
-                          type: [object, "null"]
-                          properties:
-                            comment: { type: string, description: Business owner reply }
-                            updateTime: { type: string, format: date-time }
-                        photoCount: { type: integer, description: 'Number of photos attached to the review (photos only, videos are not counted)' }
-                        photos:
-                          type: array
-                          description: Photos attached to the review by the reviewer
-                          items:
-                            type: object
-                            properties:
-                              url: { type: string, format: uri }
+                    items: { $ref: '#/components/schemas/GoogleBusinessReview' }
                   averageRating: { type: number, description: Overall average rating }
                   totalReviewCount: { type: integer, description: Total number of reviews }
                   nextPageToken: { type: [string, "null"], description: Token for next page }
@@ -19752,6 +19849,86 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /v1/accounts/{accountId}/gmb-reviews/{reviewId}:
+    get:
+      x-resource-group: "engagement"
+      operationId: getGoogleBusinessReview
+      tags: [GMB Reviews]
+      summary: Get a review
+      description: |
+        Returns one Google Business review, in the same shape as the entries of GET /v1/accounts/{accountId}/gmb-reviews.
+        The review is read from the account's selected location unless locationId overrides it, and Google returns 404 for a review id that belongs to another location.
+        Read the review before replying if a human may have answered it already: replies are overwritten in place and Google keeps no history.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+          description: The Zernio account ID (from /v1/accounts)
+        - name: reviewId
+          in: path
+          required: true
+          schema: { type: string }
+          description: The review ID portion (e.g. "AIe9_BGx1234567890"), not the full resource name
+        - name: locationId
+          in: query
+          schema: { type: string }
+          description: Override which location to read the review from. If omitted, uses the account's selected location. Use GET /gmb-locations to list valid IDs.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Review fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  accountId: { type: string }
+                  locationId: { type: string }
+                  review: { $ref: '#/components/schemas/GoogleBusinessReview' }
+              example:
+                success: true
+                accountId: "64e1f0a9e2b5af0012ab34cd"
+                locationId: "9281089117903930794"
+                review:
+                  id: "AIe9_BGx1234567890"
+                  name: "accounts/123456789/locations/9281089117903930794/reviews/AIe9_BGx1234567890"
+                  reviewer:
+                    displayName: "John Smith"
+                    profilePhotoUrl: "https://lh3.googleusercontent.com/a/..."
+                    isAnonymous: false
+                  rating: 5
+                  starRating: "FIVE"
+                  comment: "Great service and friendly staff! Highly recommend."
+                  createTime: "2024-01-15T10:30:00Z"
+                  updateTime: "2024-01-15T10:30:00Z"
+                  reviewReply:
+                    comment: "Thank you for your kind words! We appreciate your support."
+                    updateTime: "2024-01-16T08:00:00Z"
+                  photoCount: 0
+                  photos: []
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Unauthorized or token invalid (account must be reconnected)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example:
+                error: "Access token invalid. Please reconnect your Google Business Profile account."
+                code: "token_invalid"
+        '404':
+          description: Account not found, or no such review on this location
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Failed to fetch the review
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -25433,7 +25610,7 @@ paths:
 
         Slack: pass a workspace member id as participantId (list them with GET /v1/accounts/{accountId}/slack-members). Zernio opens the DM channel with that member and sends the message; the thread then behaves like any other Slack conversation in the inbox. The member must belong to the connected workspace.
 
-        WhatsApp: this is the endpoint for sending an approved template message to a phone number. Provide templateName, templateLanguage, and templateParams (variable values for the text header, body and dynamic URL buttons, in that order), with the recipient phone in participantId. A template is required because WhatsApp does not permit freeform messages to open a conversation; a missing template returns TEMPLATE_REQUIRED. Templates with media headers (image, video, document) are handled automatically: Zernio reads the approved template definition and fills the header at send time with the template's approved sample asset. To send a DIFFERENT asset per message (e.g. a distinct invoice PDF for each recipient), pass the headerMedia field with a public link (or a Meta media id); it overrides the sample for that send. Calling this for a number you already have a thread with simply sends the template into that thread, which also makes it the way to re-engage a contact after the 24-hour customer-service window has closed. Once the recipient replies (opening the 24h window), send freeform messages with the send-message endpoint (POST /v1/inbox/conversations/{conversationId}/messages). Template fields are accepted on the JSON body only, not on multipart requests. Alternatively, WhatsApp Business Accounts eligible for Meta Direct Send can open a conversation with a business-initiated utility text message and no template: pass category: 'utility' together with message (and no templateName). See the category field below.
+        WhatsApp: this is the endpoint for sending an approved template message to a phone number. Provide templateName, templateLanguage, and templateParams (variable values for the text header, body and dynamic URL buttons, in that order), with the recipient phone in participantId. A template is required because WhatsApp does not permit freeform messages to open a conversation; a missing template returns TEMPLATE_REQUIRED. Templates with media headers (image, video, document) are handled automatically: Zernio reads the approved template definition and fills the header at send time with the template's approved sample asset. To send a DIFFERENT asset per message (e.g. a distinct invoice PDF for each recipient), pass the headerMedia field with a public link (or a Meta media id); it overrides the sample for that send. A button that carries its own value at send time (a copy-code button holding a Pix payment code or a coupon, a flow token) is sent with templateButtonParams, addressed by the button's index; templateParams covers text variables and dynamic URL buttons only. Calling this for a number you already have a thread with simply sends the template into that thread, which also makes it the way to re-engage a contact after the 24-hour customer-service window has closed. Once the recipient replies (opening the 24h window), send freeform messages with the send-message endpoint (POST /v1/inbox/conversations/{conversationId}/messages). Template fields are accepted on the JSON body only, not on multipart requests. Alternatively, WhatsApp Business Accounts eligible for Meta Direct Send can open a conversation with a business-initiated utility text message and no template: pass category: 'utility' together with message (and no templateName). See the category field below.
 
         DM eligibility (X/Twitter): Before sending, the endpoint checks if the recipient accepts DMs from your account (via the receives_your_dm field). If not, a 422 error with code DM_NOT_ALLOWED is returned. You can skip this check with skipDmCheck: true if you have already verified eligibility.
 
@@ -25508,7 +25685,42 @@ paths:
                     {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values:
                     [body1, body2, buttonSuffix]. Media headers (image, video, document) are filled
                     automatically from the approved template and take no value here (use headerMedia
-                    to override the header asset per send).
+                    to override the header asset per send). Buttons that are not dynamic-URL buttons
+                    (copy-code, flow) take no value here either; use templateButtonParams.
+                templateButtonParams:
+                  type: array
+                  maxItems: 10
+                  description: >-
+                    WhatsApp only. Values for template buttons that carry one at send time, each
+                    addressed by the button's position in the approved template. This is the only
+                    way to send a copy-code button's payload (a Pix payment code, a coupon) or a
+                    flow token, because templateParams is a flat array of text variables and covers
+                    dynamic URL buttons only. Supplying a button here overrides whatever
+                    templateParams would have derived for that same index, so the send never
+                    carries one button twice; repeating an index within this array is rejected
+                    with 400. Each index must name a button of the matching kind on the approved
+                    template, which is also checked before the send and returns 400
+                    (INVALID_TEMPLATE_BUTTON_PARAM) rather than a Meta rejection.
+                  items:
+                    type: object
+                    required: [index, subType, value]
+                    properties:
+                      index:
+                        type: integer
+                        minimum: 0
+                        maximum: 9
+                        description: 'Zero-based position of the button in the approved template''s buttons.'
+                      subType:
+                        type: string
+                        enum: [url, copy_code, flow]
+                        description: >-
+                          The button kind, which decides how the value is sent: copy_code sends it
+                          as the coupon_code payload, flow as the flow token, url as the dynamic
+                          suffix appended to the button's base URL.
+                      value:
+                        type: string
+                        minLength: 1
+                        description: 'The value to send (e.g. the Pix copy-and-paste code for a copy_code button).'
                 headerMedia:
                   type: object
                   description: >-
@@ -26122,7 +26334,26 @@ paths:
                             `waInteractive` (a compact descriptor of WhatsApp interactive
                             content sent: buttons / list / cta_url / flow / location_request),
                             and for inbound interactive taps `interactiveType` / `interactiveId`.
+                            It can also carry `source` (`whatsapp_business_app` /
+                            `coexistence_history` on a WhatsApp Coexistence number, `bulk-api` on
+                            a POST /v1/whatsapp/bulk send), which is where the message reached us
+                            from rather than who produced it: read `sentVia` for that.
                           additionalProperties: true
+                        sentVia:
+                          type: [string, "null"]
+                          enum: [human, api, broadcast, sequence, workflow, comment_automation, bulk-api, null]
+                          description: |
+                            Which Zernio surface produced this outgoing message: `human` (an
+                            operator in the Zernio inbox), `api` (a call to this API),
+                            `broadcast`, `sequence`, `workflow`, `comment_automation`, or
+                            `bulk-api` (POST /v1/whatsapp/bulk). Same vocabulary as the `source`
+                            filter on the inbox analytics endpoints.
+
+                            Always present, and `null` whenever the lineage is unknown: every
+                            incoming message, any outgoing message sent from the platform's own
+                            app, and every message stored before this field shipped
+                            (2026-08). Existing messages are NOT backfilled, so treat `null`
+                            as "unknown", never as "sent by a human".
                   lastUpdated: { type: string, format: date-time }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -27051,7 +27282,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
-          description: The platform message ID to react to
+          description: 'The platform message ID (as returned by GET /messages) or the Zernio message ID (as returned by the reaction webhook)'
       requestBody:
         required: true
         content:
@@ -27064,20 +27295,22 @@ paths:
                 emoji: { type: string, description: 'Emoji character (e.g. "👍", "❤️")', example: '👍' }
       responses:
         '200':
-          description: Reaction added
+          description: 'The platform accepted the reaction request. This does not guarantee the reaction was placed: the platform never confirms what it acted on.'
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
+                  messageId: { type: string, description: 'The Zernio message ID the reaction was resolved against' }
+                  platformMessageId: { type: string, description: 'The platform message ID the reaction was sent for' }
         '400':
           description: Platform does not support reactions or invalid request
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
         '404':
-          description: Account or conversation not found
+          description: 'Account, conversation or message not found (message_not_found when messageId does not resolve to a message in this conversation)'
     delete:
       x-resource-group: "messages"
       operationId: removeMessageReaction
@@ -27101,7 +27334,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
-          description: The platform message ID
+          description: 'The platform message ID (as returned by GET /messages) or the Zernio message ID (as returned by the reaction webhook)'
         - name: accountId
           in: query
           required: true
@@ -27109,20 +27342,22 @@ paths:
           description: Social account ID
       responses:
         '200':
-          description: Reaction removed
+          description: 'The platform accepted the removal request. This does not guarantee a reaction was removed: the platform never confirms what it acted on, and a reaction placed by the other participant cannot be removed (platform rule). Check `fromMe` on GET /messages to know who placed a reaction.'
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
+                  messageId: { type: string, description: 'The Zernio message ID the removal was resolved against' }
+                  platformMessageId: { type: string, description: 'The platform message ID the removal was sent for' }
         '400':
           description: Platform does not support reactions or invalid request
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
         '404':
-          description: Account or conversation not found
+          description: 'Account, conversation or message not found (message_not_found when messageId does not resolve to a message in this conversation)'
 
   /v1/media/upload-direct:
     post:
@@ -31384,6 +31619,7 @@ paths:
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: WhatsApp social account ID }
         - { name: name, in: query, required: true, schema: { type: string }, description: Exact library template name }
+        - { name: language, in: query, required: false, schema: { type: string }, description: 'Desired language variant (e.g. es, en_US). If the template is not offered in it, the first available variant is returned and named in the response language field.' }
       responses:
         '200':
           description: Library template (or null if no exact match)
@@ -31400,6 +31636,7 @@ paths:
                       category: { type: string }
                       body: { type: string }
                       body_params: { type: array, items: { type: string } }
+                      availableLanguages: { type: array, items: { type: string } }
                       buttons:
                         type: array
                         items:
@@ -39460,7 +39697,7 @@ paths:
       x-resource-group: "ads"
       operationId: deleteAdCampaign
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta", "tiktok"]
+      x-platforms: ["meta", "tiktok", "google"]
       summary: Delete a campaign
       description: |
         Deletes the whole campaign on the platform, cascading to its ad sets
@@ -39486,7 +39723,7 @@ paths:
               type: object
               required: [platform]
               properties:
-                platform: { type: string, enum: [facebook, instagram] }
+                platform: { type: string, enum: [facebook, instagram, google] }
                 accountId: { type: string, description: "Zernio SocialAccount id owning the ad account. Required only to delete an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from." }
       responses:
         '200':
@@ -40358,6 +40595,85 @@ paths:
         '400': { description: Invalid input }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Ad not found }
+
+  /v1/ads/campaigns/{campaignId}/assets:
+    post:
+      x-resource-group: "ads"
+      operationId: attachCampaignAssets
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Attach extension assets to a Google Search campaign
+      description: |-
+        Attach sitelinks, callouts and/or structured snippets to an already-existing Google
+        Search campaign — the same builders POST /v1/ads/create uses, but without rebuilding
+        the hierarchy. At least one of sitelinks, callouts or structuredSnippets is required.
+
+        Google-only. Other platforms have no equivalent extension surface and return 501.
+
+        Approval status is Google-async; poll `asset.policy_summary` after review. Assets
+        stay in the account library even if the campaign is later deleted.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string }, description: "Numeric Google platform campaign id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string, description: "Zernio Google Ads SocialAccount id — resolves the customer id + refresh token." }
+                sitelinks:
+                  type: array
+                  minItems: 2
+                  maxItems: 20
+                  description: "See POST /v1/ads/create sitelinks — same shape."
+                  items:
+                    type: object
+                    required: [text, linkUrl]
+                    properties:
+                      text: { type: string, minLength: 1, maxLength: 25 }
+                      linkUrl: { type: string, format: uri }
+                      description1: { type: string, minLength: 1, maxLength: 35 }
+                      description2: { type: string, minLength: 1, maxLength: 35 }
+                callouts:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: string, minLength: 1, maxLength: 25 }
+                structuredSnippets:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [header, values]
+                    properties:
+                      header:
+                        type: string
+                        enum: [Amenities, Brands, Courses, Degree programs, Destinations, Featured hotels, Insurance coverage, Models, Neighborhoods, Service catalog, Shows, Styles, Types]
+                      values:
+                        type: array
+                        minItems: 3
+                        maxItems: 10
+                        items: { type: string, minLength: 1, maxLength: 25 }
+      responses:
+        '201':
+          description: Assets attached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaignId: { type: string }
+                  sitelinkAssetResourceNames: { type: array, items: { type: string } }
+                  calloutAssetResourceNames: { type: array, items: { type: string } }
+                  structuredSnippetAssetResourceNames: { type: array, items: { type: string } }
+        '400': { description: "Invalid input, or Google rejected the assets" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Google Ads }
 
   /v1/ads/campaigns/{campaignId}/analytics:
     get:
@@ -43200,6 +43516,39 @@ paths:
                       linkUrl: { type: string, format: uri, description: "Final URL the sitelink navigates to." }
                       description1: { type: string, minLength: 1, maxLength: 35, description: "First description line under the link text (optional). 35-char cap." }
                       description2: { type: string, minLength: 1, maxLength: 35, description: "Second description line (optional; usually paired with description1)." }
+                callouts:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: string, minLength: 1, maxLength: 25 }
+                  description: |
+                    Google Search only. Short callout texts (max 25 chars each) that appear as
+                    non-clickable annotations under the ad, e.g. "Free shipping", "24/7 support".
+                    Each becomes one Asset (`callout_asset`) plus a CampaignAsset link with
+                    field_type CALLOUT. Response's creative.callouts[] echoes each input plus
+                    its Google resourceName.
+                structuredSnippets:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  description: |
+                    Google Search only. Structured snippets — one header from Google's
+                    predefined list plus 3-10 values (max 25 chars each). Each becomes one
+                    Asset (`structured_snippet_asset`) plus a CampaignAsset link with
+                    field_type STRUCTURED_SNIPPET.
+                  items:
+                    type: object
+                    required: [header, values]
+                    properties:
+                      header:
+                        type: string
+                        enum: [Amenities, Brands, Courses, Degree programs, Destinations, Featured hotels, Insurance coverage, Models, Neighborhoods, Service catalog, Shows, Styles, Types]
+                        description: "One of Google's 13 predefined snippet headers."
+                      values:
+                        type: array
+                        minItems: 3
+                        maxItems: 10
+                        items: { type: string, minLength: 1, maxLength: 25 }
                 advantageAudience: { type: integer, enum: [0, 1], description: "Meta only. Controls the Advantage audience feature (targeting_automation). 0 = disabled (default), 1 = enabled. Meta Marketing API requires this field on all ad set creation requests." }
                 attributionSpec:
                   type: array
@@ -43701,7 +44050,9 @@ paths:
                         thankYouButtonText: { type: string }
                         thankYouButtonType: { type: string, example: VIEW_WEBSITE }
                         thankYouWebsiteUrl: { type: string, format: uri }
+                        thankYouEnableMessenger: { type: boolean, default: false, description: "Adds a 'Continue in Messenger' option to the thank-you page (Meta thank_you_page.enable_messenger), so the lead can carry on chatting with the Page. Set thankYouButtonType to MESSAGE_BUSINESS or P2B_MESSENGER to make the chat the primary button." }
                         isOptimizedForQuality: { type: boolean, description: 'Set true for a higher-intent form (adds a review step before submit).' }
+                        isPhoneSmsVerifyEnabled: { type: boolean, default: false, description: "Requires the lead to verify their phone number over SMS before the form submits (Meta is_phone_sms_verify_enabled). Only meaningful on a form with a PHONE question. Meta can restrict this parameter to apps holding a capability: when it does, the create fails with a 422 naming platformSpecificData.isPhoneSmsVerifyEnabled, and the toggle then has to be set in Meta's form builder." }
                         blockDisplayForNonTargetedViewer: { type: boolean }
                         questionPageCustomHeadline: { type: string }
                         contextCard:
@@ -43773,7 +44124,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Ads add-on required. }
-        '422': { description: "Meta rejected the lead form with error code 3. The Facebook Page normally needs a Page admin to accept the Lead Ads Terms of Service." }
+        '422': { description: "Meta rejected the lead form. Code 3 is Meta's generic app-capability error and does not name a field; when the request set isPhoneSmsVerifyEnabled, the response names that field as the one to drop first." }
 
   /v1/ads/lead-forms/{formId}:
     get:

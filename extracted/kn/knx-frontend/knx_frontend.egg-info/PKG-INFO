@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: knx_frontend
-Version: 2026.8.2.133643
+Version: 2026.8.26.184052
 Summary: KNX panel for Home Assistant
 Author-email: Marvin Wichmann <me@marvin-wichmann.de>, Matthias Alphart <farmio@alphart.net>
 License-Expression: MIT

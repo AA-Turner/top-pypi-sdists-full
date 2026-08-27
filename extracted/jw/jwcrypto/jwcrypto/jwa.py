@@ -2,6 +2,7 @@
 
 import os
 import struct
+import warnings
 from abc import ABCMeta, abstractmethod
 from binascii import hexlify, unhexlify
 
@@ -19,6 +20,7 @@ from cryptography.hazmat.primitives.padding import PKCS7
 
 from jwcrypto.common import InvalidCEKeyLength
 from jwcrypto.common import InvalidJWAAlgorithm
+from jwcrypto.common import InvalidJWEData
 from jwcrypto.common import InvalidJWEKeyLength
 from jwcrypto.common import InvalidJWEKeyType
 from jwcrypto.common import InvalidJWEOperation
@@ -39,6 +41,15 @@ default_max_pbkdf2_iterations = 16384
 
 This is a security measure to prevent denial-of-service attacks by malicious
 actors providing a very high iteration count.
+"""
+
+default_warn_deprecated_algorithms = False
+"""When True, emit a DeprecationWarning when instantiating an algorithm
+whose status is 'deprecated'.
+
+Disabled by default so that consumers are not disrupted by warnings for
+algorithms that remain in wide use (e.g. EdDSA). Set to True to audit
+your code for deprecated algorithm usage.
 """
 
 default_enforce_hmac_key_length = True
@@ -76,6 +87,12 @@ class JWAAlgorithm(metaclass=ABCMeta):
     @abstractmethod
     def algorithm_use(self):
         """One of 'sig', 'kex', 'enc'"""
+
+    status = 'active'
+    """Algorithm status: 'active', 'deprecated', or 'prohibited'"""
+
+    deprecated_by = None
+    """Replacement algorithm(s) for deprecated algorithms"""
 
     @property
     def input_keysize(self):
@@ -748,6 +765,7 @@ class _EcdhEs(_RawKeyMgmt, JWAAlgorithm):
     description = "ECDH-ES using Concat KDF"
     algorithm_usage_location = 'alg'
     algorithm_use = 'kex'
+    allow_ek = False
     keysize = None
 
     def __init__(self):
@@ -828,6 +846,8 @@ class _EcdhEs(_RawKeyMgmt, JWAAlgorithm):
     def unwrap(self, key, bitsize, ek, headers):
         if 'epk' not in headers:
             raise ValueError('Invalid Header, missing "epk" parameter')
+        if len(ek) > 0 and not self.allow_ek:
+            raise InvalidJWEData('Non empty "ek" parameter')
         self._check_key(key)
         dk_size = self.keysize
         if self.keysize is None:
@@ -856,6 +876,7 @@ class _EcdhEsAes128Kw(_EcdhEs):
     keysize = 128
     algorithm_usage_location = 'alg'
     algorithm_use = 'kex'
+    allow_ek = True
 
 
 class _EcdhEsAes192Kw(_EcdhEs):
@@ -865,6 +886,7 @@ class _EcdhEsAes192Kw(_EcdhEs):
     keysize = 192
     algorithm_usage_location = 'alg'
     algorithm_use = 'kex'
+    allow_ek = True
 
 
 class _EcdhEsAes256Kw(_EcdhEs):
@@ -874,6 +896,7 @@ class _EcdhEsAes256Kw(_EcdhEs):
     keysize = 256
     algorithm_usage_location = 'alg'
     algorithm_use = 'kex'
+    allow_ek = True
 
 
 class _EdDsa(_RawJWS, JWAAlgorithm):
@@ -883,6 +906,8 @@ class _EdDsa(_RawJWS, JWAAlgorithm):
     algorithm_usage_location = 'alg'
     algorithm_use = 'sig'
     keysize = None
+    status = 'deprecated'
+    deprecated_by = 'Ed25519 or Ed448'
 
     def sign(self, key, payload):
         if key['crv'] in ['Ed25519', 'Ed448']:
@@ -937,6 +962,57 @@ class _Ed448(_RawJWS, JWAAlgorithm):
             raise InvalidJWEKeyType('Ed448', key['crv'])
         pkey = key.get_op_key('verify')
         return pkey.verify(signature, payload)
+
+
+class _RawMLDSA(_RawJWS):
+
+    _alg_name = None
+
+    def _check_key(self, key):
+        if key['kty'] != 'AKP':
+            raise InvalidJWEKeyType('AKP', key['kty'])
+        if key.get('alg') != self._alg_name:
+            raise InvalidJWEKeyType(self._alg_name, key.get('alg'))
+
+    def sign(self, key, payload):
+        self._check_key(key)
+        skey = key.get_op_key('sign')
+        return skey.sign(payload, context=b"")
+
+    def verify(self, key, payload, signature):
+        self._check_key(key)
+        pkey = key.get_op_key('verify')
+        pkey.verify(signature, payload, context=b"")
+
+
+class _MLDSA44(_RawMLDSA, JWAAlgorithm):
+
+    name = 'ML-DSA-44'
+    description = 'ML-DSA using ML-DSA-44 parameter set'
+    algorithm_usage_location = 'alg'
+    algorithm_use = 'sig'
+    keysize = None
+    _alg_name = 'ML-DSA-44'
+
+
+class _MLDSA65(_RawMLDSA, JWAAlgorithm):
+
+    name = 'ML-DSA-65'
+    description = 'ML-DSA using ML-DSA-65 parameter set'
+    algorithm_usage_location = 'alg'
+    algorithm_use = 'sig'
+    keysize = None
+    _alg_name = 'ML-DSA-65'
+
+
+class _MLDSA87(_RawMLDSA, JWAAlgorithm):
+
+    name = 'ML-DSA-87'
+    description = 'ML-DSA using ML-DSA-87 parameter set'
+    algorithm_usage_location = 'alg'
+    algorithm_use = 'sig'
+    keysize = None
+    _alg_name = 'ML-DSA-87'
 
 
 class _RawJWE:
@@ -1235,7 +1311,10 @@ class JWA:
         'BP384R1': _BP384R1,
         'BP512R1': _BP512R1,
         'Ed25519': _Ed25519,
-        'Ed448': _Ed448
+        'Ed448': _Ed448,
+        'ML-DSA-44': _MLDSA44,
+        'ML-DSA-65': _MLDSA65,
+        'ML-DSA-87': _MLDSA87,
     }
 
     @classmethod
@@ -1243,6 +1322,14 @@ class JWA:
         alg = cls.algorithms_registry[name]
         if use is not None and alg.algorithm_use != use:
             raise KeyError
+        if alg.status == 'prohibited':
+            raise InvalidJWAAlgorithm(
+                '%s is prohibited and must not be used' % name)
+        if alg.status == 'deprecated' and default_warn_deprecated_algorithms:
+            msg = '%s is deprecated' % name
+            if alg.deprecated_by:
+                msg += '; use %s instead' % alg.deprecated_by
+            warnings.warn(msg, DeprecationWarning, stacklevel=4)
         return alg()
 
     @classmethod

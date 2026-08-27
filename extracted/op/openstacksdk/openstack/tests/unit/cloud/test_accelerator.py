@@ -11,6 +11,7 @@
 # under the License.
 
 import copy
+from typing import Any
 import uuid
 
 from openstack.tests.unit import base
@@ -51,7 +52,7 @@ DEV_PROF_GROUPS = [
         "trait:CUSTOM_TRAIT_ALWAYS": "required",
     },
 ]
-DEV_PROF_DICT = {
+DEV_PROF_DICT: dict[str, Any] = {
     "id": 1,
     "uuid": DEV_PROF_UUID,
     "name": 'afaas_example_1',
@@ -66,7 +67,7 @@ ARQ_INSTANCE_UUID = uuid.uuid4().hex
 ARQ_ATTACH_INFO_STR = (
     '{"bus": "5e", "device": "00", "domain": "0000", "function": "1"}'
 )
-ARQ_DICT = {
+ARQ_DICT: dict[str, Any] = {
     'uuid': ARQ_UUID,
     'hostname': 'test_hostname',
     'device_profile_name': 'fake-devprof',
@@ -186,19 +187,6 @@ class TestAccelerator(base.TestCase):
         self.register_uris(
             [
                 dict(
-                    method='GET',
-                    uri=self.get_mock_url(
-                        'accelerator',
-                        'public',
-                        append=[
-                            'v2',
-                            'device_profiles',
-                            DEV_PROF_DICT['name'],
-                        ],
-                    ),
-                    json={"device_profiles": [DEV_PROF_DICT]},
-                ),
-                dict(
                     method='DELETE',
                     uri=self.get_mock_url(
                         'accelerator',
@@ -281,19 +269,6 @@ class TestAccelerator(base.TestCase):
         self.register_uris(
             [
                 dict(
-                    method='GET',
-                    uri=self.get_mock_url(
-                        'accelerator',
-                        'public',
-                        append=[
-                            'v2',
-                            'accelerator_requests',
-                            ARQ_DICT['uuid'],
-                        ],
-                    ),
-                    json={"accelerator_requests": [ARQ_DICT]},
-                ),
-                dict(
                     method='DELETE',
                     uri=self.get_mock_url(
                         'accelerator',
@@ -316,19 +291,6 @@ class TestAccelerator(base.TestCase):
     def test_bind_accelerator_request(self):
         self.register_uris(
             [
-                dict(
-                    method='GET',
-                    uri=self.get_mock_url(
-                        'accelerator',
-                        'public',
-                        append=[
-                            'v2',
-                            'accelerator_requests',
-                            ARQ_DICT['uuid'],
-                        ],
-                    ),
-                    json={"accelerator_requests": [ARQ_DICT]},
-                ),
                 dict(
                     method='PATCH',
                     uri=self.get_mock_url(
@@ -366,19 +328,6 @@ class TestAccelerator(base.TestCase):
     def test_unbind_accelerator_request(self):
         self.register_uris(
             [
-                dict(
-                    method='GET',
-                    uri=self.get_mock_url(
-                        'accelerator',
-                        'public',
-                        append=[
-                            'v2',
-                            'accelerator_requests',
-                            ARQ_DICT['uuid'],
-                        ],
-                    ),
-                    json={"accelerator_requests": [ARQ_DICT]},
-                ),
                 dict(
                     method='PATCH',
                     uri=self.get_mock_url(

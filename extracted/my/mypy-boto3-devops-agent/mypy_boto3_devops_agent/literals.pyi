@@ -70,6 +70,7 @@ __all__ = (
     "TaskStatusType",
     "TaskTypeType",
     "ToolClassificationType",
+    "TriggerEventType",
     "UserTypeType",
     "ValidationStatusType",
     "WebhookTypeType",
@@ -173,6 +174,7 @@ TaskStatusType = Literal[
 ]
 TaskTypeType = Literal["EVALUATION", "INVESTIGATION", "RELEASE_READINESS_REVIEW", "RELEASE_TESTING"]
 ToolClassificationType = Literal["DESTRUCTIVE", "MUTATIVE", "READ_ONLY"]
+TriggerEventType = Literal["PULL_REQUEST_DRAFT", "PULL_REQUEST_READY_FOR_REVIEW"]
 UserTypeType = Literal["IAM", "IDC", "IDP"]
 ValidationStatusType = Literal["invalid", "pending-confirmation", "valid"]
 WebhookTypeType = Literal["apikey", "gitlab", "hmac", "pagerduty"]

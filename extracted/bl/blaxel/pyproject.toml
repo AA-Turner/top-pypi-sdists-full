@@ -1,6 +1,6 @@
 [project]
 name = "blaxel"
-version = "0.4.4"
+version = "0.4.5"
 description = "Blaxel - AI development platform SDK"
 readme = "README.md"
 authors = [{ name = "cploujoux", email = "cploujoux@blaxel.ai" }]

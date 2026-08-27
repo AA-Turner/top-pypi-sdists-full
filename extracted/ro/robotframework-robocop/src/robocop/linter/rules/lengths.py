@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from robot.api import Token
-from robot.errors import VariableError
 from robot.parsing.model.blocks import CommentSection, Keyword, TestCase
 from robot.parsing.model.statements import (
     Arguments,
@@ -17,7 +17,6 @@ from robot.parsing.model.statements import (
     Template,
     TemplateArguments,
 )
-from robot.variables.search import search_variable
 
 try:
     from robot.api.parsing import Break, Continue
@@ -29,31 +28,30 @@ except ImportError:
     Var = None
 
 from robocop.linter import sonar_qube
+from robocop.linter.fix import FixAvailability, remove_empty_setting_fix, remove_lines_fix
 from robocop.linter.rules import (
-    RawFileChecker,
+    FixableRule,
     Rule,
     RuleParam,
     RuleSeverity,
     SeverityThreshold,
-    VisitorChecker,
-    arguments,
 )
 from robocop.linter.utils.misc import (
     RETURN_CLASSES,
-    find_escaped_variables,
     get_section_name,
-    normalize_robot_name,
     pattern_type,
-    split_argument_default_value,
     str2bool,
-    strip_equals_from_assignment,
 )
-from robocop.version_handling import TYPE_SUPPORTED
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from robot.parsing import File
-    from robot.parsing.model.blocks import For, Section, Try, VariableSection
-    from robot.parsing.model.statements import Node, Return, Statement
+    from robot.parsing.model.blocks import Section
+    from robot.parsing.model.statements import Node, Statement
+
+    from robocop.linter.diagnostics import Diagnostic
+    from robocop.linter.fix import Fix
 
 
 class TooLongKeywordRule(Rule):
@@ -78,6 +76,22 @@ class TooLongKeywordRule(Rule):
     )
     deprecated_names = ("0501",)
     fix_suggestion = "Split the keyword into smaller, focused keywords."
+
+    def check(self, node: Keyword) -> bool:
+        """Report the rule and return whether the keyword exceeds the allowed length."""
+        length, node_end_line = check_node_length(node, ignore_docs=self.ignore_docs)
+        if length <= self.max_len:
+            return False
+        self.report(
+            keyword_name=node.name,
+            keyword_length=length,
+            allowed_length=self.max_len,
+            node=node,
+            end_col=node.col_offset + len(node.name) + 1,
+            extended_disablers=(node.lineno, node_end_line),
+            sev_threshold_value=length,
+        )
+        return True
 
 
 class TooFewCallsInKeywordRule(Rule):
@@ -118,6 +132,21 @@ class TooFewCallsInKeywordRule(Rule):
     )
     deprecated_names = ("0502",)
 
+    def check(self, node: Keyword, keyword_count: int) -> bool:
+        """Report the rule and return whether the keyword has too few keyword calls."""
+        if keyword_count >= self.min_calls:
+            return False
+        self.report(
+            keyword_name=node.name,
+            keyword_count=keyword_count,
+            min_allowed_count=self.min_calls,
+            node=node,
+            end_col=node.col_offset + len(node.name) + 1,
+            extended_disablers=(node.lineno, node.end_lineno),
+            sev_threshold_value=keyword_count,
+        )
+        return True
+
 
 class TooManyCallsInKeywordRule(Rule):
     """
@@ -139,6 +168,21 @@ class TooManyCallsInKeywordRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.FOCUSED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0503",)
+
+    def check(self, node: Keyword, keyword_count: int) -> bool:
+        """Report the rule and return whether the keyword has too many keyword calls."""
+        if keyword_count <= self.max_calls:
+            return False
+        self.report(
+            keyword_name=node.name,
+            keyword_count=keyword_count,
+            max_allowed_count=self.max_calls,
+            node=node,
+            end_col=node.col_offset + len(node.name) + 1,
+            extended_disablers=(node.lineno, node.end_lineno),
+            sev_threshold_value=keyword_count,
+        )
+        return True
 
 
 class TooLongTestCaseRule(Rule):
@@ -165,6 +209,20 @@ class TooLongTestCaseRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.MODULAR, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0504",)
+
+    def check(self, node: TestCase) -> None:
+        length, node_end_line = check_node_length(node, ignore_docs=self.ignore_docs)
+        if length <= self.max_len:
+            return
+        self.report(
+            test_name=node.name,
+            test_length=length,
+            allowed_length=self.max_len,
+            node=node,
+            end_col=node.col_offset + len(node.name) + 1,
+            extended_disablers=(node.lineno, node_end_line),
+            sev_threshold_value=length,
+        )
 
 
 class TooFewCallsInTestCaseRule(Rule):
@@ -197,6 +255,21 @@ class TooFewCallsInTestCaseRule(Rule):
     )
     deprecated_names = ("0528",)
 
+    def check(self, node: TestCase, keyword_count: int) -> bool:
+        """Report the rule and return whether the test case has too few keyword calls."""
+        if keyword_count >= self.min_calls:
+            return False
+        self.report(
+            test_name=node.name,
+            keyword_count=keyword_count,
+            min_allowed_count=self.min_calls,
+            node=node,
+            sev_threshold_value=keyword_count,
+            extended_disablers=(node.lineno, node.end_lineno),
+            end_col=node.col_offset + len(node.name) + 1,
+        )
+        return True
+
 
 class TooManyCallsInTestCaseRule(Rule):
     """
@@ -221,6 +294,21 @@ class TooManyCallsInTestCaseRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.MODULAR, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
 
+    def check(self, node: TestCase, keyword_count: int) -> bool:
+        """Report the rule and return whether the test case has too many keyword calls."""
+        if keyword_count <= self.max_calls:
+            return False
+        self.report(
+            test_name=node.name,
+            keyword_count=keyword_count,
+            max_allowed_count=self.max_calls,
+            node=node,
+            sev_threshold_value=keyword_count,
+            extended_disablers=(node.lineno, node.end_lineno),
+            end_col=node.col_offset + len(node.name) + 1,
+        )
+        return True
+
 
 class FileTooLongRule(Rule):
     """File has too many lines."""
@@ -240,6 +328,18 @@ class FileTooLongRule(Rule):
     )
     deprecated_names = ("0506",)
 
+    def check(self, node: File) -> None:
+        if not self.enabled or node.end_lineno <= self.max_lines:
+            return
+        self.report(
+            lines_count=node.end_lineno,
+            max_allowed_count=self.max_lines,
+            node=node,
+            lineno=node.end_lineno,
+            end_col=node.end_col_offset,
+            sev_threshold_value=node.end_lineno,
+        )
+
 
 class TooManyArgumentsRule(Rule):
     """Keyword has too many arguments."""
@@ -257,6 +357,27 @@ class TooManyArgumentsRule(Rule):
     )
     deprecated_names = ("0507",)
 
+    def check(self, node: Keyword) -> None:
+        if not self.enabled:
+            return
+        for child in node.body:
+            if not isinstance(child, Arguments):
+                continue
+            args_number = len(child.values)
+            if args_number > self.max_args:
+                name_token = child.data_tokens[0]
+                self.report(
+                    keyword_name=node.name,
+                    arguments_count=args_number,
+                    max_allowed_count=self.max_args,
+                    node=name_token,
+                    end_lineno=child.end_lineno,
+                    end_col=child.end_col_offset,
+                    extended_disablers=(node.lineno, node.end_lineno),
+                    sev_threshold_value=args_number,
+                )
+            break
+
 
 class LineTooLongRule(Rule):
     r"""
@@ -268,6 +389,14 @@ class LineTooLongRule(Rule):
     It is possible to ignore lines that match the regex pattern. Configure it using the following option:
 
         robocop check --configure line-too-long.ignore_pattern=pattern
+
+    Lines that are part of a documentation (the ``Documentation`` setting or the ``[Documentation]`` setting of a
+    test case or keyword, together with their ``...`` continuation lines) can be ignored using the following option:
+
+        robocop check --configure line-too-long.ignore_docs=True
+
+    This rule is not fixed by ``robocop check --fix``. Use the ``SplitTooLongLine`` formatter
+    (``robocop format``) to fix it.
 
     """
 
@@ -284,6 +413,13 @@ class LineTooLongRule(Rule):
             show_type="regex",
             desc="ignore lines that contain configured pattern",
         ),
+        RuleParam(
+            name="ignore_docs",
+            default=False,
+            converter=str2bool,
+            show_type="bool",
+            desc="ignore lines that are part of a documentation",
+        ),
     ]
     severity_threshold = SeverityThreshold("line_length", substitute_value="allowed_length")
     added_in_version = "1.0.0"
@@ -294,9 +430,80 @@ class LineTooLongRule(Rule):
     deprecated_names = ("0508",)
     fix_suggestion = "Break long lines using the '...' continuation syntax."
 
+    def check(self, line: str, lineno: int, doc_lines: frozenset[int] = frozenset()) -> None:
+        if not self.enabled:
+            return
+        if lineno in doc_lines:
+            return
+        line = line.rstrip().expandtabs(4)
+        if len(line) <= self.line_length:
+            return
+        # the line is potentially too long, so we need to check if it can be false positive
+        if self.line_is_ignored(line):
+            return
+        if self.url_in_line(line):
+            return
+        line = self.strip_disablers(line)
+        if len(line) > self.line_length:
+            self.report(
+                line_length=len(line),
+                allowed_length=self.line_length,
+                lineno=lineno,
+                col=self.line_length,
+                end_col=len(line) + 1,
+                sev_threshold_value=len(line),
+            )
 
-class EmptySectionRule(Rule):
-    """Section is empty."""
+    @staticmethod
+    def strip_disablers(line: str) -> str:
+        """Strip whole comments if it contains disabler."""
+        if "#" not in line:
+            return line
+        if "noqa" in line or "robocop:" in line or "fmt: " in line:
+            return line.split("# ", 1)[0].rstrip()
+        return line
+
+    def url_in_line(self, line: str) -> bool:
+        """Check if a line contains URL starting before the maximum line length."""
+        return bool(0 < line.find("://") < self.line_length)
+
+    def line_is_ignored(self, line: str) -> bool:
+        return bool(self.ignore_pattern and self.ignore_pattern.search(line))
+
+    @staticmethod
+    def get_documentation_lines(model: File) -> frozenset[int]:
+        """Collect line numbers covered by documentation settings (including continuation lines)."""
+        doc_lines: set[int] = set()
+        for doc in _iter_documentation(model):
+            doc_lines.update(range(doc.lineno, doc.end_lineno + 1))
+        return frozenset(doc_lines)
+
+
+class EmptySectionRule(FixableRule):
+    """
+    Section is empty.
+
+    Empty section does not have any effect and can be removed.
+
+    Incorrect code example:
+
+        *** Variables ***
+
+
+        *** Test Cases ***
+        Test
+            Keyword Call
+
+    Correct code:
+
+        *** Test Cases ***
+        Test
+            Keyword Call
+
+    Sections that contain only comments are also reported, but they are not removed by the fix -
+    it is not possible to tell whether such comments are still relevant.
+
+    """
 
     name = "empty-section"
     rule_id = "LEN09"
@@ -307,6 +514,34 @@ class EmptySectionRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0509",)
+    fix_availability = FixAvailability.SOMETIMES
+
+    def check(self, node: Section) -> None:
+        if not self.enabled or not node.header:
+            return
+        anything_but = EmptyLine if isinstance(node, CommentSection) else (Comment, EmptyLine)
+        if all(isinstance(child, anything_but) for child in node.body):
+            self.report(
+                section_name=get_section_name(node),
+                node=node,
+                col=node.col_offset + 1,
+                end_col=node.header.end_col_offset,
+            )
+
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:  # noqa: ARG002
+        """
+        Remove the empty section.
+
+        Sections that contain comments are not fixed - removing them would remove the comments as well,
+        and it is not possible to tell whether the comments are still relevant.
+        """
+        node = diag.node
+        if node is None or node.header is None:
+            return None
+        if any(isinstance(statement, Comment) for statement in node.body):
+            return None
+        section_name = str(diag.reported_arguments["section_name"])
+        return remove_lines_fix(self, node.lineno, node.end_lineno, f"Remove empty '{section_name}' section")
 
 
 class NumberOfReturnedValuesRule(Rule):
@@ -328,20 +563,89 @@ class NumberOfReturnedValuesRule(Rule):
     )
     deprecated_names = ("0510",)
 
+    def check(self, return_count: int, node: Node) -> None:
+        if not self.enabled or return_count <= self.max_returns:
+            return
+        self.report(
+            return_count=return_count,
+            max_allowed_count=self.max_returns,
+            node=node,
+            col=node.data_tokens[0].col_offset + 1,
+            end_col=node.data_tokens[0].end_col_offset + 1,
+            sev_threshold_value=return_count,
+        )
 
-class EmptyMetadataRule(Rule):
+    def check_keyword_call(self, node: KeywordCall, normalized_keyword_name: str) -> None:
+        if not self.enabled:
+            return
+        if normalized_keyword_name == "returnfromkeyword":
+            self.check(len(node.args), node)
+        elif normalized_keyword_name == "returnfromkeywordif":
+            self.check(len(node.args) - 1, node)
+
+
+class EmptySettingRule(FixableRule):
+    """
+    Base class for the rules reporting settings without any value.
+
+    The fix removes such setting, since a setting without a value does not have any effect.
+    The only exception are the test case settings that can overwrite the suite settings
+    (``[Setup]``, ``[Teardown]``, ``[Timeout]`` and ``[Template]``). Those are not removed but filled with the
+    explicit ``NONE`` value instead, since the suite setting can be also defined in the ``__init__.robot`` file
+    of the parent suite.
+    Comments are never removed by the fix.
+    """
+
+    fix_availability = FixAvailability.ALWAYS
+
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:
+        return remove_empty_setting_fix(self, diag, source_lines)
+
+
+def report_empty_setting(rule: Rule, node: Statement) -> None:
+    """Report an empty setting that spans the whole statement."""
+    rule.report(node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
+
+
+def report_empty_block_setting(
+    rule: Rule, node: Statement, block_name: str, overwrites_suite_setting: bool = False
+) -> None:
+    """Report an empty setting whose message names the block (test case or keyword) it belongs to."""
+    rule.report(
+        block_name=block_name,
+        overwrites_suite_setting=overwrites_suite_setting,
+        node=node,
+        col=node.data_tokens[0].col_offset + 1,
+        end_col=node.end_col_offset,
+    )
+
+
+class EmptyMetadataRule(EmptySettingRule):
     """
     Metadata settings do not have any value set.
+
+    Metadata can be defined in the ``*** Settings ***`` section for the whole suite, and - with
+    Robot Framework 7.5 and newer - also inside a test case using the ``[Metadata]`` setting.
 
     Incorrect code example:
 
         *** Settings ***
         Metadata
 
+        *** Test Cases ***
+        Test
+            [Metadata]
+            Keyword
+
     Correct code example:
 
         *** Settings ***
         Metadata    Platform    ${PLATFORM}
+
+        *** Test Cases ***
+        Test
+            [Metadata]    Owner    Team Robot
+            Keyword
 
     """
 
@@ -355,8 +659,67 @@ class EmptyMetadataRule(Rule):
     )
     deprecated_names = ("0511",)
 
+    def check(self, node: Statement) -> None:
+        if not node.name:
+            self.report(node=node, col=node.data_tokens[0].col_offset + 1)
 
-class EmptyDocumentationRule(Rule):
+
+class MetadataWithoutValueRule(Rule):
+    """
+    Metadata name is defined without a value.
+
+    Metadata with only a name is recorded with an empty value, which is rarely intended and shows up as
+    an empty entry in the report and log. Provide a value, or remove the metadata altogether.
+
+    Metadata can be defined in the ``*** Settings ***`` section for the whole suite, and - with
+    Robot Framework 7.5 and newer - also inside a test case using the ``[Metadata]`` setting.
+
+    Incorrect code example:
+
+        *** Settings ***
+        Metadata    Platform
+
+        *** Test Cases ***
+        Test
+            [Metadata]    Owner
+            Keyword
+
+    Correct code example:
+
+        *** Settings ***
+        Metadata    Platform    ${PLATFORM}
+
+        *** Test Cases ***
+        Test
+            [Metadata]    Owner    Team Robot
+            Keyword
+
+    """
+
+    name = "metadata-without-value"
+    rule_id = "LEN33"
+    message = "Metadata '{metadata_name}' does not have a value"
+    severity = RuleSeverity.WARNING
+    added_in_version = "9.0.0"
+    sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
+        clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+    )
+
+    def check(self, node: Statement) -> None:
+        if not self.enabled or not node.name or node.value:
+            return
+        name_token = node.get_token(Token.NAME)
+        if name_token is None:
+            return
+        self.report(
+            metadata_name=node.name,
+            node=name_token,
+            col=name_token.col_offset + 1,
+            end_col=name_token.end_col_offset + 1,
+        )
+
+
+class EmptyDocumentationRule(EmptySettingRule):
     """Documentation is empty."""
 
     name = "empty-documentation"
@@ -369,8 +732,12 @@ class EmptyDocumentationRule(Rule):
     )
     deprecated_names = ("0512",)
 
+    def check(self, node: Statement, block_name: str) -> None:
+        if not node.value:
+            report_empty_block_setting(self, node, block_name)
 
-class EmptyForceTagsRule(Rule):  # TODO: Rename/deprecate and replace with Test Tags
+
+class EmptyForceTagsRule(EmptySettingRule):  # TODO: Rename/deprecate and replace with Test Tags
     """Force Tags are empty."""
 
     name = "empty-force-tags"
@@ -383,8 +750,12 @@ class EmptyForceTagsRule(Rule):  # TODO: Rename/deprecate and replace with Test 
     )
     deprecated_names = ("0513",)
 
+    def check(self, node: Statement) -> None:
+        if not node.values:
+            report_empty_setting(self, node)
 
-class EmptyDefaultTagsRule(Rule):
+
+class EmptyDefaultTagsRule(EmptySettingRule):
     """Default Tags are empty."""
 
     name = "empty-default-tags"
@@ -397,8 +768,12 @@ class EmptyDefaultTagsRule(Rule):
     )
     deprecated_names = ("0514",)
 
+    def check(self, node: Statement) -> None:
+        if not node.values:
+            report_empty_setting(self, node)
 
-class EmptyVariablesImport(Rule):
+
+class EmptyVariablesImport(EmptySettingRule):
     """Import variables path is empty."""
 
     name = "empty-variables-import"
@@ -411,8 +786,12 @@ class EmptyVariablesImport(Rule):
     )
     deprecated_names = ("0515",)
 
+    def check(self, node: Statement) -> None:
+        if not node.name:
+            report_empty_setting(self, node)
 
-class EmptyResourceImport(Rule):
+
+class EmptyResourceImport(EmptySettingRule):
     """Import resources path is empty."""
 
     name = "empty-resource-import"
@@ -425,8 +804,12 @@ class EmptyResourceImport(Rule):
     )
     deprecated_names = ("0516",)
 
+    def check(self, node: Statement) -> None:
+        if not node.name:
+            report_empty_setting(self, node)
 
-class EmptyLibraryImport(Rule):
+
+class EmptyLibraryImport(EmptySettingRule):
     """Import library path is empty."""
 
     name = "empty-library-import"
@@ -439,51 +822,95 @@ class EmptyLibraryImport(Rule):
     )
     deprecated_names = ("0517",)
 
+    def check(self, node: Statement) -> None:
+        if not node.name:
+            report_empty_setting(self, node)
 
-class EmptySetupRule(Rule):
-    """Empty setup."""
+
+class EmptySetupRule(EmptySettingRule):
+    """
+    Empty setup.
+
+    ``[Setup]`` without a value does not have any effect and can be removed.
+    If the intention is to overwrite the ``Test Setup`` from the settings section, use the explicit ``NONE`` value:
+
+        *** Settings ***
+        Test Setup    Open Application
+
+        *** Test Cases ***
+        Test without setup
+            [Setup]    NONE
+            Keyword Call
+
+    """
 
     name = "empty-setup"
     rule_id = "LEN18"
     message = "Setup of {block_name} does not have any keywords"
-    severity = RuleSeverity.ERROR
+    severity = RuleSeverity.WARNING
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0518",)
 
+    def check(self, node: Statement, block_name: str, overwrites_suite_setting: bool = False) -> None:
+        if not node.name:
+            report_empty_block_setting(self, node, block_name, overwrites_suite_setting)
 
-class EmptySuiteSetupRule(Rule):
+
+class EmptySuiteSetupRule(EmptySettingRule):
     """Empty Suite Setup."""
 
     name = "empty-suite-setup"
     rule_id = "LEN19"
     message = "Suite Setup does not have any keywords"
-    severity = RuleSeverity.ERROR
+    severity = RuleSeverity.WARNING
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0519",)
 
+    def check(self, node: Statement) -> None:
+        if not node.name:
+            report_empty_setting(self, node)
 
-class EmptyTestSetupRule(Rule):
+
+class EmptyTestSetupRule(EmptySettingRule):
     """Empty Test Setup."""
 
     name = "empty-test-setup"
     rule_id = "LEN20"
     message = "Test Setup does not have any keywords"
-    severity = RuleSeverity.ERROR
+    severity = RuleSeverity.WARNING
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0520",)
 
+    def check(self, node: Statement) -> None:
+        if not node.name:
+            report_empty_setting(self, node)
 
-class EmptyTeardownRule(Rule):
-    """Empty Teardown."""
+
+class EmptyTeardownRule(EmptySettingRule):
+    """
+    Empty Teardown.
+
+    ``[Teardown]`` without a value does not have any effect and can be removed.
+    If the intention is to overwrite the ``Test Teardown`` from the settings section, use the explicit ``NONE`` value:
+
+        *** Settings ***
+        Test Teardown    Close Application
+
+        *** Test Cases ***
+        Test without teardown
+            [Teardown]    NONE
+            Keyword Call
+
+    """
 
     name = "empty-teardown"
     rule_id = "LEN21"
@@ -495,37 +922,63 @@ class EmptyTeardownRule(Rule):
     )
     deprecated_names = ("0521",)
 
+    def check(self, node: Statement, block_name: str, overwrites_suite_setting: bool = False) -> None:
+        if not node.name:
+            report_empty_block_setting(self, node, block_name, overwrites_suite_setting)
 
-class EmptySuiteTeardownRule(Rule):
+
+class EmptySuiteTeardownRule(EmptySettingRule):
     """Empty Suite Teardown."""
 
     name = "empty-suite-teardown"
     rule_id = "LEN22"
     message = "Suite Teardown does not have any keywords"
-    severity = RuleSeverity.ERROR
+    severity = RuleSeverity.WARNING
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0522",)
 
+    def check(self, node: Statement) -> None:
+        if not node.name:
+            report_empty_setting(self, node)
 
-class EmptyTestTeardownRule(Rule):
+
+class EmptyTestTeardownRule(EmptySettingRule):
     """Empty Test Teardown."""
 
     name = "empty-test-teardown"
     rule_id = "LEN23"
     message = "Test Teardown does not have any keywords"
-    severity = RuleSeverity.ERROR
+    severity = RuleSeverity.WARNING
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0523",)
 
+    def check(self, node: Statement) -> None:
+        if not node.name:
+            report_empty_setting(self, node)
 
-class EmptyTimeoutRule(Rule):
-    """Empty Timeout."""
+
+class EmptyTimeoutRule(EmptySettingRule):
+    """
+    Empty Timeout.
+
+    ``[Timeout]`` without a value does not have any effect and can be removed.
+    If the intention is to overwrite the ``Test Timeout`` from the settings section, use the explicit ``NONE`` value:
+
+        *** Settings ***
+        Test Timeout    1 min
+
+        *** Test Cases ***
+        Test without timeout
+            [Timeout]    NONE
+            Keyword Call
+
+    """
 
     name = "empty-timeout"
     rule_id = "LEN24"
@@ -537,8 +990,13 @@ class EmptyTimeoutRule(Rule):
     )
     deprecated_names = ("0524",)
 
+    def check(self, node: Statement, block_name: str, overwrites_suite_setting: bool = False) -> None:
+        # ``value`` is not used, since Robot Framework returns None for the explicit ``NONE`` timeout
+        if len(node.data_tokens) < 2:
+            report_empty_block_setting(self, node, block_name, overwrites_suite_setting)
 
-class EmptyTestTimeoutRule(Rule):
+
+class EmptyTestTimeoutRule(EmptySettingRule):
     """Empty Test Timeout."""
 
     name = "empty-test-timeout"
@@ -551,19 +1009,28 @@ class EmptyTestTimeoutRule(Rule):
     )
     deprecated_names = ("0525",)
 
+    def check(self, node: Statement) -> None:
+        # ``value`` is not used, since Robot Framework returns None for the explicit ``NONE`` timeout
+        if len(node.data_tokens) < 2:
+            report_empty_setting(self, node)
 
-class EmptyArgumentsRule(Rule):
+
+class EmptyArgumentsRule(EmptySettingRule):
     """Empty ``[Arguments]`` setting."""
 
     name = "empty-arguments"
     rule_id = "LEN26"
     message = "Arguments of {block_name} are empty"
-    severity = RuleSeverity.ERROR
+    severity = RuleSeverity.WARNING
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0526",)
+
+    def check(self, node: Statement, block_name: str) -> None:
+        if not node.values:
+            report_empty_block_setting(self, node, block_name)
 
 
 class TooManyTestCasesRule(Rule):
@@ -591,8 +1058,22 @@ class TooManyTestCasesRule(Rule):
     )
     deprecated_names = ("0527",)
 
+    def check(self, node: Statement, templated_suite: bool) -> None:
+        if not self.enabled:
+            return
+        max_testcases = self.max_templated_testcases if templated_suite else self.max_testcases
+        discovered_testcases = sum(isinstance(child, TestCase) for child in node.body)
+        if discovered_testcases > max_testcases:
+            self.report(
+                test_count=discovered_testcases,
+                max_allowed_count=max_testcases,
+                node=node,
+                end_col=node.header.end_col_offset,
+                sev_threshold_value=discovered_testcases,
+            )
 
-class EmptyTestTemplateRule(Rule):
+
+class EmptyTestTemplateRule(EmptySettingRule):
     """
     Test Template is empty.
 
@@ -604,14 +1085,18 @@ class EmptyTestTemplateRule(Rule):
     name = "empty-test-template"
     rule_id = "LEN29"
     message = "Test Template is empty"
-    severity = RuleSeverity.ERROR
+    severity = RuleSeverity.WARNING
     added_in_version = "3.1.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
 
+    def check(self, node: Statement) -> None:
+        if not node.value:
+            report_empty_setting(self, node)
 
-class EmptyTemplateRule(Rule):
+
+class EmptyTemplateRule(EmptySettingRule):
     """
     ``[Template]`` is empty.
 
@@ -643,8 +1128,12 @@ class EmptyTemplateRule(Rule):
     )
     deprecated_names = ("0530",)
 
+    def check(self, node: Statement, block_name: str, overwrites_suite_setting: bool = False) -> None:
+        if len(node.data_tokens) < 2:
+            report_empty_block_setting(self, node, block_name, overwrites_suite_setting)
 
-class EmptyKeywordTagsRule(Rule):
+
+class EmptyKeywordTagsRule(EmptySettingRule):
     """Keyword Tags are empty."""
 
     name = "empty-keyword-tags"
@@ -657,6 +1146,10 @@ class EmptyKeywordTagsRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0531",)
+
+    def check(self, node: Statement) -> None:
+        if not node.values:
+            report_empty_setting(self, node)
 
 
 class TooLongVariableNameRule(Rule):
@@ -707,621 +1200,54 @@ def get_documentation_length(node: Node) -> int:
     return doc_len
 
 
+def _iter_documentation(model: File) -> Iterator[Documentation]:
+    """Yield every ``Documentation`` statement in the model (suite, test case and keyword documentation)."""
+    for node in ast.walk(model):
+        if isinstance(node, Documentation):
+            yield node
+
+
+KEYWORD_CALL_ALIKE = tuple(
+    klass
+    for klass in (
+        KeywordCall,
+        TemplateArguments,
+        RETURN_CLASSES.return_class,
+        RETURN_CLASSES.return_setting_class,
+        Break,
+        Continue,
+        Var,
+    )
+    if klass
+)
+
+
+def count_keyword_calls(node: Node) -> int:
+    """Recursively count keyword calls (and alike statements) in the node body."""
+    if isinstance(node, KEYWORD_CALL_ALIKE):
+        return 1
+    if not hasattr(node, "body"):
+        return 0
+    calls = sum(count_keyword_calls(child) for child in node.body)
+    while node and getattr(node, "orelse", None):
+        node = node.orelse
+        calls += sum(count_keyword_calls(child) for child in node.body)
+    while node and getattr(node, "next", None):
+        node = node.next
+        calls += sum(count_keyword_calls(child) for child in node.body)
+    return calls
+
+
+def is_templated_test(node: TestCase, templated_suite: bool) -> bool:
+    if templated_suite:
+        return True
+    if not node.body:
+        return False
+    return any(isinstance(statement, Template) for statement in node.body)
+
+
 @dataclass
 class CachedVariable:
     name: str
     node: Node
     end_col: int
-
-
-class LengthChecker(VisitorChecker):
-    """
-    Checker for max and min length of keyword or test case. It analyses number of lines and also number of
-    keyword calls (as you can have just few keywords but very long ones or vice versa).
-    """
-
-    too_few_calls_in_keyword: TooFewCallsInKeywordRule
-    too_few_calls_in_test_case: TooFewCallsInTestCaseRule
-    too_many_calls_in_keyword: TooManyCallsInKeywordRule
-    too_many_calls_in_test_case: TooManyCallsInTestCaseRule
-    too_long_keyword: TooLongKeywordRule
-    too_long_test_case: TooLongTestCaseRule
-    file_too_long: FileTooLongRule
-    too_many_arguments: TooManyArgumentsRule
-
-    def __init__(self) -> None:
-        self.keyword_call_alike = tuple(
-            klass
-            for klass in (
-                KeywordCall,
-                TemplateArguments,
-                RETURN_CLASSES.return_class,
-                RETURN_CLASSES.return_setting_class,
-                Break,
-                Continue,
-                Var,
-            )
-            if klass
-        )
-        super().__init__()
-
-    def visit_File(self, node: File) -> None:  # noqa: N802
-        if node.end_lineno > self.file_too_long.max_lines:
-            self.report(
-                self.file_too_long,
-                lines_count=node.end_lineno,
-                max_allowed_count=self.file_too_long.max_lines,
-                node=node,
-                lineno=node.end_lineno,
-                end_col=node.end_col_offset,
-                sev_threshold_value=node.end_lineno,
-            )
-        super().visit_File(node)
-
-    def visit_Keyword(self, node: Keyword) -> None:  # noqa: N802
-        if node.name.lstrip().startswith("#"):
-            return
-        for child in node.body:
-            if isinstance(child, Arguments):
-                args_number = len(child.values)
-                if args_number > self.too_many_arguments.max_args:
-                    name_token = child.data_tokens[0]
-                    self.report(
-                        self.too_many_arguments,
-                        keyword_name=node.name,
-                        arguments_count=args_number,
-                        max_allowed_count=self.too_many_arguments.max_args,
-                        node=name_token,
-                        end_lineno=child.end_lineno,
-                        end_col=child.end_col_offset,
-                        extended_disablers=(node.lineno, node.end_lineno),
-                        sev_threshold_value=args_number,
-                    )
-                break
-        length, node_end_line = check_node_length(node, ignore_docs=self.too_long_keyword.ignore_docs)
-        if length > self.too_long_keyword.max_len:
-            self.report(
-                self.too_long_keyword,
-                keyword_name=node.name,
-                keyword_length=length,
-                allowed_length=self.too_long_keyword.max_len,
-                node=node,
-                end_col=node.col_offset + len(node.name) + 1,
-                extended_disablers=(node.lineno, node_end_line),
-                sev_threshold_value=length,
-            )
-            return
-        key_calls = self.count_keyword_calls(node)
-        if key_calls < self.too_few_calls_in_keyword.min_calls:
-            self.report(
-                self.too_few_calls_in_keyword,
-                keyword_name=node.name,
-                keyword_count=key_calls,
-                min_allowed_count=self.too_few_calls_in_keyword.min_calls,
-                node=node,
-                end_col=node.col_offset + len(node.name) + 1,
-                extended_disablers=(node.lineno, node.end_lineno),
-                sev_threshold_value=key_calls,
-            )
-        elif key_calls > self.too_many_calls_in_keyword.max_calls:
-            self.report(
-                self.too_many_calls_in_keyword,
-                keyword_name=node.name,
-                keyword_count=key_calls,
-                max_allowed_count=self.too_many_calls_in_keyword.max_calls,
-                node=node,
-                end_col=node.col_offset + len(node.name) + 1,
-                extended_disablers=(node.lineno, node.end_lineno),
-                sev_threshold_value=key_calls,
-            )
-
-    def test_is_templated(self, node: TestCase) -> bool:
-        if self.templated_suite:
-            return True
-        if not node.body:
-            return False
-        return any(isinstance(statement, Template) for statement in node.body)
-
-    def visit_TestCase(self, node: TestCase) -> None:  # noqa: N802
-        if self.too_long_test_case.ignore_templated and self.test_is_templated(node):
-            return
-        length, node_end_line = check_node_length(node, ignore_docs=self.too_long_test_case.ignore_docs)
-        if length > self.too_long_test_case.max_len:
-            self.report(
-                self.too_long_test_case,
-                test_name=node.name,
-                test_length=length,
-                allowed_length=self.too_long_test_case.max_len,
-                node=node,
-                end_col=node.col_offset + len(node.name) + 1,
-                extended_disablers=(node.lineno, node_end_line),
-                sev_threshold_value=length,
-            )
-        test_is_templated = self.test_is_templated(node)
-        skip_too_many = test_is_templated and self.too_many_calls_in_test_case.ignore_templated
-        skip_too_few = test_is_templated and self.too_few_calls_in_test_case.ignore_templated
-        if skip_too_few and skip_too_many:
-            return
-        key_calls = self.count_keyword_calls(node)  # TODO: could be handled inside rule, at least reporting
-        if not skip_too_many and (key_calls > self.too_many_calls_in_test_case.max_calls):
-            self.report(
-                self.too_many_calls_in_test_case,
-                test_name=node.name,
-                keyword_count=key_calls,
-                max_allowed_count=self.too_many_calls_in_test_case.max_calls,
-                node=node,
-                sev_threshold_value=key_calls,
-                extended_disablers=(node.lineno, node.end_lineno),
-                end_col=node.col_offset + len(node.name) + 1,
-            )
-        elif not skip_too_few and (key_calls < self.too_few_calls_in_test_case.min_calls):
-            self.report(
-                self.too_few_calls_in_test_case,
-                test_name=node.name,
-                keyword_count=key_calls,
-                min_allowed_count=self.too_few_calls_in_test_case.min_calls,
-                node=node,
-                sev_threshold_value=key_calls,
-                extended_disablers=(node.lineno, node.end_lineno),
-                end_col=node.col_offset + len(node.name) + 1,
-            )
-
-    def count_keyword_calls(self, node: Node) -> int:
-        if isinstance(node, self.keyword_call_alike):
-            return 1
-        if not hasattr(node, "body"):
-            return 0
-        calls = sum(self.count_keyword_calls(child) for child in node.body)
-        while node and getattr(node, "orelse", None):
-            node = node.orelse
-            calls += sum(self.count_keyword_calls(child) for child in node.body)
-        while node and getattr(node, "next", None):
-            node = node.next
-            calls += sum(self.count_keyword_calls(child) for child in node.body)
-        return calls
-
-
-class VariableNameLengthChecker(VisitorChecker):
-    """Checker for max length variable names."""
-
-    too_long_variable_name: TooLongVariableNameRule
-
-    set_variable_keywords = {
-        "setlocalvariable",
-        "settestvariable",
-        "settaskvariable",
-        "setsuitevariable",
-        "setglobalvariable",
-    }
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.variables: dict[str, CachedVariable] = {}
-        self.var_identifiers = "$@&"
-
-    def visit_Node(self, node: Node) -> None:  # noqa: N802
-        if not node.errors:
-            self.generic_visit(node)
-
-    def new_variable_scope(self, node: Keyword | TestCase | VariableSection) -> None:
-        """Handle new scope by resetting list of known variables."""
-        self.variables.clear()
-        if isinstance(node, Keyword):
-            self.parse_embedded_arguments(node.header.get_token(Token.KEYWORD_NAME))
-        self.generic_visit(node)
-        self.check_variable_names_and_report()
-
-    visit_TestCase = visit_VariableSection = visit_Keyword = new_variable_scope  # noqa: N815
-
-    def parse_embedded_arguments(self, name_token: Token) -> None:
-        """Store embedded arguments from keyword name. Ignore embedded variables patterns (${var:pattern})."""
-        try:
-            for token in name_token.tokenize_variables():
-                if token.type == Token.VARIABLE:
-                    self.add_variable_to_scope(token, has_pattern=True)
-        except VariableError:
-            pass
-
-    def add_variable_to_scope(self, node: Statement, var_name: str | None = None, has_pattern: bool = False) -> None:
-        """
-        Determine name of variable by stripping item accessors and type conversions
-        and add it to known variables if not already present.
-        """
-        end_col_offset = 1
-        if getattr(node, "errors", None) or getattr(node, "error", None):
-            return
-        if not var_name:
-            var_name = node.name if hasattr(node, "name") else node.value
-        # Escaped variable name handling : \${var}
-        # Using robot.utils.unescape(var_name) does not only unescape start of name
-        escaped_var, var_name = var_name.startswith("\\"), var_name.lstrip("\\")
-        if escaped_var:
-            end_col_offset += 1  # leading backslash
-        # Strip all item and possible type conversions : ${list}[0] , ${var: int}
-        try:
-            search = search_variable(var_name, parse_type=True) if TYPE_SUPPORTED else search_variable(var_name)  # pylint: disable=unexpected-keyword-arg
-        except VariableError:  # Incomplete data, e.g. `${arg`
-            return
-        # Handle var name without brackets passed to Set Local/Global/Suite/Test Variable : $var
-        # And escaped sytnax containing unescaped variables $var_${var2}
-        if search.base and not find_escaped_variables(var_name):
-            name = search.base
-            # The reason for moving this here is the search_variable("$var_@{var2}[0]_something").items is ['0'] :
-            # Dynamic variable names are insane
-            for i in search.items:
-                end_col_offset -= len(i) + 2  # highlight variable only, not item accessors
-        else:
-            name = search.string.lstrip(self.var_identifiers)
-        # Item assignment using extended variable syntax : ${dict.key}
-        # dynamic variable name with extended syntax like ${var_${var2.key}} :
-        if not any(i in name for i in self.var_identifiers):
-            name, *_ = name.split(".", maxsplit=1)  # re.split(r"(?<!\\)\.", name, maxsplit=1)  # unescaped dots only
-        # Strip pattern from variable name
-        if has_pattern:
-            name, *_ = name.split(":", maxsplit=1)  # re.split(r"(?<!\\):", name, 1)  # unescaped colon only
-        # Finally cache variable in current scope for checking, if not already present
-        if (norm_name := normalize_robot_name(name)) not in self.variables:
-            if len(var_name) + end_col_offset <= 0:
-                return  # sanity check
-            self.variables[norm_name] = CachedVariable(name, node, len(var_name) + end_col_offset)
-
-    def check_variable_names_and_report(self) -> None:
-        for var in self.variables.values():
-            if (length := len(var.name)) > self.too_long_variable_name.max_len:
-                self.report(
-                    self.too_long_variable_name,
-                    variable_name=var.name,
-                    variable_name_length=length,
-                    allowed_length=self.too_long_variable_name.max_len,
-                    node=var.node,
-                    end_col=var.node.col_offset + var.end_col,
-                    sev_threshold_value=length,
-                )
-
-    visit_Variable = add_variable_to_scope  # noqa: N815
-
-    def visit_KeywordCall(self, node: KeywordCall) -> None:  # noqa: N802
-        if not node.keyword:
-            return
-        for variable in node.get_tokens(Token.ASSIGN):
-            self.add_variable_to_scope(variable, strip_equals_from_assignment(variable.value))
-        # Only check args of 'Set ... Variable' and check for invalid RF syntax
-        if (
-            normalize_robot_name(node.keyword) in self.set_variable_keywords
-            and (argument := node.get_token(Token.ARGUMENT))
-            and argument.value.startswith(tuple(self.var_identifiers + "\\"))
-        ):
-            self.add_variable_to_scope(argument)
-
-    def visit_Var(self, node: Statement) -> None:  # noqa: N802
-        if variable := node.get_token(Token.VARIABLE):
-            self.add_variable_to_scope(variable, strip_equals_from_assignment(variable.value))
-
-    def visit_Arguments(self, node: Arguments) -> None:  # noqa: N802
-        for argument in node.get_tokens(Token.ARGUMENT):
-            name, _ = split_argument_default_value(argument.value)
-            self.add_variable_to_scope(argument, name)
-
-    def visit_For(self, node: For) -> None:  # noqa: N802
-        if node.header.errors:
-            return
-        for variable in node.header.get_tokens(Token.VARIABLE):
-            self.add_variable_to_scope(variable)
-        self.generic_visit(node)  # continue to nested loops
-
-    def visit_Try(self, node: Try) -> None:  # noqa: N802
-        if (node.type is Token.EXCEPT) and (variable := node.header.get_token(Token.VARIABLE)):
-            self.add_variable_to_scope(variable)
-        self.generic_visit(node)  # continue to all branches
-
-
-class LineLengthChecker(RawFileChecker):
-    """Checker for the maximum length of a line."""
-
-    line_too_long: LineTooLongRule
-
-    def check_line(self, line: str, lineno: int) -> None:
-        line = line.rstrip().expandtabs(4)
-        if len(line) <= self.line_too_long.line_length:
-            return
-        # the line is potentially too long, so we need to check if it can be false positive
-        if self.line_is_ignored(line):
-            return
-        if self.url_in_line(line):
-            return
-        if self.line_too_long.ignore_pattern and self.line_too_long.ignore_pattern.search(line):
-            return
-        line = self.strip_disablers(line)
-        if len(line) > self.line_too_long.line_length:
-            self.report(
-                self.line_too_long,
-                line_length=len(line),
-                allowed_length=self.line_too_long.line_length,
-                lineno=lineno,
-                col=self.line_too_long.line_length,
-                end_col=len(line) + 1,
-                sev_threshold_value=len(line),
-            )
-
-    @staticmethod
-    def strip_disablers(line: str) -> str:
-        """Strip whole comments if it contains disabler."""
-        if "#" not in line:
-            return line
-        if "noqa" in line or "robocop:" in line or "fmt: " in line:
-            return line.split("# ", 1)[0].rstrip()
-        return line
-
-    def url_in_line(self, line: str) -> bool:
-        """Check if a line contains URL starting before the maximum line length."""
-        return bool(0 < line.find("://") < self.line_too_long.line_length)
-
-    def line_is_ignored(self, line: str) -> bool:
-        return bool(self.line_too_long.ignore_pattern) and self.line_too_long.ignore_pattern.search(line)
-
-
-class EmptySectionChecker(VisitorChecker):
-    """Checker for detecting empty sections."""
-
-    empty_section: EmptySectionRule
-
-    def check_if_empty(self, node: Section) -> None:
-        if not node.header:
-            return
-        anything_but = EmptyLine if isinstance(node, CommentSection) else (Comment, EmptyLine)
-        if all(isinstance(child, anything_but) for child in node.body):
-            self.report(
-                self.empty_section,
-                section_name=get_section_name(node),
-                node=node,
-                col=node.col_offset + 1,
-                end_col=node.header.end_col_offset,
-            )
-
-    def visit_Section(self, node: Section) -> None:  # noqa: N802
-        self.check_if_empty(node)
-
-
-class NumberOfReturnedArgsChecker(VisitorChecker):
-    """Checker for number of returned values from a keyword."""
-
-    number_of_returned_values: NumberOfReturnedValuesRule
-
-    def visit_Return(self, node: Return) -> None:  # noqa: N802
-        self.check_node_returns(len(node.values), node)
-
-    visit_ReturnStatement = visit_ReturnSetting = visit_Return  # noqa: N815
-
-    def visit_KeywordCall(self, node: KeywordCall) -> None:  # noqa: N802
-        if not node.keyword:
-            return
-
-        normalized_name = normalize_robot_name(node.keyword, remove_prefix="builtin.")
-        if normalized_name == "returnfromkeyword":
-            self.check_node_returns(len(node.args), node)
-        elif normalized_name == "returnfromkeywordif":
-            self.check_node_returns(len(node.args) - 1, node)
-
-    def check_node_returns(self, return_count: int, node: Node) -> None:
-        if return_count > self.number_of_returned_values.max_returns:
-            self.report(
-                self.number_of_returned_values,
-                return_count=return_count,
-                max_allowed_count=self.number_of_returned_values.max_returns,
-                node=node,
-                col=node.data_tokens[0].col_offset + 1,
-                end_col=node.data_tokens[0].end_col_offset + 1,
-                sev_threshold_value=return_count,
-            )
-
-
-class EmptySettingsChecker(VisitorChecker):
-    """Checker for detecting empty settings."""
-
-    empty_metadata: EmptyMetadataRule
-    empty_documentation: EmptyDocumentationRule
-    empty_force_tags: EmptyForceTagsRule
-    empty_default_tags: EmptyDefaultTagsRule
-    empty_variables_import: EmptyVariablesImport
-    empty_resource_import: EmptyResourceImport
-    empty_library_import: EmptyLibraryImport
-    empty_setup: EmptySetupRule
-    empty_suite_setup: EmptySuiteSetupRule
-    empty_test_setup: EmptyTestSetupRule
-    empty_teardown: EmptyTeardownRule
-    empty_suite_teardown: EmptySuiteTeardownRule
-    empty_test_teardown: EmptyTestTeardownRule
-    empty_timeout: EmptyTimeoutRule
-    empty_test_timeout: EmptyTestTimeoutRule
-    empty_template: EmptyTemplateRule
-    empty_test_template: EmptyTestTemplateRule
-    empty_arguments: EmptyArgumentsRule
-    empty_keyword_tags: EmptyKeywordTagsRule
-
-    def __init__(self) -> None:
-        self.parent_node_name = ""
-        super().__init__()
-
-    def visit_SettingSection(self, node: Statement) -> None:  # noqa: N802
-        self.parent_node_name = "Test Suite"
-        self.generic_visit(node)
-
-    def visit_TestCaseName(self, node: Statement) -> None:  # noqa: N802
-        if node.name:
-            self.parent_node_name = f"'{node.name}' Test Case"
-        else:
-            self.parent_node_name = ""
-        self.generic_visit(node)
-
-    def visit_Keyword(self, node: Keyword) -> None:  # noqa: N802
-        if node.name:
-            self.parent_node_name = f"'{node.name}' Keyword"
-        else:
-            self.parent_node_name = ""
-        self.generic_visit(node)
-
-    def visit_Metadata(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(self.empty_metadata, node=node, col=node.col_offset + 1)
-
-    def visit_Documentation(self, node: Documentation) -> None:  # noqa: N802
-        if not node.value:
-            self.report(
-                self.empty_documentation,
-                block_name=self.parent_node_name,
-                node=node,
-                col=node.data_tokens[0].col_offset + 1,
-                end_col=node.end_col_offset,
-            )
-
-    def visit_ForceTags(self, node: Statement) -> None:  # noqa: N802
-        if not node.values:
-            self.report(self.empty_force_tags, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_DefaultTags(self, node: Statement) -> None:  # noqa: N802
-        if not node.values:
-            self.report(self.empty_default_tags, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_KeywordTags(self, node: Statement) -> None:  # noqa: N802
-        if not node.values:
-            self.report(self.empty_keyword_tags, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_VariablesImport(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(self.empty_variables_import, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_ResourceImport(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(self.empty_resource_import, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_LibraryImport(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(self.empty_library_import, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_Setup(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(
-                self.empty_setup,
-                block_name=self.parent_node_name,
-                node=node,
-                col=node.data_tokens[0].col_offset + 1,
-                end_col=node.end_col_offset,
-            )
-
-    def visit_SuiteSetup(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(self.empty_suite_setup, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_TestSetup(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(self.empty_test_setup, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_Teardown(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(
-                self.empty_teardown,
-                block_name=self.parent_node_name,
-                node=node,
-                col=node.data_tokens[0].col_offset + 1,
-                end_col=node.end_col_offset,
-            )
-
-    def visit_SuiteTeardown(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(self.empty_suite_teardown, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_TestTeardown(self, node: Statement) -> None:  # noqa: N802
-        if not node.name:
-            self.report(self.empty_test_teardown, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_TestTemplate(self, node: Statement) -> None:  # noqa: N802
-        if not node.value:
-            self.report(self.empty_test_template, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_Template(self, node: Template) -> None:  # noqa: N802
-        if len(node.data_tokens) < 2:
-            self.report(
-                self.empty_template,
-                block_name=self.parent_node_name,
-                node=node,
-                col=node.data_tokens[0].col_offset + 1,
-                end_col=node.end_col_offset,
-            )
-
-    def visit_Timeout(self, node: Statement) -> None:  # noqa: N802
-        if not node.value:
-            self.report(
-                self.empty_timeout,
-                block_name=self.parent_node_name,
-                node=node,
-                col=node.data_tokens[0].col_offset + 1,
-                end_col=node.end_col_offset,
-            )
-
-    def visit_TestTimeout(self, node: Statement) -> None:  # noqa: N802
-        if not node.value:
-            self.report(self.empty_test_timeout, node=node, col=node.col_offset + 1, end_col=node.end_col_offset)
-
-    def visit_Arguments(self, node: Arguments) -> None:  # noqa: N802
-        if not node.values:
-            self.report(
-                self.empty_arguments,
-                block_name=self.parent_node_name,
-                node=node,
-                col=node.data_tokens[0].col_offset + 1,
-                end_col=node.end_col_offset,
-            )
-
-
-class TestCaseNumberChecker(VisitorChecker):  # TODO: good example of checker that could be merged
-    """Checker for counting number of test cases depending on suite type"""
-
-    too_many_test_cases: TooManyTestCasesRule
-
-    def visit_TestCaseSection(self, node: Statement) -> None:  # noqa: N802
-        max_testcases = (
-            self.too_many_test_cases.max_templated_testcases
-            if self.templated_suite
-            else self.too_many_test_cases.max_testcases
-        )
-        discovered_testcases = sum(isinstance(child, TestCase) for child in node.body)
-        if discovered_testcases > max_testcases:
-            self.report(
-                self.too_many_test_cases,
-                test_count=discovered_testcases,
-                max_allowed_count=max_testcases,
-                node=node,
-                end_col=node.header.end_col_offset,
-                sev_threshold_value=discovered_testcases,
-            )
-
-
-class TooManyArgumentsInLineChecker(VisitorChecker):
-    arguments_per_line: arguments.ArgumentsPerLineRule
-
-    def visit_Arguments(self, node: Arguments) -> None:  # noqa: N802
-        any_cont_token = node.get_token(Token.CONTINUATION)
-        if not any_cont_token:  # only one line, ignoring
-            return
-        max_args = self.arguments_per_line.max_args
-        for line in node.lines:
-            args_count = sum(1 for token in line if token.type == Token.ARGUMENT)
-            if args_count > max_args:
-                data_token = self.first_non_sep(line)
-                last_token = line[-1]
-                if data_token:
-                    self.report(
-                        self.arguments_per_line,
-                        node=data_token,
-                        col=data_token.col_offset + 1,
-                        end_col=last_token.end_col_offset,
-                        arguments_count=args_count,
-                        max_arguments_count=max_args,
-                    )
-
-    @staticmethod
-    def first_non_sep(line: list[Token]) -> Token | None:
-        for token in line:
-            if token.type != Token.SEPARATOR:
-                return token
-        return None

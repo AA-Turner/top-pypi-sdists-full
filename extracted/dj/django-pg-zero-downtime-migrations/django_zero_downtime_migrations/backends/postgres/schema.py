@@ -6,9 +6,7 @@ import django
 from django.conf import settings
 from django.contrib.postgres.constraints import ExclusionConstraint
 from django.db.backends.ddl_references import Statement, Table
-from django.db.backends.postgresql.schema import (
-    DatabaseSchemaEditor as PostgresDatabaseSchemaEditor
-)
+from django.db.backends.postgresql.schema import DatabaseSchemaEditor as PostgresDatabaseSchemaEditor
 from django.db.models import NOT_PROVIDED
 
 
@@ -17,6 +15,11 @@ class Unsafe:
         "ADD COLUMN NOT NULL is unsafe operation\n"
         "See details for safe alternative "
         "https://github.com/tbicr/django-pg-zero-downtime-migrations#create-column-not-null"
+    )
+    ADD_COLUMN_GENERATED_STORED = (
+        "ADD COLUMN GENERATED STORED is unsafe operation\n"
+        "See details for safe alternative "
+        "https://github.com/tbicr/django-pg-zero-downtime-migrations#create-column-generated"
     )
     ALTER_COLUMN_TYPE = (
         "ALTER COLUMN TYPE is unsafe operation\n"
@@ -214,42 +217,55 @@ class DatabaseSchemaEditorMixin:
     _sql_set_statement_timeout = "SET statement_timeout TO '%(statement_timeout)s'"
 
     _sql_identity_exists = (
-        "SELECT 1 FROM information_schema.columns "
-        "WHERE table_name = TRIM('\"' FROM '%(table)s') "
-        "AND column_name = TRIM('\"' FROM '%(column)s')"
-        "AND is_identity = 'YES'"
+        "SELECT 1 FROM pg_attribute "
+        "WHERE attrelid = to_regclass('%(table)s') "
+        "AND attname = (parse_ident('%(column)s'))[1] "
+        "AND attnum > 0 AND NOT attisdropped "
+        "AND attidentity != ''"
     )
-    _sql_sequence_exists = "SELECT 1 FROM pg_class WHERE relname = TRIM('\"' FROM '%(name)s')"
-    _sql_index_exists = "SELECT 1 FROM pg_class WHERE relname = TRIM('\"' FROM '%(name)s')"
-    _sql_table_exists = "SELECT 1 FROM pg_class WHERE relname = TRIM('\"' FROM '%(table)s')"
-    _sql_new_table_exists = "SELECT 1 FROM pg_class WHERE relname = TRIM('\"' FROM '%(new_table)s')"
+    _sql_index_exists = (
+        "SELECT 1 FROM pg_class "
+        "WHERE oid = to_regclass('%(name)s') "
+        "AND relkind IN ('i', 'I')"
+    )
+    _sql_table_exists = (
+        "SELECT 1 FROM pg_class "
+        "WHERE oid = to_regclass('%(table)s') "
+        "AND relkind IN ('r', 'p')"
+    )
+    _sql_new_table_exists = (
+        "SELECT 1 FROM pg_class "
+        "WHERE oid = to_regclass('%(new_table)s') "
+        "AND relkind IN ('r', 'p')"
+    )
     _sql_column_exists = (
-        "SELECT 1 FROM information_schema.columns "
-        "WHERE table_name = TRIM('\"' FROM '%(table)s') "
-        "AND column_name = TRIM('\"' FROM '%(column)s')"
+        "SELECT 1 FROM pg_attribute "
+        "WHERE attrelid = to_regclass('%(table)s') "
+        "AND attname = (parse_ident('%(column)s'))[1] "
+        "AND attnum > 0 AND NOT attisdropped"
     )
     _sql_new_column_exists = (
-        "SELECT 1 FROM information_schema.columns "
-        "WHERE table_name = TRIM('\"' FROM '%(table)s') "
-        "AND column_name = TRIM('\"' FROM '%(new_column)s')"
+        "SELECT 1 FROM pg_attribute "
+        "WHERE attrelid = to_regclass('%(table)s') "
+        "AND attname = (parse_ident('%(new_column)s'))[1] "
+        "AND attnum > 0 AND NOT attisdropped"
     )
     _sql_constraint_exists = (
-        "SELECT 1 FROM information_schema.table_constraints "
-        "WHERE table_name = TRIM('\"' FROM '%(table)s') "
-        "AND constraint_name = TRIM('\"' FROM '%(name)s')"
+        "SELECT 1 FROM pg_constraint "
+        "WHERE conrelid = to_regclass('%(table)s') "
+        "AND conname = (parse_ident('%(name)s'))[1] "
+        "AND contype != 'n'"
     )
     _sql_index_valid = (
-        "SELECT 1 "
-        "FROM pg_index "
-        "WHERE indrelid = TRIM('\"' FROM '%(table)s')::regclass::oid "
-        "AND indexrelid = TRIM('\"' FROM '%(name)s')::regclass::oid "
+        "SELECT 1 FROM pg_index "
+        "WHERE indrelid = to_regclass('%(table)s') "
+        "AND indexrelid = to_regclass('%(name)s') "
         "AND indisvalid"
     )
     _sql_constraint_valid = (
-        "SELECT 1 "
-        "FROM pg_constraint "
-        "WHERE conrelid = TRIM('\"' FROM '%(table)s')::regclass::oid "
-        "AND conname = TRIM('\"' FROM '%(name)s') "
+        "SELECT 1 FROM pg_constraint "
+        "WHERE conrelid = to_regclass('%(table)s') "
+        "AND conname = (parse_ident('%(name)s'))[1] "
         "AND convalidated"
     )
 
@@ -347,17 +363,30 @@ class DatabaseSchemaEditorMixin:
         idempotent_condition=Condition(_sql_constraint_exists, True),
     )
 
-    sql_create_fk = MultiStatementSQL(
-        PGAccessExclusive(
-            "ALTER TABLE %(table)s ADD CONSTRAINT %(name)s FOREIGN KEY (%(column)s) "
-            "REFERENCES %(to_table)s (%(to_column)s)%(deferrable)s NOT VALID",
-            idempotent_condition=Condition(_sql_constraint_exists, False),
-        ),
-        PGShareUpdateExclusive(
-            "ALTER TABLE %(table)s VALIDATE CONSTRAINT %(name)s",
-            disable_statement_timeout=True,
-        ),
-    )
+    if django.VERSION[:2] >= (6, 1):
+        sql_create_fk = MultiStatementSQL(
+            PGAccessExclusive(
+                "ALTER TABLE %(table)s ADD CONSTRAINT %(name)s FOREIGN KEY (%(column)s) "
+                "REFERENCES %(to_table)s (%(to_column)s)%(on_delete_db)s%(deferrable)s NOT VALID",
+                idempotent_condition=Condition(_sql_constraint_exists, False),
+            ),
+            PGShareUpdateExclusive(
+                "ALTER TABLE %(table)s VALIDATE CONSTRAINT %(name)s",
+                disable_statement_timeout=True,
+            ),
+        )
+    else:
+        sql_create_fk = MultiStatementSQL(
+            PGAccessExclusive(
+                "ALTER TABLE %(table)s ADD CONSTRAINT %(name)s FOREIGN KEY (%(column)s) "
+                "REFERENCES %(to_table)s (%(to_column)s)%(deferrable)s NOT VALID",
+                idempotent_condition=Condition(_sql_constraint_exists, False),
+            ),
+            PGShareUpdateExclusive(
+                "ALTER TABLE %(table)s VALIDATE CONSTRAINT %(name)s",
+                disable_statement_timeout=True,
+            ),
+        )
     sql_delete_fk = PGAccessExclusive(
         PostgresDatabaseSchemaEditor.sql_delete_fk,
         idempotent_condition=Condition(_sql_constraint_exists, True),
@@ -460,12 +489,14 @@ class DatabaseSchemaEditorMixin:
         ),
     )
 
+    # the queries below get the unquoted `db_table`, thus they match `relname`
+    # and limit the search to the tables that the search path makes visible
     _sql_get_table_constraints_introspection = r"""
         SELECT
             c.conname,
             c.contype,
-            c.conrelid::regclass::text,
-            c.confrelid::regclass::text,
+            cl.relname,
+            clref.relname,
             array(
                 SELECT attname
                 FROM unnest(c.conkey) WITH ORDINALITY cols(colid, arridx)
@@ -481,14 +512,20 @@ class DatabaseSchemaEditorMixin:
                 ORDER BY cols.arridx
             )
         FROM pg_constraint AS c
-        WHERE c.conrelid::regclass::text = %s
-        OR c.confrelid::regclass::text = %s
-        ORDER BY c.conrelid::regclass::text, c.conname
+        JOIN pg_class AS cl ON c.conrelid = cl.oid
+        LEFT JOIN pg_class AS clref ON c.confrelid = clref.oid
+        WHERE (
+            cl.relname = %s
+            OR (clref.relname = %s AND pg_catalog.pg_table_is_visible(clref.oid))
+        )
+        AND pg_catalog.pg_table_is_visible(cl.oid)
+        AND c.contype != 'n'
+        ORDER BY cl.relname, c.conname
     """
     _sql_get_index_introspection = r"""
         SELECT
-            i.indexrelid::regclass::text,
-            i.indrelid::regclass::text,
+            ic.relname,
+            c.relname,
             array(
                 SELECT a.attname
                 FROM (
@@ -501,11 +538,14 @@ class DatabaseSchemaEditorMixin:
                 INNER JOIN pg_attribute AS a ON cols.varattno = a.attnum
                 WHERE a.attrelid = i.indrelid
             )
-        FROM pg_index i
-        LEFT JOIN pg_constraint c ON i.indexrelid = c.conindid
-        WHERE indrelid::regclass::text = %s
-        AND c.conindid IS NULL
-        ORDER BY i.indrelid::regclass::text, i.indexrelid::regclass::text
+        FROM pg_index AS i
+        JOIN pg_class AS c ON i.indrelid = c.oid
+        JOIN pg_class AS ic ON i.indexrelid = ic.oid
+        LEFT JOIN pg_constraint AS con ON i.indexrelid = con.conindid
+        WHERE c.relname = %s
+        AND pg_catalog.pg_table_is_visible(c.oid)
+        AND con.conindid IS NULL
+        ORDER BY c.relname, ic.relname
     """
 
     _varchar_type_regexp = re.compile(r'^varchar\((?P<max_length>\d+)\)$')
@@ -643,15 +683,34 @@ class DatabaseSchemaEditorMixin:
                 self.execute(sql)
             self.deferred_sql.clear()
 
+    def _collected_table_renames(self):
+        """`sqlmigrate` prints a table rename and does not execute it, so django 6.1+ maps the new
+        table name to the name that the table still has in the database, see django ticket #33185
+        """
+        if self.collect_sql and django.VERSION[:2] >= (6, 1):
+            return self.collected_table_renames
+        return {}
+
     def _get_constraints(self, cursor, model):
-        cursor.execute(self._sql_get_table_constraints_introspection, [model._meta.db_table, model._meta.db_table])
+        renames = self._collected_table_renames()
+        after_rename = {before: after for after, before in renames.items()}
+        table = renames.get(model._meta.db_table, model._meta.db_table)
+        cursor.execute(self._sql_get_table_constraints_introspection, [table, table])
         for constraint, kind, table, table_ref, columns, columns_ref in cursor.fetchall():
-            yield constraint, kind, table, table_ref, columns, columns_ref
+            # introspection reports the current names, but the collected sql runs after the rename
+            renamed_table = after_rename.get(table, table)
+            renamed_table_ref = after_rename.get(table_ref, table_ref)
+            yield constraint, kind, renamed_table, renamed_table_ref, columns, columns_ref
 
     def _get_indexes(self, cursor, model):
-        cursor.execute(self._sql_get_index_introspection, [model._meta.db_table])
+        renames = self._collected_table_renames()
+        after_rename = {before: after for after, before in renames.items()}
+        table = renames.get(model._meta.db_table, model._meta.db_table)
+        cursor.execute(self._sql_get_index_introspection, [table])
         for index, table, columns in cursor.fetchall():
-            yield index, table, columns
+            # introspection reports the current names, but the collected sql runs after the rename
+            renamed_table = after_rename.get(table, table)
+            yield index, renamed_table, columns
 
     def _drop_collect_sql_introspection_related_duplicates(self, drop_constraint_queries):
         """
@@ -726,6 +785,11 @@ class DatabaseSchemaEditorMixin:
         self._flush_deferred_sql()
 
     def add_field(self, model, field):
+        if django.VERSION >= (5, 0) and field.generated and field.db_persist:
+            if self.RAISE_FOR_UNSAFE:
+                raise UnsafeOperationException(Unsafe.ADD_COLUMN_GENERATED_STORED)
+            else:
+                warnings.warn(UnsafeOperationWarning(Unsafe.ADD_COLUMN_GENERATED_STORED))
         super().add_field(model, field)
         self._flush_deferred_sql()
 
@@ -849,8 +913,6 @@ class DatabaseSchemaEditorMixin:
         yield column_db_type
         if collation := field_db_params.get("collation"):
             yield self._collate_sql(collation)
-        if self.connection.features.supports_comments_inline and field.db_comment:
-            yield self._comment_sql(field.db_comment)
         # Work out nullability.
         null = field.null
         # Add database default.
@@ -912,6 +974,8 @@ class DatabaseSchemaEditorMixin:
             and field.unique
         ):
             yield self.connection.ops.tablespace_sql(tablespace, inline=True)
+        if self.connection.features.supports_comments_inline and field.db_comment:
+            yield self._comment_sql(field.db_comment)
 
     def _iter_column_sql(
             self, column_db_type, params, model, field, field_db_params, include_default
@@ -981,6 +1045,8 @@ class DatabaseSchemaEditorMixin:
                     return False
         old_type_numeric_match = self._numeric_type_regexp.match(old_type)
         if old_type_numeric_match:
+            if new_type == "numeric":
+                return True
             new_type_numeric_match = self._numeric_type_regexp.match(new_type)
             old_type_precision = int(old_type_numeric_match.group("precision"))
             old_type_scale = int(old_type_numeric_match.group("scale"))

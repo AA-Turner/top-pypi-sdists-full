@@ -11,17 +11,28 @@ use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use super::types::{Job, JobEvent, JobProgress, JobStatus, JobSubscriber};
+use super::{
+    JobPersistenceStatus,
+    persistence::{PersistenceCircuit, PersistenceWriter},
+};
 
 /// Thread-safe registry of [`Job`]s.
-#[derive(Default)]
 pub struct JobManager {
     jobs: DashMap<String, Arc<RwLock<Job>>>,
     /// Subscribers invoked on every status transition. See [`Self::subscribe`].
     subscribers: RwLock<Vec<JobSubscriber>>,
     /// Optional persistence backend (issue #328). When `Some`, every
-    /// mutation is written through to storage so the next process
-    /// incarnation can see and mark-interrupted any in-flight jobs.
+    /// mutation is submitted to the owned persistence worker so the next
+    /// process incarnation can see and mark-interrupted in-flight jobs.
     storage: Option<Arc<dyn crate::job_storage::JobStorage>>,
+    persistence: Arc<parking_lot::Mutex<PersistenceCircuit>>,
+    persistence_writer: Option<PersistenceWriter>,
+}
+
+impl Default for JobManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl std::fmt::Debug for JobManager {
@@ -30,6 +41,7 @@ impl std::fmt::Debug for JobManager {
             .field("jobs", &self.jobs.len())
             .field("subscribers", &self.subscribers.read().len())
             .field("has_storage", &self.storage.is_some())
+            .field("persistence", &self.persistence_status())
             .finish()
     }
 }
@@ -41,33 +53,84 @@ impl JobManager {
             jobs: DashMap::new(),
             subscribers: RwLock::new(Vec::new()),
             storage: None,
+            persistence: Arc::new(parking_lot::Mutex::new(PersistenceCircuit::default())),
+            persistence_writer: None,
         }
     }
 
     /// Create a manager that writes every mutation through to `storage`
     /// (issue #328).
     ///
-    /// Does NOT perform recovery automatically — call
+    /// This constructor waits for each serialized worker transaction before
+    /// returning from a mutation. It does NOT perform recovery automatically — call
     /// [`Self::recover_from_storage`] once after construction if the
     /// backend may already contain rows from a previous process.
     pub fn with_storage(storage: Arc<dyn crate::job_storage::JobStorage>) -> Self {
+        Self::with_storage_mode(storage, true)
+    }
+
+    /// Create a manager whose storage writes run on a single bounded worker.
+    ///
+    /// Job mutations enqueue persistence in FIFO order and return without
+    /// waiting for backend I/O. HTTP servers use this mode so synchronous
+    /// storage drivers cannot starve the request runtime. Drop gives the worker
+    /// a bounded shutdown window; a backend call that never returns cannot
+    /// block the owning runtime indefinitely.
+    pub fn with_offloaded_storage(storage: Arc<dyn crate::job_storage::JobStorage>) -> Self {
+        Self::with_storage_mode(storage, false)
+    }
+
+    fn with_storage_mode(
+        storage: Arc<dyn crate::job_storage::JobStorage>,
+        wait_for_completion: bool,
+    ) -> Self {
+        let (persistence, persistence_writer) =
+            Self::build_persistence_runtime(&storage, wait_for_completion);
         Self {
             jobs: DashMap::new(),
             subscribers: RwLock::new(Vec::new()),
             storage: Some(storage),
+            persistence,
+            persistence_writer,
         }
+    }
+
+    fn build_persistence_runtime(
+        storage: &Arc<dyn crate::job_storage::JobStorage>,
+        wait_for_completion: bool,
+    ) -> (
+        Arc<parking_lot::Mutex<PersistenceCircuit>>,
+        Option<PersistenceWriter>,
+    ) {
+        let persistence = Arc::new(parking_lot::Mutex::new(PersistenceCircuit::configured()));
+        let persistence_writer =
+            PersistenceWriter::new(storage.clone(), persistence.clone(), wait_for_completion)
+                .map_err(|error| {
+                    tracing::error!(error = %error, "failed to start job persistence worker");
+                    persistence.lock().disable("worker_unavailable");
+                })
+                .ok();
+        (persistence, persistence_writer)
     }
 
     /// Attach a storage backend to an existing manager. Intended for
     /// uncommon build-up paths; the primary entry point is
     /// [`Self::with_storage`].
     pub fn set_storage(&mut self, storage: Arc<dyn crate::job_storage::JobStorage>) {
+        let (persistence, persistence_writer) = Self::build_persistence_runtime(&storage, true);
         self.storage = Some(storage);
+        self.persistence = persistence;
+        self.persistence_writer = persistence_writer;
     }
 
     /// Borrow the underlying storage, if any.
     pub fn storage(&self) -> Option<Arc<dyn crate::job_storage::JobStorage>> {
         self.storage.clone()
+    }
+
+    /// Return a payload-safe snapshot of persistence health.
+    pub fn persistence_status(&self) -> JobPersistenceStatus {
+        self.persistence.lock().status()
     }
 
     /// Recover any in-flight rows left over by a previous process
@@ -114,10 +177,8 @@ impl JobManager {
     }
 
     fn persist_put(&self, job: &Job) {
-        if let Some(storage) = &self.storage
-            && let Err(e) = storage.put(job)
-        {
-            tracing::warn!(job_id = %job.id, error = %e, "JobStorage.put failed");
+        if let Some(writer) = &self.persistence_writer {
+            writer.put(job);
         }
     }
 
@@ -392,10 +453,9 @@ impl JobManager {
             }
         }
         if removed > 0
-            && let Some(storage) = &self.storage
-            && let Err(e) = storage.delete_older_than(cutoff)
+            && let Some(writer) = &self.persistence_writer
         {
-            tracing::warn!(error = %e, "JobStorage.delete_older_than failed during gc_stale");
+            writer.delete_older_than(cutoff);
         }
         removed
     }
@@ -405,8 +465,9 @@ impl JobManager {
     /// `older_than_hours` from both the in-process map and any attached
     /// [`JobStorage`] backend.
     ///
-    /// Returns the number of rows removed (from the in-process map —
-    /// the storage delete is authoritative for persisted rows).
+    /// Returns the number of rows removed from the in-process map. With
+    /// offloaded storage, the persisted-row delete is queued on the same FIFO
+    /// worker and may complete after this method returns.
     pub fn cleanup_older_than_hours(&self, older_than_hours: u64) -> usize {
         // Clamp to i64 to stay inside chrono's range. 1000 years is
         // more than any real caller should ever pass.

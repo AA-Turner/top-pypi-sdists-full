@@ -733,6 +733,10 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
         session: snowpark.Session = get_or_create_snowpark_session()
         response: dict[str, proto_base.AddArtifactsResponse.ArtifactSummary] = {}
         artifact_hashes_to_cache: set[ArtifactKey] = set()
+        # Bound inside the request loop, because the store is keyed on the session
+        # id each request carries. An addArtifacts() call with no paths sends no
+        # requests at all, so it stays None and there is nothing to write.
+        artifacts_store: ArtifactStore | None = None
 
         def _try_handle_local_relation(
             artifact_name: str, data: bytes, artifacts_store: ArtifactStore
@@ -928,6 +932,11 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                         exception, ErrorCodes.UNSUPPORTED_OPERATION
                     )
                     raise exception
+
+        if artifacts_store is None:
+            # No requests arrived, so no artifacts were named. Spark treats this as
+            # a successful no-op rather than an error.
+            return proto_base.AddArtifactsResponse(artifacts=[])
 
         # if current chunk is still not finished, just return here
         # This should only happen in TCM since we have to send request via rest one by one so current chunk cannot be
@@ -1871,6 +1880,24 @@ def start_session(
 
         configure_server_url(remote_url, tcp_port, unix_domain_socket)
 
+        # Configure JAVA_HOME (and, on Windows, validate Java >= 17) before
+        # ``start_jvm`` asks JPype to load ``libjvm.so``. Idempotent: a no-op
+        # when JAVA_HOME is already set (local dev shells, SPCS images that
+        # pre-export it). Also sets ``SPARK_LOCAL_HOSTNAME`` which the JVM
+        # driver reads for its bindAddress. Consolidated here (instead of
+        # at each caller) so ``execute_jar``, ``init_spark_session``,
+        # ``start_server.py``, and the ``create_python_sproc`` handler all
+        # get the same setup without having to remember to call it
+        # themselves.
+        #
+        # ``SPARK_CONNECT_MODE_ENABLED`` is intentionally NOT set here —
+        # only ``init_spark_session`` sets it, so tests / scripts that
+        # embed a classic PySpark ``SparkContext("local[*]", ...)``
+        # alongside the SCOS server (see
+        # ``tests/sas_tests/conftest.py::native_spark``) are not blocked
+        # by pyspark's ``CONTEXT_UNAVAILABLE_FOR_REMOTE_CLIENT`` guard.
+        _setup_spark_environment()
+
         start_jvm(scala_version=scala_version)
         _disable_protobuf_recursion_limit()
         otel_initialize()
@@ -1991,11 +2018,11 @@ def init_spark_session(
                 builder = builder.config(k, v)
         return builder.getOrCreate()
     else:
-        _setup_spark_environment()
         from snowflake.snowpark_connect.utils.session import (
             _get_current_snowpark_session,
         )
 
+        os.environ["SPARK_CONNECT_MODE_ENABLED"] = "1"
         snowpark_session = _get_current_snowpark_session()
 
         start_session(
@@ -2243,29 +2270,21 @@ def execute_jar(
         all_opts = existing + (jvm_options or []) + required_flags
         os.environ["JAVA_OPTS"] = " ".join(dict.fromkeys(all_opts))
 
-        # 3b. Configure ``JAVA_HOME`` (and ``JAVA_LD_LIBRARY_PATH``) so JPype
-        #     can locate ``libjvm.so`` when ``start_jvm`` runs below. Skipped
-        #     silently when ``JAVA_HOME`` is already set (idempotent).
-        #
-        #     Regular Python DataFrame clients hit this via
-        #     ``init_spark_session``, but ``execute_jar`` has its own entry
-        #     point and used to skip the setup entirely. That was fine on
-        #     SPCS (``jdk4py`` populates ``JAVA_HOME`` at import time via
-        #     ``_setup_spark_environment``) and on local dev shells (users
-        #     already have ``JAVA_HOME`` set), but broke ``EXECUTE CODE
-        #     BUNDLE (compute_type=warehouse, language=scala)``: Snowflake
-        #     autogenerates a warehouse Python UDF wrapper whose ``run()``
-        #     calls ``execute_jar(**kwargs)``, and that sandbox exports
-        #     ``CONDA_PREFIX`` (with ``openjdk`` installed) but not
-        #     ``JAVA_HOME``. Without this call ``jpype.startJVM()`` raises
-        #     ``JVMNotFoundException: No JVM shared library file (libjvm.so)
-        #     found``.
-        _setup_spark_environment()
-
         # 4. Start SCOS thick server (which starts JVM + gRPC server).
-        # Native App procs running EXECUTE AS OWNER cannot run ALTER SESSION
-        # SET (SNOW-2245971). Only skip when native_app_mode is set — a
-        # CALLER-rights proc or notebook can still run ALTER SESSION normally.
+        # ``start_session`` invokes ``_setup_spark_environment`` internally
+        # so ``JAVA_HOME`` (and ``JAVA_LD_LIBRARY_PATH``) are set before
+        # ``start_jvm`` asks JPype to load ``libjvm.so``. Necessary for the
+        # ``EXECUTE CODE BUNDLE (compute_type=warehouse, language=scala)``
+        # sandbox, which exports ``CONDA_PREFIX`` (with ``openjdk``
+        # installed) but not ``JAVA_HOME``; harmless everywhere else
+        # because the setup is idempotent when ``JAVA_HOME`` is already
+        # set.
+        os.environ["SPARK_CONNECT_MODE_ENABLED"] = "1"
+
+        # Native App procs running EXECUTE AS OWNER cannot run ALTER
+        # SESSION SET (SNOW-2245971). Only skip when native_app_mode is
+        # set — a CALLER-rights proc or notebook can still run ALTER
+        # SESSION normally.
         if _is_running_in_stored_procedure_or_notebook() and is_native_app_mode():
             skip_session_configuration(True)
 

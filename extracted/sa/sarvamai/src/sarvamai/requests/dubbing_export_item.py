@@ -8,18 +8,18 @@ from ..types.dubbing_export_type import DubbingExportType
 
 
 class DubbingExportItemParams(typing_extensions.TypedDict):
-    id: typing_extensions.NotRequired[str]
+    id: str
     """
     Export record ID.
     """
 
-    export_type: typing_extensions.NotRequired[DubbingExportType]
-    target_language: typing_extensions.NotRequired[str]
+    export_type: DubbingExportType
+    target_language: str
     """
     The target language (BCP-47) of this export.
     """
 
-    status: typing_extensions.NotRequired[DubbingExportItemStatus]
+    status: DubbingExportItemStatus
     created_at: typing_extensions.NotRequired[dt.datetime]
     """
     When the export was triggered.
@@ -30,7 +30,7 @@ class DubbingExportItemParams(typing_extensions.TypedDict):
     When the export finished (if completed).
     """
 
-    is_stale: typing_extensions.NotRequired[bool]
+    is_stale: bool
     """
     True if translate chunks for this language were modified after the export completed, so the output no longer reflects the latest edits.
     """

@@ -20,7 +20,7 @@ from hass_nabucasa.const import (
 )
 from hass_nabucasa.utils import utcnow
 
-from .common import MockClient
+from .common import MockClient, prefilled_service_discovery_cache
 
 
 @pytest.fixture(autouse=True)
@@ -49,11 +49,13 @@ async def cl(cloud_client) -> cloud.Cloud:
         "hass_nabucasa.service_discovery.ServiceDiscovery.async_start_service_discovery",
         new=AsyncMock(),
     ):
-        yield cloud.Cloud(
+        instance = cloud.Cloud(
             cloud_client,
             cloud.MODE_DEV,
             api_server="example.com",
         )
+        instance.service_discovery._memory_cache = prefilled_service_discovery_cache()
+        yield instance
 
 
 def test_constructor_loads_info_from_constant(cloud_client):
@@ -100,7 +102,7 @@ async def test_initialize_loads_info(cl: cloud.Cloud) -> None:
     """
     assert len(cl._on_start) == 2
     cl._on_start.clear()
-    assert len(cl._on_stop) == 3
+    assert len(cl._on_stop) == 4
     cl._on_stop.clear()
 
     info_file = MagicMock(
@@ -203,7 +205,7 @@ async def test_logout_clears_info(cl: cloud.Cloud):
     """Test logging out disconnects and removes info."""
     assert len(cl._on_start) == 2
     cl._on_start.clear()
-    assert len(cl._on_stop) == 3
+    assert len(cl._on_stop) == 4
     cl._on_stop.clear()
 
     info_file = MagicMock(

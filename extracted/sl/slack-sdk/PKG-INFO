@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slack_sdk
-Version: 3.43.0
+Version: 3.44.0
 Summary: The Slack API Platform SDK for Python
 Home-page: https://github.com/slackapi/python-slack-sdk
 Author: Slack Technologies, LLC
@@ -31,13 +31,19 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: optional
-Requires-Dist: aiodns>1.0; extra == "optional"
+Requires-Dist: aiodns<3.3,>1.0; python_version < "3.9" and extra == "optional"
+Requires-Dist: aiodns<4,>1.0; python_version == "3.9" and extra == "optional"
+Requires-Dist: aiodns>=4.0.4; python_version >= "3.10" and extra == "optional"
 Requires-Dist: aiohttp<3.9,>=3.7.3; python_version == "3.7" and extra == "optional"
 Requires-Dist: aiohttp<3.11,>=3.7.3; python_version == "3.8" and extra == "optional"
-Requires-Dist: aiohttp<4,>=3.13.5; python_version >= "3.9" and extra == "optional"
+Requires-Dist: aiohttp<3.14,>=3.13.5; python_version == "3.9" and extra == "optional"
+Requires-Dist: aiohttp<4,>=3.14.3; python_version >= "3.10" and extra == "optional"
 Requires-Dist: boto3<=2; extra == "optional"
-Requires-Dist: SQLAlchemy<3,>=2.0.49; extra == "optional"
-Requires-Dist: websockets<16,>=9.1; extra == "optional"
+Requires-Dist: SQLAlchemy<3,>=2.0.51; extra == "optional"
+Requires-Dist: websockets<12,>=9.1; python_version == "3.7" and extra == "optional"
+Requires-Dist: websockets<14,>=9.1; python_version == "3.8" and extra == "optional"
+Requires-Dist: websockets<16,>=9.1; python_version == "3.9" and extra == "optional"
+Requires-Dist: websockets<17,>=16.1.1; python_version >= "3.10" and extra == "optional"
 Requires-Dist: websocket-client<2,>=1; extra == "optional"
 Dynamic: license-file
 

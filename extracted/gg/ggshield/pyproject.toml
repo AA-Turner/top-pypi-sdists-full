@@ -1,6 +1,6 @@
 [project]
 name = "ggshield"
-dynamic = ["version"]
+dynamic = ["version", "scripts"]
 description = "Detect secrets from all sources using GitGuardian's brains"
 keywords = [
     "cli",
@@ -39,12 +39,14 @@ dependencies = [
     "charset-normalizer~=3.1.0",
     "click>=8.1.0,<9",
     "configupdater>=3.2,<4",
-    "cryptography>=43.0.1,<49",
+    # The floor stays below the CVE-2026-69247 fix (50.0.0) because sigstore
+    # 4.1.0, the last release supporting Python 3.9, caps cryptography at < 47.
+    "cryptography>=43.0.1,<51",
     "marshmallow>=3.18,<5",
     "marshmallow-dataclass>=8.7.0,<9",
     "oauthlib>=3.2.1,<4",
     "packaging>=22.0",
-    "pygitguardian~=1.33.1",
+    "pygitguardian~=1.34.0",
     "pyjwt>=2.13.0,<3",
     "python-dotenv>=0.21.0,<2",
     "pyyaml>=6.0.1,<7",
@@ -55,8 +57,13 @@ dependencies = [
     "urllib3>=2.2.2,<3",
     "truststore>=0.10.1; python_version >= \"3.10\"",
     "notify-py>=0.3.43",
-    "keyring>=24.0.0,<26",
-    "tomli>=2.4.0",
+    # 25.0 is where `keyring.backends.macOS.api.create_cf` replaced
+    # `create_cfstr`; `_macos_store_token` needs it to set the Keychain ACL that
+    # lets the native hook read the token without a prompt. On 24.x the
+    # AttributeError was swallowed and the ACL silently never applied.
+    "keyring>=25.0.0,<26",
+    "tomli>=2.4.0; python_version < \"3.11\"",
+    "tomlkit>=0.13.3,<0.14",
     "filelock>=3.19.1",
     "unearth>=0.18.2",
 ]
@@ -64,15 +71,26 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/GitGuardian/ggshield"
 
-[project.scripts]
-ggshield = "ggshield.__main__:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "ggshield/__init__.py"
+
+# `ggshield` is the Rust dispatcher and the Python entry point is `ggshield-py`
+# when GGSHIELD_BUILD_RUST=1 (the wheel CI matrix); otherwise `ggshield` is the
+# Python entry point. See hatch_meta.py / hatch_build.py.
+[tool.hatch.metadata.hooks.custom]
+path = "hatch_meta.py"
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+# The Rust sources are needed only to build the platform wheels (from the repo,
+# in CI); keep them out of the sdist so an sdist install stays pure Python.
+[tool.hatch.build.targets.sdist]
+exclude = ["rust"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -86,8 +104,10 @@ override-dependencies = [
     # vcrpy requires urllib3 < 2 if Python is < 3.10, but it works for us with
     # Python 3.9, so force urllib3 version.
     "urllib3>=2.2.2,<3",
-    # pyinstaller limits Python version to < 3.13, making it incompatible with us
-    "pyinstaller==6.7.0",
+    # pyinstaller declares an upper bound on the Python version it supports
+    # (< 3.16 as of 6.21.0), which conflicts with our open-ended
+    # `requires-python = ">=3.9"`. Force the version to sidestep the conflict.
+    "pyinstaller==6.21.0",
 ]
 
 # Pin the default index to public PyPI so user-level uv config (e.g. an internal
@@ -154,7 +174,6 @@ tests = [
     "pytest-voluptuous",
     "seed-isort-config",
     "syrupy",
-    "import-linter",
     "jsonschema",
     "vcrpy>=5.1.0",
     "voluptuous<0.15.0",
@@ -168,6 +187,7 @@ dev = [
     "flake8",
     "flake8-isort",
     "flake8-quotes",
+    "import-linter",
     "pre-commit",
     "pyright==1.1.367",
     "build>=1.2.2.post1",
@@ -175,5 +195,9 @@ dev = [
     "ipython>=8.12.3",
     "ipdb>=0.13.13",
     "ty>=0.0.32",
+    # ty resolves imports against the dev environment, but targets the minimum
+    # version of `requires-python`. The `tomli` fallback of `tomllib` is therefore
+    # analyzed whatever the interpreter, so devs should install it unconditionally
+    "tomli>=2.4.0",
 ]
-standalone = ["pyinstaller==6.7.0"]
+standalone = ["pyinstaller==6.21.0"]

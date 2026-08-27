@@ -80,12 +80,11 @@ class DocAiClient:
         language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiDigitiseRequestOutputFormat] = OMIT,
         content_type: typing.Optional[DocAiDigitiseRequestContentType] = OMIT,
-        auto_orient: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocAiStartJobResponse:
         """
-        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML or Markdown while preserving layout.
+        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML, Markdown, or JSON while preserving layout.
 
         **Input:** Exactly one of `file` and `upload_ids` must be provided. Use `POST /doc-ai/v1/job/upload` to obtain upload IDs.
 
@@ -109,9 +108,6 @@ class DocAiClient:
 
         content_type : typing.Optional[DocAiDigitiseRequestContentType]
             Nature of the document content.
-
-        auto_orient : typing.Optional[str]
-            Automatically correct page orientation before processing. Boolean sent as text: `true` or `false`.
 
         model : typing.Optional[str]
             Model to use for digitisation.
@@ -139,7 +135,6 @@ class DocAiClient:
             language=language,
             output_format=output_format,
             content_type=content_type,
-            auto_orient=auto_orient,
             model=model,
             request_options=request_options,
         )
@@ -155,7 +150,6 @@ class DocAiClient:
         language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiExtractRequestOutputFormat] = OMIT,
         classification: typing.Optional[str] = OMIT,
-        auto_orient: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocAiStartJobResponse:
@@ -182,7 +176,7 @@ class DocAiClient:
             Inline extraction schema as a JSON string. The root must be `type: "object"` with non-empty `properties`; every field needs a `type` and a non-empty `description`. Supported types: `string`, `number`, `integer`, `boolean`, `object`, `array` (objects need `properties`, arrays need `items`); optional `enum`; maximum nesting depth 4. Exactly one of `schema` and `config_id` is required.
 
         config_id : typing.Optional[str]
-            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required.
+            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, follow the steps listed [here](/api/api-guides-tutorials/document-intelligence/how-to/get-your-config-id).
 
         language : typing.Optional[str]
             Language code of the document (BCP-47), e.g. `en-IN`, `hi-IN`.
@@ -192,9 +186,6 @@ class DocAiClient:
 
         classification : typing.Optional[str]
             Enable document classification. Boolean sent as text: `true` or `false`.
-
-        auto_orient : typing.Optional[str]
-            Automatically correct page orientation before processing. Boolean sent as text: `true` or `false`.
 
         model : typing.Optional[str]
             Model to use for extraction.
@@ -214,7 +205,11 @@ class DocAiClient:
         client = SarvamAI(
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
-        client.doc_ai.extract()
+        client.doc_ai.extract(
+            schema='{"type":"object","properties":{"policy_number":{"type":"string","description":"Insurance policy number"},"insured_name":{"type":"string","description":"Name of the insured person"},"sum_insured":{"type":"number","description":"Total sum insured, in INR"}}}',
+            language="en-IN",
+            output_format="json",
+        )
         """
         _response = self._raw_client.extract(
             file=file,
@@ -224,7 +219,6 @@ class DocAiClient:
             language=language,
             output_format=output_format,
             classification=classification,
-            auto_orient=auto_orient,
             model=model,
             request_options=request_options,
         )
@@ -415,12 +409,11 @@ class AsyncDocAiClient:
         language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiDigitiseRequestOutputFormat] = OMIT,
         content_type: typing.Optional[DocAiDigitiseRequestContentType] = OMIT,
-        auto_orient: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocAiStartJobResponse:
         """
-        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML or Markdown while preserving layout.
+        Creates and starts a digitise job from files or pre-uploaded handles. Digitise converts documents into structured HTML, Markdown, or JSON while preserving layout.
 
         **Input:** Exactly one of `file` and `upload_ids` must be provided. Use `POST /doc-ai/v1/job/upload` to obtain upload IDs.
 
@@ -444,9 +437,6 @@ class AsyncDocAiClient:
 
         content_type : typing.Optional[DocAiDigitiseRequestContentType]
             Nature of the document content.
-
-        auto_orient : typing.Optional[str]
-            Automatically correct page orientation before processing. Boolean sent as text: `true` or `false`.
 
         model : typing.Optional[str]
             Model to use for digitisation.
@@ -482,7 +472,6 @@ class AsyncDocAiClient:
             language=language,
             output_format=output_format,
             content_type=content_type,
-            auto_orient=auto_orient,
             model=model,
             request_options=request_options,
         )
@@ -498,7 +487,6 @@ class AsyncDocAiClient:
         language: typing.Optional[str] = OMIT,
         output_format: typing.Optional[DocAiExtractRequestOutputFormat] = OMIT,
         classification: typing.Optional[str] = OMIT,
-        auto_orient: typing.Optional[str] = OMIT,
         model: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> DocAiStartJobResponse:
@@ -525,7 +513,7 @@ class AsyncDocAiClient:
             Inline extraction schema as a JSON string. The root must be `type: "object"` with non-empty `properties`; every field needs a `type` and a non-empty `description`. Supported types: `string`, `number`, `integer`, `boolean`, `object`, `array` (objects need `properties`, arrays need `items`); optional `enum`; maximum nesting depth 4. Exactly one of `schema` and `config_id` is required.
 
         config_id : typing.Optional[str]
-            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required.
+            Saved extraction configuration ID. Exactly one of `schema` and `config_id` is required. To get your config_id, follow the steps listed [here](/api/api-guides-tutorials/document-intelligence/how-to/get-your-config-id).
 
         language : typing.Optional[str]
             Language code of the document (BCP-47), e.g. `en-IN`, `hi-IN`.
@@ -535,9 +523,6 @@ class AsyncDocAiClient:
 
         classification : typing.Optional[str]
             Enable document classification. Boolean sent as text: `true` or `false`.
-
-        auto_orient : typing.Optional[str]
-            Automatically correct page orientation before processing. Boolean sent as text: `true` or `false`.
 
         model : typing.Optional[str]
             Model to use for extraction.
@@ -562,7 +547,11 @@ class AsyncDocAiClient:
 
 
         async def main() -> None:
-            await client.doc_ai.extract()
+            await client.doc_ai.extract(
+                schema='{"type":"object","properties":{"policy_number":{"type":"string","description":"Insurance policy number"},"insured_name":{"type":"string","description":"Name of the insured person"},"sum_insured":{"type":"number","description":"Total sum insured, in INR"}}}',
+                language="en-IN",
+                output_format="json",
+            )
 
 
         asyncio.run(main())
@@ -575,7 +564,6 @@ class AsyncDocAiClient:
             language=language,
             output_format=output_format,
             classification=classification,
-            auto_orient=auto_orient,
             model=model,
             request_options=request_options,
         )

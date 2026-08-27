@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: awslabs.aws-iac-mcp-server
-Version: 1.0.23
+Version: 1.0.24
 Summary: An Infrastructure as Code MCP server that provides CloudFormation template validation, compliance checking, and deployment troubleshooting capabilities.
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/aws-iac-mcp-server/

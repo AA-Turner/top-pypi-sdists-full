@@ -7,6 +7,7 @@ import os
 from collections.abc import Sequence
 from typing import Any
 
+import snowflake.snowpark_connect.tcm as tcm
 from snowflake import snowpark
 from snowflake.connector.description import PLATFORM
 from snowflake.snowpark._internal.analyzer.analyzer_utils import (
@@ -305,9 +306,13 @@ def configure_snowpark_session(session: snowpark.Session):
     # TODO(SNOW-3122222): Remove this once 10.6 is fully rolled out
     session._has_structured_try_cast = False
 
-    # Scoped temp objects may not be accessible in stored procedure and cause "object does not exist" error. So disable
-    # _use_scoped_temp_objects here and use temp table instead.
-    session._use_scoped_temp_objects = False
+    # Scoped temp objects are not accessible inside the stored procedure that
+    # hosts the embedded (TCM) server and cause an "object does not exist"
+    # error, so force plain temp objects there. Other paths (regular clients
+    # and Native Apps) keep Snowpark's default so scoped temp objects work in
+    # owner's-rights procedures.
+    if tcm.TCM_MODE:
+        session._use_scoped_temp_objects = False
 
     # SNOW-3409016: opt SAS sessions in to Snowpark-Python's structured type
     # INFER_SCHEMA parser unconditionally. When True, INFER_SCHEMA results

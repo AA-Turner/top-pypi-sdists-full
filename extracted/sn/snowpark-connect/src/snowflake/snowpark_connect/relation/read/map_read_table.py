@@ -846,6 +846,30 @@ def _read_iceberg_metadata_table(
     return post_process_df(df, plan_id, table_name)
 
 
+def _iceberg_cld_unsupported_error(
+    subject: str, base_table_name: str, workarounds: str
+) -> AnalysisException:
+    """Shared actionable error for Iceberg operations that rely on
+    ``INFORMATION_SCHEMA.ICEBERG_TABLE_*`` against a catalog-linked (Glue /
+    Unity Iceberg REST) table. Those functions only resolve Managed Iceberg
+    tables, so the operation can't run even though the table is readable via
+    ``SELECT``.
+
+    ``subject`` names the operation (e.g. ``"metadata table '.snapshots'"`` or
+    ``"procedure `system.ancestors_of`"``); ``workarounds`` is the
+    operation-specific guidance appended after the shared explanation.
+    """
+    exception = AnalysisException(
+        f"Iceberg {subject} is not supported on Snowflake catalog-linked "
+        f"Iceberg tables (`{base_table_name}`). Snowflake's "
+        "`INFORMATION_SCHEMA.ICEBERG_TABLE_*` functions only resolve "
+        "managed-Iceberg tables (this applies to both Glue and Unity Iceberg "
+        f"REST catalogs). {workarounds}"
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
+
+
 def _iceberg_metadata_cld_unsupported(
     metadata_table_name: str, base_table_name: str
 ) -> AnalysisException:
@@ -862,21 +886,15 @@ def _iceberg_metadata_cld_unsupported(
        parameter before the request even leaves the process. Observed
        primarily on Unity Iceberg REST today.
     """
-    exception = AnalysisException(
-        f"Iceberg metadata table '.{metadata_table_name}' is not "
-        "supported on Snowflake catalog-linked Iceberg tables "
-        f"(`{base_table_name}`). Snowflake's "
-        "`INFORMATION_SCHEMA.ICEBERG_TABLE_*` functions only "
-        "resolve managed-Iceberg tables (this applies to both "
-        "Glue and Unity Iceberg REST catalogs). Workarounds: "
-        "(a) query the metadata file directly from the external "
-        "catalog (e.g. AWS Glue's GetTable API or the Iceberg "
-        "REST endpoint + manifest parsing), or (b) re-create the "
-        "table as a Managed Iceberg table — Snowflake then "
-        f"exposes `.{metadata_table_name}` via INFORMATION_SCHEMA."
+    return _iceberg_cld_unsupported_error(
+        f"metadata table '.{metadata_table_name}'",
+        base_table_name,
+        "Workarounds: (a) query the metadata file directly from the external "
+        "catalog (e.g. AWS Glue's GetTable API or the Iceberg REST endpoint + "
+        "manifest parsing), or (b) re-create the table as a Managed Iceberg "
+        f"table — Snowflake then exposes `.{metadata_table_name}` via "
+        "INFORMATION_SCHEMA.",
     )
-    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-    return exception
 
 
 def _looks_like_missing_iceberg_metadata_function(
@@ -935,12 +953,16 @@ def _looks_like_cld_qualified_name(
 
 
 def post_process_df(
-    df: snowpark.DataFrame, plan_id: int, source_table_name: str = None
+    df: snowpark.DataFrame,
+    plan_id: int,
+    source_table_name: str = None,
+    *,
+    inline_column_rename: bool = False,
 ) -> DataFrameContainer:
     try:
         true_names = list(map(lambda x: unquote_if_quoted(x), df.columns))
         renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
-            df, plan_id
+            df, plan_id, inline_rename=inline_column_rename
         )
         name_parts = split_fully_qualified_spark_name(source_table_name)
 
@@ -1897,7 +1919,25 @@ def get_table_from_name(
         )
     else:
         df = session.read.table(snowpark_name)
-    return post_process_df(df, plan_id, table_name)
+
+    has_iceberg_time_travel = any(
+        value is not None
+        for value in (
+            iceberg_snapshot_id,
+            iceberg_as_of_timestamp,
+            iceberg_version_tag,
+            iceberg_version_ref,
+            iceberg_branch,
+            iceberg_start_snapshot_id,
+            iceberg_end_snapshot_id,
+        )
+    )
+    return post_process_df(
+        df,
+        plan_id,
+        table_name,
+        inline_column_rename=has_iceberg_time_travel,
+    )
 
 
 def get_table_from_query(

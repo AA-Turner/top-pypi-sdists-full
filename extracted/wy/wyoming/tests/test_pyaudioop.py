@@ -1,15 +1,13 @@
-import sys
-
 from wyoming import pyaudioop
 
 
-def pack(width, data):
-    return b"".join(v.to_bytes(width, sys.byteorder, signed=True) for v in data)
+def pack(width, data, endian="little"):
+    return b"".join(v.to_bytes(width, endian, signed=True) for v in data)
 
 
-def unpack(width, data):
+def unpack(width, data, endian="little"):
     return [
-        int.from_bytes(data[i : i + width], sys.byteorder, signed=True)
+        int.from_bytes(data[i : i + width], endian, signed=True)
         for i in range(0, len(data), width)
     ]
 
@@ -33,6 +31,29 @@ INVALID_DATA = [
 ]
 
 
+def test_bias() -> None:
+    """Test adding a bias to samples."""
+    for w in 1, 2, 4:
+        for bias in 0, 1, -1, 127, -128, 0x7FFFFFFF, -0x80000000:
+            assert pyaudioop.bias(b"", w, bias) == b""
+
+    assert pyaudioop.bias(datas[1], 1, 1) == b"\x01\x13\x46\xbc\x80\x81\x00"
+    assert pyaudioop.bias(datas[1], 1, -1) == b"\xff\x11\x44\xba\x7e\x7f\xfe"
+    assert pyaudioop.bias(datas[1], 1, 0x7FFFFFFF) == b"\xff\x11\x44\xba\x7e\x7f\xfe"
+    assert pyaudioop.bias(datas[1], 1, -0x80000000) == datas[1]
+
+    assert pyaudioop.bias(datas[2], 2, 1) == packs[2](
+        1, 0x1235, 0x4568, -0x4566, -0x8000, -0x7FFF, 0
+    )
+    assert pyaudioop.bias(datas[4], 4, 1) == packs[4](
+        1, 0x12345679, 0x456789AC, -0x456789AA, -0x80000000, -0x7FFFFFFF, 0
+    )
+
+    # Accepts bytearray and memoryview like the other functions
+    assert pyaudioop.bias(bytearray(datas[1]), 1, 1) == b"\x01\x13\x46\xbc\x80\x81\x00"
+    assert pyaudioop.bias(memoryview(datas[1]), 1, 1) == b"\x01\x13\x46\xbc\x80\x81\x00"
+
+
 def test_lin2lin() -> None:
     """Test sample width conversions."""
     for w in 1, 2, 4:
@@ -53,6 +74,31 @@ def test_lin2lin() -> None:
     assert pyaudioop.lin2lin(datas[4], 4, 1) == b"\x00\x12\x45\xba\x7f\x80\xff"
     assert pyaudioop.lin2lin(datas[4], 4, 2) == packs[2](
         0, 0x1234, 0x4567, -0x4568, 0x7FFF, -0x8000, -1
+    )
+
+
+def test_lin2lin_big_endian() -> None:
+    """Test sample width conversions with big-endian samples."""
+    data2 = pack(2, (0, 0x1234, 0x4567, -0x4567, 0x7FFF, -0x8000, -1), endian="big")
+    data4 = pack(
+        4,
+        (0, 0x12345678, 0x456789AB, -0x456789AB, 0x7FFFFFFF, -0x80000000, -1),
+        endian="big",
+    )
+
+    assert pyaudioop.lin2lin(data2, 2, 1, endian="big") == (
+        b"\x00\x12\x45\xba\x7f\x80\xff"
+    )
+    assert pyaudioop.lin2lin(data2, 2, 4, endian="big") == pack(
+        4,
+        (0, 0x12340000, 0x45670000, -0x45670000, 0x7FFF0000, -0x80000000, -0x10000),
+        endian="big",
+    )
+    assert pyaudioop.lin2lin(data4, 4, 1, endian="big") == (
+        b"\x00\x12\x45\xba\x7f\x80\xff"
+    )
+    assert pyaudioop.lin2lin(data4, 4, 2, endian="big") == pack(
+        2, (0, 0x1234, 0x4567, -0x4568, 0x7FFF, -0x8000, -1), endian="big"
     )
 
 

@@ -20,6 +20,7 @@ from snowflake.snowpark_connect.nss.nss_scan_options import (
     sql_quote_literal,
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+from snowflake.snowpark_connect.utils.telemetry import telemetry
 
 
 def nss_read_via_stage_file_reader(
@@ -60,4 +61,5 @@ def nss_read_via_stage_file_reader(
     )
     # NSS read path (keyword kept out of the customer-visible log message)
     logger.info(f"STAGE_FILE_READER query: {sql}")
+    telemetry.report_nss_tvf("STAGE_FILE_READER")
     return session.sql(sql)

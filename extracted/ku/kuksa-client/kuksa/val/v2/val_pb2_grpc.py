@@ -5,7 +5,7 @@ import warnings
 
 from kuksa.val.v2 import val_pb2 as kuksa_dot_val_dot_v2_dot_val__pb2
 
-GRPC_GENERATED_VERSION = '1.68.0'
+GRPC_GENERATED_VERSION = '1.82.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,14 +18,14 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in kuksa/val/v2/val_pb2_grpc.py depends on'
+        + ' but the generated code in kuksa/val/v2/val_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
     )
 
 
-class VALStub(object):
+class VALStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -59,6 +59,11 @@ class VALStub(object):
                 request_serializer=kuksa_dot_val_dot_v2_dot_val__pb2.ActuateRequest.SerializeToString,
                 response_deserializer=kuksa_dot_val_dot_v2_dot_val__pb2.ActuateResponse.FromString,
                 _registered_method=True)
+        self.ActuateStream = channel.stream_unary(
+                '/kuksa.val.v2.VAL/ActuateStream',
+                request_serializer=kuksa_dot_val_dot_v2_dot_val__pb2.ActuateRequest.SerializeToString,
+                response_deserializer=kuksa_dot_val_dot_v2_dot_val__pb2.ActuateResponse.FromString,
+                _registered_method=True)
         self.BatchActuate = channel.unary_unary(
                 '/kuksa.val.v2.VAL/BatchActuate',
                 request_serializer=kuksa_dot_val_dot_v2_dot_val__pb2.BatchActuateRequest.SerializeToString,
@@ -86,7 +91,7 @@ class VALStub(object):
                 _registered_method=True)
 
 
-class VALServicer(object):
+class VALServicer:
     """Missing associated documentation comment in .proto file."""
 
     def GetValue(self, request, context):
@@ -193,6 +198,28 @@ class VALServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ActuateStream(self, request_iterator, context):
+        """Actuate a single actuator in a gRPC stream -> Use for low latency and high throughput
+
+        Returns (GRPC error code):
+        NOT_FOUND if the actuator does not exist.
+        PERMISSION_DENIED if access is denied for the actuator.
+        UNAUTHENTICATED if no credentials provided or credentials has expired
+        UNAVAILABLE if there is no provider currently providing the actuator
+        DATA_LOSS is there is a internal TransmissionFailure
+        INVALID_ARGUMENT
+        - if the provided path is not an actuator.
+        - if the data type used in the request does not match
+        the data type of the addressed signal
+        - if the requested value is not accepted,
+        e.g. if sending an unsupported enum value
+        - if the provided value is out of the min/max range specified
+
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def BatchActuate(self, request, context):
         """Actuate simultaneously multiple actuators.
         If any error occurs, the entire operation will be aborted
@@ -260,15 +287,17 @@ class VALServicer(object):
 
         Errors:
         - Provider sends ProvideActuationRequest -> Databroker returns ProvideActuationResponse
-        Returns (GRPC error code) and closes the stream call (strict case).
+        - strict case
+        Returns (GRPC error code) and closes the stream call
         NOT_FOUND if any of the signals are non-existant.
         PERMISSION_DENIED if access is denied for any of the signals.
         UNAUTHENTICATED if no credentials provided or credentials has expired
         ALREADY_EXISTS if a provider already claimed the ownership of an actuator
 
         - Provider sends PublishValuesRequest -> Databroker returns PublishValuesResponse upon error, and nothing upon success
+        - permissive case
         GRPC errors are returned as messages in the stream
-        response with the signal id `map<int32, Error> status = 2;` (permissive case)
+        response with the signal id `map<int32, Error> status = 2;`
         NOT_FOUND if a signal is non-existant.
         PERMISSION_DENIED
         - if access is denied for a signal.
@@ -278,11 +307,28 @@ class VALServicer(object):
         - if the published value is not accepted,
         e.g. if sending an unsupported enum value
         - if the published value is out of the min/max range specified
+        - strict case
+        Returns (GRPC error code) and closes the stream call.
+        ALREADY_EXISTS if a provider already claimed the ownership of the signals
+        ABORTED if provider has not claimed yet the signals
 
         - Databroker sends BatchActuateStreamRequest -> Provider shall return a BatchActuateStreamResponse,
         for every signal requested to indicate if the request was accepted or not.
         It is up to the provider to decide if the stream shall be closed,
         as of today Databroker will not react on the received error message.
+
+        - Provider sends ProvideSignalRequest -> Databroker returns ProvideSignalResponse
+        - strict case
+        Returns (GRPC error code) and closes the stream call.
+        NOT_FOUND if any of the signals are non-existant.
+        PERMISSION_DENIED if access is denied for any of the signals.
+        UNAUTHENTICATED if no credentials provided or credentials has expired
+        ALREADY_EXISTS if a provider already claimed the ownership of any signal.
+
+        - Provider sends ProviderErrorIndication
+        - strict case
+        Returns (GRPC error code) and closes the stream call.
+        ABORTED if provider has not claimed yet the signals
 
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -324,6 +370,11 @@ def add_VALServicer_to_server(servicer, server):
                     request_deserializer=kuksa_dot_val_dot_v2_dot_val__pb2.ActuateRequest.FromString,
                     response_serializer=kuksa_dot_val_dot_v2_dot_val__pb2.ActuateResponse.SerializeToString,
             ),
+            'ActuateStream': grpc.stream_unary_rpc_method_handler(
+                    servicer.ActuateStream,
+                    request_deserializer=kuksa_dot_val_dot_v2_dot_val__pb2.ActuateRequest.FromString,
+                    response_serializer=kuksa_dot_val_dot_v2_dot_val__pb2.ActuateResponse.SerializeToString,
+            ),
             'BatchActuate': grpc.unary_unary_rpc_method_handler(
                     servicer.BatchActuate,
                     request_deserializer=kuksa_dot_val_dot_v2_dot_val__pb2.BatchActuateRequest.FromString,
@@ -357,7 +408,7 @@ def add_VALServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class VAL(object):
+class VAL:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -483,6 +534,33 @@ class VAL(object):
             request,
             target,
             '/kuksa.val.v2.VAL/Actuate',
+            kuksa_dot_val_dot_v2_dot_val__pb2.ActuateRequest.SerializeToString,
+            kuksa_dot_val_dot_v2_dot_val__pb2.ActuateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ActuateStream(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_unary(
+            request_iterator,
+            target,
+            '/kuksa.val.v2.VAL/ActuateStream',
             kuksa_dot_val_dot_v2_dot_val__pb2.ActuateRequest.SerializeToString,
             kuksa_dot_val_dot_v2_dot_val__pb2.ActuateResponse.FromString,
             options,

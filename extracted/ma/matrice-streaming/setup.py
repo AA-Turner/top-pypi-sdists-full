@@ -66,9 +66,15 @@ def _resolve_enable_mypyc() -> bool:
 ENABLE_MYPYC = _resolve_enable_mypyc()
 
 
+# Patch level for a local/manual build. CI never reads this — the central
+# py-release-channel-build.yml computes the version from git tags + the index
+# and passes it in via PACKAGE_VERSION, which still wins here.
+DEFAULT_VERSION = "1.1.1"
+
+
 def get_version() -> str:
     """Get version from PACKAGE_VERSION environment variable."""
-    version = os.environ.get("PACKAGE_VERSION", "0.0.0.dev0")
+    version = os.environ.get("PACKAGE_VERSION", DEFAULT_VERSION)
     print(f"Building version: {version}")
     return version
 

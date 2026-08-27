@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 
@@ -12,13 +12,33 @@ def get_relative_path(path: str | Path, parent_path: Path) -> Path:
 
 
 @cache
-def path_relative_to_cwd(path: Path) -> Path:
-    """Return path in relation to cwd path. Results are cached."""
-    cwd = Path.cwd()  # TODO: potentially performance heavy - check
+def _path_relative_to(path: Path, cwd: Path) -> Path:
     try:
         return path.relative_to(cwd)
     except ValueError:  # symlink etc
         return path
+
+
+def path_relative_to_cwd(path: Path) -> Path:
+    """Return path in relation to cwd path. Results are cached per working directory."""
+    return _path_relative_to(path, Path.cwd())
+
+
+@lru_cache(maxsize=100_000)
+def resolve_path(path: Path) -> Path:
+    """
+    Return the resolved (absolute, symlink free) path.
+
+    ``Path.resolve`` is a filesystem call and it is used all over the project analysis to normalize paths before
+    comparing them or using them as dictionary keys. A project contains a limited number of paths, but they are
+    resolved hundreds of thousands of times, so the results are cached. The cache is bounded, so that it does not
+    grow without a limit in long living processes such as the MCP server.
+
+    Returns:
+        Resolved path.
+
+    """
+    return path.resolve()
 
 
 def get_common_parent_dirs(sources: list[Path]) -> list[Path]:

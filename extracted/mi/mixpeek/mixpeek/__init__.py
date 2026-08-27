@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.465"
+__version__ = "1.3.477"
 
 # Define package exports
 __all__ = [
@@ -994,6 +994,8 @@ __all__ = [
     "RetrieverSignal",
     "RetrieverStageDefinition",
     "RetrieverStatus",
+    "RetrieverTransformConfigInput",
+    "RetrieverTransformConfigOutput",
     "RetrieverVisibility",
     "RetryBatchRequest",
     "ReturnVectorNames",
@@ -1292,6 +1294,7 @@ __all__ = [
     "ToolInfo",
     "TransactionInfo",
     "TransactionsListResponse",
+    "TranscodingExtractorParams",
     "TransitionLifecycleRequest",
     "TransitionPath",
     "TriggerActionType",
@@ -1309,6 +1312,7 @@ __all__ = [
     "UMAPParams",
     "UnifiedExtractorListResponse",
     "UnifiedExtractorResponse",
+    "UniqueIdField",
     "UniqueKeyConfig",
     "UniversalExtractorParams",
     "UpdateAppRequest",
@@ -2371,6 +2375,8 @@ from mixpeek.models.retriever_schema import RetrieverSchema as RetrieverSchema
 from mixpeek.models.retriever_signal import RetrieverSignal as RetrieverSignal
 from mixpeek.models.retriever_stage_definition import RetrieverStageDefinition as RetrieverStageDefinition
 from mixpeek.models.retriever_status import RetrieverStatus as RetrieverStatus
+from mixpeek.models.retriever_transform_config_input import RetrieverTransformConfigInput as RetrieverTransformConfigInput
+from mixpeek.models.retriever_transform_config_output import RetrieverTransformConfigOutput as RetrieverTransformConfigOutput
 from mixpeek.models.retriever_visibility import RetrieverVisibility as RetrieverVisibility
 from mixpeek.models.retry_batch_request import RetryBatchRequest as RetryBatchRequest
 from mixpeek.models.return_vector_names import ReturnVectorNames as ReturnVectorNames
@@ -2669,6 +2675,7 @@ from mixpeek.models.tokenizer_type import TokenizerType as TokenizerType
 from mixpeek.models.tool_info import ToolInfo as ToolInfo
 from mixpeek.models.transaction_info import TransactionInfo as TransactionInfo
 from mixpeek.models.transactions_list_response import TransactionsListResponse as TransactionsListResponse
+from mixpeek.models.transcoding_extractor_params import TranscodingExtractorParams as TranscodingExtractorParams
 from mixpeek.models.transition_lifecycle_request import TransitionLifecycleRequest as TransitionLifecycleRequest
 from mixpeek.models.transition_path import TransitionPath as TransitionPath
 from mixpeek.models.trigger_action_type import TriggerActionType as TriggerActionType
@@ -2686,6 +2693,7 @@ from mixpeek.models.typeahead_value_suggestion import TypeaheadValueSuggestion a
 from mixpeek.models.umap_params import UMAPParams as UMAPParams
 from mixpeek.models.unified_extractor_list_response import UnifiedExtractorListResponse as UnifiedExtractorListResponse
 from mixpeek.models.unified_extractor_response import UnifiedExtractorResponse as UnifiedExtractorResponse
+from mixpeek.models.unique_id_field import UniqueIdField as UniqueIdField
 from mixpeek.models.unique_key_config import UniqueKeyConfig as UniqueKeyConfig
 from mixpeek.models.universal_extractor_params import UniversalExtractorParams as UniversalExtractorParams
 from mixpeek.models.update_app_request import UpdateAppRequest as UpdateAppRequest

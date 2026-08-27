@@ -13,7 +13,7 @@ def load_required_packages(
     *,
     turbo: bool = False,
     bumper: bool = False,
-    autodiff_backend: Literal["Zygote"] | None = None,
+    autodiff_backend: Literal["Zygote", "Mooncake", "Enzyme"] | None = None,
     cluster_manager: str | None = None,
     logger_spec: AbstractLoggerSpec | None = None,
 ):
@@ -21,9 +21,15 @@ def load_required_packages(
         load_package("LoopVectorization", "bdcacae8-1622-11e9-2a5c-532679323890")
     if bumper:
         load_package("Bumper", "8ce10254-0962-460f-a3d8-1f77fea1446e")
-    if autodiff_backend is not None:
+    if autodiff_backend == "Zygote":
         load_package("Zygote", "e88e6eb3-aa80-5325-afca-941959d7151f")
-    if cluster_manager is not None:
+    elif autodiff_backend == "Mooncake":
+        load_package("Mooncake", "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6")
+    elif autodiff_backend == "Enzyme":
+        load_package("Enzyme", "7da242da-08ed-463a-9acd-ee780be4f1d9")
+    if cluster_manager == "slurm":
+        load_package("SlurmClusterManager", "c82cd089-7bf7-41d7-976b-6b5d413cbe0a")
+    elif cluster_manager is not None:
         load_package("ClusterManagers", "34f1f09b-3a8b-5176-ab39-66d58a4d544e")
     if isinstance(logger_spec, TensorBoardLoggerSpec):
         load_package("TensorBoardLogger", "899adc3e-224a-11e9-021f-63837185c80f")
@@ -38,6 +44,7 @@ def load_all_packages():
         cluster_manager="slurm",
         logger_spec=TensorBoardLoggerSpec(log_dir="logs"),
     )
+    load_package("ClusterManagers", "34f1f09b-3a8b-5176-ab39-66d58a4d544e")
 
 
 # TODO: Refactor this file so we can install all packages at once using `juliapkg`,

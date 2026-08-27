@@ -286,12 +286,19 @@ def get_spark_column_names_from_snowpark_columns(
 
 
 def rename_columns_as_snowflake_standard(
-    df: snowpark.DataFrame, plan_id: int
+    df: snowpark.DataFrame,
+    plan_id: int,
+    *,
+    inline_rename: bool = False,
 ) -> tuple[snowpark.DataFrame, list[str]]:
     """
     Renames the columns of a Snowflake DataFrame to follow a standard format.
     Args:
         df (snowpark.DataFrame): The input Snowflake DataFrame.
+        inline_rename: When ``True``, allow Snowpark to flatten the projection
+            into the table scan. Required for Iceberg ``AT (BRANCH => ...)`` /
+            other time-travel reads: Snowflake returns NULL rows when the
+            ``AT`` clause sits inside a subquery (SCOS' default rename wrapper).
 
     Returns:
         tuple[snowpark.DataFrame, list[str]]: A tuple containing the modified DataFrame
@@ -308,7 +315,7 @@ def rename_columns_as_snowflake_standard(
 
     # do not flatten initial rename when reading table
     # TODO: remove once SNOW-2203826 is done
-    if result_df._select_statement is not None:
+    if not inline_rename and result_df._select_statement is not None:
         result_df._select_statement.flatten_disabled = True
 
     return result_df, new_columns

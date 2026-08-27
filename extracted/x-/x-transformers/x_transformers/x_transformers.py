@@ -1448,6 +1448,89 @@ class HyperConnection(Module):
         residuals = einsum('b n d, b n s -> b n s d', x, beta) + residuals
         return rearrange(residuals, 'b n s d -> (b s) n d')
 
+# gated multi residual
+
+class GatedMultiResidual(Module):
+    def __init__(
+        self,
+        dim,
+        *,
+        layer_index,
+        num_residual_streams,
+        num_input_views = 1,
+        read_gate_rank = None,
+        **kwargs
+    ):
+        """
+        https://qwen.ai/blog?id=qwen3.8-flash-next
+
+        Gated residual - elementwise low rank read gate over the residual streams, per stream scalar write gate
+        """
+        super().__init__()
+
+        self.num_residual_streams = num_residual_streams
+        self.num_input_views = num_input_views
+
+        assert exists(read_gate_rank), 'read_gate_rank must be provided for the gated multi residual'
+
+        # normalization and per stream elementwise gain
+
+        self.read_norm = nn.RMSNorm(dim, elementwise_affine = False)
+        self.read_gain = nn.Parameter(torch.ones(num_residual_streams, dim))
+
+        # static read gate - identity anchored on the layer's own stream
+
+        static_read_logit = torch.zeros(num_input_views, num_residual_streams, dim)
+        static_read_logit[:, layer_index % num_residual_streams] = 1.
+
+        self.static_read_logit = nn.Parameter(static_read_logit)
+
+        # static write gate - identity at init (sigmoid of zero times two is one)
+
+        self.static_write_logit = nn.Parameter(torch.zeros(num_residual_streams))
+
+        # shared low rank bottleneck for the read and write gates, zero initialized so both start at their static values
+
+        self.to_bottleneck = LinearNoBias(dim * num_residual_streams, read_gate_rank)
+        self.to_read_gate = LinearNoBias(read_gate_rank, dim * num_residual_streams * num_input_views)
+        self.to_write_gate = LinearNoBias(read_gate_rank, num_residual_streams)
+
+        init_zero_(self.to_read_gate)
+        init_zero_(self.to_write_gate)
+
+        self.dynamic_gate_scale = nn.Parameter(torch.ones(()) * 1e-2)
+
+    def prepare(self, residuals):
+        streams = self.num_residual_streams
+        views = self.num_input_views
+
+        residuals = rearrange(residuals, '(b s) n d -> b n s d', s = streams)
+
+        normed = self.read_norm(residuals) * self.read_gain
+        flat = rearrange(normed, 'b n s d -> b n (s d)') / streams
+
+        # shared low rank bottleneck for the read and write gates
+
+        dynamic = F.silu(self.to_bottleneck(flat)) * self.dynamic_gate_scale
+
+        # read gate - elementwise, static + dynamic
+
+        read_gate = self.to_read_gate(dynamic) + rearrange(self.static_read_logit, 'v s d -> 1 1 (v s d)')
+        read_gate = rearrange(read_gate.sigmoid(), 'b n (v s d) -> v b n s d', v = views, s = streams)
+
+        branch_input = reduce(read_gate * normed, 'v b n s d -> v b n d', 'sum') / streams
+        branch_input = branch_input[0] if views == 1 else branch_input
+
+        # write gate - per stream scalar, static + dynamic
+
+        beta = (self.to_write_gate(dynamic) + self.static_write_logit).sigmoid() * 2
+
+        return branch_input, residuals, dict(beta = beta)
+
+    def forward(self, x, residuals, *, beta, **kwargs):
+        residuals = einsum('b n d, b n s -> b n s d', x, beta) + residuals
+        return rearrange(residuals, 'b n s d -> (b s) n d')
+
 # LIMe - layer integrated memory (dynamic version)
 
 class DynamicLIMe(Module):
@@ -2701,6 +2784,7 @@ class AttentionLayers(Module):
         gate_residual = False,
         orthog_residual = False,
         mv_split_residual = False,
+        gated_multi_residual = False,
         scale_residual = False,
         scale_residual_constant = 1.,
         shift_tokens = 0,
@@ -2756,7 +2840,7 @@ class AttentionLayers(Module):
         # hyper connections
 
         assert num_residual_streams > 0
-        has_hyper_connections = num_residual_streams > 1
+        has_hyper_connections = num_residual_streams > 1 and not gated_multi_residual
 
         self.num_residual_streams = num_residual_streams
         self.stream_emb = nn.Parameter(torch.zeros(num_residual_streams, dim)) if num_residual_streams > 1 else None
@@ -2812,7 +2896,7 @@ class AttentionLayers(Module):
             assert alibi_num_heads <= heads, 'number of ALiBi heads must be less than the total number of heads'
             self.rel_pos = AlibiPositionalBias(heads = alibi_num_heads, total_heads = heads, **rel_pos_kwargs)
 
-        assert not (not pre_norm and sandwich_norm), 'sandwich norm cannot be used when not using prenorm'
+        assert not ((not pre_norm or gated_multi_residual) and sandwich_norm), 'sandwich norm cannot be used when not using prenorm'
 
         # pre norm and sandwich norm
 
@@ -2827,7 +2911,13 @@ class AttentionLayers(Module):
             self.pre_norm = True
             pre_norm_has_final_norm = False
 
-        assert at_most_one_of(gate_residual, attn_aggregated_residuals, orthog_residual, mv_split_residual), 'gate_residual, attn_aggregated_residuals, orthog_residual, and mv_split_residual are mutually exclusive'
+        assert at_most_one_of(has_hyper_connections, gated_multi_residual), 'hyper connections and gated multi residual are mutually exclusive'
+
+        if gated_multi_residual:
+            # the elementwise read gate normalizes, so the block pre-norm is dropped
+            pre_norm = False
+
+        assert at_most_one_of(gate_residual, attn_aggregated_residuals, orthog_residual, mv_split_residual, gated_multi_residual), 'gate_residual, attn_aggregated_residuals, orthog_residual, mv_split_residual, and gated_multi_residual are mutually exclusive'
 
         self.residual_attn = residual_attn
         self.cross_residual_attn = cross_residual_attn
@@ -3008,7 +3098,11 @@ class AttentionLayers(Module):
 
         # whether it has post norm
 
-        self.final_norm = norm_fn() if pre_norm and pre_norm_has_final_norm else Identity()
+        # final norm kept, always for gated multi residual
+
+        keep_final_norm = (pre_norm and pre_norm_has_final_norm) or gated_multi_residual
+
+        self.final_norm = norm_fn() if keep_final_norm else Identity()
 
         # whether unet or not
 
@@ -3118,7 +3212,13 @@ class AttentionLayers(Module):
                     attn_kwargs = attn_aggregated_residual_kwargs
                 )
 
-            if has_hyper_connections:
+            if gated_multi_residual:
+                residual_fn = partial(GatedMultiResidual, num_residual_streams = num_residual_streams)
+
+                if layer_type == 'a' and hyper_conn_produce_diff_views:
+                    residual_fn = partial(residual_fn, num_input_views = 3)
+
+            elif has_hyper_connections:
                 residual_fn = partial(HyperConnection, num_residual_streams = num_residual_streams, sinkhorn_iters = hyper_conn_sinkhorn_iters)
 
                 if layer_type == 'a' and hyper_conn_produce_diff_views:

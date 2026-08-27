@@ -17,14 +17,15 @@ if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
 
 CONFIG_NAMES = ("robocop.toml", "robot.toml", "pyproject.toml")
+GitIgnorePathSpec = pathspec.GitIgnoreSpec
 
 
 class GitIgnoreResolver:
     def __init__(self) -> None:
-        self.cached_ignores: dict[Path, tuple[Path, pathspec.PathSpec]] = {}
+        self.cached_ignores: dict[Path, tuple[Path, GitIgnorePathSpec]] = {}
         self.ignore_dirs: set[Path] = set()
 
-    def path_excluded(self, path: Path, gitignores: list[tuple[Path, pathspec.PathSpec]]) -> bool:
+    def path_excluded(self, path: Path, gitignores: list[tuple[Path, GitIgnorePathSpec]]) -> bool:
         """Find path gitignores and check if file is excluded."""
         if not gitignores:
             return False
@@ -38,13 +39,13 @@ class GitIgnoreResolver:
                 return True
         return False
 
-    def read_gitignore(self, path: Path) -> pathspec.PathSpec:
+    def read_gitignore(self, path: Path) -> GitIgnorePathSpec:
         """Return a PathSpec loaded from the file."""
         with path.open(encoding="utf-8") as gf:
             lines = gf.readlines()
-        return pathspec.PathSpec.from_lines(pathspec.patterns.GitWildMatchPattern, lines)  # type: ignore[attr-defined]
+        return pathspec.GitIgnoreSpec.from_lines(lines)
 
-    def resolve_path_ignores(self, path: Path) -> list[tuple[Path, pathspec.PathSpec]]:
+    def resolve_path_ignores(self, path: Path) -> list[tuple[Path, GitIgnorePathSpec]]:
         """
         Visit all parent directories and find all gitignores.
 
@@ -60,7 +61,7 @@ class GitIgnoreResolver:
         # TODO: respect nogitignore flag
         if path.is_file():
             path = path.parent
-        gitignores: list[tuple[Path, pathspec.PathSpec]] = []
+        gitignores: list[tuple[Path, GitIgnorePathSpec]] = []
         search_paths = (parent for parent in [path, *path.parents])
         for parent_path in search_paths:
             if parent_path in self.ignore_dirs:  # dir that does not have .gitignore (marked as such)
@@ -129,6 +130,7 @@ class ConfigManager:
         # ignore file filters on paths passed directly
         self.ignore_file_filters = not (force_exclude or self.default_config.force_exclude) and bool(sources)
         self._paths: dict[Path, SourceFile] = {}
+        self._project_paths: dict[Path, SourceFile] | None = None
         self.resolved_paths = False
         self._cache: RobocopCache | None = None
 
@@ -150,6 +152,20 @@ class ConfigManager:
         if not self.resolved_paths:
             self.resolve_paths(self.sources, ignore_file_filters=self.ignore_file_filters)
         yield from self._paths.values()
+
+    @property
+    def project_paths(self) -> Generator[SourceFile, None, None]:
+        """
+        All source files in the project, even if only selected paths are linted.
+
+        Project level checks need to know the whole project - for example a keyword defined in the linted file
+        can be used by a file outside the linted paths. Source files that were already resolved are reused, so
+        their models are only parsed once.
+        """
+        if self._project_paths is None:
+            self._project_paths = {}
+            self.resolve_paths([self.root], target=self._project_paths)
+        yield from self._project_paths.values()
 
     def get_default_config(self, config_path: Path | None, sources: list[str] | None) -> Config:
         """Get the default config either from --config option or from the cli."""
@@ -236,6 +252,7 @@ class ConfigManager:
         self,
         sources: list[Path] | list[str],
         ignore_file_filters: bool = False,
+        target: dict[Path, SourceFile] | None = None,
     ) -> None:
         """
         Find all files to parse and their corresponding configs.
@@ -246,13 +263,16 @@ class ConfigManager:
         Args:
             sources: list of sources from CLI or configuration file.
             ignore_file_filters: force robocop to parse file even if it's excluded in the configuration
+            target: where the resolved source files are stored. Defaults to the linted paths.
 
         """
+        if target is None:
+            target = self._paths
         config: Config | None = None
         for source in sources:
             source_not_resolved = Path(source)
             source = source_not_resolved.resolve()
-            if source in self._paths:
+            if source in target:
                 continue
             if not source.exists():
                 if source_not_resolved.is_symlink():  # i.e. dangling symlink
@@ -269,6 +289,6 @@ class ConfigManager:
                     if self.gitignore_resolver.path_excluded(source_not_resolved, source_gitignore):
                         continue
             if source.is_dir():
-                self.resolve_paths(list(source.iterdir()))
+                self.resolve_paths(list(source.iterdir()), target=target)
             elif source.is_file():
-                self._paths[source] = SourceFile(path=source, config=config)
+                target[source] = self._paths.get(source) or SourceFile(path=source, config=config)

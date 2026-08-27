@@ -112,6 +112,32 @@ class TestCreateCollectionRequest(unittest.TestCase):
                         scroll_filters = { }, 
                         enabled = True, )
                     ],
+                retriever_transform = mixpeek.models.retriever_transform_config.RetrieverTransformConfig(
+                    stages = [
+                        mixpeek.models.stage_config.StageConfig(
+                            stage_name = '0', 
+                            stage_type = 'filter', 
+                            config = { }, 
+                            batch_size = '', 
+                            description = '', 
+                            on_error = '', 
+                            output_alias = '', )
+                        ], 
+                    input_mappings = [
+                        mixpeek.models.enrichment_input_mapping.EnrichmentInputMapping(
+                            input_key = '', 
+                            source = mixpeek.models.input_mapping_source.InputMappingSource(
+                                source_type = 'document_field', 
+                                path = '', 
+                                value = null, ), )
+                        ], 
+                    write_back_fields = [
+                        mixpeek.models.write_back_field_mapping.WriteBackFieldMapping(
+                            source_field = '', 
+                            target_field = '', 
+                            mode = 'first', )
+                        ], 
+                    unique_id_field = null, ),
                 embedding_task = ''
             )
         else:
@@ -141,9 +167,6 @@ class TestCreateCollectionRequest(unittest.TestCase):
                                 required = True, )
                             ]
                         }, ),
-                feature_extractor = {
-                    'key' : null
-                    },
         )
         """
 

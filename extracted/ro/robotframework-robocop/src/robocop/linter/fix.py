@@ -4,12 +4,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from robot.api import Token
+
 from robocop.files import path_relative_to_cwd
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from robocop.linter.diagnostics import Range
+    from robot.parsing.model.statements import Statement
+
+    from robocop.linter.diagnostics import Diagnostic, Range
+    from robocop.linter.rules import Rule
     from robocop.source_file import SourceFile
 
 
@@ -159,6 +164,87 @@ class Fix:
     applicability: FixApplicability
 
 
+def _comment_lines(node: Statement, source_lines: list[str]) -> list[str]:
+    """
+    Return lines with the comments from the statement, without the statement data itself.
+
+    Only the first comment in the line is used, since the rest of the line is taken as it is.
+    The original indentation of the line is preserved.
+    """
+    comment_lines = []
+    seen_lines = set()
+    for token in node.get_tokens(Token.COMMENT):
+        if token.lineno in seen_lines:
+            continue
+        seen_lines.add(token.lineno)
+        line = source_lines[token.lineno - 1]
+        indent = line[: len(line) - len(line.lstrip())]
+        comment_lines.append(f"{indent}{line[token.col_offset :]}")
+    return comment_lines
+
+
+def remove_lines_fix(rule: Rule, start_line: int, end_line: int, message: str, replacement: str = "") -> Fix:
+    """Create a fix that removes lines between ``start_line`` and ``end_line`` or replaces them with new content."""
+    if replacement:
+        edit = TextEdit.replace_lines(rule.rule_id, rule.name, start_line, end_line, replacement)
+    else:
+        edit = TextEdit(
+            rule_id=rule.rule_id,
+            rule_name=rule.name,
+            start_line=start_line,
+            start_col=1,
+            end_line=end_line,
+            end_col=1,
+            replacement="",
+            kind=TextEditKind.DELETION,
+        )
+    return Fix(edits=[edit], message=message, applicability=FixApplicability.SAFE)
+
+
+def remove_statement_fix(rule: Rule, node: Statement, source_lines: list[str], message: str) -> Fix:
+    """
+    Create a fix that removes the whole statement.
+
+    Comments are not removed together with the statement - they are left in place instead.
+    """
+    comment_lines = _comment_lines(node, source_lines)
+    return remove_lines_fix(rule, node.lineno, node.end_lineno, message, "".join(comment_lines))
+
+
+def add_setting_value_fix(rule: Rule, node: Statement, value: str, message: str, separator: str = "    ") -> Fix:
+    """Create a fix that adds the value to the setting without any value."""
+    setting_token = node.data_tokens[0]
+    column = setting_token.end_col_offset + 1
+    edit = TextEdit(
+        rule_id=rule.rule_id,
+        rule_name=rule.name,
+        start_line=setting_token.lineno,
+        start_col=column,
+        end_line=setting_token.lineno,
+        end_col=column,
+        replacement=f"{separator}{value}",
+    )
+    return Fix(edits=[edit], message=message, applicability=FixApplicability.SAFE)
+
+
+def remove_empty_setting_fix(rule: Rule, diag: Diagnostic, source_lines: list[str]) -> Fix | None:
+    """
+    Create a fix for the setting without any value.
+
+    Empty settings are removed, unless they overwrite the suite setting. In such case the ``NONE`` value is used
+    to make the intention explicit.
+    """
+    node = diag.node
+    if node is None or not node.data_tokens:
+        return None
+    setting_name = node.data_tokens[0].value
+    if diag.reported_arguments.get("overwrites_suite_setting"):
+        return add_setting_value_fix(
+            rule, node, "NONE", f"Replace empty '{setting_name}' setting with an explicit NONE value"
+        )
+    return remove_statement_fix(rule, node, source_lines, f"Remove empty '{setting_name}' setting")
+
+
 @dataclass
 class FixStats:
     """
@@ -244,7 +330,8 @@ class FixApplier:
             self.fix_stats.by_file[source_file.path][key] = self.fix_stats.by_file[source_file.path].get(key, 0) + 1
 
         source_file.modified = True
-        self.modified_files.append(source_file)
+        if source_file not in self.modified_files:
+            self.modified_files.append(source_file)
 
         source_file.reload_model()
         return True
@@ -265,15 +352,32 @@ class FixApplier:
 
         for edit in sorted_edits[1:]:
             # Check if this edit starts after the previous edit ends
-            end_line = (
-                non_overlapping[-1].end_line
-                if non_overlapping[-1].end_line is not None
-                else non_overlapping[-1].start_line
-            )
-            if edit.start_line > end_line:
+            previous = non_overlapping[-1]
+            end_line = previous.end_line if previous.end_line is not None else previous.start_line
+            if edit.start_line > end_line or FixApplier._is_after_on_the_same_line(previous, edit):
                 non_overlapping.append(edit)
 
         return non_overlapping
+
+    @staticmethod
+    def _is_after_on_the_same_line(previous: TextEdit, edit: TextEdit) -> bool:
+        """
+        Check if both edits replace a part of the same line and do not overlap.
+
+        Only single line replacements can be applied together, other kinds of edits replace, insert or delete
+        whole lines.
+
+        Returns:
+            True if the edit can be applied together with the previous one.
+
+        """
+        single_line_kinds = (
+            previous.kind == TextEditKind.REPLACEMENT
+            and edit.kind == TextEditKind.REPLACEMENT
+            and previous.start_line == previous.end_line
+            and edit.start_line == edit.end_line
+        )
+        return single_line_kinds and previous.start_line == edit.start_line and edit.start_col >= previous.end_col
 
     @staticmethod
     def _apply_edit(lines: list[str], edit: TextEdit) -> None:

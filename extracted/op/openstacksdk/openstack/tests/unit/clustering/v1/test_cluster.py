@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from typing import Any
 from unittest import mock
 
 from openstack.clustering.v1 import cluster
@@ -18,7 +19,7 @@ from openstack.tests.unit import base
 FAKE_ID = '092d0955-2645-461a-b8fa-6a44655cdb2c'
 FAKE_NAME = 'test_cluster'
 
-FAKE = {
+FAKE: dict[str, Any] = {
     'id': 'IDENTIFIER',
     'config': {'key1': 'value1', 'key2': 'value2'},
     'desired_capacity': 1,
@@ -262,7 +263,7 @@ class TestCluster(base.TestCase):
         sess.post = mock.Mock(return_value=resp)
         self.assertEqual('', sot.check(sess))
         url = f'clusters/{sot.id}/actions'
-        body = {'check': {}}
+        body: dict[str, Any] = {'check': {}}
         sess.post.assert_called_once_with(url, json=body)
 
     def test_recover(self):
@@ -274,7 +275,7 @@ class TestCluster(base.TestCase):
         sess.post = mock.Mock(return_value=resp)
         self.assertEqual('', sot.recover(sess))
         url = f'clusters/{sot.id}/actions'
-        body = {'recover': {}}
+        body: dict[str, Any] = {'recover': {}}
         sess.post.assert_called_once_with(url, json=body)
 
     def test_operation(self):
@@ -286,7 +287,7 @@ class TestCluster(base.TestCase):
         sess.post = mock.Mock(return_value=resp)
         self.assertEqual('', sot.op(sess, 'dance', style='tango'))
         url = f'clusters/{sot.id}/ops'
-        body = {'dance': {'style': 'tango'}}
+        body: dict[str, Any] = {'dance': {'style': 'tango'}}
         sess.post.assert_called_once_with(url, json=body)
 
     def test_force_delete(self):

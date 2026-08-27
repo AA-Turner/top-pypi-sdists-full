@@ -5,7 +5,7 @@ build-backend = "flit_core.buildapi"
 [project]
 # Check https://flit.readthedocs.io/en/latest/pyproject_toml.html for all available sections
 name = "ansys-units"
-version = "0.12.1"
+version = "0.13.0"
 description = "Pythonic interface for units, unit systems, and unit conversions."
 readme = "README.rst"
 requires-python = ">=3.10,<3.15"
@@ -28,14 +28,14 @@ dependencies = [
 
 [project.optional-dependencies]
 doc = [
-    "ansys-sphinx-theme==1.7.2",
+    "ansys-sphinx-theme==1.9.0",
     "pdf2image==1.17.0",
-    "quarto-cli==1.9.37",
-    "matplotlib==3.10.8",
+    "quarto-cli==1.9.38",
+    "matplotlib==3.10.9",
     "numpydoc==1.10.0",
     "Sphinx==7.4.7",
     "sphinx-copybutton==0.5.2",
-    "sphinx-gallery==0.20.0",
+    "sphinx-gallery==0.21.0",
     "sphinx-toggleprompt==0.6.0"
 ]
 tests = [
@@ -43,7 +43,7 @@ tests = [
     "pandas>=3.0.0; python_version >= '3.11'",
     "pandas>=2.2,<3.0; python_version < '3.11'",
     "pandas-stubs>=2",
-    "pytest==9.0.3",
+    "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "pytest-mock==3.15.1",
     "pint==0.24.4"
@@ -59,17 +59,17 @@ additional = [
 # getting versions of matplotlib and numpy that are compatible is hard so we have this for CI
 ci_types = [
     "basedpyright",
-    "matplotlib==3.10.8",
+    "matplotlib==3.10.9",
     "pandas>=3.0.0; python_version >= '3.11'",
     "pandas>=2.2,<3.0; python_version < '3.11'",
     "pandas-stubs>=2",
     "pydantic>=2.11.7",
     "pydantic_core>=2.33.2",
-    "pytest==9.0.3",
+    "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "pytest-mock==3.15.1",
     "pint==0.24.4",
-    "black==26.3.1"
+    "black==26.5.1"
 ]
 
 [project.urls]

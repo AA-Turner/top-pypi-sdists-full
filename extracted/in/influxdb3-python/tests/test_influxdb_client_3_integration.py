@@ -1,9 +1,13 @@
+import asyncio
+import json
 import logging
+import multiprocessing
 import os
 import random
 import string
 import time
 import unittest
+from functools import partial
 
 import pandas as pd
 import pyarrow
@@ -13,11 +17,19 @@ from urllib3.exceptions import MaxRetryError, TimeoutError as Url3TimeoutError
 from influxdb_client_3 import InfluxDBClient3, write_client_options, WriteOptions, \
     WriteType, InfluxDB3ClientQueryError
 from influxdb_client_3.exceptions import InfluxDBError, InfluxDBPartialWriteError
+from influxdb_client_3.write_client import WriteApi
+from influxdb_client_3.write_client._sync import rest_client
+from influxdb_client_3.write_client.client.util.multiprocessing_helper import MultiprocessingWriter
+from influxdb_client_3.write_client.write_exceptions import ApiException
 from tests.util import asyncio_run, lp_to_py_object
 
 
 def random_hex(len=6):
     return ''.join(random.choice(string.hexdigits) for i in range(len))
+
+
+def on_shutdown_callback(number):
+    number.value = 20
 
 
 @pytest.mark.integration
@@ -124,6 +136,37 @@ class TestInfluxDBClient3Integration(unittest.TestCase):
         self.assertEqual(test_id, df['test_id'][0])
         self.assertEqual(123.0, df['value'][0])
 
+    def test_write_directly_with_write_api(self):
+        default_header = {
+            'Authorization': f'Token {self.token}'
+        }
+        rest = rest_client.RestClient(
+            base_url=self.host,
+            default_header=default_header,
+        )
+
+        write_api = WriteApi(
+            bucket=self.database,
+            org='my-org',
+            default_header=default_header,
+            rest_client=rest,
+        )
+
+        test_id = time.time_ns()
+        write_api.write(record=f"integration_test_python,type=used value=456.0,test_id={test_id}i")
+        write_api.close()
+        time.sleep(0.5)
+        df = self.client.query(
+            query='SELECT * FROM integration_test_python where type=$type and test_id=$test_id',
+            mode="pandas",
+            query_parameters={'type': 'used', 'test_id': test_id}
+        )
+
+        self.assertIsNotNone(df)
+        self.assertEqual(1, len(df))
+        self.assertEqual(test_id, df['test_id'][0])
+        self.assertEqual(456.0, df['value'][0])
+
     def test_v3_error(self):
         lp = "\n".join([
             "home,room=Sunroom temp=96 1735545600",
@@ -133,28 +176,37 @@ class TestInfluxDBClient3Integration(unittest.TestCase):
         for accept_partial in [True, False]:
             with self.subTest(accept_partial=accept_partial):
                 with InfluxDBClient3(
-                    host=self.host,
-                    database=self.database,
-                    token=self.token,
-                    write_client_options=write_client_options(write_options=WriteOptions(
-                        write_type=WriteType.synchronous,
-                        use_v2_api=False,
-                        accept_partial=accept_partial
-                    ))
+                        host=self.host,
+                        database=self.database,
+                        token=self.token,
+                        write_client_options=write_client_options(write_options=WriteOptions(
+                            write_type=WriteType.synchronous,
+                            use_v2_api=False,
+                            accept_partial=accept_partial
+                        ))
                 ) as client:
-                    with self.assertRaises(InfluxDBPartialWriteError) as err:
-                        client.write(lp)
+                    if accept_partial:
+                        with self.assertRaises(InfluxDBPartialWriteError) as err:
+                            client.write(lp)
 
-                msg = err.exception.message
-                self.assertTrue(
-                    "partial write of line protocol occurred" in msg or "parsing failed for write_lp endpoint" in msg
-                )
-                self.assertIn((
-                    "invalid column type for column 'temp', expected iox::column_type::field::float, "
-                    "got iox::column_type::field::string"
-                ), msg)
-                self.assertIn("line 2", msg)
-                self.assertIn("home,room=Sunroom", msg)
+                        self.assertEqual(1, len(err.exception.line_errors))
+                        line_error = err.exception.line_errors[0]
+                        self.assertEqual(2, line_error.line_number)
+                        self.assertIn("invalid column type for column 'temp'", line_error.error_message)
+                        self.assertIn("home,room=Sunroom", line_error.original_line)
+                    else:
+                        with self.assertRaises(ApiException) as err:
+                            client.write(lp)
+
+                        self.assertEqual(400, err.exception.status)
+                        self.assertEqual("line protocol parsing error", err.exception.message)
+                        body = json.loads(err.exception.body)
+                        self.assertEqual("line protocol parsing error", body["error"])
+                        self.assertEqual(2, body["data"]["line_number"])
+                        self.assertIn(
+                            "invalid column type for column 'temp'",
+                            body["data"]["error_message"],
+                        )
 
     def test_v2_error(self):
         lp = "\n".join([
@@ -162,23 +214,26 @@ class TestInfluxDBClient3Integration(unittest.TestCase):
             "home,room=Sunroom temp=\"hi\" 1735549200",
         ])
 
-        with InfluxDBClient3(
-            host=self.host,
-            database=self.database,
-            token=self.token,
-            write_client_options=write_client_options(write_options=WriteOptions(
-                write_type=WriteType.synchronous,
-                use_v2_api=True,
-                accept_partial=False
-            ))
-        ) as client:
-            with self.assertRaises(InfluxDBError) as err:
-                client.write(lp)
+        for accept_partial in [True, False]:
+            with self.subTest(accept_partial=accept_partial):
+                with InfluxDBClient3(
+                        host=self.host,
+                        database=self.database,
+                        token=self.token,
+                        write_client_options=write_client_options(write_options=WriteOptions(
+                            write_type=WriteType.synchronous,
+                            use_v2_api=True,
+                            accept_partial=accept_partial
+                        ))
+                ) as client:
+                    with self.assertRaises(ApiException) as err:
+                        client.write(lp)
 
-        self.assertNotIsInstance(err.exception, InfluxDBPartialWriteError)
-        self.assertIsNotNone(err.exception.response)
-        self.assertEqual(400, err.exception.response.status)
-        self.assertTrue(err.exception.message)
+                self.assertEqual(400, err.exception.status)
+                self.assertNotIsInstance(err.exception, InfluxDBPartialWriteError)
+                body = json.loads(err.exception.body)
+                self.assertEqual("invalid", body["code"])
+                self.assertIn("write buffer error", body["message"])
 
     def test_auth_error_token(self):
         self.client = InfluxDBClient3(host=self.host, database=self.database, token='fake token')
@@ -291,6 +346,104 @@ class TestInfluxDBClient3Integration(unittest.TestCase):
             reader: pyarrow.Table = r_client.query(query, mode="")
             list_results = reader.to_pylist()
             self.assertEqual(data_size, len(list_results))
+
+    def test_multiprocessing_helper(self):
+        with MultiprocessingWriter(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                org='my-org',
+                write_options=WriteOptions(batch_size=1)) as mp:
+            self.assertEqual(mp.get_start_processing_method(), 'spawn')
+
+            measurement = f'test{random_hex(6)}'.lower()
+            for x in range(1, 5):
+                time.sleep(0.5)
+                mp.write(
+                    bucket=self.database,
+                    record=f"{measurement},tag=a value=\"number{x}\" {time.time_ns()}"
+                )
+
+        time.sleep(1)
+        df = self.client.query(f'select * from {measurement}', mode="pandas")
+        self.assertEqual(4, len(df))
+
+    def test_multiprocessing_helper_with_ttl(self):
+
+        with MultiprocessingWriter(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                org='my-org',
+                process_ttl=2,
+                write_options=WriteOptions(batch_size=1)) as mp:
+
+            time.sleep(4)
+
+            try:
+                # Child process already closed because of two seconds `process_ttl`,
+                # subsequent call to `write()` will throws an error.
+                mp.write(
+                    bucket=self.database,
+                    record=f"{f'test{random_hex(6)}'.lower()},tag=a value=\"number1\" {time.time_ns()}"
+                )
+            except Exception as e:
+                self.assertEqual(str(e), 'Cannot write data: the writer is closed.')
+
+    def test_multiprocessing_start_method_forkserver(self):
+        with MultiprocessingWriter(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                org='my-org',
+                write_options=WriteOptions(batch_size=1),
+                start_method='forkserver'
+        ) as mp:
+            self.assertEqual(mp.get_start_processing_method(), 'forkserver')
+
+    def test_multiprocessing_start_method_fork(self):
+
+        with MultiprocessingWriter(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                org='my-org',
+                write_options=WriteOptions(batch_size=1),
+                start_method='fork'
+        ) as mp:
+            self.assertEqual(mp.get_start_processing_method(), 'fork')
+
+    def test_multiprocessing_helper_with_on_shutdown(self):
+        # on_shutdown() call back will be called in child process.
+        ctx = multiprocessing.get_context('spawn')
+        number = ctx.Value('i', 0)
+        with MultiprocessingWriter(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                org='my-org',
+                process_ttl=1,
+                on_shutdown=partial(on_shutdown_callback, number),
+                write_options=WriteOptions(batch_size=1)) as mp:
+            self.assertEqual(number.value, 0)
+            time.sleep(3)
+        self.assertEqual(number.value, 20)
+
+        # on_shutdown() call back will be called in `__del__()` function in main porcess
+        number1 = ctx.Value('i', 0)
+        with MultiprocessingWriter(
+                host=self.host,
+                database=self.database,
+                token=self.token,
+                org='my-org',
+                on_shutdown=partial(on_shutdown_callback, number1),
+                write_options=WriteOptions(batch_size=1)) as mp:
+            self.assertEqual(number1.value, 0)
+            mp.write(
+                bucket=self.database,
+                record=f"{f'test{random_hex(6)}'.lower()},tag=a value=\"number1\" {time.time_ns()}"
+            )
+        self.assertEqual(number1.value, 20)
 
     test_cert = """-----BEGIN CERTIFICATE-----
 MIIDUzCCAjugAwIBAgIUZB55ULutbc9gy6xLp1BkTQU7siowDQYJKoZIhvcNAQEL
@@ -528,7 +681,7 @@ IdKIRUY6EyIVG+Z/nbuVqUlgnIWOMp0yg4RRC91zHy3Xvykf3Vai25H/jQpa6cbU
         )
 
         with self.assertRaisesRegex(InfluxDB3ClientQueryError, ".*Deadline Exceeded.*"):
-            localClient.query("SELECT * FROM data", timeout=0.0001)
+            localClient.query("SELECT * FROM data", timeout=0.000001)
 
     def test_write_timeout_per_call_override(self):
 
@@ -701,3 +854,14 @@ IdKIRUY6EyIVG+Z/nbuVqUlgnIWOMp0yg4RRC91zHy3Xvykf3Vai25H/jQpa6cbU
             finally:
                 if proxy:
                     proxy.stop()
+
+    def test_call_async_no_exception(self):
+        async def run():
+            await self.client._write_api.post_write_async(
+                "my-org",
+                self.database,
+                "home,room=Sunroom temp=96 1735545600",
+                use_v2_api=False
+            )
+
+        asyncio.run(run())

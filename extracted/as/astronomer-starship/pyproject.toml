@@ -26,6 +26,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 [project.urls]
@@ -71,7 +73,7 @@ dev = [
     "commitizen",
 
     # test
-    "apache-airflow<3.2", # Starship only supports Airflow version up to 3.1 at the moment
+    "apache-airflow<3.4", # Starship supports Airflow versions up to 3.3
     "pytest>=7",
     "pytest-cov>=4.0",
     "pytest-integration>=0.2",
@@ -147,7 +149,7 @@ addopts = [
 ]
 
 [tool.commitizen]
-version = "2.9.1"
+version = "2.10.0"
 version_files = ["astronomer_starship/__init__.py:__version__"]
 tag_format = "v$version"
 update_changelog_on_bump = false

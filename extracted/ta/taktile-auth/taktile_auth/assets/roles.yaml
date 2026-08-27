@@ -8,12 +8,16 @@ d_owner/org_id:
 d_member/org_id:
     - r:organization/org_id
     - r:organization_name/org_id
+ws_member/org_id,ws_id:
+    - r:workspace_meta/org_id,ws_id
 ws_viewer/org_id,ws_id:
     - agent_viewer/org_id,ws_id
     - connection_viewer/org_id,ws_id
     - flow_viewer/org_id,ws_id,*
+    - ws_member/org_id,ws_id
     - r:workspace/org_id,ws_id
     - r:workspace_data/org_id,ws_id
+    - r:outcome_type_management/org_id,ws_id
     - r:workspace_routing_sandbox/org_id,ws_id
     - r:workspace_routing_production/org_id,ws_id
     - r:workspace_sandbox_endpoint/org_id,ws_id
@@ -26,8 +30,10 @@ ws_reviewer/org_id,ws_id:
     - agent_viewer/org_id,ws_id
     - case_reviewer/org_id,ws_id
     - flow_viewer/org_id,ws_id,*
+    - ws_member/org_id,ws_id
     - r:workspace/org_id,ws_id
     - r+w:workspace_data/org_id,ws_id
+    - r:outcome_type_management/org_id,ws_id
     - r+w:workspace_review_case/org_id,ws_id,{env=*}
     - file_user/org_id,ws_id
     - copilot_user/org_id,ws_id
@@ -59,6 +65,7 @@ ws_editor/org_id,ws_id:
     - r+w:workspace_analytics_dashboard/org_id,ws_id
 ws_admin/org_id,ws_id:
     - ws_editor/org_id,ws_id
+    - ws_manager/org_id,ws_id
     - agent_deployer/org_id,ws_id
     - agent_execute_live/org_id,ws_id
     - connection_editor/org_id,ws_id
@@ -74,10 +81,18 @@ ws_admin/org_id,ws_id:
     - w:workspace_live_job_trigger/org_id,ws_id
     - w+d:jobs/org_id,ws_id,*
     - w+d:job_run/org_id,ws_id,*,{env=live}
-    - r+w+d:outcome_type_management/org_id,ws_id
+    - w+d:outcome_type_management/org_id,ws_id
     - data_admin/org_id,ws_id
     - r+w:workspace_wizard/org_id,ws_id,{env=*}
     - case_admin/org_id,ws_id
+# P141c workspace admin: manage permissions, API keys and folders, view all folders.
+# Deliberately no w:flows — folder management stays separable from Edit Logic.
+ws_manager/org_id,ws_id:
+    - ws_member/org_id,ws_id
+    - flow_viewer/org_id,ws_id,*
+    - r+w:workspace_user_management/org_id,ws_id
+    - r+w:workspace_api_keys/org_id,ws_id
+    - w+d:flow_folders/org_id,ws_id
 flow_viewer/org_id,ws_id,flow_folder_id:
     - r:flows/org_id,ws_id,flow_folder_id,{env=*}
     - dh_viewer_sandbox/org_id,ws_id
@@ -171,6 +186,20 @@ data_admin/org_id,ws_id:
 # P141c file role, carved verbatim from the ws_* roles (capability-neutral)
 file_user/org_id,ws_id:
     - r+w:workspace_file/org_id,ws_id,{env=*}
+
+# P141c combined data & case personas (composition only)
+data_case_viewer/org_id,ws_id:
+    - data_viewer/org_id,ws_id
+    - case_reviewer/org_id,ws_id
+    - file_user/org_id,ws_id
+data_case_editor/org_id,ws_id:
+    - data_editor/org_id,ws_id
+    - case_editor/org_id,ws_id
+    - file_user/org_id,ws_id
+data_case_admin/org_id,ws_id:
+    - data_admin/org_id,ws_id
+    - case_admin/org_id,ws_id
+    - file_user/org_id,ws_id
 
 # roles assignable via admin panel
 oncall_group:

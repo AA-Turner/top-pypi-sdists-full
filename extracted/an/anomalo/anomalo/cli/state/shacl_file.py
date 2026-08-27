@@ -93,7 +93,7 @@ class ShaclFileDriver:
         try:
             shapes_graph = Graph()
             shapes_graph.parse(shapes_path, format="turtle")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 (blind-except)
             # If we can't load the shapes file, log a warning but don't fail
             # This allows the system to work even if the shapes file is missing
             import logging

@@ -1408,6 +1408,26 @@ class OrderProperties(System.Object, QuantConnect.Interfaces.IOrderProperties):
         ...
 
 
+class ClearStreetOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Represents the properties of an order in Clear Street."""
+
+    @property
+    def outside_regular_trading_hours(self) -> bool:
+        """
+        If set to true, allows the order to trigger or fill outside of regular trading hours
+        (the extended session).
+        """
+        ...
+
+    @outside_regular_trading_hours.setter
+    def outside_regular_trading_hours(self, value: bool) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
+        ...
+
+
 class TradierOrderProperties(QuantConnect.Orders.OrderProperties):
     """Provides an implementation of the OrderProperties specific to Tradier order."""
 

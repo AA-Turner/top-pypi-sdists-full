@@ -28,10 +28,6 @@ def run_isort(arguments: Generator[str, None, None] | Sequence[str]):
     main(["--check-only", "--diff", *arguments])
 
 
-@pytest.mark.xfail(
-    reason="Project is incorrectly formatted after PR #2236, should be fixed "
-    "after a release and the project formatting again."
-)
 def test_django(tmpdir):
     git_clone("https://github.com/django/django.git", tmpdir)
     run_isort(
@@ -44,6 +40,9 @@ def test_plone(tmpdir):
     run_isort([str(tmpdir / "src"), "--skip", "languagefallback.py"])
 
 
+@pytest.mark.skip(
+    "Skip for now as #2295 introduce a breaking change. Can be re-enabled after pandas has updated."
+)
 def test_pandas(tmpdir):
     git_clone("https://github.com/pandas-dev/pandas.git", tmpdir)
     run_isort((str(tmpdir / "pandas"), "--skip", "__init__.py"))

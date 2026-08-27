@@ -31,7 +31,9 @@ default_allowed_algs = [
     'ES256', 'ES384', 'ES512',
     'PS256', 'PS384', 'PS512',
     'EdDSA', 'ES256K', 'Ed25519',
-    'Ed448']
+    'Ed448',
+    'ML-DSA-44', 'ML-DSA-65', 'ML-DSA-87',
+]
 """Default allowed algorithms"""
 
 
@@ -461,7 +463,9 @@ class JWS:
                         o['payload'] = djws['payload']
 
             except ValueError:
-                data = raw_jws.split('.')
+                # process up to 3 dots, if we have 3+ dots we get more than 3
+                # chunks and that means we have a malformed JWS
+                data = raw_jws.split('.', 3)
                 if len(data) != 3:
                     raise InvalidJWSObject('Unrecognized'
                                            ' representation') from None

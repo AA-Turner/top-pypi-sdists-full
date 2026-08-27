@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cantools
-Version: 43.0.0
+Version: 43.0.2
 Summary: CAN BUS tools.
 Author-email: Erik Moqvist <erik.moqvist@gmail.com>
 License: MIT
@@ -14,7 +14,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: bitstruct>=8.16.1
 Requires-Dist: python-can>=4.6.0
-Requires-Dist: textparser>=0.21.1
+Requires-Dist: textparser>=0.26
 Requires-Dist: argparse_addons
 Requires-Dist: crccheck
 Provides-Extra: cache

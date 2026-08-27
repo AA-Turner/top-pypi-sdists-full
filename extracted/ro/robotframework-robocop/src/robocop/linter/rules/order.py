@@ -3,13 +3,38 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from robot.api import Token
-from robot.parsing.model.blocks import Keyword, TestCase
 
 from robocop.linter import sonar_qube
-from robocop.linter.rules import Rule, RuleParam, RuleSeverity, VisitorChecker
+from robocop.linter.rules import Rule, RuleParam, RuleSeverity
 
 if TYPE_CHECKING:
-    from robot.parsing import File
+    from robot.parsing.model.blocks import Keyword, TestCase
+    from robot.parsing.model.statements import SectionHeader
+
+
+def report_out_of_order_settings(rule: Rule, node: Keyword | TestCase) -> None:
+    """Report ``rule`` for every setting or body item that breaks the expected order."""
+    expected_order = rule.sections_order
+    max_order_indicator = -1
+    for subnode in node.body:
+        try:
+            subnode_type = subnode.type
+        except AttributeError:
+            continue
+        if subnode_type not in expected_order:
+            continue
+        this_node_expected_order = expected_order.index(subnode_type)
+        if this_node_expected_order < max_order_indicator:
+            error_node = subnode.data_tokens[0]
+            rule.report(
+                section_name=subnode_type,
+                recommended_order=", ".join(expected_order),
+                node=error_node,
+                col=error_node.col_offset + 1,
+                end_col=error_node.end_col_offset + 1,
+            )
+        else:
+            max_order_indicator = this_node_expected_order
 
 
 def parse_order_comma_sep_list(value: str, mapping: dict[str, Any]) -> list[str]:
@@ -38,6 +63,7 @@ def parse_keyword_order_param(value: str) -> list[str]:
 def parse_test_case_order_param(value: str) -> list[str]:
     mapping = {
         "documentation": Token.DOCUMENTATION,
+        "metadata": Token.METADATA,
         "tags": Token.TAGS,
         "timeout": Token.TIMEOUT,
         "setup": Token.SETUP,
@@ -75,7 +101,7 @@ class TestCaseSectionOutOfOrderRule(Rule):
     Settings or body in the test case are out of order.
 
     Sections should be defined in order set by the ``sections_order`` parameter.
-    Default order: ``documentation,tags,timeout,setup,template,keyword,teardown``.
+    Default order: ``documentation,metadata,tags,timeout,setup,template,keyword,teardown``.
 
     To change the default order, use the following option:
 
@@ -84,6 +110,7 @@ class TestCaseSectionOutOfOrderRule(Rule):
     where section should be a case-insensitive name from the list:
 
     - documentation
+    - metadata
     - tags
     - timeout
     - setup
@@ -92,6 +119,8 @@ class TestCaseSectionOutOfOrderRule(Rule):
     - teardown
 
     Order of not configured sections is ignored.
+
+    ``metadata`` refers to the test case ``[Metadata]`` setting, which requires Robot Framework 7.5 or newer.
 
     Incorrect code example:
 
@@ -123,7 +152,7 @@ class TestCaseSectionOutOfOrderRule(Rule):
     parameters = [
         RuleParam(
             name="sections_order",
-            default="documentation,tags,timeout,setup,template,keyword,teardown",
+            default="documentation,metadata,tags,timeout,setup,template,keyword,teardown",
             converter=parse_test_case_order_param,
             show_type="str",
             desc="order of sections in comma-separated list",
@@ -135,6 +164,11 @@ class TestCaseSectionOutOfOrderRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0927",)
+
+    def check(self, node: TestCase) -> None:
+        if not self.enabled:
+            return
+        report_out_of_order_settings(self, node)
 
 
 class KeywordSectionOutOfOrderRule(Rule):
@@ -194,6 +228,11 @@ class KeywordSectionOutOfOrderRule(Rule):
     )
     deprecated_names = ("0928",)
 
+    def check(self, node: Keyword) -> None:
+        if not self.enabled:
+            return
+        report_out_of_order_settings(self, node)
+
 
 class SectionOutOfOrderRule(Rule):
     """
@@ -247,48 +286,31 @@ class SectionOutOfOrderRule(Rule):
     )
     deprecated_names = ("0809",)
 
+    def check(self, node: SectionHeader, previous_order_ids: list[int], order_id: int) -> None:
+        if not self.enabled or not any(previous_id > order_id for previous_id in previous_order_ids):
+            return
+        token = node.data_tokens[0]
+        self.report(
+            section_name=token.value,
+            recommended_order=self.section_order_to_str(self.sections_order),
+            node=node,
+            end_col=token.end_col_offset + 1,
+        )
 
-class TestAndKeywordOrderChecker(VisitorChecker):
-    test_case_section_out_of_order: TestCaseSectionOutOfOrderRule
-    keyword_section_out_of_order: KeywordSectionOutOfOrderRule
-
-    def __init__(self) -> None:
-        self.rules_by_node_type: dict[type[Keyword | TestCase], Rule] = {}
-        self.expected_order: dict[type[Keyword | TestCase], list[str]] = {}
-        super().__init__()
-
-    def visit_File(self, node: File) -> None:  # noqa: N802
-        self.rules_by_node_type = {
-            Keyword: self.keyword_section_out_of_order,
-            TestCase: self.test_case_section_out_of_order,
+    @staticmethod
+    def section_order_to_str(order: dict[str, int]) -> str:
+        by_index = sorted(order.items(), key=lambda x: x[1])
+        name_map = {
+            Token.COMMENT_HEADER: "Comments",
+            Token.SETTING_HEADER: "Settings",
+            Token.VARIABLE_HEADER: "Variables",
+            Token.TESTCASE_HEADER: "Test Cases / Tasks",
+            "TASK HEADER": "Test Cases / Tasks",
+            Token.KEYWORD_HEADER: "Keywords",
         }
-        self.expected_order = {
-            Keyword: self.keyword_section_out_of_order.sections_order,
-            TestCase: self.test_case_section_out_of_order.sections_order,
-        }
-        self.generic_visit(node)
-
-    def check_order(self, node: Keyword | TestCase) -> None:
-        max_order_indicator = -1
-        for subnode in node.body:
-            try:
-                subnode_type = subnode.type
-            except AttributeError:
-                continue
-            if subnode_type not in self.expected_order[type(node)]:
-                continue
-            this_node_expected_order = self.expected_order[type(node)].index(subnode.type)
-            if this_node_expected_order < max_order_indicator:
-                error_node = subnode.data_tokens[0]
-                self.report(
-                    self.rules_by_node_type[type(node)],
-                    section_name=subnode_type,
-                    recommended_order=", ".join(self.expected_order[type(node)]),
-                    node=error_node,
-                    col=error_node.col_offset + 1,
-                    end_col=error_node.end_col_offset + 1,
-                )
-            else:
-                max_order_indicator = this_node_expected_order
-
-    visit_Keyword = visit_TestCase = check_order  # noqa: N815
+        order_str: list[str] = []
+        for name, _ in by_index:
+            mapped_name = name_map[name]
+            if mapped_name not in order_str:
+                order_str.append(mapped_name)
+        return " > ".join(order_str)

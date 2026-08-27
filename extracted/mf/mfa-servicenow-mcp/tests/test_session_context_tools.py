@@ -1,5 +1,6 @@
 """Tests for manage_session_context — current app / update set switching."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from servicenow_mcp.tools.session_context_tools import (
     ensure_current_app,
     ensure_current_update_set,
     get_current_update_set,
+    get_last_update_set_for_record,
     is_default_update_set,
     manage_session_context,
     split_picker_label,
@@ -68,15 +70,15 @@ def test_non_browser_auth_blocked():
 def test_get_returns_current_app_and_update_set():
     auth = MagicMock()
     auth.make_request.side_effect = [
-        _resp({"result": {"current": {"sysId": "app-1", "name": "HBPM"}}}),
-        _resp({"result": {"current": {"sysId": "us-1", "name": "HBPM Pilot"}}}),
+        _resp({"result": {"current": {"sysId": "app-1", "name": "OtherApp"}}}),
+        _resp({"result": {"current": {"sysId": "us-1", "name": "OtherApp Pilot"}}}),
     ]
     result = manage_session_context(
         _browser_config(), auth, ManageSessionContextParams(action="get")
     )
     assert result["success"] is True
-    assert result["application"] == {"sys_id": "app-1", "name": "HBPM"}
-    assert result["update_set"] == {"sys_id": "us-1", "name": "HBPM Pilot"}
+    assert result["application"] == {"sys_id": "app-1", "name": "OtherApp"}
+    assert result["update_set"] == {"sys_id": "us-1", "name": "OtherApp Pilot"}
 
 
 # --- set_app: verified by read-back --------------------------------------
@@ -84,7 +86,7 @@ def test_set_app_success_when_readback_matches():
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({}),  # PUT
-        _resp({"result": {"current": {"sysId": "app-1", "name": "HBPM"}}}),  # GET verify
+        _resp({"result": {"current": {"sysId": "app-1", "name": "OtherApp"}}}),  # GET verify
     ]
     result = manage_session_context(
         _browser_config(), auth, ManageSessionContextParams(action="set_app", app_id="app-1")
@@ -98,14 +100,14 @@ def test_set_app_reports_failure_when_not_applied():
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({}),  # PUT
-        _resp({"result": {"current": {"sysId": "bpm-old", "name": "BPM"}}}),  # GET verify
+        _resp({"result": {"current": {"sysId": "testapp-old", "name": "TestApp"}}}),  # GET verify
     ]
     result = manage_session_context(
         _browser_config(), auth, ManageSessionContextParams(action="set_app", app_id="app-1")
     )
     assert result["success"] is False
     assert result["error"] == "not_applied"
-    assert result["current"]["sys_id"] == "bpm-old"
+    assert result["current"]["sys_id"] == "testapp-old"
 
 
 def test_set_app_with_update_set_sets_both_in_one_call():
@@ -113,7 +115,7 @@ def test_set_app_with_update_set_sets_both_in_one_call():
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({}),  # app PUT
-        _resp({"result": {"current": {"sysId": "app-1", "name": "BPM"}}}),  # app GET
+        _resp({"result": {"current": {"sysId": "app-1", "name": "TestApp"}}}),  # app GET
         _resp({}),  # update set PUT
         _resp({"result": {"current": {"sysId": "us-1", "name": "My Set"}}}),  # update set GET
     ]
@@ -132,7 +134,7 @@ def test_set_app_without_update_set_unchanged():
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({}),
-        _resp({"result": {"current": {"sysId": "app-1", "name": "BPM"}}}),
+        _resp({"result": {"current": {"sysId": "app-1", "name": "TestApp"}}}),
     ]
     result = manage_session_context(
         _browser_config(), auth, ManageSessionContextParams(action="set_app", app_id="app-1")
@@ -165,16 +167,16 @@ def test_set_update_set_requires_id_or_name():
 @patch("servicenow_mcp.tools.session_context_tools.sn_query_page")
 def test_set_update_set_by_name_resolves_and_switches(mock_query):
     # Name → unique in-progress sys_id, then PUT + verified read-back.
-    mock_query.return_value = ([{"sys_id": "us-9", "name": "HBPM Pilot"}], 1)
+    mock_query.return_value = ([{"sys_id": "us-9", "name": "OtherApp Pilot"}], 1)
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({}),  # PUT
-        _resp({"result": {"current": {"sysId": "us-9", "name": "HBPM Pilot"}}}),  # verify
+        _resp({"result": {"current": {"sysId": "us-9", "name": "OtherApp Pilot"}}}),  # verify
     ]
     result = manage_session_context(
         _browser_config(),
         auth,
-        ManageSessionContextParams(action="set_update_set", update_set_name="HBPM Pilot"),
+        ManageSessionContextParams(action="set_update_set", update_set_name="OtherApp Pilot"),
     )
     assert result["success"] is True
     assert result["current"]["sys_id"] == "us-9"
@@ -263,14 +265,14 @@ def test_ensure_current_update_set_noop_when_already_current():
 
 @patch("servicenow_mcp.tools.session_context_tools.sn_query_page")
 def test_ensure_current_update_set_by_name_switches(mock_query):
-    mock_query.return_value = ([{"sys_id": "us-9", "name": "HBPM Pilot"}], 1)
+    mock_query.return_value = ([{"sys_id": "us-9", "name": "OtherApp Pilot"}], 1)
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({"result": {"current": {"sysId": "old", "name": "Other"}}}),  # GET current
         _resp({}),  # PUT
-        _resp({"result": {"current": {"sysId": "us-9", "name": "HBPM Pilot"}}}),  # verify
+        _resp({"result": {"current": {"sysId": "us-9", "name": "OtherApp Pilot"}}}),  # verify
     ]
-    out = ensure_current_update_set(_browser_config(), auth, "HBPM Pilot")
+    out = ensure_current_update_set(_browser_config(), auth, "OtherApp Pilot")
     assert out["switched"] is True
 
 
@@ -461,7 +463,7 @@ def test_check_update_set_for_push_silent_when_unreadable():
 def test_is_default_update_set_matches_by_name():
     assert is_default_update_set({"sys_id": "x", "name": "Default"}) is True
     assert is_default_update_set({"sys_id": "x", "name": "default"}) is True
-    assert is_default_update_set({"sys_id": "x", "name": "HBPM Pilot"}) is False
+    assert is_default_update_set({"sys_id": "x", "name": "OtherApp Pilot"}) is False
     assert is_default_update_set(None) is False
 
 
@@ -477,7 +479,7 @@ def test_ensure_current_app_skips_for_basic_auth():
 def test_ensure_current_app_noop_when_already_current():
     auth = MagicMock()
     auth.make_request.side_effect = [
-        _resp({"result": {"current": {"sysId": "app-1", "name": "HBPM"}}}),  # GET only
+        _resp({"result": {"current": {"sysId": "app-1", "name": "OtherApp"}}}),  # GET only
     ]
     out = ensure_current_app(_browser_config(), auth, "app-1")
     assert out["switched"] is False
@@ -488,9 +490,9 @@ def test_ensure_current_app_noop_when_already_current():
 def test_ensure_current_app_switches_when_different():
     auth = MagicMock()
     auth.make_request.side_effect = [
-        _resp({"result": {"current": {"sysId": "bpm-old", "name": "BPM"}}}),  # GET current
+        _resp({"result": {"current": {"sysId": "testapp-old", "name": "TestApp"}}}),  # GET current
         _resp({}),  # PUT
-        _resp({"result": {"current": {"sysId": "app-1", "name": "HBPM"}}}),  # GET verify
+        _resp({"result": {"current": {"sysId": "app-1", "name": "OtherApp"}}}),  # GET verify
     ]
     out = ensure_current_app(_browser_config(), auth, "app-1")
     assert out["switched"] is True
@@ -512,7 +514,7 @@ def test_set_app_sends_ui_context_headers_and_value_body():
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({}),  # PUT
-        _resp({"result": {"current": {"sysId": "app-1", "name": "HBPM"}}}),  # GET verify
+        _resp({"result": {"current": {"sysId": "app-1", "name": "OtherApp"}}}),  # GET verify
     ]
     manage_session_context(
         _browser_config(), auth, ManageSessionContextParams(action="set_app", app_id="app-1")
@@ -576,24 +578,26 @@ def test_picker_value_handles_list_with_selected_flag():
     payload = {
         "result": [
             {"sysId": "global-1", "name": "Global", "selected": False},
-            {"sysId": "bpm-1", "name": "BPM", "selected": True},
+            {"sysId": "testapp-1", "name": "TestApp", "selected": True},
         ]
     }
-    assert _picker_value(payload) == {"sys_id": "bpm-1", "name": "BPM"}
+    assert _picker_value(payload) == {"sys_id": "testapp-1", "name": "TestApp"}
 
 
 def test_set_app_success_with_list_shape_readback():
-    """End-to-end: PUT ok, read-back returns the list shape with BPM selected."""
+    """End-to-end: PUT ok, read-back returns the list shape with TestApp selected."""
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({}),  # PUT
-        _resp({"result": [{"sysId": "bpm-1", "name": "BPM", "selected": True}]}),  # read-back
+        _resp(
+            {"result": [{"sysId": "testapp-1", "name": "TestApp", "selected": True}]}
+        ),  # read-back
     ]
     result = manage_session_context(
-        _browser_config(), auth, ManageSessionContextParams(action="set_app", app_id="bpm-1")
+        _browser_config(), auth, ManageSessionContextParams(action="set_app", app_id="testapp-1")
     )
     assert result["success"] is True
-    assert result["current"]["sys_id"] == "bpm-1"
+    assert result["current"]["sys_id"] == "testapp-1"
 
 
 def test_picker_value_current_as_bare_sys_id_string():
@@ -615,19 +619,19 @@ def test_picker_value_nested_list_under_key():
             "default": {"sysId": "global", "name": "Global"},
             "list": [
                 {"sysId": "global", "name": "Global", "selected": False},
-                {"sysId": "hbpm-1", "name": "HBPM", "selected": True},
+                {"sysId": "otherapp-1", "name": "OtherApp", "selected": True},
             ],
         }
     }
-    assert _picker_value(payload) == {"sys_id": "hbpm-1", "name": "HBPM"}
+    assert _picker_value(payload) == {"sys_id": "otherapp-1", "name": "OtherApp"}
 
 
 def test_picker_value_top_level_value_field():
     from servicenow_mcp.tools.session_context_tools import _picker_value
 
-    assert _picker_value({"result": {"value": "hbpm-1", "displayValue": "HBPM"}}) == {
-        "sys_id": "hbpm-1",
-        "name": "HBPM",
+    assert _picker_value({"result": {"value": "otherapp-1", "displayValue": "OtherApp"}}) == {
+        "sys_id": "otherapp-1",
+        "name": "OtherApp",
     }
 
 
@@ -648,13 +652,13 @@ def test_set_app_success_with_bare_string_current_readback():
     auth = MagicMock()
     auth.make_request.side_effect = [
         _resp({}),  # PUT
-        _resp({"result": {"current": "hbpm-1"}}),  # read-back: bare sys_id string
+        _resp({"result": {"current": "otherapp-1"}}),  # read-back: bare sys_id string
     ]
     result = manage_session_context(
-        _browser_config(), auth, ManageSessionContextParams(action="set_app", app_id="hbpm-1")
+        _browser_config(), auth, ManageSessionContextParams(action="set_app", app_id="otherapp-1")
     )
     assert result["success"] is True
-    assert result["current"]["sys_id"] == "hbpm-1"
+    assert result["current"]["sys_id"] == "otherapp-1"
 
 
 def test_picker_value_real_application_shape_bare_current_plus_list():
@@ -669,20 +673,20 @@ def test_picker_value_real_application_shape_bare_current_plus_list():
                 {"sysId": "global", "name": "Global", "scopeName": "global"},
                 {
                     "sysId": "aaaa1111bbbb2222cccc3333dddd4444",
-                    "name": "BPM",
-                    "scopeName": "x_acme_bpm",
+                    "name": "TestApp",
+                    "scopeName": "x_acme_testapp",
                 },
                 {
                     "sysId": "eeee5555ffff6666aaaa7777bbbb8888",
-                    "name": "HBPM",
-                    "scopeName": "x_acme_hbpm",
+                    "name": "OtherApp",
+                    "scopeName": "x_acme_otherapp",
                 },
             ],
         }
     }
     assert _picker_value(payload) == {
         "sys_id": "aaaa1111bbbb2222cccc3333dddd4444",
-        "name": "BPM",
+        "name": "TestApp",
     }
 
 
@@ -696,7 +700,7 @@ def test_set_app_success_with_real_application_shape():
                 "result": {
                     "current": "eeee5555ffff6666aaaa7777bbbb8888",
                     "list": [
-                        {"sysId": "eeee5555ffff6666aaaa7777bbbb8888", "name": "HBPM"},
+                        {"sysId": "eeee5555ffff6666aaaa7777bbbb8888", "name": "OtherApp"},
                     ],
                 }
             }
@@ -708,7 +712,7 @@ def test_set_app_success_with_real_application_shape():
         ManageSessionContextParams(action="set_app", app_id="eeee5555ffff6666aaaa7777bbbb8888"),
     )
     assert result["success"] is True
-    assert result["current"] == {"sys_id": "eeee5555ffff6666aaaa7777bbbb8888", "name": "HBPM"}
+    assert result["current"] == {"sys_id": "eeee5555ffff6666aaaa7777bbbb8888", "name": "OtherApp"}
 
 
 # --- picker labels vs names (the "which set is this?" confusion) -----------
@@ -911,3 +915,118 @@ def test_an_unreadable_state_is_never_reported_as_in_progress(mock_last, mock_pa
     assert out is not None
     assert "in-progress" not in out["note"]
     assert "us-old" in out["note"]
+
+
+# --- the reference read itself --------------------------------------------
+# Every test above mocks get_last_update_set_for_record and hands it a clean
+# {"sys_id": ...}. That is exactly how the producer drifted from its consumer:
+# it returned a LABEL in the sys_id slot for months and the suite stayed green.
+# These exercise the real function against the shapes the Table API returns.
+def _table_resp(rows):
+    r = MagicMock()
+    r.status_code = 200
+    r.content = json.dumps({"result": rows}).encode()
+    r.headers = {}
+    r.json.return_value = {"result": rows}
+    r.text = ""
+    r.raise_for_status = MagicMock()
+    return r
+
+
+_US_A = "a" * 32
+_US_B = "b" * 32
+
+
+def test_last_update_set_asks_for_both_halves_of_the_reference():
+    """display_value='all' — the id and the label must arrive separately."""
+    auth = MagicMock()
+    auth.make_request.return_value = _table_resp(
+        [
+            {
+                "name": "sp_widget_wid-ref1",
+                "update_set": {"value": _US_A, "display_value": "Alice"},
+                "sys_updated_by": {"value": "alice", "display_value": "alice"},
+                "sys_updated_on": {"value": "2026-07-27 05:35:00", "display_value": "27/07/2026"},
+            }
+        ]
+    )
+    out = get_last_update_set_for_record(_browser_config(), auth, "sp_widget", "wid-ref1")
+    assert out["sys_id"] == _US_A
+    assert out["name"] == "Alice"
+    assert out["by"] == "alice"
+    assert auth.make_request.call_args.kwargs["params"]["sysparm_display_value"] == "all"
+
+
+def test_a_reference_label_is_never_returned_as_a_sys_id():
+    """The regression: sysparm_display_value=true collapses the ref to its LABEL.
+
+    A label in the sys_id slot compares unequal to every real sys_id, so the
+    push check reported one set as two on every single push of an already
+    captured record.
+    """
+    auth = MagicMock()
+    auth.make_request.return_value = _table_resp(
+        [{"name": "sp_widget_wid-ref2", "update_set": "Alice", "sys_updated_by": "alice"}]
+    )
+    out = get_last_update_set_for_record(_browser_config(), auth, "sp_widget", "wid-ref2")
+    assert out["sys_id"] == ""
+    assert out["name"] == "Alice"
+
+
+def test_a_bare_sys_id_string_is_still_read_as_an_id():
+    auth = MagicMock()
+    auth.make_request.return_value = _table_resp(
+        [{"name": "sp_widget_wid-ref3", "update_set": _US_A, "sys_updated_by": "alice"}]
+    )
+    out = get_last_update_set_for_record(_browser_config(), auth, "sp_widget", "wid-ref3")
+    assert out["sys_id"] == _US_A
+    assert out["name"] == ""
+
+
+def _routing_auth(update_set_field, current_id=_US_A, current_name="Alice [My App]"):
+    """Picker GET -> current selection; table GET -> the record's last capture."""
+
+    def _req(method, url, **kwargs):
+        if "concoursepicker" in url:
+            return _resp({"result": {"current": {"sysId": current_id, "name": current_name}}})
+        return _table_resp(
+            [
+                {
+                    "name": "sp_angular_provider_prov-x",
+                    "update_set": update_set_field,
+                    "sys_updated_by": "alice",
+                    "sys_updated_on": "2026-08-27 09:01:53",
+                }
+            ]
+        )
+
+    auth = MagicMock()
+    auth.make_request.side_effect = _req
+    return auth
+
+
+def test_repushing_into_the_same_set_says_nothing():
+    """The live failure: same set both sides, reported as 'two sets, one name'."""
+    auth = _routing_auth({"value": _US_A, "display_value": "Alice"})
+    assert (
+        check_update_set_for_push(_browser_config(), auth, "sp_angular_provider", "prov-1") is None
+    )
+
+
+def test_a_genuinely_different_set_is_still_confirmed():
+    auth = _routing_auth({"value": _US_B, "display_value": "Alice 1"})
+    out = check_update_set_for_push(_browser_config(), auth, "sp_angular_provider", "prov-2")
+    assert out is not None
+    assert out["last_worked_update_set_id"] == _US_B
+    assert out["last_worked_set_identified"] is True
+
+
+def test_an_unresolvable_reference_is_not_reported_as_a_second_set():
+    """Matching label + no id is an UNREAD signal, never evidence of a split."""
+    auth = _routing_auth("Alice")
+    out = check_update_set_for_push(_browser_config(), auth, "sp_angular_provider", "prov-3")
+    assert out is not None
+    assert out["last_worked_set_identified"] is False
+    assert "both named" not in out.get("note", "")
+    assert "NOT determined" in out["note"]
+    assert "most likely the same set" in out["note"]

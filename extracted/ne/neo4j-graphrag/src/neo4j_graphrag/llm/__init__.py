@@ -15,21 +15,33 @@
 import warnings
 from typing import Any
 
-from .anthropic_llm import AnthropicLLM
+from .anthropic_llm import AnthropicLLM, BaseAnthropicLLM
 from .base import LLMBase, LLMInterface, LLMInterfaceV2
 from .bedrock_llm import BedrockLLM
 from .cohere_llm import CohereLLM
-from .google_genai_llm import GeminiLLM
+from .google_genai_llm import (
+    GEMINI_DEFAULT_IMAGE_MIME_TYPE,
+    GEMINI_SUPPORTED_IMAGE_MIME_TYPES,
+    BaseGeminiLLM,
+    GeminiImageMimeType,
+    GeminiLLM,
+)
 from .mistralai_llm import MistralAILLM
 from .ollama_llm import OllamaLLM
-from .openai_llm import AzureOpenAILLM, OpenAILLM
+from .openai_llm import AzureOpenAILLM, BaseOpenAILLM, OpenAILLM
 from .types import LLMResponse, LLMUsage
+from .utils import split_http_client_kwargs
 from .vertexai_llm import VertexAILLM
 
 __all__ = [
+    "GEMINI_DEFAULT_IMAGE_MIME_TYPE",
+    "GEMINI_SUPPORTED_IMAGE_MIME_TYPES",
     "AnthropicLLM",
+    "BaseAnthropicLLM",
+    "BaseGeminiLLM",
     "BedrockLLM",
     "CohereLLM",
+    "GeminiImageMimeType",
     "GeminiLLM",
     "LLMResponse",
     "LLMUsage",
@@ -38,9 +50,11 @@ __all__ = [
     "LLMInterfaceV2",
     "OllamaLLM",
     "OpenAILLM",
+    "BaseOpenAILLM",
     "VertexAILLM",
     "AzureOpenAILLM",
     "MistralAILLM",
+    "split_http_client_kwargs",
 ]
 
 
@@ -71,7 +85,8 @@ def __getattr__(name: str) -> Any:
     if name in deprecated_items:
         warnings.warn(
             f"{name} has been moved to neo4j_graphrag.utils.rate_limit. "
-            f"Please update your imports to use 'from neo4j_graphrag.utils.rate_limit import {name}'.",
+            f"Please update your imports to use 'from neo4j_graphrag.utils.rate_limit import {name}'. "
+            "This import will be removed in version 2.0",
             DeprecationWarning,
             stacklevel=2,
         )

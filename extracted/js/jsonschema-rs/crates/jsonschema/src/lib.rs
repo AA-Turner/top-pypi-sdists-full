@@ -91,6 +91,59 @@
 //!
 //! Once built, any `format` keywords in your schema will be actively validated according to the chosen draft.
 //!
+//! `idn-hostname` and `idn-email` need the `idna` feature, which is on by default. Without it they
+//! are treated as unknown formats.
+//!
+//! # Reading errors
+//!
+//! [`ErrorIterator::into_errors`] collects the whole set into a [`ValidationErrors`], which
+//! implements `Display` and [`std::error::Error`], so reporting every failure takes no formatting
+//! loop of its own:
+//!
+//! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use serde_json::json;
+//!
+//! let validator = jsonschema::validator_for(&json!({
+//!     "type": "object",
+//!     "properties": {"n": {"minimum": 5}},
+//!     "required": ["name"]
+//! }))?;
+//! let instance = json!({"n": 1});
+//! let errors = validator.iter_errors(&instance).into_errors();
+//!
+//! assert_eq!(errors.len(), 2);
+//! // Validation errors:
+//! // 01: "name" is a required property
+//! // 02: /n: 1 is less than the minimum of 5
+//! println!("{errors}");
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [`ValidationError::kind`] carries the failed keyword's operands, so a caller does not need to
+//! re-read the schema to describe what was expected:
+//!
+//! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use serde_json::json;
+//! use jsonschema::error::ValidationErrorKind;
+//!
+//! let validator = jsonschema::validator_for(&json!({"minimum": 5}))?;
+//! let instance = json!(1);
+//! let error = validator.validate(&instance).expect_err("must be invalid");
+//!
+//! match error.kind() {
+//!     ValidationErrorKind::Minimum { limit } => assert_eq!(limit, &json!(5)),
+//!     other => panic!("unexpected kind: {other:?}"),
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! [`ValidationError::absolute_keyword_location`] gives the resolvable URI of the keyword that
+//! produced the error, and [`ValidationError::masked`] hides the instance value in the message.
+//!
 //! # Compile-Time Validator Macro
 //!
 //! The `validator` attribute macro (enabled by the `macros` feature) compiles schemas at build time:
@@ -473,6 +526,10 @@
 //!
 //! ## Custom retrievers
 //!
+//! A retriever is for documents fetched on demand — from a database, an embedded asset, a cache.
+//! When the set of documents is known up front, put them in a [`Registry`] instead; the example
+//! below is a retriever only because it has to be one to demonstrate the trait.
+//!
 //! You can implement custom retrievers for both blocking and non-blocking retrieval:
 //!
 //! ```rust
@@ -633,6 +690,30 @@
 //! - Working with API schemas that define multiple request/response types
 //! - Validating configuration snippets against specific sections of a larger schema
 //! - Testing individual schema components in isolation
+//!
+//! ## Offline validation
+//!
+//! [`ValidationOptions::offline`] disables retrieval, so a reference that is not already in the
+//! registry fails at construction instead of being fetched:
+//!
+//! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use serde_json::json;
+//!
+//! let schema = json!({"$ref": "https://example.com/schema.json"});
+//! assert!(jsonschema::options().offline().build(&schema).is_err());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Bundling and dereferencing
+//!
+//! [`bundle`] embeds every referenced resource into the schema under `$defs` (`definitions` for
+//! Draft 4/6/7), keeping each `$id` and leaving `$ref` values unchanged. The result is a Compound
+//! Schema Document that needs no retrieval.
+//!
+//! [`dereference`] instead replaces each `$ref` with the schema it points to, for consumers that
+//! do not resolve references. Circular references are left in place.
 //!
 //! # Regular Expression Configuration
 //!
@@ -3333,13 +3414,22 @@ pub mod __private {
         }
     }
     pub mod format {
+        #[cfg(feature = "idna")]
+        pub use crate::keywords::format::is_valid_idn_hostname;
         pub use crate::keywords::format::{
             is_valid_date, is_valid_datetime, is_valid_duration, is_valid_hostname,
-            is_valid_hostname_rfc1034, is_valid_idn_hostname, is_valid_ipv4, is_valid_ipv6,
-            is_valid_iri, is_valid_iri_reference, is_valid_json_pointer, is_valid_regex,
+            is_valid_hostname_rfc1034, is_valid_ipv4, is_valid_ipv6, is_valid_iri,
+            is_valid_iri_reference, is_valid_json_pointer, is_valid_regex,
             is_valid_relative_json_pointer, is_valid_time, is_valid_uri, is_valid_uri_reference,
             is_valid_uri_template, is_valid_uuid,
         };
+
+        // Without `idna` the format is unknown, and an unknown format admits every instance.
+        #[cfg(not(feature = "idna"))]
+        #[must_use]
+        pub fn is_valid_idn_hostname(_: &str) -> bool {
+            true
+        }
 
         /// Per-call memoization cache for URI/IRI `format` checks in generated validators.
         pub type Cache = std::collections::HashMap<Box<str>, bool, ahash::RandomState>;
@@ -3354,12 +3444,20 @@ pub mod __private {
         }
 
         /// Validate an IDN email format using configured [`crate::EmailOptions`].
+        #[cfg(feature = "idna")]
         #[must_use]
         pub fn is_valid_idn_email_with_options(
             value: &str,
             options: Option<&crate::EmailOptions>,
         ) -> bool {
             crate::keywords::format::is_valid_idn_email(value, options.map(|opts| &opts.inner))
+        }
+
+        // Without `idna` the format is unknown, and an unknown format admits every instance.
+        #[cfg(not(feature = "idna"))]
+        #[must_use]
+        pub fn is_valid_idn_email_with_options(_: &str, _: Option<&crate::EmailOptions>) -> bool {
+            true
         }
     }
     pub mod content {

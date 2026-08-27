@@ -11,7 +11,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from isort import main
-from isort._version import __version__
+from isort._version import _VERSION_STRING, _IS_COMPILED
 from isort.exceptions import InvalidSettingsPath
 from isort.settings import DEFAULT_CONFIG, Config
 from .utils import as_stream
@@ -55,6 +55,7 @@ def test_sort_imports(tmpdir):
     assert main.sort_imports(str(tmp_file), config=skip_config, disregard_skip=False).skipped  # type: ignore # noqa
 
 
+@pytest.mark.skipif(reason="Can't use these mocks in mypyc-compiled code.", condition=_IS_COMPILED)
 def test_sort_imports_error_handling(tmpdir, capsys):
     tmp_file = tmpdir.join("file.py")
     tmp_file.write("import os, sys\n")
@@ -102,7 +103,7 @@ def test_ascii_art(capsys):
 
       isort your imports, so you don't have to.
 
-                    VERSION {__version__}
+                    VERSION {_VERSION_STRING}
 
 """
     )
@@ -158,9 +159,20 @@ def test_ran_against_root():
         main.main(["/"])
 
 
+def test_config_root_interaction_with_resolve_all_configs(tmpdir):
+    python_file = tmpdir.join("file.py")
+    python_file.write("import os\n")
+
+    with pytest.raises(SystemExit) as exc_info:
+        main.main([str(python_file), "--config-root", str(tmpdir)])
+    assert "--resolve-all-configs" in str(exc_info.value)
+
+    main.main([str(python_file), "--config-root", str(tmpdir), "--resolve-all-configs"])
+
+
 def test_main(capsys, tmpdir):
     base_args = [
-        "-sp",
+        "--sp",
         str(tmpdir),
         "--virtual-env",
         str(tmpdir),
@@ -352,14 +364,6 @@ import b
     main.main([str(python_file), "not-exist", "--verbose", "--check-only"])
     out, error = capsys.readouterr()
     assert "Broken" in out
-
-    # warnings should be displayed if old flags are used
-    with pytest.warns(UserWarning):
-        main.main([str(python_file), "--recursive", "-fss"])
-
-    # warnings should be displayed when streaming input is provided with old flags as well
-    with pytest.warns(UserWarning):
-        main.main(["-sp", str(config_file), "-"], stdin=input_content)
 
 
 def test_isort_filename_overrides(tmpdir, capsys):
@@ -808,45 +812,6 @@ from a import b, e, c
 """
     )
 
-    # ensures that isort warns with deprecated flags with stdin
-    input_content = as_stream(
-        """
-import sys
-import os
-"""
-    )
-
-    with pytest.warns(UserWarning):
-        main.main(["-", "-ns"], stdin=input_content)
-
-    out, error = capsys.readouterr()
-
-    assert out == (
-        """
-import os
-import sys
-"""
-    )
-
-    input_content = as_stream(
-        """
-import sys
-import os
-"""
-    )
-
-    with pytest.warns(UserWarning):
-        main.main(["-", "-k"], stdin=input_content)
-
-    out, error = capsys.readouterr()
-
-    assert out == (
-        """
-import os
-import sys
-"""
-    )
-
     # ensures that only-modified flag works with stdin
     input_content = as_stream(
         """
@@ -981,7 +946,7 @@ import pandas as pd
 
       isort your imports, so you don't have to.
 
-                    VERSION {__version__}
+                    VERSION {_VERSION_STRING}
 
 """
     )
@@ -1024,7 +989,7 @@ import os
 
       isort your imports, so you don't have to.
 
-                    VERSION {__version__}
+                    VERSION {_VERSION_STRING}
 
 """
     )
@@ -1410,3 +1375,19 @@ from tests.something import something_else
 """
         )
         assert "from-type place_module for tests.something returned FIRSTPARTY" in out
+
+
+def test_cli_src_path_glob_pattern(tmpdir, capsys, monkeypatch):
+    service_a_src = tmpdir.mkdir("service_a").mkdir("src")
+    service_b_src = tmpdir.mkdir("service_b").mkdir("src")
+    (tmpdir / "file.py").write_text("import os\n", "utf-8")
+
+    monkeypatch.chdir(str(tmpdir))
+
+    main.main([".", "--src", "*/src/", "--show-config"])
+    out, _ = capsys.readouterr()
+    config = json.loads(out)
+    src_paths = set(config["src_paths"])
+
+    assert str(service_a_src) in src_paths
+    assert str(service_b_src) in src_paths

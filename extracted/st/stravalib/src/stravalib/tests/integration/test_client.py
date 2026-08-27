@@ -4,15 +4,17 @@ import os
 import warnings
 from unittest import mock
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 import pytest
 import responses
 from responses import matchers
 
-from stravalib.client import ActivityUploader
+from stravalib.client import ActivityUploader, Client
 from stravalib.exc import (
     AccessUnauthorized,
     ActivityPhotoUploadFailed,
+    ApplicationInactive,
 )
 from stravalib.model import DetailedAthlete, SummaryAthlete, SummarySegment
 from stravalib.strava_model import SummaryActivity, Zones
@@ -88,6 +90,131 @@ def test_get_athlete(mock_strava_api, client):
     assert isinstance(athlete, DetailedAthlete)
     assert athlete.id == 42
     assert athlete.measurement_preference == "feet"
+
+
+def test_access_token_sent_in_authorization_header(mock_strava_api):
+    """The access token is sent as a bearer token in the request header, and
+    never in the URL query string (see RFC 6750 and issue #733)."""
+
+    client_with_token = Client(access_token="token123")
+    mock_strava_api.get("/athlete", response_update={"id": 42})
+    client_with_token.get_athlete()
+
+    request = mock_strava_api.calls[0].request
+    assert request.headers["Authorization"] == "Bearer token123"
+    assert "access_token" not in request.url
+
+
+def test_no_authorization_header_on_token_refresh(mock_strava_api):
+    """The token endpoint authenticates with the client id and secret. It
+    gets no Authorization header, because the token there is expired."""
+
+    client_with_token = Client(access_token="expired_token")
+    mock_strava_api.add(
+        responses.POST,
+        "https://www.strava.com/oauth/token",
+        json={
+            "access_token": "new_token",
+            "refresh_token": "new_refresh_token",
+            "expires_at": 1732417459,
+        },
+    )
+    client_with_token.refresh_access_token(
+        client_id=123, client_secret="secret", refresh_token="refresh_token"
+    )
+
+    request = mock_strava_api.calls[0].request
+    assert "Authorization" not in request.headers
+
+
+def test_code_exchange_sends_credentials_in_form_body(mock_strava_api):
+    """The authorization code grant sends the client secret and the code in
+    a form-encoded body. The URL query string stays empty, because URLs are
+    logged (RFC 6749 2.3.1, issue #740)."""
+
+    client_without_token = Client()
+    mock_strava_api.add(
+        responses.POST,
+        "https://www.strava.com/oauth/token",
+        json={
+            "access_token": "new_token",
+            "refresh_token": "new_refresh_token",
+            "expires_at": 1732417459,
+        },
+        match=[
+            matchers.urlencoded_params_matcher(
+                {
+                    "client_id": "123",
+                    "client_secret": "secret",
+                    "code": "auth_code",
+                    "grant_type": "authorization_code",
+                }
+            )
+        ],
+    )
+    client_without_token.exchange_code_for_token(
+        client_id=123, client_secret="secret", code="auth_code"
+    )
+
+    request = mock_strava_api.calls[0].request
+    assert urlparse(request.url).query == ""
+
+
+def test_token_refresh_sends_credentials_in_form_body(mock_strava_api):
+    """The refresh grant sends the client secret and the refresh token in a
+    form-encoded body. The URL query string stays empty (issue #740)."""
+
+    client_with_token = Client(access_token="expired_token")
+    mock_strava_api.add(
+        responses.POST,
+        "https://www.strava.com/oauth/token",
+        json={
+            "access_token": "new_token",
+            "refresh_token": "new_refresh_token",
+            "expires_at": 1732417459,
+        },
+        match=[
+            matchers.urlencoded_params_matcher(
+                {
+                    "client_id": "123",
+                    "client_secret": "secret",
+                    "refresh_token": "refresh_token",
+                    "grant_type": "refresh_token",
+                }
+            )
+        ],
+    )
+    client_with_token.refresh_access_token(
+        client_id=123, client_secret="secret", refresh_token="refresh_token"
+    )
+
+    request = mock_strava_api.calls[0].request
+    assert urlparse(request.url).query == ""
+
+
+def test_no_authorization_header_without_access_token(mock_strava_api, client):
+    """A client without an access token sends no Authorization header."""
+
+    mock_strava_api.get("/athlete", response_update={"id": 42})
+    client.get_athlete()
+
+    assert "Authorization" not in mock_strava_api.calls[0].request.headers
+
+
+def test_deauthorize_sends_authorization_header(mock_strava_api):
+    """Deauthorization needs the token, so it also uses the header."""
+
+    client_with_token = Client(access_token="token123")
+    mock_strava_api.add(
+        responses.POST,
+        "https://www.strava.com/api/v3/oauth/deauthorize",
+        json={},
+    )
+    client_with_token.deauthorize()
+
+    request = mock_strava_api.calls[0].request
+    assert request.headers["Authorization"] == "Bearer token123"
+    assert "access_token" not in request.url
 
 
 def test_get_athlete_zones(mock_strava_api, client):
@@ -236,6 +363,45 @@ def test_get_club_admins(mock_strava_api, client):
     assert isinstance(admins[0], SummaryAthlete)
     assert len(admins) == 2
     assert admins[0].firstname == "Jane"
+
+
+@pytest.mark.parametrize(
+    "method_name",
+    ("get_club_members", "get_club_activities", "get_club_admins"),
+)
+def test_retired_club_endpoints_warn(mock_strava_api, client, method_name):
+    """Strava removes these Club endpoints on September 1, 2026. Warn the
+    user when the method is called, before any request is made.
+
+    No endpoint is registered on the mock. The mock still intercepts every
+    request, so an eager fetch fails here instead of reaching Strava.
+    """
+
+    with pytest.warns(
+        DeprecationWarning,
+        match=(
+            f'"{method_name}" method uses a Strava API endpoint that Strava '
+            "removes on September 1, 2026"
+        ),
+    ):
+        getattr(client, method_name)(42)
+
+    assert len(mock_strava_api.calls) == 0
+
+
+@pytest.mark.parametrize("property_name", ("members", "activities"))
+def test_retired_club_properties_warn(mock_strava_api, client, property_name):
+    """The lazy properties of a club delegate to the retired client methods,
+    so they warn too."""
+
+    mock_strava_api.get("/clubs/{id}", response_update={"id": 42})
+    club = client.get_club(42)
+
+    with pytest.warns(
+        DeprecationWarning,
+        match="Strava API endpoint that Strava removes on September 1, 2026",
+    ):
+        getattr(club, property_name)
 
 
 def test_get_activity_zones(mock_strava_api, client, zone_response):
@@ -792,6 +958,9 @@ def test_get_route(mock_strava_api, client):
 
 @responses.activate
 def test_create_subscription(mock_strava_api, client):
+    """The subscription credentials travel in a form-encoded body. The URL
+    query string stays empty, because URLs are logged (issue #740)."""
+
     responses.post(
         "https://www.strava.com/api/v3/push_subscriptions",
         json={
@@ -802,11 +971,49 @@ def test_create_subscription(mock_strava_api, client):
             "created_at": 1674660406,
         },
         status=200,
+        match=[
+            matchers.urlencoded_params_matcher(
+                {
+                    "client_id": "42",
+                    "client_secret": "42",
+                    "callback_url": "https://foobar.com",
+                    "verify_token": "STRAVA",
+                }
+            )
+        ],
     )
     created_subscription = client.create_subscription(
         42, 42, "https://foobar.com"
     )
     assert created_subscription.application_id == 42
+
+    request = responses.calls[0].request
+    assert urlparse(request.url).query == ""
+
+
+@responses.activate
+def test_delete_subscription_sends_credentials_in_form_body(
+    mock_strava_api, client
+):
+    """The credentials travel in a form-encoded body, so the client secret
+    does not reach the URL. Strava documents the query-string form for this
+    call and accepts a body undocumented, which is why this test exists: it
+    is the guard that would go red if Strava stopped reading it (#740)."""
+
+    responses.add(
+        responses.DELETE,
+        "https://www.strava.com/api/v3/push_subscriptions/1",
+        status=204,
+        match=[
+            matchers.urlencoded_params_matcher(
+                {"client_id": "42", "client_secret": "secret"}
+            )
+        ],
+    )
+    client.delete_subscription(1, 42, "secret")
+
+    request = responses.calls[0].request
+    assert urlparse(request.url).query == ""
 
 
 @pytest.mark.parametrize(
@@ -1071,11 +1278,16 @@ def test_get_activities_paged(mock_strava_api, client):
 
 
 @responses.activate
-def test_upload_activity_photo_works(client):
+def test_upload_activity_photo_works():
     """
     Test uploading an activity with a photo.
 
+    The pre-signed photo URL points at a third-party host, so it must never
+    receive the Strava access token. This is why the token is set per
+    request instead of on the session (see issue #733).
     """
+
+    client = Client(access_token="token123")
 
     strava_pre_signed_uri = "https://strava-photo-uploads-prod.s3-accelerate.amazonaws.com/12345.jpg"
     photo_bytes = b"photo_data"
@@ -1120,6 +1332,10 @@ def test_upload_activity_photo_works(client):
         )
 
         activity_uploader.upload_photo(photo=photo_bytes)
+
+        photo_request = _responses.calls[-1].request
+        assert photo_request.url == strava_pre_signed_uri
+        assert "Authorization" not in photo_request.headers
 
 
 def test_upload_activity_photo_fail_type_error(client):
@@ -1194,6 +1410,35 @@ def test_explore_segments(mock_strava_api, client):
     assert segment_list[0].name == "Hawk Hill"
 
 
+def test_explore_segments_restricted_warning(mock_strava_api, client):
+    """Strava limits this endpoint to the Extended Access Tier on
+    September 1, 2026. The method still works, so the warning is a
+    FutureWarning."""
+
+    mock_strava_api.get("/segments/explore")
+
+    with pytest.warns(
+        FutureWarning,
+        match=(
+            '"explore_segments" method uses a Strava API endpoint that Strava '
+            "restricts to the Extended Access Tier on September 1, 2026"
+        ),
+    ):
+        client.explore_segments((1, 2, 3, 4))
+
+
+def test_explore_segments_invalid_bounds(client, recwarn):
+    """Invalid input is rejected before the endpoint warning fires, and the
+    error message shows the bounds the caller passed."""
+
+    with pytest.raises(
+        ValueError, match=r"Invalid bounds specified: \(1, 2, 3\)"
+    ):
+        client.explore_segments((1, 2, 3))
+
+    assert not [w for w in recwarn if w.category is FutureWarning]
+
+
 def test_get_activity_kudos(mock_strava_api, client):
     mock_strava_api.get(
         "/activities/{id}/kudos",
@@ -1261,3 +1506,25 @@ def test_exchange_code_for_token_no_athlete(
         access_info["access_token"] == raw_exchange_response[0]["access_token"]
     )
     assert isinstance(access_info, dict)
+
+
+def test_inactive_application(mock_strava_api, client):
+    """An inactive app should raise a fault that says how to fix it."""
+    mock_strava_api.get(
+        "/athlete",
+        status=403,
+        json={
+            "message": "Forbidden",
+            "errors": [
+                {
+                    "resource": "Application",
+                    "field": "Status",
+                    "code": "Inactive",
+                }
+            ],
+        },
+    )
+    with pytest.raises(ApplicationInactive) as error:
+        client.get_athlete()
+
+    assert "https://www.strava.com/settings/api" in str(error.value)

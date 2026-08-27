@@ -19,6 +19,7 @@ import asyncio
 import functools
 import logging
 from collections.abc import Callable
+from contextlib import suppress
 from contextvars import Token
 from typing import Any
 
@@ -33,6 +34,22 @@ _log = logging.getLogger(__name__)
 # Exception, so ``except Exception`` misses them — catch them so the run is
 # finalized as interrupted rather than a false success.
 _ABANDONED_STREAM_EXC = (GeneratorExit, asyncio.CancelledError)
+
+
+def _release_minted_trace(trace: Any) -> None:
+    """Stop the next run in this task inheriting a trace this one minted.
+
+    ``get_or_create_trace*`` hands back the ambient trace when there is one, and
+    an async task keeps its context between awaits — so a second ``ainvoke`` in
+    one coroutine joined the finished run's trace, opened a second root on it
+    and reported both runs' counts as one. Invariant B in
+    ``docs/span-contract.md`` is one run per trace, one root. A caller's own
+    trace is theirs to close, so only a trace we minted is released here.
+    """
+    from aigie.auto_instrument.trace import clear_current_trace, get_current_trace
+
+    if get_current_trace() is trace:
+        clear_current_trace()
 
 
 class FrameworkLifecycleBridge(abc.ABC):
@@ -75,10 +92,16 @@ class FrameworkLifecycleBridge(abc.ABC):
         """
 
     @abc.abstractmethod
-    def _make_handler(self, trace_id: str) -> Any:
+    def _make_handler(self, trace: Any) -> Any:
         """Construct the framework-binding callback. Must expose a
         ``spans`` attribute (a ``SpanEventHandler``) for close_pending_spans
-        / close_trace dispatch."""
+        / close_trace dispatch.
+
+        Receives the trace rather than its id so an implementation can bind the
+        run to the trace's own counters; doing that here instead would call a
+        method the contract does not require, out of a path that is not wrapped
+        — an AttributeError raised into the caller's own ``invoke()``.
+        """
 
     @abc.abstractmethod
     def _create_trace_sync(self, *, name: str, metadata: dict[str, Any]) -> Any:
@@ -152,12 +175,19 @@ class FrameworkLifecycleBridge(abc.ABC):
             return None, config, None
         if is_retention_suppressed() or self._zero_retention_from_handler():
             return None, config, None
+        from aigie.auto_instrument.trace import get_current_trace
+
+        minted = get_current_trace() is None
         trace = self._create_trace_sync(
             name=self._extract_workflow_name(input),
             metadata=self._build_metadata(framework_handle, input, config),
         )
         token = open_ambient(trace_id=trace.id)
-        handler = self._make_handler(trace.id)
+        handler = self._make_handler(trace)
+        with suppress(AttributeError):
+            trace._aigie_minted = minted
+        if minted:
+            handler._aigie_minted_trace = trace
         config = dict(config) if config is not None else {}
         self._before_run(handler, framework_handle, input, config)
         return handler, config, token
@@ -169,12 +199,19 @@ class FrameworkLifecycleBridge(abc.ABC):
             return None, config, None
         if is_retention_suppressed() or self._zero_retention_from_handler():
             return None, config, None
+        from aigie.auto_instrument.trace import get_current_trace
+
+        minted = get_current_trace() is None
         trace = await self._create_trace(
             name=self._extract_workflow_name(input),
             metadata=self._build_metadata(framework_handle, input, config),
         )
         token = open_ambient(trace_id=trace.id)
-        handler = self._make_handler(trace.id)
+        handler = self._make_handler(trace)
+        with suppress(AttributeError):
+            trace._aigie_minted = minted
+        if minted:
+            handler._aigie_minted_trace = trace
         config = dict(config) if config is not None else {}
         self._before_run(handler, framework_handle, input, config)
         return handler, config, token
@@ -197,6 +234,8 @@ class FrameworkLifecycleBridge(abc.ABC):
         finally:
             if token is not None:
                 close_ambient(token)
+            if (minted := getattr(handler, "_aigie_minted_trace", None)) is not None:
+                _release_minted_trace(minted)
 
     # ─── Wrappers ───────────────────────────────────────────────────────
 

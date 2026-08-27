@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkknx_frontend=self.rspackChunkknx_frontend||[]).push([[87656],{73851(e,t,r){r.r(t);r(3362);var a=r(15697),n=r(57527),s=r(51209);class i extends n.mN{static async generate(e){return{views:[{strategy:e}]}}static async getConfigElement(){return await r.e(65433).then(r.bind(r,59296)),document.createElement("hui-iframe-dashboard-strategy-editor")}}i.registryDependencies=[],i.configRequired=!0,i=(0,a.Cg)([(0,s.EM)("iframe-dashboard-strategy")],i),r.d(t,{IframeDashboardStrategy:()=>i})}}]);
+//# sourceMappingURL=87656.f7fa56964efb8fdd.js.map

@@ -102,7 +102,7 @@ def test_bytes_args(runner, monkeypatch):
     )
 
 
-def test_file_args(runner):
+def test_file_args(runner, tmp_path):
     @click.command()
     @click.argument("input", type=click.File("rb"))
     @click.argument("output", type=click.File("wb"))
@@ -113,16 +113,15 @@ def test_file_args(runner):
                 break
             output.write(chunk)
 
-    with runner.isolated_filesystem():
-        result = runner.invoke(inout, ["-", "hello.txt"], input="Hey!")
-        assert result.output == ""
-        assert result.exit_code == 0
-        with open("hello.txt", "rb") as f:
-            assert f.read() == b"Hey!"
+    hello = tmp_path / "hello.txt"
+    result = runner.invoke(inout, ["-", str(hello)], input="Hey!")
+    assert result.output == ""
+    assert result.exit_code == 0
+    assert hello.read_bytes() == b"Hey!"
 
-        result = runner.invoke(inout, ["hello.txt", "-"])
-        assert result.output == "Hey!"
-        assert result.exit_code == 0
+    result = runner.invoke(inout, [str(hello), "-"])
+    assert result.output == "Hey!"
+    assert result.exit_code == 0
 
 
 def test_path_allow_dash(runner):
@@ -136,7 +135,7 @@ def test_path_allow_dash(runner):
     assert result.exit_code == 0
 
 
-def test_file_atomics(runner):
+def test_file_atomics(runner, tmp_path):
     @click.command()
     @click.argument("output", type=click.File("wb", atomic=True))
     def inout(output):
@@ -146,14 +145,12 @@ def test_file_atomics(runner):
             old_content = f.read()
             assert old_content == b"OLD\n"
 
-    with runner.isolated_filesystem():
-        with open("foo.txt", "wb") as f:
-            f.write(b"OLD\n")
-        result = runner.invoke(inout, ["foo.txt"], input="Hey!", catch_exceptions=False)
-        assert result.output == ""
-        assert result.exit_code == 0
-        with open("foo.txt", "rb") as f:
-            assert f.read() == b"Foo bar baz\n"
+    foo = tmp_path / "foo.txt"
+    foo.write_bytes(b"OLD\n")
+    result = runner.invoke(inout, [str(foo)], input="Hey!", catch_exceptions=False)
+    assert result.output == ""
+    assert result.exit_code == 0
+    assert foo.read_bytes() == b"Foo bar baz\n"
 
 
 def test_stdout_default(runner):
@@ -295,6 +292,50 @@ def test_implicit_non_required(runner):
     assert result.output == "test\n"
 
 
+def test_argument_help(runner):
+    @click.command()
+    @click.argument("name", help="The name to print")
+    @click.option("--count", default=1, help="number of greetings")
+    def cli(name, count):
+        pass
+
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert "Positional arguments:" in result.output
+    assert "NAME" in result.output
+    assert "The name to print" in result.output
+    assert "Options:" in result.output
+    assert "number of greetings" in result.output
+    assert result.output.index("Positional arguments:") < result.output.index(
+        "Options:"
+    )
+
+
+def test_argument_help_options_only_no_arguments_section(runner):
+    @click.command()
+    @click.option("--count", default=1, help="number of greetings")
+    def cli(count):
+        pass
+
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert "Positional arguments:" not in result.output
+    assert "Options:" in result.output
+    assert "number of greetings" in result.output
+
+
+def test_argument_help_optional_metavar(runner):
+    @click.command()
+    @click.argument("name", required=False, default="", help="The name to print")
+    def cli(name):
+        pass
+
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert "[NAME]" in result.output
+    assert "The name to print" in result.output
+
+
 def test_deprecated_usage(runner):
     @click.command()
     @click.argument("f", required=False, deprecated=True)
@@ -330,6 +371,50 @@ def test_argument_metavar_marks_optional(runner, kwargs, expected):
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
     assert result.output.splitlines()[0] == f"Usage: cli [OPTIONS] {expected}"
+
+
+@pytest.mark.parametrize(
+    ("deprecated", "expected_label"),
+    [(True, "(DEPRECATED)"), ("use g instead", "(DEPRECATED: use g instead)")],
+)
+def test_deprecated_usage_help_record(runner, deprecated, expected_label):
+    @click.command()
+    @click.argument("f", required=False, deprecated=deprecated, help="path to the file")
+    def cli(f):
+        click.echo(f)
+
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert "Positional arguments:" in result.output
+    assert "[F!]" in result.output
+    assert f"path to the file {expected_label}" in result.output
+
+
+def test_deprecated_usage_help_record_without_help(runner):
+    @click.command()
+    @click.argument("f", required=False, deprecated=True)
+    def cli(f):
+        click.echo(f)
+
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0, result.output
+    # Deprecation alone produces a help row with just the deprecation label.
+    assert "Positional arguments:" in result.output
+    assert "(DEPRECATED)" in result.output
+
+
+@pytest.mark.parametrize(
+    ("deprecated", "expected"),
+    [(True, "(DEPRECATED)"), ("USE B INSTEAD", "(DEPRECATED: USE B INSTEAD)")],
+)
+@pytest.mark.parametrize("help_text", ["", None])
+def test_deprecated_empty_help_no_leading_space(help_text, deprecated, expected):
+    """An argument with empty or missing help text must not gain a stray leading
+    space before the deprecation label.
+    """
+    arg = click.Argument(["foo"], required=False, help=help_text, deprecated=deprecated)
+    ctx = click.Context(click.Command("cli"))
+    assert arg.get_help_record(ctx)[1] == expected
 
 
 @pytest.mark.parametrize("deprecated", [True, "USE B INSTEAD"])

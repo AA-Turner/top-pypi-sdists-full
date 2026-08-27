@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-agents-authentication-msal
-Version: 1.4.0
+Version: 1.5.0
 Summary: A msal-based authentication library for Microsoft Agents
 Author: Microsoft Corporation
 License-Expression: MIT
@@ -15,7 +15,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: microsoft-agents-hosting-core==1.4.0
+Requires-Dist: microsoft-agents-hosting-core==1.5.0
 Requires-Dist: msal>=1.34.0
 Requires-Dist: requests>=2.32.3
 Dynamic: license-file
@@ -37,6 +37,15 @@ This library is part of the **Microsoft 365 Agents SDK for Python** - a comprehe
     <th style="width:20%">Version</th>
     <th style="width:20%">Date</th>
     <th style="width:60%">Release Notes</th>
+  </tr>
+  <tr>
+    <td>1.5.0</td>
+    <td>2026-08-26</td>
+    <td>
+      <a href="https://github.com/microsoft/Agents-for-python/blob/main/changelog.md#microsoft-365-agents-sdk-for-python---release-notes-v150">
+        1.5.0 Release Notes
+      </a>
+    </td>
   </tr>
   <tr>
    <td>1.4.0</td>

@@ -54,6 +54,7 @@ from chalk.client.models import (
     WhoAmIResponse,
 )
 from chalk.client.response import Dataset, DatasetRevision, OnlineQueryResult
+from chalk.config.web_identity import WebIdentityTokenError
 from chalk.ml.model_handler import model_handler
 
 __all__ = [
@@ -110,6 +111,7 @@ __all__ = [
     "ResourceRequests",
     "LinkedSecretRef",
     "StreamResolverTestResponse",
+    "WebIdentityTokenError",
     "WhoAmIResponse",
     "model_handler",
 ]

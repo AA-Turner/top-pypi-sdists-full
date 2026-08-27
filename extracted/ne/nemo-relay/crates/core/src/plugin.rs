@@ -10,7 +10,7 @@
 //! - rollback bookkeeping for registrations created during plugin setup
 
 use std::cell::Cell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::future::Future;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -23,25 +23,29 @@ use serde_json::{Map, Value as Json};
 use thiserror::Error;
 
 use crate::api::registry::{
-    deregister_llm_conditional_execution_guardrail, deregister_llm_execution_intercept,
-    deregister_llm_request_intercept, deregister_llm_sanitize_request_guardrail,
-    deregister_llm_sanitize_response_guardrail, deregister_llm_stream_execution_intercept,
-    deregister_mark_sanitize_guardrail, deregister_scope_sanitize_end_guardrail,
-    deregister_scope_sanitize_start_guardrail, deregister_tool_conditional_execution_guardrail,
-    deregister_tool_execution_intercept, deregister_tool_request_intercept,
-    deregister_tool_sanitize_request_guardrail, deregister_tool_sanitize_response_guardrail,
-    register_llm_conditional_execution_guardrail, register_llm_execution_intercept,
-    register_llm_request_intercept, register_llm_sanitize_request_guardrail,
-    register_llm_sanitize_response_guardrail, register_llm_stream_execution_intercept,
-    register_mark_sanitize_guardrail, register_scope_sanitize_end_guardrail,
-    register_scope_sanitize_start_guardrail, register_tool_conditional_execution_guardrail,
-    register_tool_execution_intercept, register_tool_request_intercept,
-    register_tool_sanitize_request_guardrail, register_tool_sanitize_response_guardrail,
+    RuntimeRegistrationKind, deregister_conditional_middleware_guardrail,
+    deregister_event_metadata_injector, deregister_llm_conditional_execution_guardrail,
+    deregister_llm_execution_intercept, deregister_llm_request_intercept,
+    deregister_llm_sanitize_request_guardrail, deregister_llm_sanitize_response_guardrail,
+    deregister_llm_stream_execution_intercept, deregister_mark_sanitize_guardrail,
+    deregister_scope_sanitize_end_guardrail, deregister_scope_sanitize_start_guardrail,
+    deregister_tool_conditional_execution_guardrail, deregister_tool_execution_intercept,
+    deregister_tool_request_intercept, deregister_tool_sanitize_request_guardrail,
+    deregister_tool_sanitize_response_guardrail, register_conditional_middleware_guardrail,
+    register_event_metadata_injector, register_llm_conditional_execution_guardrail,
+    register_llm_execution_intercept, register_llm_request_intercept,
+    register_llm_sanitize_request_guardrail, register_llm_sanitize_response_guardrail,
+    register_llm_stream_execution_intercept, register_mark_sanitize_guardrail,
+    register_scope_sanitize_end_guardrail, register_scope_sanitize_start_guardrail,
+    register_tool_conditional_execution_guardrail, register_tool_execution_intercept,
+    register_tool_request_intercept, register_tool_sanitize_request_guardrail,
+    register_tool_sanitize_response_guardrail,
 };
 use crate::api::runtime::{
-    EventSanitizeFn, EventSubscriberFn, LlmConditionalFn, LlmExecutionFn, LlmRequestInterceptFn,
-    LlmSanitizeRequestFn, LlmSanitizeResponseFn, LlmStreamExecutionFn, ToolConditionalFn,
-    ToolExecutionFn, ToolInterceptFn, ToolSanitizeFn,
+    ConditionalMiddlewareGuardrailFn, EventMetadataInjectorFn, EventSanitizeFn, EventSubscriberFn,
+    LlmConditionalFn, LlmExecutionFn, LlmRequestInterceptFn, LlmSanitizeRequestFn,
+    LlmSanitizeResponseFn, LlmStreamExecutionFn, ToolConditionalFn, ToolExecutionFn,
+    ToolInterceptFn, ToolSanitizeFn,
 };
 use crate::api::subscriber::{deregister_subscriber, register_subscriber};
 pub use nemo_relay_types::plugin::{ConfigDiagnostic, DiagnosticLevel};
@@ -219,6 +223,16 @@ pub struct RuntimeDiagnostic {
     pub count: u64,
 }
 
+/// Read-only projection of runtime diagnostics exposed to dynamic plugins.
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct RuntimeDiagnosticsSnapshotEntry {
+    pub(crate) code: String,
+    pub(crate) message: String,
+    pub(crate) count: u64,
+}
+
+const MAX_DYNAMIC_PLUGIN_RUNTIME_DIAGNOSTICS: usize = 32;
+
 impl ConfigReport {
     /// Returns `true` when the report contains at least one error diagnostic.
     pub fn has_errors(&self) -> bool {
@@ -393,7 +407,12 @@ impl PluginRegistration {
 #[derive(Default)]
 pub struct PluginRegistrationContext {
     registrations: Vec<PluginRegistration>,
-    namespace: Option<String>,
+    namespace: Option<PluginRegistrationNamespace>,
+}
+
+enum PluginRegistrationNamespace {
+    Plain(String),
+    PluginComponent(String),
 }
 
 impl PluginRegistrationContext {
@@ -406,7 +425,38 @@ impl PluginRegistrationContext {
     pub fn with_namespace(namespace: impl Into<String>) -> Self {
         Self {
             registrations: vec![],
-            namespace: Some(namespace.into()),
+            namespace: Some(PluginRegistrationNamespace::Plain(namespace.into())),
+        }
+    }
+
+    fn with_plugin_component_namespace(namespace: String) -> Self {
+        Self {
+            registrations: vec![],
+            namespace: Some(PluginRegistrationNamespace::PluginComponent(namespace)),
+        }
+    }
+
+    /// Creates a child context that extends this context's namespace.
+    ///
+    /// Child contexts preserve Relay-created plugin component qualification so
+    /// their local namespace segments and registration names remain encoded as
+    /// one effective component name.
+    pub fn with_child_namespace(&self, local_namespace: &str) -> Self {
+        let namespace = match &self.namespace {
+            Some(PluginRegistrationNamespace::Plain(namespace)) => {
+                PluginRegistrationNamespace::Plain(format!("{namespace}{local_namespace}"))
+            }
+            Some(PluginRegistrationNamespace::PluginComponent(namespace)) => {
+                PluginRegistrationNamespace::PluginComponent(format!(
+                    "{namespace}{}",
+                    encode_plugin_component_field(local_namespace)
+                ))
+            }
+            None => PluginRegistrationNamespace::Plain(local_namespace.to_string()),
+        };
+        Self {
+            registrations: vec![],
+            namespace: Some(namespace),
         }
     }
 
@@ -417,9 +467,19 @@ impl PluginRegistrationContext {
     /// not have to provide component instance ids.
     pub fn qualify_name(&self, name: &str) -> String {
         match &self.namespace {
-            Some(namespace) => format!("{namespace}{name}"),
+            Some(PluginRegistrationNamespace::Plain(namespace)) => format!("{namespace}{name}"),
+            Some(PluginRegistrationNamespace::PluginComponent(namespace)) => {
+                format!("{namespace}{}", encode_plugin_component_field(name))
+            }
             None => name.to_string(),
         }
+    }
+
+    pub(crate) fn uses_plugin_component_namespace(&self) -> bool {
+        matches!(
+            &self.namespace,
+            Some(PluginRegistrationNamespace::PluginComponent(_))
+        )
     }
 
     /// Registers an event subscriber and records its rollback closure.
@@ -445,6 +505,71 @@ impl PluginRegistrationContext {
         Ok(())
     }
 
+    /// Registers a global conditional middleware guardrail and records its
+    /// rollback closure.
+    pub fn register_conditional_middleware_guardrail(
+        &mut self,
+        name: &str,
+        kinds: BTreeSet<RuntimeRegistrationKind>,
+        registration_name: &str,
+        guardrail: ConditionalMiddlewareGuardrailFn,
+    ) -> Result<()> {
+        let qualified_name = self.qualify_name(name);
+        register_conditional_middleware_guardrail(
+            &qualified_name,
+            kinds,
+            registration_name,
+            guardrail,
+        )
+        .map_err(|err| {
+            PluginError::RegistrationFailed(format!("conditional middleware guardrail: {err}"))
+        })?;
+
+        let name_owned = qualified_name;
+        self.registrations.push(PluginRegistration::new(
+            "plugin",
+            name_owned.clone(),
+            Box::new(move || {
+                deregister_conditional_middleware_guardrail(&name_owned)
+                    .map(|_| ())
+                    .map_err(|err| {
+                        PluginError::RegistrationFailed(format!(
+                            "conditional middleware guardrail deregistration failed: {err}"
+                        ))
+                    })
+            }),
+        ));
+        Ok(())
+    }
+
+    /// Registers an Event metadata injector and records its rollback closure.
+    pub fn register_event_metadata_injector(
+        &mut self,
+        name: &str,
+        priority: i32,
+        callback: EventMetadataInjectorFn,
+    ) -> Result<()> {
+        let qualified_name = self.qualify_name(name);
+        register_event_metadata_injector(&qualified_name, priority, callback).map_err(|err| {
+            PluginError::RegistrationFailed(format!("event metadata injector: {err}"))
+        })?;
+
+        let name_owned = qualified_name;
+        self.registrations.push(PluginRegistration::new(
+            "plugin",
+            name_owned.clone(),
+            Box::new(move || {
+                deregister_event_metadata_injector(&name_owned)
+                    .map(|_| ())
+                    .map_err(|err| {
+                        PluginError::RegistrationFailed(format!(
+                            "event metadata injector deregistration failed: {err}"
+                        ))
+                    })
+            }),
+        ));
+        Ok(())
+    }
     /// Registers a mark event sanitizer and records its rollback closure.
     pub fn register_mark_sanitize_guardrail(
         &mut self,
@@ -1025,6 +1150,10 @@ fn register_plugin_with_owner(
 ///
 /// Built-in plugins are available to validation and initialization without a
 /// binding or application-specific registration call.
+#[allow(
+    deprecated,
+    reason = "the host must register the built-in Guardrails plugin until its scheduled removal"
+)]
 pub fn ensure_builtin_plugins_registered() -> Result<()> {
     let all_registered = {
         let guard = PLUGIN_HANDLERS.read().map_err(|err| {
@@ -1278,7 +1407,9 @@ fn merge_plugin_components(left: &mut Json, right: Json) {
 ///
 /// Direct list fields in a component's `config` object concatenate with
 /// higher-precedence entries first. Declared observability collections do the
-/// same; deeper implementation-specific lists retain replacement semantics.
+/// same, except that an explicit empty log or metric endpoint list clears the
+/// lower-precedence list so it remains distinguishable from an omitted list.
+/// Deeper implementation-specific lists retain replacement semantics.
 fn merge_plugin_component(existing: &mut Json, higher_priority: Json) {
     let is_observability = component_kind(&higher_priority).or_else(|| component_kind(existing))
         == Some("observability");
@@ -1330,8 +1461,14 @@ fn merge_plugin_config_value(
         (Json::Array(lower_priority), Json::Array(mut higher_priority))
             if plugin_config_list_concatenates(path, is_observability) =>
         {
-            higher_priority.append(lower_priority);
-            *lower_priority = higher_priority;
+            if higher_priority.is_empty()
+                && plugin_config_empty_list_replaces(path, is_observability)
+            {
+                lower_priority.clear();
+            } else {
+                higher_priority.append(lower_priority);
+                *lower_priority = higher_priority;
+            }
         }
         (lower_priority, higher_priority) => *lower_priority = higher_priority,
     }
@@ -1340,13 +1477,30 @@ fn merge_plugin_config_value(
 fn plugin_config_list_concatenates(path: &[String], is_observability: bool) -> bool {
     path.len() == 1
         || (is_observability
-            && matches!(
+            && (matches!(
                 path,
                 [section, field]
                     if (section == "atof" && field == "sinks")
-                        || (section == "opentelemetry" && field == "endpoints")
+                        || (section == "opentelemetry" && matches!(field.as_str(), "traces" | "endpoints"))
                         || (section == "atif" && field == "storage")
-            ))
+            ) || matches!(
+                path,
+                [section, signal, field]
+                    if section == "opentelemetry"
+                        && matches!(signal.as_str(), "logs" | "metrics")
+                        && field == "endpoints"
+            )))
+}
+
+fn plugin_config_empty_list_replaces(path: &[String], is_observability: bool) -> bool {
+    is_observability
+        && matches!(
+            path,
+            [section, signal, field]
+                if section == "opentelemetry"
+                    && matches!(signal.as_str(), "logs" | "metrics")
+                    && field == "endpoints"
+        )
 }
 
 /// Recursively merges `right` into a `left` JSON object; arrays and scalars are replaced.
@@ -1578,102 +1732,177 @@ async fn initialize_plugins_exact_inner(
         guard.take()
     };
 
-    if let Some(mut previous_state) = previous {
-        // Keep the previous report installed while teardown callbacks run so
-        // runtime diagnostics emitted by teardown remain observable.
-        {
-            let mut guard = ACTIVE_PLUGIN_CONFIGURATION.lock().map_err(|err| {
-                PluginError::Internal(format!("active plugin configuration lock poisoned: {err}"))
-            })?;
-            *guard = Some(ActivePluginConfiguration {
-                config: previous_state.config.clone(),
-                report: previous_state.report.clone(),
-                registrations: Vec::new(),
-            });
-        }
-        let teardown = rollback_registrations_checked(&mut previous_state.registrations);
-        let teardown_report = ACTIVE_PLUGIN_CONFIGURATION
-            .lock()
-            .map_err(|err| {
-                PluginError::Internal(format!("active plugin configuration lock poisoned: {err}"))
-            })?
-            .take()
-            .map(|state| state.report);
-        if !teardown.errors.is_empty() {
-            if let Some(report) =
-                teardown_report.filter(|report| !report.runtime_diagnostics.is_empty())
-                && let Ok(mut guard) = LAST_FAILED_RUNTIME_DIAGNOSTICS_REPORT.lock()
-            {
-                *guard = Some(report);
-            }
-            if !teardown.callbacks_cleared {
-                record_rollback_failures(rollback_failures.as_ref(), teardown.errors.clone());
-            }
-            return Err(PluginError::RegistrationFailed(format!(
-                "previous plugin configuration could not be cleared: {}",
-                teardown.errors.join("; ")
-            )));
-        }
-        match initialize_plugin_components_catching_panics(
-            config.clone(),
-            rollback_failures.clone(),
-        )
-        .await
-        {
-            Ok(registrations) => {
-                store_active_plugin_configuration(config, report.clone(), registrations)?;
-                log::info!(
-                    target: "nemo_relay.plugin",
-                    event = "plugin_configuration_replaced",
-                    component_count = enabled_component_count;
-                    "Plugin configuration replaced"
-                );
-                Ok(report)
-            }
-            Err(err) => match initialize_plugin_components_catching_panics(
-                previous_state.config.clone(),
-                rollback_failures.clone(),
+    match previous {
+        Some(previous_state) => {
+            replace_plugin_configuration(
+                config,
+                report,
+                previous_state,
+                rollback_failures,
+                enabled_component_count,
             )
             .await
-            {
-                Ok(registrations) => {
-                    store_active_plugin_configuration(
-                        previous_state.config,
-                        previous_state.report,
-                        registrations,
-                    )?;
-                    log::warn!(
-                        target: "nemo_relay.plugin",
-                        event = "plugin_configuration_restored",
-                        recovery = "previous_configuration";
-                        "Plugin activation failed; previous configuration restored"
-                    );
-                    Err(err)
-                }
-                Err(restore_err) => {
-                    log::error!(
-                        target: "nemo_relay.plugin",
-                        event = "plugin_rollback_failed",
-                        recovery = "previous_configuration";
-                        "Plugin activation failed and the previous configuration could not be restored"
-                    );
-                    Err(PluginError::RegistrationFailed(format!(
-                        "{err}; previous plugin configuration could not be restored: {restore_err}"
-                    )))
-                }
-            },
         }
-    } else {
-        let registrations =
-            initialize_plugin_components_catching_panics(config.clone(), rollback_failures).await?;
-        store_active_plugin_configuration(config, report.clone(), registrations)?;
-        log::info!(
-            target: "nemo_relay.plugin",
-            event = "plugin_configuration_activated",
-            component_count = enabled_component_count;
-            "Plugin configuration activated"
-        );
-        Ok(report)
+        None => {
+            activate_initial_plugin_configuration(
+                config,
+                report,
+                rollback_failures,
+                enabled_component_count,
+            )
+            .await
+        }
+    }
+}
+
+async fn activate_initial_plugin_configuration(
+    config: PluginConfig,
+    report: ConfigReport,
+    rollback_failures: Option<Arc<Mutex<Vec<String>>>>,
+    enabled_component_count: usize,
+) -> Result<ConfigReport> {
+    let registrations =
+        initialize_plugin_components_catching_panics(config.clone(), rollback_failures).await?;
+    store_active_plugin_configuration(config, report.clone(), registrations)?;
+    log::info!(
+        target: "nemo_relay.plugin",
+        event = "plugin_configuration_activated",
+        component_count = enabled_component_count;
+        "Plugin configuration activated"
+    );
+    Ok(report)
+}
+
+async fn replace_plugin_configuration(
+    config: PluginConfig,
+    report: ConfigReport,
+    mut previous_state: ActivePluginConfiguration,
+    rollback_failures: Option<Arc<Mutex<Vec<String>>>>,
+    enabled_component_count: usize,
+) -> Result<ConfigReport> {
+    install_previous_configuration_for_teardown(&previous_state)?;
+    let teardown = rollback_registrations_checked(&mut previous_state.registrations);
+    let teardown_report = take_active_runtime_diagnostics_report()?;
+    if !teardown.errors.is_empty() {
+        record_failed_teardown(&teardown, teardown_report, rollback_failures.as_ref());
+        return Err(PluginError::RegistrationFailed(format!(
+            "previous plugin configuration could not be cleared: {}",
+            teardown.errors.join("; ")
+        )));
+    }
+    activate_replacement_or_restore(
+        config,
+        report,
+        previous_state,
+        rollback_failures,
+        enabled_component_count,
+    )
+    .await
+}
+
+fn install_previous_configuration_for_teardown(
+    previous_state: &ActivePluginConfiguration,
+) -> Result<()> {
+    let mut guard = ACTIVE_PLUGIN_CONFIGURATION.lock().map_err(|err| {
+        PluginError::Internal(format!("active plugin configuration lock poisoned: {err}"))
+    })?;
+    *guard = Some(ActivePluginConfiguration {
+        config: previous_state.config.clone(),
+        report: previous_state.report.clone(),
+        runtime_diagnostics: previous_state.runtime_diagnostics.clone(),
+        registrations: Vec::new(),
+    });
+    Ok(())
+}
+
+fn take_active_runtime_diagnostics_report() -> Result<Option<ConfigReport>> {
+    Ok(ACTIVE_PLUGIN_CONFIGURATION
+        .lock()
+        .map_err(|err| {
+            PluginError::Internal(format!("active plugin configuration lock poisoned: {err}"))
+        })?
+        .take()
+        .map(|state| state.report))
+}
+
+fn record_failed_teardown(
+    teardown: &PluginRollbackOutcome,
+    teardown_report: Option<ConfigReport>,
+    rollback_failures: Option<&Arc<Mutex<Vec<String>>>>,
+) {
+    if let Some(report) = teardown_report.filter(|report| !report.runtime_diagnostics.is_empty())
+        && let Ok(mut guard) = LAST_FAILED_RUNTIME_DIAGNOSTICS_REPORT.lock()
+    {
+        *guard = Some(report);
+    }
+    if !teardown.callbacks_cleared {
+        record_rollback_failures(rollback_failures, teardown.errors.clone());
+    }
+}
+
+async fn activate_replacement_or_restore(
+    config: PluginConfig,
+    report: ConfigReport,
+    previous_state: ActivePluginConfiguration,
+    rollback_failures: Option<Arc<Mutex<Vec<String>>>>,
+    enabled_component_count: usize,
+) -> Result<ConfigReport> {
+    match initialize_plugin_components_catching_panics(config.clone(), rollback_failures.clone())
+        .await
+    {
+        Ok(registrations) => {
+            store_active_plugin_configuration(config, report.clone(), registrations)?;
+            log::info!(
+                target: "nemo_relay.plugin",
+                event = "plugin_configuration_replaced",
+                component_count = enabled_component_count;
+                "Plugin configuration replaced"
+            );
+            Ok(report)
+        }
+        Err(err) => {
+            restore_previous_plugin_configuration(previous_state, rollback_failures, err).await
+        }
+    }
+}
+
+async fn restore_previous_plugin_configuration(
+    previous_state: ActivePluginConfiguration,
+    rollback_failures: Option<Arc<Mutex<Vec<String>>>>,
+    err: PluginError,
+) -> Result<ConfigReport> {
+    match initialize_plugin_components_catching_panics(
+        previous_state.config.clone(),
+        rollback_failures,
+    )
+    .await
+    {
+        Ok(registrations) => {
+            store_active_plugin_configuration_with_runtime_diagnostics(
+                previous_state.config,
+                previous_state.report,
+                previous_state.runtime_diagnostics,
+                registrations,
+            )?;
+            log::warn!(
+                target: "nemo_relay.plugin",
+                event = "plugin_configuration_restored",
+                recovery = "previous_configuration";
+                "Plugin activation failed; previous configuration restored"
+            );
+            Err(err)
+        }
+        Err(restore_err) => {
+            log::error!(
+                target: "nemo_relay.plugin",
+                event = "plugin_rollback_failed",
+                recovery = "previous_configuration";
+                "Plugin activation failed and the previous configuration could not be restored"
+            );
+            Err(PluginError::RegistrationFailed(format!(
+                "{err}; previous plugin configuration could not be restored: {restore_err}"
+            )))
+        }
     }
 }
 
@@ -1790,8 +2019,7 @@ fn remove_default_policy_overlay(root: &mut Map<String, Json>, config: &ConfigPo
 /// Resolves the default `plugins.toml` layering into one JSON document, or an
 /// empty object when no plugin file exists.
 fn resolve_default_file_plugin_config() -> Result<DiscoveredPluginConfig> {
-    let paths =
-        default_plugin_config_paths(std::env::current_dir().ok().as_deref(), user_config_dir());
+    let paths = default_plugin_config_paths(user_config_dir());
     let documents = read_plugin_config_files(paths)?;
     resolve_discovered_plugin_config(documents)
 }
@@ -2044,32 +2272,33 @@ fn validate_unique_component_kinds(path: &Path, document: &Json) -> Result<()> {
     )))
 }
 
-/// Default `plugins.toml` search path (lowest precedence first): user, nearest
-/// project file, then system file — mirroring the gateway's discovery. `pub` only
-/// for cross-crate reuse by the gateway.
+/// Default `plugins.toml` search path (lowest precedence first): user, then
+/// system — mirroring the gateway's discovery. `pub` only for cross-crate reuse
+/// by the gateway.
 #[doc(hidden)]
-pub fn default_plugin_config_paths(cwd: Option<&Path>, user_dir: Option<PathBuf>) -> Vec<PathBuf> {
+pub fn default_plugin_config_paths(user_dir: Option<PathBuf>) -> Vec<PathBuf> {
     let mut paths = Vec::new();
     if let Some(dir) = user_dir {
         paths.push(dir.join("plugins.toml"));
     }
-    if let Some(cwd) = cwd
-        && let Some(project) = nearest_project_plugin_config(cwd)
-    {
-        paths.push(project);
-    }
-    paths.push(PathBuf::from("/etc/nemo-relay/plugins.toml"));
+    paths.push(system_config_dir().join("plugins.toml"));
     paths
 }
 
-/// Walks upward from `start` for the nearest `.nemo-relay/plugins.toml`. `pub`
-/// only for cross-crate reuse by the gateway.
+/// Resolves the platform system configuration directory.
 #[doc(hidden)]
-pub fn nearest_project_plugin_config(start: &Path) -> Option<PathBuf> {
-    start
-        .ancestors()
-        .map(|ancestor| ancestor.join(".nemo-relay").join("plugins.toml"))
-        .find(|path| path.exists())
+pub fn system_config_dir() -> PathBuf {
+    #[cfg(windows)]
+    {
+        std::env::var_os("ProgramData")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\ProgramData"))
+            .join("nemo-relay")
+    }
+    #[cfg(not(windows))]
+    {
+        PathBuf::from("/etc/nemo-relay")
+    }
 }
 
 /// Resolves the nemo-relay user config directory from `XDG_CONFIG_HOME`, then
@@ -2349,6 +2578,19 @@ pub fn record_active_plugin_runtime_diagnostic(diagnostic: RuntimeDiagnostic) {
     let Some(state) = guard.as_mut() else {
         return;
     };
+    if let Some(existing) = state.runtime_diagnostics.get_mut(&diagnostic.code) {
+        existing.message = diagnostic.message.clone();
+        existing.count = existing.count.saturating_add(diagnostic.count);
+    } else if state.runtime_diagnostics.len() < MAX_DYNAMIC_PLUGIN_RUNTIME_DIAGNOSTICS {
+        state.runtime_diagnostics.insert(
+            diagnostic.code.clone(),
+            RuntimeDiagnosticsSnapshotEntry {
+                code: diagnostic.code.clone(),
+                message: diagnostic.message.clone(),
+                count: diagnostic.count,
+            },
+        );
+    }
     if let Some(existing) = state
         .report
         .runtime_diagnostics
@@ -2361,10 +2603,23 @@ pub fn record_active_plugin_runtime_diagnostic(diagnostic: RuntimeDiagnostic) {
     {
         existing.message = diagnostic.message;
         existing.session_id = diagnostic.session_id;
-        existing.count += 1;
+        existing.count = existing.count.saturating_add(diagnostic.count);
     } else {
         state.report.runtime_diagnostics.push(diagnostic);
     }
+}
+
+/// Return a bounded, active-only runtime-diagnostics snapshot for dynamic plugins.
+pub(crate) fn active_runtime_diagnostics_snapshot() -> Vec<RuntimeDiagnosticsSnapshotEntry> {
+    ACTIVE_PLUGIN_CONFIGURATION
+        .lock()
+        .ok()
+        .and_then(|guard| {
+            guard
+                .as_ref()
+                .map(|state| state.runtime_diagnostics.values().cloned().collect())
+        })
+        .unwrap_or_default()
 }
 
 /// Rolls back registrations in reverse order, ignoring rollback failures.
@@ -2435,6 +2690,7 @@ fn panic_payload_message(payload: Box<dyn std::any::Any + Send>) -> String {
 struct ActivePluginConfiguration {
     config: PluginConfig,
     report: ConfigReport,
+    runtime_diagnostics: BTreeMap<String, RuntimeDiagnosticsSnapshotEntry>,
     registrations: Vec<PluginRegistration>,
 }
 
@@ -2443,7 +2699,6 @@ async fn initialize_plugin_components(
     rollback_failures: Option<Arc<Mutex<Vec<String>>>>,
 ) -> Result<Vec<PluginRegistration>> {
     ensure_builtin_plugins_registered()?;
-    let totals = plugin_component_totals(config);
     let mut ordinals: HashMap<&str, usize> = HashMap::new();
     let mut registrations = PendingPluginRegistrations::new(rollback_failures.clone());
 
@@ -2463,11 +2718,7 @@ async fn initialize_plugin_components(
             .entry(component.kind.as_str())
             .and_modify(|value| *value += 1)
             .or_insert(1);
-        let namespace = component_namespace(
-            &component.kind,
-            *ordinal,
-            totals.get(component.kind.as_str()).copied().unwrap_or(1),
-        );
+        let namespace = component_namespace(&component.kind, *ordinal);
 
         let mut pending =
             PendingPluginRegistrationContext::new(namespace, rollback_failures.clone());
@@ -2519,7 +2770,7 @@ struct PendingPluginRegistrationContext {
 impl PendingPluginRegistrationContext {
     fn new(namespace: String, rollback_failures: Option<Arc<Mutex<Vec<String>>>>) -> Self {
         Self {
-            context: PluginRegistrationContext::with_namespace(namespace),
+            context: PluginRegistrationContext::with_plugin_component_namespace(namespace),
             rollback_failures,
         }
     }
@@ -2557,12 +2808,27 @@ fn store_active_plugin_configuration(
     report: ConfigReport,
     registrations: Vec<PluginRegistration>,
 ) -> Result<()> {
+    store_active_plugin_configuration_with_runtime_diagnostics(
+        config,
+        report,
+        BTreeMap::new(),
+        registrations,
+    )
+}
+
+fn store_active_plugin_configuration_with_runtime_diagnostics(
+    config: PluginConfig,
+    report: ConfigReport,
+    runtime_diagnostics: BTreeMap<String, RuntimeDiagnosticsSnapshotEntry>,
+    registrations: Vec<PluginRegistration>,
+) -> Result<()> {
     let mut guard = ACTIVE_PLUGIN_CONFIGURATION.lock().map_err(|err| {
         PluginError::Internal(format!("active plugin configuration lock poisoned: {err}"))
     })?;
     *guard = Some(ActivePluginConfiguration {
         config,
         report,
+        runtime_diagnostics,
         registrations,
     });
     if let Ok(mut guard) = LAST_FAILED_RUNTIME_DIAGNOSTICS_REPORT.lock() {
@@ -2579,11 +2845,85 @@ fn plugin_component_totals(config: &PluginConfig) -> HashMap<&str, usize> {
     totals
 }
 
-fn component_namespace(kind: &str, ordinal: usize, total: usize) -> String {
-    if total > 1 {
-        format!("__nemo_relay_plugin__{kind}__{ordinal}__")
-    } else {
-        format!("__nemo_relay_plugin__{kind}__")
+fn component_namespace(kind: &str, ordinal: usize) -> String {
+    assert!(ordinal > 0, "plugin component ordinals are one-based");
+    format!(
+        "nemo-relay-plugin.v1.{}:{ordinal}:",
+        encode_plugin_component_field(kind)
+    )
+}
+
+pub(crate) fn encode_plugin_component_field(value: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push('%');
+            encoded.push(char::from(HEX[(byte >> 4) as usize]));
+            encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
+        }
+    }
+    encoded
+}
+
+pub(crate) fn decode_plugin_component_effective_name(
+    effective_name: &str,
+) -> Option<(String, u32, String)> {
+    const PREFIX: &str = "nemo-relay-plugin.v1.";
+
+    let rest = effective_name.strip_prefix(PREFIX)?;
+    let (encoded_kind, rest) = rest.split_once(':')?;
+    let (ordinal_text, encoded_local_name) = rest.split_once(':')?;
+    let ordinal = ordinal_text
+        .parse::<u32>()
+        .ok()
+        .filter(|ordinal| *ordinal > 0)?;
+    if ordinal.to_string() != ordinal_text {
+        return None;
+    }
+    let plugin_kind = decode_plugin_component_field(encoded_kind)?;
+    let local_name = decode_plugin_component_field(encoded_local_name)?;
+    (!plugin_kind.is_empty() && !local_name.is_empty()).then_some((
+        plugin_kind,
+        ordinal,
+        local_name,
+    ))
+}
+
+fn decode_plugin_component_field(encoded: &str) -> Option<String> {
+    let mut bytes = Vec::with_capacity(encoded.len());
+    let encoded = encoded.as_bytes();
+    let mut index = 0;
+
+    while index < encoded.len() {
+        let byte = encoded[index];
+        if byte == b'%' {
+            let high = *encoded.get(index + 1)?;
+            let low = *encoded.get(index + 2)?;
+            bytes.push((hex_value(high)? << 4) | hex_value(low)?);
+            index += 3;
+        } else if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            bytes.push(byte);
+            index += 1;
+        } else {
+            return None;
+        }
+    }
+
+    let decoded = String::from_utf8(bytes).ok()?;
+    (encode_plugin_component_field(&decoded) == std::str::from_utf8(encoded).ok()?)
+        .then_some(decoded)
+}
+
+fn hex_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        _ => None,
     }
 }
 

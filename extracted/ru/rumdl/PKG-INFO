@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.60
+Version: 0.2.61
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -237,7 +237,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.60
+mise use rumdl@0.2.61
 ```
 
 ### Using Nix (macOS/Linux)
@@ -436,6 +436,9 @@ pbpaste | rumdl fmt --silent - | pbcopy
 
 # Provide filename context for better error messages (useful for editor integrations)
 cat README.md | rumdl check - --stdin-filename README.md
+
+# Check two in-memory documents in one process (the stream must end in NUL)
+printf 'docs/a.md\0# A\n\0docs/b.md\0# B\n\0' | rumdl check --stdin-batch
 ```
 
 Use `--silent` whenever stdout should contain only formatted Markdown. Plain `rumdl fmt -` may also emit remaining diagnostics.
@@ -466,7 +469,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.60
+    rev: v0.2.61
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, always exits 0
@@ -482,7 +485,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.60
+    rev: v0.2.61
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -499,7 +502,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.60
+    rev: v0.2.61
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -691,6 +694,8 @@ Lint Markdown files and print warnings/errors (main subcommand)
 - `-q, --quiet`: Print diagnostics, but suppress summary lines
 - `--output-format <format>`: Output format for diagnostics
 - `--stdin`: Read from stdin instead of files
+- `--stdin-batch`: Read repeated UTF-8 `path\0content\0` pairs from stdin
+- `--stdin-batch-closed-world`: Resolve relative links only within the supplied batch
 
 #### `fmt [PATHS...]`
 

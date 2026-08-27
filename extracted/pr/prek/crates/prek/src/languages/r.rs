@@ -24,6 +24,7 @@ impl LanguageBackend for R {
         &self,
         store: &Store,
         hook: Arc<Hook>,
+        install_cwd: &Path,
         reporter: &HookInstallReporter,
     ) -> Result<InstalledHook> {
         let progress = reporter.on_install_start(&hook);
@@ -79,7 +80,7 @@ impl LanguageBackend for R {
                 &rscript,
                 &additional_dependency_install_code(&info.env_path),
                 &hook.additional_dependencies,
-                hook.work_dir(),
+                install_cwd,
             )
             .await
             .context("Failed to install R additional dependencies")?;
@@ -140,7 +141,7 @@ impl LanguageBackend for R {
         hook: &InstalledHook,
         _environment: &ExecutionEnvironment,
     ) -> Result<PreparedHookEntry> {
-        Ok(PreparedHookEntry::direct(r_hook_entry(hook)?))
+        Ok(PreparedHookEntry::argv(r_hook_entry(hook)?))
     }
 }
 
@@ -236,7 +237,7 @@ fn additional_dependency_install_code(env_path: &Path) -> String {
 }
 
 fn r_hook_entry(hook: &InstalledHook) -> Result<Vec<OsString>> {
-    let entry = hook.entry.expect_direct().split()?;
+    let entry = hook.entry.expect_argv_entry().split()?;
     validate_r_entry(&entry)?;
 
     let mut cmd = Vec::with_capacity(entry.len() + 4);

@@ -23,6 +23,7 @@ impl LanguageBackend for Julia {
         &self,
         store: &Store,
         hook: Arc<Hook>,
+        install_cwd: &Path,
         reporter: &HookInstallReporter,
     ) -> Result<InstalledHook> {
         let progress = reporter.on_install_start(&hook);
@@ -64,7 +65,7 @@ impl LanguageBackend for Julia {
         "};
 
         Cmd::new("julia")
-            .current_dir(search_path)
+            .current_dir(install_cwd)
             .arg("--startup-file=no")
             .arg(format!("--project={}", info.env_path.display()))
             .arg("-e")
@@ -108,7 +109,7 @@ impl LanguageBackend for Julia {
 
         let env_dir = hook.env_path().expect("Julia must have env path");
 
-        let mut entry = hook.entry.expect_direct().split()?;
+        let mut entry = hook.entry.expect_argv_entry().split()?;
         if let Some(repo_path) = hook.repo_path() {
             let jl_path = repo_path.join(&entry[0]);
             if jl_path.exists() {
@@ -119,6 +120,7 @@ impl LanguageBackend for Julia {
         let run = async |batch: &[&Path]| {
             let output = Cmd::new("julia")
                 .current_dir(hook.work_dir())
+                .preserve_current_worktree(hook.work_dir())
                 .arg("--startup-file=no")
                 .arg(format!("--project={}", env_dir.display()))
                 .args(&entry)

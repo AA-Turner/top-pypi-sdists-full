@@ -8,13 +8,13 @@ from .create_dubbing_job_data import CreateDubbingJobData
 
 
 class CreateDubbingJobResponse(UniversalBaseModel):
-    status: typing.Optional[str] = pydantic.Field(default=None)
+    status: str = pydantic.Field()
     """
     Response status, e.g. `success`.
     """
 
-    message: typing.Optional[str] = None
-    data: typing.Optional[CreateDubbingJobData] = None
+    message: str
+    data: CreateDubbingJobData
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

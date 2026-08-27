@@ -1,16 +1,14 @@
 Metadata-Version: 2.4
 Name: instructure-dap-client
-Version: 2.2.0
+Version: 2.3.0
 Summary: Data Access Platform client library
-Maintainer: Instucture, Inc.
-Maintainer-email: dapclient@instructure.com
-License: MIT
-Project-URL: Changelog, https://community.canvaslms.com/t5/Canvas-Change-Log/2025-API-and-CLI-Change-Log/ta-p/626858
+Maintainer-email: "Instructure, Inc." <dapclient@instructure.com>
+License-Expression: MIT
+Project-URL: Changelog, https://community.instructure.com/en/discussion/664378/2026-api-and-cli-change-log
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
@@ -21,22 +19,24 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiohttp==3.13.3
+Requires-Dist: aiohttp==3.13.4
 Requires-Dist: aiohttp-retry==2.9.1
 Requires-Dist: aiofiles==25.1.0
 Requires-Dist: asyncclick==8.1.8.0
-Requires-Dist: types-aiofiles==25.1.0.20251011
-Requires-Dist: json_strong_typing==0.4.3
-Requires-Dist: pysqlsync[tsv]==0.8.4
-Requires-Dist: PyJWT==2.11.0
+Requires-Dist: PyJWT==2.13.0
 Requires-Dist: tsv2py==0.7.1
 Requires-Dist: rich==14.3.3
+Requires-Dist: jsonschema==4.26.0
+Requires-Dist: truststore==0.10.4
+Requires-Dist: typing_extensions==4.16.0; python_version < "3.12"
 Provides-Extra: postgresql
-Requires-Dist: pysqlsync[postgresql]==0.8.4; extra == "postgresql"
+Requires-Dist: asyncpg==0.31.0; extra == "postgresql"
 Provides-Extra: mysql
-Requires-Dist: pysqlsync[mysql]==0.8.4; extra == "mysql"
+Requires-Dist: aiomysql==0.3.2; extra == "mysql"
+Requires-Dist: PyMySQL[rsa]==1.2.0; extra == "mysql"
+Requires-Dist: cryptography==50.0.0; extra == "mysql"
 Provides-Extra: mssql
-Requires-Dist: pysqlsync[mssql]==0.8.4; extra == "mssql"
+Requires-Dist: pyodbc==5.3.0; extra == "mssql"
 Dynamic: license-file
 
 # Data Access Platform Client Library

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: livekit-plugins-sarvam
-Version: 1.7.0
+Version: 1.7.1
 Summary: Agent Framework plugin for services using Sarvam.ai's API.
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -17,7 +17,7 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
-Requires-Dist: livekit-agents[codecs,openai]>=1.7.0
+Requires-Dist: livekit-agents[codecs,openai]>=1.7.1
 Requires-Dist: numpy>=1.26
 Description-Content-Type: text/markdown
 
@@ -27,7 +27,7 @@ Support for [Sarvam.ai](https://sarvam.ai)'s Indian-language voice AI services i
 
 ## Features
 
-- **Speech-to-Text (STT)**: Convert audio to text using Sarvam's "Saarika" models. See the [STT docs](https://docs.livekit.io/agents/integrations/stt/sarvam/) for more information.
+- **Speech-to-Text (STT)**: Convert audio to text using Sarvam's "Saaras" models. See the [STT docs](https://docs.livekit.io/agents/integrations/stt/sarvam/) for more information.
 - **Text-to-Speech (TTS)**: Convert text to audio using Sarvam's "Bulbul" models. See the [TTS docs](https://docs.livekit.io/agents/integrations/tts/sarvam/) for more information.
 - **LLM (Chat Completions)**: OpenAI-compatible chat-completions support for `sarvam-30b`, `sarvam-30b-16k`, `sarvam-105b` and `sarvam-105b-32k` including tool calling.
 

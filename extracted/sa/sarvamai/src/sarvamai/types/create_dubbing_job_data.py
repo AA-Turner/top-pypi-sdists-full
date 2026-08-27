@@ -7,7 +7,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class CreateDubbingJobData(UniversalBaseModel):
-    job_id: typing.Optional[str] = pydantic.Field(default=None)
+    job_id: str = pydantic.Field()
     """
     Unique identifier for the created dubbing job.
     """
@@ -27,12 +27,12 @@ class CreateDubbingJobData(UniversalBaseModel):
     How long the signed upload URL(s) remain valid, in hours.
     """
 
-    processing_started: typing.Optional[bool] = pydantic.Field(default=None)
+    processing_started: bool = pydantic.Field()
     """
     Whether processing has already begun for this job.
     """
 
-    voice_cloning: typing.Optional[bool] = None
+    voice_cloning: bool
     voice_id: typing.Optional[str] = None
     pace_preset: typing.Optional[str] = None
     model_tier: typing.Optional[str] = pydantic.Field(default=None)

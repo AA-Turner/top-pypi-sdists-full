@@ -20,7 +20,7 @@ class TestAlignSettingsSection(FormatterAcceptanceTest):
         )
 
     def test_align_selected_whole(self):
-        self.compare(source="test.robot", expected="selected_whole.robot", start_line=1, end_line=25)
+        self.compare(source="test.robot", expected="selected_whole.robot", start_line=1, end_line=29)
 
     def test_align_selected_part(self):
         self.compare(source="test.robot", expected="selected_part.robot", start_line=9, end_line=14)
@@ -72,11 +72,14 @@ class TestAlignSettingsSection(FormatterAcceptanceTest):
     def test_argument_indents(self):
         self.compare(source="argument_indents.robot")
 
-    @pytest.mark.parametrize("min_width", [0, 1, 20])
-    def test_min_width_shorter(self, min_width):
+    @pytest.mark.parametrize(
+        ("min_width", "expected"),
+        [(0, "test.robot"), (1, "test.robot"), (20, "test_min_width.robot")],
+    )
+    def test_min_width_shorter(self, min_width, expected):
         self.compare(
             source="test.robot",
-            expected="test_min_width.robot",
+            expected=expected,
             configure=[f"{self.FORMATTER_NAME}.min_width={min_width}"],
         )
 
@@ -84,7 +87,7 @@ class TestAlignSettingsSection(FormatterAcceptanceTest):
     def test_min_width_longer(self, min_width):
         self.compare(
             source="test.robot",
-            expected="test_min_width_50_width.robot",
+            expected=f"test_min_width_{min_width}_width.robot",
             configure=[f"{self.FORMATTER_NAME}.min_width={min_width}"],
         )
 

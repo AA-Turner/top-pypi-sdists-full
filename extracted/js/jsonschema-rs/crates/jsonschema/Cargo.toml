@@ -1,6 +1,6 @@
 [package]
 name = "jsonschema"
-version = "0.51.0"
+version = "0.52.0"
 description = "JSON schema validaton library"
 keywords = ["jsonschema", "validation"]
 categories = ["web-programming"]
@@ -14,7 +14,7 @@ authors.workspace = true
 [features]
 # Conformance checks for custom JSON representations (`json` module).
 conformance = ["jsonschema-value/conformance"]
-default = ["resolve-http", "resolve-file", "tls-aws-lc-rs"]
+default = ["resolve-http", "resolve-file", "tls-aws-lc-rs", "idna"]
 resolve-http = ["reqwest", "dep:rustls"]
 resolve-file = []
 resolve-async = [
@@ -23,6 +23,8 @@ resolve-async = [
     "dep:async-trait",
     "dep:tokio",
 ]
+# `idn-hostname` and `idn-email` format validation.
+idna = ["dep:idna"]
 # Default TLS provider for HTTP resolution.
 tls-aws-lc-rs = ["rustls/aws-lc-rs"]
 # Use ring instead of aws-lc-rs for TLS.
@@ -57,24 +59,24 @@ reqwest = { version = "0.13", features = ["json"], default-features = false, opt
 
 [dependencies]
 ahash.workspace = true
-jsonschema-macros = { version = "0.51.0", path = "../jsonschema-macros", optional = true }
-jsonschema-regex = { version = "0.51.0", path = "../jsonschema-regex" }
-jsonschema-value = { version = "0.51.0", path = "../jsonschema-value" }
+jsonschema-macros = { version = "0.52.0", path = "../jsonschema-macros", optional = true }
+jsonschema-regex = { version = "0.52.0", path = "../jsonschema-regex" }
+jsonschema-value = { version = "0.52.0", path = "../jsonschema-value" }
 async-trait = { version = "0.1.86", optional = true }
 bytecount = { version = "0.6", features = ["runtime-dispatch-simd"] }
 data-encoding = "2.9"
 email_address = "0.2.9"
 fancy-regex = "0.19"
-fraction = { version = "0.16", default-features = false, features = [
+fraction = { version = "0.17", default-features = false, features = [
   "with-bigint",
 ] }
-idna = "1.0.2"
+idna = { version = "1.0.2", optional = true }
 itoa = "1"
 num-bigint = { version = "0.4", optional = true }
 num-cmp = "0.1"
 num-traits = "0.2.19"
 percent-encoding = "2.3"
-referencing = { version = "0.51.0", path = "../jsonschema-referencing" }
+referencing = { version = "0.52.0", path = "../jsonschema-referencing" }
 regex = "1.11.1"
 serde.workspace = true
 # `float_roundtrip`: canonical JSON serialization round-trips floats through re-parses downstream.
@@ -94,7 +96,7 @@ wasm-bindgen-test = "0.3.55"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 benchmark = { path = "../benchmark/" }
-hegeltest = { version = "0.30", features = ["serde_json"] }
+hegeltest = { version = "0.31", features = ["serde_json"] }
 codspeed-criterion-compat = { version = "5.0", default-features = false }
 criterion = { version = "0.8", default-features = false }
 tempfile = "3.13.0"

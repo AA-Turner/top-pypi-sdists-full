@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: ggshield
-Version: 1.53.0
+Version: 1.54.0
 Summary: Detect secrets from all sources using GitGuardian's brains
 Project-URL: Homepage, https://github.com/GitGuardian/ggshield
 Author-email: GitGuardian <support@gitguardian.com>
@@ -27,32 +27,29 @@ Requires-Python: >=3.9
 Requires-Dist: charset-normalizer~=3.1.0
 Requires-Dist: click<9,>=8.1.0
 Requires-Dist: configupdater<4,>=3.2
-Requires-Dist: cryptography<49,>=43.0.1
+Requires-Dist: cryptography<51,>=43.0.1
 Requires-Dist: filelock>=3.19.1
-Requires-Dist: keyring<26,>=24.0.0
+Requires-Dist: keyring<26,>=25.0.0
 Requires-Dist: marshmallow-dataclass<9,>=8.7.0
 Requires-Dist: marshmallow<5,>=3.18
 Requires-Dist: notify-py>=0.3.43
 Requires-Dist: oauthlib<4,>=3.2.1
 Requires-Dist: packaging>=22.0
 Requires-Dist: platformdirs~=4.2
-Requires-Dist: pygitguardian~=1.33.1
+Requires-Dist: pygitguardian~=1.34.0
 Requires-Dist: pyjwt<3,>=2.13.0
 Requires-Dist: python-dotenv<2,>=0.21.0
 Requires-Dist: pyyaml<7,>=6.0.1
 Requires-Dist: requests<3,>=2.32.0
 Requires-Dist: rich~=13.0
 Requires-Dist: sigstore<5,>=4.0.0
-Requires-Dist: tomli>=2.4.0
+Requires-Dist: tomli>=2.4.0; python_version < '3.11'
+Requires-Dist: tomlkit<0.14,>=0.13.3
 Requires-Dist: truststore>=0.10.1; python_version >= '3.10'
 Requires-Dist: typing-extensions~=4.14
 Requires-Dist: unearth>=0.18.2
 Requires-Dist: urllib3<3,>=2.2.2
 Description-Content-Type: text/markdown
-
-<a href="https://gitguardian.com/"><img src="https://cdn.jsdelivr.net/gh/gitguardian/ggshield/doc/logo.svg"></a>
-
----
 
 # [ggshield](https://github.com/GitGuardian/ggshield): protect your code with GitGuardian
 
@@ -289,7 +286,8 @@ To catch errors earlier, use `ggshield` as a [pre-commit, pre-push or pre-receiv
 
 You can install the hooks with the `ggshield install` command.
 
-Supported tools: **Cursor**, **Claude Code**, **Copilot Chat**, and **Codex**.
+Supported tools: **Cursor**, **Claude Code**, **Copilot Chat**, **Codex**, and
+**Mistral Vibe 2.21+**.
 
 # Learn more
 

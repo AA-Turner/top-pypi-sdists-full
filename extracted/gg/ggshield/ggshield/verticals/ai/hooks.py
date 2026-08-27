@@ -1,25 +1,31 @@
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Dict, List, Optional, Pattern, Sequence, Set, Tuple
 
 import filelock
 from notifypy import Notify
+from pygitguardian.config import DOCUMENT_SIZE_THRESHOLD_BYTES
 
 from ggshield.core import ui
 from ggshield.core.dirs import get_cache_dir
 from ggshield.core.errors import AuthError
 from ggshield.core.filter import censor_match
-from ggshield.core.scan import ScannerProtocol
+from ggshield.core.scan import Scannable, ScannerProtocol
 from ggshield.core.scan import SecretProtocol as Secret
 from ggshield.core.scanner_ui import create_message_only_scanner_ui
 from ggshield.core.text_utils import pluralize, translate_validity
-from ggshield.verticals.ai.mcp import send_mcp_activity
+from ggshield.utils.files import is_path_excluded
+from ggshield.utils.os import getenv_bool
+from ggshield.verticals.ai.mcp import is_mcp_activity_payload, send_mcp_activity
 
 from .agents import AGENTS
+from .cache import has_clean_verdict, store_clean_verdict, verdict_key
 from .models import (
     Agent,
     EventType,
@@ -35,12 +41,16 @@ HOOK_NAME_TO_EVENT_TYPE = {
     "userpromptsubmitted": EventType.USER_PROMPT,  # Copilot CLI's native event name
     "beforesubmitprompt": EventType.USER_PROMPT,
     "pretooluse": EventType.PRE_TOOL_USE,
+    "pre_tool": EventType.PRE_TOOL_USE,
     "posttooluse": EventType.POST_TOOL_USE,
+    "post_tool": EventType.POST_TOOL_USE,
 }
 
 TOOL_NAME_TO_TOOL = {
     "shell": Tool.BASH,  # Cursor
-    "bash": Tool.BASH,  # Claude Code
+    "bash": Tool.BASH,  # Claude Code, Mistral Vibe
+    "git_bash": Tool.BASH,  # Mistral Vibe
+    "powershell": Tool.BASH,  # Mistral Vibe, on Windows
     "run_in_terminal": Tool.BASH,  # Copilot
     "read": Tool.READ,  # Claude/Cursor
     "read_file": Tool.READ,  # Copilot
@@ -107,6 +117,27 @@ def find_filepaths(prompt: str) -> Set[str]:
     return paths
 
 
+def _abs_read_path(identifier: str, cwd: str) -> str:
+    """Resolve a READ file path to an absolute path against the event's cwd.
+
+    The verdict cache is keyed on the filename, so the same physical file must
+    yield the same identifier whether it came from an @-mention in a prompt
+    (usually relative) or a tool's file_path (usually absolute) -- otherwise the
+    file is scanned twice. os.path.join leaves an already-absolute path alone,
+    and abspath normalizes it; realpath is deliberately avoided so the key stays
+    deterministic and matches how the file is referenced.
+
+    Never break the scan: with no cwd, or if resolution fails, the identifier is
+    returned unchanged (today's behavior).
+    """
+    if not identifier or not cwd:
+        return identifier
+    try:
+        return os.path.abspath(os.path.join(cwd, identifier))
+    except Exception:
+        return identifier
+
+
 def parse_hook_input(raw_content: str) -> list[HookPayload]:
     """Parse the input content. Raises a ValueError if the input is not valid.
 
@@ -139,13 +170,19 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
     identifier = ""
     content = ""
     tool = None
+    read_range = None
+
+    # The event's working directory, used to canonicalize READ file paths to
+    # absolute so a prompt @-mention and a tool read of the same file share one
+    # verdict-cache key (see _abs_read_path). Agent-specific; "" when unknown.
+    cwd = agent.event_cwd(data)
 
     # Extract the identifier and content based on the event type
     if event_type == EventType.USER_PROMPT:
         content = data.get("prompt", "")
         # Look for files mentioned in the prompt that could be read
         # without triggering a PRE_TOOL_USE event.
-        payloads.extend(_parse_user_prompt(content, event_type, agent, timestamp))
+        payloads.extend(_parse_user_prompt(content, event_type, agent, timestamp, cwd))
 
     elif event_type == EventType.PRE_TOOL_USE:
         tool = _parse_tool(data)
@@ -157,10 +194,13 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
             content = tool_input.get("command", "")
             identifier = content
             # Try to detect a command that could be used to read a file.
-            payloads.extend(_parse_command(content, event_type, agent, timestamp))
+            payloads.extend(_parse_command(content, event_type, agent, timestamp, cwd))
         elif tool == Tool.READ:
             # We only need to deal with the identifier, the content will be read by the Scannable
-            identifier = lookup(tool_input, ["file_path", "filePath", "path"], "")
+            identifier = _abs_read_path(
+                lookup(tool_input, ["file_path", "filePath", "path"], ""), cwd
+            )
+            read_range = agent.read_range(tool_input)
         elif tool_input:
             # MCP and unrecognized tool arguments can carry secrets bound for
             # potentially external servers. Scan them, like tool_output below.
@@ -171,13 +211,22 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
     elif event_type == EventType.POST_TOOL_USE:
         tool = _parse_tool(data)
         content = lookup(data, ["tool_output", "tool_response", "tool_result"], {})
+        if content is None:
+            # Vibe reports a null structured output on tool failure, while the
+            # text shown to the model remains available in tool_output_text.
+            content = data.get("tool_output_text", "")
         # Some agents return a dict for the tool output. Also support lists just in case.
         if isinstance(content, (dict, list)):
             content = json.dumps(content)
         if tool == Tool.READ:
-            identifier = lookup(
-                data.get("tool_input", {}), ["file_path", "filePath", "path"], ""
+            # Same tool_input as PreToolUse, hence the same range and the same
+            # canonicalized path: both events scan the exact same bytes for one
+            # read, which the verdict cache (keyed on the document) relies on.
+            tool_input = data.get("tool_input", {})
+            identifier = _abs_read_path(
+                lookup(tool_input, ["file_path", "filePath", "path"], ""), cwd
             )
+            read_range = agent.read_range(tool_input)
 
     # If identifier was not set, hash the content
     if not identifier:
@@ -192,6 +241,7 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
             agent=agent,
             raw=data,
             timestamp=timestamp,
+            read_range=read_range,
         )
     )
 
@@ -268,7 +318,11 @@ def build_agent_headers(content: str) -> Dict[str, str]:
 
 
 def _parse_user_prompt(
-    content: str, event_type: EventType, agent: Agent, timestamp: datetime
+    content: str,
+    event_type: EventType,
+    agent: Agent,
+    timestamp: datetime,
+    cwd: str = "",
 ) -> List[HookPayload]:
     """Parse the user prompt for additional payloads that we may miss."""
     payloads = []
@@ -282,7 +336,9 @@ def _parse_user_prompt(
                 event_type=event_type,
                 tool=Tool.READ,
                 content="",
-                identifier=match,
+                # Canonicalize so this matches the PreToolUse Read of the same
+                # file and both share one verdict-cache key (see _abs_read_path).
+                identifier=_abs_read_path(match, cwd),
                 agent=agent,
                 raw={},
                 timestamp=timestamp,
@@ -292,7 +348,11 @@ def _parse_user_prompt(
 
 
 def _parse_command(
-    content: str, event_type: EventType, agent: Agent, timestamp: datetime
+    content: str,
+    event_type: EventType,
+    agent: Agent,
+    timestamp: datetime,
+    cwd: str = "",
 ) -> List[HookPayload]:
     """Parse the command for additional payloads that we may miss."""
     # In Windows, some agents (at least Codex) use the Get-Content command to read a file.
@@ -301,7 +361,7 @@ def _parse_command(
 
     if content.startswith(("Get-Content ", "cat ")):
         # Extract the filename (remove the command)
-        identifier = content.partition(" ")[2].strip()
+        identifier = _abs_read_path(content.partition(" ")[2].strip(), cwd)
         payloads.append(
             HookPayload(
                 event_type=event_type,
@@ -330,6 +390,8 @@ def _send_desktop_notification(title: str, message: str) -> None:
     paths, emoji, tabs...). ``stdin`` is detached and a timeout enforced so a
     misbehaving notifier can't stall the hook. Other platforms use notifypy.
     """
+    if getenv_bool("GGSHIELD_NO_NOTIFICATION", default=False):
+        return
     if sys.platform == "darwin":
         subprocess.run(
             [
@@ -506,14 +568,29 @@ def _post_remediation_steps(secrets: List[Secret]) -> str:
     return "\n".join(f"  {i}. {step}" for i, step in enumerate(steps, start=1))
 
 
-def _false_positive_block(count: int) -> str:
+def _false_positive_block(secrets: Sequence[Secret]) -> str:
+    """The remediation for a false positive, with the entries it would write.
+
+    The shas are spelled out because the message censors every match, so the sha
+    is otherwise unknowable and a hand-written `ignored_matches` entry silently
+    never matches. The sha is a digest, not the secret, and `secret ignore`
+    already writes it in clear.
+    """
+    count = len(secrets)
     this_is_a_false_positive = pluralize(
         "this is a false positive", count, "these are false positives"
     )
+    # dict, not set: one entry per sha, in the order the secrets are reported.
+    shas = dict.fromkeys(secret.get_ignore_sha() for secret in secrets)
+    entries = "\n".join(f"    - match: {sha}" for sha in shas)
     return f"""\
 > If {this_is_a_false_positive}, run:
 
-    ggshield secret ignore --last-found"""
+    ggshield secret ignore --last-found
+
+  which adds to secret.ignored_matches in .gitguardian.yaml:
+
+{entries}"""
 
 
 class AIHookScanner:
@@ -530,8 +607,24 @@ class AIHookScanner:
         ValueError: If the input is not valid.
     """
 
-    def __init__(self, scanner: ScannerProtocol):
+    def __init__(
+        self,
+        scanner: ScannerProtocol,
+        exclusion_regexes: Optional[Set[Pattern[str]]] = None,
+    ):
         self.scanner = scanner
+        self.exclusion_regexes = exclusion_regexes or set()
+
+    def _is_excluded(self, payload: HookPayload) -> bool:
+        """Whether `secret.ignored_paths` covers what this payload would scan.
+
+        READ only: every other tool's identifier is a command or a content hash,
+        which a path pattern must not be tested against. A USER_PROMPT
+        @-mention is a READ too, so both ways of naming a file are covered.
+        """
+        if not self.exclusion_regexes or payload.tool != Tool.READ:
+            return False
+        return is_path_excluded(payload.identifier, self.exclusion_regexes)
 
     def scan(self, content: str) -> int:
         """Scan the content, print the result and return the exit code."""
@@ -557,15 +650,40 @@ class AIHookScanner:
         """
         if not payloads:
             raise ValueError("Error: no payloads to scan")
-        for payload in payloads:
-            # Scan for secrets first
-            result = self._scan_content(payload)
-            if result.block:
-                return result
-            # We only send the MCP activity if the payload wasn't already blocked.
-            result = self._send_mcp_activity(payload)
-            if result.block:
-                return result
+        mcp_indices = [
+            index
+            for index, payload in enumerate(payloads)
+            if is_mcp_activity_payload(payload)
+        ]
+        mcp_results: Dict[int, HookResult] = {}
+
+        if not mcp_indices:
+            # No activity to send: keep the plain, single-threaded path.
+            scan_results = self._scan_contents(payloads)
+        else:
+            # Both are blocking round trips to the same API, so overlap them. The
+            # activity is logged even when the scan blocks.
+            with ThreadPoolExecutor(
+                max_workers=1, thread_name_prefix="mcp_activity"
+            ) as executor:
+                activities = {
+                    index: executor.submit(self._send_mcp_activity, payloads[index])
+                    for index in mcp_indices
+                }
+                scan_results = self._scan_contents(payloads)
+                mcp_results = {
+                    index: activity.result() for index, activity in activities.items()
+                }
+
+        # All of an event's payloads are scanned in one call; verdicts are applied
+        # one payload at a time, in order, and the scan verdict takes precedence over
+        # the MCP activity verdict.
+        for index, scan_result in enumerate(scan_results):
+            if scan_result.block:
+                return scan_result
+            mcp_result = mcp_results.get(index)
+            if mcp_result is not None and mcp_result.block:
+                return mcp_result
         return HookResult.allow(payloads[0])
 
     def _send_mcp_activity(self, payload: HookPayload) -> HookResult:
@@ -579,36 +697,130 @@ class AIHookScanner:
             payload=payload,
         )
 
-    def _scan_content(
-        self,
-        payload: HookPayload,
-    ) -> HookResult:
-        """Scan content for secrets using the SecretScanner."""
-        # Short path: if there is no content, no need to do an API call
-        if payload.empty:
-            return HookResult.allow(payload)
+    def _scan_content(self, payload: HookPayload) -> HookResult:
+        """Scan a single payload for secrets."""
+        return self._scan_contents([payload])[0]
 
-        with create_message_only_scanner_ui() as scanner_ui:
-            results = self.scanner.scan([payload.scannable], scanner_ui=scanner_ui)
-        # Collect all secrets from results
-        secrets: List[Secret] = []
-        for result in results.results:
-            secrets.extend(result.secrets)
+    def _scan_contents(self, payloads: List[HookPayload]) -> List[HookResult]:
+        """Scan the payloads for secrets in as few API calls as possible.
 
-        if not secrets:
-            return HookResult.allow(payload)
+        Everything that needs scanning is handed to the SecretScanner in one call,
+        which chunks it to the API's per-document and per-batch limits. Returns one
+        HookResult per payload, in order.
+        """
+        results = [HookResult.allow(payload) for payload in payloads]
 
-        message = self._message_from_secrets(
-            secrets,
-            payload,
-            escape_markdown=True,
-        )
-        return HookResult(
-            block=True,
-            message=message,
-            nbr_secrets=len(secrets),
-            payload=payload,
-        )
+        # (index in `payloads`, document to scan, verdict cache key).
+        to_scan: List[Tuple[int, Scannable, Optional[str]]] = []
+        for index, payload in enumerate(payloads):
+            # Excluded by secret.ignored_paths: never read, never sent, allowed.
+            # Before payload.scannable, which would read the file.
+            if self._is_excluded(payload):
+                continue
+            # One Scannable for both the cache key and the scan, so the two can
+            # never disagree about what was scanned.
+            scannable = payload.scannable
+            try:
+                # Short path: if there is no content, no need to do an API call.
+                if payload.empty:
+                    continue
+                # is_longer_than() answers from the byte size when it can, so an
+                # oversized document is not pulled into memory just to key the cache.
+                content = (
+                    ""
+                    if scannable.is_longer_than(DOCUMENT_SIZE_THRESHOLD_BYTES)
+                    else scannable.content
+                )
+            except OSError:
+                # A candidate path that stats but cannot be opened is not a
+                # document: SecretScanner only skips a missing file, so batching
+                # it raises there and fails the whole event open, leaving the
+                # command or prompt text of that same event unscanned.
+                continue
+            except Exception:
+                # Undecodable: no cache key, and it still goes to the scanner,
+                # which decides how to skip it and says so.
+                content = ""
+
+            key = (
+                verdict_key(
+                    self.scanner.client.base_uri,
+                    self.scanner.client.api_key,
+                    self.scanner.secret_config,
+                    scannable.filename,
+                    content,
+                )
+                if content
+                else None
+            )
+
+            # Shortest path: this exact document already came back clean recently, so
+            # it never goes in the batch. A Read is scanned twice -- PreToolUse and
+            # PostToolUse both resolve to File(file_path) (see HookPayload.scannable),
+            # so both send an identical document. has_already_been_seen() does not
+            # catch that pair, as it debounces on the raw stdin payload, which differs
+            # between the two events.
+            if key and has_clean_verdict(key):
+                continue
+
+            to_scan.append((index, scannable, key))
+
+        if not to_scan:
+            return results
+
+        # A batch is looked up by url, so each url must appear at most once per round;
+        # a repeat waits for the next round. Today's parsers never repeat a url (BASH:
+        # command text, READ: path, else a content sha256), but nothing upstream
+        # enforces it.
+        remaining = to_scan
+        while remaining:
+            batch: List[Tuple[int, Scannable, Optional[str]]] = []
+            leftover: List[Tuple[int, Scannable, Optional[str]]] = []
+            batched_urls: Set[str] = set()
+            for entry in remaining:
+                url = entry[1].url
+                if url in batched_urls:
+                    leftover.append(entry)
+                else:
+                    batched_urls.add(url)
+                    batch.append(entry)
+
+            with create_message_only_scanner_ui() as scanner_ui:
+                scan = self.scanner.scan(
+                    [scannable for _, scannable, _ in batch], scanner_ui=scanner_ui
+                )
+
+            # The scan answers out of send order, so each document is looked up by url.
+            answers = scan.by_url()
+
+            for index, scannable, key in batch:
+                result = answers.get(scannable.url)
+                if result is None:
+                    # Scan said nothing about this document (skipped or degraded): not
+                    # a verdict, so nothing to cache and nothing to block on.
+                    continue
+                secrets: List[Secret] = list(result.secrets)
+                if not secrets:
+                    # Per-document: cache only if nothing was filtered out locally,
+                    # else "no secret" is a verdict about the config, not the content.
+                    if key and not result.ignored_secrets_count_by_kind:
+                        store_clean_verdict(key)
+                    continue
+                payload = payloads[index]
+                results[index] = HookResult(
+                    block=True,
+                    message=self._message_from_secrets(
+                        secrets,
+                        payload,
+                        escape_markdown=True,
+                    ),
+                    nbr_secrets=len(secrets),
+                    payload=payload,
+                )
+
+            remaining = leftover
+
+        return results
 
     @staticmethod
     def _message_from_secrets(
@@ -633,7 +845,10 @@ class AIHookScanner:
         # Dispatch event-first, then tool: what the message should say depends
         # first on *when* the secret was caught (before vs. after it reached
         # the agent), and only then on how the offending tool is named.
-        if payload.event_type == EventType.USER_PROMPT:
+        # Exception: a USER_PROMPT event also carries a Tool.READ payload per file
+        # mentioned in the prompt (see _parse_user_prompt). The secret is in that
+        # file, not the prompt, so it gets the file wording, not the prompt wording.
+        if payload.event_type == EventType.USER_PROMPT and payload.tool != Tool.READ:
             template = _USER_PROMPT_TEMPLATE
         elif payload.event_type == EventType.POST_TOOL_USE:
             template = _POST_TEMPLATES.get(payload.tool, _POST_OTHER_TEMPLATE)
@@ -651,7 +866,7 @@ class AIHookScanner:
             identifier=payload.identifier,
             secret_lines="\n".join(_secret_lines(secrets, escape_markdown)),
             post_remediation_steps=_post_remediation_steps(secrets),
-            false_positive_instructions=_false_positive_block(count),
+            false_positive_instructions=_false_positive_block(secrets),
         )
         if escape_markdown:
             message = markdown_hard_breaks(message)

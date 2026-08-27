@@ -653,8 +653,9 @@ class RAGEngine(WMLResource):
 
                     sparse_vector_field = next(
                         filter(
-                            lambda field: field.get("role")
-                            == "sparse_vector_embeddings",
+                            lambda field: (
+                                field.get("role") == "sparse_vector_embeddings"
+                            ),
                             schema_fields,
                         ),
                         None,

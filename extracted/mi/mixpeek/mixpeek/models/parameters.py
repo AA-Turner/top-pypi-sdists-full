@@ -30,13 +30,14 @@ from mixpeek.models.multimodal_extractor_params import MultimodalExtractorParams
 from mixpeek.models.passthrough_extractor_params import PassthroughExtractorParams
 from mixpeek.models.scrolling_text_extractor_params import ScrollingTextExtractorParams
 from mixpeek.models.text_extractor_params import TextExtractorParams
+from mixpeek.models.transcoding_extractor_params import TranscodingExtractorParams
 from mixpeek.models.universal_extractor_params import UniversalExtractorParams
 from mixpeek.models.web_scraper_extractor_params import WebScraperExtractorParams
 from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-PARAMETERS_ANY_OF_SCHEMAS = ["AudioFingerprintExtractorParams", "CustomPluginParams", "DocumentGraphExtractorParams", "FaceIdentityExtractorParams", "GeminiMultifileExtractorParams", "ImageExtractorParams", "MultimodalExtractorParams", "PassthroughExtractorParams", "ScrollingTextExtractorParams", "TextExtractorParams", "UniversalExtractorParams", "WebScraperExtractorParams"]
+PARAMETERS_ANY_OF_SCHEMAS = ["AudioFingerprintExtractorParams", "CustomPluginParams", "DocumentGraphExtractorParams", "FaceIdentityExtractorParams", "GeminiMultifileExtractorParams", "ImageExtractorParams", "MultimodalExtractorParams", "PassthroughExtractorParams", "ScrollingTextExtractorParams", "TextExtractorParams", "TranscodingExtractorParams", "UniversalExtractorParams", "WebScraperExtractorParams"]
 
 class Parameters(BaseModel):
     """
@@ -61,17 +62,19 @@ class Parameters(BaseModel):
     anyof_schema_8_validator: Optional[ScrollingTextExtractorParams] = None
     # data type: TextExtractorParams
     anyof_schema_9_validator: Optional[TextExtractorParams] = None
+    # data type: TranscodingExtractorParams
+    anyof_schema_10_validator: Optional[TranscodingExtractorParams] = None
     # data type: UniversalExtractorParams
-    anyof_schema_10_validator: Optional[UniversalExtractorParams] = None
+    anyof_schema_11_validator: Optional[UniversalExtractorParams] = None
     # data type: WebScraperExtractorParams
-    anyof_schema_11_validator: Optional[WebScraperExtractorParams] = None
+    anyof_schema_12_validator: Optional[WebScraperExtractorParams] = None
     # data type: CustomPluginParams
-    anyof_schema_12_validator: Optional[CustomPluginParams] = None
+    anyof_schema_13_validator: Optional[CustomPluginParams] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, UniversalExtractorParams, WebScraperExtractorParams]] = None
+        actual_instance: Optional[Union[AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "AudioFingerprintExtractorParams", "CustomPluginParams", "DocumentGraphExtractorParams", "FaceIdentityExtractorParams", "GeminiMultifileExtractorParams", "ImageExtractorParams", "MultimodalExtractorParams", "PassthroughExtractorParams", "ScrollingTextExtractorParams", "TextExtractorParams", "UniversalExtractorParams", "WebScraperExtractorParams" }
+    any_of_schemas: Set[str] = { "AudioFingerprintExtractorParams", "CustomPluginParams", "DocumentGraphExtractorParams", "FaceIdentityExtractorParams", "GeminiMultifileExtractorParams", "ImageExtractorParams", "MultimodalExtractorParams", "PassthroughExtractorParams", "ScrollingTextExtractorParams", "TextExtractorParams", "TranscodingExtractorParams", "UniversalExtractorParams", "WebScraperExtractorParams" }
 
     model_config = {
         "validate_assignment": True,
@@ -146,6 +149,12 @@ class Parameters(BaseModel):
         else:
             return v
 
+        # validate data type: TranscodingExtractorParams
+        if not isinstance(v, TranscodingExtractorParams):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `TranscodingExtractorParams`")
+        else:
+            return v
+
         # validate data type: UniversalExtractorParams
         if not isinstance(v, UniversalExtractorParams):
             error_messages.append(f"Error! Input type `{type(v)}` is not `UniversalExtractorParams`")
@@ -166,7 +175,7 @@ class Parameters(BaseModel):
 
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in Parameters with anyOf schemas: AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, UniversalExtractorParams, WebScraperExtractorParams. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in Parameters with anyOf schemas: AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -233,19 +242,25 @@ class Parameters(BaseModel):
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_10_validator: Optional[UniversalExtractorParams] = None
+        # anyof_schema_10_validator: Optional[TranscodingExtractorParams] = None
+        try:
+            instance.actual_instance = TranscodingExtractorParams.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
+        # anyof_schema_11_validator: Optional[UniversalExtractorParams] = None
         try:
             instance.actual_instance = UniversalExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_11_validator: Optional[WebScraperExtractorParams] = None
+        # anyof_schema_12_validator: Optional[WebScraperExtractorParams] = None
         try:
             instance.actual_instance = WebScraperExtractorParams.from_json(json_str)
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
-        # anyof_schema_12_validator: Optional[CustomPluginParams] = None
+        # anyof_schema_13_validator: Optional[CustomPluginParams] = None
         try:
             instance.actual_instance = CustomPluginParams.from_json(json_str)
             return instance
@@ -254,7 +269,7 @@ class Parameters(BaseModel):
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into Parameters with anyOf schemas: AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, UniversalExtractorParams, WebScraperExtractorParams. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into Parameters with anyOf schemas: AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -268,7 +283,7 @@ class Parameters(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, UniversalExtractorParams, WebScraperExtractorParams]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], AudioFingerprintExtractorParams, CustomPluginParams, DocumentGraphExtractorParams, FaceIdentityExtractorParams, GeminiMultifileExtractorParams, ImageExtractorParams, MultimodalExtractorParams, PassthroughExtractorParams, ScrollingTextExtractorParams, TextExtractorParams, TranscodingExtractorParams, UniversalExtractorParams, WebScraperExtractorParams]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

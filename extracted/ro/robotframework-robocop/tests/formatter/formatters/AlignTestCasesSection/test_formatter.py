@@ -60,6 +60,17 @@ class TestAlignTestCasesSection(FormatterAcceptanceTest):
     def test_settings(self):
         self.compare(source="settings.robot")
 
+    def test_metadata(self):
+        self.compare(source="metadata.robot", test_on_version=">=7.5")
+
+    def test_metadata_skip(self):
+        self.compare(
+            source="metadata.robot",
+            expected="metadata_skip.robot",
+            configure=[f"{self.FORMATTER_NAME}.skip_metadata=True"],
+            test_on_version=">=7.5",
+        )
+
     def test_settings_align_separately(self):
         configure = [
             f"{self.FORMATTER_NAME}.alignment_type=auto",
@@ -198,7 +209,7 @@ class TestAlignTestCasesSection(FormatterAcceptanceTest):
             source="templated_with_setting.robot",
             expected="templated_with_settings_auto.robot",
             configure=configure,
-            select=["NormalizeSeparators", "NormalizeComments"],
+            select=["NormalizeSeparators"],
         )
 
     @pytest.mark.parametrize(

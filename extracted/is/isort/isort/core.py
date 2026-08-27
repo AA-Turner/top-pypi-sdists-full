@@ -12,9 +12,16 @@ from .format import format_natural, remove_whitespace
 from .settings import FILE_SKIP_COMMENTS
 
 CIMPORT_IDENTIFIERS = ("cimport ", "cimport*", "from.cimport")
-IMPORT_START_IDENTIFIERS = ("from ", "from.import", "import ", "import*", *CIMPORT_IDENTIFIERS)
+_BASE_IMPORT_IDENTIFIERS = ("from ", "from.import", "import ", "import*")
+IMPORT_START_IDENTIFIERS = (
+    *_BASE_IMPORT_IDENTIFIERS,
+    *(f"lazy {identifier}" for identifier in _BASE_IMPORT_IDENTIFIERS),
+    *CIMPORT_IDENTIFIERS,
+)
 DOCSTRING_INDICATORS = ('"""', "'''")
 COMMENT_INDICATORS = (*DOCSTRING_INDICATORS, "'", '"', "#")
+# Every legal Python string prefix, lower-cased; `u` cannot be combined with another.
+STRING_PREFIXES = frozenset(("r", "u", "f", "b", "fr", "rf", "br", "rb"))
 CODE_SORT_COMMENTS = (
     "# isort: list",
     "# isort: dict",
@@ -25,6 +32,34 @@ CODE_SORT_COMMENTS = (
     "# isort: assignments",
 )
 LITERAL_TYPE_MAPPING = {"(": "tuple", "[": "list", "{": "set"}
+PYLINT_DISABLE_NEXT_COMMENT = "# pylint: disable-next"
+SKIP_IMPORT_COMMENTS = ("isort:skip", "isort: skip")
+
+
+def _strip_string_prefix(line: str) -> str:
+    """Return `line` without a leading Python string prefix (`r`, `b`, `f`, `u`
+    or a legal combination of them), so quote-based heuristics see the quote itself.
+    """
+    for prefix_length in (2, 1):
+        if line[:prefix_length].lower() in STRING_PREFIXES and line[
+            prefix_length : prefix_length + 1
+        ] in ("'", '"'):
+            return line[prefix_length:]
+    return line
+
+
+def _is_comment_or_string_start(line: str) -> bool:
+    """Return whether `line` opens a comment, a docstring or any other string literal.
+
+    A string prefix (`r`, `b`, `f`, `u` or a legal combination of them) is skipped
+    first, so a prefixed docstring is recognised exactly as an unprefixed one is.
+    """
+    return _strip_string_prefix(line.lstrip()).startswith(COMMENT_INDICATORS)
+
+
+def _has_skip_comment(import_statement: str) -> bool:
+    """Return whether an import statement carries a per-line ``isort: skip`` directive."""
+    return any(comment in import_statement for comment in SKIP_IMPORT_COMMENTS)
 
 
 # Ignore DeepSource cyclomatic complexity check for this function.
@@ -84,16 +119,20 @@ def process(
         current = ""
         isort_off = False
         for line in chain(input_stream, (None,)):
+            stripped_line = line.strip() if line is not None else ""
             if isort_off and line is not None:
-                if line == "# isort: on\n":
+                if stripped_line == "# isort: on":
                     isort_off = False
                 new_input += line
-            elif line in ("# isort: split\n", "# isort: off\n", None) or str(line).endswith(
-                "# isort: split\n"
+            elif (
+                line is None
+                or stripped_line in ("# isort: split", "# isort: off")
+                or str(line).rstrip().endswith("# isort: split")
             ):
-                if line == "# isort: off\n":
+                if stripped_line == "# isort: off":
                     isort_off = True
                 if current:
+                    before = current
                     if add_imports:
                         add_line_separator = line_separator or "\n"
                         current += add_line_separator + add_line_separator.join(add_imports)
@@ -101,15 +140,15 @@ def process(
                     parsed = parse.file_contents(current, config=config)
                     verbose_output += parsed.verbose_output
                     extra_space = ""
-                    while current and current[-1] == "\n":
+                    while before and before[-1] == "\n":
                         extra_space += "\n"
-                        current = current[:-1]
+                        before = before[:-1]
                     extra_space = extra_space.replace("\n", "", 1)
                     sorted_output = output.sorted_imports(
                         parsed, config, extension, import_type="import"
                     )
                     made_changes = made_changes or _has_changed(
-                        before=current,
+                        before=before,
                         after=sorted_output,
                         line_separator=parsed.line_separator,
                         ignore_whitespace=config.ignore_whitespace,
@@ -136,7 +175,10 @@ def process(
 
             if code_sorting and code_sorting_section:
                 if is_reexport:
-                    output_stream.seek(output_stream.tell() - reexport_rollback)
+                    # Clamp to 0: in check mode the output is a no-op stream whose tell()
+                    # stays 0, so an unclamped rollback would seek to a negative position
+                    # and raise ValueError. See PR #2576.
+                    output_stream.seek(max(0, output_stream.tell() - reexport_rollback))
                     reexport_rollback = 0
                 sorted_code = textwrap.indent(
                     isort.literal.assignment(
@@ -154,7 +196,12 @@ def process(
                     ignore_whitespace=config.ignore_whitespace,
                 )
                 output_stream.write(sorted_code)
-                if is_reexport:
+                if (
+                    is_reexport
+                    # Check if we need to truncate. If we're redirecting to `devnull` we don't need
+                    # to and don't want to call `truncate()` on it, as it will raise an exception.
+                    and output_stream.tell() > 0
+                ):
                     output_stream.truncate()
         else:
             stripped_line = line.strip()
@@ -188,6 +235,7 @@ def process(
             if (
                 (index == 0 or (index in {1, 2} and not contains_imports))
                 and stripped_line.startswith("#")
+                and not stripped_line.startswith(PYLINT_DISABLE_NEXT_COMMENT)
                 and stripped_line not in config.section_comments
                 and stripped_line not in CODE_SORT_COMMENTS
             ):
@@ -235,7 +283,11 @@ def process(
                     code_sorting = stripped_line.split("isort: ")[1].strip()
                     code_sorting_indent = line[: -len(line.lstrip())]
                     not_imports = True
-                elif config.sort_reexports and stripped_line.startswith("__all__"):
+                elif (
+                    config.sort_reexports
+                    and stripped_line.startswith("__all__")
+                    and not _has_skip_comment(stripped_line)
+                ):
                     _, rhs = stripped_line.split("=")
                     code_sorting = LITERAL_TYPE_MAPPING.get(rhs.lstrip()[0], "tuple")
                     code_sorting_indent = line[: -len(line.lstrip())]
@@ -261,10 +313,18 @@ def process(
                             ignore_whitespace=config.ignore_whitespace,
                         )
                         if is_reexport:
-                            output_stream.seek(output_stream.tell() - reexport_rollback)
+                            # Clamp to 0 so check mode's no-op output stream (tell() == 0)
+                            # cannot produce a negative seek position. See PR #2576.
+                            output_stream.seek(max(0, output_stream.tell() - reexport_rollback))
                             reexport_rollback = 0
                         output_stream.write(sorted_code)
-                        if is_reexport:
+                        if (
+                            is_reexport
+                            # Check if we need to truncate. If we're redirecting to `devnull` we
+                            # don't need to and don't want to call `truncate()` on it, as it will
+                            # raise an exception.
+                            and output_stream.tell() > 0
+                        ):
                             output_stream.truncate()
                         not_imports = True
                         code_sorting = False
@@ -316,10 +376,17 @@ def process(
                                 stripped_line = line.strip().split("#")[0]
                                 import_statement += line
 
+                    # The second clause keeps a per-line ``isort: skip`` import exactly
+                    # where it is: when earlier imports have already been collected into
+                    # the current section, the skipped statement is treated as a section
+                    # boundary so those imports can't be sorted above it.  Without it, a
+                    # preceding import (most commonly a ``__future__`` import, which is
+                    # always floated to the top) makes isort splice the sorted block
+                    # ahead of the skipped line and relocate it below the block. See #2092.
                     if (
                         import_statement.lstrip().startswith("from")
                         and "import" not in import_statement
-                    ):
+                    ) or (contains_imports and _has_skip_comment(import_statement)):
                         line = import_statement
                         not_imports = True
                     else:
@@ -364,12 +431,15 @@ def process(
                     not_imports = True
 
         if not_imports:
+            above_import_section: str = ""
             if not was_in_quote and config.lines_before_imports > -1:
                 if line.strip() == "" and not end_of_file:
                     lines_before += line
                     continue
                 if not import_section:
                     output_stream.write("".join(lines_before))
+                else:
+                    above_import_section = "".join(lines_before)
                 lines_before = []
 
             raw_import_section: str = import_section
@@ -380,7 +450,7 @@ def process(
                 and not in_top_comment
                 and not was_in_quote
                 and not import_section
-                and not line.lstrip().startswith(COMMENT_INDICATORS)
+                and not _is_comment_or_string_start(line)
                 and not (line.rstrip().endswith(DOCSTRING_INDICATORS) and "=" not in line)
             ):
                 add_line_separator = line_separator or "\n"
@@ -442,7 +512,7 @@ def process(
                             )
 
                         made_changes = made_changes or _has_changed(
-                            before=raw_import_section,
+                            before=above_import_section + raw_import_section,
                             after=sorted_import_section,
                             line_separator=line_separator,
                             ignore_whitespace=config.ignore_whitespace,
@@ -513,4 +583,4 @@ def _has_changed(before: str, after: str, line_separator: str, ignore_whitespace
             remove_whitespace(before, line_separator=line_separator).strip()
             != remove_whitespace(after, line_separator=line_separator).strip()
         )
-    return before.strip() != after.strip()
+    return before.rstrip() != after.rstrip()

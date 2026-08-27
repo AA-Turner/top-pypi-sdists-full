@@ -327,7 +327,7 @@ def torch_chunk_gated_delta_rule(
     return core_attn_out, last_recurrent_state
 
 
-@use_kernel_func_from_hub_with_fallback("recurrent_gated_delta_rule", "fla")
+@use_kernel_func_from_hub_with_fallback("fused_recurrent_gated_delta_rule", "fla")
 def torch_recurrent_gated_delta_rule(
     query,
     key,
@@ -415,7 +415,8 @@ class Qwen3_5GatedDeltaNet(nn.Module):
         # instantiate once and copy inv_dt in init_weights of PretrainedModel
         self.dt_bias = nn.Parameter(torch.ones(self.num_v_heads))
 
-        A = torch.empty(self.num_v_heads).uniform_(0, 16)
+        # Lower bound kept away from 0 so log(A) never becomes -inf
+        A = torch.empty(self.num_v_heads).uniform_(0.01, 16)
         self.A_log = nn.Parameter(torch.log(A))
 
         self.norm = Qwen3_5RMSNormGated(self.head_v_dim, eps=self.layer_norm_epsilon)
@@ -440,7 +441,9 @@ class Qwen3_5GatedDeltaNet(nn.Module):
 
         # Set up dimensions for reshapes later
         batch_size, seq_len, _ = hidden_states.shape
-        use_precomputed_states = cache_params is not None and cache_params.has_previous_state(self.layer_idx)
+        use_precomputed_states = cache_params is not None and cache_params.has_previous_state(
+            self.layer_idx, state_idx=0
+        )
 
         mixed_qkv = self.in_proj_qkv(hidden_states)
         mixed_qkv = mixed_qkv.transpose(1, 2)
@@ -814,7 +817,11 @@ class Qwen3_5PreTrainedModel(PreTrainedModel):
         super()._init_weights(module)
         if isinstance(module, Qwen3_5GatedDeltaNet):
             init.ones_(module.dt_bias)
-            init.copy_(module.A_log, torch.empty_like(module.A_log).uniform_(0, 16).log_())
+            # Lower bound kept away from 0 so log(A) never becomes -inf
+            init.copy_(
+                module.A_log,
+                torch.empty(module.num_v_heads, device=module.A_log.device).uniform_(0.01, 16).log_(),
+            )
         # We initialize with 0s to be 1 centered as the RMSNorm here does (1 + weight)
         elif isinstance(module, Qwen3_5RMSNorm):
             init.zeros_(module.weight)

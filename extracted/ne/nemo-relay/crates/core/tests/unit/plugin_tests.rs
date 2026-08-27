@@ -4,6 +4,7 @@
 //! Unit tests for plugin in the NeMo Relay core crate.
 
 use super::*;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -11,8 +12,12 @@ use std::sync::{Mutex, OnceLock};
 use serde_json::json;
 use tokio::sync::Notify;
 
+use crate::api::event::{BaseEvent, Event, MarkEvent};
 use crate::api::llm::{LlmRequest, LlmRequestInterceptOutcome};
 use crate::api::llm::{llm_conditional_execution, llm_request_intercepts};
+use crate::api::registry::{
+    RuntimeRegistrationKind, RuntimeRegistrationOwnerKind, list_runtime_registrations,
+};
 use crate::api::runtime::global_context;
 use crate::api::runtime::{LlmJsonStream, NemoRelayContextState};
 use crate::api::tool::tool_conditional_execution;
@@ -23,6 +28,7 @@ struct PolicyAwarePlugin;
 
 struct SingletonPlugin;
 struct RecordingPlugin;
+struct DiscoverablePlugin;
 struct ReplacementPlugin;
 struct RestoreFailPlugin;
 struct RestoreBreakPlugin;
@@ -39,6 +45,7 @@ struct BackgroundTaskPlugin {
 }
 struct PanickingPlugin;
 struct FailingDeregisterPlugin;
+struct EventMetadataPlugin;
 struct PluginMutationOwnerCleanup;
 
 impl Drop for PluginMutationOwnerCleanup {
@@ -102,6 +109,39 @@ fn observability_destination_document(destination: &str) -> Json {
     })
 }
 
+#[test]
+fn plugin_configuration_helpers_preserve_defaults_and_error_detection() {
+    let component = PluginComponentSpec::new("coverage.plugin");
+    assert_eq!(component.kind, "coverage.plugin");
+    assert!(component.enabled);
+    assert!(component.config.is_empty());
+
+    let empty = ConfigReport::default();
+    assert!(!empty.has_errors());
+    let error = ConfigReport {
+        diagnostics: vec![ConfigDiagnostic {
+            level: DiagnosticLevel::Error,
+            code: "coverage.error".into(),
+            component: None,
+            field: None,
+            message: "expected".into(),
+        }],
+        runtime_diagnostics: vec![],
+    };
+    assert!(error.has_errors());
+    assert!(matches!(
+        apply_global_config_policy(
+            ConfigPolicy::default(),
+            &ConfigPolicy {
+                unknown_component: UnsupportedBehavior::Error,
+                ..ConfigPolicy::default()
+            }
+        )
+        .unknown_component,
+        UnsupportedBehavior::Error
+    ));
+}
+
 fn programmatic_observability_config(config: Json) -> PluginConfig {
     serde_json::from_value(json!({
         "components": [{"kind": "observability", "config": config}]
@@ -139,6 +179,40 @@ impl Plugin for TestPlugin {
                         request.headers.insert("x-plugin".into(), json!(true));
                         Ok(LlmRequestInterceptOutcome::new(request, annotated))
                     })
+                }),
+            )
+        })
+    }
+}
+
+impl Plugin for EventMetadataPlugin {
+    fn plugin_kind(&self) -> &str {
+        "event-metadata.plugin"
+    }
+
+    fn validate(&self, _plugin_config: &Map<String, Json>) -> Vec<ConfigDiagnostic> {
+        Vec::new()
+    }
+
+    fn register<'a>(
+        &'a self,
+        plugin_config: &Map<String, Json>,
+        ctx: &'a mut PluginRegistrationContext,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        let configured = plugin_config
+            .get("metadata")
+            .and_then(Json::as_object)
+            .expect("test plugin metadata must be an object")
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect::<BTreeMap<_, _>>();
+        Box::pin(async move {
+            ctx.register_event_metadata_injector(
+                "configured-metadata",
+                10,
+                Arc::new(move |_| {
+                    let additions = configured.clone();
+                    Box::pin(async move { Ok(additions) })
                 }),
             )
         })
@@ -233,6 +307,24 @@ impl Plugin for RecordingPlugin {
             ));
             Ok(())
         })
+    }
+}
+
+impl Plugin for DiscoverablePlugin {
+    fn plugin_kind(&self) -> &str {
+        "discoverable.plugin"
+    }
+
+    fn validate(&self, _plugin_config: &Map<String, Json>) -> Vec<ConfigDiagnostic> {
+        vec![]
+    }
+
+    fn register<'a>(
+        &'a self,
+        _plugin_config: &Map<String, Json>,
+        ctx: &'a mut PluginRegistrationContext,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
+        Box::pin(async move { ctx.register_subscriber("subscriber", Arc::new(|_| {})) })
     }
 }
 
@@ -511,6 +603,7 @@ fn reset_global() {
     let _ = deregister_plugin("background.task.plugin");
     let _ = deregister_plugin("panicking.plugin");
     let _ = deregister_plugin("failing.deregister.plugin");
+    let _ = deregister_plugin("event-metadata.plugin");
 }
 
 #[test]
@@ -602,7 +695,13 @@ fn test_layer_config_concatenates_nested_observability_lists() {
                     "sinks": [{"type": "file", "output_directory": "/system"}]
                 },
                 "opentelemetry": {
-                    "endpoints": [{"type": "full", "endpoint": "http://system:4318/v1/traces"}]
+                    "endpoints": [{"type": "full", "endpoint": "http://system:4318/v1/traces"}],
+                    "logs": {
+                        "endpoints": [{"endpoint": "http://system:4318/v1/logs"}]
+                    },
+                    "metrics": {
+                        "endpoints": [{"endpoint": "http://system:4318/v1/metrics"}]
+                    }
                 },
                 "atif": {
                     "storage": [{"type": "http", "endpoint": "http://system/trajectory"}]
@@ -624,7 +723,13 @@ fn test_layer_config_concatenates_nested_observability_lists() {
                     "endpoints": [
                         {"type": "gen_ai", "endpoint": "http://user:4318/v1/traces"},
                         {"type": "openinference", "endpoint": "http://user:4319/v1/traces"}
-                    ]
+                    ],
+                    "logs": {
+                        "endpoints": [{"endpoint": "http://user:4318/v1/logs"}]
+                    },
+                    "metrics": {
+                        "endpoints": [{"endpoint": "http://user:4318/v1/metrics"}]
+                    }
                 },
                 "atif": {
                     "storage": [{"type": "http", "endpoint": "http://user/trajectory"}]
@@ -656,6 +761,20 @@ fn test_layer_config_concatenates_nested_observability_lists() {
         ])
     );
     assert_eq!(
+        config["opentelemetry"]["logs"]["endpoints"],
+        json!([
+            {"endpoint": "http://user:4318/v1/logs"},
+            {"endpoint": "http://system:4318/v1/logs"}
+        ])
+    );
+    assert_eq!(
+        config["opentelemetry"]["metrics"]["endpoints"],
+        json!([
+            {"endpoint": "http://user:4318/v1/metrics"},
+            {"endpoint": "http://system:4318/v1/metrics"}
+        ])
+    );
+    assert_eq!(
         config["atif"]["storage"],
         json!([
             {"type": "http", "endpoint": "http://user/trajectory"},
@@ -670,13 +789,65 @@ fn test_layer_config_concatenates_nested_observability_lists() {
 }
 
 #[test]
+fn test_layer_config_preserves_signal_endpoint_option_semantics() {
+    let lower = json!({
+        "components": [{
+            "kind": "observability",
+            "config": {
+                "opentelemetry": {
+                    "logs": {
+                        "enabled": true,
+                        "endpoints": [{"endpoint": "http://system:4318/v1/logs"}]
+                    },
+                    "metrics": {
+                        "enabled": true,
+                        "endpoints": [{"endpoint": "http://system:4318/v1/metrics"}]
+                    }
+                }
+            }
+        }]
+    });
+    let higher = json!({
+        "components": [{
+            "kind": "observability",
+            "config": {
+                "opentelemetry": {
+                    "logs": {"minimum_severity": "warn"},
+                    "metrics": {"endpoints": []}
+                }
+            }
+        }]
+    });
+
+    let mut merged = lower;
+    layer_config(&mut merged, higher);
+    let opentelemetry = &merged["components"][0]["config"]["opentelemetry"];
+
+    assert_eq!(
+        opentelemetry["logs"]["endpoints"],
+        json!([{"endpoint": "http://system:4318/v1/logs"}]),
+        "an omitted higher-precedence list preserves the explicit lower-precedence list"
+    );
+    assert_eq!(opentelemetry["logs"]["minimum_severity"], json!("warn"));
+    assert_eq!(
+        opentelemetry["metrics"]["endpoints"],
+        json!([]),
+        "an explicit empty higher-precedence list remains explicit and empty"
+    );
+}
+
+#[test]
 fn test_layer_config_replaces_observability_named_nested_lists_for_other_plugins() {
     let mut merged = json!({
         "components": [{
             "kind": "third.party",
             "config": {
                 "atof": {"sinks": ["base"]},
-                "opentelemetry": {"endpoints": ["base"]},
+                "opentelemetry": {
+                    "endpoints": ["base"],
+                    "logs": {"endpoints": ["base"]},
+                    "metrics": {"endpoints": ["base"]}
+                },
                 "atif": {"storage": ["base"]}
             }
         }]
@@ -688,7 +859,11 @@ fn test_layer_config_replaces_observability_named_nested_lists_for_other_plugins
                 "kind": "third.party",
                 "config": {
                     "atof": {"sinks": ["overlay"]},
-                    "opentelemetry": {"endpoints": ["overlay"]},
+                    "opentelemetry": {
+                        "endpoints": ["overlay"],
+                        "logs": {"endpoints": ["overlay"]},
+                        "metrics": {"endpoints": ["overlay"]}
+                    },
                     "atif": {"storage": ["overlay"]}
                 }
             }]
@@ -698,6 +873,14 @@ fn test_layer_config_replaces_observability_named_nested_lists_for_other_plugins
     let config = &merged["components"][0]["config"];
     assert_eq!(config["atof"]["sinks"], json!(["overlay"]));
     assert_eq!(config["opentelemetry"]["endpoints"], json!(["overlay"]));
+    assert_eq!(
+        config["opentelemetry"]["logs"]["endpoints"],
+        json!(["overlay"])
+    );
+    assert_eq!(
+        config["opentelemetry"]["metrics"]["endpoints"],
+        json!(["overlay"])
+    );
     assert_eq!(config["atif"]["storage"], json!(["overlay"]));
 }
 
@@ -875,6 +1058,58 @@ fn test_initialize_plugins_registers_and_clears_components() {
     reset_global();
 }
 
+#[test]
+fn test_plugin_configuration_registers_event_metadata_injector() {
+    let _guard = lock_runtime_owner();
+    reset_global();
+    register_plugin(Arc::new(EventMetadataPlugin)).unwrap();
+
+    let mut component = PluginComponentSpec::new("event-metadata.plugin");
+    component.config = serde_json::from_value(json!({
+        "metadata": {"nv.test.plugin_config": "configured"}
+    }))
+    .unwrap();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime
+        .block_on(initialize_plugins_exact(PluginConfig {
+            components: vec![component],
+            ..PluginConfig::default()
+        }))
+        .unwrap();
+
+    let callback = {
+        let context = global_context();
+        let state = context.read().unwrap();
+        let injectors = state.event_metadata_injectors.sorted_values();
+        assert_eq!(injectors.len(), 1);
+        Arc::clone(&injectors[0].payload)
+    };
+    let event = Arc::new(Event::Mark(MarkEvent::new(
+        BaseEvent::builder().name("plugin-configured-mark").build(),
+        None,
+        None,
+    )));
+    let additions = runtime.block_on(callback(event)).unwrap();
+    assert_eq!(
+        additions.get("nv.test.plugin_config"),
+        Some(&json!("configured"))
+    );
+
+    clear_plugin_configuration().unwrap();
+    assert!(
+        global_context()
+            .read()
+            .unwrap()
+            .event_metadata_injectors
+            .sorted_values()
+            .is_empty()
+    );
+    assert!(deregister_plugin("event-metadata.plugin"));
+    reset_global();
+}
 #[test]
 fn test_validate_plugin_config_honors_policy_and_duplicate_singletons() {
     let _guard = lock_runtime_owner();
@@ -1078,12 +1313,16 @@ fn test_plugin_component_helpers_and_serialization_error_variant() {
     assert_eq!(totals.get("alpha.plugin"), Some(&2));
     assert_eq!(totals.get("beta.plugin"), Some(&1));
     assert_eq!(
-        component_namespace("alpha.plugin", 1, totals["alpha.plugin"]),
-        "__nemo_relay_plugin__alpha.plugin__1__"
+        component_namespace("alpha.plugin", 1),
+        "nemo-relay-plugin.v1.alpha.plugin:1:"
     );
     assert_eq!(
-        component_namespace("beta.plugin", 1, totals["beta.plugin"]),
-        "__nemo_relay_plugin__beta.plugin__"
+        component_namespace("beta.plugin", 1),
+        "nemo-relay-plugin.v1.beta.plugin:1:"
+    );
+    assert_eq!(
+        component_namespace("alpha/plugin:π%", 2),
+        "nemo-relay-plugin.v1.alpha%2Fplugin%3A%CF%80%25:2:"
     );
 
     let parse_error = serde_json::from_str::<PluginConfig>("{").unwrap_err();
@@ -1095,6 +1334,103 @@ fn test_plugin_component_helpers_and_serialization_error_variant() {
         other => panic!("unexpected conversion result: {other}"),
     }
 
+    reset_global();
+}
+
+#[test]
+fn test_plugin_component_effective_names_escape_and_discover_fields() {
+    let _guard = lock_runtime_owner();
+    reset_global();
+
+    let namespace = component_namespace("analytics/plugin:π%", 1);
+    let mut plugin_context = PluginRegistrationContext::with_plugin_component_namespace(namespace);
+    let mut global_registration_context = PluginRegistrationContext::new();
+    plugin_context
+        .register_subscriber("cache/value:π%", Arc::new(|_| {}))
+        .unwrap();
+    global_registration_context
+        .register_subscriber("global:subscriber", Arc::new(|_| {}))
+        .unwrap();
+    global_registration_context
+        .register_subscriber(
+            "__nemo_relay_plugin__analytics__1__subscriber",
+            Arc::new(|_| {}),
+        )
+        .unwrap();
+
+    let registrations =
+        list_runtime_registrations(Some(&BTreeSet::from([RuntimeRegistrationKind::Subscriber])))
+            .unwrap();
+    let plugin_registration = registrations
+        .iter()
+        .find(|registration| registration.local_name == "cache/value:π%")
+        .unwrap();
+    assert_eq!(
+        plugin_registration.effective_name,
+        "nemo-relay-plugin.v1.analytics%2Fplugin%3A%CF%80%25:1:cache%2Fvalue%3A%CF%80%25"
+    );
+    assert_eq!(
+        plugin_registration.owner.plugin_kind.as_deref(),
+        Some("analytics/plugin:π%")
+    );
+    assert_eq!(plugin_registration.owner.component_ordinal, Some(1));
+
+    let global_registration = registrations
+        .iter()
+        .find(|registration| registration.effective_name == "global:subscriber")
+        .unwrap();
+    assert_eq!(global_registration.local_name, "global:subscriber");
+    assert_eq!(
+        global_registration.owner.kind,
+        RuntimeRegistrationOwnerKind::GlobalApi
+    );
+    assert_eq!(global_registration.owner.component_ordinal, None);
+
+    let legacy_style_global_registration = registrations
+        .iter()
+        .find(|registration| {
+            registration.effective_name == "__nemo_relay_plugin__analytics__1__subscriber"
+        })
+        .unwrap();
+    assert_eq!(
+        legacy_style_global_registration.owner.kind,
+        RuntimeRegistrationOwnerKind::GlobalApi
+    );
+    assert_eq!(
+        legacy_style_global_registration.owner.component_ordinal,
+        None
+    );
+
+    let child_context = plugin_context.with_child_namespace("profile/π:");
+    assert_eq!(
+        child_context.qualify_name("subscriber%"),
+        "nemo-relay-plugin.v1.analytics%2Fplugin%3A%CF%80%25:1:profile%2F%CF%80%3Asubscriber%25"
+    );
+    assert!(
+        decode_plugin_component_effective_name(
+            "nemo-relay-plugin.v1.analytics%2Fplugin%3A%CF%80%25:1:cache%2Fvalue%3A%CF%80%25"
+        )
+        .is_some()
+    );
+    assert!(
+        decode_plugin_component_effective_name(
+            "nemo-relay-plugin.v1.analytics/plugin:1:subscriber"
+        )
+        .is_none()
+    );
+    assert!(
+        decode_plugin_component_effective_name("nemo-relay-plugin.v1.analytics:0:subscriber")
+            .is_none()
+    );
+    assert!(
+        decode_plugin_component_effective_name("__nemo_relay_plugin__analytics__1__subscriber")
+            .is_none()
+    );
+
+    let mut plugin_registrations = plugin_context.into_registrations();
+    rollback_registrations(&mut plugin_registrations);
+    let mut global_registrations = global_registration_context.into_registrations();
+    rollback_registrations(&mut global_registrations);
     reset_global();
 }
 
@@ -1130,6 +1466,12 @@ fn test_plugin_registration_context_covers_all_registration_helpers() {
     let mut ctx = PluginRegistrationContext::with_namespace("demo::");
     ctx.register_subscriber("subscriber", Arc::new(|_event| {}))
         .unwrap();
+    ctx.register_event_metadata_injector(
+        "event-metadata",
+        1,
+        Arc::new(|_| Box::pin(async { Ok(BTreeMap::new()) })),
+    )
+    .unwrap();
     ctx.register_tool_request_intercept(
         "tool-request",
         1,
@@ -1180,6 +1522,7 @@ fn test_plugin_registration_context_covers_all_registration_helpers() {
         names,
         vec![
             "demo::subscriber",
+            "demo::event-metadata",
             "demo::tool-request",
             "demo::tool-exec",
             "demo::llm-request",
@@ -1257,6 +1600,14 @@ fn test_initialize_plugins_restores_previous_configuration_after_failed_replacem
             ..PluginConfig::default()
         }))
         .unwrap();
+    record_active_plugin_runtime_diagnostic(RuntimeDiagnostic {
+        code: "atif.remote_delivery_failed".into(),
+        component: "observability".into(),
+        field: Some("storage[0]".into()),
+        message: "HTTP 500".into(),
+        session_id: Some("session-123".into()),
+        count: 1,
+    });
 
     let err = runtime
         .block_on(initialize_plugins_exact(PluginConfig {
@@ -1274,12 +1625,25 @@ fn test_initialize_plugins_restores_previous_configuration_after_failed_replacem
     assert_eq!(RESTORE_FAIL_REGISTRATIONS.load(Ordering::SeqCst), 1);
     let restored_report = active_plugin_report().expect("previous config should be restored");
     assert!(restored_report.diagnostics.is_empty());
+    assert_eq!(restored_report.runtime_diagnostics.len(), 1);
+    let restored = &restored_report.runtime_diagnostics[0];
+    assert_eq!(restored.code, "atif.remote_delivery_failed");
+    assert_eq!(restored.component, "observability");
+    assert_eq!(restored.field.as_deref(), Some("storage[0]"));
+    assert_eq!(restored.message, "HTTP 500");
+    assert_eq!(restored.session_id.as_deref(), Some("session-123"));
+    assert_eq!(restored.count, 1);
+    let diagnostics = active_runtime_diagnostics_snapshot();
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].code, "atif.remote_delivery_failed");
+    assert_eq!(diagnostics[0].message, "HTTP 500");
+    assert_eq!(diagnostics[0].count, 1);
     let names = recorded_names().lock().unwrap().clone();
     assert_eq!(
         names,
         vec![
-            "__nemo_relay_plugin__recording.plugin__subscriber",
-            "__nemo_relay_plugin__recording.plugin__subscriber",
+            "nemo-relay-plugin.v1.recording.plugin:1:subscriber",
+            "nemo-relay-plugin.v1.recording.plugin:1:subscriber",
         ]
     );
     reset_global();
@@ -1317,8 +1681,8 @@ fn test_initialize_plugins_restores_previous_configuration_after_replacement_pan
     assert_eq!(
         recorded_names().lock().unwrap().as_slice(),
         [
-            "__nemo_relay_plugin__recording.plugin__subscriber",
-            "__nemo_relay_plugin__recording.plugin__subscriber",
+            "nemo-relay-plugin.v1.recording.plugin:1:subscriber",
+            "nemo-relay-plugin.v1.recording.plugin:1:subscriber",
         ]
     );
 
@@ -1612,6 +1976,96 @@ fn test_teardown_runtime_diagnostics_remain_in_the_plugin_report() {
 }
 
 #[test]
+fn dynamic_plugin_runtime_diagnostics_are_active_only_and_aggregated_by_code() {
+    let _guard = lock_runtime_owner();
+    reset_global();
+    store_active_plugin_configuration(PluginConfig::default(), ConfigReport::default(), vec![])
+        .unwrap();
+
+    for diagnostic in [
+        RuntimeDiagnostic {
+            code: "zeta".into(),
+            component: "observability".into(),
+            field: None,
+            message: "first zeta".into(),
+            session_id: None,
+            count: 2,
+        },
+        RuntimeDiagnostic {
+            code: "alpha".into(),
+            component: "observability".into(),
+            field: Some("logs[0]".into()),
+            message: "alpha".into(),
+            session_id: None,
+            count: 1,
+        },
+        RuntimeDiagnostic {
+            code: "zeta".into(),
+            component: "observability".into(),
+            field: Some("metrics[0]".into()),
+            message: "latest zeta".into(),
+            session_id: None,
+            count: u64::MAX,
+        },
+    ] {
+        record_active_plugin_runtime_diagnostic(diagnostic);
+    }
+
+    let diagnostics = active_runtime_diagnostics_snapshot();
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|diagnostic| (
+                diagnostic.code.as_str(),
+                diagnostic.message.as_str(),
+                diagnostic.count
+            ))
+            .collect::<Vec<_>>(),
+        vec![("alpha", "alpha", 1), ("zeta", "latest zeta", u64::MAX)]
+    );
+
+    clear_plugin_configuration_inner();
+    assert!(active_runtime_diagnostics_snapshot().is_empty());
+    reset_global();
+}
+
+#[test]
+fn dynamic_plugin_runtime_diagnostics_snapshot_is_bounded() {
+    let _guard = lock_runtime_owner();
+    reset_global();
+    store_active_plugin_configuration(PluginConfig::default(), ConfigReport::default(), vec![])
+        .unwrap();
+
+    for index in 0..=MAX_DYNAMIC_PLUGIN_RUNTIME_DIAGNOSTICS {
+        record_active_plugin_runtime_diagnostic(RuntimeDiagnostic {
+            code: format!("diagnostic.{index:02}"),
+            component: "observability".into(),
+            field: None,
+            message: "runtime diagnostic".into(),
+            session_id: None,
+            count: 1,
+        });
+    }
+
+    let diagnostics = active_runtime_diagnostics_snapshot();
+    assert_eq!(diagnostics.len(), MAX_DYNAMIC_PLUGIN_RUNTIME_DIAGNOSTICS);
+    assert_eq!(
+        diagnostics
+            .first()
+            .map(|diagnostic| diagnostic.code.as_str()),
+        Some("diagnostic.00")
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "diagnostic.32")
+    );
+
+    clear_plugin_configuration_inner();
+    reset_global();
+}
+
+#[test]
 fn test_opentelemetry_delivery_failure_allows_later_plugin_configuration() {
     let _guard = lock_runtime_owner();
     reset_global();
@@ -1839,10 +2293,78 @@ fn test_initialize_plugins_skips_disabled_components_and_namespaces_multiple_ins
     assert_eq!(
         names,
         vec![
-            "__nemo_relay_plugin__recording.plugin__1__subscriber",
-            "__nemo_relay_plugin__recording.plugin__2__subscriber",
+            "nemo-relay-plugin.v1.recording.plugin:1:subscriber",
+            "nemo-relay-plugin.v1.recording.plugin:2:subscriber",
         ]
     );
+    reset_global();
+}
+
+#[test]
+fn test_initialize_plugins_assigns_ordinal_to_lone_enabled_component() {
+    let _guard = lock_runtime_owner();
+    reset_global();
+    register_plugin(Arc::new(RecordingPlugin)).unwrap();
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime
+        .block_on(initialize_plugins_exact(PluginConfig {
+            components: vec![
+                PluginComponentSpec::new("recording.plugin"),
+                PluginComponentSpec {
+                    enabled: false,
+                    ..PluginComponentSpec::new("recording.plugin")
+                },
+            ],
+            ..PluginConfig::default()
+        }))
+        .unwrap();
+
+    assert_eq!(
+        recorded_names().lock().unwrap().as_slice(),
+        ["nemo-relay-plugin.v1.recording.plugin:1:subscriber"]
+    );
+    reset_global();
+}
+
+#[test]
+fn test_singleton_plugin_registration_discovers_ordinal() {
+    let _guard = lock_runtime_owner();
+    reset_global();
+    register_plugin(Arc::new(DiscoverablePlugin)).unwrap();
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime
+        .block_on(initialize_plugins_exact(PluginConfig {
+            components: vec![PluginComponentSpec::new("discoverable.plugin")],
+            ..PluginConfig::default()
+        }))
+        .unwrap();
+
+    let registrations =
+        list_runtime_registrations(Some(&BTreeSet::from([RuntimeRegistrationKind::Subscriber])))
+            .unwrap();
+    let registration = registrations
+        .iter()
+        .find(|registration| registration.local_name == "subscriber")
+        .unwrap();
+    assert_eq!(
+        registration.effective_name,
+        "nemo-relay-plugin.v1.discoverable.plugin:1:subscriber"
+    );
+    assert_eq!(
+        registration.owner.plugin_kind.as_deref(),
+        Some("discoverable.plugin")
+    );
+    assert_eq!(registration.owner.component_ordinal, Some(1));
+
+    clear_plugin_configuration().unwrap();
     reset_global();
 }
 
@@ -2642,24 +3164,30 @@ fn test_plugin_config_loading_reports_read_parse_and_version_type_errors() {
 }
 
 #[test]
-fn test_default_plugin_config_paths_order_user_project_system() {
+fn test_default_plugin_config_paths_order_user_system() {
     let dir = tempfile::tempdir().unwrap();
-    let project = dir.path().join("project");
-    let child = project.join("nested");
     let user = dir.path().join("user");
-    let project_plugins = project.join(".nemo-relay/plugins.toml");
-    std::fs::create_dir_all(&child).unwrap();
-    std::fs::create_dir_all(project_plugins.parent().unwrap()).unwrap();
-    std::fs::write(&project_plugins, "version = 1\n").unwrap();
 
     assert_eq!(
-        default_plugin_config_paths(Some(&child), Some(user.clone())),
+        default_plugin_config_paths(Some(user.clone())),
         vec![
             user.join("plugins.toml"),
-            project_plugins,
-            PathBuf::from("/etc/nemo-relay/plugins.toml"),
+            system_config_dir().join("plugins.toml"),
         ]
     );
+}
+
+#[test]
+fn test_system_config_dir_matches_platform_convention() {
+    #[cfg(windows)]
+    {
+        let expected_base = std::env::var_os("ProgramData")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\ProgramData"));
+        assert_eq!(system_config_dir(), expected_base.join("nemo-relay"));
+    }
+    #[cfg(not(windows))]
+    assert_eq!(system_config_dir(), PathBuf::from("/etc/nemo-relay"));
 }
 
 #[cfg(unix)]

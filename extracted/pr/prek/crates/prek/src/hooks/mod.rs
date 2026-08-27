@@ -79,7 +79,8 @@ pub fn check_fast_path(hook: &Hook) -> bool {
 }
 
 fn fast_path_hook(hook: &Hook) -> Option<PreCommitHooks> {
-    if *NO_FAST_PATH {
+    // TODO: Decide whether fast-path hooks should honor or ignore a configured `shell`.
+    if *NO_FAST_PATH || hook.language_overridden {
         return None;
     }
 
@@ -96,9 +97,9 @@ fn fast_path_hook(hook: &Hook) -> Option<PreCommitHooks> {
 /// Returns whether a hook requires a Git diff to determine file changes.
 pub(crate) fn requires_diff_tracking(hook: &Hook) -> bool {
     match hook.repo() {
-        Repo::Meta { .. } | Repo::Builtin { .. } => false,
+        Repo::Meta | Repo::Builtin => false,
         Repo::Remote { .. } => fast_path_hook(hook).is_none() && hook.language.can_modify_files(),
-        Repo::Local { .. } => hook.language.can_modify_files(),
+        Repo::Local => hook.language.can_modify_files(),
     }
 }
 

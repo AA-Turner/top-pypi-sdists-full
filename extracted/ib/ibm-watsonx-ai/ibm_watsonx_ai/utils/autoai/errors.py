@@ -613,7 +613,7 @@ class TokenRemovedDuringClientCopy(WMLClientError):
     def __init__(self):
         WMLClientError.__init__(
             self,
-            "APIClient had authentication data removed during `APIClient.get_copy()` operation."
+            "APIClient had authentication data removed during `APIClient.get_copy()` operation. "
             "Use `APIClient.set_token(token)` to setup authentication in client copy.",
         )
 

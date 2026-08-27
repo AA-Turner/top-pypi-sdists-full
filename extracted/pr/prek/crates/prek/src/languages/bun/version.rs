@@ -33,10 +33,8 @@ impl FromStr for BunVersion {
     }
 }
 
-/// `language_version` field of bun can be one of the following:
-/// - `default`: Find system installed bun, or download the latest version.
-/// - `system`: Find system installed bun, or error if not found.
-/// - `bun` or `bun@latest`: Same as `default`.
+/// A parsed Bun version request:
+/// - `bun` or `bun@latest`: Accept any version.
 /// - `x.y` or `bun@x.y`: Install the latest version with the same major and minor version.
 /// - `x.y.z` or `bun@x.y.z`: Install the specific version.
 /// - `^x.y.z`: Install the latest version that satisfies the semver requirement.
@@ -118,6 +116,8 @@ impl BunRequest {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
 
     #[test]
@@ -164,10 +164,10 @@ mod tests {
     #[test]
     fn test_bun_request_range() {
         let req = BunRequest::from_str(">=1.0").unwrap();
-        assert!(matches!(req, BunRequest::Range(_)));
+        assert_matches!(req, BunRequest::Range(_));
 
         let req = BunRequest::from_str(">=1.0, <2.0").unwrap();
-        assert!(matches!(req, BunRequest::Range(_)));
+        assert_matches!(req, BunRequest::Range(_));
     }
 
     #[test]

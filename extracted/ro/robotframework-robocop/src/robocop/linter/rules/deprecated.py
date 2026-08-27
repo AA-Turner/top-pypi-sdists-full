@@ -6,12 +6,16 @@ from typing import TYPE_CHECKING
 from robot.api import Token
 
 try:
-    from robot.api.parsing import ReturnStatement
+    from robot.api.parsing import Break, Continue, ReturnStatement
 except ImportError:
     ReturnStatement = None
+    Break = Continue = None
+
+from robot.parsing.model.statements import KeywordCall as KeywordCallStatement
 
 from robocop.formatter.utils import misc as format_utils
 from robocop.linter import sonar_qube
+from robocop.linter.diagnostics import Position, Range
 from robocop.linter.fix import Fix, FixApplicability, FixAvailability, TextEdit
 from robocop.linter.rules import FixableRule, Rule, RuleSeverity
 from robocop.linter.utils import misc as utils
@@ -31,25 +35,8 @@ class IfCanBeUsedRule(Rule):
 
     Starting from Robot Framework 4.0 IF block can be used instead of those keywords.
 
-    Incorrect code example:
-
-        *** Test Cases ***
-        Test case
-            Run Keyword If    ${condition}    Keyword Call    ELSE    Log    Condition did not match.
-            Run Keyword Unless    ${something_happened}    Assert Results
-
-    Correct code:
-
-        *** Test Cases ***
-        Test case
-            IF    ${condition}
-                Keyword Call
-            ELSE
-                Log    Condition did not match.
-            END
-            IF    not ${something_happened}
-                Assert Results
-            END
+    Changes in 8.9.0: Rule is deprecated. It only supported Robot Framework 4, while Robocop
+    now requires Robot Framework 5.0+. Use ``deprecated-run-keyword-if`` (DEPR08) instead.
 
     """
 
@@ -57,12 +44,12 @@ class IfCanBeUsedRule(Rule):
     rule_id = "DEPR01"
     message = "'{run_keyword}' can be replaced with IF block since Robot Framework 4.0"
     severity = RuleSeverity.INFO
-    version = "==4.*"
     added_in_version = "1.4.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0908",)
+    deprecated = True
 
 
 class DeprecatedStatementRule(Rule):
@@ -89,7 +76,7 @@ class DeprecatedStatementRule(Rule):
     deprecated = True
 
 
-class DeprecatedWithNameRule(Rule):
+class DeprecatedWithNameRule(FixableRule):
     """
     Deprecated 'WITH NAME' alias marker used instead of 'AS'.
 
@@ -106,6 +93,8 @@ class DeprecatedWithNameRule(Rule):
         *** Settings ***
         Library    Collections    AS    AliasedName
 
+    The fix replaces the ``WITH NAME`` marker with ``AS``.
+
     """
 
     name = "deprecated-with-name"
@@ -118,6 +107,7 @@ class DeprecatedWithNameRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0321",)
+    fix_availability = FixAvailability.ALWAYS
 
     def check(self, node: LibraryImport) -> None:
         if not self.enabled:
@@ -131,8 +121,15 @@ class DeprecatedWithNameRule(Rule):
             end_col=with_name_token.end_col_offset + 1,
         )
 
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:  # noqa: ARG002
+        return Fix(
+            edits=[TextEdit.replace_at_range(self.rule_id, self.name, diag.range, "AS")],
+            message="Replace WITH NAME alias marker with AS",
+            applicability=FixApplicability.SAFE,
+        )
 
-class DeprecatedSingularHeaderRule(Rule):
+
+class DeprecatedSingularHeaderRule(FixableRule):
     """
     Deprecated singular header used instead of plural form.
 
@@ -149,6 +146,8 @@ class DeprecatedSingularHeaderRule(Rule):
         *** Settings ***
         *** Keywords ***
 
+    The fix replaces the singular header with the plural one, keeping the original header formatting.
+
     """
 
     name = "deprecated-singular-header"
@@ -161,6 +160,7 @@ class DeprecatedSingularHeaderRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     deprecated_names = ("0322",)
+    fix_availability = FixAvailability.ALWAYS
 
     english_headers_singular = {
         "Comment",
@@ -195,9 +195,24 @@ class DeprecatedSingularHeaderRule(Rule):
         self.report(
             singular_header=f"*** {node.name} ***",
             plural_header=f"*** {node.name}s ***",
+            header_name=node.name,
             node=header_node,
             col=header_node.col_offset + 1,
             end_col=header_node.end_col_offset + 1,
+        )
+
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:  # noqa: ARG002
+        """Replace the singular header with the plural one, keeping the original header formatting."""
+        header_name = str(diag.reported_arguments["header_name"])
+        header = getattr(diag.node, "value", "")
+        if header_name and header_name in header:
+            replacement = header.replace(header_name, f"{header_name}s", 1)
+        else:
+            replacement = str(diag.reported_arguments["plural_header"])
+        return Fix(
+            edits=[TextEdit.replace_at_range(self.rule_id, self.name, diag.range, replacement)],
+            message=f"Replace '{header}' header with '{replacement}'",
+            applicability=FixApplicability.SAFE,
         )
 
 
@@ -252,6 +267,8 @@ class ReplaceSetVariableWithVarRule(Rule):
 
     def check(self, node: KeywordCall, keyword_name: str, normalized_keyword_name: str) -> bool:
         """Check and return True if issue not found, otherwise return False."""
+        if not self.enabled:
+            return True
         if normalized_keyword_name in self.set_variable_keywords:
             col = utils.token_col(node, Token.NAME, Token.KEYWORD)
             self.report(
@@ -302,6 +319,8 @@ class ReplaceCreateWithVarRule(Rule):
 
     def check(self, node: KeywordCall, keyword_name: str, normalized_keyword_name: str) -> bool:
         """Check and return True if issue not found, otherwise return False."""
+        if not self.enabled:
+            return True
         if normalized_keyword_name in self.create_keywords:
             col = utils.token_col(node, Token.NAME, Token.KEYWORD)
             self.report(
@@ -358,7 +377,7 @@ class DeprecatedForceTagsRule(FixableRule):
         )
 
 
-class DeprecatedRunKeywordIfRule(Rule):
+class DeprecatedRunKeywordIfRule(FixableRule):
     """
     ``Run Keyword If`` and ``Run Keyword Unless`` keywords are deprecated.
 
@@ -388,6 +407,10 @@ class DeprecatedRunKeywordIfRule(Rule):
                     Keyword3
                 END
 
+    The fix replaces the keyword call with an ``IF`` block. ``Run Keyword Unless`` conditions are wrapped in
+    ``not (...)``. Only keyword calls in the body are fixed - ``Run Keyword If`` used as a setting value
+    (for example ``Suite Setup`` or ``[Template]``) or without arguments cannot be converted and is left as is.
+
     """
 
     name = "deprecated-run-keyword-if"
@@ -400,9 +423,12 @@ class DeprecatedRunKeywordIfRule(Rule):
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
     run_keyword_if_names = {"runkeywordif", "runkeywordunless"}
+    fix_availability = FixAvailability.SOMETIMES
 
     def check(self, node: KeywordCall, keyword_name: str, normalized_keyword_name: str) -> bool:
         """Check and return True if issue not found, otherwise return False."""
+        if not self.enabled:
+            return True
         if normalized_keyword_name in self.run_keyword_if_names:
             col = utils.token_col(node, Token.NAME, Token.KEYWORD)
             self.report(
@@ -414,8 +440,33 @@ class DeprecatedRunKeywordIfRule(Rule):
             return False
         return True
 
+    def fix(self, diag: Diagnostic, source_lines: list[str]) -> Fix | None:  # noqa: ARG002
+        """Replace ``Run Keyword If``/``Run Keyword Unless`` keyword call with an IF block."""
+        node = diag.node
+        # only keyword calls in the body can be converted, settings (Suite Setup, [Template], ...) are skipped
+        if not isinstance(node, KeywordCallStatement) or not node.keyword:
+            return None
+        negate = utils.normalize_robot_name(node.keyword, remove_prefix="builtin.") == "runkeywordunless"
+        replacement_node = format_utils.run_keyword_if_to_branched(node, separator="    ", indent="    ", negate=negate)
+        if replacement_node is node:  # keyword call could not be converted (for example, no arguments)
+            return None
+        replacement_text = StatementLinesCollector(replacement_node).text
+        return Fix(
+            edits=[
+                TextEdit.replace_lines(
+                    rule_id=self.rule_id,
+                    rule_name=self.name,
+                    start_line=node.lineno,
+                    end_line=node.end_lineno,
+                    replacement=replacement_text,
+                )
+            ],
+            message=f"Replace '{diag.reported_arguments['statement_name']}' keyword with an IF block",
+            applicability=FixApplicability.SAFE,
+        )
 
-class DeprecatedLoopKeywordRule(Rule):
+
+class DeprecatedLoopKeywordRule(FixableRule):
     """
     Loop keywords are deprecated.
 
@@ -455,6 +506,10 @@ class DeprecatedLoopKeywordRule(Rule):
                 BREAK
             END
 
+    The fix replaces ``Continue For Loop`` with ``CONTINUE`` and ``Exit For Loop`` with ``BREAK``. The
+    ``... If`` variants are wrapped in an ``IF`` block. Only body keyword calls are fixed - the keyword
+    used as a setting value (for example ``[Setup]`` or ``[Template]``) is left as is.
+
     """
 
     name = "deprecated-loop-keyword"
@@ -466,6 +521,7 @@ class DeprecatedLoopKeywordRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    fix_availability = FixAvailability.SOMETIMES
 
     deprecated_keywords: dict[str, str] = {
         "exitforloop": "BREAK",
@@ -473,21 +529,66 @@ class DeprecatedLoopKeywordRule(Rule):
         "continueforloop": "CONTINUE",
         "continueforloopif": "IF and CONTINUE",
     }
+    loop_statements: dict[str, tuple[type[Statement] | None, str]] = {
+        "exitforloop": (Break, "BREAK"),
+        "exitforloopif": (Break, "BREAK"),
+        "continueforloop": (Continue, "CONTINUE"),
+        "continueforloopif": (Continue, "CONTINUE"),
+    }
 
-    def check(self, node: KeywordCall, keyword_name: str, normalized_keyword_name: str) -> bool:
+    def check(self, node: KeywordCall, keyword_name: str, normalized_keyword_name: str, in_loop: bool) -> bool:
         """Check and return True if issue not found, otherwise return False."""
+        if not self.enabled:
+            return True
         if normalized_keyword_name in self.deprecated_keywords:
             col = utils.token_col(node, Token.NAME, Token.KEYWORD)
             alternative = self.deprecated_keywords[normalized_keyword_name]
+            # CONTINUE and BREAK are only valid inside a loop, so the keyword call is only fixed there
+            fix = self.build_fix(node, normalized_keyword_name, keyword_name) if in_loop else None
             self.report(
                 statement_name=keyword_name,
                 alternative=alternative,
                 node=node,
                 col=col,
                 end_col=col + len(keyword_name),
+                fix=fix,
             )
             return False
         return True
+
+    def build_fix(self, node: KeywordCall, normalized_keyword_name: str, keyword_name: str) -> Fix | None:
+        """Replace the deprecated loop keyword call with a CONTINUE or BREAK statement."""
+        statement, alternative = self.loop_statements.get(normalized_keyword_name, (None, ""))
+        if statement is None:
+            return None
+        if normalized_keyword_name.endswith("if"):
+            replacement_node = format_utils.wrap_in_if_and_replace_statement(node, statement, "    ")
+            if replacement_node is node:  # missing condition, cannot convert
+                return None
+            replacement_text = StatementLinesCollector(replacement_node).text
+            return Fix(
+                edits=[
+                    TextEdit.replace_lines(
+                        rule_id=self.rule_id,
+                        rule_name=self.name,
+                        start_line=node.lineno,
+                        end_line=node.end_lineno,
+                        replacement=replacement_text,
+                    )
+                ],
+                message=f"Replace '{keyword_name}' keyword with IF and {alternative}",
+                applicability=FixApplicability.SAFE,
+            )
+        col = utils.token_col(node, Token.NAME, Token.KEYWORD)
+        keyword_range = Range(
+            start=Position(line=node.lineno, character=col),
+            end=Position(line=node.lineno, character=col + len(keyword_name)),
+        )
+        return Fix(
+            edits=[TextEdit.replace_at_range(self.rule_id, self.name, keyword_range, alternative)],
+            message=f"Replace '{keyword_name}' keyword with {alternative}",
+            applicability=FixApplicability.SAFE,
+        )
 
 
 class DeprecatedReturnKeyword(FixableRule):
@@ -511,6 +612,8 @@ class DeprecatedReturnKeyword(FixableRule):
 
     def check(self, node: KeywordCall, keyword_name: str, normalized_keyword_name: str) -> bool:
         """Check and return True if issue not found, otherwise return False."""
+        if not self.enabled:
+            return True
         if normalized_keyword_name in self.deprecated_keywords:
             col = utils.token_col(node, Token.NAME, Token.KEYWORD)
             alternative = self.deprecated_keywords[normalized_keyword_name]
@@ -580,7 +683,7 @@ class DeprecatedReturnSetting(FixableRule):
     name = "deprecated-return-setting"
     rule_id = "DEPR11"
     message = "'[Return]' is deprecated, use 'RETURN' instead"
-    severity = RuleSeverity.WARNING
+    severity = RuleSeverity.INFO
     version = ">=5.0"
     added_in_version = "8.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(

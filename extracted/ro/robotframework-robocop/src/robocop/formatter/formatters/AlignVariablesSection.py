@@ -69,6 +69,7 @@ class AlignVariablesSection(Formatter):
         if not skip_types:
             return ret
         for skip_type in skip_types.split(","):
+            skip_type = skip_type.strip()
             if skip_type not in allow_types:
                 raise InvalidParameterValueError(
                     self.__class__.__name__,
@@ -146,5 +147,5 @@ class AlignVariablesSection(Formatter):
             min_for_token = length + self.formatting_config.space_count
             if self.min_width:
                 min_for_token = max(min_for_token, self.min_width)
-            look_up[index] = misc.round_to_four(min_for_token)
+            look_up[index] = min_for_token
         return look_up
