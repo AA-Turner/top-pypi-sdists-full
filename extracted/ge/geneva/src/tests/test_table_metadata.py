@@ -21,6 +21,7 @@ import pytest
 
 import geneva.table as gt
 from geneva import connect, udf
+from geneva.utils.lancedb_abc import unimplemented_members
 from integ_tests.utils import installed_distribution_requirement
 
 _WORKER_IMPORT_WITH_NEW_TABLE_ABC = r"""
@@ -53,11 +54,16 @@ abc.update_abstractmethods(LanceTable)
 os.environ["GENEVA_TELEMETRY_INIT_ON_IMPORT"] = "1"
 os.environ.pop("LANCEDB_OTEL_COLLECTOR_URL", None)
 import geneva.table as gt
+from geneva.utils.lancedb_abc import unimplemented_members
 
 assert gt.telemetry._initialized
 gt.Table.__init__ = lambda self, *args, **kwargs: None
 gt.Table(None, "test")
-assert not gt.Table.__abstractmethods__, sorted(gt.Table.__abstractmethods__)
+# unimplemented_members, not __abstractmethods__: the forward-compat shim
+# empties the latter by design, so it would pass even if Geneva implemented
+# none of these. These names must be genuinely implemented.
+missing = unimplemented_members(gt.Table)
+assert not missing, missing
 """
 
 
@@ -67,11 +73,16 @@ def test_table_is_concrete() -> None:
     This guards against lancedb adding abstract methods to its Table ABC that
     Geneva fails to implement, without needing a live Ray cluster to surface
     the failure.
+
+    Asks ``unimplemented_members`` rather than ``__abstractmethods__``:
+    ``@implement_missing_abstracts`` empties the latter by design, so reading
+    it here would pass no matter what was missing.
     """
-    remaining = getattr(gt.Table, "__abstractmethods__", frozenset())
+    remaining = unimplemented_members(gt.Table)
     assert not remaining, (
         "geneva.table.Table is missing implementations for abstract methods: "
-        f"{sorted(remaining)}"
+        f"{list(remaining)}. They are stubbed so tables still construct, but "
+        "each one raises; implement them against the installed lancedb."
     )
 
 

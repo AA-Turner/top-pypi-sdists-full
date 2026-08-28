@@ -7,7 +7,7 @@ import warnings
 import sys
 import pulumi
 import pulumi.runtime
-from typing import Any, Mapping, Optional, Sequence, Union, overload
+from typing import Any, Mapping, Optional, Sequence, Union, overload, Literal
 if sys.version_info >= (3, 11):
     from typing import NotRequired, TypedDict, TypeAlias
 else:
@@ -314,16 +314,16 @@ class IPAddress(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.IPAddressSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['networking.k8s.io/v1']] = None,
+                 kind: Optional[Literal['IPAddress']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None):
         """
         IPAddress represents a single IP of a single IP Family. The object is designed to be used by APIs that operate on IP addresses. The object is used by the Service core API for allocation of IP addresses. An IP address can be represented in different formats, to guarantee the uniqueness of the IP, the name of the object is the IP address in canonical format, four decimal digits separated by dots suppressing leading zeros for IPv4 and the representation defined by RFC 5952 for IPv6. Valid: 192.168.1.5 or 2001:db8::1 or 2001:db8:aaaa:bbbb:cccc:dddd:eeee:1 Invalid: 10.01.2.3 or 2001:db8:0:0:0::1
 
         :param 'IPAddressSpecArgs' spec: spec is the desired state of the IPAddress. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['networking.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['IPAddress'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         pulumi.set(__self__, "spec", spec)
         if api_version is not None:
@@ -343,7 +343,7 @@ class IPAddress(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['networking.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -351,7 +351,7 @@ class IPAddress(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['IPAddress']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -361,7 +361,7 @@ class IPAddress(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -393,7 +393,7 @@ class IPAddressSpec(dict):
         """
         IPAddressSpec describe the attributes in an IP Address.
 
-        :param 'ParentReferenceArgs' parent_ref: ParentRef references the resource that an IPAddress is attached to. An IPAddress must reference a parent object.
+        :param 'ParentReferenceArgs' parent_ref: parentRef references the resource that an IPAddress is attached to. An IPAddress must reference a parent object.
         """
         pulumi.set(__self__, "parent_ref", parent_ref)
 
@@ -401,7 +401,7 @@ class IPAddressSpec(dict):
     @pulumi.getter(name="parentRef")
     def parent_ref(self) -> 'outputs.ParentReference':
         """
-        ParentRef references the resource that an IPAddress is attached to. An IPAddress must reference a parent object.
+        parentRef references the resource that an IPAddress is attached to. An IPAddress must reference a parent object.
         """
         return pulumi.get(self, "parent_ref")
 
@@ -433,7 +433,7 @@ class IPAddressSpecPatch(dict):
         """
         IPAddressSpec describe the attributes in an IP Address.
 
-        :param 'ParentReferencePatchArgs' parent_ref: ParentRef references the resource that an IPAddress is attached to. An IPAddress must reference a parent object.
+        :param 'ParentReferencePatchArgs' parent_ref: parentRef references the resource that an IPAddress is attached to. An IPAddress must reference a parent object.
         """
         if parent_ref is not None:
             pulumi.set(__self__, "parent_ref", parent_ref)
@@ -442,7 +442,7 @@ class IPAddressSpecPatch(dict):
     @pulumi.getter(name="parentRef")
     def parent_ref(self) -> Optional['outputs.ParentReferencePatch']:
         """
-        ParentRef references the resource that an IPAddress is attached to. An IPAddress must reference a parent object.
+        parentRef references the resource that an IPAddress is attached to. An IPAddress must reference a parent object.
         """
         return pulumi.get(self, "parent_ref")
 
@@ -589,8 +589,8 @@ class Ingress(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['networking.k8s.io/v1']] = None,
+                 kind: Optional[Literal['Ingress']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  spec: Optional['outputs.IngressSpec'] = None,
                  status: Optional['outputs.IngressStatus'] = None):
@@ -611,9 +611,9 @@ class Ingress(dict):
         time out and mark the resource update as Failed. You can override the default timeout value
         by setting the 'customTimeouts' option on the resource.
 
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['networking.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['Ingress'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param 'IngressSpecArgs' spec: spec is the desired state of the Ingress. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         :param 'IngressStatusArgs' status: status is the current state of the Ingress. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         """
@@ -630,7 +630,7 @@ class Ingress(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['networking.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -638,7 +638,7 @@ class Ingress(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['Ingress']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -648,7 +648,7 @@ class Ingress(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -764,16 +764,16 @@ class IngressClass(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['networking.k8s.io/v1']] = None,
+                 kind: Optional[Literal['IngressClass']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  spec: Optional['outputs.IngressClassSpec'] = None):
         """
         IngressClass represents the class of the Ingress, referenced by the Ingress Spec. The `ingressclass.kubernetes.io/is-default-class` annotation can be used to indicate that an IngressClass should be considered default. When a single IngressClass resource has this annotation set to true, new Ingress resources without a class specified will be assigned this default class.
 
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['networking.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['IngressClass'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param 'IngressClassSpecArgs' spec: spec is the desired state of the IngressClass. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         """
         if api_version is not None:
@@ -787,7 +787,7 @@ class IngressClass(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['networking.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -795,7 +795,7 @@ class IngressClass(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['IngressClass']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -805,7 +805,7 @@ class IngressClass(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -1335,6 +1335,7 @@ class IngressRule(dict):
                Both these may change in the future. Incoming requests are matched against the host before the IngressRuleValue. If the host is unspecified, the Ingress routes all traffic based on the specified IngressRuleValue.
                
                host can be "precise" which is a domain name without the terminating dot of a network host (e.g. "foo.bar.com") or "wildcard", which is a domain name prefixed with a single wildcard label (e.g. "*.foo.com"). The wildcard character '*' must appear by itself as the first DNS label and matches only a single label. You cannot have a wildcard label by itself (e.g. Host == "*"). Requests will be matched against the Host field in the following way: 1. If host is precise, the request matches this rule if the http host header is equal to Host. 2. If host is a wildcard, then the request matches this rule if the http host header is to equal to the suffix (removing the first label) of the wildcard rule.
+        :param 'HTTPIngressRuleValueArgs' http: http is a HTTP IngressRuleValue, which contains a list of http selectors
         """
         if host is not None:
             pulumi.set(__self__, "host", host)
@@ -1359,6 +1360,9 @@ class IngressRule(dict):
     @_builtins.property
     @pulumi.getter
     def http(self) -> Optional['outputs.HTTPIngressRuleValue']:
+        """
+        http is a HTTP IngressRuleValue, which contains a list of http selectors
+        """
         return pulumi.get(self, "http")
 
 
@@ -1381,6 +1385,7 @@ class IngressRulePatch(dict):
                Both these may change in the future. Incoming requests are matched against the host before the IngressRuleValue. If the host is unspecified, the Ingress routes all traffic based on the specified IngressRuleValue.
                
                host can be "precise" which is a domain name without the terminating dot of a network host (e.g. "foo.bar.com") or "wildcard", which is a domain name prefixed with a single wildcard label (e.g. "*.foo.com"). The wildcard character '*' must appear by itself as the first DNS label and matches only a single label. You cannot have a wildcard label by itself (e.g. Host == "*"). Requests will be matched against the Host field in the following way: 1. If host is precise, the request matches this rule if the http host header is equal to Host. 2. If host is a wildcard, then the request matches this rule if the http host header is to equal to the suffix (removing the first label) of the wildcard rule.
+        :param 'HTTPIngressRuleValuePatchArgs' http: http is a HTTP IngressRuleValue, which contains a list of http selectors
         """
         if host is not None:
             pulumi.set(__self__, "host", host)
@@ -1405,6 +1410,9 @@ class IngressRulePatch(dict):
     @_builtins.property
     @pulumi.getter
     def http(self) -> Optional['outputs.HTTPIngressRuleValuePatch']:
+        """
+        http is a HTTP IngressRuleValue, which contains a list of http selectors
+        """
         return pulumi.get(self, "http")
 
 
@@ -1848,17 +1856,17 @@ class NetworkPolicy(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['networking.k8s.io/v1']] = None,
+                 kind: Optional[Literal['NetworkPolicy']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  spec: Optional['outputs.NetworkPolicySpec'] = None,
                  status: Optional['outputs.NetworkPolicyStatus'] = None):
         """
         NetworkPolicy describes what network traffic is allowed for a set of Pods
 
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['networking.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['NetworkPolicy'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param 'NetworkPolicySpecArgs' spec: spec represents the specification of the desired behavior for this NetworkPolicy.
         :param 'NetworkPolicyStatusArgs' status: Status is the current state of the NetworkPolicy. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         """
@@ -1875,7 +1883,7 @@ class NetworkPolicy(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['networking.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -1883,7 +1891,7 @@ class NetworkPolicy(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['NetworkPolicy']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -1893,7 +1901,7 @@ class NetworkPolicy(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -2594,10 +2602,10 @@ class ParentReference(dict):
         """
         ParentReference describes a reference to a parent object.
 
-        :param _builtins.str name: Name is the name of the object being referenced.
-        :param _builtins.str resource: Resource is the resource of the object being referenced.
-        :param _builtins.str group: Group is the group of the object being referenced.
-        :param _builtins.str namespace: Namespace is the namespace of the object being referenced.
+        :param _builtins.str name: name is the name of the object being referenced.
+        :param _builtins.str resource: resource is the resource of the object being referenced.
+        :param _builtins.str group: group is the group of the object being referenced.
+        :param _builtins.str namespace: namespace is the namespace of the object being referenced.
         """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "resource", resource)
@@ -2610,7 +2618,7 @@ class ParentReference(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        Name is the name of the object being referenced.
+        name is the name of the object being referenced.
         """
         return pulumi.get(self, "name")
 
@@ -2618,7 +2626,7 @@ class ParentReference(dict):
     @pulumi.getter
     def resource(self) -> _builtins.str:
         """
-        Resource is the resource of the object being referenced.
+        resource is the resource of the object being referenced.
         """
         return pulumi.get(self, "resource")
 
@@ -2626,7 +2634,7 @@ class ParentReference(dict):
     @pulumi.getter
     def group(self) -> Optional[_builtins.str]:
         """
-        Group is the group of the object being referenced.
+        group is the group of the object being referenced.
         """
         return pulumi.get(self, "group")
 
@@ -2634,7 +2642,7 @@ class ParentReference(dict):
     @pulumi.getter
     def namespace(self) -> Optional[_builtins.str]:
         """
-        Namespace is the namespace of the object being referenced.
+        namespace is the namespace of the object being referenced.
         """
         return pulumi.get(self, "namespace")
 
@@ -2652,10 +2660,10 @@ class ParentReferencePatch(dict):
         """
         ParentReference describes a reference to a parent object.
 
-        :param _builtins.str group: Group is the group of the object being referenced.
-        :param _builtins.str name: Name is the name of the object being referenced.
-        :param _builtins.str namespace: Namespace is the namespace of the object being referenced.
-        :param _builtins.str resource: Resource is the resource of the object being referenced.
+        :param _builtins.str group: group is the group of the object being referenced.
+        :param _builtins.str name: name is the name of the object being referenced.
+        :param _builtins.str namespace: namespace is the namespace of the object being referenced.
+        :param _builtins.str resource: resource is the resource of the object being referenced.
         """
         if group is not None:
             pulumi.set(__self__, "group", group)
@@ -2670,7 +2678,7 @@ class ParentReferencePatch(dict):
     @pulumi.getter
     def group(self) -> Optional[_builtins.str]:
         """
-        Group is the group of the object being referenced.
+        group is the group of the object being referenced.
         """
         return pulumi.get(self, "group")
 
@@ -2678,7 +2686,7 @@ class ParentReferencePatch(dict):
     @pulumi.getter
     def name(self) -> Optional[_builtins.str]:
         """
-        Name is the name of the object being referenced.
+        name is the name of the object being referenced.
         """
         return pulumi.get(self, "name")
 
@@ -2686,7 +2694,7 @@ class ParentReferencePatch(dict):
     @pulumi.getter
     def namespace(self) -> Optional[_builtins.str]:
         """
-        Namespace is the namespace of the object being referenced.
+        namespace is the namespace of the object being referenced.
         """
         return pulumi.get(self, "namespace")
 
@@ -2694,7 +2702,7 @@ class ParentReferencePatch(dict):
     @pulumi.getter
     def resource(self) -> Optional[_builtins.str]:
         """
-        Resource is the resource of the object being referenced.
+        resource is the resource of the object being referenced.
         """
         return pulumi.get(self, "resource")
 
@@ -2794,17 +2802,17 @@ class ServiceCIDR(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['networking.k8s.io/v1']] = None,
+                 kind: Optional[Literal['ServiceCIDR']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  spec: Optional['outputs.ServiceCIDRSpec'] = None,
                  status: Optional['outputs.ServiceCIDRStatus'] = None):
         """
         ServiceCIDR defines a range of IP addresses using CIDR format (e.g. 192.168.0.0/24 or 2001:db2::/64). This range is used to allocate ClusterIPs to Service objects.
 
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['networking.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['ServiceCIDR'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param 'ServiceCIDRSpecArgs' spec: spec is the desired state of the ServiceCIDR. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         :param 'ServiceCIDRStatusArgs' status: status represents the current state of the ServiceCIDR. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         """
@@ -2821,7 +2829,7 @@ class ServiceCIDR(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['networking.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -2829,7 +2837,7 @@ class ServiceCIDR(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['ServiceCIDR']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -2839,7 +2847,7 @@ class ServiceCIDR(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -2870,7 +2878,7 @@ class ServiceCIDRSpec(dict):
         """
         ServiceCIDRSpec define the CIDRs the user wants to use for allocating ClusterIPs for Services.
 
-        :param Sequence[_builtins.str] cidrs: CIDRs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is allowed, one of each IP family. This field is immutable.
+        :param Sequence[_builtins.str] cidrs: cidrs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is allowed, one of each IP family. This field is immutable.
         """
         if cidrs is not None:
             pulumi.set(__self__, "cidrs", cidrs)
@@ -2879,7 +2887,7 @@ class ServiceCIDRSpec(dict):
     @pulumi.getter
     def cidrs(self) -> Optional[Sequence[_builtins.str]]:
         """
-        CIDRs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is allowed, one of each IP family. This field is immutable.
+        cidrs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is allowed, one of each IP family. This field is immutable.
         """
         return pulumi.get(self, "cidrs")
 
@@ -2894,7 +2902,7 @@ class ServiceCIDRSpecPatch(dict):
         """
         ServiceCIDRSpec define the CIDRs the user wants to use for allocating ClusterIPs for Services.
 
-        :param Sequence[_builtins.str] cidrs: CIDRs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is allowed, one of each IP family. This field is immutable.
+        :param Sequence[_builtins.str] cidrs: cidrs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is allowed, one of each IP family. This field is immutable.
         """
         if cidrs is not None:
             pulumi.set(__self__, "cidrs", cidrs)
@@ -2903,7 +2911,7 @@ class ServiceCIDRSpecPatch(dict):
     @pulumi.getter
     def cidrs(self) -> Optional[Sequence[_builtins.str]]:
         """
-        CIDRs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is allowed, one of each IP family. This field is immutable.
+        cidrs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is allowed, one of each IP family. This field is immutable.
         """
         return pulumi.get(self, "cidrs")
 

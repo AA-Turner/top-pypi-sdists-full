@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fastapi-cloud-cli
-Version: 0.23.0
+Version: 0.24.0
 Summary: Deploy and manage FastAPI Cloud apps from the command line 🚀
 Author-Email: Patrick Arminio <patrick@fastapilabs.com>
 License: MIT
@@ -40,6 +40,7 @@ Requires-Dist: pydantic[email]>=2.12.0; python_version >= "3.14"
 Requires-Dist: sentry-sdk>=2.20.0
 Requires-Dist: fastar>=0.10.0
 Requires-Dist: detect-installer>=0.1.0
+Requires-Dist: agent-detector>=1.1.0
 Provides-Extra: standard
 Requires-Dist: uvicorn[standard]>=0.15.0; extra == "standard"
 Description-Content-Type: text/markdown

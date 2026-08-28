@@ -4,16 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-dg-cli"
-version = "1.13.19"
+version = "1.13.20"
 requires-python = ">=3.10,<3.15"
 description = ""
 authors = [{name = "Dagster Labs", email = "hello@dagsterlabs.com"}]
 license = "Apache-2.0"
 dependencies = [
-    "dagster-cloud-cli==1.13.19",
-    "dagster-dg-core==1.13.19",
-    "dagster-rest-resources==0.29.19",
-    "dagster==1.13.19",
+    "dagster-cloud-cli==1.13.20",
+    "dagster-dg-core==1.13.20",
+    "dagster-rest-resources==0.29.20",
+    "dagster==1.13.20",
     "requests",
     "typer",
 ]

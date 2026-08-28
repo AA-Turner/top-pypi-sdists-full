@@ -69,6 +69,22 @@ def loaded_runner_detail() -> dict:
     shard leads) expose none of this; they report an empty detail."""
     import os as _os
 
+    def _shard_sum_bytes(path):
+        """Size of the loaded gguf, summing ALL shards when ``path`` is one
+        shard of a split model — a naive getsize on the first shard under-
+        counts a multi-shard model ~3-4x (mirrors slot_agent._total_gguf_bytes)."""
+        import re as _re
+        import glob as _glob
+        base = _os.path.basename(path)
+        m = _re.search(r"-\d{5}-of-(\d{5})\.gguf$", base)
+        if m:
+            patt = f"{base[:m.start()]}-*-of-{m.group(1)}.gguf"
+            shards = [s for s in _glob.glob(
+                _os.path.join(_os.path.dirname(path), patt)) if _os.path.isfile(s)]
+            if shards:
+                return sum(_os.path.getsize(s) for s in shards)
+        return _os.path.getsize(path)
+
     out: dict = {}
     with _LLAMA_LOCK:
         items = list(_LLAMA_INSTANCES.items())
@@ -77,7 +93,11 @@ def loaded_runner_detail() -> dict:
         path = getattr(r, "model_path", None)
         if path:
             try:
-                d["model_bytes"] = _os.path.getsize(path)
+                # This overlay CORRECTS the coarse dir-walk detail, so it must
+                # stamp both keys: the artifact that loaded is both the row's
+                # size and the expected-VRAM proxy for a GGUF runner.
+                d["model_bytes"] = _shard_sum_bytes(path)
+                d["weight_bytes"] = d["model_bytes"]
             except OSError:
                 pass
             try:
@@ -245,7 +265,16 @@ def _build_runner(model_key: str) -> "LlamaCppBaseRunner":
                         mpath = resolve_override_gguf(model_key, mdir)
                     except Exception:
                         mpath = None
-                    mpath = mpath or get_gguf_file(mdir, cfg)
+                    if not mpath:
+                        # Fit-aware auto-pick (None whenever any designation
+                        # exists — never overrides a pin / cfg.filename).
+                        _prefer = None
+                        try:
+                            from ...serve.overrides import autofit_gguf_prefer
+                            _prefer = autofit_gguf_prefer(model_key, mdir, cfg)
+                        except Exception:
+                            _prefer = None
+                        mpath = get_gguf_file(mdir, cfg, prefer=_prefer)
                     if mpath:
                         opts = {"path": _os.fspath(mpath)}
                         # Ship the model's REAL context window too — the slot

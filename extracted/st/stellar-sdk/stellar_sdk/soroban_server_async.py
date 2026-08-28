@@ -25,6 +25,7 @@ from .exceptions import (
     ContractCodeNotFoundError,
     ContractInstanceNotFoundError,
     ContractWasmRetrievalError,
+    ExternalRefNotFoundError,
     PrepareTransactionException,
     SACHasNoWasmError,
     SorobanRpcErrorResponse,
@@ -36,6 +37,7 @@ from .sep.contract_meta import ContractMeta
 from .sep.contract_spec import ContractSpec
 from .soroban_rpc import *
 from .strkey import StrKey
+from .utils import external_ref_owner_address
 
 if TYPE_CHECKING:
     from .client.base_async_client import BaseAsyncClient
@@ -192,7 +194,7 @@ class SorobanServerAsync:
         transaction_envelope: TransactionEnvelope,
         addl_resources: ResourceLeeway | None = None,
         auth_mode: AuthMode | None = None,
-        use_upgraded_auth: bool = False,
+        use_upgraded_auth: bool = True,
     ) -> SimulateTransactionResponse:
         """Submit a trial contract invocation to get back return values, expected ledger footprint, and expected costs.
 
@@ -205,13 +207,14 @@ class SorobanServerAsync:
             Any provided footprint will be ignored.
         :param addl_resources: Additional resource include in the simulation.
         :param auth_mode: Explicitly allows users to opt-in to non-root authorization in recording mode.
-        :param use_upgraded_auth: Opt simulation into recording ``ADDRESS_V2`` ("upgraded") authorization
-            credentials (CAP-71) instead of the legacy ``ADDRESS`` credentials. This is best-effort: it only
-            affects the recording auth modes and is silently ignored by RPC servers (or protocol versions)
-            whose host cannot emit ``ADDRESS_V2``, so inspect the returned credential arm to confirm the
-            response type. This flag is transitional — once the RPC returns ``ADDRESS_V2`` credentials by
-            default it becomes a no-op, so do not rely on omitting it to keep receiving the legacy ``ADDRESS``
-            format. Requires Stellar RPC v27.1.0 or later.
+        :param use_upgraded_auth: Whether simulation records ``ADDRESS_V2`` ("upgraded") authorization
+            credentials (CAP-71) instead of the legacy ``ADDRESS`` credentials. Defaults to ``True``; pass
+            ``False`` to ask for the legacy format. This is best-effort: it only affects the recording auth
+            modes and is silently ignored by RPC servers (or protocol versions) whose host cannot emit
+            ``ADDRESS_V2``, so inspect the returned credential arm to confirm the response type. This flag is
+            transitional — once the RPC returns ``ADDRESS_V2`` credentials unconditionally it becomes a no-op,
+            so do not rely on passing ``False`` to keep receiving the legacy ``ADDRESS`` format. Requires
+            Stellar RPC v27.1.0 or later.
         :return: A :class:`SimulateTransactionResponse <stellar_sdk.soroban_rpc.SimulateTransactionResponse>` object
             contains the cost, footprint, result/auth requirements (if applicable), and error of the transaction.
         :raises: :exc:`SorobanRpcErrorResponse <stellar_sdk.exceptions.SorobanRpcErrorResponse>` - If the Soroban-RPC instance returns an error response.
@@ -429,6 +432,59 @@ class SorobanServerAsync:
             return None
         return entries[0]
 
+    async def get_external_ref_wasm_hash(
+        self, external_ref: stellar_xdr.ContractExecutableExternalRef
+    ) -> bytes:
+        """Resolve a `CAP-85 <https://stellar.org/protocol/cap-85>`_ external executable
+        reference to the Wasm hash it names.
+
+        A contract created from an external reference does not carry its own Wasm hash.
+        Instead the reference names an owner contract and a tag, and the owner holds a
+        *persistent* contract data entry keyed by that tag whose value is the 32-byte hash
+        of an existing Wasm. This performs exactly that lookup; the owner contract is not
+        invoked.
+
+        :param external_ref: The external executable reference, for example the
+            ``external_ref`` arm of a contract instance's executable.
+        :return: The 32-byte Wasm hash the reference resolves to.
+        :raises ValueError: If the owner of ``external_ref`` is not a contract, and so cannot
+            hold the tag entry that names the Wasm.
+        :raises: :exc:`ExternalRefNotFoundError <stellar_sdk.exceptions.ExternalRefNotFoundError>` - If the tag entry is not found or is archived.
+        :raises: :exc:`ContractWasmRetrievalError <stellar_sdk.exceptions.ContractWasmRetrievalError>` - If the tag entry does not hold a valid 32-byte Wasm hash.
+        """
+        owner = external_ref_owner_address(external_ref)
+        # The tag is an unbounded SCString and may be binary, so it is reused as-is
+        # rather than decoded; a lenient decode would build the key of a different entry.
+        entry = await self.get_contract_data(
+            owner.address,
+            stellar_xdr.SCVal(
+                stellar_xdr.SCValType.SCV_EXECUTABLE_TAG,
+                executable_tag=external_ref.tag,
+            ),
+            Durability.PERSISTENT,
+        )
+        if entry is None:
+            raise ExternalRefNotFoundError(
+                f"External executable tag entry on {owner.address} was not found or is archived. "
+                f"Restoring the tag entry footprint may be required."
+            )
+        data = stellar_xdr.LedgerEntryData.from_xdr(entry.xdr)
+        if data.contract_data is None:
+            raise ContractWasmRetrievalError(
+                f"Ledger entry response did not contain contract data: {owner.address}."
+            )
+        val = data.contract_data.val
+        if (
+            val.type != stellar_xdr.SCValType.SCV_BYTES
+            or val.bytes is None
+            or len(val.bytes.sc_bytes) != 32
+            or val.bytes.sc_bytes == b"\x00" * 32
+        ):
+            raise ContractWasmRetrievalError(
+                f"External executable tag entry on {owner.address} does not hold a valid 32-byte Wasm hash."
+            )
+        return val.bytes.sc_bytes
+
     async def get_contract_wasm(self, contract_id: str) -> bytes:
         """Fetch a contract's Wasm code.
 
@@ -436,6 +492,7 @@ class SorobanServerAsync:
         :return: The raw Wasm code.
         :raises: :exc:`ContractInstanceNotFoundError <stellar_sdk.exceptions.ContractInstanceNotFoundError>` - If the contract instance ledger entry is not found.
         :raises: :exc:`SACHasNoWasmError <stellar_sdk.exceptions.SACHasNoWasmError>` - If the contract is a Stellar Asset Contract.
+        :raises: :exc:`ExternalRefNotFoundError <stellar_sdk.exceptions.ExternalRefNotFoundError>` - If the contract follows a CAP-85 external executable reference whose tag entry is not found or archived.
         :raises: :exc:`ContractCodeNotFoundError <stellar_sdk.exceptions.ContractCodeNotFoundError>` - If the contract code ledger entry is not found or archived.
         :raises: :exc:`ContractWasmRetrievalError <stellar_sdk.exceptions.ContractWasmRetrievalError>` - If the executable kind is not supported.
         """
@@ -456,6 +513,19 @@ class SorobanServerAsync:
         ):
             raise SACHasNoWasmError(
                 f"Contract {contract_id} is a Stellar Asset Contract and has no Wasm code."
+            )
+        if (
+            executable.type
+            == stellar_xdr.ContractExecutableType.CONTRACT_EXECUTABLE_EXTERNAL_REF
+        ):
+            # A CAP-85 reference names its code indirectly; resolve the tag entry on the
+            # owner contract to get the hash it currently points at.
+            if executable.external_ref is None:
+                raise ContractWasmRetrievalError(
+                    f"Contract {contract_id} executable is missing its external reference."
+                )
+            return await self.get_contract_wasm_by_hash(
+                await self.get_external_ref_wasm_hash(executable.external_ref)
             )
         raise ContractWasmRetrievalError(
             f"Contract {contract_id} uses unsupported executable kind: {executable.type!r}."
@@ -565,6 +635,7 @@ class SorobanServerAsync:
         self,
         transaction_envelope: TransactionEnvelope,
         simulate_transaction_response: SimulateTransactionResponse | None = None,
+        use_upgraded_auth: bool = True,
     ) -> TransactionEnvelope:
         """Submit a trial contract invocation, first run a simulation of the contract
         invocation as defined on the incoming transaction, and apply the results to
@@ -593,6 +664,10 @@ class SorobanServerAsync:
             as normal.
         :param simulate_transaction_response: The response of the simulation of the transaction,
             typically you don't need to pass this parameter, it will be automatically called if you don't pass it.
+        :param use_upgraded_auth: Whether the underlying simulation records ``ADDRESS_V2``
+            ("upgraded") authorization credentials (CAP-71) instead of the legacy ``ADDRESS``
+            credentials. Defaults to ``True``; pass ``False`` to ask for the legacy format.
+            See :meth:`simulate_transaction` for the full caveats.
         :return: A copy of the :class:`TransactionEnvelope <stellar_sdk.transaction_envelope.TransactionEnvelope>`,
             with the expected authorizations (in the case of invocation) and ledger footprint added.
             The transaction fee will also automatically be padded with the contract's minimum resource fees
@@ -600,7 +675,7 @@ class SorobanServerAsync:
         """
         if not simulate_transaction_response:
             simulate_transaction_response = await self.simulate_transaction(
-                transaction_envelope
+                transaction_envelope, use_upgraded_auth=use_upgraded_auth
             )
         if simulate_transaction_response.error:
             raise PrepareTransactionException(

@@ -427,6 +427,30 @@ class TestWordEdgeAnchors(unittest.TestCase):
         self.assertEqual(real.search(r"\>", "abc").span(), (3, 3))
 
 
+class TestUnknownInlineFlagMessage(unittest.TestCase):
+    r"""An unknown letter in a flags group is 'unknown flag', matching re.
+
+    REAL's inline flag set is not re's in either direction (it adds U, it has no u/L).
+    This list is the unknown-flag cases only — not the whole flag surface — so the
+    comparison cannot encode those wanted divergences as failures.
+    """
+
+    CASES = [
+        r"(?iz)a", r"(?iz:a)", r"(?i-z)a", r"(?i-z:a)",
+        r"(?imz)a", r"(?i-mz)a", r"a(?iz)b",
+    ]
+
+    def test_unknown_flag_family_matches_re(self):
+        for pattern in self.CASES:
+            with self.subTest(pattern=pattern):
+                with self.assertRaises(re.error) as re_caught:
+                    re.compile(pattern)
+                with self.assertRaises(real.error) as real_caught:
+                    real.compile(pattern)
+                self.assertIn("unknown flag", re_caught.exception.msg)
+                self.assertIn("unknown flag", real_caught.exception.msg)
+
+
 class TestIntentionalDivergences(unittest.TestCase):
     r"""Every intentional divergence from Python re, pinned as a real-only assertion.
 
@@ -452,6 +476,19 @@ class TestIntentionalDivergences(unittest.TestCase):
         self.assertIsNotNone(real.compile(r"\N{U+1F600}").fullmatch("😀"))  # incl. astral
         with self.assertRaises(re.error):
             re.compile(r"\N{U+0041}")                                       # re rejects it (name only)
+
+    def test_braced_u_escape_is_a_superset(self):
+        r"""\u{...} (the ECMAScript / regex-crate braced form) is a REAL extension: the engine
+        accepts it as a synonym of \x{...} / \u00e9, while re wants four hex digits and rejects
+        the braces (`incomplete escape \u`). Python and Go therefore accept a spelling re refuses
+        — the same family as \N{U+XXXX} / \p{...}. \U{...} is not this form."""
+        self.assertIsNotNone(real.compile(r"\u{e9}").fullmatch("é"))
+        self.assertIsNotNone(real.compile(r"\u{1F600}").fullmatch("😀"))
+        self.assertIsNotNone(real.compile(r"[\u{e9}]").fullmatch("é"))
+        with self.assertRaises(re.error):
+            re.compile(r"\u{e9}")
+        with self.assertRaises(real.error):
+            real.compile(r"\U{1F600}")
 
     def test_nullable_loop_final_iteration_capture(self):
         r"""A */+ loop over a nullable body: re runs one final EMPTY iteration and captures it, while

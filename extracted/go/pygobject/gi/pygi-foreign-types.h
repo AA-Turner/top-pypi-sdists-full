@@ -17,11 +17,12 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PYGI_FOREIGN_TYPES_H__
-#define __PYGI_FOREIGN_TYPES_H__
+#pragma once
 
-#include <girepository/girepository.h>
 #include <Python.h>
+#include <girepository/girepository.h>
+
+G_BEGIN_DECLS
 
 typedef PyObject *(*PyGIArgOverrideToGIArgumentFunc) (
     PyObject *value, GIRegisteredTypeInfo *interface_info, GITransfer transfer,
@@ -40,4 +41,4 @@ struct PyGI_API {
         PyGIArgOverrideReleaseFunc release_func);
 };
 
-#endif /* __PYGI_FOREIGN_TYPES_H__ */
+G_END_DECLS

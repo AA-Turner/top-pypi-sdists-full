@@ -20,38 +20,32 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "pygi-error.h"
 #include "pygi-cache-private.h"
+#include "pygi-error.h"
 
 static gboolean
 _pygi_marshal_from_py_gerror (PyGIInvokeState *state,
                               PyGICallableCache *callable_cache,
                               PyGIArgCache *arg_cache, PyObject *py_arg,
-                              GIArgument *arg, gpointer *cleanup_data)
+                              GIArgument *arg,
+                              PyGIMarshalCleanupData *cleanup_data)
 {
+    /* gobject-linter-ignore-next-line: g_error_leak */
     GError *error = NULL;
     if (Py_IsNone (py_arg)) {
         arg->v_pointer = NULL;
-        *cleanup_data = NULL;
         return TRUE;
     } else if (pygi_error_marshal_from_py (py_arg, &error)) {
         arg->v_pointer = error;
-        *cleanup_data = error;
+        pygi_marshal_cleanup_data_init_full (
+            cleanup_data, error,
+            arg_cache->transfer == GI_TRANSFER_NOTHING
+                ? (GDestroyNotify)g_error_free
+                : NULL,
+            (GDestroyNotify)g_error_free);
         return TRUE;
     } else {
         return FALSE;
-    }
-}
-
-
-static void
-_pygi_marshal_from_py_gerror_cleanup (PyGIInvokeState *state,
-                                      PyGIArgCache *arg_cache,
-                                      PyObject *py_arg, gpointer data,
-                                      gboolean was_processed)
-{
-    if (was_processed) {
-        g_error_free ((GError *)data);
     }
 }
 
@@ -59,7 +53,7 @@ static PyObject *
 _pygi_marshal_to_py_gerror (PyGIInvokeState *state,
                             PyGICallableCache *callable_cache,
                             PyGIArgCache *arg_cache, GIArgument *arg,
-                            gpointer *cleanup_data)
+                            PyGIMarshalCleanupData *cleanup_data)
 {
     GError *error = arg->v_pointer;
     PyObject *py_obj = NULL;
@@ -85,11 +79,6 @@ pygi_arg_gerror_new_from_info (GITypeInfo *type_info, GIArgInfo *arg_info,
 
     if (direction & PYGI_DIRECTION_FROM_PYTHON) {
         arg_cache->from_py_marshaller = _pygi_marshal_from_py_gerror;
-
-        /* Assign cleanup function if we manage memory after call completion. */
-        if (arg_cache->transfer == GI_TRANSFER_NOTHING) {
-            arg_cache->from_py_cleanup = _pygi_marshal_from_py_gerror_cleanup;
-        }
     }
 
     if (direction & PYGI_DIRECTION_TO_PYTHON) {

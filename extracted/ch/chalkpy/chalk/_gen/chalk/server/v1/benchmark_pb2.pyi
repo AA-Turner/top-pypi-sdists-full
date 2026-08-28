@@ -81,17 +81,26 @@ class NamedQueryRequest(_message.Message):
     def __init__(self, query_name: _Optional[str] = ..., query_version: _Optional[str] = ...) -> None: ...
 
 class SimpleOnlineQueryBulkRequest(_message.Message):
-    __slots__ = ("input_features", "input_features_list", "input_file", "output_features", "named_query_request")
+    __slots__ = (
+        "input_features",
+        "input_features_list",
+        "input_file",
+        "output_features",
+        "named_query_request",
+        "batch_size",
+    )
     INPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
     INPUT_FEATURES_LIST_FIELD_NUMBER: _ClassVar[int]
     INPUT_FILE_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
     NAMED_QUERY_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    BATCH_SIZE_FIELD_NUMBER: _ClassVar[int]
     input_features: _containers.RepeatedScalarFieldContainer[str]
     input_features_list: InputFeatures
     input_file: str
     output_features: _containers.RepeatedScalarFieldContainer[str]
     named_query_request: NamedQueryRequest
+    batch_size: int
     def __init__(
         self,
         input_features: _Optional[_Iterable[str]] = ...,
@@ -99,6 +108,7 @@ class SimpleOnlineQueryBulkRequest(_message.Message):
         input_file: _Optional[str] = ...,
         output_features: _Optional[_Iterable[str]] = ...,
         named_query_request: _Optional[_Union[NamedQueryRequest, _Mapping]] = ...,
+        batch_size: _Optional[int] = ...,
     ) -> None: ...
 
 class ContainerSpec(_message.Message):

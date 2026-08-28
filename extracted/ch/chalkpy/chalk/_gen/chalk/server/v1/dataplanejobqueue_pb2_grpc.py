@@ -70,6 +70,11 @@ class DataPlaneJobQueueServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListRunningJobsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListRunningJobsResponse.FromString,
         )
+        self.GetJobQueueConsumerTimeline = channel.unary_unary(
+            "/chalk.server.v1.DataPlaneJobQueueService/GetJobQueueConsumerTimeline",
+            request_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueConsumerTimelineRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueConsumerTimelineResponse.FromString,
+        )
 
 
 class DataPlaneJobQueueServiceServicer(object):
@@ -141,6 +146,12 @@ class DataPlaneJobQueueServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetJobQueueConsumerTimeline(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DataPlaneJobQueueServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -198,6 +209,11 @@ def add_DataPlaneJobQueueServiceServicer_to_server(servicer, server):
             servicer.ListRunningJobs,
             request_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListRunningJobsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListRunningJobsResponse.SerializeToString,
+        ),
+        "GetJobQueueConsumerTimeline": grpc.unary_unary_rpc_method_handler(
+            servicer.GetJobQueueConsumerTimeline,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueConsumerTimelineRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueConsumerTimelineResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -519,6 +535,35 @@ class DataPlaneJobQueueService(object):
             "/chalk.server.v1.DataPlaneJobQueueService/ListRunningJobs",
             chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListRunningJobsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.ListRunningJobsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetJobQueueConsumerTimeline(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DataPlaneJobQueueService/GetJobQueueConsumerTimeline",
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueConsumerTimelineRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dataplanejobqueue__pb2.GetJobQueueConsumerTimelineResponse.FromString,
             options,
             channel_credentials,
             insecure,

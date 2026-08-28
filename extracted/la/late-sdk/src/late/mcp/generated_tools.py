@@ -2753,6 +2753,26 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Delete an ad set",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_delete_ad_set(ad_set_id: str) -> str:
+        """Delete an ad set
+
+        Args:
+            ad_set_id: Platform ad set ID (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.delete_ad_set(ad_set_id=ad_set_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Pause or resume a single ad set",
             readOnlyHint=False,
             destructiveHint=True,
@@ -8544,6 +8564,42 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get a YouTube video transcript",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_youtube_captions(
+        account_id: str,
+        video_id: str,
+        language: str | None = None,
+        format: str = "json",
+        refresh: bool = False,
+    ) -> str:
+        """Get a YouTube video transcript
+
+        Args:
+            account_id: The connected YouTube account. (required)
+            video_id: The YouTube video id (the `platformPostId` on a synced external post). (required)
+            language: BCP-47 language tag as YouTube labels the track. `en` also matches an `en-GB` track. Omit to take the best available track.
+            format: `json` returns timed `cues`; `srt` returns the raw SubRip body instead. `text` is present either way.
+            refresh: Re-download from YouTube instead of serving the stored copy. Spends 200 quota units."""
+        client = _get_client()
+        try:
+            response = client.connect.get_youtube_captions(
+                account_id=account_id,
+                video_id=video_id,
+                language=language,
+                format=format,
+                refresh=refresh,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List YouTube playlists",
             readOnlyHint=True,
             destructiveHint=False,
@@ -11398,7 +11454,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             filename: Name of the file to upload (required)
-            content_type: MIME type of the file (required)
+            content_type: (required)
             size: Optional file size in bytes for pre-validation (max 5GB)"""
         client = _get_client()
         try:
@@ -15881,6 +15937,9 @@ def register_generated_tools(mcp, _get_client):
         from_: str | None = None,
         to: str | None = None,
         granularity: str = "day",
+        group_by: str | None = None,
+        profile_id: str | None = None,
+        account_id: str | None = None,
     ) -> str:
         """Usage snapshot (default) or billed-spend metering (with params)
 
@@ -15896,7 +15955,10 @@ def register_generated_tools(mcp, _get_client):
                 to: Inclusive end (UTC date). Required when `range=custom`. Max span 366 days.
                 granularity: Bucketing of the `days` series: `day` (one row per UTC day),
         `month` (one row per calendar month, dated to the 1st), or `total`
-        (no series — read `totals`). Does not affect `totals`."""
+        (no series — read `totals`). Does not affect `totals`.
+                group_by: Metering mode. Adds `attribution`: the window's spend split per profile or per account (keys are ids; resolve names via `GET /v1/profiles` / `GET /v1/accounts`).
+                profile_id: Metering mode (pair with `range`). Project the payload onto this profile's attributed share. Mutually exclusive with `accountId`, and `groupBy` (if given) must be `profile`; 404 when the profile is not in your workspace (or outside a scoped key's profiles).
+                account_id: Metering mode (pair with `range`). Project the payload onto this account's attributed share. Mutually exclusive with `profileId`, and `groupBy` (if given) must be `account`; 404 when the account is not visible to the caller."""
         client = _get_client()
         try:
             response = client.usage.get_usage(
@@ -15905,6 +15967,9 @@ def register_generated_tools(mcp, _get_client):
                 from_=from_,
                 to=to,
                 granularity=granularity,
+                group_by=group_by,
+                profile_id=profile_id,
+                account_id=account_id,
             )
             return _format_response(response)
         except Exception as e:

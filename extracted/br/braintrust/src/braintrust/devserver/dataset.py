@@ -5,23 +5,6 @@ from braintrust._generated_types import RunEvalData, RunEvalData1, RunEvalData2
 from braintrust.logger import BraintrustState
 
 
-async def get_dataset_by_id(state: BraintrustState, dataset_id: str) -> dict[str, str]:
-    """Fetch dataset information by ID."""
-    # Make API call to get dataset info
-    conn = state.api_conn()
-    # Note: The Python SDK doesn't have async API calls yet, so we use sync
-    response = conn.get_json(f"v1/dataset/{dataset_id}")
-
-    if response is None:
-        raise ValueError(f"Dataset with id {dataset_id} not found")
-
-    # Extract project_id and dataset name from response
-    return {
-        "project_id": response.get("project_id"),
-        "dataset": response.get("name"),
-    }
-
-
 # NOTE: To make this performant, we'll have to make these functions work with async i/o
 async def get_dataset(state: BraintrustState, data: RunEvalData | RunEvalData1 | RunEvalData2 | dict[str, Any]) -> Any:
     """
@@ -47,11 +30,9 @@ async def get_dataset(state: BraintrustState, data: RunEvalData | RunEvalData1 |
             )
         elif "dataset_id" in data:
             # Dataset reference by ID
-            dataset_info = await get_dataset_by_id(state, data["dataset_id"])
             return init_dataset(
                 state=state,
-                project_id=dataset_info["project_id"],
-                name=dataset_info["dataset"],
+                dataset_id=data["dataset_id"],
                 **({"version": data["dataset_version"]} if "dataset_version" in data else {}),
                 **({"environment": data["dataset_environment"]} if "dataset_environment" in data else {}),
                 # _internal_btql is optional

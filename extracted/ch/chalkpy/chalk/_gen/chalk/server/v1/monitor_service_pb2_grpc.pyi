@@ -12,6 +12,10 @@ from chalk._gen.chalk.server.v1.monitor_service_pb2 import (
     CreateMonitorResponse,
     DeleteMonitorRequest,
     DeleteMonitorResponse,
+    GetMonitorEvaluationRequest,
+    GetMonitorEvaluationResponse,
+    GetMonitorEventsRequest,
+    GetMonitorEventsResponse,
     GetMonitorRequest,
     GetMonitorResponse,
     ListMonitorsRequest,
@@ -31,6 +35,14 @@ class MonitorServiceStub:
     GetMonitor: UnaryUnaryMultiCallable[
         GetMonitorRequest,
         GetMonitorResponse,
+    ]
+    GetMonitorEvents: UnaryUnaryMultiCallable[
+        GetMonitorEventsRequest,
+        GetMonitorEventsResponse,
+    ]
+    GetMonitorEvaluation: UnaryUnaryMultiCallable[
+        GetMonitorEvaluationRequest,
+        GetMonitorEvaluationResponse,
     ]
     CreateMonitor: UnaryUnaryMultiCallable[
         CreateMonitorRequest,
@@ -56,6 +68,18 @@ class MonitorServiceServicer(metaclass=ABCMeta):
         request: GetMonitorRequest,
         context: ServicerContext,
     ) -> GetMonitorResponse: ...
+    @abstractmethod
+    def GetMonitorEvents(
+        self,
+        request: GetMonitorEventsRequest,
+        context: ServicerContext,
+    ) -> GetMonitorEventsResponse: ...
+    @abstractmethod
+    def GetMonitorEvaluation(
+        self,
+        request: GetMonitorEvaluationRequest,
+        context: ServicerContext,
+    ) -> GetMonitorEvaluationResponse: ...
     @abstractmethod
     def CreateMonitor(
         self,

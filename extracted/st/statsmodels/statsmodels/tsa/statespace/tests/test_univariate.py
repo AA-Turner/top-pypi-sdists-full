@@ -1,30 +1,53 @@
 """
 Tests for univariate treatment of multivariate models
 
-TODO skips the tests for measurement disturbance and measurement disturbance
-covariance, which do not pass. The univariate smoother *appears* to be
-correctly implemented against Durbin and Koopman (2012) chapter 6, yet still
-gives a different answer from the conventional smoother. It's not clear if
-this is intended (i.e. it has to be at least slightly different, since the
-conventional smoother can return a non-diagonal covariance matrix whereas the
-univariate smoother must return a diagonal covariance matrix).
+A non-diagonal observation covariance is first diagonalized as
+H_t = C_t D_t C_t', with the univariate recursions then run on C_t^{-1} y_t
+(Durbin and Koopman, 2012, section 6.4.3), so the smoothed measurement
+disturbance and its covariance are computed for C_t^{-1} \\varepsilon_t. The
+mean is premultiplied by C_t again on output, which makes it comparable to the
+conventional smoother. The covariance matrix is not, because undoing the
+transformation needs the off-diagonal elements of Var(C_t^{-1} \\varepsilon_t)
+and the univariate recursions only produce its diagonal; those comparisons are
+skipped for the non-diagonal cases.
 
 Author: Chad Fulton
 License: Simplified-BSD
 """
-import os
+from pathlib import Path
+import warnings
 
 import numpy as np
-from numpy.testing import assert_almost_equal, assert_allclose
+from numpy.testing import assert_allclose, assert_almost_equal
 import pandas as pd
 import pytest
 
 from statsmodels import datasets
+from statsmodels.tools.sm_exceptions import OutputWarning
 from statsmodels.tsa.statespace.mlemodel import MLEModel
-from statsmodels.tsa.statespace.tests.results import results_kalman_filter
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.tsa.statespace.tests.results import results_kalman_filter
 
-current_path = os.path.dirname(os.path.abspath(__file__))
+current_path = Path(__file__).resolve().parent
+
+NONDIAGONAL_OBS_COV_SKIP = (
+    "the univariate recursions only produce the diagonal of"
+    " Var(C_t^{-1} eps_t), which is not enough to undo the diagonalization"
+)
+
+
+def simulation_smoother(model, seed=1234):
+    """Simulation smoother driven by fixed variates, shared across methods."""
+    rs = np.random.RandomState(seed)
+    sim = model.simulation_smoother()
+    sim.simulate(
+        measurement_disturbance_variates=rs.normal(
+            size=(model.nobs, model.k_endog)),
+        state_disturbance_variates=rs.normal(
+            size=(model.nobs, model.k_posdef)),
+        initial_state_variates=np.zeros(model.k_states),
+    )
+    return sim
 
 
 class TestClark1989:
@@ -43,16 +66,16 @@ class TestClark1989:
     def setup_class(cls, dtype=float, alternate_timing=False, **kwargs):
 
         cls.true = results_kalman_filter.uc_bi
-        cls.true_states = pd.DataFrame(cls.true['states'])
+        cls.true_states = pd.DataFrame(cls.true["states"])
 
         # GDP and Unemployment, Quarterly, 1948.1 - 1995.3
         data = pd.DataFrame(
-            cls.true['data'],
-            index=pd.date_range('1947-01-01', '1995-07-01', freq='QS'),
-            columns=['GDP', 'UNEMP']
+            cls.true["data"],
+            index=pd.date_range("1947-01-01", "1995-07-01", freq="QS"),
+            columns=["GDP", "UNEMP"]
         )[4:]
-        data['GDP'] = np.log(data['GDP'])
-        data['UNEMP'] = (data['UNEMP']/100)
+        data["GDP"] = np.log(data["GDP"])
+        data["UNEMP"] = (data["UNEMP"]/100)
 
         k_states = 6
         cls.mlemodel = MLEModel(data, k_states=k_states, **kwargs)
@@ -70,7 +93,7 @@ class TestClark1989:
         # Update matrices with given parameters
         (sigma_v, sigma_e, sigma_w, sigma_vl, sigma_ec,
          phi_1, phi_2, alpha_1, alpha_2, alpha_3) = np.array(
-            cls.true['parameters'],
+            cls.true["parameters"],
         )
         cls.model.design[([1, 1, 1], [1, 2, 3], [0, 0, 0])] = [
             alpha_1, alpha_2, alpha_3
@@ -99,25 +122,16 @@ class TestClark1989:
         # Conventional filtering, smoothing, and simulation smoothing
         cls.model.filter_conventional = True
         cls.conventional_results = cls.model.smooth()
-        n_disturbance_variates = (
-            (cls.model.k_endog + cls.model.k_posdef) * cls.model.nobs
-        )
-        cls.conventional_sim = cls.model.simulation_smoother(
-            disturbance_variates=np.zeros(n_disturbance_variates),
-            initial_state_variates=np.zeros(cls.model.k_states)
-        )
+        cls.conventional_sim = simulation_smoother(cls.model)
 
         # Univariate filtering, smoothing, and simulation smoothing
         cls.model.filter_univariate = True
         cls.univariate_results = cls.model.smooth()
-        cls.univariate_sim = cls.model.simulation_smoother(
-            disturbance_variates=np.zeros(n_disturbance_variates),
-            initial_state_variates=np.zeros(cls.model.k_states)
-        )
+        cls.univariate_sim = simulation_smoother(cls.model)
 
     def test_using_univariate(self):
         # Regression test to make sure the univariate_results actually
-        # used the univariate Kalman filtering approach (i.e. that the flag
+        # used the univariate Kalman filtering approach (i.e., that the flag
         # being set actually caused the filter to not use the conventional
         # filter)
         assert not self.conventional_results.filter_univariate
@@ -220,28 +234,28 @@ class TestClark1989:
         )
 
     def test_simulation_smoothed_state(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_state,
-            self.univariate_sim.simulated_state, 9
+            self.univariate_sim.simulated_state, atol=1e-7
         )
 
     def test_simulation_smoothed_measurement_disturbance(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_measurement_disturbance,
-            self.univariate_sim.simulated_measurement_disturbance, 9
+            self.univariate_sim.simulated_measurement_disturbance, atol=1e-7
         )
 
     def test_simulation_smoothed_state_disturbance(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_state_disturbance,
-            self.univariate_sim.simulated_state_disturbance, 9
+            self.univariate_sim.simulated_state_disturbance, atol=1e-7
         )
 
 
 class TestClark1989Alternate(TestClark1989):
     @classmethod
     def setup_class(cls, *args, **kwargs):
-        super().setup_class(alternate_timing=True, *args, **kwargs)
+        super().setup_class(*args, alternate_timing=True, **kwargs)
 
     def test_using_alterate(self):
         assert self.model._kalman_filter.filter_timing == 1
@@ -251,23 +265,22 @@ class MultivariateMissingGeneralObsCov:
     @classmethod
     def setup_class(cls, which, dtype=float, alternate_timing=False, **kwargs):
         # Results
-        path = os.path.join(current_path, 'results',
-                            'results_smoothing_generalobscov_R.csv')
+        path = Path(current_path).joinpath("results", "results_smoothing_generalobscov_R.csv")
         cls.desired = pd.read_csv(path)
 
         # Data
         dta = datasets.macrodata.load_pandas().data
-        dta.index = pd.date_range(start='1959-01-01',
-                                  end='2009-7-01', freq='QS')
-        obs = dta[['realgdp', 'realcons', 'realinv']].diff().iloc[1:]
+        dta.index = pd.date_range(start="1959-01-01",
+                                  end="2009-7-01", freq="QS")
+        obs = dta[["realgdp", "realcons", "realinv"]].diff().iloc[1:]
 
-        if which == 'all':
+        if which == "all":
             obs.iloc[:50, :] = np.nan
             obs.iloc[119:130, :] = np.nan
-        elif which == 'partial':
+        elif which == "partial":
             obs.iloc[0:50, 0] = np.nan
             obs.iloc[119:130, 0] = np.nan
-        elif which == 'mixed':
+        elif which == "mixed":
             obs.iloc[0:50, 0] = np.nan
             obs.iloc[19:70, 1] = np.nan
             obs.iloc[39:90, 2] = np.nan
@@ -276,37 +289,28 @@ class MultivariateMissingGeneralObsCov:
 
         # Create the model
         mod = MLEModel(obs, k_states=3, k_posdef=3, **kwargs)
-        mod['design'] = np.eye(3)
+        mod["design"] = np.eye(3)
         X = (np.arange(9) + 1).reshape((3, 3)) / 10.
-        mod['obs_cov'] = np.dot(X, X.T)
-        mod['transition'] = np.eye(3)
-        mod['selection'] = np.eye(3)
-        mod['state_cov'] = np.eye(3)
+        mod["obs_cov"] = np.dot(X, X.T)
+        mod["transition"] = np.eye(3)
+        mod["selection"] = np.eye(3)
+        mod["state_cov"] = np.eye(3)
         mod.initialize_approximate_diffuse(1e6)
         cls.model = mod.ssm
 
         # Conventional filtering, smoothing, and simulation smoothing
         cls.model.filter_conventional = True
         cls.conventional_results = cls.model.smooth()
-        n_disturbance_variates = (
-            (cls.model.k_endog + cls.model.k_posdef) * cls.model.nobs
-        )
-        cls.conventional_sim = cls.model.simulation_smoother(
-            disturbance_variates=np.zeros(n_disturbance_variates),
-            initial_state_variates=np.zeros(cls.model.k_states)
-        )
+        cls.conventional_sim = simulation_smoother(cls.model)
 
         # Univariate filtering, smoothing, and simulation smoothing
         cls.model.filter_univariate = True
         cls.univariate_results = cls.model.smooth()
-        cls.univariate_sim = cls.model.simulation_smoother(
-            disturbance_variates=np.zeros(n_disturbance_variates),
-            initial_state_variates=np.zeros(cls.model.k_states)
-        )
+        cls.univariate_sim = simulation_smoother(cls.model)
 
     def test_using_univariate(self):
         # Regression test to make sure the univariate_results actually
-        # used the univariate Kalman filtering approach (i.e. that the flag
+        # used the univariate Kalman filtering approach (i.e., that the flag
         # being set actually caused the filter to not use the conventional
         # filter)
         assert not self.conventional_results.filter_univariate
@@ -381,14 +385,14 @@ class MultivariateMissingGeneralObsCov:
             self.univariate_results.smoothed_state_cov, 6
         )
 
-    @pytest.mark.skip
     def test_smoothed_measurement_disturbance(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_results.smoothed_measurement_disturbance,
-            self.univariate_results.smoothed_measurement_disturbance, 9
+            self.univariate_results.smoothed_measurement_disturbance,
+            atol=1e-7
         )
 
-    @pytest.mark.skip
+    @pytest.mark.skip(reason=NONDIAGONAL_OBS_COV_SKIP)
     def test_smoothed_measurement_disturbance_cov(self):
         conv = self.conventional_results
         univ = self.univariate_results
@@ -411,22 +415,21 @@ class MultivariateMissingGeneralObsCov:
         )
 
     def test_simulation_smoothed_state(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_state,
-            self.univariate_sim.simulated_state, 9
+            self.univariate_sim.simulated_state, atol=1e-7
         )
 
-    @pytest.mark.skip
     def test_simulation_smoothed_measurement_disturbance(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_measurement_disturbance,
-            self.univariate_sim.simulated_measurement_disturbance, 9
+            self.univariate_sim.simulated_measurement_disturbance, atol=1e-7
         )
 
     def test_simulation_smoothed_state_disturbance(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_state_disturbance,
-            self.univariate_sim.simulated_state_disturbance, 9
+            self.univariate_sim.simulated_state_disturbance, atol=1e-7
         )
 
 
@@ -439,7 +442,7 @@ class TestMultivariateGeneralObsCov(MultivariateMissingGeneralObsCov):
     """
     @classmethod
     def setup_class(cls, *args, **kwargs):
-        super().setup_class('none')
+        super().setup_class("none")
 
 
 class TestMultivariateAllMissingGeneralObsCov(
@@ -452,7 +455,7 @@ class TestMultivariateAllMissingGeneralObsCov(
     """
     @classmethod
     def setup_class(cls, *args, **kwargs):
-        super().setup_class('all')
+        super().setup_class("all")
 
 
 class TestMultivariatePartialMissingGeneralObsCov(
@@ -465,7 +468,7 @@ class TestMultivariatePartialMissingGeneralObsCov(
     """
     @classmethod
     def setup_class(cls, *args, **kwargs):
-        super().setup_class('partial')
+        super().setup_class("partial")
 
     def test_forecasts(self):
         assert_almost_equal(
@@ -491,7 +494,7 @@ class TestMultivariateMixedMissingGeneralObsCov(
     """
     @classmethod
     def setup_class(cls, *args, **kwargs):
-        super().setup_class('mixed')
+        super().setup_class("mixed")
 
     def test_forecasts(self):
         assert_almost_equal(
@@ -508,25 +511,24 @@ class TestMultivariateMixedMissingGeneralObsCov(
 
 class TestMultivariateVAR:
     @classmethod
-    def setup_class(cls, which='none', **kwargs):
+    def setup_class(cls, which="none", **kwargs):
         # Results
-        path = os.path.join(current_path, 'results',
-                            'results_smoothing_generalobscov_R.csv')
+        path = Path(current_path).joinpath("results", "results_smoothing_generalobscov_R.csv")
         cls.desired = pd.read_csv(path)
 
         # Data
         dta = datasets.macrodata.load_pandas().data
-        dta.index = pd.date_range(start='1959-01-01',
-                                  end='2009-7-01', freq='QS')
-        obs = dta[['realgdp', 'realcons', 'realinv']].diff().iloc[1:]
+        dta.index = pd.date_range(start="1959-01-01",
+                                  end="2009-7-01", freq="QS")
+        obs = dta[["realgdp", "realcons", "realinv"]].diff().iloc[1:]
 
-        if which == 'all':
+        if which == "all":
             obs.iloc[:50, :] = np.nan
             obs.iloc[119:130, :] = np.nan
-        elif which == 'partial':
+        elif which == "partial":
             obs.iloc[0:50, 0] = np.nan
             obs.iloc[119:130, 0] = np.nan
-        elif which == 'mixed':
+        elif which == "mixed":
             obs.iloc[0:50, 0] = np.nan
             obs.iloc[19:70, 1] = np.nan
             obs.iloc[39:90, 2] = np.nan
@@ -535,17 +537,17 @@ class TestMultivariateVAR:
 
         # Create the model
         mod = MLEModel(obs, k_states=3, k_posdef=3, **kwargs)
-        mod['design'] = np.eye(3)
-        mod['obs_cov'] = np.array([
+        mod["design"] = np.eye(3)
+        mod["obs_cov"] = np.array([
             [609.0746647855,    0.,              0.],
             [0.,                1.8774916622,    0.],
             [0.,                0.,            124.6768281675]])
-        mod['transition'] = np.array([
+        mod["transition"] = np.array([
             [-0.8110473405,  1.8005304445,  1.0215975772],
             [-1.9846632699,  2.4091302213,  1.9264449765],
             [0.9181658823,  -0.2442384581, -0.6393462272]])
-        mod['selection'] = np.eye(3)
-        mod['state_cov'] = np.array([
+        mod["selection"] = np.eye(3)
+        mod["state_cov"] = np.array([
             [1552.9758843938,   612.7185121905,   877.6157204992],
             [612.7185121905,    467.8739411204,    70.608037339],
             [877.6157204992,     70.608037339,    900.5440385836]])
@@ -555,21 +557,12 @@ class TestMultivariateVAR:
         # Conventional filtering, smoothing, and simulation smoothing
         cls.model.filter_conventional = True
         cls.conventional_results = cls.model.smooth()
-        n_disturbance_variates = (
-            (cls.model.k_endog + cls.model.k_posdef) * cls.model.nobs
-        )
-        cls.conventional_sim = cls.model.simulation_smoother(
-            disturbance_variates=np.zeros(n_disturbance_variates),
-            initial_state_variates=np.zeros(cls.model.k_states)
-        )
+        cls.conventional_sim = simulation_smoother(cls.model)
 
         # Univariate filtering, smoothing, and simulation smoothing
         cls.model.filter_univariate = True
         cls.univariate_results = cls.model.smooth()
-        cls.univariate_sim = cls.model.simulation_smoother(
-            disturbance_variates=np.zeros(n_disturbance_variates),
-            initial_state_variates=np.zeros(cls.model.k_states)
-        )
+        cls.univariate_sim = simulation_smoother(cls.model)
 
     def test_forecasts(self):
         assert_almost_equal(
@@ -631,16 +624,14 @@ class TestMultivariateVAR:
             self.univariate_results.smoothed_state_cov, atol=1e-9
         )
 
-    @pytest.mark.skip
     def test_smoothed_measurement_disturbance(self):
         assert_almost_equal(
             self.conventional_results.smoothed_measurement_disturbance,
             self.univariate_results.smoothed_measurement_disturbance, 9
         )
 
-    @pytest.mark.skip
     def test_smoothed_measurement_disturbance_cov(self):
-        conv = self.self.conventional_results
+        conv = self.conventional_results
         univ = self.univariate_results
         assert_almost_equal(
             conv.smoothed_measurement_disturbance_cov.diagonal(),
@@ -662,22 +653,21 @@ class TestMultivariateVAR:
         )
 
     def test_simulation_smoothed_state(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_state,
-            self.univariate_sim.simulated_state, 9
+            self.univariate_sim.simulated_state, atol=1e-7
         )
 
-    @pytest.mark.skip
     def test_simulation_smoothed_measurement_disturbance(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_measurement_disturbance,
-            self.univariate_sim.simulated_measurement_disturbance, 9
+            self.univariate_sim.simulated_measurement_disturbance, atol=1e-7
         )
 
     def test_simulation_smoothed_state_disturbance(self):
-        assert_almost_equal(
+        assert_allclose(
             self.conventional_sim.simulated_state_disturbance,
-            self.univariate_sim.simulated_state_disturbance, 9
+            self.univariate_sim.simulated_state_disturbance, atol=1e-7
         )
 
 
@@ -692,24 +682,19 @@ def test_time_varying_transition():
     # Conventional filter / smoother
     mod1 = SARIMAX(endog, order=(1, 0, 0), measurement_error=True)
     mod1.update([2., 1., 1.])
-    mod1.ssm['transition'] = transition
+    mod1.ssm["transition"] = transition
     res1 = mod1.ssm.smooth()
 
     # Univariate filter / smoother
     mod2 = SARIMAX(endog, order=(1, 0, 0), measurement_error=True)
     mod2.ssm.filter_univariate = True
     mod2.update([2., 1., 1.])
-    mod2.ssm['transition'] = transition
+    mod2.ssm["transition"] = transition
     res2 = mod2.ssm.smooth()
 
     # Simulation smoothers
-    n_disturbance_variates = (mod1.k_endog + mod1.k_posdef) * mod1.nobs
-    sim1 = mod1.simulation_smoother(
-        disturbance_variates=np.zeros(n_disturbance_variates),
-        initial_state_variates=np.zeros(mod1.k_states))
-    sim2 = mod2.simulation_smoother(
-        disturbance_variates=np.zeros(n_disturbance_variates),
-        initial_state_variates=np.zeros(mod2.k_states))
+    sim1 = simulation_smoother(mod1.ssm)
+    sim2 = simulation_smoother(mod2.ssm)
 
     # Test for correctness
     assert_allclose(res1.forecasts[0, :], res2.forecasts[0, :])
@@ -737,3 +722,59 @@ def test_time_varying_transition():
                     sim2.simulated_measurement_disturbance)
     assert_allclose(sim1.simulated_state_disturbance,
                     sim2.simulated_state_disturbance)
+
+
+def nondiagonal_obs_cov_model(initialization="approximate_diffuse",
+                              missing=False):
+    dta = datasets.macrodata.load_pandas().data
+    dta.index = pd.date_range(start="1959-01-01", end="2009-7-01", freq="QS")
+    obs = dta[["realgdp", "realcons", "realinv"]].diff().iloc[1:]
+    if missing:
+        obs.iloc[0:50, 0] = np.nan
+        obs.iloc[119:130, 2] = np.nan
+
+    mod = MLEModel(obs, k_states=3, k_posdef=3)
+    mod["design"] = np.eye(3)
+    X = (np.arange(9) + 1).reshape((3, 3)) / 10.
+    mod["obs_cov"] = np.dot(X, X.T)
+    mod["transition"] = np.eye(3)
+    mod["selection"] = np.eye(3)
+    mod["state_cov"] = np.eye(3)
+    if initialization == "diffuse":
+        mod.ssm.initialize_diffuse()
+    else:
+        mod.ssm.initialize_approximate_diffuse(1e6)
+    return obs, mod
+
+
+@pytest.mark.filterwarnings("ignore:The univariate filtering approach")
+@pytest.mark.parametrize("missing", [False, True])
+@pytest.mark.parametrize("filter_univariate", [False, True])
+@pytest.mark.parametrize("initialization", ["approximate_diffuse", "diffuse"])
+def test_nondiagonal_obs_cov_smoothed_decomposition(initialization,
+                                                    filter_univariate,
+                                                    missing):
+    # y_t = Z_t alpha-hat_t + eps-hat_t holds by construction, so it pins down
+    # the smoothed measurement disturbance without a reference implementation.
+    # The exact diffuse periods use the univariate approach either way.
+    obs, mod = nondiagonal_obs_cov_model(initialization, missing)
+    mod.ssm.filter_univariate = filter_univariate
+    res = mod.ssm.smooth()
+
+    fitted = (mod["design"] @ res.smoothed_state
+              + res.smoothed_measurement_disturbance)
+    mask = ~np.isnan(obs.values.T)
+    assert_allclose(fitted[mask], obs.values.T[mask], atol=1e-7)
+
+
+def test_nondiagonal_obs_cov_disturbance_cov_warns():
+    _, mod = nondiagonal_obs_cov_model()
+    mod.ssm.filter_univariate = True
+    with pytest.warns(OutputWarning, match="diagonalized"):
+        mod.ssm.smooth()
+
+    # Nothing to warn about when the observation equation is not diagonalized
+    mod.ssm.filter_univariate = False
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", OutputWarning)
+        mod.ssm.smooth()

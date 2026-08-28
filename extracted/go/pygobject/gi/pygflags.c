@@ -19,9 +19,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "pygi-type.h"
-
 #include "pygflags.h"
+
+#include "pygi-type.h"
 #include "pygi-util.h"
 
 GQuark pygflags_class_key;
@@ -330,7 +330,6 @@ out:
     Py_XDECREF (pygtype);
     /* If type registration succeeded, this data should not be freed */
     if (gtype == G_TYPE_INVALID) {
-        g_free (type_name);
         if (flags_values != NULL) {
             GFlagsValue *v;
             for (v = flags_values; v->value_name != NULL; v++) {

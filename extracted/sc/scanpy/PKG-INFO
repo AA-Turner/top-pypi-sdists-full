@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: scanpy
-Version: 1.12.3
+Version: 1.12.4
 Summary: Single-Cell Analysis in Python.
 Project-URL: Bluesky, https://bsky.app/profile/scverse.bsky.social
 Project-URL: Discourse, https://discourse.scverse.org/c/help/scanpy/37

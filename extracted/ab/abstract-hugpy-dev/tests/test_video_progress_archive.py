@@ -188,6 +188,8 @@ _SCENE_MANIFEST_KEYS = {
     "project_name", "project_uuid", "model_key", "prompt", "negative", "chain",
     "width", "height", "steps", "guidance", "n_frames", "fps", "strength",
     "seeds", "frames", "mp4", "started_at", "finished_at", "per_frame_secs",
+    # oracle directive (or-k2/or-p1): a chained scene DECLARES itself
+    "legacy_pixel_chain", "limitations", "label",
 }
 
 
@@ -243,6 +245,9 @@ def test_scene_bundle_writer():
     assert manifest["project_uuid"] == "job-uuid-xyz"
     assert manifest["model_key"] == "sd-turbo"
     assert manifest["chain"] is False
+    assert manifest["legacy_pixel_chain"] is False
+    assert manifest["label"] == "independent"
+    assert manifest["limitations"] == []
     assert manifest["n_frames"] == 3
     assert manifest["seeds"] == [1000, 1001, 1002], manifest["seeds"]
     assert manifest["frames"] == ["frame_00000.png", "frame_00001.png", "frame_00002.png"]

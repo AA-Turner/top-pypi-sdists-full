@@ -349,6 +349,33 @@ class MaterializationWindowConfig(TypedDict, total=False):
     ```
     """
 
+    cached_values_only: bool
+    """
+    Only meaningful alongside `cache_aggregated_values`. If True, online queries serve the feature
+    exclusively from its cached value: a cache miss returns the feature's default instead of falling
+    back to reading and merging the aggregation buckets. Offline queries and aggregate backfills are
+    unaffected, so the buckets are still maintained and still queryable offline.
+
+    Use this when the online store holds only the computed values -- for example when the buckets
+    live in the offline store, or when they are large enough that a fallback merge would blow the
+    query's latency budget -- and a default is a better answer than a slow one.
+
+    ```
+    @features
+    class User:
+        ...
+        count: Windowed[float] = windowed(
+          materialization={
+            "bucket_durations": {"1d": "1h", "7d": "1d"},
+            "cache_aggregated_values": True,
+            "cached_values_only": True,
+          },
+          expression=_.events.count(),
+          max_staleness="30d",
+        )
+    ```
+    """
+
     allow_filter_migration: bool
     """
     If True, changes to the filter definitions will not invalidate existing materialized values in the online store.

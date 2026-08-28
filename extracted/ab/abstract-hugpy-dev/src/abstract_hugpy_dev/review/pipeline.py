@@ -40,6 +40,11 @@ class Review:
     local_path: str | None = None
     error: str | None = None
     reviewed_at: float = field(default_factory=time.time)
+    # k120: the compact dossier summary (the FULL dossier is a file — see
+    # discovery_dossier/store.py). Kept small on purpose: this dict rides in
+    # the review row that gets pushed to central in batches and read on every
+    # console poll, and a 40 KB model card in it would make both worse.
+    dossier: dict | None = None
 
     def to_dict(self):
         return asdict(self)
@@ -80,6 +85,48 @@ def _download(hub_id: str, quant: str, files: list[str]) -> str:
     key = f"{hub_id.split('/')[-1]}-{quant}"
     download_one(model, root=DEFAULT_ROOT, model_key=key)
     return resolve_model_dir(model, DEFAULT_ROOT) or ""
+
+
+def _dossier(rv: "Review", sc, crit: ReviewCriteria, api=None,
+             blocked: str | None = None, log=print) -> None:
+    """k120: build the candidate's dossier and hang its SUMMARY on the review.
+
+    Called for every candidate that passed the screen, including the ones whose
+    download or load failed — a dossier that says "trial blocked: download
+    failed: <cause>" is the honest row the operator asked for, and it is the
+    only way a broken download path shows up as a finding instead of as a
+    missing model.
+
+    Never raises and never changes the review's own verdict path: if the
+    dossier package is absent or throws, the review completes exactly as it did
+    before k120."""
+    if not getattr(crit, "dossier", True):
+        return
+    try:
+        from ..discovery_dossier import store as dstore
+        from ..discovery_dossier.build import build_dossier
+        dossier, urls = build_dossier(
+            rv.hub_id, crit, screen_row=sc.to_dict() if hasattr(sc, "to_dict")
+            else dict(sc or {}), api=api, local_path=rv.local_path,
+            load=rv.smoke)
+        # The caller's `blocked` string describes what the REVIEW could not do
+        # (download, load). It is only the truth about the trial when the trial
+        # itself produced nothing: a card asking for full-samples can run the
+        # stationary battery through the fleet's own dispatch path WITHOUT a
+        # download, and stamping "no download" over real evidence would be a
+        # lie in the one field that exists to stop lies.
+        if blocked and dossier.trial is not None \
+                and not dossier.trial.has_evidence and not dossier.trial.blocked:
+            dossier.trial.blocked = blocked
+        path = dstore.save(dossier)
+        rv.dossier = dstore.summary(dossier, path)
+        rv.dossier["community_urls"] = list(urls)
+        verdict = dossier.verdict
+        if verdict is not None:
+            log(f"    dossier: {verdict.verdict} — "
+                f"{'; '.join(verdict.reasons[:2])[:160]}")
+    except Exception as exc:                        # noqa: BLE001
+        log(f"    (dossier unavailable: {type(exc).__name__}: {exc})")
 
 
 def _find_gguf(directory: str, quant: str) -> str | None:
@@ -129,6 +176,16 @@ def review_one(hub_id: str, crit: ReviewCriteria, api=None,
     log(f"  ✓ {hub_id} score={sc.score} quant={sc.best_quant} "
         f"vram≈{(sc.est_vram_bytes or 0)/1024**3:.1f}GiB")
     if not download or not crit.smoke_test or not sc.best_quant:
+        # Only the EXPENSIVE pass (download=True) gets a dossier. Stage 1 of a
+        # run screens the whole pool with download=False, and building sixty
+        # dossiers — sixty card fetches, sixty mention scans, sixty LLM
+        # summaries — would destroy the property that makes the two-stage shape
+        # worth having. The survivors come back through here with download=True.
+        if download:
+            _dossier(rv, sc, crit, api=api, log=log, blocked=(
+                "trial blocked: no acceptable quant to download"
+                if not sc.best_quant else
+                "screened only — smoke_test is off for this card"))
         store.record(crit.name, hub_id, "screened", rv.to_dict(),
                      passed=True, score=sc.score, run_id=run_id)
         return rv
@@ -143,12 +200,16 @@ def review_one(hub_id: str, crit: ReviewCriteria, api=None,
     except Exception as exc:
         rv.error = f"download failed: {type(exc).__name__}: {exc}"
         log(f"    ! {rv.error}")
+        _dossier(rv, sc, crit, api=api, log=log,
+                 blocked=f"trial blocked: {rv.error}")
         store.record(crit.name, hub_id, "screened", rv.to_dict(),
                      passed=True, score=sc.score, run_id=run_id)
         return rv
 
     if not rv.local_path:
         rv.error = "download completed but no .gguf found on disk"
+        _dossier(rv, sc, crit, api=api, log=log,
+                 blocked=f"trial blocked: {rv.error}")
         store.record(crit.name, hub_id, "downloaded", rv.to_dict(),
                      passed=True, score=sc.score, run_id=run_id)
         return rv
@@ -183,6 +244,7 @@ def review_one(hub_id: str, crit: ReviewCriteria, api=None,
         except Exception as exc:
             log(f"    (judge unavailable: {type(exc).__name__}: {exc})")
 
+    _dossier(rv, sc, crit, api=api, log=log)
     store.record(crit.name, hub_id, rv.stage, rv.to_dict(),
                  passed=rv.passed, score=rv.score, verdict=rv.verdict,
                  run_id=run_id)
@@ -256,7 +318,42 @@ def run(crit: ReviewCriteria, hub_ids: list[str] | None = None,
     _push(run_id, log)
 
     return {"run_id": run_id, "criteria": crit.name, **counts,
+            "radar": _radar(crit, screened + reviews, log),
             "reviews": [r.to_dict() for r in reviews]}
+
+
+def _radar(crit: ReviewCriteria, reviews: list["Review"], log) -> list[dict]:
+    """k120 GEM RADAR — a second pass over the SAME cached community pulls.
+
+    Costs no requests: ``community.gather`` already fetched and cached those
+    listings for the candidates, and this re-reads them looking for model names
+    NO card is tracking. Off unless the card asks (``radar: true``), because a
+    tip nobody asked for is noise.
+
+    ``known`` is every hub id this run touched plus every hub id the store has
+    ever recorded for this criteria — a radar that kept re-reporting the
+    incumbent would be worse than none."""
+    if not getattr(crit, "radar", False):
+        return []
+    try:
+        from ..discovery_dossier import store as dstore
+        from ..discovery_dossier.radar import scan
+        known = {r.hub_id for r in reviews}
+        known.update(row.get("hub_id") for row in
+                     store.recent(crit.name, limit=400) if row.get("hub_id"))
+        known.update(crit.incumbents or [])
+        hits, provenance = scan(known)
+        dstore.save_radar(crit.name, [h.to_dict() for h in hits],
+                          detail=provenance.detail)
+        if hits:
+            log(f"radar: {len(hits)} model(s) the cards are not tracking — "
+                + ", ".join(h.hub_id or h.name for h in hits[:5]))
+        else:
+            log(f"radar: {provenance.detail}")
+        return [h.to_dict() for h in hits]
+    except Exception as exc:                        # noqa: BLE001
+        log(f"radar unavailable: {type(exc).__name__}: {exc}")
+        return []
 
 
 def _push(run_id: int, log) -> None:

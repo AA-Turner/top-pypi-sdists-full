@@ -33,13 +33,84 @@ class VideoFileCopyOutcome:
     skip_reason: str | None = None
 
 
-def copy_video_file_to_video_dataset(
-    source_video_file: VideoFile,
-    destination_video_dataset: Video,
-    poll_timeout: timedelta | None = DEFAULT_INGEST_POLL_TIMEOUT,
-) -> VideoFileCopyOutcome:
-    log_extras = {"destination_client_workspace": destination_video_dataset._clients.workspace_rid}
-    logger.debug("Copying video file: %s", source_video_file.name, extra=log_extras)
+def _source_ingest_error(source_video_file: VideoFile) -> str | None:
+    """The source file's own ingest error, if it has one.
+
+    A file whose ingest failed at the source is made of bytes the platform already refused
+    to process once — re-ingesting them at a destination fails the same way (observed in
+    production as a destination-side segmentation failure whose source file turned out to
+    have failed ingestion itself).
+
+    A failed lookup is swallowed: this gate exists to avoid wasting a transfer, not as a
+    prerequisite for one. If the status endpoint is unavailable — or the file predates
+    ingest-status tracking — the copy proceeds, and a genuinely bad file still surfaces
+    through the destination-ingest skip path.
+    """
+    try:
+        ingest_status = retry_transient(
+            lambda: source_video_file._clients.video_file.get_ingest_status(
+                source_video_file._clients.auth_header, source_video_file.rid
+            ),
+            description=f"source ingest status for video file {source_video_file.rid}",
+        ).ingest_status
+    except Exception as error:
+        logger.warning(
+            "Could not check source ingest status for video file (rid: %s); proceeding with the copy: %s",
+            source_video_file.rid,
+            error,
+        )
+        return None
+    if ingest_status.type != "error":
+        return None
+    status_error = ingest_status.error
+    return f"{status_error.message} ({status_error.error_type})" if status_error is not None else "no error details"
+
+
+@dataclass(frozen=True)
+class VideoFileCopyPlan:
+    """What copying a video file would do, computed from source reads alone.
+
+    Either `skip_reason` is set (the copy would be skipped and flagged), or the ingest
+    options carry the timing the copy would apply. Shared by the real copy and dry run,
+    so a dry run's predictions come from the same code path a real run executes.
+    """
+
+    mcap_video_details: McapVideoDetails | None = None
+    timestamp_options: TimestampOptions | None = None
+    skip_reason: str | None = None
+
+    def describe(self) -> str:
+        if self.skip_reason is not None:
+            return self.skip_reason
+        if self.mcap_video_details is not None:
+            return f"as mcap (topic {self.mcap_video_details.mcap_channel_locator_topic!r})"
+        assert self.timestamp_options is not None
+        return (
+            f"with starting_timestamp={self.timestamp_options.starting_timestamp} "
+            f"scale_factor={self.timestamp_options.scaling_factor}"
+        )
+
+
+def plan_video_file_copy(source_video_file: VideoFile) -> VideoFileCopyPlan:
+    """Resolve what a copy of this file would do, from source reads alone (no writes)."""
+    # Deliberately ahead of the metadata gate below: a failed source ingest can leave
+    # (partial) segment metadata behind that passes that gate — the production incident file
+    # did, transferred cleanly, and only failed at the destination. Folding this check into
+    # the metadata handler would silently lose the fix.
+    ingest_error = _source_ingest_error(source_video_file)
+    if ingest_error is not None:
+        logger.warning(
+            "Skipping video file %s (rid: %s): its own ingest failed at the source: %s",
+            source_video_file.name,
+            source_video_file.rid,
+            ingest_error,
+        )
+        return VideoFileCopyPlan(
+            skip_reason=(
+                f"unusable at source: its own ingest failed there: {ingest_error} — "
+                f"re-ingesting it elsewhere would fail the same way"
+            )
+        )
 
     try:
         # NominalVideoFileMetadataError is permanent, so it still raises on the first attempt.
@@ -54,9 +125,24 @@ def copy_video_file_to_video_dataset(
             source_video_file.name,
             source_video_file.rid,
             error,
-            extra=log_extras,
         )
-        return VideoFileCopyOutcome(file=None, skip_reason=f"unusable at source: {error}")
+        return VideoFileCopyPlan(skip_reason=f"unusable at source: {error}")
+    return VideoFileCopyPlan(mcap_video_details=mcap_video_details, timestamp_options=timestamp_options)
+
+
+def copy_video_file_to_video_dataset(
+    source_video_file: VideoFile,
+    destination_video_dataset: Video,
+    poll_timeout: timedelta | None = DEFAULT_INGEST_POLL_TIMEOUT,
+) -> VideoFileCopyOutcome:
+    log_extras = {"destination_client_workspace": destination_video_dataset._clients.workspace_rid}
+    logger.debug("Copying video file: %s", source_video_file.name, extra=log_extras)
+
+    plan = plan_video_file_copy(source_video_file)
+    if plan.skip_reason is not None:
+        return VideoFileCopyOutcome(file=None, skip_reason=plan.skip_reason)
+    mcap_video_details = plan.mcap_video_details
+    timestamp_options = plan.timestamp_options
 
     # Download + upload retry as one unit: the source download is streamed straight into the
     # upload, so a connection broken in either leg restarts from a fresh presigned URI. A
@@ -163,29 +249,35 @@ def _finish_copy(
         # Applied even on timeout: the copy is recorded as migrated either way, so no rerun
         # will come back to set the video's timing. Skipped when ingest failed outright —
         # the file needs hand-checking anyway.
+        #
+        # The scale factor, not the segment-derived ending timestamp, is sent: segment
+        # absolutes are computed at ingest and go stale if the declared start is later edited
+        # (observed in production as an inverted start/end pair the destination rejected with
+        # "Invalid bounds"). start + scale is the source's self-consistent defining pair, and
+        # yields the segment ending whenever the source is healthy.
         try:
             retry_transient(
                 lambda: new_file.update(
                     starting_timestamp=timestamp_options.starting_timestamp,
-                    ending_timestamp=timestamp_options.ending_timestamp,
+                    scale_factor=timestamp_options.scaling_factor,
                 ),
                 description=f"timestamp update for video file {new_file.rid}",
             )
         except Exception as error:
-            # The sent values come from the source's segment metadata; recording them here is
-            # often the only way to diagnose a destination-side rejection (the server may not
-            # say which argument it refused).
+            # The sent values come from the source's metadata; recording them here is often
+            # the only way to diagnose a destination-side rejection (the server may not say
+            # which argument it refused).
             logger.warning(
-                "Timestamp update failed for video file (rid: %s), sent starting_timestamp=%s ending_timestamp=%s: %s",
+                "Timestamp update failed for video file (rid: %s), sent starting_timestamp=%s scale_factor=%s: %s",
                 new_file.rid,
                 timestamp_options.starting_timestamp,
-                timestamp_options.ending_timestamp,
+                timestamp_options.scaling_factor,
                 error,
             )
             skip_reasons.append(
                 f"the timestamp update was rejected: {error} "
                 f"(sent starting_timestamp={timestamp_options.starting_timestamp}, "
-                f"ending_timestamp={timestamp_options.ending_timestamp}); "
+                f"scale_factor={timestamp_options.scaling_factor}); "
                 f"a rerun will not retry it — set timing on {new_file.rid} by hand"
             )
 

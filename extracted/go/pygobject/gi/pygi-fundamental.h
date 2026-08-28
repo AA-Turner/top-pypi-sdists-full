@@ -21,13 +21,12 @@
  * USA
  */
 
-#ifndef __PYGI_FUNDAMENTAL_H__
-#define __PYGI_FUNDAMENTAL_H__
+#pragma once
 
 #include <girepository/girepository.h>
 
-#include "pygpointer.h"
 #include "pygi-type.h"
+#include "pygpointer.h"
 
 G_BEGIN_DECLS
 
@@ -60,4 +59,4 @@ GTypeInstance *pygi_fundamental_from_value (const GValue *value);
 
 gboolean pygi_fundamental_set_value (GValue *value, GTypeInstance *instance);
 
-#endif /* __PYGI_FUNDAMENTAL_H__ */
+G_END_DECLS

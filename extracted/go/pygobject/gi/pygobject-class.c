@@ -22,7 +22,6 @@
  * USA
  */
 
-#include "pygobject-types.h"
 #include "pygenum.h"
 #include "pygflags.h"
 #include "pygi-basictype.h"
@@ -32,6 +31,7 @@
 #include "pygi-util.h"
 #include "pygi-value.h"
 #include "pygobject-object.h"
+#include "pygobject-types.h"
 
 extern GQuark pygobject_instance_init_ref_count;
 
@@ -235,7 +235,7 @@ add_signals (GObjectClass *klass, PyObject *signals)
 
         if (Py_IsNone (value)
             || (PyUnicode_Check (value)
-                && !strcmp (PyUnicode_AsUTF8 (value), "override"))) {
+                && g_strcmp0 (PyUnicode_AsUTF8 (value), "override") == 0)) {
             /* canonicalize signal name, replacing '-' with '_' */
             signal_name_canon = g_strdup (signal_name);
             for (c = signal_name_canon; *c; ++c)

@@ -1162,11 +1162,10 @@ def _resolve_interpreter_enabled(
     through would turn the redundant-but-harmless `enable_interpreter = true`
     into a launch failure for every remote-sandbox run.
 
-    Only the managed and CLI tiers are answered from `resolved`. When neither
-    decides, the value comes from `settings.enable_interpreter`, which resolves
-    the same manifest option through the same chain; the resolver read above
-    still runs for its diagnostics. `test_local_mode_uses_config_default` pins
-    the `settings` source, so the two are not interchangeable in tests.
+    Managed and CLI decisions are inspected separately so conflicts with a
+    remote sandbox can name the deciding tier. When neither decides, the same
+    resolved value already contains the environment, user-file, and default
+    tiers.
 
     Args:
         args: Parsed CLI arguments.
@@ -1214,9 +1213,7 @@ def _resolve_interpreter_enabled(
         return enabled
     if remote_sandbox:
         return False
-    from deepagents_code.config import settings
-
-    return settings.enable_interpreter
+    return bool(resolved.value)
 
 
 def _exit_interpreter_conflicts_with_sandbox(
@@ -1307,7 +1304,10 @@ def _resolved_recursion_limit(args: argparse.Namespace) -> int | None:
     process so its ordinary configuration sources remain authoritative.
 
     Returns:
-        The effective explicit limit, or `None` when the flag was absent.
+        The effective explicit limit, or `None` when the flag was absent or
+            every configured tier was rejected. `positive_int` on the flag makes
+            the latter unreachable today, but `resolve_recursion_limit` can
+            return `None` with the flag present.
     """
     if getattr(args, "recursion_limit", None) is None:
         return None
@@ -1465,14 +1465,23 @@ def _warn_if_interpreter_disabled_by_sandbox(args: argparse.Namespace) -> None:
     Keyed on the raw `args.interpreter` tri-state so an explicit
     `--no-interpreter` opt-out stays silent (the predicate only fires for the
     unset default).
+
+    Raises:
+        RuntimeError: If the interpreter option is absent from the manifest.
     """
     from deepagents_code._server_config import _interpreter_suppressed_by_sandbox
-    from deepagents_code.config import settings
+    from deepagents_code.config_manifest import get_option
+
+    option = get_option("interpreter.enable_interpreter")
+    if option is None:
+        msg = "interpreter.enable_interpreter is missing from the config manifest"
+        raise RuntimeError(msg)
+    local_default = bool(_resolver_for_args(args).get(option).value)
 
     if not _interpreter_suppressed_by_sandbox(
         enable_interpreter=args.interpreter,
         sandbox_type=args.sandbox,
-        local_default=settings.enable_interpreter,
+        local_default=local_default,
     ):
         return
     from rich.console import Console as _Console
@@ -1819,9 +1828,9 @@ def check_optional_tools(*, config_path: Path | None = None) -> list[str]:
     ):
         missing.append("ripgrep")
 
-    from deepagents_code.config import settings
+    from deepagents_code.config import credentials
 
-    if not settings.has_tavily and not is_warning_suppressed("tavily", config_path):
+    if not credentials.has_tavily and not is_warning_suppressed("tavily", config_path):
         missing.append("tavily")
 
     return missing
@@ -2641,7 +2650,7 @@ def parse_args() -> argparse.Namespace:
         metavar="N",
         help="Override the main agent's LangGraph recursion_limit (graph step "
         "budget; must be >= 1). Overrides DEEPAGENTS_CODE_RECURSION_LIMIT and "
-        "[runtime].recursion_limit; defaults to 2000.",
+        "[runtime].recursion_limit.",
     )
 
     parser.add_argument(
@@ -2740,6 +2749,21 @@ def parse_args() -> argparse.Namespace:
         "(required for headless/CI runs that should load repository hooks)",
     )
     parser.add_argument(
+        "--trust-project-extensions",
+        action="store_true",
+        help="Trust project-level `.deepagents/extensions/` Python extensions "
+        "(requires DEEPAGENTS_CODE_EXPERIMENTAL=1)",
+    )
+    parser.add_argument(
+        "-e",
+        "--extension",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Load an extension file or directory for this run; requires "
+        "DEEPAGENTS_CODE_EXPERIMENTAL=1 (repeatable)",
+    )
+    parser.add_argument(
         "--interpreter",
         action=argparse.BooleanOptionalAction,
         default=None,
@@ -2831,6 +2855,16 @@ def parse_args() -> argparse.Namespace:
     )
 
     args = parser.parse_args()
+    from deepagents_code._env_vars import EXPERIMENTAL, is_env_truthy
+
+    if (
+        getattr(args, "trust_project_extensions", False)
+        or getattr(args, "extension", ())
+    ) and not is_env_truthy(EXPERIMENTAL):
+        parser.error(
+            "--extension and --trust-project-extensions require "
+            "DEEPAGENTS_CODE_EXPERIMENTAL=1"
+        )
     # `--auto-classifier-model ""` yields the empty string, not `None`. Keep it
     # distinct from an absent flag (just trimmed): an explicit blank is the
     # "inherit the main agent model" instruction and must override a classifier
@@ -3041,6 +3075,8 @@ async def run_textual_cli_async(
     no_mcp: bool = False,
     trust_project_mcp: bool | None = None,
     hook_trust: "WorkspaceTrust | None" = None,
+    trust_project_extensions: bool = False,
+    extension_paths: tuple[str, ...] = (),
     enable_interpreter: bool | None = None,
     interpreter_arg: bool | None = None,
     interpreter_ptc: str | list[str] | None = None,
@@ -3103,14 +3139,16 @@ async def run_textual_cli_async(
             whole-config decision).
         hook_trust: Policy deciding which workspaces may run project-scoped hook
             commands. `None` consults only the persisted trust store.
+        trust_project_extensions: Allow project-authored Python extensions for
+            this session.
+        extension_paths: Explicit one-run extension files or directories.
         enable_interpreter: Enable `CodeInterpreterMiddleware` (`js_eval`) on
             the main agent. `None` defers to the sandbox-aware/config default.
         interpreter_arg: The raw `--interpreter`/`--no-interpreter` tri-state,
             forwarded so the app can tell an explicit opt-out from a
             sandbox-suppressed default when surfacing the disabled-by-sandbox
             advisory.
-        interpreter_ptc: Override for `settings.interpreter_ptc` (PTC allowlist
-            for `js_eval`).
+        interpreter_ptc: Invocation-scoped PTC allowlist override for `js_eval`.
         interpreter_ptc_acknowledge_unsafe: Explicit acknowledgement for
             `interpreter_ptc="all"` outside of `auto_approve`.
         allow_fs_tools: Allowlist for `FilesystemMiddleware`'s `tools` param,
@@ -3125,7 +3163,7 @@ async def run_textual_cli_async(
             with no value: it overrides any env / `config.toml` classifier so
             reviews inherit the main agent model.
         recursion_limit: Explicit main-agent `recursion_limit`; `None` resolves
-            from env / `config.toml` / default at agent-build time.
+            from runtime configuration at agent-build time.
 
     Returns:
         An `AppResult` with the return code and final thread ID.
@@ -3138,7 +3176,7 @@ async def run_textual_cli_async(
         _get_default_model_spec,
         detect_provider,
         resolve_auto_classifier_model_with_problem,
-        settings,
+        runtime_state,
     )
     from deepagents_code.model_config import (
         ModelConfigError,
@@ -3174,14 +3212,14 @@ async def run_textual_cli_async(
     if resolved_spec:
         parsed = ModelSpec.try_parse(resolved_spec)
         if parsed:
-            settings.model_provider = parsed.provider
-            settings.model_name = parsed.model
+            runtime_state.model_provider = parsed.provider
+            runtime_state.model_name = parsed.model
         else:
-            settings.model_name = resolved_spec
-            settings.model_provider = detect_provider(resolved_spec) or ""
+            runtime_state.model_name = resolved_spec
+            runtime_state.model_provider = detect_provider(resolved_spec) or ""
     else:
-        settings.model_provider = ""
-        settings.model_name = ""
+        runtime_state.model_provider = ""
+        runtime_state.model_name = ""
 
     # Distinguish "flag absent" from "flag explicitly blank": `--auto-classifier-
     # model ""` is the "inherit the main agent model" instruction and overrides
@@ -3253,6 +3291,8 @@ async def run_textual_cli_async(
         "mcp_config_path": mcp_config_path,
         "no_mcp": no_mcp,
         "trust_project_mcp": trust_project_mcp,
+        "trust_project_extensions": trust_project_extensions,
+        "extension_paths": extension_paths,
         "interactive": True,
         "recursion_limit": recursion_limit,
     }
@@ -3345,7 +3385,7 @@ async def _run_acp_cli_async(
 
             `None` leaves the SDK default (all tools).
         recursion_limit: Explicit main-agent `recursion_limit`; `None` resolves
-            from env/`config.toml`/default at agent-build time.
+            from runtime configuration at agent-build time.
         auto: Enable classifier-backed approval routing.
         yolo: Disable approval prompts for this ACP server.
         auto_classifier_model: Optional model for Auto approval classification.
@@ -3356,8 +3396,8 @@ async def _run_acp_cli_async(
     from deepagents_code.agent import create_cli_agent, load_async_subagents
     from deepagents_code.config import (
         create_model,
+        credentials,
         is_memory_auto_save_enabled,
-        settings,
     )
     from deepagents_code.model_config import (
         ModelConfigError,
@@ -3381,7 +3421,7 @@ async def _run_acp_cli_async(
         sys.stderr.write(f"Error: {exc}\n")
         sys.stderr.flush()
         return 1
-    model_result.apply_to_settings()
+    model_result.apply_to_runtime_state()
 
     try:
         project_context = ProjectContext.from_user_cwd(Path.cwd())
@@ -3417,7 +3457,7 @@ async def _run_acp_cli_async(
     ]
 
     tools: list[Any] = [fetch_url, get_current_thread_id]
-    if settings.has_tavily:
+    if credentials.has_tavily:
         tools.append(web_search)
 
     mcp_session_manager = None
@@ -3477,7 +3517,7 @@ async def _run_acp_cli_async(
                         cli_max_retries=cli_max_retries,
                     )
                 )
-                session_model.apply_to_settings()
+                session_model.apply_to_runtime_state()
                 agent_graph, _backend = create_cli_agent(
                     model=session_model.model,
                     assistant_id=assistant_id,
@@ -4686,6 +4726,103 @@ def _check_project_hooks_trust(
     return WorkspaceTrust.none()
 
 
+def _check_project_extensions_trust(
+    *,
+    trust_flag: bool = False,
+) -> "bool | _TrustPromptOutcome":
+    """Resolve interactive trust for project-authored Python extensions.
+
+    Args:
+        trust_flag: Whether the CLI explicitly trusted project extensions.
+
+    Returns:
+        Whether project extensions may load, `INTERRUPTED` on Ctrl+C, or
+            `CANCELLED` when startup is aborted.
+    """
+    from deepagents_code._env_vars import EXPERIMENTAL, is_env_truthy
+
+    if not is_env_truthy(EXPERIMENTAL):
+        return False
+    from rich.console import Console
+
+    from deepagents_code.extensions.discovery import project_extensions_dir
+    from deepagents_code.extensions.settings import (
+        TrustPolicy,
+        load_extension_settings,
+    )
+    from deepagents_code.extensions.trust import (
+        is_project_extensions_trusted,
+        trust_project_extensions,
+    )
+    from deepagents_code.project_utils import ProjectContext
+
+    settings = load_extension_settings()
+    if not settings.enabled or settings.trust is TrustPolicy.NEVER:
+        return False
+
+    try:
+        context = ProjectContext.from_user_cwd(Path.cwd())
+        project_root = context.project_root or context.user_cwd
+        extensions_dir = project_extensions_dir(project_root)
+        if not extensions_dir.is_dir():
+            return False
+    except OSError:
+        logger.warning("Could not inspect project extensions", exc_info=True)
+        return False
+
+    if (
+        trust_flag
+        or settings.trust is TrustPolicy.ALWAYS
+        or is_project_extensions_trusted(project_root)
+    ):
+        return True
+
+    from rich.markup import escape
+
+    console = Console(stderr=True)
+    console.print()
+    console.print(
+        "[bold yellow]Project extensions run arbitrary Python in this "
+        "session.[/bold yellow]",
+        highlight=False,
+    )
+    console.print(
+        f"Extensions directory: {escape(str(extensions_dir))}", highlight=False
+    )
+    console.print(
+        "Only trust projects you control. Allow once loads these files as they "
+        f'are now; always allow trusts "{escape(str(project_root))}" for future '
+        "sessions and future edits.",
+        style="yellow",
+        highlight=False,
+    )
+    action = _select_trust_action(
+        console,
+        remember_label="Always allow extensions in this project",
+    )
+    if action in {
+        _TrustPromptOutcome.INTERRUPTED,
+        _TrustPromptOutcome.CANCELLED,
+    }:
+        return action
+    if action is _TrustAction.ALLOW_ONCE:
+        console.print(
+            "[dim]Allowing project extensions for this session.[/dim]",
+            highlight=False,
+        )
+        return True
+    if action is _TrustAction.REMEMBER:
+        if not trust_project_extensions(project_root):
+            console.print(
+                "[yellow]Extension trust could not be remembered; allowing "
+                "this session only.[/yellow]",
+                highlight=False,
+            )
+        return True
+    console.print("[dim]Project extensions skipped.[/dim]", highlight=False)
+    return False
+
+
 def _verify_interpreter_or_exit() -> None:
     """Run the interpreter pre-flight check; print and exit on failure.
 
@@ -5065,14 +5202,15 @@ def cli_main() -> None:
                 exc_info=True,
             )
 
-        # Import console/settings AFTER arg parsing and after the bare-help
+        # Initialize credentials AFTER arg parsing and after the bare-help
         # fast path so neither argparse's `--help`/`-h` exit nor
-        # `deepagents <group>` pays the settings bootstrap cost. `settings`
-        # must be named here even though this scope does not read it: the
-        # import is what triggers `_ensure_bootstrap()` (dotenv loading), and
+        # `deepagents <group>` pays the credentials bootstrap cost. The explicit
+        # accessor triggers `_ensure_bootstrap()` (dotenv loading), and
         # commands dispatched below — notably `auth status` — resolve
         # credentials from the environment expecting `.env` to be loaded.
-        from deepagents_code.config import console, settings  # noqa: F401
+        from deepagents_code.config import _get_credentials, console
+
+        _get_credentials()
 
         if command is None:
             # The health gate already ran above, for every command, so the
@@ -5829,6 +5967,7 @@ def cli_main() -> None:
             from deepagents_code.client.commands.mcp import (
                 run_mcp_config,
                 run_mcp_login,
+                run_mcp_login_list,
             )
             from deepagents_code.ui import show_mcp_help
 
@@ -5839,14 +5978,15 @@ def cli_main() -> None:
                         f"Using --mcp-config from top-level: {config_path}",
                         file=sys.stderr,
                     )
-                sys.exit(
-                    asyncio.run(
-                        run_mcp_login(
-                            server=args.server,
-                            config_path=config_path,
-                        )
+                command = (
+                    run_mcp_login(
+                        server=args.server,
+                        config_path=config_path,
                     )
+                    if args.server is not None
+                    else run_mcp_login_list(config_path=config_path)
                 )
+                sys.exit(asyncio.run(command))
             if args.mcp_command == "config":
                 sys.exit(run_mcp_config())
             show_mcp_help()
@@ -6001,6 +6141,10 @@ def cli_main() -> None:
                             trust_project_hooks=getattr(
                                 args, "trust_project_hooks", False
                             ),
+                            trust_project_extensions=getattr(
+                                args, "trust_project_extensions", False
+                            ),
+                            extension_paths=tuple(getattr(args, "extension", ())),
                             enable_interpreter=enable_interpreter,
                             interpreter_ptc=interpreter_ptc,
                             allow_fs_tools=allow_fs_tools,
@@ -6116,6 +6260,20 @@ def cli_main() -> None:
                 )
                 return
 
+            extensions_trust = _check_project_extensions_trust(
+                trust_flag=getattr(args, "trust_project_extensions", False),
+            )
+            if extensions_trust is _TrustPromptOutcome.INTERRUPTED:
+                sys.exit(130)
+            if extensions_trust is _TrustPromptOutcome.CANCELLED:
+                from rich.console import Console as _Console
+
+                _Console(stderr=True).print(
+                    "[dim]Aborted; project extensions not loaded.[/dim]",
+                    highlight=False,
+                )
+                return
+
             # Run Textual TUI
             return_code = 0
             request_count = 0
@@ -6171,6 +6329,8 @@ def cli_main() -> None:
                         no_mcp=getattr(args, "no_mcp", False),
                         trust_project_mcp=mcp_trust_decision,
                         hook_trust=hook_trust,
+                        trust_project_extensions=bool(extensions_trust),
+                        extension_paths=tuple(getattr(args, "extension", ())),
                         enable_interpreter=enable_interpreter,
                         interpreter_arg=args.interpreter,
                         interpreter_ptc=interpreter_ptc,

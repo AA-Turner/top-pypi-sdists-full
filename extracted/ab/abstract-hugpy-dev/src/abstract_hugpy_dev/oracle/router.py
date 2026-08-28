@@ -1,8 +1,16 @@
-"""Oracle router (k91): goal -> capability -> best eligible route.
+"""Oracle router (k90b): goal -> capability -> best eligible route.
 
-Two decisions live here, both DETERMINISTIC and both recorded on the returned
+Three decisions live here, all DETERMINISTIC and all recorded on the returned
 ``RouteDecision`` so the receipt can say why:
 
+  0. AUTHORITY (k97) — the typed gate, run FIRST, before the catalog is even
+     read and long before a model is picked (doc §7 Stage 1; invariant 7).
+     ``oracle.authority.check`` says which ``(kind, subject)`` permissions the
+     route needs and whether ``GoalSpec.rights`` grants them; a shortfall ends
+     the route at ``execution == "refused"`` naming exactly what is missing.
+     It never downgrades: the doc's non-identifying fallback ("use a licensed
+     synthetic voice") is a LATER task, and quietly substituting a lookalike
+     would be a worse lie than a precise refusal.
   1. INTENT — when the goal carries no explicit capability, a small
      input-modality + explicit-ask table picks one (``infer_capability``).
      No model call, no scoring: the table IS the contract, and an explicit
@@ -14,11 +22,11 @@ Two decisions live here, both DETERMINISTIC and both recorded on the returned
      resolution (``default``; managers/resolvers TASK_DEFAULTS). No new
      scoring scheme.
 
-Eligibility is the k90 catalog's verdict, never re-derived: an ineligible or
+Eligibility is the k90a catalog's verdict, never re-derived: an ineligible or
 unknown capability routes to ``execution == "gap"`` (the typed CAPABILITY_GAP
 shape, catalog reasons echoed — an unmapped task string must land here, never
 a KeyError). STUDIO (video.*) capabilities route to ``execution == "deferred"``
-— k91 explains the best route via the studio's own verdict but does not run the
+— k90b explains the best route via the studio's own verdict but does not run the
 render pipeline (that stays with the studio job routes until a later slice).
 
 Import discipline mirrors catalog.py: module top level is contracts + catalog
@@ -32,13 +40,20 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import authority as oracle_authority
 from . import catalog
 from .contracts import ArtifactKind, GoalSpec, InputKind
 
 # ---------------------------------------------------------------------------
 # Capability -> canonical dispatch task string (the exact key ml_routes.ML_TASKS
-# dispatches on). Inverse-consistent with catalog.LEGACY_TASK_CAPABILITY by
-# test: every value here maps back to its key through that table.
+# dispatches on). The LEGACY rows are inverse-consistent with
+# catalog.LEGACY_TASK_CAPABILITY by test: every one of THOSE values maps back
+# to its key through that table. k98's SPEECH rows (folded in below via
+# ``**catalog.SPEECH_CAPABILITY_TASK``) are a deliberately SEPARATE family —
+# catalog.py's module docstring explains why they are not added to
+# LEGACY_TASK_CAPABILITY itself — so they are exempt from that inverse check
+# (tests/test_oracle_route.py carves them out explicitly) while still counting
+# toward "every dispatchable capability has a CAPABILITY_TASK entry".
 # ---------------------------------------------------------------------------
 
 CAPABILITY_TASK: dict[str, str] = {
@@ -57,6 +72,7 @@ CAPABILITY_TASK: dict[str, str] = {
     "image.segment":    "image-segmentation",
     "doc.extract":      "document-extraction",
     "web.fetch":        "url-extraction",
+    **catalog.SPEECH_CAPABILITY_TASK,
 }
 
 # ---------------------------------------------------------------------------
@@ -130,6 +146,33 @@ def _get_capability(name: str):
     return catalog.get_capability(name)
 
 
+def _select_model(goal: GoalSpec, capability: str, view: Any
+                  ) -> tuple[str | None, str, tuple[str, ...]]:
+    """Evidence-ranked selection over the view's eligible models
+    (``selection.select``: VRAM/budget, quality, latency, reliability ledger,
+    matrix). Never raises; (None, "", reasons) means "no opinion" and the
+    caller falls back to the legacy default. The selector never calls the
+    router, so there is no recursion."""
+    try:
+        from . import selection
+        sel = selection.process_selector()
+        if sel is None:
+            return None, "", ("selection disabled",)
+        d = selection.select(capability, view=view, goal=goal, matrix=sel.matrix(),
+                             ledger=sel.ledger, policy=sel.policy,
+                             model_health=sel.model_health, model_vram_gib=sel.model_vram_gib)
+    except Exception as exc:  # noqa: BLE001 — selection faults degrade to the legacy default
+        return None, "", (f"selection unavailable: {type(exc).__name__}: {exc}",)
+    if d.gap or not d.model_id:
+        return None, "", tuple(f"selection: {step}" for step in d.steps[-2:])
+    chosen = next((v for v in d.ranked if v.selected), None)
+    why = "; ".join(chosen.reasons) if chosen else ""
+    reasons = (f"selection: {d.rationale} -> {d.model_id} (fallback {d.fallback}); {why}",)
+    if d.rejected:
+        reasons += ("selection rejected: " + ", ".join(f"{r.model_id}@{r.rejected_at}" for r in d.rejected),)
+    return d.model_id, f"selected:{d.rationale}", reasons
+
+
 def _task_default_model(task: str) -> str | None:
     """The dispatcher's OWN default for a task-only request (TASK_DEFAULTS via
     resolve_model_key) — recorded, never re-invented. None when unresolvable."""
@@ -176,9 +219,17 @@ class RouteDecision:
     """Where a goal goes and why — the object runtime + scorecard consume.
 
     ``execution`` is the branch: "execute" (synchronous dispatch), "deferred"
-    (video.*: explained, not run), "gap" (typed CAPABILITY_GAP). ``task`` is
-    the legacy dispatch task string ("execute" only). ``placement`` names a
-    placement.json peer pin, or "auto" for the DelegatingRunner default."""
+    (video.*: explained, not run), "gap" (typed CAPABILITY_GAP), "refused"
+    (k97: the typed authority gate said no — ``authority.missing`` names every
+    permission the request did not bring). ``task`` is the legacy dispatch task
+    string ("execute" only). ``placement`` names a placement.json peer pin, or
+    "auto" for the DelegatingRunner default. ``dispatch_params`` is
+    ``catalog.capability_params(capability)`` (k98) — fixed keyword arguments
+    the capability itself implies (e.g. ``audio.transcribe.word_timestamps``
+    always dispatches with ``word_timestamps=True``); it rides on an
+    ``"execute"`` decision for whoever builds the actual dispatch kwargs
+    (``runtime.execute_route``, not this module) to merge in, so the flag
+    never has to be re-derived or re-typed downstream."""
     capability: str
     execution: str
     source: str = ""
@@ -192,6 +243,8 @@ class RouteDecision:
     reasons: tuple[str, ...] = ()   # gap reasons / deferred verdict / advisories
     alternatives: str = ""          # studio available_menu (deferred only)
     model_ids: tuple[str, ...] = field(default=())
+    authority: oracle_authority.AuthorityDecision | None = None
+    dispatch_params: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -208,12 +261,15 @@ class RouteDecision:
             "reasons": list(self.reasons),
             "alternatives": self.alternatives,
             "model_ids": list(self.model_ids),
+            "authority": self.authority.to_dict() if self.authority else None,
+            "dispatch_params": dict(self.dispatch_params),
         }
 
 
 def resolve_route(goal: GoalSpec, requested_model: str | None = None) -> RouteDecision:
-    """Goal -> RouteDecision through the k90 catalog. Never raises for a
-    missing/ineligible capability (that is the gap SHAPE); raises RouteRefusal
+    """Goal -> RouteDecision through the authority gate and the k90a catalog.
+    Never raises for a missing/ineligible capability (that is the gap SHAPE) or
+    for missing authority (that is the ``"refused"`` SHAPE); raises RouteRefusal
     only for a request-shape fault (a requested model outside the capability's
     eligible set)."""
     if goal.capability is not None:
@@ -222,23 +278,35 @@ def resolve_route(goal: GoalSpec, requested_model: str | None = None) -> RouteDe
         name, why = infer_capability(goal)
         inferred = True
 
+    # Stage 1 — the typed authority gate, BEFORE the catalog read and before
+    # any model pick. An unauthorized identity/voice request must not learn a
+    # route, reach a worker, or be quietly served by something else.
+    decision = oracle_authority.check(goal, name)
+    if not decision.ok:
+        return RouteDecision(
+            capability=name, execution="refused", inferred=inferred,
+            inference_reason=why, authority=decision,
+            reasons=(decision.reason,) + tuple(
+                f"missing {kind.value} authorization for {subject}"
+                for kind, subject in decision.missing))
+
     view = _get_capability(name)
     if view is None:
         return RouteDecision(
             capability=name, execution="gap", inferred=inferred,
-            inference_reason=why,
+            inference_reason=why, authority=decision,
             reasons=(f"unknown capability {name!r}: not in the unified "
                      f"catalog (GET /oracle/capabilities lists what exists)",))
 
     if name.startswith("video."):
-        # k91 explains the best video route via the studio's own verdict but
+        # k90b explains the best video route via the studio's own verdict but
         # does not execute it — the studio job routes own that pipeline.
         return RouteDecision(
             capability=name, execution="deferred", source=view.source.value,
             model_id=view.model_ids[0] if view.model_ids else None,
             model_ids=view.model_ids,
             model_rationale="studio-router" if view.model_ids else "",
-            inferred=inferred, inference_reason=why,
+            inferred=inferred, inference_reason=why, authority=decision,
             produces=view.produces,
             reasons=view.eligibility.reasons or (
                 ("servable per the studio capability verdict",)
@@ -249,17 +317,19 @@ def resolve_route(goal: GoalSpec, requested_model: str | None = None) -> RouteDe
         return RouteDecision(
             capability=name, execution="gap", source=view.source.value,
             inferred=inferred, inference_reason=why, produces=view.produces,
-            reasons=view.eligibility.reasons)
+            authority=decision, reasons=view.eligibility.reasons)
 
     task = CAPABILITY_TASK.get(name)
     if task is None:  # a legacy capability outside the dispatch table — drift alarm
         return RouteDecision(
             capability=name, execution="gap", source=view.source.value,
             inferred=inferred, inference_reason=why, produces=view.produces,
+            authority=decision,
             reasons=(f"capability {name!r} has no dispatch task mapping "
                      f"(oracle/router.CAPABILITY_TASK drift)",))
 
     deterministic = task in catalog.DETERMINISTIC_TASKS
+    extra_reasons: tuple[str, ...] = ()
     if requested_model is not None:
         if view.model_ids and requested_model not in view.model_ids:
             raise RouteRefusal(
@@ -271,12 +341,20 @@ def resolve_route(goal: GoalSpec, requested_model: str | None = None) -> RouteDe
     elif len(view.model_ids) == 1:
         model_id, rationale = view.model_ids[0], "only-eligible"
     else:
-        model_id = _task_default_model(task)
-        if model_id not in view.model_ids:
-            # default resolution failed or landed outside the eligible set
-            # (e.g. the default is operator-blocked) — take the first eligible.
-            model_id = view.model_ids[0]
-        rationale = "default"
+        # TODO-4 / k113a: ONE selection policy. With more than one eligible
+        # model the evidence-ranked selector decides (VRAM vs budget, quality
+        # profile, latency budget, reliability ledger, routing matrix), and
+        # its decision rides on the route's reasons. The legacy TASK_DEFAULTS
+        # branch remains only as the fallback when selection has no opinion.
+        model_id, rationale, sel_reasons = _select_model(goal, name, view)
+        if model_id is None:
+            model_id = _task_default_model(task)
+            if model_id not in view.model_ids:
+                # default resolution failed or landed outside the eligible set
+                # (e.g. the default is operator-blocked) — take the first eligible.
+                model_id = view.model_ids[0]
+            rationale = "default"
+        extra_reasons = tuple(sel_reasons)
 
     if deterministic:
         placement = "local"
@@ -288,8 +366,9 @@ def resolve_route(goal: GoalSpec, requested_model: str | None = None) -> RouteDe
         capability=name, execution="execute", source=view.source.value,
         task=task, model_id=model_id, model_rationale=rationale,
         placement=placement, inferred=inferred, inference_reason=why,
-        produces=view.produces, model_ids=view.model_ids,
-        reasons=view.eligibility.reasons)  # advisory reasons ride along
+        produces=view.produces, model_ids=view.model_ids, authority=decision,
+        reasons=tuple(view.eligibility.reasons) + extra_reasons,  # advisory + selection reasons
+        dispatch_params=catalog.capability_params(name))
 
 
 __all__ = ["CAPABILITY_TASK", "RouteDecision", "RouteRefusal",

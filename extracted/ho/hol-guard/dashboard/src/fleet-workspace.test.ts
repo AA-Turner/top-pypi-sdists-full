@@ -1,5 +1,7 @@
 import { cloudPolicyRecoveryHint } from "./fleet-protection-recovery";
+import { activeFailedHarnesses, ProtectionRepairFlowError } from "./protection-repair-flow";
 import { repairHarnessesFor, resolveFleetHeroCopy } from "./fleet-workspace";
+import { isHarnessDetectedItems, resolveDetectedAppStatus, visibleHarnessesFor } from "./harness-detection";
 import type { FleetHeroCopy } from "./fleet-workspace";
 
 function assert(condition: boolean, message: string): void {
@@ -7,6 +9,49 @@ function assert(condition: boolean, message: string): void {
     throw new Error(message);
   }
 }
+
+const targetedRepairError = new ProtectionRepairFlowError("App hooks need repair.", ["codex", "grok"]);
+assert(
+  targetedRepairError.failedHarnesses.length === 2,
+  "repair failures retain every app needed for the next actions",
+);
+
+const noProtectionHealth = {
+  harness: "omp",
+  state: "degraded" as const,
+  label: "Not protected",
+  detail: "No managed hooks.",
+  evidence_gap: true,
+  checks: [],
+  reason_codes: [],
+};
+assert(
+  resolveDetectedAppStatus(undefined, noProtectionHealth, false, false, true) === "found_unprotected",
+  "detected OMP and ZCode installs appear as observed before Guard manages their hooks",
+);
+assert(
+  resolveDetectedAppStatus(undefined, noProtectionHealth, false, false, false) === "not_found",
+  "apps without detection or activity remain absent",
+);
+const detectedApps = visibleHarnessesFor({
+  managed: ["codex"],
+  observed: [],
+  inventory: [],
+  detected: ["omp", "zcode"],
+  policies: [],
+});
+assert(
+  detectedApps.join(",") === "codex,omp,zcode",
+  "Protect includes locally detected OMP and ZCode without requiring prior activity",
+);
+assert(
+  isHarnessDetectedItems([{ harness: "zcode", status: "found" }], "zcode"),
+  "app detail preserves detection for config-only harnesses",
+);
+assert(
+  activeFailedHarnesses(["codex", "codex", "grok"], ["grok"])[0] === "grok",
+  "resolved and duplicate app failures do not leave stale repair actions",
+);
 
 const urls = {
   fleet_url: "https://hol.org/guard/protect",
@@ -103,21 +148,14 @@ assert(
 const degradedWithApps = resolveFleetHeroCopy("paired_active", 2, "degraded", urls);
 assert(degradedWithApps.status === "degraded", "active installs cannot imply protected fleet health");
 assert(degradedWithApps.headline === "App protection is degraded", "degraded fleet copy is explicit");
-assert(
-  degradedWithApps.primaryCtaLabel === "Restore full protection",
-  `degraded fleet CTA must be actionable — got "${degradedWithApps.primaryCtaLabel}"`
-);
-assert(
-  degradedWithApps.primaryCtaHref === "#protection-recovery",
-  `degraded fleet CTA must target local recovery — got "${degradedWithApps.primaryCtaHref}"`
-);
 assert(pairedActiveNoApps.status === "setup_gap", "F5: paired_active no apps status should be setup_gap");
 
-const partialWithApps = resolveFleetHeroCopy("paired_active", 2, "partial", urls);
-assert(partialWithApps.status === "partial", "partial fleet status is explicit");
+const checkingWithApps = resolveFleetHeroCopy("paired_active", 2, "checking", urls);
+assert(checkingWithApps.status === "checking", "unproven fleet health must not look degraded");
+assert(checkingWithApps.headline === "Checking app protection", "checking fleet copy is explicit");
 assert(
-  partialWithApps.primaryCtaHref === "#protection-recovery",
-  `partial fleet CTA must target local recovery — got "${partialWithApps.primaryCtaHref}"`
+  !checkingWithApps.headline.toLowerCase().includes("degraded"),
+  "checking fleet copy must not use degraded language",
 );
 
 const targetedRepairs = repairHarnessesFor(

@@ -171,6 +171,9 @@ to production by simply updating the endpoint to point to the newer version.
 | `tags` | `{ [key: string]: string }` | No | Tags for the agent runtime. A list of key:value pairs of tags to apply to this Runtime resource |
 | `lifecycleConfiguration` | LifecycleConfiguration | No | The life cycle configuration for the AgentCore Runtime. Defaults to 900 seconds (15 minutes) for idle, 28800 seconds (8 hours) for max life time |
 | `requestHeaderConfiguration` | RequestHeaderConfiguration | No | Configuration for HTTP request headers that will be passed through to the runtime. Defaults to no configuration |
+| `tracingEnabled` | `boolean` | No | Whether to enable X-Ray tracing for this runtime. When enabled, traces will be delivered to AWS X-Ray. Defaults to `false` |
+| `loggingConfigs` | `LoggingConfig[]` | No | Logging configuration for the runtime. Allows sending APPLICATION_LOGS and USAGE_LOGS to CloudWatch Logs, S3, or Kinesis Data Firehose. Defaults to no logging configured |
+| `manageDeliveryResourcePolicy` | `boolean` | No | Whether to create resource policies for log/trace delivery. When `false`, the `AWS::Logs::ResourcePolicy` and `AWS::XRay::ResourcePolicy` are not created. This is useful when deploying many runtimes per account/Region, as each resource policy consumes an account-level quota slot (CloudWatch Logs: 10, X-Ray: lower). For same-account `/aws/vendedlogs/` delivery, the log-delivery service-linked role provides the necessary write access without an explicit policy. Defaults to `true` |
 
 ### Runtime Endpoint Properties
 
@@ -785,8 +788,45 @@ You can configure:
 
 * tracingEnabled: Enable X-Ray tracing for the runtime
 * loggingConfigs: Send APPLICATION_LOGS (agent runtime invocations) and USAGE_LOGS (session-level resource consumption) to CloudWatch Logs, S3, or Kinesis Data Firehose
+* manageDeliveryResourcePolicy: Control whether resource policies are created for log/trace delivery. Defaults to `true`
 
 For additional information, please refer to the [Set up logging and tracing for AgentCore](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability.html).
+
+##### Opting out of resource policy management
+
+When deploying many AgentCore Runtime constructs per account/Region, the per-stack `AWS::Logs::ResourcePolicy` and `AWS::XRay::ResourcePolicy` created by the observability delivery consume account-level quota slots (CloudWatch Logs: 10, X-Ray: lower). Set `manageDeliveryResourcePolicy: false` to skip resource policy creation while still provisioning delivery sources, destinations, and deliveries.
+
+**Important**: Setting `false` means you own the delivery permission. There are two safe ways to use it:
+
+* Same-account delivery to a `/aws/vendedlogs/` log group, where the log-delivery service-linked role grants write access implicitly.
+* Attaching the delivery resource policy yourself.
+
+Otherwise delivery silently fails: synthesis and deploy succeed, but nothing is delivered. Per the [vended-logs delivery docs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AWS-logs-infrastructure-V2-CloudWatchLogs.html), a resource policy is required for CloudWatch Logs delivery outside the `/aws/vendedlogs/` same-account case.
+
+```python
+repository = ecr.Repository(self, "TestRepository",
+    repository_name="test-agent-runtime"
+)
+
+agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+
+# Use a /aws/vendedlogs/ log group for same-account delivery without explicit resource policy
+log_group = logs.LogGroup(self, "RuntimeLogGroup",
+    log_group_name="/aws/vendedlogs/bedrock-agentcore/my-runtime"
+)
+
+agentcore.Runtime(self, "test-runtime",
+    runtime_name="test_runtime",
+    agent_runtime_artifact=agent_runtime_artifact,
+    tracing_enabled=True,
+    logging_configs=[agentcore.LoggingConfig(
+        log_type=agentcore.LogType.APPLICATION_LOGS,
+        destination=agentcore.LoggingDestination.cloud_watch_logs(log_group)
+    )
+    ],
+    manage_delivery_resource_policy=False
+)
+```
 
 ```python
 repository = ecr.Repository(self, "TestRepository",
@@ -56362,11 +56402,9 @@ class LogType(
         
         agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
         
-        # Create logging destinations
-        log_group = logs.LogGroup(self, "RuntimeLogGroup")
-        log_bucket = s3.Bucket(self, "RuntimeLogBucket")
-        firehose_stream = firehose.DeliveryStream(self, "RuntimeLogStream",
-            destination=firehose.S3Bucket(log_bucket)
+        # Use a /aws/vendedlogs/ log group for same-account delivery without explicit resource policy
+        log_group = logs.LogGroup(self, "RuntimeLogGroup",
+            log_group_name="/aws/vendedlogs/bedrock-agentcore/my-runtime"
         )
         
         agentcore.Runtime(self, "test-runtime",
@@ -56376,14 +56414,9 @@ class LogType(
             logging_configs=[agentcore.LoggingConfig(
                 log_type=agentcore.LogType.APPLICATION_LOGS,
                 destination=agentcore.LoggingDestination.cloud_watch_logs(log_group)
-            ), agentcore.LoggingConfig(
-                log_type=agentcore.LogType.APPLICATION_LOGS,
-                destination=agentcore.LoggingDestination.s3(log_bucket)
-            ), agentcore.LoggingConfig(
-                log_type=agentcore.LogType.APPLICATION_LOGS,
-                destination=agentcore.LoggingDestination.firehose(firehose_stream)
             )
-            ]
+            ],
+            manage_delivery_resource_policy=False
         )
     '''
 
@@ -56508,11 +56541,9 @@ class LoggingDestination(
         
         agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
         
-        # Create logging destinations
-        log_group = logs.LogGroup(self, "RuntimeLogGroup")
-        log_bucket = s3.Bucket(self, "RuntimeLogBucket")
-        firehose_stream = firehose.DeliveryStream(self, "RuntimeLogStream",
-            destination=firehose.S3Bucket(log_bucket)
+        # Use a /aws/vendedlogs/ log group for same-account delivery without explicit resource policy
+        log_group = logs.LogGroup(self, "RuntimeLogGroup",
+            log_group_name="/aws/vendedlogs/bedrock-agentcore/my-runtime"
         )
         
         agentcore.Runtime(self, "test-runtime",
@@ -56522,14 +56553,9 @@ class LoggingDestination(
             logging_configs=[agentcore.LoggingConfig(
                 log_type=agentcore.LogType.APPLICATION_LOGS,
                 destination=agentcore.LoggingDestination.cloud_watch_logs(log_group)
-            ), agentcore.LoggingConfig(
-                log_type=agentcore.LogType.APPLICATION_LOGS,
-                destination=agentcore.LoggingDestination.s3(log_bucket)
-            ), agentcore.LoggingConfig(
-                log_type=agentcore.LogType.APPLICATION_LOGS,
-                destination=agentcore.LoggingDestination.firehose(firehose_stream)
             )
-            ]
+            ],
+            manage_delivery_resource_policy=False
         )
     '''
 
@@ -64357,6 +64383,7 @@ class RuntimeNetworkConfiguration(
         "execution_role": "executionRole",
         "lifecycle_configuration": "lifecycleConfiguration",
         "logging_configs": "loggingConfigs",
+        "manage_delivery_resource_policy": "manageDeliveryResourcePolicy",
         "network_configuration": "networkConfiguration",
         "protocol_configuration": "protocolConfiguration",
         "request_header_configuration": "requestHeaderConfiguration",
@@ -64376,6 +64403,7 @@ class RuntimeProps:
         execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         lifecycle_configuration: typing.Optional[typing.Union["LifecycleConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         logging_configs: typing.Optional[typing.Sequence[typing.Union["LoggingConfig", typing.Dict[builtins.str, typing.Any]]]] = None,
+        manage_delivery_resource_policy: typing.Optional[builtins.bool] = None,
         network_configuration: typing.Optional["RuntimeNetworkConfiguration"] = None,
         protocol_configuration: typing.Optional["ProtocolType"] = None,
         request_header_configuration: typing.Optional[typing.Union["RequestHeaderConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -64392,6 +64420,7 @@ class RuntimeProps:
         :param execution_role: The IAM role that provides permissions for the agent runtime If not provided, a role will be created automatically. Default: - A new role will be created
         :param lifecycle_configuration: The life cycle configuration for the AgentCore Runtime. Default: - No lifecycle configuration
         :param logging_configs: Logging configuration for the runtime. Allows sending APPLICATION_LOGS and USAGE_LOGS to CloudWatch Logs, S3, or Kinesis Data Firehose. Default: - No logging configured
+        :param manage_delivery_resource_policy: Whether to create resource policies for log/trace delivery. When ``false``, the ``AWS::Logs::ResourcePolicy`` and ``AWS::XRay::ResourcePolicy`` are not created. This is useful when deploying many runtimes per account/Region, as each resource policy consumes an account-level quota slot (CloudWatch Logs: 10, X-Ray: lower). Setting ``false`` means you are responsible for ensuring delivery permissions exist. There are two safe ways to use this: - Same-account delivery to a ``/aws/vendedlogs/`` log group, where the log-delivery service-linked role grants write access implicitly. - Attaching the delivery resource policy yourself. Otherwise delivery silently fails: synthesis and deploy succeed, but nothing is delivered. Per the `vended-logs delivery docs <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AWS-logs-infrastructure-V2-CloudWatchLogs.html>`_, a resource policy is required for CloudWatch Logs delivery outside the ``/aws/vendedlogs/`` same-account case. Default: true
         :param network_configuration: Network configuration for the agent runtime. Default: - RuntimeNetworkConfiguration.usingPublicNetwork()
         :param protocol_configuration: Protocol configuration for the agent runtime. Default: - ProtocolType.HTTP
         :param request_header_configuration: Configuration for HTTP request headers that will be passed through to the runtime. Default: - No request headers configured
@@ -64434,6 +64463,7 @@ class RuntimeProps:
             check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
             check_type(argname="argument lifecycle_configuration", value=lifecycle_configuration, expected_type=type_hints["lifecycle_configuration"])
             check_type(argname="argument logging_configs", value=logging_configs, expected_type=type_hints["logging_configs"])
+            check_type(argname="argument manage_delivery_resource_policy", value=manage_delivery_resource_policy, expected_type=type_hints["manage_delivery_resource_policy"])
             check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
             check_type(argname="argument protocol_configuration", value=protocol_configuration, expected_type=type_hints["protocol_configuration"])
             check_type(argname="argument request_header_configuration", value=request_header_configuration, expected_type=type_hints["request_header_configuration"])
@@ -64455,6 +64485,8 @@ class RuntimeProps:
             self._values["lifecycle_configuration"] = lifecycle_configuration
         if logging_configs is not None:
             self._values["logging_configs"] = logging_configs
+        if manage_delivery_resource_policy is not None:
+            self._values["manage_delivery_resource_policy"] = manage_delivery_resource_policy
         if network_configuration is not None:
             self._values["network_configuration"] = network_configuration
         if protocol_configuration is not None:
@@ -64539,6 +64571,33 @@ class RuntimeProps:
         '''
         result = self._values.get("logging_configs")
         return typing.cast(typing.Optional[typing.List["LoggingConfig"]], result)
+
+    @builtins.property
+    def manage_delivery_resource_policy(self) -> typing.Optional[builtins.bool]:
+        '''Whether to create resource policies for log/trace delivery.
+
+        When ``false``, the ``AWS::Logs::ResourcePolicy`` and ``AWS::XRay::ResourcePolicy``
+        are not created. This is useful when deploying many runtimes per account/Region,
+        as each resource policy consumes an account-level quota slot (CloudWatch Logs: 10,
+        X-Ray: lower).
+
+        Setting ``false`` means you are responsible for ensuring delivery permissions exist.
+        There are two safe ways to use this:
+
+        - Same-account delivery to a ``/aws/vendedlogs/`` log group, where the log-delivery
+          service-linked role grants write access implicitly.
+        - Attaching the delivery resource policy yourself.
+
+        Otherwise delivery silently fails: synthesis and deploy succeed, but nothing is delivered.
+        Per the `vended-logs delivery docs <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AWS-logs-infrastructure-V2-CloudWatchLogs.html>`_,
+        a resource policy is required for CloudWatch Logs delivery outside the ``/aws/vendedlogs/`` same-account case.
+
+        :default: true
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html
+        '''
+        result = self._values.get("manage_delivery_resource_policy")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def network_configuration(self) -> typing.Optional["RuntimeNetworkConfiguration"]:
@@ -73439,6 +73498,7 @@ class Runtime(
         execution_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
         lifecycle_configuration: typing.Optional[typing.Union["LifecycleConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         logging_configs: typing.Optional[typing.Sequence[typing.Union["LoggingConfig", typing.Dict[builtins.str, typing.Any]]]] = None,
+        manage_delivery_resource_policy: typing.Optional[builtins.bool] = None,
         network_configuration: typing.Optional["RuntimeNetworkConfiguration"] = None,
         protocol_configuration: typing.Optional["ProtocolType"] = None,
         request_header_configuration: typing.Optional[typing.Union["RequestHeaderConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -73456,6 +73516,7 @@ class Runtime(
         :param execution_role: The IAM role that provides permissions for the agent runtime If not provided, a role will be created automatically. Default: - A new role will be created
         :param lifecycle_configuration: The life cycle configuration for the AgentCore Runtime. Default: - No lifecycle configuration
         :param logging_configs: Logging configuration for the runtime. Allows sending APPLICATION_LOGS and USAGE_LOGS to CloudWatch Logs, S3, or Kinesis Data Firehose. Default: - No logging configured
+        :param manage_delivery_resource_policy: Whether to create resource policies for log/trace delivery. When ``false``, the ``AWS::Logs::ResourcePolicy`` and ``AWS::XRay::ResourcePolicy`` are not created. This is useful when deploying many runtimes per account/Region, as each resource policy consumes an account-level quota slot (CloudWatch Logs: 10, X-Ray: lower). Setting ``false`` means you are responsible for ensuring delivery permissions exist. There are two safe ways to use this: - Same-account delivery to a ``/aws/vendedlogs/`` log group, where the log-delivery service-linked role grants write access implicitly. - Attaching the delivery resource policy yourself. Otherwise delivery silently fails: synthesis and deploy succeed, but nothing is delivered. Per the `vended-logs delivery docs <https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AWS-logs-infrastructure-V2-CloudWatchLogs.html>`_, a resource policy is required for CloudWatch Logs delivery outside the ``/aws/vendedlogs/`` same-account case. Default: true
         :param network_configuration: Network configuration for the agent runtime. Default: - RuntimeNetworkConfiguration.usingPublicNetwork()
         :param protocol_configuration: Protocol configuration for the agent runtime. Default: - ProtocolType.HTTP
         :param request_header_configuration: Configuration for HTTP request headers that will be passed through to the runtime. Default: - No request headers configured
@@ -73475,6 +73536,7 @@ class Runtime(
             execution_role=execution_role,
             lifecycle_configuration=lifecycle_configuration,
             logging_configs=logging_configs,
+            manage_delivery_resource_policy=manage_delivery_resource_policy,
             network_configuration=network_configuration,
             protocol_configuration=protocol_configuration,
             request_header_configuration=request_header_configuration,
@@ -82872,6 +82934,7 @@ def _typecheckingstub__89323926cbe15c67ebfc8ef7bd4889abb79a4bee98162f58fd6d016e9
     execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     lifecycle_configuration: typing.Optional[typing.Union[LifecycleConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     logging_configs: typing.Optional[typing.Sequence[typing.Union[LoggingConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
+    manage_delivery_resource_policy: typing.Optional[builtins.bool] = None,
     network_configuration: typing.Optional[RuntimeNetworkConfiguration] = None,
     protocol_configuration: typing.Optional[ProtocolType] = None,
     request_header_configuration: typing.Optional[typing.Union[RequestHeaderConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -84089,6 +84152,7 @@ def _typecheckingstub__73b150046cc3ddcc84ba821e6a0fa82d4c7af7201201d8b5099dd1e3b
     execution_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
     lifecycle_configuration: typing.Optional[typing.Union[LifecycleConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     logging_configs: typing.Optional[typing.Sequence[typing.Union[LoggingConfig, typing.Dict[builtins.str, typing.Any]]]] = None,
+    manage_delivery_resource_policy: typing.Optional[builtins.bool] = None,
     network_configuration: typing.Optional[RuntimeNetworkConfiguration] = None,
     protocol_configuration: typing.Optional[ProtocolType] = None,
     request_header_configuration: typing.Optional[typing.Union[RequestHeaderConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,

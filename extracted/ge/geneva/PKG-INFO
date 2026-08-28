@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: geneva
-Version: 0.15.0
+Version: 0.16.0
 Summary: Geneva - Multimodal Data Lake for AI
 License-Expression: LicenseRef-Proprietary
 License-File: LICENSE
@@ -37,6 +37,7 @@ Requires-Dist: numpy
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: overrides>=7.7.0
+Requires-Dist: packaging
 Requires-Dist: pip>=24.3.1
 Requires-Dist: pyarrow>=19
 Requires-Dist: pylance>=10.0.0

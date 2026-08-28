@@ -1,9 +1,10 @@
-#ifndef __PYGOBJECT_OBJECT_H__
-#define __PYGOBJECT_OBJECT_H__
+#pragma once
 
 #include <pythoncapi_compat.h>
 
 #include "pygobject-types.h"
+
+G_BEGIN_DECLS
 
 /* Data that belongs to the GObject instance, not the Python wrapper */
 struct _PyGObjectData {
@@ -49,4 +50,4 @@ pyg_object_peek_inst_data (GObject *obj)
                                                  pygobject_instance_data_key));
 }
 
-#endif /*__PYGOBJECT_OBJECT_H__*/
+G_END_DECLS

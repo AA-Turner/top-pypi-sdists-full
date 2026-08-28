@@ -208,15 +208,18 @@ def print_cached_images(cached_images):
                 if last_accessed == 0:
                     last_accessed = "N/A"
                 else:
-                    last_accessed = datetime.datetime.utcfromtimestamp(
-                        last_accessed).isoformat()
+                    last_accessed = datetime.datetime.fromtimestamp(
+                        last_accessed, tz=datetime.timezone.utc
+                    ).replace(tzinfo=None).isoformat()
 
-                cache_pt.add_row((image['image_id'], state,
-                                  last_accessed,
-                                  datetime.datetime.utcfromtimestamp(
-                                      image['last_modified']).isoformat(),
-                                  image['size'],
-                                  image['hits']))
+                cache_pt.add_row((
+                    image['image_id'], state,
+                    last_accessed,
+                    datetime.datetime.fromtimestamp(
+                        image['last_modified'], tz=datetime.timezone.utc
+                    ).replace(tzinfo=None).isoformat(),
+                    image['size'],
+                    image['hits']))
         else:
             for image in cached_images[item]:
                 cache_pt.add_row((image,

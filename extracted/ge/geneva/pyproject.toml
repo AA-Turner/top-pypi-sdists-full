@@ -1,6 +1,6 @@
 [project]
 name = "geneva"
-version = "0.15.0"
+version = "0.16.0"
 description = "Geneva - Multimodal Data Lake for AI"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -15,6 +15,8 @@ dependencies = [
     # 19 is the floor for pa.concat_batches (src/geneva/apply/__init__.py)
     "pyarrow>=19",
     "overrides>=7.7.0",
+    # PEP 508 parser for the manifest pinning advisory
+    "packaging",
     "pip>=24.3.1",
     "numpy",
     "docker==7.*",

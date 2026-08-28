@@ -49,19 +49,16 @@ def _gemini_retry() -> Retry:
 
 
 def _extract_string_inputs(
-    batch: pa.RecordBatch, column: str
+    values_array: pa.Array,
 ) -> tuple[list[str], list[int], list[Any]]:
-    """Return valid string values and their row indices for ``column``."""
+    """Return valid string values and their row indices from ``values_array``."""
 
-    index = batch.schema.get_field_index(column)
-    if index == -1:
-        raise ValueError(f"Column '{column}' not found in RecordBatch")
+    if not pa.types.is_string(values_array.type) and not pa.types.is_large_string(
+        values_array.type
+    ):
+        raise TypeError("embedding UDF input column must contain string data")
 
-    field = batch.schema.field(index)
-    if not pa.types.is_string(field.type) and not pa.types.is_large_string(field.type):
-        raise TypeError(f"Column '{column}' must contain string data")
-
-    values = batch.column(index).to_pylist()
+    values = values_array.to_pylist()
     valid_indices: list[int] = []
     valid_texts: list[str] = []
     for idx, value in enumerate(values):
@@ -75,6 +72,97 @@ def _extract_string_inputs(
         valid_texts.append(value)
 
     return valid_texts, valid_indices, values
+
+
+# Token counts are estimated from UTF-8 *bytes*, not characters.  BPE runs on
+# the byte stream, so UTF-8 already carries most of the cost a non-Latin script
+# pays.  Measured against tiktoken, bytes/token spans ~1.4 (base64) to 4.5
+# (English), where the same texts span ~0.77 (Japanese on cl100k) to 4.5 by
+# character -- so a fixed 4-characters-per-token rule under-counts Japanese by
+# more than 5x, and the API rejects the request.
+#
+# A token always consumes at least one byte, so bytes/token is never below 1
+# and ``size / _MIN_BYTES_PER_TOKEN`` is a hard upper bound on the token count.
+_MIN_BYTES_PER_TOKEN = 1.0
+
+# Where the estimate starts, before any response has reported a real token
+# count.  Set at the natural-language end of the measured range, which is
+# tight: English 4.5, Chinese 4.3, Japanese 4.0, Korean 3.8.  Prose in any
+# script therefore fits its first request without relying on the recovery
+# path.  Denser inputs -- minified JSON at ~2.9 bytes/token, base64 at ~1.4 --
+# overshoot once, get split, and calibrate from the halves that succeed.
+_INITIAL_BYTES_PER_TOKEN = 4.0
+
+
+@attrs.define
+class _TokenRatio:
+    """UTF-8 bytes per token, calibrated from what the API reports.
+
+    Every embeddings response carries the true token count of its request, so
+    the ratio is measured rather than guessed -- no tokenizer dependency, and
+    no need to provoke a rejection to learn.  Held per model instance, which a
+    worker reuses across batches, so the calibration is paid once and then
+    applies to every later request.
+
+    Keeps the *smallest* ratio seen rather than the most recent.  A mixed
+    column (English rows beside base64 ones) would otherwise swing between a
+    generous estimate and a rejected request; converging downward costs some
+    request size on the easy rows and never costs a rejection.
+    """
+
+    observed: float | None = attrs.field(default=None, init=False)
+
+    @property
+    def bytes_per_token(self) -> float:
+        """The ratio to size the next request with."""
+        if self.observed is None:
+            return _INITIAL_BYTES_PER_TOKEN
+        return self.observed
+
+    def observe(self, byte_count: int, tokens: int | None) -> None:
+        """Record the token count the API reported for ``byte_count`` bytes."""
+        if not tokens or tokens <= 0 or byte_count <= 0:
+            return
+        ratio = max(byte_count / tokens, _MIN_BYTES_PER_TOKEN)
+        if self.observed is None or ratio < self.observed:
+            self.observed = ratio
+
+
+def _next_chunk_end(
+    sizes: list[int],
+    start: int,
+    *,
+    max_inputs: int,
+    max_tokens: int,
+    bytes_per_token: float,
+) -> int:
+    """End index of the largest ``sizes[start:end]`` that fits one request.
+
+    ``sizes`` are UTF-8 byte lengths.  The chunk closes when adding the next
+    input would exceed *max_inputs* or the estimated *max_tokens*.  An input
+    whose own estimate exceeds the budget is returned alone: splitting cannot
+    make one text smaller, so the API decides.
+    """
+    per_token = max(bytes_per_token, _MIN_BYTES_PER_TOKEN)
+    tokens = 0.0
+    end = start
+    while end < len(sizes) and end - start < max_inputs:
+        estimate = sizes[end] / per_token + 1
+        if end > start and tokens + estimate > max_tokens:
+            break
+        tokens += estimate
+        end += 1
+    return end
+
+
+def _normalize_embeddings(embeddings: list[list[float]]) -> list[list[float]]:
+    """L2-normalise ``embeddings``, leaving zero vectors untouched."""
+    import numpy as np
+
+    arr = np.array(embeddings)
+    norms = np.linalg.norm(arr, axis=1, keepdims=True)
+    norms = np.where(norms > 0, norms, 1)
+    return (arr / norms).tolist()
 
 
 def _resolve_device(num_gpus: float) -> str | None:
@@ -102,7 +190,7 @@ class _EmbeddingModel(abc.ABC):
     All model families are required to only implement:
     * _build_model - load and return the model instance
     * _get_dimension - return the model's embedding dimension
-    * embed - embed a RecordBatch and return a ListArray of float32 embeddings
+    * embed_array - embed a string Array, returning a ListArray of float32
 
     The base class handles lazy model loading, dimension caching, and output type.
 
@@ -148,13 +236,33 @@ class _EmbeddingModel(abc.ABC):
         """
 
     @abc.abstractmethod
-    def embed(self, batch: pa.RecordBatch) -> pa.Array:
+    def embed_array(self, values: pa.Array) -> pa.Array:
         """
-        Embed ``batch`` and return a fixed-size list array of floats.
-        It should handle missing inputs gracefully. For example::
+        Embed the ``values`` string array and return a fixed-size list array of
+        floats. It should handle missing inputs gracefully. For example::
 
             ["hello", None, "world"] -> [[0.1, 0.2], None, [0.3, 0.4]]
         """
+
+    def embed(self, batch: pa.RecordBatch) -> pa.Array:
+        """Deprecated RecordBatch entry point, kept for payload compatibility.
+
+        Embedding UDFs became Array UDFs so a backfill projects only the text
+        column instead of the whole row. That changed the model call contract,
+        and the contract is a persistence boundary: ``EmbeddingUDF.__call__``
+        is cloudpickled *by value*, while the model class is resolved *by
+        reference* from the installed module. A UDF pickled before the change
+        therefore keeps calling ``embed(batch)`` against a newer module, so
+        this has to keep working. New code calls :meth:`embed_array`.
+
+        Deliberately not warning per call: this is the path an old payload
+        takes on every batch, and a warning there is noise the caller cannot
+        act on. Remove once no stored payload predates the Array UDFs.
+        """
+        index = batch.schema.get_field_index(self.column)
+        if index == -1:
+            raise ValueError(f"Column '{self.column}' not found in RecordBatch")
+        return self.embed_array(batch.column(index))
 
     @cached_property
     def model(self) -> Any:
@@ -199,9 +307,9 @@ class _SentenceTransformersModel(_EmbeddingModel):
         dimension = self.model.get_sentence_embedding_dimension()
         return int(dimension)
 
-    def embed(self, batch: pa.RecordBatch) -> pa.Array:
+    def embed_array(self, values_array: pa.Array) -> pa.Array:
         model = self.model
-        valid_texts, valid_indices, values = _extract_string_inputs(batch, self.column)
+        valid_texts, valid_indices, values = _extract_string_inputs(values_array)
 
         outputs: list[list[float] | None] = [None] * len(values)
         if valid_texts:
@@ -275,14 +383,28 @@ def _build_embedding_udf(
         num_gpus=num_gpus,
         on_error=on_error,
         version=version,
+        # Array UDF over the single text column: the scanner projects to just
+        # this column instead of reading (and discarding) the whole row.
+        input_columns=[model.column],
     )
     class EmbeddingUDF:
         def __init__(self) -> None:
             self._model = model
             self.dimension = dimension
 
-        def __call__(self, batch: pa.RecordBatch) -> pa.Array:
-            return self._model.embed(batch)
+        def __call__(self, values: pa.Array) -> pa.Array:
+            # Both halves of the compatibility story. This function is
+            # cloudpickled by value, so it travels with the payload, while
+            # ``self._model``'s class comes from whatever module the runtime
+            # has installed. Against an older module there is no
+            # ``embed_array``, so hand it the RecordBatch its contract expects
+            # -- one column, which is all this UDF reads anyway.
+            embed_array = getattr(self._model, "embed_array", None)
+            if embed_array is None:
+                return self._model.embed(
+                    pa.RecordBatch.from_arrays([values], [self._model.column])
+                )
+            return embed_array(values)
 
     return EmbeddingUDF()  # type: ignore
 
@@ -391,10 +513,10 @@ class _GeminiEmbeddingModel(_EmbeddingModel):
         )
         return len(result.embeddings[0].values)
 
-    def embed(self, batch: pa.RecordBatch) -> pa.Array:
+    def embed_array(self, values_array: pa.Array) -> pa.Array:
         from google.genai import types
 
-        valid_texts, valid_indices, values = _extract_string_inputs(batch, self.column)
+        valid_texts, valid_indices, values = _extract_string_inputs(values_array)
 
         outputs: list[list[float] | None] = [None] * len(values)
         if valid_texts:
@@ -410,12 +532,7 @@ class _GeminiEmbeddingModel(_EmbeddingModel):
             embeddings: list[list[float]] = [e.values for e in result.embeddings]
 
             if self.normalize:
-                import numpy as np
-
-                arr = np.array(embeddings)
-                norms = np.linalg.norm(arr, axis=1, keepdims=True)
-                norms = np.where(norms > 0, norms, 1)
-                embeddings = (arr / norms).tolist()
+                embeddings = _normalize_embeddings(embeddings)
 
             for idx, vector in zip(valid_indices, embeddings, strict=False):
                 outputs[idx] = vector

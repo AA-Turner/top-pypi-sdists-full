@@ -1,7 +1,54 @@
-"""Public REST API types.
+"""Public types for the synchronous Braintrust REST API."""
 
-No generated REST models are public yet. Types are added here deliberately as resource wrappers are
-published; the private ``braintrust.api._generated`` package is not a compatibility surface.
-"""
+from .._generated.models import (
+    CreateDataset,
+    CreateExperiment,
+    CreateProject,
+    Dataset,
+    Experiment,
+    FeedbackDatasetEventRequest,
+    FeedbackExperimentEventRequest,
+    FeedbackResponseSchema,
+    FetchDatasetEventsResponse,
+    FetchEventsRequest,
+    FetchExperimentEventsResponse,
+    GetDatasetResponse,
+    GetExperimentResponse,
+    GetProjectResponse,
+    InsertDatasetEventRequest,
+    InsertEventsResponse,
+    InsertExperimentEventRequest,
+    PatchDataset,
+    PatchExperiment,
+    PatchProject,
+    Project,
+    SummarizeDatasetResponse,
+    SummarizeExperimentResponse,
+)
 
-__all__: list[str] = []
+
+__all__ = [
+    "CreateDataset",
+    "CreateExperiment",
+    "CreateProject",
+    "Dataset",
+    "Experiment",
+    "FeedbackDatasetEventRequest",
+    "FeedbackExperimentEventRequest",
+    "FeedbackResponseSchema",
+    "FetchDatasetEventsResponse",
+    "FetchEventsRequest",
+    "FetchExperimentEventsResponse",
+    "GetDatasetResponse",
+    "GetExperimentResponse",
+    "GetProjectResponse",
+    "InsertDatasetEventRequest",
+    "InsertEventsResponse",
+    "InsertExperimentEventRequest",
+    "PatchDataset",
+    "PatchExperiment",
+    "PatchProject",
+    "Project",
+    "SummarizeDatasetResponse",
+    "SummarizeExperimentResponse",
+]

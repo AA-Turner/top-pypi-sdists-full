@@ -16,7 +16,11 @@ from urllib.parse import urlparse
 import attrs
 import lancedb
 import pyarrow as pa
-from lance_namespace import LanceNamespace, ListTablesResponse
+from lance_namespace import (
+    LanceNamespace,
+    ListNamespacesResponse,
+    ListTablesResponse,
+)
 from lance_namespace import connect as namespace_connect
 from lancedb import DBConnection, LanceNamespaceDBConnection
 from lancedb.common import DATA, Credential
@@ -392,8 +396,19 @@ def dataset_uses_stable_row_ids(dataset: "lance.LanceDataset") -> bool:
     return dataset.has_stable_row_ids
 
 
-class Connection(DBConnection):
-    """Geneva Connection."""
+class Connection:
+    """Geneva Connection.
+
+    Deliberately *not* a subclass of ``lancedb.DBConnection``. Geneva holds a
+    real lancedb connection as ``_connect`` and delegates to it, so inheriting
+    the ABC bought no behavior -- 19 of its 22 members are
+    ``NotImplementedError`` stubs -- while making lancedb's namespace part of
+    Geneva's contract: any method lancedb adds whose name Geneva already uses
+    is rejected outright by ``EnforceOverrides`` at class-definition time,
+    which is how ``create_materialized_view`` in lancedb 0.38 broke every
+    Geneva job at import. Composition ends that coupling. See
+    ``DBConnection.register`` below, which keeps ``isinstance`` working.
+    """
 
     def __init__(
         self,
@@ -412,8 +427,6 @@ class Connection(DBConnection):
         executor_mode: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__()
-
         self._uri = uri
         self._region = region
         self._api_key = api_key
@@ -441,6 +454,27 @@ class Connection(DBConnection):
 
     def __repr__(self) -> str:
         return f"<Geneva uri={self.uri}>"
+
+    # -- Formerly inherited from lancedb's DBConnection --
+    #
+    # Everything else the ABC offered was a NotImplementedError stub, so these
+    # two are the whole of what dropping the base class cost us.
+
+    @property
+    def uri(self) -> str:
+        """URI of the database this connection points at."""
+        return self._uri
+
+    def list_namespaces(
+        self,
+        namespace_path: list[str] | None = None,
+        page_token: str | None = None,
+        limit: int | None = None,
+    ) -> ListNamespacesResponse:
+        """List the namespaces under ``namespace_path``."""
+        return self._connect.list_namespaces(
+            namespace_path=namespace_path, page_token=page_token, limit=limit
+        )
 
     # -- Namespace property accessors (delegate to _ns_config) --
 
@@ -611,7 +645,6 @@ class Connection(DBConnection):
             namespace=namespace,
         )
 
-    @override
     def namespace_client(self) -> LanceNamespace:
         """Returns namespace client from the underlying LanceDB connection."""
         return self._connect.namespace_client()
@@ -670,7 +703,6 @@ class Connection(DBConnection):
         self._flight_client = client
         return client
 
-    @override
     def table_names(
         self, page_token: str | None = None, limit: int | None = None, *args, **kwargs
     ) -> Iterable[str]:
@@ -679,7 +711,6 @@ class Connection(DBConnection):
             *args, page_token=page_token, limit=limit or 10, **kwargs
         )
 
-    @override
     def list_tables(
         self,
         namespace_path: list[str] | None = None,
@@ -710,7 +741,6 @@ class Connection(DBConnection):
             limit=limit,
         )
 
-    @override
     def open_table(
         self,
         name: str,
@@ -809,7 +839,6 @@ class Connection(DBConnection):
                 f"  3. Use mode='overwrite' to replace the table"
             )
 
-    @override
     def create_table(  # type: ignore
         self,
         name: str,
@@ -1441,7 +1470,6 @@ class Connection(DBConnection):
         """Drop a view."""
         return self.sql(f"DROP VIEW {name}")  # type: ignore[attr-defined]
 
-    @override
     def drop_table(self, name: str, *args, **kwargs) -> None:
         """Drop a table."""
         self._connect.drop_table(name, *args, **kwargs)
@@ -1846,7 +1874,6 @@ class Connection(DBConnection):
     def use_remote_dispatch(self) -> bool:
         return self.is_remote_uri() and not self._executor_mode
 
-    @override
     def get_job(self, job_id: str) -> "JobRecord":
         """Get a job record by ID.
 
@@ -1858,7 +1885,6 @@ class Connection(DBConnection):
             raise ValueError(f"Job {job_id} not found")
         return results[0]
 
-    @override
     def list_jobs(
         self,
         table_name: str | None = None,
@@ -1873,6 +1899,20 @@ class Connection(DBConnection):
 
 
 # Backward-compatible aliases (previously separate subclasses).
+# Keep ``isinstance(conn, DBConnection)`` true for callers that type-check
+# against lancedb, without inheriting ``EnforceOverrides`` and the breakage it
+# brings. Virtual registration asserts nothing about our method signatures.
+#
+# ``register`` exists only where ``DBConnection`` is ABC-based. lancedb swaps
+# ``EnforceOverrides`` for a no-op stub on Python 3.12+ (see ``lancedb/db.py``),
+# leaving a plain class with no ABC machinery -- and, for the same reason, no
+# override enforcement, which is why the breakage this change fixes is
+# 3.10/3.11-only. There ``isinstance`` was never satisfiable except by real
+# inheritance, so there is nothing to preserve and nothing to register.
+_register = getattr(DBConnection, "register", None)
+if _register is not None:
+    _register(Connection)
+
 NativeConnection = Connection
 RemoteConnection = Connection
 

@@ -4,6 +4,7 @@ import importlib
 import os
 import sys
 import typing
+from pathlib import Path
 from tempfile import gettempdir
 
 import pytest
@@ -13,7 +14,6 @@ from platformdirs.unix import Unix
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Iterator
-    from pathlib import Path
 
     from pytest_mock import MockerFixture
 
@@ -395,6 +395,11 @@ def test_site_data_dir_multipath_falls_back_when_xdg_var_is_all_separators(monke
     assert Unix(appname="foo", multipath=True).site_data_dir == os.pathsep.join(dirs)
 
 
+def test_site_applications_path_multipath_returns_first_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_DATA_DIRS", f"/custom/first{os.pathsep}/custom/second")
+    assert Unix(multipath=True).site_applications_path == Path("/custom/first/applications")
+
+
 def test_user_media_dir_from_user_dirs_file(
     mocker: MockerFixture, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -485,7 +490,7 @@ def test_use_site_for_root_disabled_as_root(prop: str, expected: str) -> None:
     assert result != expected
 
 
-@pytest.mark.usefixtures("_as_root")
+@pytest.mark.usefixtures("_as_root", "_no_xdg_runtime_dir")
 @pytest.mark.parametrize(
     ("xdg_var", "prop", "expected_site"),
     [
@@ -500,7 +505,6 @@ def test_use_site_for_root_bypasses_xdg_user_vars(
     monkeypatch: pytest.MonkeyPatch, xdg_var: str, prop: str, expected_site: str
 ) -> None:
     monkeypatch.setenv(xdg_var, "/custom/xdg/path")
-    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
     result = getattr(Unix(appname="foo", use_site_for_root=True), prop)
     assert result == expected_site
 
@@ -539,20 +543,14 @@ _SINGLE_SITE_ITER_CASES = [
 
 @pytest.mark.usefixtures("_as_root", "_no_xdg_runtime_dir")
 @pytest.mark.parametrize(("func", "expected"), _SINGLE_SITE_ITER_CASES)
-def test_use_site_iter_dirs_no_duplicates_single_site_dir(
-    func: Callable[[Unix], Iterator[str]],
-    expected: str,
-) -> None:
+def test_use_site_iter_dirs_no_duplicates_single_site_dir(func: Callable[[Unix], Iterator[str]], expected: str) -> None:
     result = func(Unix(appname="foo", use_site_for_root=True))
     assert list(result) == [expected]
 
 
 @pytest.mark.usefixtures("_as_non_root", "_no_xdg_runtime_dir", "_writable_runtime_dir")
 @pytest.mark.parametrize(("func", "expected"), _SINGLE_SITE_ITER_CASES)
-def test_iter_dirs_as_non_root_keeps_user_dir(
-    func: Callable[[Unix], Iterator[str]],
-    expected: str,
-) -> None:
+def test_iter_dirs_as_non_root_keeps_user_dir(func: Callable[[Unix], Iterator[str]], expected: str) -> None:
     result = list(func(Unix(appname="foo", use_site_for_root=True)))
     assert len(result) == 2
     assert result[0] != expected
@@ -573,7 +571,7 @@ def test_iter_dirs_as_root_with_multipath_skips_joined_user_dir(
     func: Callable[[Unix], Iterator[str]],
 ) -> None:
     monkeypatch.setenv(xdg_var, f"/xdg/a{os.pathsep}/xdg/b")
-    # Under multipath the user dir is the joined string, which equals no single site entry for the dedupe to drop.
+    # Under multipath the user dir is the joined string, which no single site entry matches.
     assert list(func(Unix(multipath=True, use_site_for_root=True))) == ["/xdg/a", "/xdg/b"]
 
 

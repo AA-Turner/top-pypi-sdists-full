@@ -15,6 +15,23 @@ PROBE = (
     "urllib.request.urlopen('https://example.com', timeout=5)\""
 )
 
+# Probe targeting 1.1.1.1 directly — used to positively confirm an
+# allowlist entry actually permits traffic, not just that others are blocked.
+PROBE_ALLOWED = (
+    'python3 -c "import urllib.request; '
+    "urllib.request.urlopen('http://1.1.1.1', timeout=5)\""
+)
+
+
+def assert_blocked(result, label):
+    assert result.exit_code != 0, f"{label}: expected outbound request to fail"
+    print(f"{label}: blocked (exit code {result.exit_code})")
+
+
+def assert_allowed(result, label):
+    assert result.exit_code == 0, f"{label}: expected outbound request to succeed"
+    print(f"{label}: allowed (exit code {result.exit_code})")
+
 
 def main():
     api_token = os.getenv("KOYEB_API_TOKEN")
@@ -51,8 +68,7 @@ def main():
 
         # Outbound requests from inside the sandbox fail
         result = sandbox.exec(PROBE)
-        assert result.exit_code != 0, "Expected outbound request to fail"
-        print(f"Outbound request blocked (exit code {result.exit_code})")
+        assert_blocked(result, "block_network=True → example.com")
 
         # Switch to an allowlist: only the listed destinations are reachable.
         # Entries are CIDRs or bare IPs (normalized to /32 for IPv4, /128 for
@@ -60,9 +76,21 @@ def main():
         sandbox.update_network_policy(outbound_allowlist=["1.1.1.1", "9.9.0.0/16"])
         print("Egress policy updated to allowlist: 1.1.1.1/32, 9.9.0.0/16")
 
+        # 1.1.1.1 is in the allowlist → should succeed
+        result = sandbox.exec(PROBE_ALLOWED)
+        assert_allowed(result, "allowlist=[1.1.1.1, ...] → 1.1.1.1")
+
+        # example.com is NOT in the allowlist → should still fail
+        result = sandbox.exec(PROBE)
+        assert_blocked(result, "allowlist=[1.1.1.1, ...] → example.com")
+
         # Reset to the platform default (unrestricted outbound access)
         sandbox.update_network_policy()
         print("Egress policy reset to default")
+
+        # Default mode → public internet reachable again
+        result = sandbox.exec(PROBE)
+        assert_allowed(result, "default → example.com")
 
         return 0
     finally:

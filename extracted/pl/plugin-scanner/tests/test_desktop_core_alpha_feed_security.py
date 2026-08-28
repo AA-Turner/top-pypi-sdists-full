@@ -1,4 +1,4 @@
-"""Security contracts for the privileged Desktop Core alpha feed."""
+"""Security contracts for the privileged Desktop Core stable feed."""
 
 from __future__ import annotations
 
@@ -7,11 +7,13 @@ import json
 import runpy
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "desktop-core-alpha-feed.yml"
 TOOL = ROOT / "scripts" / "release" / "desktop_core_alpha_feed.py"
+FROZEN_ENTRYPOINT = ROOT / "scripts" / "mdm" / "hol-guard-entry.py"
 
 
 def workflow_text() -> str:
@@ -32,7 +34,7 @@ def publish_job() -> dict[str, object]:
     return job
 
 
-def test_feed_is_release_3_0_only_and_wakes_after_publisher() -> None:
+def test_feed_is_stable_3_0_only_and_wakes_after_main_publisher() -> None:
     text = workflow_text()
     namespace = runpy.run_path(str(TOOL))
     trusted_push = """push:
@@ -42,21 +44,39 @@ def test_feed_is_release_3_0_only_and_wakes_after_publisher() -> None:
       - scripts/release/desktop_core_alpha_feed.py"""
     assert namespace["SUPPORTED_TRAINS"] == {"3.0"}
     assert trusted_push in text
-    assert "branches: [release/3.0]" in text
+    assert "branches: [main]" in text
     assert 'workflows: ["Publish to PyPI"]' in text
     assert "workflow_run.conclusion == 'success'" in text
 
 
-def test_release_discovery_ignores_3_1(tmp_path: Path, capsys) -> None:
+def test_release_discovery_ignores_prereleases_and_3_1(tmp_path: Path, capsys) -> None:
     tags = tmp_path / "tags.txt"
-    tags.write_text("alpha/v3.0.0a26\nalpha/v3.1.0a99\nalpha/v3.0.0a27\n", encoding="utf-8")
+    tags.write_text("alpha/v3.0.7a1\nv3.1.0\nv3.0.6\nv3.0.7\n", encoding="utf-8")
     namespace = runpy.run_path(str(TOOL))
     namespace["discover_release"](tags)
     output = capsys.readouterr().out
-    assert "version=3.0.0a27" in output
-    assert "tag=alpha/v3.0.0a27" in output
-    assert "branch=release/3.0" in output
+    assert "version=3.0.7" in output
+    assert "tag=v3.0.7" in output
+    assert "branch=main" in output
     assert "3.1" not in output
+
+
+def test_release_discovery_can_backfill_an_exact_stable_version(tmp_path: Path, capsys) -> None:
+    tags = tmp_path / "tags.txt"
+    tags.write_text("v3.0.6\nv3.0.7\n", encoding="utf-8")
+    namespace = runpy.run_path(str(TOOL))
+    namespace["discover_release"](tags, "3.0.6")
+    output = capsys.readouterr().out
+    assert "version=3.0.6" in output
+    assert "tag=v3.0.6" in output
+
+
+def test_release_discovery_rejects_unpublished_or_prerelease_backfill(tmp_path: Path) -> None:
+    tags = tmp_path / "tags.txt"
+    tags.write_text("alpha/v3.0.6a1\nv3.0.7\n", encoding="utf-8")
+    namespace = runpy.run_path(str(TOOL))
+    with pytest.raises(SystemExit, match="not an eligible published release"):
+        namespace["discover_release"](tags, "3.0.6")
 
 
 def test_privileged_feed_is_main_bound_and_pins_candidate_provenance() -> None:
@@ -79,11 +99,11 @@ def test_feed_uses_apple_trust_and_no_redundant_manifest_key() -> None:
     helper = TOOL.read_text(encoding="utf-8")
     job = publish_job()
     steps = {step.get("name"): step for step in job["steps"]}
-    extraction_line = 'codesign --display --extract-certificates "$BINARY" >/dev/null 2> "$RUNNER_TEMP/codesign-certificates.txt"'
+    extraction_line = (
+        'codesign --display --extract-certificates "$BINARY" >/dev/null 2> "$RUNNER_TEMP/codesign-certificates.txt"'
+    )
     extraction_lines = [
-        line.strip()
-        for line in text.splitlines()
-        if "codesign --display --extract-certificates" in line
+        line.strip() for line in text.splitlines() if "codesign --display --extract-certificates" in line
     ]
     verify = steps["Verify exact Apple identity, notarization, and Core contract"]
     verify_run = verify["run"]
@@ -110,7 +130,15 @@ def test_feed_uses_apple_trust_and_no_redundant_manifest_key() -> None:
     assert verify["env"]["MODE"] == "${{ steps.existing.outputs.mode }}"
     assert "spctl --assess" not in verify_run
     assert 'test -s "$RUNNER_TEMP/notary-result.json"' in verify_run
-    assert ".status == \"Accepted\" and (.id | type == \"string\" and length > 0)" in verify_run
+    assert '.status == "Accepted" and (.id | type == "string" and length > 0)' in verify_run
+
+
+def test_feed_builds_core_with_multiprocessing_safe_entrypoint() -> None:
+    entrypoint = FROZEN_ENTRYPOINT.read_text(encoding="utf-8")
+    freeze_dispatch = entrypoint.index("freeze_support()")
+    guard_import = entrypoint.index("from codex_plugin_scanner.guard.frozen_daemon_runtime")
+    assert freeze_dispatch < guard_import
+    assert "scripts/mdm/hol-guard-entry.py" in workflow_text()
 
 
 def test_macos_feed_avoids_bash4_only_builtins_and_binds_mode() -> None:
@@ -129,18 +157,10 @@ def test_macos_feed_avoids_bash4_only_builtins_and_binds_mode() -> None:
     assert '-name "hol_guard-${CORE_VERSION}-*.whl"' not in text
 
 
-def test_frozen_sidecar_copies_cloud_review_package_data() -> None:
+def test_frozen_sidecar_stages_cloud_review_package_data() -> None:
     text = workflow_text()
-    copies = (
-        'cp "$SOURCE/contracts/guard-cloud-review/v2/contract.json" "$DATA_ROOT/v2/contract.json"',
-        'cp "$SOURCE/contracts/guard-cloud-review/v2/command-result.json" "$DATA_ROOT/v2/command-result.json"',
-        'cp "$SOURCE/contracts/guard-cloud-review/v2/fixtures.json" "$DATA_ROOT/v2/fixtures.json"',
-        'cp "$SOURCE/docs/guard/contracts/guard-cloud-review.md" "$DATA_ROOT/guard-cloud-review.md"',
-    )
-    assert 'DATA_ROOT="$SOURCE/src/codex_plugin_scanner/guard/contracts/data/guard-cloud-review"' in text
-    assert 'mkdir -p "$DATA_ROOT/v2"' in text
-    for command in copies:
-        assert command in text
+    assert "python3 -I scripts/release/stage_guard_cloud_review_artifacts.py" in text
+    assert '--source-root "$SOURCE"' in text
 
 
 def test_existing_asset_set_is_all_or_nothing(tmp_path: Path, capsys) -> None:
@@ -162,14 +182,15 @@ def test_manifest_and_marker_bind_source_and_hashes(tmp_path: Path) -> None:
     marker = Path(f"{base}.attested.json")
     base.write_bytes(b"binary")
     common = dict(
-        version="3.0.0a27",
+        version="3.0.7",
         source_commit="a" * 40,
-        source_tag="alpha/v3.0.0a27",
+        source_tag="v3.0.7",
         target="aarch64-apple-darwin",
-        minimum_desktop_version="0.1.0-alpha.0",
+        minimum_desktop_version="0.1.0-beta.0",
     )
     namespace["create_manifest"](base, manifest, **common)
     namespace["validate_manifest"](base, manifest, **common)
+    assert json.loads(manifest.read_text(encoding="utf-8"))["channel"] == "stable"
     marker_common = {key: common[key] for key in ("version", "source_commit", "source_tag", "target")}
     marker_common.update(apple_signing_identity="Developer ID Application: HOL", apple_team_id="TEAMID")
     namespace["create_marker"](base, marker, workflow_run="123", **marker_common)

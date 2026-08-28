@@ -4,6 +4,7 @@
 """Pre-built OpenAI embedding and generative-AI UDF helpers."""
 
 import base64
+import logging
 import os
 import warnings
 from functools import cached_property
@@ -18,11 +19,25 @@ from geneva.udfs.text.embeddings import (
     _build_embedding_udf,
     _EmbeddingModel,
     _extract_string_inputs,
+    _next_chunk_end,
+    _normalize_embeddings,
+    _TokenRatio,
 )
+
+_LOG = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Retry helper
 # ---------------------------------------------------------------------------
+
+
+# The `brotli` C extension rejects keyword arguments, but httpx2 2.12.0's
+# BrotliDecoder passes ``output_buffer_limit=`` to ``Decompressor.process``.
+# On a worker carrying both, every brotli-encoded response fails to decode and
+# the OpenAI SDK re-raises it as an opaque ``APIConnectionError``.  Advertising
+# only gzip/deflate keeps that decode path out of reach regardless of what is
+# installed on the worker.  See GEN-914.
+_NO_BROTLI_HEADERS = {"Accept-Encoding": "gzip, deflate"}
 
 
 def _openai_retry() -> Retry:
@@ -59,6 +74,26 @@ _OPENAI_EMBEDDING_DIMENSIONS: dict[str, int] = {
     "text-embedding-ada-002": 1536,
 }
 
+# OpenAI accepts at most 2048 inputs in a single embeddings request.
+DEFAULT_MAX_INPUTS_PER_REQUEST = 2048
+
+# OpenAI caps a single embeddings request at ~300k tokens.  Geneva estimates
+# the count from UTF-8 bytes, so the default leaves headroom for the estimate
+# running low before a response has calibrated it.
+DEFAULT_MAX_TOKENS_PER_REQUEST = 250_000
+
+
+def _is_request_too_large(exc: Exception) -> bool:
+    """Whether a 400 reports the request exceeding a token limit.
+
+    Matched on the message: the embeddings endpoint reports its per-request
+    token cap as a plain ``invalid_request_error`` with no distinguishing
+    code.  Kept narrow so an unrelated 400 -- a bad model, an unsupported
+    ``dimensions`` -- still fails fast instead of being split first.
+    """
+    message = str(getattr(exc, "message", None) or exc).lower()
+    return "token" in message and ("max" in message or "limit" in message)
+
 
 @attrs.define
 class _OpenAIEmbeddingModel(_EmbeddingModel):
@@ -75,16 +110,38 @@ class _OpenAIEmbeddingModel(_EmbeddingModel):
         Optional reduced output dimensionality.  When set, the API returns
         truncated embeddings (only supported by ``text-embedding-3-*``
         models).
+    max_inputs_per_request:
+        Maximum number of texts sent in a single embeddings request.
+    max_tokens_per_request:
+        Approximate token budget for a single embeddings request.  Tokens are
+        estimated from UTF-8 byte length, calibrated from the token count each
+        response reports, and a request the API still rejects as too large is
+        retried in halves.
     """
 
     api_key: str = attrs.field(repr=False, kw_only=True)
     output_dimensionality: int | None = attrs.field(default=None, kw_only=True)
+    max_inputs_per_request: int = attrs.field(
+        default=DEFAULT_MAX_INPUTS_PER_REQUEST,
+        kw_only=True,
+        validator=attrs.validators.ge(1),
+    )
+    max_tokens_per_request: int = attrs.field(
+        default=DEFAULT_MAX_TOKENS_PER_REQUEST,
+        kw_only=True,
+        validator=attrs.validators.ge(1),
+    )
+    # Runtime calibration, not configuration: excluded from init and equality
+    # so it never reaches the UDF's identity or its serialized arguments.
+    _token_ratio: _TokenRatio = attrs.field(
+        factory=_TokenRatio, init=False, eq=False, repr=False
+    )
 
     def _build_model(self) -> Any:
         """Lazily create a per-instance OpenAI client on the worker."""
         import openai
 
-        return openai.OpenAI(api_key=self.api_key)
+        return openai.OpenAI(api_key=self.api_key, default_headers=_NO_BROTLI_HEADERS)
 
     def _get_dimension(self) -> int:
         if self.output_dimensionality is not None:
@@ -99,30 +156,70 @@ class _OpenAIEmbeddingModel(_EmbeddingModel):
         )
         return len(result.data[0].embedding)
 
-    def embed(self, batch: pa.RecordBatch) -> pa.Array:
-        valid_texts, valid_indices, values = _extract_string_inputs(batch, self.column)
+    def _embed_chunk(self, texts: list[str], sizes: list[int]) -> list[list[float]]:
+        """Embed one chunk, halving it if the API rejects it as too large.
+
+        The byte estimate is calibrated, not exact, so a chunk can still land
+        over the cap -- on the first request of a column, or when one batch
+        mixes scripts.  Splitting is the recovery, and each half that succeeds
+        reports its true token count, so the estimate is corrected as a side
+        effect.  A lone input that is still too large exceeds the *per-input*
+        token limit, which splitting cannot fix, so that error is raised.
+        """
+        import openai
+
+        kwargs: dict[str, Any] = {"input": texts, "model": self.model_name}
+        if self.output_dimensionality is not None:
+            kwargs["dimensions"] = self.output_dimensionality
+
+        try:
+            result = self.model.embeddings.create(**kwargs)
+        except openai.BadRequestError as exc:
+            if len(texts) <= 1 or not _is_request_too_large(exc):
+                raise
+            mid = len(texts) // 2
+            _LOG.info(
+                "OpenAI rejected a %d-input embeddings request as too large; "
+                "retrying as %d + %d",
+                len(texts),
+                mid,
+                len(texts) - mid,
+            )
+            return self._embed_chunk(texts[:mid], sizes[:mid]) + self._embed_chunk(
+                texts[mid:], sizes[mid:]
+            )
+
+        self._token_ratio.observe(
+            sum(sizes), getattr(getattr(result, "usage", None), "prompt_tokens", None)
+        )
+        return [d.embedding for d in result.data]
+
+    def embed_array(self, values_array: pa.Array) -> pa.Array:
+        valid_texts, valid_indices, values = _extract_string_inputs(values_array)
 
         outputs: list[list[float] | None] = [None] * len(values)
-        if valid_texts:
-            kwargs: dict[str, Any] = {
-                "input": valid_texts,
-                "model": self.model_name,
-            }
-            if self.output_dimensionality is not None:
-                kwargs["dimensions"] = self.output_dimensionality
-            result = self.model.embeddings.create(**kwargs)
-            embeddings: list[list[float]] = [d.embedding for d in result.data]
+        sizes = [len(text.encode("utf-8")) for text in valid_texts]
+        # A Geneva batch can hold more rows or tokens than a single OpenAI
+        # request accepts, so send it as one request per API-sized chunk. The
+        # ratio is re-read per chunk, so a batch large enough to need several
+        # requests already benefits from what the first one reported.
+        start = 0
+        while start < len(valid_texts):
+            end = _next_chunk_end(
+                sizes,
+                start,
+                max_inputs=self.max_inputs_per_request,
+                max_tokens=self.max_tokens_per_request,
+                bytes_per_token=self._token_ratio.bytes_per_token,
+            )
+            embeddings = self._embed_chunk(valid_texts[start:end], sizes[start:end])
 
             if self.normalize:
-                import numpy as np
+                embeddings = _normalize_embeddings(embeddings)
 
-                arr = np.array(embeddings)
-                norms = np.linalg.norm(arr, axis=1, keepdims=True)
-                norms = np.where(norms > 0, norms, 1)
-                embeddings = (arr / norms).tolist()
-
-            for idx, vector in zip(valid_indices, embeddings, strict=False):
+            for idx, vector in zip(valid_indices[start:end], embeddings, strict=False):
                 outputs[idx] = vector
+            start = end
 
         return pa.array(outputs, type=self.output_type())
 
@@ -135,6 +232,8 @@ def openai_embedding_udf(
     api_key_env: str = "OPENAI_API_KEY",
     version: str | None = None,
     dimension: int | None = None,
+    max_inputs_per_request: int = DEFAULT_MAX_INPUTS_PER_REQUEST,
+    max_tokens_per_request: int = DEFAULT_MAX_TOKENS_PER_REQUEST,
 ) -> UDF:
     """Return an OpenAI embedding UDF with the API key captured at call time.
 
@@ -169,6 +268,19 @@ def openai_embedding_udf(
         the dimension is looked up from a built-in table of known models
         (or determined from *output_dimensionality* if set).  If provided,
         model loading is deferred until UDF execution.
+    max_inputs_per_request:
+        Maximum number of texts sent in a single embeddings request
+        (default 2048, the API limit).  A Geneva batch larger than this is
+        split across several requests.
+    max_tokens_per_request:
+        Approximate token budget for a single embeddings request, defaulting
+        below the API's ~300k cap.  Tokens are estimated from UTF-8 byte
+        length rather than character count -- CJK and base64 run far denser
+        per character -- and the estimate is calibrated from the token count
+        each response reports, so it converges on the real ratio for the
+        column.  A request the API still rejects as too large is retried in
+        halves.  A single text over the per-input token limit cannot be split
+        and surfaces the API error.
 
     Returns
     -------
@@ -217,6 +329,8 @@ def openai_embedding_udf(
         normalize=normalize,
         api_key=api_key,
         output_dimensionality=output_dimensionality,
+        max_inputs_per_request=max_inputs_per_request,
+        max_tokens_per_request=max_tokens_per_request,
     )
 
     udf_name = f"{OPENAI_EMBEDDING_FAMILY}:{model}"
@@ -292,7 +406,7 @@ class _OpenAIModel:
         """Lazily initialise the OpenAI client on the worker."""
         import openai
 
-        return openai.OpenAI(api_key=self.api_key)
+        return openai.OpenAI(api_key=self.api_key, default_headers=_NO_BROTLI_HEADERS)
 
     def _build_content(self, value: Any) -> list[dict[str, Any]]:
         """Build the OpenAI messages payload for a single row value."""

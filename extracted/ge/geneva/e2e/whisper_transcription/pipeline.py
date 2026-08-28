@@ -61,15 +61,13 @@ def run_pipeline(
             [("audio_bytes", "audio_bytes IS NOT NULL")],
         )
 
-        # Stage 2: create scalar UDTF view for chunking and refresh
+        # Stage 2: create chunker view for chunking and refresh
         chunk_table_name = f"{tbl.name}_chunks"
         source_query = tbl.search(None).select(
             ["clip_id", "source", "audio_bytes", "num_clips"]
         )
-        chunk_tbl = conn.create_scalar_udtf_view(
-            chunk_table_name, source_query, chunker
-        )
-        _LOG.info("Created scalar UDTF chunk view: %s", chunk_table_name)
+        chunk_tbl = conn.create_udtf_view(chunk_table_name, source_query, chunker)
+        _LOG.info("Created chunker view: %s", chunk_table_name)
 
         chunk_tbl.refresh()
         chunk_tbl = conn.open_table(chunk_table_name)

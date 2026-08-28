@@ -1,0 +1,2 @@
+export const __rspack_esm_id=28435;export const __rspack_esm_ids=[28435];export const __webpack_modules__={90238(s,e,t){(0,t(46779).C)("echarts","drawing charts and graphs");const o=()=>{},r=new Proxy(o,{get:()=>o});t.d(e,{},{W:class{constructor(){this.stubbed=!0}},default:r})},46779(s,e,t){t.d(e,{},{C:(s,e)=>{console.error(`[KNX] "${s}" is stubbed out in this build, so ${e} does not work here. The KNX panel is not supposed to need it — if it does, remove the entry from build-scripts/stubs.cjs.`)}})}};
+//# sourceMappingURL=28435.cd28580dc6439741.js.map

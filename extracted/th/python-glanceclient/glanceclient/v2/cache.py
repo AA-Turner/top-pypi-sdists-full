@@ -28,7 +28,7 @@ class Controller(object):
             return True
         else:
             raise exc.HTTPNotImplemented(
-                'Glance does not support image caching API (v2.14)')
+                'Glance does not support image caching API (%s)' % version)
 
     @utils.add_req_id_to_object()
     def list(self):
@@ -59,4 +59,25 @@ class Controller(object):
         if self.is_supported('v2.14'):
             url = '/v2/cache/%s' % image_id
             resp, body = self.http_client.put(url)
+            return body, resp
+
+    @utils.add_req_id_to_object()
+    def list_cached_nodes(self, image_id):
+        if self.is_supported('v2.14'):
+            url = '/v2/cache/nodes/%s' % image_id
+            resp, body = self.http_client.get(url)
+            return body, resp
+
+    @utils.add_req_id_to_object()
+    def clean(self):
+        if self.is_supported('v2.18'):
+            url = '/v2/cache/clean'
+            resp, body = self.http_client.post(url)
+            return body, resp
+
+    @utils.add_req_id_to_object()
+    def prune(self):
+        if self.is_supported('v2.18'):
+            url = '/v2/cache/prune'
+            resp, body = self.http_client.post(url)
             return body, resp

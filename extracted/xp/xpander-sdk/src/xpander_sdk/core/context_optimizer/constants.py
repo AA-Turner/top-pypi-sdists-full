@@ -2,8 +2,9 @@
 
 Kept separate from ``context_optimizer.py`` so the optimizer module stays
 focused on the class itself. All values here are module-level immutables;
-the only logic is the small ``_env_*`` parsers and the rate-limit
-classifier (a pure helper used by the map-reduce retry loop).
+the only logic is the small ``_env_*`` parsers, the call-time
+``compaction_provider_override()`` reader, and the rate-limit classifier
+(a pure helper used by the map-reduce retry loop).
 """
 
 import os
@@ -120,16 +121,30 @@ FINALIZE_MODE_ENABLED = True
 
 # Dedicated model for context-optimizer LLM ops (PRO-1654). When enabled, the
 # optimizer picks a cheaper/large model by credential-availability priority
-# (bedrock → anthropic → openai) for compaction/summarisation, independent of
-# the agent's configured model. Falls back to the agent's own model when none of
-# the preferred providers have credentials. Flip to False to always use the
-# agent's model. No env var per the feedback_no_env_vars preference.
+# (bedrock → anthropic → openai → gemini) for compaction/summarisation,
+# independent of the agent's configured model. Falls back to the agent's own
+# model when none of the preferred providers have credentials. Flip to False to
+# always use the agent's model. No env var per the feedback_no_env_vars
+# preference; the per-deployment provider pin is XP_COMPACTION_PROVIDER (below).
 COMPACTION_MODEL_OVERRIDE_ENABLED = True
 
 # Fixed model ids per provider, in priority order (cheaper → fallback).
 COMPACTION_MODEL_BEDROCK = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 COMPACTION_MODEL_ANTHROPIC = "claude-sonnet-5"
 COMPACTION_MODEL_OPENAI = "gpt-5.2"
+COMPACTION_MODEL_GEMINI = "gemini-2.5-flash"
+
+
+def compaction_provider_override() -> str:
+    """Per-deployment compaction-provider pin, read from XP_COMPACT-family env.
+
+    Read at call time (not import) so tests and long-lived processes see the
+    live value. Returns the normalized value of ``XP_COMPACTION_PROVIDER``:
+    empty = auto (credential-priority chain); a provider name pins that
+    provider, falling back to the chain when its credential is missing;
+    ``none`` always uses the agent's own model.
+    """
+    return os.environ.get("XP_COMPACTION_PROVIDER", "").strip().lower()
 
 # Manual context-compaction tool (xpcompact_context, optimizer Layer 3).
 # Temporarily DISABLED: agents were over-triggering manual compaction and

@@ -170,6 +170,11 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentResponse.FromString,
         )
+        self.DeleteSelfSignupTeam = channel.unary_unary(
+            "/chalk.server.v1.TeamService/DeleteSelfSignupTeam",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamResponse.FromString,
+        )
         self.DeactivateUser = channel.unary_unary(
             "/chalk.server.v1.TeamService/DeactivateUser",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeactivateUserRequest.SerializeToString,
@@ -421,6 +426,18 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteSelfSignupTeam(self, request, context):
+        """Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
+        only for an @chalk.ai address, and no role grants it, so a customer cannot
+        reach this even as the owner of their own team. A service token can only
+        carry it if a Chalk employee deliberately minted one with it --
+        CreateServiceToken requires the permission to be a subset of the caller's
+        own, and GetAvailablePermissions does not offer it in the UI.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeactivateUser(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -644,6 +661,11 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.ArchiveEnvironment,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentResponse.SerializeToString,
+        ),
+        "DeleteSelfSignupTeam": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteSelfSignupTeam,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamResponse.SerializeToString,
         ),
         "DeactivateUser": grpc.unary_unary_rpc_method_handler(
             servicer.DeactivateUser,
@@ -1598,6 +1620,35 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/ArchiveEnvironment",
             chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.ArchiveEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteSelfSignupTeam(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/DeleteSelfSignupTeam",
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.DeleteSelfSignupTeamResponse.FromString,
             options,
             channel_credentials,
             insecure,

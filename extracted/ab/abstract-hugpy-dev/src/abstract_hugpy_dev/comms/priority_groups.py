@@ -45,6 +45,12 @@ RECORD SHAPE
     {"id": str,             # slug, the settings key
      "name": str,           # operator-facing label
      "members": [str, ...], # ORDERED model keys — the whole point
+     "workers": [str, ...], # ORDERED worker ids/names — the group's ALLOCATION
+                            # (2026-08-25): where the group's models live, in
+                            # priority order. [] = no placement statement, and
+                            # routing is byte-identical to pre-feature. Feeds
+                            # placement_policy as the fallback when the model
+                            # has no per-model worker_prefs (which outrank it).
      "enabled": bool,
      "created_at": float, "updated_at": float, "by": str}
 
@@ -128,10 +134,16 @@ def _normalize(gid: str, raw: Any) -> Optional[dict]:
         # chance — walking it twice would just print the same skip reason twice.
         if m and not any(keys_match(m, seen) for seen in members):
             members.append(m)
+    workers: List[str] = []
+    for w in (raw.get("workers") or []):
+        w = str(w or "").strip()
+        if w and w.lower() not in {seen.lower() for seen in workers}:
+            workers.append(w)
     return {
         "id": str(gid),
         "name": str(raw.get("name") or gid),
         "members": members,
+        "workers": workers,
         "enabled": bool(raw.get("enabled", True)),
         "created_at": raw.get("created_at"),
         "updated_at": raw.get("updated_at"),
@@ -194,11 +206,113 @@ def group_for_key(model_key: Any, groups: Optional[List[dict]] = None
 
 
 # ---------------------------------------------------------------------------
+# Nesting (2026-08-25): a member may be a REFERENCE to another group
+# ---------------------------------------------------------------------------
+# Spelled "group:<id>". The referenced group functions as a MODULE inside the
+# parent: at evaluation its own ordered members expand IN PLACE (recursively,
+# cycle-guarded), and for placement it inherits the parent's ``workers`` when
+# it carries none of its own. A dangling reference (id not in the registry) is
+# tolerated on read and skipped at expansion — same posture as a missing model
+# member, which the walk reports rather than trips over.
+GROUP_REF = "group:"
+
+
+def is_group_ref(member: Any) -> bool:
+    return str(member or "").strip().lower().startswith(GROUP_REF)
+
+
+def ref_id(member: Any) -> str:
+    return str(member or "").strip()[len(GROUP_REF):].strip()
+
+
+def expand_members(group: dict, groups: Optional[List[dict]] = None,
+                   _seen: Optional[set] = None) -> List[Tuple[str, Optional[str]]]:
+    """The group's ordered members with every nested group expanded in place.
+
+    Returns ``[(model_key, via), ...]`` where ``via`` is the id of the nested
+    group a key arrived through (None for direct members) — the walk reports
+    provenance, never hides it. Cycles are impossible to expand and are simply
+    not followed; a repeated model key keeps its FIRST (highest-priority)
+    position. Never raises."""
+    groups = all_groups() if groups is None else groups
+    by_id = {g["id"]: g for g in groups}
+    seen_groups = set(_seen or ())
+    seen_groups.add(group.get("id"))
+    out: List[Tuple[str, Optional[str]]] = []
+    have: List[str] = []
+    for m in (group.get("members") or []):
+        if is_group_ref(m):
+            child = by_id.get(ref_id(m))
+            if child is None or child["id"] in seen_groups:
+                continue
+            for key, _via in expand_members(child, groups, seen_groups):
+                if not any(keys_match(key, h) for h in have):
+                    have.append(key)
+                    out.append((key, child["id"]))
+        else:
+            if not any(keys_match(m, h) for h in have):
+                have.append(m)
+                out.append((m, None))
+    return out
+
+
+def effective_workers(group: dict, groups: Optional[List[dict]] = None,
+                      _seen: Optional[set] = None) -> List[str]:
+    """The ordered worker allocation that GOVERNS this group: its own
+    ``workers`` when set, else the nearest enabled PARENT's (a module inherits
+    the placement of the group it is mounted in). ``[]`` when nobody up the
+    chain says anything. Cycle-guarded, never raises."""
+    own = [str(w) for w in (group.get("workers") or []) if str(w).strip()]
+    if own:
+        return own
+    groups = all_groups() if groups is None else groups
+    seen = set(_seen or ())
+    seen.add(group.get("id"))
+    for parent in groups:
+        if not parent.get("enabled") or parent["id"] in seen:
+            continue
+        if any(is_group_ref(m) and ref_id(m) == group.get("id")
+               for m in (parent.get("members") or [])):
+            got = effective_workers(parent, groups, seen)
+            if got:
+                return got
+    return []
+
+
+def workers_for_key(model_key: Any) -> List[str]:
+    """The ORDERED worker allocation of the enabled group claiming ``model_key``,
+    or ``[]`` — the group half of placement.
+
+    ``[]`` is the byte-identical no-op: a model in no group, in a disabled
+    group, or in a group whose ``workers`` list was never filled routes exactly
+    as it does without this feature. Consumed by
+    ``managers.serve.overrides.placement_policy`` as the FALLBACK when the model
+    carries no per-model ``worker_prefs`` — an order written on the model itself
+    is more specific than the group's and outranks it, the same
+    explicit-outranks-implicit rule this module already applies to the derived
+    grouping. Never raises."""
+    try:
+        groups = all_groups()
+        group = group_for_key(model_key, groups)
+        if not group:
+            return []
+        # Nesting: a group with no workers of its own inherits the allocation
+        # of the enabled parent it is mounted in (effective_workers).
+        return effective_workers(group, groups)
+    except Exception as exc:  # noqa: BLE001 — placement must never break here
+        logger.warning("priority groups: workers_for_key(%s) failed (%s)",
+                       model_key, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
 def validate(group_id: str, name: Any, members: Any, enabled: Any,
-             groups: Optional[List[dict]] = None) -> Tuple[list, list]:
-    """``(clean_members, errors)``. ``errors`` empty means the write is legal.
+             groups: Optional[List[dict]] = None,
+             workers: Any = None) -> Tuple[list, list, list]:
+    """``(clean_members, clean_workers, errors)``. ``errors`` empty means the
+    write is legal.
 
     THE ONE STRUCTURAL RULE: a model key may appear in AT MOST ONE ENABLED
     group. Two enabled groups claiming the same key would make resolution depend
@@ -230,6 +344,29 @@ def validate(group_id: str, name: Any, members: Any, enabled: Any,
         clean.append(m)
     if not clean:
         errors.append("members must contain at least one model key")
+    for m in clean:
+        if is_group_ref(m) and ref_id(m) == gid:
+            errors.append(f"{m!r} — a group cannot contain itself")
+
+    # ``workers`` is the group's ORDERED worker allocation — optional, and an
+    # empty list is legal (a group may order models without placing them). A
+    # duplicate is a typo like a duplicate member; matching is case-insensitive
+    # because ``_pref_index`` matches id-or-name case-insensitively downstream.
+    clean_workers: List[str] = []
+    if workers is None:
+        workers = []
+    if not isinstance(workers, (list, tuple)):
+        errors.append("workers must be a list of worker ids or names, "
+                      "in priority order")
+        workers = []
+    for w in workers:
+        w = str(w or "").strip()
+        if not w:
+            continue
+        if w.lower() in {seen.lower() for seen in clean_workers}:
+            errors.append(f"duplicate worker {w!r} — a worker may be listed once")
+            continue
+        clean_workers.append(w)
 
     if bool(enabled):
         others = [g for g in (all_groups() if groups is None else groups)
@@ -241,22 +378,24 @@ def validate(group_id: str, name: Any, members: Any, enabled: Any,
                         f"{m!r} is already a member of the enabled group "
                         f"{og['id']!r} ({og.get('name')}) — a model key may be "
                         f"in at most one enabled group")
-    return clean, errors
+    return clean, clean_workers, errors
 
 
 # ---------------------------------------------------------------------------
 # Writes
 # ---------------------------------------------------------------------------
 def put_group(group_id: Any, *, name: Any, members: Any, enabled: Any = True,
+              workers: Any = None,
               by: Optional[str] = None) -> Tuple[Optional[dict], list]:
     """Create or REPLACE a group. ``(record, errors)``; record is None on error.
 
-    Replace rather than merge: ``members`` is an ORDER, and a partial update of
-    an order is not a thing that has a meaning. ``PATCH`` in the route layer
-    reads the current record, applies the patch, and calls this — so there is
-    still exactly one validated write path."""
+    Replace rather than merge: ``members`` and ``workers`` are each an ORDER,
+    and a partial update of an order is not a thing that has a meaning.
+    ``PATCH`` in the route layer reads the current record, applies the patch,
+    and calls this — so there is still exactly one validated write path."""
     gid = slugify(group_id or name)
-    clean, errors = validate(gid, name, members, enabled)
+    clean, clean_workers, errors = validate(gid, name, members, enabled,
+                                            workers=workers)
     if errors:
         return None, errors
     prior = get_group(gid) or {}
@@ -265,15 +404,72 @@ def put_group(group_id: Any, *, name: Any, members: Any, enabled: Any = True,
         "id": gid,
         "name": str(name).strip(),
         "members": clean,
+        "workers": clean_workers,
         "enabled": bool(enabled),
         "created_at": prior.get("created_at") or now,
         "updated_at": now,
         "by": by or "operator",
     }
     settings_store.set(NS, gid, rec)
-    logger.info("priority group %s: members=%s enabled=%s (by=%s)",
-                gid, clean, rec["enabled"], rec["by"])
+    logger.info("priority group %s: members=%s workers=%s enabled=%s (by=%s)",
+                gid, clean, clean_workers, rec["enabled"], rec["by"])
     return rec, []
+
+
+def move_member(model_key: Any, group_id: Any = None,
+                by: Optional[str] = None) -> Tuple[List[dict], list]:
+    """Move ``model_key`` INTO ``group_id`` (appended LAST — joining a group is
+    not an opinion about its order) and OUT of every other group; a falsy
+    ``group_id`` just removes it everywhere. ``(changed_records, errors)``.
+
+    The one-select gesture behind the model table's Group column. Removals run
+    BEFORE the add so the at-most-one-enabled-group invariant never trips on
+    the transition. A removal that would leave a group EMPTY is refused with
+    "delete the group instead" — an empty members list is invalid by
+    ``validate``, and silently deleting a group the operator wrote is exactly
+    the kind of surprise this module refuses. Every write goes through
+    ``put_group`` — still the one validated path."""
+    key = str(model_key or "").strip()
+    if not key:
+        return [], ["model_key is required"]
+    target_gid = str(group_id or "").strip() or None
+    groups = all_groups()
+    target = None
+    if target_gid:
+        target = next((g for g in groups if g["id"] == target_gid), None)
+        if target is None:
+            return [], [f"no such priority group: {target_gid!r}"]
+
+    changed: List[dict] = []
+    errors: List[str] = []
+    for g in groups:
+        if target is not None and g["id"] == target["id"]:
+            continue
+        if not any(keys_match(key, m) for m in (g.get("members") or [])):
+            continue
+        members = [m for m in g["members"] if not keys_match(key, m)]
+        if not members:
+            errors.append(
+                f"removing {key!r} would leave group {g['id']!r} empty — "
+                "delete the group instead")
+            continue
+        rec, errs = put_group(g["id"], name=g["name"], members=members,
+                              enabled=g["enabled"], workers=g.get("workers"),
+                              by=by)
+        errors += errs
+        if rec:
+            changed.append(rec)
+
+    if target is not None and not any(
+            keys_match(key, m) for m in (target.get("members") or [])):
+        rec, errs = put_group(
+            target["id"], name=target["name"],
+            members=list(target.get("members") or []) + [key],
+            enabled=target["enabled"], workers=target.get("workers"), by=by)
+        errors += errs
+        if rec:
+            changed.append(rec)
+    return changed, errors
 
 
 def delete_group(group_id: Any) -> bool:

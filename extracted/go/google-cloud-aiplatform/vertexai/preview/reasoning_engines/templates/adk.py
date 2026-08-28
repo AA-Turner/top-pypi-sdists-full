@@ -638,6 +638,40 @@ def _override_active_span_processor(
     tracer_provider._active_span_processor = active_span_processor
 
 
+def _run_coroutine_on_thread(coroutine_fn: Callable[[], Awaitable[Any]]) -> Any:
+    """Runs a coroutine to completion on a dedicated worker thread.
+
+    The deprecated synchronous session methods cannot call `asyncio.run`
+    directly, because they may be invoked from a thread that already owns a
+    running event loop. Any exception raised by the coroutine is re-raised
+    here with its original traceback, so the caller sees the underlying
+    failure (e.g. a `google.genai.errors.APIError`) instead of a generic
+    error.
+
+    Args:
+        coroutine_fn (Callable[[], Awaitable[Any]]):
+            Required. A zero-argument callable returning the awaitable to run.
+            It is called on the worker thread.
+
+    Returns:
+        Any: The value returned by the awaitable.
+    """
+    outcome = {}
+
+    def _asyncio_thread_main():
+        try:
+            outcome["result"] = asyncio.run(coroutine_fn())
+        except BaseException as e:  # pylint: disable=broad-exception-caught
+            outcome["error"] = e
+
+    thread = threading.Thread(target=_asyncio_thread_main)
+    thread.start()
+    thread.join()
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome.get("result")
+
+
 def _validate_run_config(run_config: Optional[Dict[str, Any]]):
     """Validates the run config."""
     from google.adk.agents.run_config import RunConfig
@@ -714,17 +748,9 @@ class AdkApp:
         """Initializes the session, and returns the session id."""
         from google.adk.events.event import Event
 
-        session_state = None
-        if request.authorizations:
-            session_state = {}
-            for auth_id, auth in request.authorizations.items():
-                auth = _Authorization(**auth)
-                session_state[auth_id] = auth.access_token
-
         session = await session_service.create_session(
             app_name=self._tmpl_attrs.get("app_name"),
             user_id=request.user_id,
-            state=session_state,
         )
         if not session:
             raise RuntimeError("Create session failed.")
@@ -1163,6 +1189,17 @@ class AdkApp:
                 )
             ):
                 self.set_up()
+            # Forward the user's OAuth access tokens as ephemeral `temp:`
+            # state. ADK exposes `temp:` keys to the agent for the duration of
+            # the invocation but trims them before the session is written to
+            # durable storage, so the tokens are never persisted.
+            state_delta = None
+            if request.authorizations:
+                state_delta = {}
+                for auth_id, auth in request.authorizations.items():
+                    auth = _Authorization(**auth)
+                    state_delta[f"temp:{auth_id}"] = auth.access_token
+
             # Try to get the session, if it doesn't exist, create a new one.
             if request.session_id:
                 session_service = self._tmpl_attrs.get("session_service")
@@ -1221,6 +1258,7 @@ class AdkApp:
                     user_id=request.user_id,
                     session_id=session.id,
                     new_message=message_for_agent,
+                    state_delta=state_delta,
                     run_config=run_config,
                 ):
                     converted_event = await self._convert_response_events(
@@ -1246,11 +1284,13 @@ class AdkApp:
         def _asyncio_thread_main():
             try:
                 asyncio.run(_invoke_agent_async())
-            except RuntimeError as e:
-                event_queue.put(e)
-            finally:
                 # Use None as a sentinel to stop the main thread.
                 event_queue.put(None)
+            except BaseException as e:  # pylint: disable=broad-exception-caught
+                # Queue exactly one terminal item. The consumer stops on either
+                # of them, so a second put() on this maxsize=1 queue would block
+                # forever whenever the consumer abandoned the generator early.
+                event_queue.put(e)
 
         thread = threading.Thread(target=_asyncio_thread_main)
         thread.start()
@@ -1260,7 +1300,7 @@ class AdkApp:
                 event = event_queue.get()
                 if event is None:
                     break
-                if isinstance(event, RuntimeError):
+                if isinstance(event, BaseException):
                     raise event
                 yield event
         finally:
@@ -1399,34 +1439,11 @@ class AdkApp:
         **kwargs,
     ):
         """Get a session for the given user."""
-        event_queue = queue.Queue(maxsize=1)
-
-        async def _invoke_async_get_session():
-            return await self.async_get_session(
+        return _run_coroutine_on_thread(
+            lambda: self.async_get_session(
                 user_id=user_id, session_id=session_id, **kwargs
             )
-
-        def _asyncio_thread_main():
-            try:
-                result = asyncio.run(_invoke_async_get_session())
-                event_queue.put(result)
-            except RuntimeError as e:
-                event_queue.put(e)
-
-        thread = threading.Thread(target=_asyncio_thread_main)
-        thread.start()
-
-        # Wait for the thread to finish
-        thread.join()
-        try:
-            outcome = event_queue.get(timeout=10)
-        except queue.Empty:
-            raise RuntimeError(
-                "Session not found. Please create it using .create_session()"
-            ) from None
-        if isinstance(outcome, RuntimeError):
-            raise outcome from None
-        return outcome
+        )
 
     async def async_list_sessions(self, *, user_id: str, **kwargs):
         """List sessions for the given user.
@@ -1451,29 +1468,9 @@ class AdkApp:
 
     def list_sessions(self, *, user_id: str, **kwargs):
         """List sessions for the given user."""
-        event_queue = queue.Queue()
-
-        async def _invoke_async_list_sessions():
-            try:
-                response = await self.async_list_sessions(user_id=user_id, **kwargs)
-                event_queue.put(response)
-            except RuntimeError as e:
-                event_queue.put(e)
-
-        def _asyncio_thread_main():
-            try:
-                asyncio.run(_invoke_async_list_sessions())
-            finally:
-                event_queue.put(None)
-
-        thread = threading.Thread(target=_asyncio_thread_main)
-        thread.start()
-        # Wait for the thread to finish
-        thread.join()
-        try:
-            return event_queue.get(timeout=10)
-        except queue.Empty:
-            raise RuntimeError("Failed to list sessions.") from None
+        return _run_coroutine_on_thread(
+            lambda: self.async_list_sessions(user_id=user_id, **kwargs)
+        )
 
     async def async_create_session(
         self,
@@ -1520,35 +1517,14 @@ class AdkApp:
         **kwargs,
     ):
         """Creates a new session."""
-        event_queue = queue.Queue(maxsize=1)
-
-        async def _invoke_async_create_session():
-            return await self.async_create_session(
+        return _run_coroutine_on_thread(
+            lambda: self.async_create_session(
                 user_id=user_id,
                 session_id=session_id,
                 state=state,
                 **kwargs,
             )
-
-        def _asyncio_thread_main():
-            try:
-                result = asyncio.run(_invoke_async_create_session())
-                event_queue.put(result)
-            except RuntimeError as e:
-                event_queue.put(e)
-
-        thread = threading.Thread(target=_asyncio_thread_main)
-        thread.start()
-        # Wait for the thread to finish
-        thread.join()
-
-        try:
-            outcome = event_queue.get(timeout=10)
-        except queue.Empty:
-            raise RuntimeError("Failed to create session.") from None
-        if isinstance(outcome, RuntimeError):
-            raise outcome from None
-        return outcome
+        )
 
     async def async_delete_session(
         self,
@@ -1585,28 +1561,11 @@ class AdkApp:
         **kwargs,
     ):
         """Deletes a session for the given user."""
-        event_queue = queue.Queue(maxsize=1)
-
-        async def _invoke_async_delete_session():
-            await self.async_delete_session(
+        _run_coroutine_on_thread(
+            lambda: self.async_delete_session(
                 user_id=user_id, session_id=session_id, **kwargs
             )
-
-        def _asyncio_thread_main():
-            try:
-                asyncio.run(_invoke_async_delete_session())
-                event_queue.put(None)
-            except RuntimeError as e:
-                event_queue.put(e)
-
-        thread = threading.Thread(target=_asyncio_thread_main)
-        thread.start()
-        # Wait for the thread to finish
-        thread.join()
-
-        outcome = event_queue.get(timeout=10)
-        if isinstance(outcome, RuntimeError):
-            raise outcome from None
+        )
 
     async def async_add_session_to_memory(self, *, session: Dict[str, Any]):
         """Generates memories.

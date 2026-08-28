@@ -1,8 +1,8 @@
 #include "test-unknown.h"
 
-enum {
+typedef enum {
     PROP_SOME_PROPERTY = 1,
-};
+} TestUnknownProps;
 
 
 static void
@@ -12,9 +12,10 @@ test_interface_base_init (gpointer g_iface)
 
     if (!initialized) {
         g_object_interface_install_property (
-            g_iface, g_param_spec_string ("some-property", "some-property",
-                                          "A simple test property", NULL,
-                                          G_PARAM_READWRITE));
+            g_iface,
+            g_param_spec_string ("some-property", "some-property",
+                                 "A simple test property", NULL,
+                                 G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
         initialized = TRUE;
     }
 }
@@ -27,14 +28,14 @@ test_interface_get_type (void)
 
     if (!gtype) {
         static const GTypeInfo info = {
-            sizeof (TestInterfaceIface), /* class_size */
-            test_interface_base_init,    /* base_init */
-            NULL,                        /* base_finalize */
+            sizeof (TestInterfaceInterface), /* class_size */
+            test_interface_base_init,        /* base_init */
+            NULL,                            /* base_finalize */
             NULL,
-            NULL,                        /* class_finalize */
-            NULL,                        /* class_data */
+            NULL,                            /* class_finalize */
+            NULL,                            /* class_data */
             0,
-            0,                           /* n_preallocs */
+            0,                               /* n_preallocs */
             NULL
         };
 
@@ -53,7 +54,7 @@ test_unknown_iface_method (TestInterface *iface)
 }
 
 static void
-test_unknown_test_interface_init (TestInterfaceIface *iface)
+test_unknown_test_interface_init (TestInterfaceInterface *iface)
 {
     iface->iface_method = test_unknown_iface_method;
 }
@@ -89,18 +90,18 @@ test_unknown_class_init (TestUnknownClass *klass)
     gobject_class->get_property = test_unknown_get_property;
     gobject_class->set_property = test_unknown_set_property;
 
-
+    /* gobject-linter-ignore-next-line: use_g_object_class_install_properties */
     g_object_class_install_property (
         G_OBJECT_CLASS (klass), PROP_SOME_PROPERTY,
         g_param_spec_string ("some-property", "some-property",
                              "A simple test property", NULL,
-                             G_PARAM_READWRITE));
+                             G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 void
 test_interface_iface_method (TestInterface *instance)
 {
-    TestInterfaceIface *iface = TEST_INTERFACE_GET_IFACE (instance);
+    TestInterfaceInterface *iface = TEST_INTERFACE_GET_IFACE (instance);
 
     (*iface->iface_method) (instance);
 }

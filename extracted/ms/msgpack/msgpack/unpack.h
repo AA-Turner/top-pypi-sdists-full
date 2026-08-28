@@ -40,11 +40,6 @@ struct unpack_context;
 typedef struct unpack_context unpack_context;
 typedef int (*execute_fn)(unpack_context *ctx, const char* data, Py_ssize_t len, Py_ssize_t* off);
 
-static inline msgpack_unpack_object unpack_callback_root(unpack_user* u)
-{
-    return NULL;
-}
-
 static inline int unpack_callback_uint16(unpack_user* u, uint16_t d, msgpack_unpack_object* o)
 {
     PyObject *p = PyLong_FromLong((long)d);
@@ -276,15 +271,21 @@ static int unpack_timestamp(const char* buf, unsigned int buflen, msgpack_timest
         uint64_t value =_msgpack_load64(uint64_t, buf);
         ts->tv_nsec = (uint32_t)(value >> 34);
         ts->tv_sec = value & 0x00000003ffffffffLL;
-        return 0;
+        break;
     }
     case 12:
         ts->tv_nsec = _msgpack_load32(uint32_t, buf);
         ts->tv_sec = _msgpack_load64(int64_t, buf + 4);
-        return 0;
+        break;
     default:
+        PyErr_Format(PyExc_ValueError, "invalid timestamp data (length %u)", buflen);
         return -1;
     }
+    if (ts->tv_nsec > 999999999) {
+        PyErr_Format(PyExc_ValueError, "nanoseconds must be a non-negative integer not greater than 999999999.");
+        return -1;
+    }
+    return 0;
 }
 
 #include "datetime.h"
@@ -336,12 +337,18 @@ static int unpack_callback_ext(unpack_user* u, const char* base, const char* pos
         else if (u->timestamp == 3) {  // datetime
             // Calculate datetime using epoch + delta
             // due to limitations PyDateTime_FromTimestamp on Windows with negative timestamps
+            int64_t days = ts.tv_sec / (24*3600);
+            if (days < INT_MIN || days > INT_MAX) {
+                PyErr_Format(PyExc_OverflowError,
+                            "days=%lld; too large to convert to C int", days);
+                return -1;
+            }
             PyObject *epoch = PyDateTimeAPI->DateTime_FromDateAndTime(1970, 1, 1, 0, 0, 0, 0, u->utc, PyDateTimeAPI->DateTimeType);
             if (epoch == NULL) {
                 return -1;
             }
 
-            PyObject* d = PyDelta_FromDSU(ts.tv_sec/(24*3600), ts.tv_sec%(24*3600), ts.tv_nsec / 1000);
+            PyObject* d = PyDelta_FromDSU((int)days, ts.tv_sec%(24*3600), ts.tv_nsec / 1000);
             if (d == NULL) {
                 Py_DECREF(epoch);
                 return -1;

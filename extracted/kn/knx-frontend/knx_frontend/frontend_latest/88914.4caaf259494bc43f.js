@@ -1,0 +1,2 @@
+export const __rspack_esm_id=88914;export const __rspack_esm_ids=[88914];export const __webpack_modules__={73449(e,s,o){(0,o(46779).C)("qr-scanner","scanning QR codes with the camera");const t={hasCamera:()=>Promise.resolve(!1)};o.d(s,{},{default:t})},46779(e,s,o){o.d(s,{},{C:(e,s)=>{console.error(`[KNX] "${e}" is stubbed out in this build, so ${s} does not work here. The KNX panel is not supposed to need it — if it does, remove the entry from build-scripts/stubs.cjs.`)}})}};
+//# sourceMappingURL=88914.4caaf259494bc43f.js.map

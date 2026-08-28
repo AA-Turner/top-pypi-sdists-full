@@ -147,6 +147,19 @@ _SENSITIVE = [
     # below if it were ever given a write verb; it has none.
     ({"POST"},                   re.compile(r"^/llm/model-groups$")),
     ({"PUT", "PATCH", "DELETE"}, re.compile(r"^/llm/model-groups/[^/]+$")),
+    # Group ALLOCATE (2026-08-25): fans the group's members out as designations
+    # (worker["models"] writes) — same tier as /assign, so operator-only.
+    ({"POST"},                   re.compile(r"^/llm/model-groups/[^/]+/allocate$")),
+    # Group MEMBER move (2026-08-25): the model table's Group column — a
+    # membership write like POST/PUT above, so operator-only.
+    ({"POST"},                   re.compile(r"^/llm/model-groups/member$")),
+    # TASK TEMPLATES (2026-08-26): blueprint writes + activate/deactivate.
+    # Activation POOLS workers (removes them from general serving) and fans out
+    # designations — the same tier as /pool + /assign, so operator-only. The
+    # GET listing stays member-visible like every other read.
+    ({"POST"},                   re.compile(r"^/llm/templates$")),
+    ({"PUT", "PATCH", "DELETE"}, re.compile(r"^/llm/templates/[^/]+$")),
+    ({"POST"},                   re.compile(r"^/llm/templates/[^/]+/(activate|deactivate)$")),
     # Serving / slot control (operator) — the GET status reads stay open.
     ({"POST"},                   re.compile(r"^/llm/serving/[^/]+$")),
     ({"POST"},                   re.compile(r"^/llm/slots/(load|unload)$")),
@@ -302,7 +315,9 @@ _SENSITIVE = [
     # someone else's fleet job is an operator action (the media/studio jobs a
     # member owns are cancelled through /video/jobs/<id>/cancel, which the
     # ownership filter guards — deliberately NOT here).
-    ({"POST"},                   re.compile(r"^/jobs/[^/]+/(cancel|retry)$")),
+    # discard = dismissing a persistent failure record; diagnose = spending
+    # keeper inference. Both are the same operator tier as cancel/retry (k121).
+    ({"POST"},                   re.compile(r"^/jobs/[^/]+/(cancel|retry|discard|diagnose)$")),
     # Bulk repo pull — the same "fill the model store from the internet" tier as
     # /civitai/download and /models/<key>/download.
     ({"POST"},                   re.compile(r"^/llm/repos/download$")),

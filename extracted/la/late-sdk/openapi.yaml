@@ -4864,6 +4864,34 @@ components:
           type: string
           enum: [platform_withheld]
           description: 'Why the file is missing. platform_withheld means the platform declined to return it and retrying will not help.'
+    MediaContentType:
+      type: string
+      description: >-
+        MIME type of the file to upload. Rejected with a 400 (INVALID_FIELD_VALUE
+        on contentType) when it is not one of these values, so generic types such
+        as application/octet-stream are not accepted here.
+      example: "video/mp4"
+      enum:
+        - image/jpeg
+        - image/jpg
+        - image/png
+        - image/webp
+        - image/gif
+        - video/mp4
+        - video/mpeg
+        - video/quicktime
+        - video/avi
+        - video/x-msvideo
+        - video/webm
+        - video/x-m4v
+        - application/pdf
+        - audio/mpeg
+        - audio/mp4
+        - audio/aac
+        - audio/ogg
+        - audio/wav
+        - audio/webm
+        - audio/x-m4a
     PlatformTarget:
       type: object
       properties:
@@ -4887,24 +4915,18 @@ components:
           format: date-time
           description: Optional per-platform scheduled time override (uses post.scheduledFor when omitted)
         platformSpecificData:
-          description: Platform-specific overrides and options.
-          oneOf:
-            - $ref: '#/components/schemas/TwitterPlatformData'
-            - $ref: '#/components/schemas/ThreadsPlatformData'
-            - $ref: '#/components/schemas/FacebookPlatformData'
-            - $ref: '#/components/schemas/InstagramPlatformData'
-            - $ref: '#/components/schemas/LinkedInPlatformData'
-            - $ref: '#/components/schemas/PinterestPlatformData'
-            - $ref: '#/components/schemas/YouTubePlatformData'
-            - $ref: '#/components/schemas/GoogleBusinessPlatformData'
-            - $ref: '#/components/schemas/TikTokPlatformData'
-            - $ref: '#/components/schemas/TelegramPlatformData'
-            - $ref: '#/components/schemas/SnapchatPlatformData'
-            - $ref: '#/components/schemas/RedditPlatformData'
-            - $ref: '#/components/schemas/BlueskyPlatformData'
-            - $ref: '#/components/schemas/DiscordPlatformData'
-            - $ref: '#/components/schemas/SlackPlatformData'
+          type: object
           additionalProperties: true
+          description: >-
+            The platform-specific options stored on this target, echoed back as
+            they were sent. Typed per platform on the way in (see the
+            *PlatformData schemas on the request body); free-form on the way
+            out, because a response is not guaranteed to match exactly one of
+            those variants and generated clients that pick a variant by
+            structure reject the entire response when it doesn't. Zernio's
+            internal publishing state (snapshots, container ids, publish stage)
+            is never returned here, and the key is omitted rather than sent as
+            an empty object.
         status:
           type: string
           example: pending
@@ -6938,14 +6960,14 @@ components:
               totalUsd: { type: number }
               quantity: { type: number }
         peaks:
-          type: object
-          description: Peak counts over the window (Metronome COUNT metrics + live active-number count).
+          type: [object, "null"]
+          description: 'Peak counts over the window (Metronome COUNT metrics + live active-number count). Null when `profileId` / `accountId` is set.'
           properties:
             accounts: { type: integer }
             numbers: { type: integer }
         callUsage:
-          type: object
-          description: Billable call volumes over the window.
+          type: [object, "null"]
+          description: 'Billable call volumes over the window. Null when `profileId` / `accountId` is set.'
           properties:
             whatsapp:
               type: object
@@ -6979,6 +7001,61 @@ components:
             ratePercent: { type: [number, "null"], description: "Combined rate percentage, e.g. 21." }
             jurisdictionLabel: { type: [string, "null"], description: 'Human jurisdiction label, e.g. "ES VAT" or "WA sales tax".' }
             reverseCharge: { type: boolean, description: True for EU/UK B2B reverse charge (0 tax added by design). }
+        attribution:
+          type: object
+          description: 'Present with `groupBy`. The window''s spend split per profile or account; `sum(groups) + unattributed` equals `totals` per product.'
+          properties:
+            groupBy:
+              type: string
+              enum: [profile, account]
+            groups:
+              type: array
+              items:
+                $ref: '#/components/schemas/UsageAttributionGroup'
+            unattributed:
+              $ref: '#/components/schemas/UsageAttributionSlice'
+              description: 'Spend no profile/account can claim: credits, 10DLC fees, Verify, and usage whose record no longer resolves to an account. Zero for a restricted principal.'
+            totals:
+              $ref: '#/components/schemas/UsageAttributionSlice'
+              description: 'The window totals; for a restricted principal, the sum of the visible groups.'
+            restricted:
+              type: boolean
+              description: 'True when the caller (profile-scoped API key or member) cannot see every profile: `groups` are filtered, `totals` sum them, `unattributed` is zero, and the top-level `days` / `totals` / `lineItems` are projected onto the visible groups with `peaks`, `callUsage` and `tax` null.'
+        scope:
+          description: 'Present with `profileId` / `accountId`: echoes the group the payload was projected onto.'
+          oneOf:
+            - type: object
+              required: [profileId]
+              properties:
+                profileId: { type: string }
+            - type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string }
+    UsageAttributionGroup:
+      allOf:
+        - $ref: '#/components/schemas/UsageAttributionSlice'
+        - type: object
+          required: [key]
+          properties:
+            key: { type: string, description: 'Profile id or account id, per `groupBy`.' }
+    UsageAttributionSlice:
+      type: object
+      properties:
+        byProduct:
+          type: object
+          description: USD per product family.
+          properties:
+            accounts: { type: number }
+            numbers: { type: number }
+            calls: { type: number }
+            sms: { type: number }
+            verify: { type: number }
+            dlc: { type: number }
+            xApi: { type: number }
+            credits: { type: number }
+            other: { type: number }
+        totalUsd: { type: number }
     UsageStats:
       type: object
       description: |
@@ -8141,7 +8218,7 @@ components:
               name: { type: string }
         customLocations:
           type: array
-          description: "Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured only where the capability map allows radius (Meta)."
+          description: "Point-radius (lat/lng) targeting (Meta custom_locations / Google proximity). Honoured on Meta and Google; ignored on platforms without radius support."
           items:
             type: object
             required: [latitude, longitude, radius, distanceUnit]
@@ -13506,30 +13583,7 @@ paths:
                   description: Name of the file to upload
                   example: "my-video.mp4"
                 contentType:
-                  type: string
-                  description: MIME type of the file
-                  enum:
-                    - image/jpeg
-                    - image/jpg
-                    - image/png
-                    - image/webp
-                    - image/gif
-                    - video/mp4
-                    - video/mpeg
-                    - video/quicktime
-                    - video/avi
-                    - video/x-msvideo
-                    - video/webm
-                    - video/x-m4v
-                    - application/pdf
-                    - audio/mpeg
-                    - audio/mp4
-                    - audio/aac
-                    - audio/ogg
-                    - audio/wav
-                    - audio/webm
-                    - audio/x-m4a
-                  example: "video/mp4"
+                  $ref: '#/components/schemas/MediaContentType'
                 size:
                   type: integer
                   description: Optional file size in bytes for pre-validation (max 5GB)
@@ -13857,6 +13911,20 @@ paths:
         Also served at `GET /v1/usage/daily`. Usage-based accounts only —
         legacy Stripe accounts get `{ "supported": false, "days": [] }`.
 
+        **Attribution (metering mode):** `groupBy=profile|account` adds an
+        `attribution` breakdown of the window's spend per profile or account,
+        assembled from your own records and pro-rated against the invoice so
+        `sum(groups) + unattributed` equals `totals` exactly. `profileId` /
+        `accountId` instead project the whole payload (`days`, `totals`,
+        `lineItems`) onto that one group; `peaks`, `callUsage` and `tax` are
+        then `null` (workspace-level facts). Projected `days` spread the
+        group's period share over each day (usage is attributed per period,
+        not per day). Profile-scoped API keys and members only see their
+        profiles' groups (`attribution.restricted: true`, with `totals`
+        summing the visible groups). Credits, 10DLC fees and Verify are always
+        unattributed. `profileId` / `accountId` on their own do not select
+        metering mode: pair them with `range`.
+
         For per-domain consumption *volumes* use `GET /v1/usage/calls` and
         `GET /v1/usage/sms`. For the billing statement (balance, credits,
         caps, payment status) use `GET /v1/billing`.
@@ -13903,6 +13971,23 @@ paths:
             Bucketing of the `days` series: `day` (one row per UTC day),
             `month` (one row per calendar month, dated to the 1st), or `total`
             (no series — read `totals`). Does not affect `totals`.
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [profile, account]
+          description: 'Metering mode. Adds `attribution`: the window''s spend split per profile or per account (keys are ids; resolve names via `GET /v1/profiles` / `GET /v1/accounts`).'
+        - name: profileId
+          in: query
+          required: false
+          schema: { type: string }
+          description: 'Metering mode (pair with `range`). Project the payload onto this profile''s attributed share. Mutually exclusive with `accountId`, and `groupBy` (if given) must be `profile`; 404 when the profile is not in your workspace (or outside a scoped key''s profiles).'
+        - name: accountId
+          in: query
+          required: false
+          schema: { type: string }
+          description: 'Metering mode (pair with `range`). Project the payload onto this account''s attributed share. Mutually exclusive with `profileId`, and `groupBy` (if given) must be `account`; 404 when the account is not visible to the caller.'
       responses:
         '200':
           description: |
@@ -22514,6 +22599,122 @@ paths:
         '404': { description: Account not found }
         '502': { description: Pinterest rejected the request (e.g. duplicate board name) }
 
+  /v1/accounts/{accountId}/youtube-captions:
+    get:
+      x-resource-group: "accounts"
+      operationId: getYoutubeCaptions
+      tags: [Connect]
+      summary: Get a YouTube video transcript
+      description: |
+        Returns the caption track YouTube already holds for one of the connected channel's own videos, as plain text plus timed cues. Use it instead of downloading and transcribing the video yourself.
+
+        Auto-generated (ASR) tracks are included: YouTube serves them to the channel owner, which is what the connected account is. Uploaded tracks win over auto-generated ones when both exist for a language.
+
+        Caching: we store the transcript on first read and serve it from there afterwards, so you do not need to cache it yourself. A cached read costs no YouTube quota and does not call YouTube at all. `source` tells you which happened (`youtube` on the first read, `cache` after). Pass `refresh=true` only when the captions actually changed on YouTube, since that re-downloads.
+
+        Notes:
+        - Only videos owned by this connected channel. Anything else returns 404.
+        - `contentDetails.caption` in YouTube's own API reads `false` on videos that DO have a serving auto-generated track, so it is not a usable availability signal. Call this endpoint and handle the 404.
+        - YouTube generates auto-captions only for videos with recognisable speech, and can take a few hours after upload to publish them.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+          description: The connected YouTube account.
+        - name: videoId
+          in: query
+          required: true
+          schema: { type: string }
+          description: 'The YouTube video id (the `platformPostId` on a synced external post).'
+        - name: language
+          in: query
+          schema: { type: string }
+          description: 'BCP-47 language tag as YouTube labels the track. `en` also matches an `en-GB` track. Omit to take the best available track.'
+        - name: format
+          in: query
+          schema: { type: string, enum: [json, srt], default: json }
+          description: '`json` returns timed `cues`; `srt` returns the raw SubRip body instead. `text` is present either way.'
+        - name: refresh
+          in: query
+          schema: { type: boolean, default: false }
+          description: 'Re-download from YouTube instead of serving the stored copy. Spends 200 quota units.'
+      responses:
+        '200':
+          description: The transcript.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accountId: { type: string }
+                  videoId: { type: string }
+                  language: { type: string, description: The language of the returned track. }
+                  trackId: { type: string, description: YouTube's own caption track id. }
+                  trackKind:
+                    type: string
+                    enum: [asr, standard]
+                    description: '`asr` is YouTube''s auto-generated track; `standard` was uploaded by the channel.'
+                  source:
+                    type: string
+                    enum: [cache, youtube]
+                    description: '`cache` when served from our stored copy, `youtube` when this call spent the quota units.'
+                  fetchedAt: { type: string, format: date-time, description: When the stored copy was downloaded from YouTube. }
+                  text: { type: string, description: 'The whole transcript as one paragraph, no timings.' }
+                  cues:
+                    type: array
+                    description: 'Timed cues. Present when format is json. Auto-generated cues overlap in time by design (captions roll), so `start` can precede the previous cue''s `end`.'
+                    items:
+                      type: object
+                      properties:
+                        start: { type: number, description: 'Seconds from the start of the video.' }
+                        end: { type: number }
+                        text: { type: string }
+                  srt: { type: string, description: Raw SubRip body. Present when format is srt. }
+                  availableTracks:
+                    type: array
+                    description: 'Every track on the video, so you can re-request another language. On a cached read this is the listing as it stood when we downloaded, so a language added to the video since then appears only after a `refresh=true` or when you request that language directly.'
+                    items:
+                      type: object
+                      properties:
+                        trackId: { type: string }
+                        language: { type: string }
+                        trackKind: { type: string, enum: [asr, standard] }
+                        name: { type: string, description: 'The track''s display name. Empty for auto-generated tracks.' }
+              example:
+                accountId: "68a1f2c3d4e5f6a7b8c9d0e1"
+                videoId: "sdw1FML60tM"
+                language: "en"
+                trackId: "AUieDaanCEjmJQdL7wfZbe1QDQTbseX-hToYw99pmOJitlJz868"
+                trackKind: "asr"
+                source: "cache"
+                fetchedAt: "2026-08-27T21:09:54.000Z"
+                text: "Hey, this is Mickey. I'm the founder of this portfolio of three websites which are mainly monetized via AdSense."
+                cues:
+                  - start: 1.6
+                    end: 8.88
+                    text: "Hey, this is Mickey. I'm the founder of"
+                  - start: 5.04
+                    end: 12.8
+                    text: "this portfolio of three websites"
+                availableTracks:
+                  - trackId: "AUieDaanCEjmJQdL7wfZbe1QDQTbseX-hToYw99pmOJitlJz868"
+                    language: "en"
+                    trackKind: "asr"
+                    name: ""
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: 'Account not found, the video does not belong to this channel (`video_not_found`), or the video has no caption track in the requested language (`captions_not_found`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example:
+                error: "This video has no caption tracks. YouTube generates them only for videos with recognisable speech, and it can take a few hours after upload."
+                type: "not_found"
+                code: "captions_not_found"
+                param: "videoId"
+
   /v1/accounts/{accountId}/youtube-playlists:
     get:
       x-resource-group: "accounts"
@@ -28324,11 +28525,28 @@ paths:
       summary: Like comment
       description: |
         Like or upvote a comment on a post. Supported platforms: Facebook, Twitter/X,
-        Bluesky, Reddit, LinkedIn. For Bluesky, the cid (content identifier) is required
-        in the request body. For LinkedIn, pass the composite comment URN returned by the
-        comments endpoints as commentId; an optional reactionType picks the reaction
+        Bluesky, Reddit, LinkedIn, and Instagram in limited release (see below). For
+        Bluesky, the cid (content identifier) is
+        required in the request body. For LinkedIn, pass the composite comment URN returned
+        by the comments endpoints as commentId; an optional reactionType picks the reaction
         (defaults to LIKE), and accounts connected before the social-feed scopes were
         requested get a 403 with code `linkedin_reconnect_required`.
+
+        Instagram is in LIMITED RELEASE and not generally available: the call needs
+        `instagram_manage_engagement`, which Meta has so far granted this app only under
+        Standard Access, so it works for app admins, developers and testers of our Meta app
+        and returns a 403 with code `PLATFORM_BETA_RESTRICTED` for every other account.
+        That restriction lifts when Meta App Review grants Advanced Access; the constraints
+        below apply once it does.
+
+        Instagram covers comments and replies on feed posts, reels and carousels. Only an
+        account connected through Facebook Login can be granted
+        `instagram_manage_engagement`: an Instagram Login connection returns a 400 with
+        code `instagram_likes_require_facebook_login`, and an account whose token predates
+        the permission returns a 403 with code `reconnect_required`. Content from private
+        accounts cannot be liked. Instagram also enforces a burst limit of 50 like or
+        unlike calls per 5 seconds per Instagram account, and exceeding it locks that
+        account out of the like API for an hour, so pace bulk loops.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -28371,14 +28589,16 @@ paths:
           description: Platform does not support liking comments
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Inbox addon required
+          description: Inbox addon required, or the account is missing the platform permission
     delete:
       x-resource-group: "engagement"
       operationId: unlikeInboxComment
       summary: Unlike comment
       description: |
         Remove a like from a comment. Supported platforms: Facebook, Twitter/X, Bluesky,
-        Reddit, LinkedIn. For Bluesky, the likeUri query parameter is required.
+        Reddit, LinkedIn, and Instagram in limited release. For Bluesky, the likeUri query
+        parameter is required. Instagram has the same limited release, Facebook Login,
+        `instagram_manage_engagement` and burst-limit constraints as liking.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -28414,7 +28634,7 @@ paths:
           description: Platform does not support unliking comments
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Inbox addon required
+          description: Inbox addon required, or the account is missing the platform permission
 
   /v1/inbox/posts/{postId}/like:
     post:
@@ -28422,7 +28642,8 @@ paths:
       summary: Like post
       description: |
         Like (or react to) a post as a connected account. Supported platforms: LinkedIn,
-        Twitter/X, Facebook, YouTube, Bluesky. Instagram, Threads, TikTok and Pinterest
+        Twitter/X, Facebook, YouTube, Bluesky, and Instagram in limited release (see below).
+        Threads, TikTok and Pinterest
         expose no like endpoint in their APIs and return 400. Reddit returns 400 too,
         pointing at `POST /v1/accounts/{accountId}/reddit-vote`, which covers upvote,
         downvote and clear on both posts and comments.
@@ -28438,6 +28659,22 @@ paths:
         scopes, which are not retroactive: accounts connected before those were requested
         get a 403 with code `linkedin_reconnect_required` until the user reconnects the
         account. YouTube spends 50 quota units per call.
+
+        Instagram is in LIMITED RELEASE and not generally available: the call needs
+        `instagram_manage_engagement`, which Meta has so far granted this app only under
+        Standard Access, so it works for app admins, developers and testers of our Meta app
+        and returns a 403 with code `PLATFORM_BETA_RESTRICTED` for every other account.
+        That restriction lifts when Meta App Review grants Advanced Access; the constraints
+        below apply once it does.
+
+        Instagram covers feed images, reels and carousels (stories and private-account
+        media are not likeable). Only an account connected through Facebook Login can be
+        granted `instagram_manage_engagement`: an Instagram Login
+        connection returns a 400 with code `instagram_likes_require_facebook_login`, and an
+        account whose token predates the permission returns a 403 with code
+        `reconnect_required`. Instagram also enforces a burst limit of 50 like or unlike
+        calls per 5 seconds per Instagram account, and exceeding it locks that account out
+        of the like API for an hour, so pace bulk loops.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -28484,7 +28721,9 @@ paths:
       summary: Unlike post
       description: |
         Remove this account's like from a post. Supported platforms: LinkedIn, Twitter/X,
-        Facebook, YouTube, Bluesky. On YouTube this clears the rating. For Bluesky,
+        Facebook, YouTube, Bluesky, and Instagram in limited release. On YouTube this clears
+        the rating. Instagram has the same limited release, Facebook Login,
+        `instagram_manage_engagement` and burst-limit constraints as liking. For Bluesky,
         `likeUri` (returned when the post was liked) is required. Reddit uses
         `POST /v1/accounts/{accountId}/reddit-vote` with `direction: 0`.
       tags: [Comments]
@@ -39614,7 +39853,7 @@ paths:
       x-resource-group: "ads"
       operationId: updateAdCampaign
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta", "google"]
+      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x", "openai"]
       summary: Update a campaign
       description: |
         Campaign-level edits. Send at least one of `budget`, `bidStrategy`, `name`
@@ -39697,7 +39936,7 @@ paths:
       x-resource-group: "ads"
       operationId: deleteAdCampaign
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta", "tiktok", "google"]
+      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x", "openai"]
       summary: Delete a campaign
       description: |
         Deletes the whole campaign on the platform, cascading to its ad sets
@@ -40046,7 +40285,7 @@ paths:
       x-resource-group: "ads"
       operationId: updateAdSet
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta", "tiktok", "openai"]
+      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x", "openai"]
       summary: Update an ad set
       description: |
         Ad-set-level writes. Use this for ABO budget updates, ad-set-scoped
@@ -40199,6 +40438,38 @@ paths:
         '409': { description: "Campaign is CBO — route to /v1/ads/campaigns/{campaignId} instead" }
         '422': { description: "bidStrategy is LOWEST_COST_WITH_MIN_ROAS on OpenAI (unsupported: no ROAS-based bidding)" }
         '501': { description: "bidStrategy not supported on the platform (Meta, TikTok, and OpenAI only)" }
+    delete:
+      x-resource-group: "ads"
+      operationId: deleteAdSet
+      tags: ["Ad Campaigns"]
+      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x"]
+      summary: Delete an ad set
+      description: |
+        Deletes the ad set on the platform, cascading to its ads only (never the
+        campaign). Locally, every Ad document under the ad set is marked
+        `status: cancelled`.
+
+        Delete is soft on platforms that have no hard delete: LinkedIn moves the
+        campaign to `PENDING_DELETION`, Pinterest archives the ad group, and X
+        soft-flags the line item. Google removes the ad group. All remain readable
+        for reporting.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: adSetId, in: path, required: true, schema: { type: string }, description: Platform ad set ID }
+      responses:
+        '200':
+          description: Ad set deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean }
+                  adCount: { type: integer, description: Local Ad documents marked cancelled }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Ad set not found }
+        '501': { description: Operation not supported on this platform }
 
   /v1/ads/ad-sets/{adSetId}/status:
     put:
@@ -44535,6 +44806,17 @@ paths:
         filter on. Every result has `type` set to `location`, and its id is a
         `urn:li:geo:*` URN usable as a `regions[].key` on `POST /v1/ads/create`,
         `POST /v1/ads/boost` and `POST /v1/ads/targeting/reach-estimate`.
+
+        Google geo searches resolve against Google's geoTargetConstants and return
+        every matching level in one list; `geoType` is not applied (Google's
+        `target_type` is an open taxonomy that does not map one-to-one onto the
+        `geoType` enum), so filter client-side on the returned `type` (`country`,
+        `region`, `city`, `zip`, `metro`, or the lowercased Google target type for
+        rarer levels). `countryCode` scopes the search to one country. Each id is
+        Google's numeric criterion id, usable as a `regions`/`cities`/`zips`/`metros`
+        `key` on `POST /v1/ads/create`. Google city radius is not supported (pass a
+        `customLocations` lat/lng pin for a radius); country targeting also accepts
+        plain ISO codes via `countries` with no search call.
 
         Pinterest resolves against three whole-catalog endpoints (interests, locations,
         regions) with no server-side query or pagination, so matching, ranking and the

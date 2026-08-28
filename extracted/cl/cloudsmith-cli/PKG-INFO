@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudsmith-cli
-Version: 1.25.0
+Version: 1.26.0
 Summary: Cloudsmith Command-Line Interface (CLI)
 Author-email: Cloudsmith Ltd <support@cloudsmith.io>
 License-Expression: Apache-2.0
@@ -40,6 +40,7 @@ Requires-Dist: requests_toolbelt>=1.0.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: semver>=2.7.9
 Requires-Dist: urllib3>=2.5
+Requires-Dist: tomlkit>=0.15.0
 Provides-Extra: aws
 Requires-Dist: boto3[crt]>=1.26.0; extra == "aws"
 Provides-Extra: all

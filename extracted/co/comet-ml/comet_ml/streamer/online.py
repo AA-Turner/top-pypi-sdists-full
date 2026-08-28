@@ -40,8 +40,6 @@ from ..config import (
     MESSAGE_BATCH_STDOUT_MAX_BATCH_SIZE,
     MESSAGE_BATCH_USE_COMPRESSION_DEFAULT,
     PROGRESS_CALLBACK_INTERVAL,
-    S3_MULTIPART_EXPIRES_IN,
-    S3_MULTIPART_SIZE_THRESHOLD_DEFAULT,
 )
 from ..connection import RestApiClient, RestServerConnection
 from ..file_upload_manager import FileUploadManager, FileUploadManagerMonitor
@@ -106,9 +104,7 @@ class OnlineStreamer(BaseStreamer):
         message_batch_metric_max_size: int = MESSAGE_BATCH_METRIC_MAX_BATCH_SIZE,
         message_batch_stdout_interval: float = MESSAGE_BATCH_STDOUT_INTERVAL_SECONDS,
         message_batch_stdout_max_size: int = MESSAGE_BATCH_STDOUT_MAX_BATCH_SIZE,
-        s3_multipart_threshold: int = S3_MULTIPART_SIZE_THRESHOLD_DEFAULT,
-        s3_multipart_expires_in: int = S3_MULTIPART_EXPIRES_IN,
-        s3_multipart_upload_enabled: bool = False,
+        s3_upload_options: Optional[MultipartUploadOptions] = None,
         artifact_remote_assets_batch_enabled: bool = False,
         artifact_remote_assets_batch_metric_interval: float = ARTIFACT_REMOTE_ASSETS_BATCH_METRIC_INTERVAL_SECONDS,
         artifact_remote_assets_batch_metric_max_size: int = ARTIFACT_REMOTE_ASSETS_BATCH_METRIC_MAX_BATCH_SIZE,
@@ -132,10 +128,10 @@ class OnlineStreamer(BaseStreamer):
         self._file_upload_manager = FileUploadManager(
             worker_cpu_ratio=worker_cpu_ratio,
             worker_count=worker_count,
-            s3_upload_options=MultipartUploadOptions(
-                file_size_threshold=s3_multipart_threshold,
-                upload_expires_in=s3_multipart_expires_in,
-                direct_s3_upload_enabled=s3_multipart_upload_enabled,
+            s3_upload_options=(
+                s3_upload_options
+                if s3_upload_options is not None
+                else MultipartUploadOptions.defaults()
             ),
         )
 
@@ -473,6 +469,12 @@ class OnlineStreamer(BaseStreamer):
             self._connection.report(
                 event_name=ON_EXIT_DIDNT_FINISH_UPLOAD_SDK, err_msg=error_message
             )
+
+            # Returning here skips the join() below, so without this the upload
+            # manager's threads stay alive for the life of the process. Shutting down
+            # rather than joining, because joining waits for the very uploads that
+            # just failed to finish.
+            self._file_upload_manager.shutdown()
 
             return False
 

@@ -4,11 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+# pyre-ignore-all-errors
+
 
 import abc
 import sys
+from collections.abc import AsyncIterator, Callable
 from functools import wraps
-from typing import AsyncContextManager, AsyncIterator, Callable, TypeVar
+from typing import AsyncContextManager, TypeVar
 
 
 # @asynccontextmanager is available in Python 3.7
@@ -29,7 +32,6 @@ def _check_methods(C, *methods):
 
 
 class AbstractContextManager(abc.ABC):
-
     """An abstract base class for context managers."""
 
     def __enter__(self):
@@ -49,7 +51,6 @@ class AbstractContextManager(abc.ABC):
 
 
 class AbstractAsyncContextManager(abc.ABC):
-
     """An abstract base class for asynchronous context managers."""
 
     async def __aenter__(self):
@@ -68,7 +69,7 @@ class AbstractAsyncContextManager(abc.ABC):
         return NotImplemented
 
 
-class ContextDecorator(object):
+class ContextDecorator:
     "A base class or mixin that enables context managers to work as decorators."
 
     def _recreate_cm(self):
@@ -227,7 +228,7 @@ _T = TypeVar("_T")
 
 
 def _asynccontextmanager(
-    func: Callable[..., AsyncIterator[_T]]
+    func: Callable[..., AsyncIterator[_T]],
 ) -> Callable[..., AsyncContextManager[_T]]:
     """@asynccontextmanager decorator.
     Typical usage:
@@ -257,8 +258,5 @@ def _asynccontextmanager(
     return helper
 
 
-if sys.version_info >= (3, 7):
-    # Use the offical python one if available
-    from contextlib import asynccontextmanager
-else:
-    asynccontextmanager = _asynccontextmanager
+# Use the offical python one if available
+from contextlib import asynccontextmanager

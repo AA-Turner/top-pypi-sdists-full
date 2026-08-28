@@ -758,7 +758,7 @@ def _check_feedback_session_id(info: ls_schemas.LangSmithInfo) -> None:
 
     Call only when run-level feedback has no ``session_id``.
     """
-    docs = "https://docs.langchain.com/langsmith/smithdb-sdk-migration#feedback-create"
+    docs = "https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#feedback-create"
     if get_query_backend(info.instance_flags) == QueryBackend.SMITHDB_ONLY:
         raise ValueError(
             "session_id must be provided when creating feedback for a run:"
@@ -2856,7 +2856,8 @@ class Client:
         if self._hide_inputs is True:
             return {}
         if self._anonymizer:
-            json_inputs = _orjson.loads(_dumps_json(inputs))
+            # stdlib json.loads keeps ints >= 2**64 exact; orjson.loads floats them.
+            json_inputs = json.loads(_dumps_json(inputs))
             return self._anonymizer(json_inputs)
         if self._hide_inputs is False:
             return inputs
@@ -2866,7 +2867,8 @@ class Client:
         if self._hide_outputs is True:
             return {}
         if self._anonymizer:
-            json_outputs = _orjson.loads(_dumps_json(outputs))
+            # stdlib json.loads keeps ints >= 2**64 exact; orjson.loads floats them.
+            json_outputs = json.loads(_dumps_json(outputs))
             return self._anonymizer(json_outputs)
         if self._hide_outputs is False:
             return outputs
@@ -2898,7 +2900,8 @@ class Client:
         if self._hide_metadata is True:
             return {}
         if self._anonymizer:
-            json_metadata = _orjson.loads(_dumps_json(metadata))
+            # stdlib json.loads keeps ints >= 2**64 exact; orjson.loads floats them.
+            json_metadata = json.loads(_dumps_json(metadata))
             return self._anonymizer(json_metadata)
         if self._hide_metadata is False:
             return metadata
@@ -4184,7 +4187,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.runs.retrieve` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#runs-retrieve for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-runs#runs-retrieve for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4278,7 +4281,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.threads.list_traces` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#threads-list-traces for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-threads#threads-list-traces for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4357,7 +4360,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.runs.query` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#runs-query for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-query-runs#runs-query for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4552,7 +4555,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.threads.query` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#threads-query for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-threads#threads-query for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4781,7 +4784,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.runs.get_url` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#runs-get-url for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-runs#runs-get-url for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4836,7 +4839,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.runs.share.create` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#share-and-read-public-runs for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4874,7 +4877,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.runs.share.delete` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#share-and-read-public-runs for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4902,7 +4905,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.runs.retrieve` with ``selects=["SHARE_URL"]`` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#share-and-read-public-runs for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4950,7 +4953,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.public.runs.retrieve` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#share-and-read-public-runs for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -4987,7 +4990,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.public.runs.query` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#share-and-read-public-runs for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Args:
@@ -8241,7 +8244,7 @@ class Client:
             session_id (Optional[Union[UUID, str]]):
                 The session (project) ID of the run. Required for run-level
                 feedback; omitting it is deprecated. See
-                https://docs.langchain.com/langsmith/smithdb-sdk-migration#feedback-create
+                https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#feedback-create
             start_time (Optional[datetime]):
                 The start time of the run. Better performance if provided.
             extend_trace_retention (bool, default=True):
@@ -9270,7 +9273,7 @@ class Client:
           without a scan, and is required for workspaces served by SmithDB.
         - `run_ids`: a plain list of run IDs. This path is deprecated and will
           be removed after Jan 31, 2027; prefer `runs`.
-          See https://docs.langchain.com/langsmith/smithdb-sdk-migration#annotation-queues-add-runs.
+          See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -9294,7 +9297,7 @@ class Client:
             warnings.warn(
                 "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
                 "Use the runs parameter with RunKey objects instead. "
-                "See https://docs.langchain.com/langsmith/smithdb-sdk-migration#annotation-queues-add-runs for the migration guide.",
+                "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -11156,7 +11159,7 @@ class Client:
         .. admonition:: Deprecated
 
             Use :meth:`langsmith.Client.datasets.experiment_runs.query` instead.
-            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#dataset-experiment-runs-query for the migration guide.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-experiments#dataset-experiment-runs-query for the migration guide.
             Will be removed after Jan 31, 2027.
 
         Experiment results may not be available immediately after the experiment is created.

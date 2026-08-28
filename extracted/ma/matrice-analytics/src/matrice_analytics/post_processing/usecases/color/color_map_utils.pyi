@@ -1,0 +1,13 @@
+"""Auto-generated stub for module: color_map_utils."""
+from typing import Any, Dict
+
+# Constants
+ColorInfo: Any
+PALETTE: Any
+PALETTE_RGB: Dict[Any, Any]
+
+# Functions
+def extract_major_colors(image: Any.Any, k: int = 3) -> Any: ...
+def find_nearest_color(lab_color: Any.Any) -> Any: ...
+def lab_distance(c1: Any.Any, c2: Any.Any) -> float: ...
+def rgb_to_lab(rgb: tuple) -> Any.Any: ...

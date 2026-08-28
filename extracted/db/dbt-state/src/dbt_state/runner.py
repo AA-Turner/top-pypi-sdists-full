@@ -486,7 +486,9 @@ class RunnerOverride:
         """Override for printing test results to include NO-OP status."""
         try:
             model = t.cast(ManifestNode, result.node)
-            if self._run_cache is not None and self._original_build_test_run_result is None:
+            # Core rebuilds the result after build_test_run_result returns. Attach the ID to
+            # this final result so NodeFinished includes it in the structured log.
+            if self._run_cache is not None:
                 self._run_cache.attach_state_decision_id(model, result)
             kwargs: t.Dict[str, t.Any] = {}
             try:

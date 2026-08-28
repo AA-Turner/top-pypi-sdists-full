@@ -22,10 +22,30 @@ class DashboardAnnotation(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DASHBOARD_ANNOTATION_INCIDENT_RANGES: _ClassVar[DashboardAnnotation]
     DASHBOARD_ANNOTATION_DEPLOYMENT_MARKERS: _ClassVar[DashboardAnnotation]
 
+class DashboardSortColumn(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DASHBOARD_SORT_COLUMN_UNSPECIFIED: _ClassVar[DashboardSortColumn]
+    DASHBOARD_SORT_COLUMN_NAME: _ClassVar[DashboardSortColumn]
+    DASHBOARD_SORT_COLUMN_CREATED_AT: _ClassVar[DashboardSortColumn]
+    DASHBOARD_SORT_COLUMN_UPDATED_AT: _ClassVar[DashboardSortColumn]
+
+class DashboardSortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DASHBOARD_SORT_ORDER_UNSPECIFIED: _ClassVar[DashboardSortOrder]
+    DASHBOARD_SORT_ORDER_DESC: _ClassVar[DashboardSortOrder]
+    DASHBOARD_SORT_ORDER_ASC: _ClassVar[DashboardSortOrder]
+
 DASHBOARD_ANNOTATION_UNSPECIFIED: DashboardAnnotation
 DASHBOARD_ANNOTATION_INCIDENT_MARKERS: DashboardAnnotation
 DASHBOARD_ANNOTATION_INCIDENT_RANGES: DashboardAnnotation
 DASHBOARD_ANNOTATION_DEPLOYMENT_MARKERS: DashboardAnnotation
+DASHBOARD_SORT_COLUMN_UNSPECIFIED: DashboardSortColumn
+DASHBOARD_SORT_COLUMN_NAME: DashboardSortColumn
+DASHBOARD_SORT_COLUMN_CREATED_AT: DashboardSortColumn
+DASHBOARD_SORT_COLUMN_UPDATED_AT: DashboardSortColumn
+DASHBOARD_SORT_ORDER_UNSPECIFIED: DashboardSortOrder
+DASHBOARD_SORT_ORDER_DESC: DashboardSortOrder
+DASHBOARD_SORT_ORDER_ASC: DashboardSortOrder
 
 class DashboardControls(_message.Message):
     __slots__ = ("default_range_preset_id", "annotations")
@@ -88,21 +108,30 @@ class GetDashboardResponse(_message.Message):
     ) -> None: ...
 
 class ListDashboardsRequest(_message.Message):
-    __slots__ = ("limit", "cursor", "read_mask", "search")
+    __slots__ = ("limit", "cursor", "read_mask", "search", "created_by", "sort_column", "sort_order")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     READ_MASK_FIELD_NUMBER: _ClassVar[int]
     SEARCH_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    SORT_COLUMN_FIELD_NUMBER: _ClassVar[int]
+    SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
     read_mask: _field_mask_pb2.FieldMask
     search: str
+    created_by: _containers.RepeatedScalarFieldContainer[str]
+    sort_column: DashboardSortColumn
+    sort_order: DashboardSortOrder
     def __init__(
         self,
         limit: _Optional[int] = ...,
         cursor: _Optional[str] = ...,
         read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
         search: _Optional[str] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
+        sort_column: _Optional[_Union[DashboardSortColumn, str]] = ...,
+        sort_order: _Optional[_Union[DashboardSortOrder, str]] = ...,
     ) -> None: ...
 
 class ListDashboardsResponse(_message.Message):

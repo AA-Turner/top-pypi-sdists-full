@@ -25,7 +25,7 @@ include:
 
 stages:
   - images
-  - pre-commit
+  - lint
   - build
   - coverage
   - documentation
@@ -72,14 +72,14 @@ build-image:
     paths:
 
 pre-commit:
-  stage: pre-commit
+  stage: lint
   image: $CI_IMAGE:$[[ inputs.default_version ]]
   variables:
     XDG_CACHE_HOME: "$CI_PROJECT_DIR/.cache"
   script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - python -m pip install -q --no-warn-script-location pre-commit
-    - python -m pre_commit run --verbose --all-files
+    - python -m pre_commit run --verbose --all-files || git diff
   artifacts:
     when: on_failure
     paths:
@@ -87,6 +87,19 @@ pre-commit:
   cache:
     paths:
       - .cache
+
+gobject-linter:
+  stage: lint
+  allow_failure: true
+  image:
+    name: "ghcr.io/bilelmoussaoui/gobject-linter:latest"
+    entrypoint: [""]
+  script:
+    - gobject-linter --format gitlab-codequality > gobject-linter-codequality.json
+  artifacts:
+    expire_in: "1 week"
+    reports:
+      codequality: gobject-linter-codequality.json
 
 linux:
   stage: build

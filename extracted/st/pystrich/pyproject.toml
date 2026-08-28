@@ -1,6 +1,6 @@
 [project]
 name = "pyStrich"
-version = "0.19"
+version = "0.20"
 description = "PyStrich is a fast pure-Python module to generate 1D and 2D barcodes: Code 39, Code 128 (including GS1-128), EAN-13, ITF-14, Data Matrix (including GS1 Data Matrix), QR Code, PDF417 and Aztec Code."
 readme = "README.md"
 license = "Apache-2.0"
@@ -89,15 +89,13 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["pystrich"]
 exclude = [
-    "**/test_*.py",
-    "**/conftest.py",
-    "**/test_img",
     "pystrich/_simulate_damage.py",
 ]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "pystrich",
+    "tests",
     "README.md",
     "LICENSE",
 ]
@@ -134,9 +132,11 @@ select = [
 # The Pillow gateway and the docs-only damage simulator may import PIL directly.
 "pystrich/_pillow.py" = ["TID251"]
 "pystrich/_simulate_damage.py" = ["TID251"]
+# Example scripts are end-user code: they may import Pillow directly.
+"examples/**" = ["TID251"]
 
 [tool.mypy]
-files = ["pystrich"]
+files = ["pystrich", "tests"]
 python_version = "3.10"
 check_untyped_defs = true
 warn_unused_ignores = true
@@ -153,6 +153,7 @@ module = "PIL.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 addopts = "--strict-markers"
 markers = [
     "png: needs Pillow for PNG output; runs with the real Pillow instead of the missing-Pillow stub",

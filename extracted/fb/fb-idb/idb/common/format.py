@@ -4,27 +4,27 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import base64
 import json
+from dataclasses import dataclass
 from textwrap import indent
 from typing import Any, Dict, List, Optional, Union
-from uuid import uuid4
 
 from idb.common.types import (
-    IdbException,
     AppProcessState,
     CompanionInfo,
     DebuggerInfo,
     DomainSocketAddress,
+    IdbException,
     InstalledAppInfo,
     InstalledTestInfo,
     TargetDescription,
+    TargetType,
     TCPAddress,
     TestActivity,
     TestRunInfo,
-    TargetType,
 )
-from treelib import Tree
 
 
 def target_type_from_string(output: str) -> TargetType:
@@ -33,6 +33,8 @@ def target_type_from_string(output: str) -> TargetType:
         return TargetType.SIMULATOR
     if "dev" in normalized:
         return TargetType.DEVICE
+    if "mac" in normalized:
+        return TargetType.MAC
     raise IdbException(f"Could not interpret target type from {output}")
 
 
@@ -70,37 +72,54 @@ def human_format_test_info(test: TestRunInfo) -> str:
     return output
 
 
-def human_format_activities(activities: List[TestActivity]) -> str:
-    tree: Tree = Tree()
-    start = activities[0].start
+@dataclass(frozen=True)
+class _ActivityNode:
+    start: float
+    label: str
+    children: list["_ActivityNode"]
 
-    # pyre-fixme[53]: Captured variable `start` is not annotated.
-    def process_activity(activity: TestActivity, parent: Optional[str] = None) -> None:
-        tree.create_node(
-            f"{activity.name} ({activity.finish - start:.2f}s)",
-            activity.uuid,
-            parent=parent,
-            data={"start": activity.start},
+
+def _activity_node(activity: TestActivity, base: float) -> _ActivityNode:
+    children = [
+        # An attachment has no start of its own; it inherits its parent
+        # activity's so it orders among that activity's sub-activities.
+        _ActivityNode(
+            start=activity.start,
+            label=f"Attachment: {attachment.name}",
+            children=[],
         )
-        for attachment in activity.attachments:
-            tree.create_node(
-                f"Attachment: {attachment.name}",
-                uuid4(),
-                parent=activity.uuid,
-                data={"start": activity.start},
-            )
-        for sub_activity in activity.sub_activities:
-            process_activity(sub_activity, parent=activity.uuid)
+        for attachment in activity.attachments
+    ]
+    children.extend(
+        _activity_node(sub_activity, base) for sub_activity in activity.sub_activities
+    )
+    return _ActivityNode(
+        start=activity.start,
+        label=f"{activity.name} ({activity.finish - base:.2f}s)",
+        children=children,
+    )
 
-    tree.create_node("Activities", "activities", data={"start": 0})
-    for activity in activities:
-        process_activity(activity, "activities")
 
-    return tree.show(key=lambda n: n.data["start"], stdout=False)
+def _render_children(nodes: list[_ActivityNode], prefix: str) -> list[str]:
+    lines: list[str] = []
+    ordered = sorted(nodes, key=lambda node: node.start)
+    for index, node in enumerate(ordered):
+        last = index == len(ordered) - 1
+        lines.append(f"{prefix}{'└── ' if last else '├── '}{node.label}")
+        lines.extend(
+            _render_children(node.children, prefix + ("    " if last else "│   "))
+        )
+    return lines
+
+
+def human_format_activities(activities: list[TestActivity]) -> str:
+    base: float = activities[0].start
+    nodes = [_activity_node(activity, base) for activity in activities]
+    return "\n".join(["Activities", *_render_children(nodes, "")]) + "\n"
 
 
 def json_format_test_info(test: TestRunInfo) -> str:
-    data: Dict[str, Any] = {
+    data: dict[str, Any] = {
         "bundleName": test.bundle_name,
         "className": test.class_name,
         "methodName": test.method_name,
@@ -125,7 +144,7 @@ def json_format_test_info(test: TestRunInfo) -> str:
     return json.dumps(data)
 
 
-def json_format_activity(activity: TestActivity) -> Dict[str, Any]:
+def json_format_activity(activity: TestActivity) -> dict[str, Any]:
     return {
         "title": activity.title,
         "duration": activity.duration,
@@ -140,6 +159,11 @@ def json_format_activity(activity: TestActivity) -> Dict[str, Any]:
                 "timestap": attachment.timestamp,
                 "name": attachment.name,
                 "uniform_type_identifier": attachment.uniform_type_identifier,
+                "user_info": (
+                    json.loads(attachment.user_info_json.decode("utf-8"))
+                    if len(attachment.user_info_json)
+                    else {}
+                ),
             }
             for attachment in activity.attachments
         ],
@@ -167,13 +191,13 @@ def human_format_installed_app_info(app: InstalledAppInfo) -> str:
 def app_process_id_based_on_state(
     pid: int,
     state: AppProcessState,
-) -> Optional[str]:
+) -> str | None:
     if state is AppProcessState.RUNNING:
         return str(pid)
     return None
 
 
-def app_process_state_to_string(state: Optional[AppProcessState]) -> str:
+def app_process_state_to_string(state: AppProcessState | None) -> str:
     if state is AppProcessState.RUNNING:
         return "Running"
     elif state is AppProcessState.NOT_RUNNING:
@@ -219,8 +243,8 @@ def human_format_target_info(target: TargetDescription) -> str:
         return target_info + f"{address.path}"
 
 
-def json_data_target_info(target: TargetDescription) -> Dict[str, Any]:
-    data: Dict[str, Any] = {
+def json_data_target_info(target: TargetDescription) -> dict[str, Any]:
+    data: dict[str, Any] = {
         "name": target.name,
         "udid": target.udid,
         "state": target.state,
@@ -246,11 +270,11 @@ def json_data_target_info(target: TargetDescription) -> Dict[str, Any]:
 
 
 def json_data_companions(
-    companions: List[CompanionInfo],
-) -> List[Dict[str, Union[str, Optional[int]]]]:
-    data: List[Dict[str, Union[str, Optional[int]]]] = []
+    companions: list[CompanionInfo],
+) -> list[dict[str, str | int | None]]:
+    data: list[dict[str, str | int | None]] = []
     for companion in companions:
-        item: Dict[str, Union[str, Optional[int]]] = {
+        item: dict[str, str | int | None] = {
             "udid": companion.udid,
             "is_local": companion.is_local,
             "pid": companion.pid,
@@ -265,7 +289,7 @@ def json_data_companions(
     return data
 
 
-def json_to_companion_info(data: List[Dict[str, Any]]) -> List[CompanionInfo]:
+def json_to_companion_info(data: list[dict[str, Any]]) -> list[CompanionInfo]:
     return [
         CompanionInfo(
             udid=item["udid"],
@@ -285,13 +309,13 @@ def target_description_from_json(data: str) -> TargetDescription:
     return target_description_from_dictionary(parsed=json.loads(data))
 
 
-def target_descriptions_from_json(data: str) -> List[TargetDescription]:
+def target_descriptions_from_json(data: str) -> list[TargetDescription]:
     return [
         target_description_from_dictionary(parsed=target) for target in json.loads(data)
     ]
 
 
-def target_description_from_dictionary(parsed: Dict[str, Any]) -> TargetDescription:
+def target_description_from_dictionary(parsed: dict[str, Any]) -> TargetDescription:
     return TargetDescription(
         udid=parsed["udid"],
         name=parsed["name"],

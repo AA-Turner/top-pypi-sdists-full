@@ -216,6 +216,7 @@ class WindowConfigResolved:
     continuous_buffer_duration_seconds: int | None
     backfill_tags: list[list[str]] | None
     cache_aggregated_values: bool
+    cached_values_only: bool
     allow_filter_migration: bool
     fold_step: Any = None
     """The step of a `history_fold`: an expression of two arguments, `(event, previous) -> state`.

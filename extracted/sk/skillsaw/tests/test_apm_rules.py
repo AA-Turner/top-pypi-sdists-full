@@ -223,6 +223,30 @@ def test_apm_yaml_invalid_yaml_fails(temp_dir):
     assert "Invalid YAML" in violations[0].message
 
 
+def test_apm_yaml_oversized_integer_is_reported_not_raised(temp_dir, oversized_integer_digits):
+    """A parser ValueError must remain an ordinary invalid-YAML finding."""
+    if oversized_integer_digits is None:
+        pytest.skip("this Python does not limit integer string conversion")
+    repo = temp_dir / "apm-repo"
+    repo.mkdir()
+    _make_apm_repo(
+        repo,
+        skills=["my-skill"],
+        apm_yml=(
+            "name: test\n"
+            "version: 1.0.0\n"
+            "targets: [cursor]\n"
+            f"unrelated_integer: {oversized_integer_digits}\n"
+        ),
+    )
+
+    context = RepositoryContext(repo)
+    violations = ApmYamlValidRule().check(context)
+
+    assert len(violations) == 1
+    assert "Invalid YAML" in violations[0].message
+
+
 def test_apm_yaml_missing_name_fails(temp_dir):
     """Missing name field in apm.yml should fail"""
     repo = temp_dir / "apm-repo"
@@ -418,6 +442,39 @@ def test_apm_structure_skill_missing_skill_md_warns(temp_dir):
     repo.mkdir()
     (repo / ".apm" / "skills" / "broken-skill").mkdir(parents=True)
     (repo / "apm.yml").write_text("name: test\nversion: 1.0.0\ndescription: Test\n")
+
+    context = RepositoryContext(repo)
+    violations = ApmStructureValidRule().check(context)
+    assert any("missing SKILL.md" in v.message for v in violations)
+
+
+def test_apm_structure_miscased_skill_md_still_warns(temp_dir, monkeypatch):
+    """A lowercase skill.md is not an entrypoint; the validator must say so
+    on case-insensitive hosts too, matching discovery's exact-case probe.
+    A case-folding host is emulated so case-sensitive CI exercises the
+    divergence: the old ``exists()`` probe fails this test."""
+    import os as _os
+    from pathlib import Path
+
+    repo = temp_dir / "apm-repo"
+    repo.mkdir()
+    skill = repo / ".apm" / "skills" / "miscased-skill"
+    skill.mkdir(parents=True)
+    (skill / "skill.md").write_text("---\nname: miscased-skill\ndescription: x\n---\n")
+    (repo / "apm.yml").write_text("name: test\nversion: 1.0.0\ndescription: Test\n")
+
+    real_exists = Path.exists
+
+    def case_folding_exists(self, **kwargs):
+        if real_exists(self, **kwargs):
+            return True
+        try:
+            with _os.scandir(self.parent) as entries:
+                return any(entry.name.lower() == self.name.lower() for entry in entries)
+        except OSError:
+            return False
+
+    monkeypatch.setattr(Path, "exists", case_folding_exists)
 
     context = RepositoryContext(repo)
     violations = ApmStructureValidRule().check(context)

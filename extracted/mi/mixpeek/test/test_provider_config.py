@@ -36,10 +36,8 @@ class TestProviderConfig(unittest.TestCase):
         model = ProviderConfig()
         if include_optional:
             return ProviderConfig(
-                provider_type = 'email',
-                credentials = mixpeek.models.email_credentials.EmailCredentials(
-                    type = 'webhook_secret', 
-                    webhook_secret = '', ),
+                provider_type = 'azure_blob',
+                credentials = None,
                 shared_drive_id = '',
                 impersonate_user = '',
                 region = 'auto',
@@ -90,19 +88,23 @@ class TestProviderConfig(unittest.TestCase):
                 allowed_senders = [
                     ''
                     ],
-                store_raw_eml = True
+                store_raw_eml = True,
+                bucket = '',
+                prefix = '',
+                account_name = '',
+                container = ''
             )
         else:
             return ProviderConfig(
-                credentials = mixpeek.models.email_credentials.EmailCredentials(
-                    type = 'webhook_secret', 
-                    webhook_secret = '', ),
+                credentials = None,
                 region = 'auto',
                 account = '',
                 warehouse = '',
                 database = '',
                 host = '',
                 item_id_field = '',
+                bucket = '',
+                container = '',
         )
         """
 

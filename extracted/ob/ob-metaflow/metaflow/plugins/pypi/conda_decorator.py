@@ -75,10 +75,23 @@ class CondaStepDecorator(StepDecorator):
     def is_attribute_user_defined(self, name):
         return name in self._attributes_with_user_values
 
+    def _validate_extra_configs(self):
+        # `extra_configs` is only supported by decorators that declare it in their
+        # defaults (currently @anaconda/@anaconda_base). Decorator.__init__ rejects
+        # unknown attributes, but attributes injected through **kwargs unpacking
+        # (UNPACK_KEY) bypass that check, so reject them explicitly here.
+        if "extra_configs" not in self.defaults and "extra_configs" in self.attributes:
+            raise InvalidEnvironmentException(
+                "@%s does not support the *extra_configs* attribute. "
+                "It is only supported by @anaconda and @anaconda_base." % self.name
+            )
+
     def step_init(self, flow, graph, step, decos, environment, flow_datastore, logger):
         # The init_environment hook for Environment creates the relevant virtual
         # environments. The step_init hook sets up the relevant state for that hook to
         # do it's magic.
+
+        self._validate_extra_configs()
 
         self.flow = flow
         self.step = step
@@ -108,6 +121,15 @@ class CondaStepDecorator(StepDecorator):
             self.attributes["channels"] = self.attributes[
                 "channels"
             ] or super_attributes.get("channels")
+
+            # extra_configs is only defined by environment decorators that
+            # support it (e.g. @anaconda/@anaconda_base). Merge flow-level
+            # values under the step-level ones so the step wins on conflicts.
+            if "extra_configs" in self.defaults:
+                self.attributes["extra_configs"] = {
+                    **(super_attributes.get("extra_configs") or {}),
+                    **(self.attributes["extra_configs"] or {}),
+                }
 
         # Set default for `disabled` argument.
         if not self.attributes["disabled"]:
@@ -341,9 +363,19 @@ class CondaFlowDecorator(FlowDecorator):
     def is_attribute_user_defined(self, name):
         return name in self._attributes_with_user_values
 
+    def _validate_extra_configs(self):
+        # See CondaStepDecorator._validate_extra_configs.
+        if "extra_configs" not in self.defaults and "extra_configs" in self.attributes:
+            raise InvalidEnvironmentException(
+                "@%s does not support the *extra_configs* attribute. "
+                "It is only supported by @anaconda and @anaconda_base." % self.name
+            )
+
     def flow_init(
         self, flow, graph, environment, flow_datastore, metadata, logger, echo, options
     ):
+        self._validate_extra_configs()
+
         # NOTE: Important for extensions implementing custom virtual environments.
         # Without this steps will not have an implicit conda step decorator on them unless the environment adds one in its decospecs.
         from metaflow import decorators

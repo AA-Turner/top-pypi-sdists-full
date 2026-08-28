@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mistralai-vibe-sdk
-Version: 0.13.2
+Version: 0.13.3
 Summary: Vibe SDK
 Author: Mistral AI
 Author-email: Mistral AI <support@mistral.ai>
@@ -41,10 +41,6 @@ Description-Content-Type: text/markdown
 
 High-level Python interface for running Vibe agents.
 
-This repository directory also owns the shared agent harness used across Vibe
-products. Its Rust Harness Core, language-specific Harness Runtimes, protocol
-specification, and architecture documents live under [`harness/`](harness/).
-
 The SDK gives you:
 
 - `Agent` and stateful async/sync sessions
@@ -55,11 +51,7 @@ The SDK gives you:
 - MCP server integration — discover a server's tools and expose them to the agent
 
 For architecture and design references, see [ARCHITECTURE.md](ARCHITECTURE.md)
-and [documentation/INDEX.md](documentation/INDEX.md). Start with
-[`harness/docs/README.md`](harness/docs/README.md) for the shared harness.
-The Vibe-specific Runtime scaffold ships with the Python Harness Runtime and is
-documented in
-[`harness/runtimes/python/python/mistralai_rust_harness/vibe/README.md`](harness/runtimes/python/python/mistralai_rust_harness/vibe/README.md).
+and [documentation/INDEX.md](documentation/INDEX.md).
 
 Advanced raw task-protocol examples live in
 [examples/advanced_task_protocol_examples](examples/advanced_task_protocol_examples/README.md).

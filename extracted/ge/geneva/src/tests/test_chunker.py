@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: PROPRIETARY
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
+import logging
 from collections.abc import Iterator
 from typing import NamedTuple
 
@@ -576,6 +577,32 @@ class TestCreateAndRefresh:
         assert "duration" in schema.names
         assert "clip_start" in schema.names
         assert "clip_end" in schema.names
+
+    def test_refresh_warns_when_manifest_not_applied(
+        self, tmp_path, ray_with_test_path, caplog
+    ) -> None:
+        """A chunker manifest cannot shape workers on a local refresh."""
+        from geneva.manifest import GenevaManifest
+
+        db, videos = _make_video_table(tmp_path)
+
+        @geneva.chunker(
+            inherit_input_columns=True,
+            manifest=GenevaManifest.create_pip("chunker-env").pip(["numpy"]).build(),
+        )
+        def extract_clips(duration: float) -> Iterator[Clip]:
+            for start in range(0, int(duration), 10):
+                yield Clip(clip_start=start, clip_end=min(start + 10, duration))
+
+        query = videos.search(None).select(["video_path", "duration"])
+        view = db.create_udtf_view("warn_clips", query, extract_clips)
+
+        with caplog.at_level(logging.WARNING):
+            view.refresh(_admission_check=False)
+
+        assert "is not applied to this refresh" in caplog.text
+        assert "extract_clips" in caplog.text
+        assert view.count_rows() == 6
 
     def test_refresh_expands_rows(self, tmp_path, ray_with_test_path) -> None:
         db, videos = _make_video_table(tmp_path)

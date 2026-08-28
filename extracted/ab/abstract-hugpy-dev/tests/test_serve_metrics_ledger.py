@@ -501,7 +501,14 @@ class TestRelayRecordingSeam:
             "abstract_hugpy_dev.managers.resolvers.remote")
         seen = []
         orig = remote._serve_metrics_sink
-        remote._serve_metrics_sink = lambda *a: seen.append(a)
+
+        # The live seam calls the sink as (worker_id, model_key, tok_s, **meta);
+        # the stub must accept the meta kwargs or the fail-open swallows a
+        # TypeError and the ledger silently records nothing.
+        def _sink(worker_id, model_key, tok_s=None, **meta):
+            seen.append((worker_id, model_key, tok_s))
+
+        remote._serve_metrics_sink = _sink
         try:
             remote._record_serve_metrics({"id": "w1"}, "m1",
                                          {"timings": LIVE_TIMINGS})

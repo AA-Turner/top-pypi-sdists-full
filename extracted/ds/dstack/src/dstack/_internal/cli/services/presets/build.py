@@ -3,16 +3,15 @@ from typing import Optional, TypeVar
 
 import gpuhunt
 
-from dstack._internal.cli.models.presets import (
+from dstack._internal.cli.models.presets import VerifiedPreset
+from dstack._internal.core.models.configurations import PresetConfiguration, ServiceConfiguration
+from dstack._internal.core.models.envs import Env
+from dstack._internal.core.models.instances import Resources
+from dstack._internal.core.models.presets import (
     PRESET_EXCLUDED_FIELDS,
     PresetBenchmark,
     PresetVerificationReplicaGroup,
-    VerifiedPreset,
 )
-from dstack._internal.core.models.configurations import ServiceConfiguration
-from dstack._internal.core.models.envs import Env
-from dstack._internal.core.models.instances import Resources
-from dstack._internal.core.models.presets import PresetConfiguration
 from dstack._internal.core.models.resources import (
     CPUSpec,
     DiskSpec,
@@ -31,14 +30,14 @@ def build_preset(
     service: ServiceConfiguration,
     verification_replica_groups: list[PresetVerificationReplicaGroup],
     base_model: str,
-    model: str,
+    repo: str,
     context_length: int,
     benchmark: PresetBenchmark,
     configuration: PresetConfiguration,
     best_trial: int,
     preset_id: str,
     name: Optional[str],
-    submitted_at: datetime,
+    created_at: datetime,
 ) -> VerifiedPreset:
     service = _without_excluded_fields(service)
     configuration = _without_excluded_fields(configuration)
@@ -48,11 +47,11 @@ def build_preset(
         name=name,
         base=base_model,
         id=preset_id,
-        model=model,
+        repo=repo,
         context_length=context_length,
         best_trial=best_trial,
         configuration=configuration,
-        submitted_at=submitted_at,
+        created_at=created_at,
         service=service,
         benchmark=benchmark,
         verified_on=verification_replica_groups,
@@ -96,7 +95,7 @@ def set_service_gpu_vendor_from_verification(
     service: ServiceConfiguration,
     verified_on: list[PresetVerificationReplicaGroup],
 ) -> None:
-    for group_num, group in enumerate(service.replica_groups):
+    for group in service.replica_groups:
         resources = group.resources
         if resources is None or not _requires_gpu(resources):
             continue
@@ -105,9 +104,7 @@ def set_service_gpu_vendor_from_verification(
             continue
         if resources.gpu.vendor is not None and resources.gpu.vendor != verification_vendor:
             raise ValueError("preset service GPU vendor does not match verification")
-        group_resources = _get_service_group_resources(service, group_num)
-        if group_resources.gpu is not None:
-            group_resources.gpu.vendor = verification_vendor
+        resources.gpu.vendor = verification_vendor
 
 
 def _without_excluded_fields(configuration: ConfigurationT) -> ConfigurationT:
@@ -144,20 +141,6 @@ def _get_resources_gpu_vendor(resources: ResourcesSpec) -> gpuhunt.AcceleratorVe
     if len(vendors) > 1:
         raise ValueError("preset verification must not mix GPU vendors in a replica group")
     return next(iter(vendors), None)
-
-
-def _get_service_group_resources(
-    service: ServiceConfiguration,
-    group_num: int,
-) -> ResourcesSpec:
-    resources = (
-        service.replicas[group_num].resources
-        if isinstance(service.replicas, list)
-        else service.resources
-    )
-    if resources is None:
-        raise ValueError("preset service object must specify resources")
-    return resources
 
 
 def _requires_gpu(resources: ResourcesSpec) -> bool:

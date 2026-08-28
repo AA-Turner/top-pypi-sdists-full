@@ -20,6 +20,9 @@ from .studio.tester import StudioTesterSpec
 from .studio_movie_schema import StudioMovieSpec
 from .identity_reconstruction_schema import IdentityReconstructionSpec, IdentityMeshSpec
 from .identity_video_extract_schema import IdentityVideoExtractSpec
+from .identity_from_video_schema import IdentityFromVideoSpec
+from .runners.tts_chatterbox import TtsSpec
+from .runners.performance_relay import PerformanceSpec
 from .mlt_render_schema import MltRenderSpec
 
 
@@ -78,6 +81,22 @@ JOB_REGISTRY = {
     "identity_video_extract": JobSpec(
         "identity_video_extract", IdentityVideoExtractSpec,
         ("identity", "video_extract"), "gpu", 14400),
+    # Identity FROM-VIDEO (k94) = ONE chained RELAY job (char360 + one Hunyuan3D GLB per
+    # detected character — the service's ``video_characters_glb`` kind, clownworld's MO).
+    # runner_key ("identity","from_video"); "gpu" queue (remote GPU); the longest identity
+    # budget — extraction plus minutes-per-character meshing (+ texture bake).
+    "identity_from_video": JobSpec(
+        "identity_from_video", IdentityFromVideoSpec,
+        ("identity", "from_video"), "gpu", 14400),
+    # TTS (Chatterbox) = voice vertical I (k98). runner_key/queue/timeout mirror the
+    # runner's own RUNNER_KEY/JOB_QUEUE/JOB_TIMEOUT_S constants (read, not retyped).
+    "tts_chatterbox": JobSpec("tts_chatterbox", TtsSpec, ("chatterbox", "tts"), "gpu", 1800),
+    # video.performance (k106) = the oracle's audio-first FAT orchestrator behind
+    # the bus. 14400s mirrors generate_movie/generate_studio_movie: a performance
+    # is a movie plus its audio. The "gpu" queue is right even though central has
+    # no GPU — the job CONSUMES a remote one, like the identity relays.
+    "video_performance": JobSpec("video_performance", PerformanceSpec,
+                                 ("oracle", "performance"), "gpu", 14400),
     # MLT/Kdenlive headless render (k22) = a CPU-only LOCAL subprocess job (melt): the
     # operator's Kdenlive project (saved into the Samba studio share) is path-mapped +
     # rendered server-side, output written back under edits/renders/. runner_key

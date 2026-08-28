@@ -22,6 +22,12 @@ class ComputeClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     COMPUTE_CLASS_K8S: _ClassVar[ComputeClass]
     COMPUTE_CLASS_HOST: _ClassVar[ComputeClass]
 
+class RestartPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RESTART_POLICY_UNSPECIFIED: _ClassVar[RestartPolicy]
+    RESTART_POLICY_NEVER: _ClassVar[RestartPolicy]
+    RESTART_POLICY_ALWAYS: _ClassVar[RestartPolicy]
+
 class KernelPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     KERNEL_POLICY_UNSPECIFIED: _ClassVar[KernelPolicy]
@@ -39,6 +45,9 @@ class ProcessState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 COMPUTE_CLASS_UNSPECIFIED: ComputeClass
 COMPUTE_CLASS_K8S: ComputeClass
 COMPUTE_CLASS_HOST: ComputeClass
+RESTART_POLICY_UNSPECIFIED: RestartPolicy
+RESTART_POLICY_NEVER: RestartPolicy
+RESTART_POLICY_ALWAYS: RestartPolicy
 KERNEL_POLICY_UNSPECIFIED: KernelPolicy
 KERNEL_POLICY_RESTRICTED: KernelPolicy
 KERNEL_POLICY_OPEN: KernelPolicy
@@ -59,17 +68,19 @@ class ResourceLimits(_message.Message):
     def __init__(self, cpu: _Optional[str] = ..., memory: _Optional[str] = ..., gpu: _Optional[str] = ...) -> None: ...
 
 class VolumeMount(_message.Message):
-    __slots__ = ("name", "mount_path", "type", "size_limit", "version_id")
+    __slots__ = ("name", "mount_path", "type", "size_limit", "version_id", "ref_name")
     NAME_FIELD_NUMBER: _ClassVar[int]
     MOUNT_PATH_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     SIZE_LIMIT_FIELD_NUMBER: _ClassVar[int]
     VERSION_ID_FIELD_NUMBER: _ClassVar[int]
+    REF_NAME_FIELD_NUMBER: _ClassVar[int]
     name: str
     mount_path: str
     type: str
     size_limit: str
     version_id: int
+    ref_name: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -77,6 +88,7 @@ class VolumeMount(_message.Message):
         type: _Optional[str] = ...,
         size_limit: _Optional[str] = ...,
         version_id: _Optional[int] = ...,
+        ref_name: _Optional[str] = ...,
     ) -> None: ...
 
 class SecretRef(_message.Message):
@@ -108,6 +120,27 @@ class SecretRef(_message.Message):
         prefix: _Optional[str] = ...,
     ) -> None: ...
 
+class ManagedSshDestination(_message.Message):
+    __slots__ = ("host", "private_key_secret", "host_keys", "port", "username")
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    PRIVATE_KEY_SECRET_FIELD_NUMBER: _ClassVar[int]
+    HOST_KEYS_FIELD_NUMBER: _ClassVar[int]
+    PORT_FIELD_NUMBER: _ClassVar[int]
+    USERNAME_FIELD_NUMBER: _ClassVar[int]
+    host: str
+    private_key_secret: str
+    host_keys: _containers.RepeatedScalarFieldContainer[str]
+    port: int
+    username: str
+    def __init__(
+        self,
+        host: _Optional[str] = ...,
+        private_key_secret: _Optional[str] = ...,
+        host_keys: _Optional[_Iterable[str]] = ...,
+        port: _Optional[int] = ...,
+        username: _Optional[str] = ...,
+    ) -> None: ...
+
 class ChalkContainerSpec(_message.Message):
     __slots__ = (
         "name",
@@ -129,6 +162,9 @@ class ChalkContainerSpec(_message.Message):
         "compute_class",
         "startup_probe",
         "readiness_probe",
+        "restart_policy",
+        "chalk_workload_identity",
+        "managed_ssh",
     )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -145,6 +181,16 @@ class ChalkContainerSpec(_message.Message):
         key: str
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    class ManagedSshEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: ManagedSshDestination
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[ManagedSshDestination, _Mapping]] = ...
+        ) -> None: ...
 
     NAME_FIELD_NUMBER: _ClassVar[int]
     IMAGE_FIELD_NUMBER: _ClassVar[int]
@@ -165,6 +211,9 @@ class ChalkContainerSpec(_message.Message):
     COMPUTE_CLASS_FIELD_NUMBER: _ClassVar[int]
     STARTUP_PROBE_FIELD_NUMBER: _ClassVar[int]
     READINESS_PROBE_FIELD_NUMBER: _ClassVar[int]
+    RESTART_POLICY_FIELD_NUMBER: _ClassVar[int]
+    CHALK_WORKLOAD_IDENTITY_FIELD_NUMBER: _ClassVar[int]
+    MANAGED_SSH_FIELD_NUMBER: _ClassVar[int]
     name: str
     image: str
     entrypoint: _containers.RepeatedScalarFieldContainer[str]
@@ -184,6 +233,9 @@ class ChalkContainerSpec(_message.Message):
     compute_class: ComputeClass
     startup_probe: StartupProbe
     readiness_probe: ReadinessProbe
+    restart_policy: RestartPolicy
+    chalk_workload_identity: ChalkWorkloadIdentity
+    managed_ssh: _containers.MessageMap[str, ManagedSshDestination]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -205,6 +257,9 @@ class ChalkContainerSpec(_message.Message):
         compute_class: _Optional[_Union[ComputeClass, str]] = ...,
         startup_probe: _Optional[_Union[StartupProbe, _Mapping]] = ...,
         readiness_probe: _Optional[_Union[ReadinessProbe, _Mapping]] = ...,
+        restart_policy: _Optional[_Union[RestartPolicy, str]] = ...,
+        chalk_workload_identity: _Optional[_Union[ChalkWorkloadIdentity, _Mapping]] = ...,
+        managed_ssh: _Optional[_Mapping[str, ManagedSshDestination]] = ...,
     ) -> None: ...
 
 class StartupProbe(_message.Message):
@@ -327,7 +382,7 @@ class NetworkPolicyRule(_message.Message):
     ) -> None: ...
 
 class NetworkTransformer(_message.Message):
-    __slots__ = ("headers",)
+    __slots__ = ("headers", "headers_secrets")
     class HeadersEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -336,9 +391,21 @@ class NetworkTransformer(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class HeadersSecretsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     HEADERS_FIELD_NUMBER: _ClassVar[int]
+    HEADERS_SECRETS_FIELD_NUMBER: _ClassVar[int]
     headers: _containers.ScalarMap[str, str]
-    def __init__(self, headers: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    headers_secrets: _containers.ScalarMap[str, str]
+    def __init__(
+        self, headers: _Optional[_Mapping[str, str]] = ..., headers_secrets: _Optional[_Mapping[str, str]] = ...
+    ) -> None: ...
 
 class NetworkPolicyMatch(_message.Message):
     __slots__ = ("path", "method", "query_string", "headers")
@@ -508,15 +575,30 @@ class GetContainerResponse(_message.Message):
     def __init__(self, container: _Optional[_Union[ContainerResponse, _Mapping]] = ...) -> None: ...
 
 class ListContainersRequest(_message.Message):
-    __slots__ = ("cursor", "limit", "include_stopped")
+    __slots__ = ("cursor", "limit", "include_stopped", "statuses", "images", "search", "sort_ascending")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_STOPPED_FIELD_NUMBER: _ClassVar[int]
+    STATUSES_FIELD_NUMBER: _ClassVar[int]
+    IMAGES_FIELD_NUMBER: _ClassVar[int]
+    SEARCH_FIELD_NUMBER: _ClassVar[int]
+    SORT_ASCENDING_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     include_stopped: bool
+    statuses: _containers.RepeatedScalarFieldContainer[str]
+    images: _containers.RepeatedScalarFieldContainer[str]
+    search: str
+    sort_ascending: bool
     def __init__(
-        self, cursor: _Optional[str] = ..., limit: _Optional[int] = ..., include_stopped: bool = ...
+        self,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        include_stopped: bool = ...,
+        statuses: _Optional[_Iterable[str]] = ...,
+        images: _Optional[_Iterable[str]] = ...,
+        search: _Optional[str] = ...,
+        sort_ascending: bool = ...,
     ) -> None: ...
 
 class ListContainersResponse(_message.Message):
@@ -1039,3 +1121,7 @@ class CreateContainerDebugTTYResponse(_message.Message):
     error: str
     closed: bool
     def __init__(self, data: _Optional[bytes] = ..., error: _Optional[str] = ..., closed: bool = ...) -> None: ...
+
+class ChalkWorkloadIdentity(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

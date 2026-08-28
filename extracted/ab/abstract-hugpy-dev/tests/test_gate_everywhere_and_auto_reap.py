@@ -35,6 +35,16 @@ from abstract_hugpy_dev.flask_app.app.routes import (          # noqa: E402
     comms_routes as _comms_routes)
 
 
+# The reserve is carved OUT of disk_cache_gib since 2026-08-22 (effective =
+# allocation - reserve). These tests reason in pure-allocation numbers, so pin
+# the reserve to 0 here; the carve-out itself is covered by
+# tests/test_budget_reserve_carveout.py.
+@pytest.fixture(autouse=True)
+def _zero_disk_reserve(monkeypatch):
+    monkeypatch.setenv("HUGPY_WORKER_DISK_RESERVE_GIB", "0")
+
+
+
 # ═══════════════════════ Part A — gate everywhere ═══════════════════════════
 class _State:
     """Minimal explicit WorkerState for the gate."""

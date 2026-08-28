@@ -1010,8 +1010,12 @@ class UDF(Callable[[pa.RecordBatch], pa.Array]):  # type: ignore
 
         # Check RecordBatch UDFs
         if self.arg_type == UDFArgType.RECORD_BATCH:
-            # Error if input_columns are specified for RecordBatch UDFs
-            if cols_to_validate is not None:
+            # Error only if input_columns are actually declared. An empty list
+            # is equivalent to None ("no declared inputs") — the namespace API
+            # stores ``[]`` because its ``input_columns`` field is a non-nullable
+            # list, so RecordBatch columns created over ``db://`` read back as
+            # ``[]`` rather than ``null``.
+            if cols_to_validate:
                 raise ValueError(
                     f"UDF '{self.name}' is a RecordBatch UDF but has input_columns "
                     f"{cols_to_validate} specified. RecordBatch UDFs receive the "
@@ -1161,6 +1165,12 @@ class UDF(Callable[[pa.RecordBatch], pa.Array]):  # type: ignore
             )
 
             if expected_type is None:
+                continue
+
+            # A ``pa.Array`` / ``pa.RecordBatch`` annotation means "the whole
+            # column/batch"; there is no element type to check, so skip
+            # validation silently rather than emitting a spurious warning.
+            if expected_type in (pa.Array, pa.RecordBatch):
                 continue
 
             wants_numpy = _annotation_requests_numpy_ndarray(expected_type)

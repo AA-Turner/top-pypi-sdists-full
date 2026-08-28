@@ -11,9 +11,19 @@ if TYPE_CHECKING:
     from .add_or_update_code_location import AddOrUpdateCodeLocation
     from .base_model import UnsetType
     from .create_issue import CreateIssue
+    from .create_or_update_alert_policy import CreateOrUpdateAlertPolicy
+    from .delete_alert_policy import DeleteAlertPolicy
     from .delete_code_location import DeleteCodeLocation
     from .delete_deployment import DeleteDeployment
-    from .enums import InstigationTickStatus, IssueStatus, PullRequestStatus
+    from .enums import (
+        InstigationTickStatus,
+        IssueStatus,
+        PullRequestStatus,
+        TerminateRunPolicy,
+    )
+    from .get_alert_policies_for_job import GetAlertPoliciesForJob
+    from .get_alert_policy import GetAlertPolicy
+    from .get_alert_policy_notifications import GetAlertPolicyNotifications
     from .get_asset_condition_evaluations import GetAssetConditionEvaluations
     from .get_asset_details import GetAssetDetails
     from .get_asset_health import GetAssetHealth
@@ -29,6 +39,7 @@ if TYPE_CHECKING:
     from .get_logs_captured_events import GetLogsCapturedEvents
     from .get_organization_settings import GetOrganizationSettings
     from .get_run import GetRun
+    from .get_run_alert_notifications import GetRunAlertNotifications
     from .get_run_events import GetRunEvents
     from .get_schedule import GetSchedule
     from .get_schedule_ticks import GetScheduleTicks
@@ -42,6 +53,7 @@ if TYPE_CHECKING:
         IssueLinkedObjectInput,
         IssuesFilter,
         OrganizationSettingsInput,
+        ReexecutionParams,
         RepositorySelector,
         RunsFilter,
         ScheduleSelector,
@@ -51,6 +63,7 @@ if TYPE_CHECKING:
     from .launch_run import LaunchRun
     from .list_agents import ListAgents
     from .list_alert_policies import ListAlertPolicies
+    from .list_alert_policies_as_document import ListAlertPoliciesAsDocument
     from .list_asset_check_executions import ListAssetCheckExecutions
     from .list_asset_checks import ListAssetChecks
     from .list_asset_records import ListAssetRecords
@@ -68,7 +81,10 @@ if TYPE_CHECKING:
     from .list_sensors import ListSensors
     from .reconcile_alert_policies import ReconcileAlertPolicies
     from .remove_link_from_issue import RemoveLinkFromIssue
+    from .rerun_backfill import RerunBackfill
+    from .rerun_run import RerunRun
     from .set_deployment_settings import SetDeploymentSettings
+    from .terminate_run import TerminateRun
     from .update_issue import UpdateIssue
     from .update_organization_settings import UpdateOrganizationSettings
 
@@ -104,12 +120,14 @@ class Client(BaseClient):
         data = self.get_data(response)
         return ListAgents.model_validate(data)
 
-    def list_alert_policies(self, **kwargs: Any) -> "ListAlertPolicies":
-        from .list_alert_policies import ListAlertPolicies
+    def list_alert_policies_as_document(
+        self, **kwargs: Any
+    ) -> "ListAlertPoliciesAsDocument":
+        from .list_alert_policies_as_document import ListAlertPoliciesAsDocument
 
         query = gql(
             """
-            query ListAlertPolicies {
+            query ListAlertPoliciesAsDocument {
               alertPoliciesAsDocumentOrError {
                 __typename
                 ... on AlertPoliciesAsDocument {
@@ -128,12 +146,12 @@ class Client(BaseClient):
         variables: dict[str, object] = {}
         response = self.execute(
             query=query,
-            operation_name="ListAlertPolicies",
+            operation_name="ListAlertPoliciesAsDocument",
             variables=variables,
             **kwargs
         )
         data = self.get_data(response)
-        return ListAlertPolicies.model_validate(data)
+        return ListAlertPoliciesAsDocument.model_validate(data)
 
     def reconcile_alert_policies(
         self, document: Any, **kwargs: Any
@@ -173,8 +191,1078 @@ class Client(BaseClient):
         data = self.get_data(response)
         return ReconcileAlertPolicies.model_validate(data)
 
+    def list_alert_policies(self, **kwargs: Any) -> "ListAlertPolicies":
+        from .list_alert_policies import ListAlertPolicies
+
+        query = gql(
+            """
+            query ListAlertPolicies {
+              alertPolicies {
+                ...AlertPolicyFields
+              }
+            }
+
+            fragment AlertPolicyFields on AlertPolicy {
+              id
+              name
+              description
+              tags {
+                key
+                value
+              }
+              eventTypes
+              notificationService {
+                __typename
+                ... on EmailAlertPolicyNotification {
+                  emailAddresses
+                }
+                ... on SlackAlertPolicyNotification {
+                  slackWorkspaceName
+                  slackChannelName
+                }
+                ... on EmailOwnersAlertPolicyNotification {
+                  defaultEmailAddresses
+                }
+                ... on MicrosoftTeamsAlertPolicyNotification {
+                  webhookUrl
+                }
+                ... on PagerdutyAlertPolicyNotification {
+                  integrationKey
+                }
+                ... on WebhookAlertPolicyNotification {
+                  webhookUrl
+                  bodyTemplate
+                }
+              }
+              enabled
+              alertTargets {
+                __typename
+                ... on AssetGroupTarget {
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on AssetKeyTarget {
+                  assetKey {
+                    path
+                  }
+                }
+                ... on AssetSelectionTarget {
+                  assetSelectionString
+                }
+                ... on AssetSelectionViewTarget {
+                  view {
+                    ... on CatalogView {
+                      id
+                      name
+                    }
+                  }
+                }
+                ... on FavoritesSelectionViewTarget {
+                  userEmail
+                  user {
+                    name
+                    email
+                  }
+                  assets {
+                    key {
+                      path
+                    }
+                  }
+                }
+                ... on InsightsDeploymentThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                }
+                ... on InsightsAssetGroupThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on InsightsAssetThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetKey {
+                    path
+                  }
+                }
+                ... on InsightsJobThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  jobName
+                  locationName
+                  repoName
+                }
+                ... on CreditLimitTarget {
+                  creditLimit
+                }
+                ... on LongRunningJobThresholdTarget {
+                  thresholdSeconds
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on RunResultTarget {
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on ScheduleSensorTarget {
+                  codeLocationNames
+                  types
+                  schedulesSensors {
+                    codeLocationName
+                    repositoryName
+                    name
+                  }
+                }
+                ... on CodeLocationTarget {
+                  codeLocationNames
+                }
+              }
+              policyOptions {
+                consecutiveFailureThreshold
+                includeDescriptionInNotification
+                renotifyIntervalMinutes
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {}
+        response = self.execute(
+            query=query,
+            operation_name="ListAlertPolicies",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return ListAlertPolicies.model_validate(data)
+
+    def get_alert_policy(self, alert_policy_id: str, **kwargs: Any) -> "GetAlertPolicy":
+        from .get_alert_policy import GetAlertPolicy
+
+        query = gql(
+            """
+            query GetAlertPolicy($alertPolicyId: String!) {
+              alertPolicyById(alertPolicyId: $alertPolicyId) {
+                ...AlertPolicyFields
+              }
+            }
+
+            fragment AlertPolicyFields on AlertPolicy {
+              id
+              name
+              description
+              tags {
+                key
+                value
+              }
+              eventTypes
+              notificationService {
+                __typename
+                ... on EmailAlertPolicyNotification {
+                  emailAddresses
+                }
+                ... on SlackAlertPolicyNotification {
+                  slackWorkspaceName
+                  slackChannelName
+                }
+                ... on EmailOwnersAlertPolicyNotification {
+                  defaultEmailAddresses
+                }
+                ... on MicrosoftTeamsAlertPolicyNotification {
+                  webhookUrl
+                }
+                ... on PagerdutyAlertPolicyNotification {
+                  integrationKey
+                }
+                ... on WebhookAlertPolicyNotification {
+                  webhookUrl
+                  bodyTemplate
+                }
+              }
+              enabled
+              alertTargets {
+                __typename
+                ... on AssetGroupTarget {
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on AssetKeyTarget {
+                  assetKey {
+                    path
+                  }
+                }
+                ... on AssetSelectionTarget {
+                  assetSelectionString
+                }
+                ... on AssetSelectionViewTarget {
+                  view {
+                    ... on CatalogView {
+                      id
+                      name
+                    }
+                  }
+                }
+                ... on FavoritesSelectionViewTarget {
+                  userEmail
+                  user {
+                    name
+                    email
+                  }
+                  assets {
+                    key {
+                      path
+                    }
+                  }
+                }
+                ... on InsightsDeploymentThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                }
+                ... on InsightsAssetGroupThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on InsightsAssetThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetKey {
+                    path
+                  }
+                }
+                ... on InsightsJobThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  jobName
+                  locationName
+                  repoName
+                }
+                ... on CreditLimitTarget {
+                  creditLimit
+                }
+                ... on LongRunningJobThresholdTarget {
+                  thresholdSeconds
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on RunResultTarget {
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on ScheduleSensorTarget {
+                  codeLocationNames
+                  types
+                  schedulesSensors {
+                    codeLocationName
+                    repositoryName
+                    name
+                  }
+                }
+                ... on CodeLocationTarget {
+                  codeLocationNames
+                }
+              }
+              policyOptions {
+                consecutiveFailureThreshold
+                includeDescriptionInNotification
+                renotifyIntervalMinutes
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"alertPolicyId": alert_policy_id}
+        response = self.execute(
+            query=query, operation_name="GetAlertPolicy", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return GetAlertPolicy.model_validate(data)
+
+    def get_alert_policies_for_job(
+        self,
+        job_name: str,
+        repository_name: str,
+        repository_location_name: str,
+        **kwargs: Any
+    ) -> "GetAlertPoliciesForJob":
+        from .get_alert_policies_for_job import GetAlertPoliciesForJob
+
+        query = gql(
+            """
+            query GetAlertPoliciesForJob($jobName: String!, $repositoryName: String!, $repositoryLocationName: String!) {
+              alertPoliciesForJob(
+                jobName: $jobName
+                repositoryName: $repositoryName
+                repositoryLocationName: $repositoryLocationName
+              ) {
+                ...AlertPolicyFields
+              }
+            }
+
+            fragment AlertPolicyFields on AlertPolicy {
+              id
+              name
+              description
+              tags {
+                key
+                value
+              }
+              eventTypes
+              notificationService {
+                __typename
+                ... on EmailAlertPolicyNotification {
+                  emailAddresses
+                }
+                ... on SlackAlertPolicyNotification {
+                  slackWorkspaceName
+                  slackChannelName
+                }
+                ... on EmailOwnersAlertPolicyNotification {
+                  defaultEmailAddresses
+                }
+                ... on MicrosoftTeamsAlertPolicyNotification {
+                  webhookUrl
+                }
+                ... on PagerdutyAlertPolicyNotification {
+                  integrationKey
+                }
+                ... on WebhookAlertPolicyNotification {
+                  webhookUrl
+                  bodyTemplate
+                }
+              }
+              enabled
+              alertTargets {
+                __typename
+                ... on AssetGroupTarget {
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on AssetKeyTarget {
+                  assetKey {
+                    path
+                  }
+                }
+                ... on AssetSelectionTarget {
+                  assetSelectionString
+                }
+                ... on AssetSelectionViewTarget {
+                  view {
+                    ... on CatalogView {
+                      id
+                      name
+                    }
+                  }
+                }
+                ... on FavoritesSelectionViewTarget {
+                  userEmail
+                  user {
+                    name
+                    email
+                  }
+                  assets {
+                    key {
+                      path
+                    }
+                  }
+                }
+                ... on InsightsDeploymentThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                }
+                ... on InsightsAssetGroupThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on InsightsAssetThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetKey {
+                    path
+                  }
+                }
+                ... on InsightsJobThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  jobName
+                  locationName
+                  repoName
+                }
+                ... on CreditLimitTarget {
+                  creditLimit
+                }
+                ... on LongRunningJobThresholdTarget {
+                  thresholdSeconds
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on RunResultTarget {
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on ScheduleSensorTarget {
+                  codeLocationNames
+                  types
+                  schedulesSensors {
+                    codeLocationName
+                    repositoryName
+                    name
+                  }
+                }
+                ... on CodeLocationTarget {
+                  codeLocationNames
+                }
+              }
+              policyOptions {
+                consecutiveFailureThreshold
+                includeDescriptionInNotification
+                renotifyIntervalMinutes
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {
+            "jobName": job_name,
+            "repositoryName": repository_name,
+            "repositoryLocationName": repository_location_name,
+        }
+        response = self.execute(
+            query=query,
+            operation_name="GetAlertPoliciesForJob",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return GetAlertPoliciesForJob.model_validate(data)
+
+    def get_alert_policy_notifications(
+        self,
+        alert_policy_id: str,
+        limit: int,
+        cursor: Union[Optional[str], "UnsetType"] = UNSET,
+        **kwargs: Any
+    ) -> "GetAlertPolicyNotifications":
+        from .get_alert_policy_notifications import GetAlertPolicyNotifications
+
+        query = gql(
+            """
+            query GetAlertPolicyNotifications($alertPolicyId: String!, $limit: Int!, $cursor: String) {
+              alertPolicyNotifications(
+                alertPolicyId: $alertPolicyId
+                limit: $limit
+                cursor: $cursor
+              ) {
+                results {
+                  ...AlertNotificationFields
+                }
+                cursor
+                hasMore
+              }
+            }
+
+            fragment AlertNotificationFields on AlertNotification {
+              __typename
+              ... on JobRunAlertNotification {
+                id
+                status
+                sendTimestamp
+                errorMessage
+                alertPolicyId
+                jobName
+                codeLocationName
+                repositoryName
+                eventType
+                runId
+              }
+              ... on AssetAlertNotification {
+                id
+                status
+                sendTimestamp
+                errorMessage
+                alertPolicyId
+                runId
+                assetsEvents {
+                  assetKey {
+                    path
+                  }
+                  eventType
+                }
+              }
+              ... on TickAlertNotification {
+                id
+                status
+                sendTimestamp
+                errorMessage
+                alertPolicyId
+                instigatorEvents {
+                  instigatorName
+                  repositoryName
+                  codeLocationName
+                  eventType
+                }
+              }
+              ... on AgentAlertNotification {
+                id
+                status
+                sendTimestamp
+                errorMessage
+                alertPolicyId
+              }
+              ... on CodeLocationAlertNotification {
+                id
+                status
+                sendTimestamp
+                errorMessage
+                alertPolicyId
+                codeLocationName
+                failureMessage
+              }
+              ... on InsightsAlertNotification {
+                id
+                status
+                sendTimestamp
+                errorMessage
+                alertPolicyId
+                metricName
+                computedValue
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {
+            "alertPolicyId": alert_policy_id,
+            "limit": limit,
+            "cursor": cursor,
+        }
+        response = self.execute(
+            query=query,
+            operation_name="GetAlertPolicyNotifications",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return GetAlertPolicyNotifications.model_validate(data)
+
+    def get_run_alert_notifications(
+        self,
+        run_id: str,
+        limit: Union[Optional[int], "UnsetType"] = UNSET,
+        **kwargs: Any
+    ) -> "GetRunAlertNotifications":
+        from .get_run_alert_notifications import GetRunAlertNotifications
+
+        query = gql(
+            """
+            query GetRunAlertNotifications($runId: String!, $limit: Int) {
+              runNotificationsOrError(runId: $runId, limit: $limit) {
+                __typename
+                ... on RunNotifications {
+                  notifications {
+                    ...RunNotificationFields
+                  }
+                  alertPolicies {
+                    ...AlertPolicyFields
+                  }
+                }
+                ... on RunNotificationsExpiredError {
+                  message
+                }
+              }
+            }
+
+            fragment AlertPolicyFields on AlertPolicy {
+              id
+              name
+              description
+              tags {
+                key
+                value
+              }
+              eventTypes
+              notificationService {
+                __typename
+                ... on EmailAlertPolicyNotification {
+                  emailAddresses
+                }
+                ... on SlackAlertPolicyNotification {
+                  slackWorkspaceName
+                  slackChannelName
+                }
+                ... on EmailOwnersAlertPolicyNotification {
+                  defaultEmailAddresses
+                }
+                ... on MicrosoftTeamsAlertPolicyNotification {
+                  webhookUrl
+                }
+                ... on PagerdutyAlertPolicyNotification {
+                  integrationKey
+                }
+                ... on WebhookAlertPolicyNotification {
+                  webhookUrl
+                  bodyTemplate
+                }
+              }
+              enabled
+              alertTargets {
+                __typename
+                ... on AssetGroupTarget {
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on AssetKeyTarget {
+                  assetKey {
+                    path
+                  }
+                }
+                ... on AssetSelectionTarget {
+                  assetSelectionString
+                }
+                ... on AssetSelectionViewTarget {
+                  view {
+                    ... on CatalogView {
+                      id
+                      name
+                    }
+                  }
+                }
+                ... on FavoritesSelectionViewTarget {
+                  userEmail
+                  user {
+                    name
+                    email
+                  }
+                  assets {
+                    key {
+                      path
+                    }
+                  }
+                }
+                ... on InsightsDeploymentThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                }
+                ... on InsightsAssetGroupThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on InsightsAssetThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetKey {
+                    path
+                  }
+                }
+                ... on InsightsJobThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  jobName
+                  locationName
+                  repoName
+                }
+                ... on CreditLimitTarget {
+                  creditLimit
+                }
+                ... on LongRunningJobThresholdTarget {
+                  thresholdSeconds
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on RunResultTarget {
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on ScheduleSensorTarget {
+                  codeLocationNames
+                  types
+                  schedulesSensors {
+                    codeLocationName
+                    repositoryName
+                    name
+                  }
+                }
+                ... on CodeLocationTarget {
+                  codeLocationNames
+                }
+              }
+              policyOptions {
+                consecutiveFailureThreshold
+                includeDescriptionInNotification
+                renotifyIntervalMinutes
+              }
+            }
+
+            fragment RunNotificationFields on RunNotification {
+              __typename
+              ... on JobRunAlertNotification {
+                id
+                status
+                sendTimestamp
+                errorMessage
+                alertPolicyId
+                jobName
+                codeLocationName
+                repositoryName
+                eventType
+                runId
+              }
+              ... on AssetAlertNotification {
+                id
+                status
+                sendTimestamp
+                errorMessage
+                alertPolicyId
+                runId
+                assetsEvents {
+                  assetKey {
+                    path
+                  }
+                  eventType
+                }
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"runId": run_id, "limit": limit}
+        response = self.execute(
+            query=query,
+            operation_name="GetRunAlertNotifications",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return GetRunAlertNotifications.model_validate(data)
+
+    def create_or_update_alert_policy(
+        self, document: Any, **kwargs: Any
+    ) -> "CreateOrUpdateAlertPolicy":
+        from .create_or_update_alert_policy import CreateOrUpdateAlertPolicy
+
+        query = gql(
+            """
+            mutation CreateOrUpdateAlertPolicy($document: GenericScalar!) {
+              createOrUpdateAlertPolicyFromDocument(document: $document) {
+                __typename
+                ... on AlertPolicy {
+                  ...AlertPolicyFields
+                }
+                ... on InvalidAlertPolicyError {
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                  stack
+                }
+              }
+            }
+
+            fragment AlertPolicyFields on AlertPolicy {
+              id
+              name
+              description
+              tags {
+                key
+                value
+              }
+              eventTypes
+              notificationService {
+                __typename
+                ... on EmailAlertPolicyNotification {
+                  emailAddresses
+                }
+                ... on SlackAlertPolicyNotification {
+                  slackWorkspaceName
+                  slackChannelName
+                }
+                ... on EmailOwnersAlertPolicyNotification {
+                  defaultEmailAddresses
+                }
+                ... on MicrosoftTeamsAlertPolicyNotification {
+                  webhookUrl
+                }
+                ... on PagerdutyAlertPolicyNotification {
+                  integrationKey
+                }
+                ... on WebhookAlertPolicyNotification {
+                  webhookUrl
+                  bodyTemplate
+                }
+              }
+              enabled
+              alertTargets {
+                __typename
+                ... on AssetGroupTarget {
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on AssetKeyTarget {
+                  assetKey {
+                    path
+                  }
+                }
+                ... on AssetSelectionTarget {
+                  assetSelectionString
+                }
+                ... on AssetSelectionViewTarget {
+                  view {
+                    ... on CatalogView {
+                      id
+                      name
+                    }
+                  }
+                }
+                ... on FavoritesSelectionViewTarget {
+                  userEmail
+                  user {
+                    name
+                    email
+                  }
+                  assets {
+                    key {
+                      path
+                    }
+                  }
+                }
+                ... on InsightsDeploymentThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                }
+                ... on InsightsAssetGroupThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetGroup
+                  locationName
+                  repoName
+                }
+                ... on InsightsAssetThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  assetKey {
+                    path
+                  }
+                }
+                ... on InsightsJobThresholdTarget {
+                  metricName
+                  threshold
+                  selectionPeriodDays
+                  operator
+                  jobName
+                  locationName
+                  repoName
+                }
+                ... on CreditLimitTarget {
+                  creditLimit
+                }
+                ... on LongRunningJobThresholdTarget {
+                  thresholdSeconds
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on RunResultTarget {
+                  tags {
+                    key
+                    value
+                  }
+                  codeLocationNames
+                  jobs {
+                    codeLocationName
+                    repositoryName
+                    jobName
+                  }
+                }
+                ... on ScheduleSensorTarget {
+                  codeLocationNames
+                  types
+                  schedulesSensors {
+                    codeLocationName
+                    repositoryName
+                    name
+                  }
+                }
+                ... on CodeLocationTarget {
+                  codeLocationNames
+                }
+              }
+              policyOptions {
+                consecutiveFailureThreshold
+                includeDescriptionInNotification
+                renotifyIntervalMinutes
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"document": document}
+        response = self.execute(
+            query=query,
+            operation_name="CreateOrUpdateAlertPolicy",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return CreateOrUpdateAlertPolicy.model_validate(data)
+
+    def delete_alert_policy(
+        self, alert_policy_name: str, **kwargs: Any
+    ) -> "DeleteAlertPolicy":
+        from .delete_alert_policy import DeleteAlertPolicy
+
+        query = gql(
+            """
+            mutation DeleteAlertPolicy($alertPolicyName: String!) {
+              deleteAlertPolicy(alertPolicyName: $alertPolicyName) {
+                __typename
+                ... on DeleteAlertPolicySuccess {
+                  alertPolicyName
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                  stack
+                }
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"alertPolicyName": alert_policy_name}
+        response = self.execute(
+            query=query,
+            operation_name="DeleteAlertPolicy",
+            variables=variables,
+            **kwargs
+        )
+        data = self.get_data(response)
+        return DeleteAlertPolicy.model_validate(data)
+
     def list_asset_records(
         self,
+        prefix: Union[Optional[list[str]], "UnsetType"] = UNSET,
         cursor: Union[Optional[str], "UnsetType"] = UNSET,
         limit: Union[Optional[int], "UnsetType"] = UNSET,
         **kwargs: Any
@@ -183,8 +1271,8 @@ class Client(BaseClient):
 
         query = gql(
             """
-            query ListAssetRecords($cursor: String, $limit: Int) {
-              assetRecordsOrError(cursor: $cursor, limit: $limit) {
+            query ListAssetRecords($prefix: [String!], $cursor: String, $limit: Int) {
+              assetRecordsOrError(prefix: $prefix, cursor: $cursor, limit: $limit) {
                 __typename
                 ... on AssetRecordConnection {
                   assets {
@@ -202,7 +1290,11 @@ class Client(BaseClient):
             }
             """
         )
-        variables: dict[str, object] = {"cursor": cursor, "limit": limit}
+        variables: dict[str, object] = {
+            "prefix": prefix,
+            "cursor": cursor,
+            "limit": limit,
+        }
         response = self.execute(
             query=query,
             operation_name="ListAssetRecords",
@@ -228,10 +1320,23 @@ class Client(BaseClient):
                     key {
                       path
                     }
+                    latestMaterializationTimestamp
+                    latestFailedToMaterializeTimestamp
+                    assetHealth {
+                      assetHealth
+                      materializationStatus
+                      assetChecksStatus
+                      freshnessStatus
+                    }
                     definition {
                       description
                       groupName
+                      computeKind
                       kinds
+                      freshnessPolicy {
+                        maximumLagMinutes
+                        cronSchedule
+                      }
                       dependencyKeys {
                         path
                       }
@@ -688,17 +1793,20 @@ class Client(BaseClient):
         return GetAssetPartitionStatus.model_validate(data)
 
     def list_asset_checks(
-        self, asset_key: "AssetKeyInput", **kwargs: Any
+        self,
+        asset_key: "AssetKeyInput",
+        limit: Union[Optional[int], "UnsetType"] = UNSET,
+        **kwargs: Any
     ) -> "ListAssetChecks":
         from .list_asset_checks import ListAssetChecks
 
         query = gql(
             """
-            query ListAssetChecks($assetKey: AssetKeyInput!) {
+            query ListAssetChecks($assetKey: AssetKeyInput!, $limit: Int) {
               assetNodeOrError(assetKey: $assetKey) {
                 __typename
                 ... on AssetNode {
-                  assetChecksOrError {
+                  assetChecksOrError(limit: $limit) {
                     __typename
                     ... on AssetChecks {
                       checks {
@@ -730,7 +1838,7 @@ class Client(BaseClient):
             }
             """
         )
-        variables: dict[str, object] = {"assetKey": asset_key}
+        variables: dict[str, object] = {"assetKey": asset_key, "limit": limit}
         response = self.execute(
             query=query, operation_name="ListAssetChecks", variables=variables, **kwargs
         )
@@ -1023,6 +2131,10 @@ class Client(BaseClient):
                 deploymentName
                 deploymentId
                 deploymentType
+                deploymentStatus
+                agentType
+                isBranchDeployment
+                organizationName
               }
             }
             """
@@ -1050,6 +2162,10 @@ class Client(BaseClient):
                   deploymentName
                   deploymentId
                   deploymentType
+                  deploymentStatus
+                  agentType
+                  isBranchDeployment
+                  organizationName
                 }
               }
             }
@@ -1080,6 +2196,10 @@ class Client(BaseClient):
                   deploymentName
                   deploymentId
                   deploymentType
+                  deploymentStatus
+                  agentType
+                  isBranchDeployment
+                  organizationName
                 }
                 ... on DeploymentNotFoundError {
                   message
@@ -1170,6 +2290,10 @@ class Client(BaseClient):
                   deploymentId
                   deploymentName
                   deploymentType
+                  deploymentStatus
+                  agentType
+                  isBranchDeployment
+                  organizationName
                 }
                 ... on PythonError {
                   message
@@ -1218,6 +2342,10 @@ class Client(BaseClient):
                 ... on Run {
                   __typename
                   id
+                  status
+                  jobName
+                  startTime
+                  endTime
                 }
                 ... on Asset {
                   __typename
@@ -1230,10 +2358,12 @@ class Client(BaseClient):
                 ... on DagsterCloudUser {
                   __typename
                   displayName
+                  email
                 }
                 ... on ServiceUser {
                   __typename
                   displayName
+                  description
                 }
               }
             }
@@ -1286,6 +2416,10 @@ class Client(BaseClient):
                 ... on Run {
                   __typename
                   id
+                  status
+                  jobName
+                  startTime
+                  endTime
                 }
                 ... on Asset {
                   __typename
@@ -1298,10 +2432,12 @@ class Client(BaseClient):
                 ... on DagsterCloudUser {
                   __typename
                   displayName
+                  email
                 }
                 ... on ServiceUser {
                   __typename
                   displayName
+                  description
                 }
               }
             }
@@ -1323,14 +2459,20 @@ class Client(BaseClient):
         title: str,
         description: str,
         status: Union[Optional["IssueStatus"], "UnsetType"] = UNSET,
+        origin: Union[Optional["IssueLinkedObjectInput"], "UnsetType"] = UNSET,
         **kwargs: Any
     ) -> "CreateIssue":
         from .create_issue import CreateIssue
 
         query = gql(
             """
-            mutation CreateIssue($title: String!, $description: String!, $status: IssueStatus) {
-              createIssue(title: $title, description: $description, status: $status) {
+            mutation CreateIssue($title: String!, $description: String!, $status: IssueStatus, $origin: IssueLinkedObjectInput) {
+              createIssue(
+                title: $title
+                description: $description
+                status: $status
+                origin: $origin
+              ) {
                 __typename
                 ... on CreateIssueSuccess {
                   issue {
@@ -1356,6 +2498,10 @@ class Client(BaseClient):
                 ... on Run {
                   __typename
                   id
+                  status
+                  jobName
+                  startTime
+                  endTime
                 }
                 ... on Asset {
                   __typename
@@ -1368,10 +2514,12 @@ class Client(BaseClient):
                 ... on DagsterCloudUser {
                   __typename
                   displayName
+                  email
                 }
                 ... on ServiceUser {
                   __typename
                   displayName
+                  description
                 }
               }
             }
@@ -1381,6 +2529,7 @@ class Client(BaseClient):
             "title": title,
             "description": description,
             "status": status,
+            "origin": origin,
         }
         response = self.execute(
             query=query, operation_name="CreateIssue", variables=variables, **kwargs
@@ -1434,6 +2583,10 @@ class Client(BaseClient):
                 ... on Run {
                   __typename
                   id
+                  status
+                  jobName
+                  startTime
+                  endTime
                 }
                 ... on Asset {
                   __typename
@@ -1446,10 +2599,12 @@ class Client(BaseClient):
                 ... on DagsterCloudUser {
                   __typename
                   displayName
+                  email
                 }
                 ... on ServiceUser {
                   __typename
                   displayName
+                  description
                 }
               }
             }
@@ -1502,6 +2657,10 @@ class Client(BaseClient):
                 ... on Run {
                   __typename
                   id
+                  status
+                  jobName
+                  startTime
+                  endTime
                 }
                 ... on Asset {
                   __typename
@@ -1514,10 +2673,12 @@ class Client(BaseClient):
                 ... on DagsterCloudUser {
                   __typename
                   displayName
+                  email
                 }
                 ... on ServiceUser {
                   __typename
                   displayName
+                  description
                 }
               }
             }
@@ -1567,6 +2728,10 @@ class Client(BaseClient):
                 ... on Run {
                   __typename
                   id
+                  status
+                  jobName
+                  startTime
+                  endTime
                 }
                 ... on Asset {
                   __typename
@@ -1579,10 +2744,12 @@ class Client(BaseClient):
                 ... on DagsterCloudUser {
                   __typename
                   displayName
+                  email
                 }
                 ... on ServiceUser {
                   __typename
                   displayName
+                  description
                 }
               }
             }
@@ -1800,12 +2967,28 @@ class Client(BaseClient):
                   startTime
                   endTime
                   jobName
+                  runConfigYaml
+                  tags {
+                    key
+                    value
+                  }
+                  stats {
+                    __typename
+                    ... on RunStatsSnapshot {
+                      stepsSucceeded
+                      stepsFailed
+                      materializations
+                      expectations
+                    }
+                  }
                 }
                 ... on RunNotFoundError {
+                  runId
                   message
                 }
                 ... on PythonError {
                   message
+                  stack
                 }
               }
             }
@@ -1840,11 +3023,19 @@ class Client(BaseClient):
                     startTime
                     endTime
                     jobName
+                    tags {
+                      key
+                      value
+                    }
                   }
                   count
                 }
+                ... on InvalidPipelineRunsFilterError {
+                  message
+                }
                 ... on PythonError {
                   message
+                  stack
                 }
               }
             }
@@ -1860,6 +3051,172 @@ class Client(BaseClient):
         )
         data = self.get_data(response)
         return ListRuns.model_validate(data)
+
+    def terminate_run(
+        self,
+        run_id: str,
+        terminate_policy: Union[Optional["TerminateRunPolicy"], "UnsetType"] = UNSET,
+        **kwargs: Any
+    ) -> "TerminateRun":
+        from .terminate_run import TerminateRun
+
+        query = gql(
+            """
+            mutation TerminateRun($runId: String!, $terminatePolicy: TerminateRunPolicy) {
+              terminateRun(runId: $runId, terminatePolicy: $terminatePolicy) {
+                __typename
+                ... on TerminateRunSuccess {
+                  run {
+                    runId
+                    status
+                  }
+                }
+                ... on TerminateRunFailure {
+                  message
+                }
+                ... on RunNotFoundError {
+                  runId
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                  stack
+                }
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {
+            "runId": run_id,
+            "terminatePolicy": terminate_policy,
+        }
+        response = self.execute(
+            query=query, operation_name="TerminateRun", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return TerminateRun.model_validate(data)
+
+    def rerun_run(
+        self, reexecution_params: "ReexecutionParams", **kwargs: Any
+    ) -> "RerunRun":
+        from .rerun_run import RerunRun
+
+        query = gql(
+            """
+            mutation RerunRun($reexecutionParams: ReexecutionParams!) {
+              launchRunReexecution(reexecutionParams: $reexecutionParams) {
+                __typename
+                ... on LaunchRunSuccess {
+                  run {
+                    runId
+                    status
+                    jobName
+                    rootRunId
+                    parentRunId
+                  }
+                }
+                ... on RunConfigValidationInvalid {
+                  errors {
+                    __typename
+                    message
+                    reason
+                  }
+                }
+                ... on PipelineNotFoundError {
+                  pipelineName
+                  message
+                }
+                ... on InvalidStepError {
+                  invalidStepKey
+                }
+                ... on InvalidOutputError {
+                  stepKey
+                  invalidOutputName
+                }
+                ... on InvalidSubsetError {
+                  message
+                }
+                ... on RunConflict {
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                  stack
+                }
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"reexecutionParams": reexecution_params}
+        response = self.execute(
+            query=query, operation_name="RerunRun", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return RerunRun.model_validate(data)
+
+    def rerun_backfill(
+        self,
+        reexecution_params: Union[Optional["ReexecutionParams"], "UnsetType"] = UNSET,
+        **kwargs: Any
+    ) -> "RerunBackfill":
+        from .rerun_backfill import RerunBackfill
+
+        query = gql(
+            """
+            mutation RerunBackfill($reexecutionParams: ReexecutionParams) {
+              reexecutePartitionBackfill(reexecutionParams: $reexecutionParams) {
+                __typename
+                ... on LaunchBackfillSuccess {
+                  backfillId
+                  launchedRunIds
+                }
+                ... on RunConfigValidationInvalid {
+                  errors {
+                    __typename
+                    message
+                    reason
+                  }
+                }
+                ... on PipelineNotFoundError {
+                  pipelineName
+                  message
+                }
+                ... on InvalidStepError {
+                  invalidStepKey
+                }
+                ... on InvalidOutputError {
+                  stepKey
+                  invalidOutputName
+                }
+                ... on InvalidSubsetError {
+                  message
+                }
+                ... on RunConflict {
+                  message
+                }
+                ... on UnauthorizedError {
+                  message
+                }
+                ... on PythonError {
+                  message
+                  stack
+                }
+              }
+            }
+            """
+        )
+        variables: dict[str, object] = {"reexecutionParams": reexecution_params}
+        response = self.execute(
+            query=query, operation_name="RerunBackfill", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return RerunBackfill.model_validate(data)
 
     def get_run_events(
         self,

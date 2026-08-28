@@ -947,6 +947,30 @@ def test_required_params_more_than_input_columns_rejected() -> None:
         add_two.validate_against_schema(schema)
 
 
+def test_record_batch_udf_accepts_empty_input_columns() -> None:
+    """RecordBatch UDFs treat an empty input_columns list like None.
+
+    The namespace API stores ``input_columns`` as a non-nullable list, so a
+    RecordBatch column created over ``db://`` reads back as ``[]`` rather than
+    ``null``. Validation must accept that; only a non-empty list is an error.
+    Regression test for GEN-920.
+    """
+    schema = pa.schema([pa.field("a", pa.int64())])
+
+    @udf(data_type=pa.list_(pa.float32(), 4))
+    def gen_fsl(b: pa.RecordBatch) -> pa.Array:
+        arr = pa.array([float(i) for i in range(8)])
+        return pa.FixedSizeListArray.from_arrays(arr, 4)
+
+    # None (local path) and [] (remote db:// path) are both "no declared inputs".
+    gen_fsl.validate_against_schema(schema, None)
+    gen_fsl.validate_against_schema(schema, [])
+
+    # A genuinely-declared input column is still rejected.
+    with pytest.raises(ValueError, match=r"is a RecordBatch UDF but has input_columns"):
+        gen_fsl.validate_against_schema(schema, ["a"])
+
+
 @pytest.mark.parametrize(
     ("num_gpus", "num_cpus"),
     [

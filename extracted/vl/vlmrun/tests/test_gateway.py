@@ -191,7 +191,8 @@ class FakeGateway:
                 extra_body_help='{"method":"ocr"} | {"method":"markdown"}'
                 " | document_url PDF (markdown per page)",
                 capabilities={
-                    "supported_input_types": ["text", "image_url", "document_url"]
+                    "supported_input_types": ["text", "image_url", "document_url"],
+                    "max_images": 1,
                 },
             ),
             FakeModel(
@@ -202,7 +203,8 @@ class FakeGateway:
                 extra_body_help='{"method":"ocr","method_params":'
                 '{"lang":"en","score_threshold":0.5}}',
                 capabilities={
-                    "supported_input_types": ["text", "image_url", "document_url"]
+                    "supported_input_types": ["text", "image_url", "document_url"],
+                    "max_images": 1,
                 },
             ),
         ]
@@ -596,11 +598,40 @@ class TestHelpers:
     def test_format_methods_empty(self):
         assert gw._format_methods({}) == "-"
 
-    def test_format_inputs_strips_url_suffix(self):
+    def test_format_inputs_lists_explicit_types(self):
         out = gw._format_inputs(
-            {"capabilities": {"supported_input_types": ["text", "image_url"]}}
+            {
+                "capabilities": {
+                    "supported_input_types": [
+                        "text",
+                        "image_url",
+                        "document_url",
+                        "video_url",
+                    ]
+                }
+            }
         )
-        assert out == "text, image"
+        assert out == "text, image_url, document_url, video_url"
+
+    def test_format_inputs_empty(self):
+        assert gw._format_inputs({}) == "-"
+
+    def test_grouped_model_rows_orders_by_task_then_id(self):
+        rows = [
+            {"id": "z/chat-b", "task": "chat"},
+            {"id": "a/embed", "task": "embed"},
+            {"id": "m/transcribe", "task": "transcribe"},
+            {"id": "a/chat-a", "task": "chat"},
+        ]
+        grouped = gw._grouped_model_rows(rows)
+        assert [r.get("id") if r else None for r in grouped] == [
+            "a/chat-a",
+            "z/chat-b",
+            None,
+            "m/transcribe",
+            None,
+            "a/embed",
+        ]
 
     def test_parse_extra_body_help_splits_json_and_prose(self):
         examples, notes = gw._parse_extra_body_help(
@@ -674,6 +705,8 @@ class TestGatewayCLI:
         assert result.exit_code == 0
         assert "zai-org/glm-ocr" in result.stdout
         assert "paddleocr/pp-ocrv6" in result.stdout
+        assert "image_url" in result.stdout
+        assert "document_url" in result.stdout
         # Methods are listed, with the default marked.
         assert "detect" in result.stdout
         assert "ocr*" in result.stdout
@@ -956,22 +989,28 @@ class TestGatewayTranscribe:
         assert content[1]["type"] == "image_url"
         assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
 
-    def test_chat_image_only_does_not_stream(self, runner, patched_cli, tmp_path):
-        """Images must not stream: the gateway returns a non-SSE body that an
-        SSE reader drains to empty."""
+    def test_chat_image_streams_by_default(self, runner, patched_cli, tmp_path):
         img = tmp_path / "img.png"
         img.write_bytes(PNG_BYTES)
         result = runner.invoke(app, ["gw", "chat", str(img), "-m", "pp-ocrv6"])
         assert result.exit_code == 0, result.stdout
-        assert patched_cli["client"].gateway.completions.calls[-1]["stream"] is False
+        assert patched_cli["client"].gateway.completions.calls[-1]["stream"] is True
         assert "Hello world" in result.stdout
 
-    def test_chat_text_only_does_not_stream(self, runner, patched_cli):
+    def test_chat_video_streams_by_default(self, runner, patched_cli, tmp_path):
+        video = tmp_path / "clip.mp4"
+        video.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 8)
+        result = runner.invoke(app, ["gw", "chat", str(video), "-m", "pp-ocrv6"])
+        assert result.exit_code == 0, result.stdout
+        assert patched_cli["client"].gateway.completions.calls[-1]["stream"] is True
+        assert "Hello world" in result.stdout
+
+    def test_chat_text_only_streams_by_default(self, runner, patched_cli):
         result = runner.invoke(
             app, ["gw", "chat", "-m", "qwen/qwen3.5-0.8b", "-p", "hi"]
         )
         assert result.exit_code == 0, result.stdout
-        assert patched_cli["client"].gateway.completions.calls[-1]["stream"] is False
+        assert patched_cli["client"].gateway.completions.calls[-1]["stream"] is True
 
     def test_chat_document_streams_by_default(self, runner, patched_cli, tmp_path):
         pdf = tmp_path / "doc.pdf"

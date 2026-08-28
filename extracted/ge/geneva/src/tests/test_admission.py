@@ -1382,3 +1382,240 @@ class TestPipelineResourceConfig:
             assert resources.total_cpus == pytest.approx(2.3)
         finally:
             PipelineResourceConfig.get.cache_clear()
+
+
+class TestDefaultActorMemory:
+    """A UDF that declares no ``memory`` reserves the configured floor.
+
+    Ray treats an absent ``memory`` as "not accounted for" rather than "a
+    little": the actor leaves memory scheduling entirely and the scheduler
+    packs by CPU until the node OOMs (GEN-775). The floor is a flat number by
+    design -- a scheduling floor, not a prediction of what the UDF will use.
+    """
+
+    def test_admission_prices_the_default_when_memory_is_unset(self) -> None:
+        from geneva.jobs.config import JobConfig
+        from geneva.runners.ray.admission import calculate_job_resources
+        from geneva.runners.ray.memory_budget import resolve_default_actor_memory
+
+        udf = MagicMock(spec=UDF)
+        udf.num_cpus = 1.0
+        udf.num_gpus = None
+        udf.memory = None
+        udf.has_preprocess.return_value = False
+
+        default = resolve_default_actor_memory()
+        assert default == JobConfig.get().applier_default_memory_bytes
+        res = calculate_job_resources(udf, concurrency=4, default_memory_bytes=default)
+        # Priced at 4 actors x the floor, plus whatever overhead the function
+        # adds -- the point is that it is no longer zero.
+        assert res.total_memory >= 4 * default
+
+    def test_an_explicit_memory_still_wins(self) -> None:
+        from geneva.runners.ray.admission import calculate_job_resources
+
+        udf = MagicMock(spec=UDF)
+        udf.num_cpus = 1.0
+        udf.num_gpus = None
+        udf.memory = 512 * 1024 * 1024
+        udf.has_preprocess.return_value = False
+
+        from geneva.runners.ray.memory_budget import resolve_default_actor_memory
+
+        floor = resolve_default_actor_memory()
+        declared = calculate_job_resources(
+            udf, concurrency=4, default_memory_bytes=floor
+        )
+
+        udf.memory = None
+        defaulted = calculate_job_resources(
+            udf, concurrency=4, default_memory_bytes=floor
+        )
+        # The declaration is used verbatim; the default does not float it up.
+        assert declared.total_memory < defaulted.total_memory
+
+    def test_zero_restores_the_unreserved_behavior(self, monkeypatch) -> None:  # noqa: ANN001
+        """A deliberate escape hatch back to pre-GEN-775 scheduling."""
+        import attrs
+
+        from geneva.jobs.config import JobConfig
+        from geneva.runners.ray.memory_budget import resolve_default_actor_memory
+
+        cfg = attrs.evolve(JobConfig.get(), applier_default_memory_bytes=0)
+        assert resolve_default_actor_memory(cfg) == 0
+
+    def test_the_resolver_reads_a_threaded_config(self) -> None:
+        """The actor passes its own job config; admission has none to pass."""
+        import attrs
+
+        from geneva.jobs.config import JobConfig
+        from geneva.runners.ray.memory_budget import resolve_default_actor_memory
+
+        cfg = attrs.evolve(JobConfig.get(), applier_default_memory_bytes=7 << 30)
+        assert resolve_default_actor_memory(cfg) == 7 << 30
+        assert resolve_default_actor_memory() != 7 << 30
+
+
+class TestDefaultActorMemoryBoundaries:
+    """Where the floor applies, and where it deliberately does not.
+
+    The policy covers one case: a UDF that declared no memory. An explicit
+    declaration, a task that is not a UDF, and a node too small to hold the
+    floor each fall outside it, and the actor and admission have to agree on
+    that boundary -- disagreeing is worse than either number alone.
+    """
+
+    def test_an_explicit_zero_is_not_an_unset_memory(self) -> None:
+        """``@udf(memory=0)`` is a declaration, and asks for no reservation."""
+        from types import SimpleNamespace
+
+        from geneva.apply.task import BackfillUDFTask
+        from geneva.runners.ray.admission import calculate_job_resources
+        from geneva.runners.ray.memory_budget import resolve_default_actor_memory
+
+        default = resolve_default_actor_memory()
+        resolve = BackfillUDFTask.resolve_memory
+        assert resolve(SimpleNamespace(memory=lambda: 0), default) == 0
+        assert resolve(SimpleNamespace(memory=lambda: None), default) == default
+
+        # Admission has to agree, or it prices a floor the actor won't reserve.
+        udf = MagicMock(spec=UDF)
+        udf.num_cpus = 1.0
+        udf.num_gpus = None
+        udf.memory = 0
+        udf.has_preprocess.return_value = False
+        zeroed = calculate_job_resources(
+            udf, concurrency=4, default_memory_bytes=default
+        )
+
+        udf.memory = None
+        unset = calculate_job_resources(
+            udf, concurrency=4, default_memory_bytes=default
+        )
+        assert zeroed.total_memory < unset.total_memory
+
+        # And a caller that passes no floor -- every path but backfill -- gets
+        # the declaration alone, exactly as before.
+        assert (
+            calculate_job_resources(udf, concurrency=4).total_memory
+            < unset.total_memory
+        )
+
+    def test_only_a_backfill_task_takes_the_floor(self) -> None:
+        """The floor is a backfill policy; every other task keeps its own.
+
+        A bulk load's ``loader_memory`` is its whole memory contract, a view
+        refresh sizes one actor from its own UDFs, and neither has an admission
+        check pricing the floor -- applying it would ask for memory nothing
+        approved. The base ``MapTask`` therefore declines the floor, so a task
+        type is out of scope unless it opts in.
+        """
+        from types import SimpleNamespace
+
+        from geneva.apply.bulk_load import BulkLoadMapTask
+        from geneva.apply.task import CopyTableTask, MapTask
+        from geneva.runners.ray.memory_budget import resolve_default_actor_memory
+
+        floor = resolve_default_actor_memory()
+
+        # Base: the declaration, and nothing when there is none.
+        assert (
+            MapTask.resolve_memory(SimpleNamespace(memory=lambda: None), floor) is None
+        )
+        assert MapTask.resolve_memory(SimpleNamespace(memory=lambda: 7), floor) == 7
+
+        # Bulk load and view refresh inherit that, without an override each.
+        loader = SimpleNamespace(_loader_memory=None, memory=lambda: None)
+        assert BulkLoadMapTask.resolve_memory(loader, floor) is None
+
+        view = SimpleNamespace(
+            column_udfs=[
+                SimpleNamespace(udf=SimpleNamespace(memory=512 * 1024 * 1024)),
+                SimpleNamespace(udf=SimpleNamespace(memory=None)),
+            ],
+            memory=lambda: 512 * 1024 * 1024,
+        )
+        assert CopyTableTask.resolve_memory(view, floor) == 512 * 1024 * 1024
+
+    def test_a_sparse_update_is_priced_without_the_floor(self, tmp_path) -> None:  # noqa: ANN001
+        """``update_mode="sparse"`` routes to its own pipeline, whose actor
+        requests no Ray resources at all -- so pricing the floor here would
+        warn about memory the job never asks for.
+
+        Spied at ``validate_admission`` rather than run end to end: the
+        assertion is about what admission is told, and the routing that makes
+        it true happens later, inside the Ray job.
+        """
+        import pyarrow as pa
+
+        import geneva
+        import geneva.runners.ray.admission as admission_mod
+        from geneva.runners.sparse_update import SPARSE_UPDATE_MODE
+
+        db = geneva.connect(str(tmp_path))
+        tbl = db.create_table("t", pa.table({"a": pa.array([1, 2], type=pa.int64())}))
+
+        @geneva.udf(data_type=pa.int64())
+        def b(a: int) -> int:
+            return a + 1
+
+        tbl.add_columns({"b": b})
+
+        class _StopError(Exception):
+            pass
+
+        seen: dict = {}
+
+        def _spy(_udf, **kwargs) -> None:  # noqa: ANN001, ANN003
+            seen.update(kwargs)
+            raise _StopError
+
+        with patch.object(admission_mod, "validate_admission", _spy):
+            with contextlib.suppress(_StopError):
+                tbl.backfill("b", where="a > 1", update_mode=SPARSE_UPDATE_MODE)
+            sparse_floor = seen.get("default_memory_bytes")
+
+            seen.clear()
+            with contextlib.suppress(_StopError):
+                tbl.backfill("b", where="a > 1")
+            backfill_floor = seen.get("default_memory_bytes")
+
+        from geneva.runners.ray.memory_budget import resolve_default_actor_memory
+
+        assert sparse_floor == 0
+        assert backfill_floor == resolve_default_actor_memory()
+        assert backfill_floor > 0
+
+    def test_an_unplaceable_reservation_is_named_not_corrected(self) -> None:
+        """Say the actor cannot be placed; do not quietly shrink it.
+
+        Ray publishes a node's `memory` after taking its object store, so a
+        4 GiB container offers ~2.55 GiB. A reservation above that is never
+        scheduled and the autoscaler retries until the job fails, naming
+        nothing. Shrinking it to fit would reserve less than the job was sized
+        for and make Ray's figure differ from admission's -- a quiet failure in
+        place of a loud one.
+        """
+        from geneva.runners.ray.memory_budget import (
+            humanize_bytes,
+            unplaceable_reservation_warning,
+        )
+
+        four_gib = 4 * (1 << 30)
+        measured_node = 2_741_616_640  # a real 4 GiB cgroup, measured
+
+        message = unplaceable_reservation_warning(four_gib, measured_node)
+        assert message is not None
+        # Names both figures and the knob that moves them.
+        assert humanize_bytes(four_gib) in message
+        assert humanize_bytes(measured_node) in message
+        assert "JOB__APPLIER_DEFAULT_MEMORY_BYTES" in message
+        # And explains why the number is below the node's RAM, which is the
+        # part nobody guesses.
+        assert "object store" in message
+
+        # Quiet when it fits, and when the answer is unknown.
+        assert unplaceable_reservation_warning(four_gib, 64 << 30) is None
+        assert unplaceable_reservation_warning(four_gib, four_gib) is None
+        assert unplaceable_reservation_warning(four_gib, None) is None
+        assert unplaceable_reservation_warning(four_gib, 0) is None

@@ -816,6 +816,7 @@ class SeeqNames:
         thumbnail_channel = 'workbook-thumbnail'
         workstep_channel = 'workstep'
         report_update_channel = 'report-update'
+        journal_update_channel = 'journal-update'
         signal_monitor = 'signal-monitor'
         table_materializer_channel = 'table-materializer'
         context = 'context'

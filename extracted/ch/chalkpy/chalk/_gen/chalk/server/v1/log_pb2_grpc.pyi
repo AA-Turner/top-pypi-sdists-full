@@ -8,14 +8,22 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.log_pb2 import (
+    GetAccessLogAggregatesRequest,
+    GetAccessLogAggregatesResponse,
     GetAccessLogFacetValuesRequest,
     GetAccessLogFacetValuesResponse,
     GetAccessLogFacetsRequest,
     GetAccessLogFacetsResponse,
+    GetAccessLogStatRequest,
+    GetAccessLogStatResponse,
+    GetLogAggregatesRequest,
+    GetLogAggregatesResponse,
     GetLogFacetValuesRequest,
     GetLogFacetValuesResponse,
     GetLogFacetsRequest,
     GetLogFacetsResponse,
+    GetLogStatRequest,
+    GetLogStatResponse,
     SearchAccessLogEntriesAggregatedRequest,
     SearchAccessLogEntriesAggregatedResponse,
     SearchAccessLogEntriesRequest,
@@ -90,6 +98,26 @@ class LogSearchServiceStub:
         GetAccessLogFacetValuesRequest,
         GetAccessLogFacetValuesResponse,
     ]
+    GetAccessLogAggregates: UnaryUnaryMultiCallable[
+        GetAccessLogAggregatesRequest,
+        GetAccessLogAggregatesResponse,
+    ]
+    """GetAccessLogAggregates computes arbitrary aggregations (count distinct, sum/avg/min/max,
+    percentiles) grouped by 0-3 access-log facets.
+    """
+    GetLogAggregates: UnaryUnaryMultiCallable[
+        GetLogAggregatesRequest,
+        GetLogAggregatesResponse,
+    ]
+    """ClickHouse-only; other logging backends return FailedPrecondition."""
+    GetLogStat: UnaryUnaryMultiCallable[
+        GetLogStatRequest,
+        GetLogStatResponse,
+    ]
+    GetAccessLogStat: UnaryUnaryMultiCallable[
+        GetAccessLogStatRequest,
+        GetAccessLogStatResponse,
+    ]
 
 class LogSearchServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -160,5 +188,33 @@ class LogSearchServiceServicer(metaclass=ABCMeta):
         request: GetAccessLogFacetValuesRequest,
         context: ServicerContext,
     ) -> GetAccessLogFacetValuesResponse: ...
+    @abstractmethod
+    def GetAccessLogAggregates(
+        self,
+        request: GetAccessLogAggregatesRequest,
+        context: ServicerContext,
+    ) -> GetAccessLogAggregatesResponse:
+        """GetAccessLogAggregates computes arbitrary aggregations (count distinct, sum/avg/min/max,
+        percentiles) grouped by 0-3 access-log facets.
+        """
+    @abstractmethod
+    def GetLogAggregates(
+        self,
+        request: GetLogAggregatesRequest,
+        context: ServicerContext,
+    ) -> GetLogAggregatesResponse:
+        """ClickHouse-only; other logging backends return FailedPrecondition."""
+    @abstractmethod
+    def GetLogStat(
+        self,
+        request: GetLogStatRequest,
+        context: ServicerContext,
+    ) -> GetLogStatResponse: ...
+    @abstractmethod
+    def GetAccessLogStat(
+        self,
+        request: GetAccessLogStatRequest,
+        context: ServicerContext,
+    ) -> GetAccessLogStatResponse: ...
 
 def add_LogSearchServiceServicer_to_server(servicer: LogSearchServiceServicer, server: Server) -> None: ...

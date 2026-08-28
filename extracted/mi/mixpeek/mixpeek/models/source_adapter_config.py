@@ -42,7 +42,9 @@ class SourceAdapterConfig(BaseModel):
     dedup_key: Optional[StrictStr] = None
     webhook_secret: Optional[StrictStr] = None
     webhook_url: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["adapter_type", "enabled", "connection_id", "connection", "event_filter", "field_mapping", "blob_source", "batching", "dedup_key", "webhook_secret", "webhook_url"]
+    source_collection_id: Optional[StrictStr] = Field(default=None, description="For adapter_type 'collection': the source collection whose documents are demoted into this bucket as first-class objects.")
+    source_filters: Optional[Dict[str, Any]] = Field(default=None, description="For adapter_type 'collection': optional documents/list filter (LogicalOperator shape) selecting which source documents to demote.")
+    __properties: ClassVar[List[str]] = ["adapter_type", "enabled", "connection_id", "connection", "event_filter", "field_mapping", "blob_source", "batching", "dedup_key", "webhook_secret", "webhook_url", "source_collection_id", "source_filters"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -117,7 +119,9 @@ class SourceAdapterConfig(BaseModel):
             "batching": BatchingConfig.from_dict(obj["batching"]) if obj.get("batching") is not None else None,
             "dedup_key": obj.get("dedup_key"),
             "webhook_secret": obj.get("webhook_secret"),
-            "webhook_url": obj.get("webhook_url")
+            "webhook_url": obj.get("webhook_url"),
+            "source_collection_id": obj.get("source_collection_id"),
+            "source_filters": obj.get("source_filters")
         })
         return _obj
 

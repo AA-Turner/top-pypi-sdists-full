@@ -62,6 +62,12 @@ class TranscribeRequest(BaseModel):
 
     cleanup_extracted_audio: bool = False
 
+    # Word-level timestamps (oracle k98: audio.transcribe.word_timestamps).
+    # False by default (unchanged existing behavior); catalog._word_timestamps_
+    # wired() probes this exact field to know whether the passthrough chain is
+    # closed end to end (builders._build_whisper_request -> runner -> execute).
+    word_timestamps: bool = False
+
     def to_dict(self) -> dict[str, Any]:
         return self.model_dump()
 

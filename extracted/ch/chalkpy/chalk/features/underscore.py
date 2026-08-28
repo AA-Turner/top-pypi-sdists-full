@@ -708,15 +708,23 @@ class UnderscoreFunction(Underscore):
         initial_backoff_ms: int = 100,
         backoff_multiplier: float = 2.0,
         max_backoff_ms: int = 30000,
+        ready_retry_timeout_ms: int | None = None,
     ) -> UnderscoreFunction:
-        return self._with_policy(
-            "retry",
-            max_retries=max_retries,
-            key=key,
-            initial_backoff_ms=initial_backoff_ms,
-            backoff_multiplier=backoff_multiplier,
-            max_backoff_ms=max_backoff_ms,
-        )
+        # ready_retry_timeout_ms opts an OpenAI-shaped blocking function into transparently
+        # retrying a 502 (scale-to-zero wake-up) for up to this many ms; ignored by functions
+        # without a ready-retry concept. Only added to the policy when provided — without it,
+        # a 502 fails immediately, same as any other blocking function. There is no invisible
+        # default wait; a caller must opt in explicitly by passing this.
+        policy_params: dict[str, Any] = {
+            "max_retries": max_retries,
+            "key": key,
+            "initial_backoff_ms": initial_backoff_ms,
+            "backoff_multiplier": backoff_multiplier,
+            "max_backoff_ms": max_backoff_ms,
+        }
+        if ready_retry_timeout_ms is not None:
+            policy_params["ready_retry_timeout_ms"] = ready_retry_timeout_ms
+        return self._with_policy("retry", **policy_params)
 
     def with_logging(self, *, key: str, level: str = "info", log_args: bool = False) -> UnderscoreFunction:
         return self._with_policy("logging", key=key, level=level, log_args=log_args)
@@ -794,6 +802,7 @@ class UnderscoreFunction(Underscore):
             "initial_backoff_ms": int,
             "backoff_multiplier": float,
             "max_backoff_ms": int,
+            "ready_retry_timeout_ms": int,
         },
         "logging": {
             "log_args": lambda value: value.strip().lower() in {"1", "true", "yes"},

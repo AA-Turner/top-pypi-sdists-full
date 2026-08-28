@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xpander-sdk
-Version: 2.0.496
+Version: 2.0.501
 Summary: xpander.ai Backend-as-a-service for AI Agents - SDK
 Home-page: https://www.xpander.ai
 Author: xpanderAI
@@ -56,7 +56,7 @@ Requires-Dist: mcp; extra == "dev"
 Requires-Dist: openai; extra == "dev"
 Requires-Dist: fireworks-ai; extra == "dev"
 Requires-Dist: aioboto3==15.5.0; extra == "dev"
-Requires-Dist: google-genai; extra == "dev"
+Requires-Dist: google-genai>=1.52.0; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: aiohttp; extra == "dev"
 Dynamic: author

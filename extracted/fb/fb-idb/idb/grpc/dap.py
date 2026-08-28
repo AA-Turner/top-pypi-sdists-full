@@ -4,17 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import asyncio
 import logging
-from asyncio import StreamWriter, StreamReader
-from typing import Optional, AsyncGenerator
+from asyncio import StreamReader, StreamWriter
+from collections.abc import AsyncGenerator
+from typing import Optional
 
 from idb.common.types import IdbException
 from idb.grpc.idb_grpc import CompanionServiceStub
-from idb.grpc.idb_pb2 import (
-    DapResponse,
-    DapRequest,
-)
+from idb.grpc.idb_pb2 import DapRequest, DapResponse
 from idb.grpc.stream import Stream
 from idb.utils.contextlib import asynccontextmanager
 from idb.utils.typing import none_throws
@@ -74,8 +73,8 @@ class RemoteDapServer:
         """
         Pipe stdin and stdout to remote dap server
         """
-        read_future: Optional[asyncio.Future[StreamReader]] = None
-        write_future: Optional[asyncio.Future[StreamWriter]] = None
+        read_future: asyncio.Future[StreamReader] | None = None
+        write_future: asyncio.Future[StreamWriter] | None = None
         stop_future = asyncio.ensure_future(stop.wait())
         while True:
             if read_future is None:

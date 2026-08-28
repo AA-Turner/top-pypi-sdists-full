@@ -5,6 +5,13 @@ HF_TASK_TO_TASKS = {
     "text-generation": ["text-generation"],
     "image-text-to-text": ["image-text-to-text", "text-generation"],
     "automatic-speech-recognition": ["automatic-speech-recognition"],
+    # SPEECH OUT (chatterbox seat). Its absence here is why a row whose card
+    # says ``pipeline_tag: text-to-speech`` fell through to _base_tasks'
+    # conservative floor and advertised ["text-generation"] — a voice-cloning
+    # model offering itself as a chat model. The pair
+    # ("transformers","text-to-speech") is in RUNNER_PAIRS below, so the task is
+    # servable, not merely visible.
+    "text-to-speech": ["text-to-speech"],
     "text-summarization": ["text-summarization"],
     "text2text-generation": ["text-summarization", "text2text-generation"],
     # KeyBERT rides any sentence-transformers model, so embedding models
@@ -43,6 +50,7 @@ RUNNER_PAIRS = {
     ("transformers", "text-generation"), ("gguf", "text-generation"),
     ("transformers", "image-text-to-text"), ("gguf", "image-text-to-text"),
     ("transformers", "automatic-speech-recognition"),
+    ("transformers", "text-to-speech"),
     ("transformers", "text-summarization"), ("transformers", "text2text-generation"),
     ("transformers", "feature-extraction"), ("transformers", "sentence-similarity"),
     ("transformers", "text-to-image"), ("transformers", "image-to-image"),

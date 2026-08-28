@@ -115,21 +115,55 @@ class Media(forms.Media):
             return NotImplemented
         return self._combine(other, self)
 
+    # -- Access -----------------------------------------------------------
+
+    def __getitem__(self, name):
+        # Django's ``__getitem__`` hardcodes ``forms.Media``, so ``media["js"]``
+        # -- reached from templates as ``{{ media.js }}``, and used by the admin
+        # as ``{% csp_nonce_attr media.js %}`` -- would drop our type, and with
+        # it the nonce and the import-map merging.
+        return self.from_media(super().__getitem__(name), nonce=self.nonce)
+
     # -- Rendering --------------------------------------------------------
 
     def render(self, *, nonce=None, attrs=None):
-        # ``attrs`` is accepted for compatibility with Django >= 6.2, whose
+        nonce = self._resolve_nonce(nonce, attrs)
+        return mark_safe(
+            "\n".join(filter(None, [*self._render_css(nonce), *self._render_js(nonce)]))
+        )
+
+    def render_css(self, *, attrs=None):
+        return self._render_css(self._resolve_nonce(None, attrs))
+
+    def render_js(self, *, attrs=None):
+        # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are
+        # what Django's own ``render()`` calls), so they have to apply the nonce
+        # and hoist import maps as well -- otherwise anything rendering the
+        # media through them silently loses both. The ``attrs`` keyword only
+        # exists on Django >= 6.1; accepting it keeps the signature compatible.
+        return self._render_js(self._resolve_nonce(None, attrs))
+
+    def _resolve_nonce(self, nonce, attrs):
+        # ``attrs`` is accepted for compatibility with Django >= 6.1, whose
         # built-in CSP integration renders media via
         # ``media.render(attrs={"nonce": nonce})`` (see the ``csp_nonce_attr``
         # template tag). Only the nonce is honoured; the stored nonce is used
         # as a fallback, since templates call ``render()`` without arguments.
-        if attrs and attrs.get("nonce"):
+        if attrs and attrs.get("nonce") is not None:
             nonce = attrs["nonce"]
         if nonce is None:
             nonce = self.nonce
-        return mark_safe(
-            "\n".join(filter(None, [*self._render_css(nonce), *self._render_js(nonce)]))
-        )
+        if type(nonce) is not str:
+            # Django's ``LazyNonce`` (the ``csp_nonce`` context value on >= 6.0)
+            # is deliberately *falsy* until it is first read, so truth-testing
+            # it -- as the rendering code below does -- would silently drop the
+            # nonce. Resolve lazy nonces to a string here instead. Only do so
+            # when there is something to render, so that rendering an empty
+            # media does not generate a nonce (and add it to the CSP header).
+            # ``isinstance`` is no use for the check: a lazy object reports the
+            # wrapped value's class -- and evaluates itself while doing so.
+            nonce = str(nonce) if any(self._js_lists) or any(self._css_lists) else ""
+        return nonce
 
     def _render_js(self, nonce):
         importmap = reduce(

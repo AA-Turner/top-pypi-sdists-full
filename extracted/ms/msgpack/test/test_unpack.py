@@ -5,7 +5,15 @@ from io import BytesIO
 
 from pytest import mark, raises
 
-from msgpack import ExtType, OutOfData, Unpacker, packb
+from msgpack import (
+    ExtraData,
+    ExtType,
+    OutOfData,
+    Unpacker,
+    packb,
+    unpack,
+    unpackb,
+)
 
 
 def test_unpack_array_header_from_file():
@@ -82,10 +90,10 @@ def test_unpacker_tell_read_bytes():
     objects = 1, "abc", "ghi"
     packed = b"\x01\x02\xa3abc\xa3def\xa3ghi"
     raw_data = b"\x02", b"\xa3def", b""
-    lenghts = 1, 4, 999
+    lengths = 1, 4, 999
     positions = 1, 6, 14
     unpacker = Unpacker(BytesIO(packed))
-    for obj, unp, pos, n, raw in zip(objects, unpacker, positions, lenghts, raw_data):
+    for obj, unp, pos, n, raw in zip(objects, unpacker, positions, lengths, raw_data):
         assert obj == unp
         assert pos == unpacker.tell()
         assert unpacker.read_bytes(n) == raw
@@ -123,3 +131,39 @@ def test_unpacker_reinit_clears_partial_state():
 
     unpacker.feed(packb({"a": 1}))
     assert unpacker.unpack() == {"a": 1}
+
+
+@mark.skipif(
+    Unpacker.__module__ == "msgpack.fallback",
+    reason="reentrant guard is implemented in C extension only",
+)
+def test_unpacker_reentrant_feed():
+    import struct
+
+    def ext_hook(code, data):
+        # re-entrant feed on the SAME unpacker, large enough to force a buffer realloc
+        up.feed(b"\xc0" * 100)
+        return 0
+
+    up = Unpacker(ext_hook=ext_hook, max_buffer_size=64 * 1024 * 1024)
+    # array(11): [ ExtType(code=5, data=b'A') (fires the re-entrant hook), then 10 more elements ]
+    up.feed(b"\xdc" + struct.pack(">H", 11) + b"\xd4\x05A" + b"\x2a" * 10)
+    with raises(RuntimeError):
+        up.unpack()
+
+
+def test_unpackb_raises_extra_data_with_trailing_bytes():
+    packed = packb(42) + packb("trailing")
+    with raises(ExtraData) as exc_info:
+        unpackb(packed)
+    err = exc_info.value
+    assert err.unpacked == 42
+    assert err.extra == packb("trailing")
+
+
+def test_unpack_raises_extra_data_on_stream_with_trailing_bytes():
+    stream = BytesIO(packb(100) + packb(200))
+    with raises(ExtraData) as exc_info:
+        unpack(stream)
+    assert exc_info.value.unpacked == 100
+    assert exc_info.value.extra == packb(200)

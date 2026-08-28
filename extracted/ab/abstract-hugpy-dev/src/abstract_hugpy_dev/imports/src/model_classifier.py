@@ -52,7 +52,8 @@ __all__ = [
     "ADAPTER_TASK", "NEEDS_CLASSIFICATION_TASK",
     "T2I", "I2I", "INPAINT",
     "read_model_index", "pipeline_class_name", "tasks_for_pipeline_class",
-    "is_adapter_only_dir", "classify_model_dir",
+    "is_adapter_only_dir", "classify_model_dir", "is_speech_checkpoint_dir",
+    "TTS",
     "adapter_refusal", "needs_classification_refusal",
 ]
 
@@ -66,6 +67,22 @@ NEEDS_CLASSIFICATION_TASK = "needs-classification"
 T2I = "text-to-image"
 I2I = "image-to-image"
 INPAINT = "image-inpainting"
+TTS = "text-to-speech"
+
+# What a CHATTERBOX-family speech checkpoint looks like on disk: a voice encoder,
+# a T3 text-to-token model, an S3 generator and a tokenizer — the exact fileset
+# ``ChatterboxTTS.from_local`` reads. Such a dir carries NO transformers
+# ``config.json`` and NO diffusers ``model_index.json``, so before this arm it
+# said "nothing" and fell to the conservative text-generation floor: a
+# voice-cloning model offering itself as a chat model (the audio twin of the
+# 2026-07-31 image-LoRA incident, and the reason ``Viral2AI~chatterbox`` carried
+# ``tasks: ["text-generation"]`` while its own card said ``pipeline_tag:
+# text-to-speech``).
+#
+# Deliberately a CONJUNCTION of three prefixes, not a name match: a dir that
+# merely mentions "chatterbox" proves nothing, while these three weight families
+# together are what the loader actually requires.
+_SPEECH_WEIGHT_PREFIXES = (("ve.",), ("t3_", "t3."), ("s3gen",))
 
 
 def _read_json(path: str) -> Optional[dict]:
@@ -237,6 +254,35 @@ def _declared_base_model(model_dir: str) -> Optional[str]:
     return base or None
 
 
+def is_speech_checkpoint_dir(model_dir: Optional[str]) -> bool:
+    """True iff this dir holds a chatterbox-family TTS checkpoint.
+
+    CONTENT-AUTHORITATIVE and narrow (k61's rule, applied to audio): the answer
+    comes from the weight files the backend's own loader reads, never from the
+    directory name or a path segment. A dir that also carries a transformers
+    ``config.json`` or a diffusers ``model_index.json`` is something else and is
+    left alone — this speaks only for the shape that declares nothing else.
+    """
+    if not model_dir or not os.path.isdir(model_dir):
+        return False
+    if read_model_index(model_dir) is not None:
+        return False
+    cfg = _read_json(os.path.join(model_dir, "config.json")) or {}
+    if cfg.get("model_type") or cfg.get("architectures"):
+        return False
+    try:
+        names = [n.lower() for n in os.listdir(model_dir)]
+    except OSError:
+        return False                      # "can't tell" is never "yes"
+    weights = _weight_files(names)
+    if not weights:
+        return False
+    for prefixes in _SPEECH_WEIGHT_PREFIXES:
+        if not any(w.startswith(prefixes) for w in weights):
+            return False
+    return any(n in ("tokenizer.json", "mtl_tokenizer.json") for n in names)
+
+
 def classify_model_dir(model_dir: Optional[str]) -> dict:
     """What the dir says it is — ``{}`` when it says nothing.
 
@@ -253,6 +299,12 @@ def classify_model_dir(model_dir: Optional[str]) -> dict:
             return {"tasks": tasks, "primary_task": tasks[0],
                     "pipeline_class": cls, "source": "model_index"}
         return {}
+    if is_speech_checkpoint_dir(model_dir):
+        # A speech checkpoint is SERVABLE (unlike the adapter/unclassified
+        # verdicts below): ("transformers","text-to-speech") has a runner and a
+        # builder, so this task makes the row usable rather than merely visible.
+        return {"tasks": [TTS], "primary_task": TTS,
+                "source": "speech_checkpoint"}
     if is_adapter_only_dir(model_dir):
         # A PEFT adapter that NAMES its base is PAIRABLE: the registry's
         # base-present gate and resolve_adapter_pair already serve it (base +

@@ -145,29 +145,35 @@ class TestConfluenceServer:
         assert mock_post.call_args.kwargs["data"]["version"] == {"message": "Initial import"}
 
     @patch.object(ConfluenceServer, "get")
-    @patch.object(ConfluenceServer, "put")
-    def test_attach_content_uses_atomic_create_or_update_endpoint(self, mock_put, mock_get, confluence_server):
+    @patch.object(ConfluenceServer, "post")
+    def test_attach_content_checks_existing_attachments_before_create(self, mock_post, mock_get, confluence_server):
         content = io.BytesIO(b"new image")
-        mock_put.return_value = {"results": [{"id": "attachment-1"}]}
+        mock_get.return_value = {"results": []}
+        mock_post.return_value = {"results": [{"id": "attachment-1"}]}
 
         confluence_server.attach_content(content, "diagram.png", "image/png", page_id="123")
 
-        mock_get.assert_not_called()
-        assert mock_put.call_args.kwargs["path"] == "rest/api/content/123/child/attachment"
-        assert mock_put.call_args.kwargs["headers"] == {
+        mock_get.assert_called_once_with(
+            path="rest/api/content/123/child/attachment",
+            headers={"X-Atlassian-Token": "no-check", "Accept": "application/json"},
+        )
+        assert mock_post.call_args.kwargs["path"] == "rest/api/content/123/child/attachment"
+        assert mock_post.call_args.kwargs["headers"] == {
             "X-Atlassian-Token": "no-check",
             "Accept": "application/json",
         }
-        assert mock_put.call_args.kwargs["files"] == {"file": ("diagram.png", content, "image/png")}
+        assert mock_post.call_args.kwargs["files"] == {"file": ("diagram.png", content, "image/png")}
 
-    @patch.object(ConfluenceServer, "put")
-    def test_attach_content_normalizes_path_like_attachment_names(self, mock_put, confluence_server):
+    @patch.object(ConfluenceServer, "get")
+    @patch.object(ConfluenceServer, "post")
+    def test_attach_content_normalizes_path_like_attachment_names(self, mock_post, mock_get, confluence_server):
         content = io.BytesIO(b"new image")
-        mock_put.return_value = {"results": [{"id": "attachment-1"}]}
+        mock_get.return_value = {"results": []}
+        mock_post.return_value = {"results": [{"id": "attachment-1"}]}
 
         confluence_server.attach_content(content, r"reports\\daily/diagram.png", "image/png", page_id="123")
 
-        assert mock_put.call_args.kwargs["files"] == {"file": ("diagram.png", content, "image/png")}
+        assert mock_post.call_args.kwargs["files"] == {"file": ("diagram.png", content, "image/png")}
 
     def test_attach_content_rejects_empty_attachment_name(self, confluence_server):
         with pytest.raises(ApiValueError, match="must contain a filename"):
@@ -927,8 +933,41 @@ class TestConfluenceServer:
         """Test get_page_space method."""
         mock_get.return_value = {"space": {"key": "TEST"}}
         result = confluence_server.get_page_space("123")
-        mock_get.assert_called_once_with("content/123", expand="space")
+        mock_get.assert_called_once_with("content/123", params={"expand": "space"})
         assert result == "TEST"
+
+    def test_get_page_space_uses_expand_query_param(self, confluence_server):
+        """get_page_space must pass expand via params so AtlassianRestAPI.get() accepts the call."""
+        response = Response()
+        response.status_code = 200
+        response.reason = "OK"
+        response._content = b'{"space": {"key": "TEST"}}'
+
+        with patch.object(confluence_server._session, "request", return_value=response) as mock_request:
+            result = confluence_server.get_page_space("123")
+
+        assert result == "TEST"
+        url = mock_request.call_args.kwargs["url"]
+        params = mock_request.call_args.kwargs.get("params") or {}
+        assert url.startswith("https://test.confluence.com/rest/api/content/123")
+        expand = params.get("expand") if isinstance(params, dict) else None
+        assert expand == "space" or "expand=space" in url
+
+    @patch.object(ConfluenceServer, "get")
+    def test_get_page_space_no_space(self, mock_get, confluence_server):
+        """Test get_page_space returns None when page has no space."""
+        mock_get.return_value = {"title": "Orphan Page"}
+        result = confluence_server.get_page_space("456")
+        mock_get.assert_called_once_with("content/456", params={"expand": "space"})
+        assert result is None
+
+    @patch.object(ConfluenceServer, "get")
+    def test_get_page_space_empty_space(self, mock_get, confluence_server):
+        """Test get_page_space returns None when space key is empty."""
+        mock_get.return_value = {"space": {}}
+        result = confluence_server.get_page_space("789")
+        mock_get.assert_called_once_with("content/789", params={"expand": "space"})
+        assert result is None
 
     # Space Management Tests
     @patch.object(ConfluenceServer, "get")

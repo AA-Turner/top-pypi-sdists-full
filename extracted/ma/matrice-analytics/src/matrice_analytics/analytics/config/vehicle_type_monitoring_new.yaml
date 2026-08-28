@@ -1,0 +1,60 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+# NOTE: "_new" suffix is intentional — testing apps for the new
+# AnalyticsEngine flow are registered in the backend with distinct names
+# (e.g. "Vehicle Type Monitoring New") so the ORIGINAL apps keep running
+# the legacy post_processing flow. Drop the suffix only when the new flow
+# replaces the legacy one for this app.
+app:
+  id: vehicle_type_monitoring_new
+  name: "Vehicle Type Monitoring New"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+#   Determines which processors are loaded.
+#   A list allows multi-category apps.
+# ──────────────────────────────────────────────
+categories:
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+#   Keys are semantic entity names used by processors.
+#   Values are detection class(es) from the model
+#   (string for one, list for many → one entity).
+# ──────────────────────────────────────────────
+entity_mapping:
+  bicycle: bicycle
+  motorcycle: motorcycle
+  car: car
+  van: van
+  bus: bus
+  truck: truck
+
+
+
+# ──────────────────────────────────────────────
+# Volume Module
+# ──────────────────────────────────────────────
+volume:
+  metrics:
+    - key: entry_count
+      agg_type: sum
+
+
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults:
+    - metric: current_occupancy
+      condition:
+        operator: ">"
+        value: 50
+      severity: HIGH
+
+  # Future: per-zone or per-schedule alert overrides
+  overrides: []

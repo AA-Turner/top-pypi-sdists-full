@@ -1,4 +1,6 @@
+from chalk._gen.buf.validate import validate_pb2 as _validate_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import dataset_response_pb2 as _dataset_response_pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
 from chalk._gen.chalk.common.v1 import online_query_pb2 as _online_query_pb2
 from chalk._gen.chalk.protosql.v1 import sql_service_pb2 as _sql_service_pb2
@@ -56,6 +58,13 @@ class WorksheetOperationKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     WORKSHEET_OPERATION_KIND_RESTORE: _ClassVar[WorksheetOperationKind]
     WORKSHEET_OPERATION_KIND_DUPLICATE: _ClassVar[WorksheetOperationKind]
 
+class WorksheetRunLaunchStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    WORKSHEET_RUN_LAUNCH_STATUS_UNSPECIFIED: _ClassVar[WorksheetRunLaunchStatus]
+    WORKSHEET_RUN_LAUNCH_STATUS_PENDING: _ClassVar[WorksheetRunLaunchStatus]
+    WORKSHEET_RUN_LAUNCH_STATUS_LAUNCHED: _ClassVar[WorksheetRunLaunchStatus]
+    WORKSHEET_RUN_LAUNCH_STATUS_FAILED: _ClassVar[WorksheetRunLaunchStatus]
+
 WORKSHEET_SPACE_VISIBILITY_UNSPECIFIED: WorksheetSpaceVisibility
 WORKSHEET_SPACE_VISIBILITY_SHARED: WorksheetSpaceVisibility
 WORKSHEET_SPACE_VISIBILITY_PRIVATE: WorksheetSpaceVisibility
@@ -80,6 +89,10 @@ WORKSHEET_OPERATION_KIND_MOVE: WorksheetOperationKind
 WORKSHEET_OPERATION_KIND_ARCHIVE: WorksheetOperationKind
 WORKSHEET_OPERATION_KIND_RESTORE: WorksheetOperationKind
 WORKSHEET_OPERATION_KIND_DUPLICATE: WorksheetOperationKind
+WORKSHEET_RUN_LAUNCH_STATUS_UNSPECIFIED: WorksheetRunLaunchStatus
+WORKSHEET_RUN_LAUNCH_STATUS_PENDING: WorksheetRunLaunchStatus
+WORKSHEET_RUN_LAUNCH_STATUS_LAUNCHED: WorksheetRunLaunchStatus
+WORKSHEET_RUN_LAUNCH_STATUS_FAILED: WorksheetRunLaunchStatus
 
 class WorksheetSpace(_message.Message):
     __slots__ = ("id", "environment_id", "visibility", "owner_user_id")
@@ -202,6 +215,7 @@ class WorksheetNode(_message.Message):
         "state",
         "total_view_count",
         "viewer_last_viewed_at",
+        "updated_at",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     SPACE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -212,6 +226,7 @@ class WorksheetNode(_message.Message):
     STATE_FIELD_NUMBER: _ClassVar[int]
     TOTAL_VIEW_COUNT_FIELD_NUMBER: _ClassVar[int]
     VIEWER_LAST_VIEWED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     space_id: str
     environment_id: str
@@ -221,6 +236,7 @@ class WorksheetNode(_message.Message):
     state: WorksheetNodeState
     total_view_count: int
     viewer_last_viewed_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -232,6 +248,7 @@ class WorksheetNode(_message.Message):
         state: _Optional[_Union[WorksheetNodeState, str]] = ...,
         total_view_count: _Optional[int] = ...,
         viewer_last_viewed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class WorksheetCommit(_message.Message):
@@ -291,6 +308,57 @@ class WorksheetCommit(_message.Message):
         node_state: _Optional[_Union[WorksheetNodeState, str]] = ...,
         blob_id: _Optional[str] = ...,
         blob: _Optional[_Union[WorksheetBlobRef, _Mapping]] = ...,
+    ) -> None: ...
+
+class WorksheetRun(_message.Message):
+    __slots__ = (
+        "id",
+        "space_id",
+        "environment_id",
+        "commit_id",
+        "user_id",
+        "created_at",
+        "execution_operation_id",
+        "request_schema",
+        "launch_status",
+        "launched_at",
+        "launch_error",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    LAUNCH_STATUS_FIELD_NUMBER: _ClassVar[int]
+    LAUNCHED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAUNCH_ERROR_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    space_id: str
+    environment_id: str
+    commit_id: int
+    user_id: str
+    created_at: _timestamp_pb2.Timestamp
+    execution_operation_id: str
+    request_schema: str
+    launch_status: WorksheetRunLaunchStatus
+    launched_at: _timestamp_pb2.Timestamp
+    launch_error: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        space_id: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        commit_id: _Optional[int] = ...,
+        user_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        execution_operation_id: _Optional[str] = ...,
+        request_schema: _Optional[str] = ...,
+        launch_status: _Optional[_Union[WorksheetRunLaunchStatus, str]] = ...,
+        launched_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        launch_error: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateWorksheetSpaceRequest(_message.Message):
@@ -535,3 +603,127 @@ class ListWorksheetCommitsResponse(_message.Message):
     COMMITS_FIELD_NUMBER: _ClassVar[int]
     commits: _containers.RepeatedCompositeFieldContainer[WorksheetCommit]
     def __init__(self, commits: _Optional[_Iterable[_Union[WorksheetCommit, _Mapping]]] = ...) -> None: ...
+
+class RunOnlineWorksheetCommitRequest(_message.Message):
+    __slots__ = ("commit_id", "online_query_request")
+    COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
+    ONLINE_QUERY_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    commit_id: int
+    online_query_request: _online_query_pb2.OnlineQueryRequest
+    def __init__(
+        self,
+        commit_id: _Optional[int] = ...,
+        online_query_request: _Optional[_Union[_online_query_pb2.OnlineQueryRequest, _Mapping]] = ...,
+    ) -> None: ...
+
+class RunOnlineWorksheetCommitResponse(_message.Message):
+    __slots__ = ("run", "online_query_response")
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    ONLINE_QUERY_RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    run: WorksheetRun
+    online_query_response: _online_query_pb2.OnlineQueryResponse
+    def __init__(
+        self,
+        run: _Optional[_Union[WorksheetRun, _Mapping]] = ...,
+        online_query_response: _Optional[_Union[_online_query_pb2.OnlineQueryResponse, _Mapping]] = ...,
+    ) -> None: ...
+
+class RunOfflineWorksheetCommitRequest(_message.Message):
+    __slots__ = ("commit_id", "offline_query_request")
+    COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
+    OFFLINE_QUERY_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    commit_id: int
+    offline_query_request: _offline_query_pb2.OfflineQueryRequest
+    def __init__(
+        self,
+        commit_id: _Optional[int] = ...,
+        offline_query_request: _Optional[_Union[_offline_query_pb2.OfflineQueryRequest, _Mapping]] = ...,
+    ) -> None: ...
+
+class RunOfflineWorksheetCommitResponse(_message.Message):
+    __slots__ = ("run", "dataset_response")
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    DATASET_RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    run: WorksheetRun
+    dataset_response: _dataset_response_pb2.DatasetResponse
+    def __init__(
+        self,
+        run: _Optional[_Union[WorksheetRun, _Mapping]] = ...,
+        dataset_response: _Optional[_Union[_dataset_response_pb2.DatasetResponse, _Mapping]] = ...,
+    ) -> None: ...
+
+class RunSqlWorksheetCommitRequest(_message.Message):
+    __slots__ = ("commit_id", "sql_query_request")
+    COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
+    SQL_QUERY_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    commit_id: int
+    sql_query_request: _sql_service_pb2.ExecuteSqlQueryRequest
+    def __init__(
+        self,
+        commit_id: _Optional[int] = ...,
+        sql_query_request: _Optional[_Union[_sql_service_pb2.ExecuteSqlQueryRequest, _Mapping]] = ...,
+    ) -> None: ...
+
+class RunSqlWorksheetCommitResponse(_message.Message):
+    __slots__ = ("run", "sql_query_response")
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    SQL_QUERY_RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    run: WorksheetRun
+    sql_query_response: _sql_service_pb2.ExecuteSqlQueryResponse
+    def __init__(
+        self,
+        run: _Optional[_Union[WorksheetRun, _Mapping]] = ...,
+        sql_query_response: _Optional[_Union[_sql_service_pb2.ExecuteSqlQueryResponse, _Mapping]] = ...,
+    ) -> None: ...
+
+class CancelWorksheetRunRequest(_message.Message):
+    __slots__ = ("run_id",)
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    def __init__(self, run_id: _Optional[str] = ...) -> None: ...
+
+class CancelWorksheetRunResponse(_message.Message):
+    __slots__ = ("run",)
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    run: WorksheetRun
+    def __init__(self, run: _Optional[_Union[WorksheetRun, _Mapping]] = ...) -> None: ...
+
+class GetWorksheetRunRequest(_message.Message):
+    __slots__ = ("run_id",)
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    def __init__(self, run_id: _Optional[str] = ...) -> None: ...
+
+class GetWorksheetRunResponse(_message.Message):
+    __slots__ = ("run",)
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    run: WorksheetRun
+    def __init__(self, run: _Optional[_Union[WorksheetRun, _Mapping]] = ...) -> None: ...
+
+class ListWorksheetRunsRequest(_message.Message):
+    __slots__ = ("node_id", "commit_id", "limit", "cursor")
+    NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    node_id: str
+    commit_id: int
+    limit: int
+    cursor: str
+    def __init__(
+        self,
+        node_id: _Optional[str] = ...,
+        commit_id: _Optional[int] = ...,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListWorksheetRunsResponse(_message.Message):
+    __slots__ = ("runs", "next_cursor")
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    runs: _containers.RepeatedCompositeFieldContainer[WorksheetRun]
+    next_cursor: str
+    def __init__(
+        self, runs: _Optional[_Iterable[_Union[WorksheetRun, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
+    ) -> None: ...

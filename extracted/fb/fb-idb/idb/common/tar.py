@@ -4,13 +4,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import asyncio
 import os
 import sys
 import tempfile
 import uuid
 from abc import abstractmethod
-from typing import AsyncGenerator, AsyncIterator, List, Optional
+from collections.abc import AsyncGenerator, AsyncIterator
+from typing import List, Optional
 
 from idb.common.types import Compression
 from idb.utils.contextlib import asynccontextmanager
@@ -22,7 +24,7 @@ class TarException(BaseException):
 
 
 def _has_executable(exe: str) -> bool:
-    return any((os.path.exists(os.path.join(path, exe)) for path in os.get_exec_path()))
+    return any(os.path.exists(os.path.join(path, exe)) for path in os.get_exec_path())
 
 
 READ_CHUNK_SIZE: int = 1024 * 1024 * 4  # 4Mb, the default max read for gRPC
@@ -41,8 +43,8 @@ async def is_gnu_tar() -> bool:
 class TarArchiveProcess:
     def __init__(
         self,
-        paths: List[str],
-        additional_tar_args: Optional[List[str]],
+        paths: list[str],
+        additional_tar_args: list[str] | None,
         place_in_subfolders: bool,
         verbose: bool,
     ) -> None:
@@ -59,7 +61,7 @@ class TarArchiveProcess:
             async with self._run_process(command) as process:
                 yield process
 
-    def _apply_additional_args(self, command: List[str], temp_dir: str) -> None:
+    def _apply_additional_args(self, command: list[str], temp_dir: str) -> None:
         additional_args = self._additional_tar_args
         if additional_args:
             command.extend(additional_args)
@@ -77,13 +79,13 @@ class TarArchiveProcess:
 
     @property
     @abstractmethod
-    def _tar_command(self) -> List[str]:
+    def _tar_command(self) -> list[str]:
         pass
 
     @asynccontextmanager
     @abstractmethod
     def _run_process(
-        self, command: List[str]
+        self, command: list[str]
     ) -> AsyncGenerator[asyncio.subprocess.Process, None]:
         pass
 
@@ -94,12 +96,12 @@ class GzipArchive(TarArchiveProcess):
     )
 
     @property
-    def _tar_command(self) -> List[str]:
+    def _tar_command(self) -> list[str]:
         return ["tar", "vcf" if self._verbose else "cf", "-"]
 
     @asynccontextmanager
     async def _run_process(
-        self, command: List[str]
+        self, command: list[str]
     ) -> AsyncGenerator[asyncio.subprocess.Process, None]:
         pipe_read, pipe_write = os.pipe()
         process_tar = await asyncio.create_subprocess_exec(
@@ -118,10 +120,10 @@ class GzipArchive(TarArchiveProcess):
 
 
 class ZstdArchive(TarArchiveProcess):
-    ZSTD_EXECUTABLES: List[str] = ["pzstd", "zstd"]  # in the order of preference
+    ZSTD_EXECUTABLES: list[str] = ["pzstd", "zstd"]  # in the order of preference
 
     @property
-    def _tar_command(self) -> List[str]:
+    def _tar_command(self) -> list[str]:
         return [
             "tar",
             "--use-compress-program",
@@ -132,7 +134,7 @@ class ZstdArchive(TarArchiveProcess):
 
     @asynccontextmanager
     async def _run_process(
-        self, command: List[str]
+        self, command: list[str]
     ) -> AsyncGenerator[asyncio.subprocess.Process, None]:
         process = await asyncio.create_subprocess_exec(
             *command, stderr=sys.stderr, stdout=asyncio.subprocess.PIPE
@@ -152,7 +154,7 @@ class ZstdArchive(TarArchiveProcess):
 
 def _create_untar_command(
     output_path: str, gnu_tar: bool, verbose: bool = False
-) -> List[str]:
+) -> list[str]:
     command = ["tar", "-C", output_path]
     if not verbose and gnu_tar:
         command.append("--warning=no-unknown-keyword")
@@ -166,8 +168,8 @@ async def _generator_from_data(data: bytes) -> AsyncIterator[bytes]:
 
 
 async def create_tar(
-    paths: List[str],
-    additional_tar_args: Optional[List[str]] = None,
+    paths: list[str],
+    additional_tar_args: list[str] | None = None,
     place_in_subfolders: bool = False,
     verbose: bool = False,
 ) -> bytes:
@@ -187,9 +189,9 @@ async def create_tar(
 
 
 async def generate_tar(
-    paths: List[str],
+    paths: list[str],
     compression: Compression = Compression.GZIP,
-    additional_tar_args: Optional[List[str]] = None,
+    additional_tar_args: list[str] | None = None,
     place_in_subfolders: bool = False,
     verbose: bool = False,
 ) -> AsyncIterator[bytes]:

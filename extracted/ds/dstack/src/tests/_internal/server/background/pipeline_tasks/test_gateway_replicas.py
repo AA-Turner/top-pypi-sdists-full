@@ -109,6 +109,7 @@ class TestGatewayReplicaFetcher:
         submitted = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             ip_address=None,
             instance_id=None,
             region=None,
@@ -119,12 +120,14 @@ class TestGatewayReplicaFetcher:
         provisioning = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.PROVISIONING,
             last_processed_at=stale - timedelta(seconds=2),
         )
         terminating = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
             last_processed_at=stale - timedelta(seconds=1),
@@ -132,12 +135,14 @@ class TestGatewayReplicaFetcher:
         running = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
             last_processed_at=stale,
         )
         terminated = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.TERMINATED,
             active=False,
             last_processed_at=stale,
@@ -145,6 +150,7 @@ class TestGatewayReplicaFetcher:
         recent = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.SUBMITTED,
             ip_address=None,
             instance_id=None,
@@ -157,6 +163,7 @@ class TestGatewayReplicaFetcher:
         locked = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.SUBMITTED,
             ip_address=None,
             instance_id=None,
@@ -212,6 +219,7 @@ class TestGatewayReplicaFetcher:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
             last_processed_at=now,
         )
@@ -254,6 +262,7 @@ class TestGatewayReplicaFetcher:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
+                backend=backend,
                 status=GatewayReplicaStatus.RUNNING,
                 last_processed_at=stale,
             )
@@ -262,6 +271,7 @@ class TestGatewayReplicaFetcher:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
+                backend=backend,
                 status=GatewayReplicaStatus.RUNNING,
                 last_processed_at=stale,
             )
@@ -281,10 +291,13 @@ class TestGatewayReplicaFetcher:
     ):
         # A replica whose gateway was hard-deleted (orphaned). The fetcher should
         # pick it up so the worker can log the error.
+        project = await create_project(session=session)
+        backend = await create_backend(session=session, project_id=project.id)
         stale = get_current_datetime() - timedelta(minutes=1)
         replica = await create_gateway_replica(
             session=session,
             gateway_id=None,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
             last_processed_at=stale,
         )
@@ -318,6 +331,7 @@ class TestGatewayReplicaFetcher:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
+                backend=backend,
                 status=GatewayReplicaStatus.RUNNING,
                 last_processed_at=stale,
             )
@@ -326,6 +340,7 @@ class TestGatewayReplicaFetcher:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
+                backend=backend,
                 status=GatewayReplicaStatus.RUNNING,
                 last_processed_at=stale,
             )
@@ -355,6 +370,7 @@ class TestGatewayReplicaFetcher:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
             last_processed_at=stale,
         )
@@ -385,7 +401,7 @@ class TestGatewayReplicaWorkerSubmitted:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             ip_address=None,
             instance_id=None,
             region=None,
@@ -431,7 +447,7 @@ class TestGatewayReplicaWorkerSubmitted:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             ip_address=None,
             instance_id=None,
             region=None,
@@ -471,7 +487,7 @@ class TestGatewayReplicaWorkerSubmitted:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             ip_address=None,
             instance_id=None,
             region=None,
@@ -507,7 +523,7 @@ class TestGatewayReplicaWorkerSubmitted:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             ip_address=None,
             instance_id=None,
             region=None,
@@ -542,7 +558,7 @@ class TestGatewayReplicaWorkerSubmitted:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             ip_address=None,
             instance_id=None,
             region=None,
@@ -577,7 +593,7 @@ class TestGatewayReplicaWorkerSubmitted:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             ip_address=None,
             instance_id=None,
             region=None,
@@ -618,7 +634,7 @@ class TestGatewayReplicaWorkerSubmitted:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             ip_address=None,
             instance_id=None,
             region=None,
@@ -677,6 +693,7 @@ class TestGatewayReplicaWorkerRunning:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
+                backend=backend,
                 status=GatewayReplicaStatus.RUNNING,
                 active=True,
                 populate_configuration=populate_configuration,
@@ -686,6 +703,7 @@ class TestGatewayReplicaWorkerRunning:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
+                backend=backend,
                 status=GatewayReplicaStatus.RUNNING,
                 active=True,
                 populate_configuration=populate_configuration,
@@ -713,6 +731,7 @@ class TestGatewayReplicaWorkerRunning:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
             active=True,
         )
@@ -812,7 +831,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
             ssh_private_key="replica-private-key",
         )
@@ -882,8 +901,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service registered on gateway replica {replica.replica_num}",
-            f"Service replica registered on gateway replica {replica.replica_num}",
+            "Service registered",
+            "Service replica registered",
         }
 
     async def test_unregisters_dangling_service_and_stale_replica(
@@ -906,7 +925,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         # A live, still-expected service with one live replica and one stale
@@ -996,8 +1015,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service unregistered from gateway replica {replica.replica_num}",
-            f"Service replica unregistered from gateway replica {replica.replica_num}",
+            "Service unregistered",
+            "Service replica unregistered",
         }
 
     async def test_deletes_registration_models_for_unregistered_service_and_replica(
@@ -1020,7 +1039,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         # A live, still-expected service with one live replica and one stale
@@ -1165,7 +1184,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         # A finished run whose service and replica are still (erroneously)
@@ -1231,8 +1250,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service unregistered from gateway replica {replica.replica_num}",
-            f"Service replica unregistered from gateway replica {replica.replica_num}",
+            "Service unregistered",
+            "Service replica unregistered",
         }
 
     async def test_no_gateway_calls_when_state_already_in_sync(
@@ -1255,7 +1274,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         run, job = await self._create_service_run_and_job(
@@ -1326,7 +1345,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         run, job = await self._create_service_run_and_job(
@@ -1376,7 +1395,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         run, job = await self._create_service_run_and_job(
@@ -1452,8 +1471,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
         # be tied to a run for event targeting (only the fresh registration is).
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service registered on gateway replica {replica.replica_num}",
-            f"Service replica registered on gateway replica {replica.replica_num}",
+            "Service registered",
+            "Service replica registered",
         }
 
     async def test_does_nothing_when_in_sync_and_registrations_already_exist(
@@ -1476,7 +1495,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         run, job = await self._create_service_run_and_job(
@@ -1570,7 +1589,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         run, job = await self._create_service_run_and_job(
@@ -1673,7 +1692,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         run_replica_fails, job_replica_fails = await self._create_service_run_and_job(
@@ -1774,14 +1793,11 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service registered on gateway replica {replica.replica_num}",
+            "Service registered",
+            f"Encountered service registration error: {expected_service_register_status_message}",
             (
-                f"Encountered service registration error on gateway replica "
-                f"{replica.replica_num}: {expected_service_register_status_message}"
-            ),
-            (
-                f"Encountered service replica registration error on gateway replica "
-                f"{replica.replica_num}: {expected_replica_register_status_message}"
+                "Encountered service replica registration error: "
+                f"{expected_replica_register_status_message}"
             ),
         }
 
@@ -1805,7 +1821,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         run, job = await self._create_service_run_and_job(
@@ -1833,10 +1849,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         assert replica_registration.register_attempt == 1
         assert replica_registration.register_status_message == "boom replica"
 
-        error_message = (
-            f"Encountered service replica registration error on gateway replica "
-            f"{replica.replica_num}: boom replica"
-        )
+        error_message = "Encountered service replica registration error: boom replica"
         events_after_first_tick = await list_events(session)
         assert [e.message for e in events_after_first_tick].count(error_message) == 1
 
@@ -1895,7 +1908,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         # A live, still-expected service with one live replica and one stale
@@ -1978,14 +1991,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            (
-                f"Encountered service unregistration error on gateway replica "
-                f"{replica.replica_num}: {expected_service_status_message}"
-            ),
-            (
-                f"Encountered service replica unregistration error on gateway replica "
-                f"{replica.replica_num}: {expected_replica_status_message}"
-            ),
+            f"Encountered service unregistration error: {expected_service_status_message}",
+            f"Encountered service replica unregistration error: {expected_replica_status_message}",
         }
 
     async def test_does_not_emit_duplicate_unregistration_error_event_for_unchanged_error(
@@ -2008,7 +2015,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
         )
         run, job = await self._create_service_run_and_job(
@@ -2053,10 +2060,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         assert replica_registration.unregister_attempt == 1
         assert replica_registration.unregister_status_message == "boom replica"
 
-        error_message = (
-            f"Encountered service replica unregistration error on gateway replica "
-            f"{replica.replica_num}: boom replica"
-        )
+        error_message = "Encountered service replica unregistration error: boom replica"
         events_after_first_tick = await list_events(session)
         assert [e.message for e in events_after_first_tick].count(error_message) == 1
 
@@ -2101,6 +2105,7 @@ class TestGatewayReplicaWorkerProvisioning:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
+                backend=backend,
                 status=GatewayReplicaStatus.PROVISIONING,
                 populate_configuration=populate_configuration,
             )
@@ -2109,6 +2114,7 @@ class TestGatewayReplicaWorkerProvisioning:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
+                backend=backend,
                 status=GatewayReplicaStatus.PROVISIONING,
                 populate_configuration=populate_configuration,
             )
@@ -2144,7 +2150,7 @@ class TestGatewayReplicaWorkerProvisioning:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.PROVISIONING,
         )
         _lock_replica(replica)
@@ -2193,7 +2199,7 @@ class TestGatewayReplicaWorkerProvisioning:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.PROVISIONING,
         )
         _lock_replica(replica)
@@ -2235,7 +2241,7 @@ class TestGatewayReplicaWorkerProvisioning:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.PROVISIONING,
         )
         _lock_replica(replica)
@@ -2282,7 +2288,7 @@ class TestGatewayReplicaWorkerProvisioning:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.PROVISIONING,
         )
         _lock_replica(replica)
@@ -2325,7 +2331,7 @@ class TestGatewayReplicaWorkerProvisioning:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.PROVISIONING,
             hostname_deprecated_readonly="legacy-lb.example.com",
         )
@@ -2359,6 +2365,7 @@ class TestGatewayReplicaWorkerProvisioning:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
+                backend=backend,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
             gateway.gateway_replica_id = replica.id
@@ -2366,6 +2373,7 @@ class TestGatewayReplicaWorkerProvisioning:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
+                backend=backend,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
         _lock_replica(replica)
@@ -2398,6 +2406,7 @@ class TestGatewayReplicaWorkerProvisioning:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
+                backend=backend,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
             gateway.gateway_replica_id = replica.id
@@ -2405,6 +2414,7 @@ class TestGatewayReplicaWorkerProvisioning:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
+                backend=backend,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
         _lock_replica(replica)
@@ -2458,6 +2468,7 @@ class TestGatewayReplicaWorkerProvisioning:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
+                backend=backend,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
             gateway.gateway_replica_id = replica.id
@@ -2465,6 +2476,7 @@ class TestGatewayReplicaWorkerProvisioning:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
+                backend=backend,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
         _lock_replica(replica)
@@ -2506,7 +2518,7 @@ class TestGatewayReplicaWorkerTerminating:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
-                backend_id=backend.id,
+                backend=backend,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
                 populate_configuration=populate_configuration,
@@ -2516,7 +2528,7 @@ class TestGatewayReplicaWorkerTerminating:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
-                backend_id=backend.id,
+                backend=backend,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
                 populate_configuration=populate_configuration,
@@ -2563,7 +2575,7 @@ class TestGatewayReplicaWorkerTerminating:
         replica_to_terminate = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
             replica_num=0,
@@ -2571,7 +2583,7 @@ class TestGatewayReplicaWorkerTerminating:
         other_replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.RUNNING,
             ip_address="2.2.2.2",
             instance_id="i-eeeeeeeeee",
@@ -2646,7 +2658,7 @@ class TestGatewayReplicaWorkerTerminating:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
         )
@@ -2699,7 +2711,7 @@ class TestGatewayReplicaWorkerTerminating:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
         )
@@ -2750,7 +2762,7 @@ class TestGatewayReplicaWorkerTerminating:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
         )
@@ -2793,7 +2805,7 @@ class TestGatewayReplicaWorkerTerminating:
         replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
-            backend_id=backend.id,
+            backend=backend,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
             hostname_deprecated_readonly="legacy-lb.example.com",
@@ -2834,7 +2846,7 @@ class TestGatewayReplicaWorkerTerminating:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
-                backend_id=backend.id,
+                backend=backend,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
@@ -2843,7 +2855,7 @@ class TestGatewayReplicaWorkerTerminating:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
-                backend_id=backend.id,
+                backend=backend,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
@@ -2876,7 +2888,7 @@ class TestGatewayReplicaWorkerTerminating:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
-                backend_id=backend.id,
+                backend=backend,
                 instance_id=None,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
@@ -2886,7 +2898,7 @@ class TestGatewayReplicaWorkerTerminating:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
-                backend_id=backend.id,
+                backend=backend,
                 instance_id=None,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
@@ -2931,7 +2943,7 @@ class TestGatewayReplicaWorkerTerminating:
         if legacy_replica:
             replica = await create_gateway_replica(
                 session=session,
-                backend_id=backend.id,
+                backend=backend,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
@@ -2940,7 +2952,7 @@ class TestGatewayReplicaWorkerTerminating:
             replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
-                backend_id=backend.id,
+                backend=backend,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )

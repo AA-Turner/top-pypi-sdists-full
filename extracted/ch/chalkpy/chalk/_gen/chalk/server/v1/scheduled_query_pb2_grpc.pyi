@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.scheduled_query_pb2 import (
     GetActiveScheduledQueriesResponse,
     GetScheduledQueryControlRequest,
     GetScheduledQueryControlResponse,
+    GetScheduledQueryFeatureStatisticsRequest,
+    GetScheduledQueryFeatureStatisticsResponse,
     GetScheduledQueryScheduleRequest,
     GetScheduledQueryScheduleResponse,
     UpdateScheduledQueryControlRequest,
@@ -56,6 +58,10 @@ class ScheduledQueryServiceStub:
         GetScheduledQueryScheduleRequest,
         GetScheduledQueryScheduleResponse,
     ]
+    GetScheduledQueryFeatureStatistics: UnaryUnaryMultiCallable[
+        GetScheduledQueryFeatureStatisticsRequest,
+        GetScheduledQueryFeatureStatisticsResponse,
+    ]
 
 class ScheduledQueryServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -94,5 +100,11 @@ class ScheduledQueryServiceServicer(metaclass=ABCMeta):
         request: GetScheduledQueryScheduleRequest,
         context: ServicerContext,
     ) -> GetScheduledQueryScheduleResponse: ...
+    @abstractmethod
+    def GetScheduledQueryFeatureStatistics(
+        self,
+        request: GetScheduledQueryFeatureStatisticsRequest,
+        context: ServicerContext,
+    ) -> GetScheduledQueryFeatureStatisticsResponse: ...
 
 def add_ScheduledQueryServiceServicer_to_server(servicer: ScheduledQueryServiceServicer, server: Server) -> None: ...

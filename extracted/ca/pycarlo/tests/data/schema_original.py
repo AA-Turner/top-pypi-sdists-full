@@ -898,6 +898,43 @@ class AlertGroupingMode(sgqlc.types.Enum):
     __choices__ = ("GROUP_INTO_OPEN_ALERT",)
 
 
+class AlertInsightStatus(sgqlc.types.Enum):
+    """Whether an agent alert insight was generated, and if not, why not.
+    Only GENERATED carries an insight. For every other value the
+    insight is     null and the client should show a note explaining
+    the absence.
+
+    Enumeration Choices:
+
+    * `AGENT_UNRESOLVED`None
+    * `AI_DISABLED`None
+    * `ALERT_NOT_FOUND`None
+    * `BREACHING_ENTITIES_NOT_IN_TRACE_STORE`None
+    * `BREACHING_ENTITIES_UNIDENTIFIED`None
+    * `ENTITY_FETCH_FAILED`None
+    * `GENERATED`None
+    * `INSIGHT_GENERATION_FAILED`None
+    * `NOT_AN_AGENT_ALERT`None
+    * `NO_ANOMALY_EVENT`None
+    * `NO_ENTITIES_FOUND`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "AGENT_UNRESOLVED",
+        "AI_DISABLED",
+        "ALERT_NOT_FOUND",
+        "BREACHING_ENTITIES_NOT_IN_TRACE_STORE",
+        "BREACHING_ENTITIES_UNIDENTIFIED",
+        "ENTITY_FETCH_FAILED",
+        "GENERATED",
+        "INSIGHT_GENERATION_FAILED",
+        "NOT_AN_AGENT_ALERT",
+        "NO_ANOMALY_EVENT",
+        "NO_ENTITIES_FOUND",
+    )
+
+
 class AlertReactionReason(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -24635,6 +24672,7 @@ class AlertInsightResult(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "alert_id",
+        "status",
         "insight",
         "entity_ids",
         "entity_type",
@@ -24646,10 +24684,29 @@ class AlertInsightResult(sgqlc.types.Type):
     alert_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alertId")
     """Alert UUID"""
 
-    insight = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="insight")
+    status = sgqlc.types.Field(sgqlc.types.non_null(AlertInsightStatus), graphql_name="status")
+    """Whether an insight was generated, and if not, why not. GENERATED:
+    insight is set. BREACHING_ENTITIES_UNIDENTIFIED: the entities that
+    breached could not be identified, so no sample could honestly be
+    described as the breach. BREACHING_ENTITIES_NOT_IN_TRACE_STORE:
+    the breaching entities are known but the trace store holds none of
+    them for this window, so there are no spans to describe.
+    NO_ENTITIES_FOUND: the breach population was identifiable but held
+    no entities. ENTITY_FETCH_FAILED: reading the entities failed.
+    AI_DISABLED: the account has AI models disabled.
+    INSIGHT_GENERATION_FAILED: the model call failed. ALERT_NOT_FOUND:
+    no such alert for this account. NOT_AN_AGENT_ALERT: the alert is
+    not an agent alert. NO_ANOMALY_EVENT: the alert carries no anomaly
+    event to describe. AGENT_UNRESOLVED: the monitor could not be
+    resolved to an agent.
+    """
+
+    insight = sgqlc.types.Field(String, graphql_name="insight")
     """1–3 observational sentences describing the dominant pattern in the
     alert's sampled entities. Quantified, naming tools/models/errors
-    that recur. No causal verdicts — observational only.
+    that recur. No causal verdicts — observational only. Null unless
+    status is GENERATED; show a note derived from status instead of
+    rendering this field empty.
     """
 
     entity_ids = sgqlc.types.Field(
@@ -24662,27 +24719,31 @@ class AlertInsightResult(sgqlc.types.Type):
     """
 
     entity_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="entityType")
-    """The type of IDs in entity_ids. 'trace' for trace-grain monitors
-    and span-scope eval monitors; 'conversation' for conversation-
-    scope eval monitors. Use this to construct the correct detail-page
-    link.
+    """The type of IDs in entity_ids: 'trace' or 'conversation', matching
+    the grain the monitor aggregates over. Use this to construct the
+    correct detail-page link.
     """
 
-    trace_table_mcon = sgqlc.types.Field(
-        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
-    )
-    """MCON of the trace table backing this agent's monitor."""
+    trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
+    """MCON of the trace table backing this agent's monitor. Null when
+    the monitor could not be resolved to an agent, or when the alert
+    is not an agent alert — see status.
+    """
 
     agent_name = sgqlc.types.Field(String, graphql_name="agentName")
     """Name of the agent. Null for platform agents where the name cannot
     be resolved from the monitor configuration.
     """
 
-    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
-    """Start of the alert's evaluation window (inclusive)."""
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+    """Start of the alert's evaluation window (inclusive). Null when no
+    window could be derived — see status.
+    """
 
-    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
-    """End of the alert's evaluation window (inclusive)."""
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """End of the alert's evaluation window (inclusive). Null when no
+    window could be derived — see status.
+    """
 
 
 class AlertReaction(sgqlc.types.Type):
@@ -76628,8 +76689,9 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Generate an AI insight about the dominant pattern
     in an agent alert's traces. Returns 1–3 observational sentences.
-    Each call regenerates — insights are not persisted. Returns null
-    if no traces are found or if the LLM call fails.
+    Each call regenerates — insights are not persisted. Always returns
+    a result: when no insight could be produced, insight is null and
+    status says why. Branch on status rather than on insight.
 
     Arguments:
 
@@ -81700,9 +81762,10 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Estimated price rates for the given warehouses.
-    Only warehouses with a priced rate are returned (Snowflake storage
-    today, at a flat estimated rate), so a warehouse absent from the
-    result has no known rate.
+    Rates are flat estimates configured per warehouse platform, and
+    not every platform has one for every usage type, so only
+    warehouses with a priced rate are returned and a warehouse absent
+    from the result has no known rate.
 
     Arguments:
 

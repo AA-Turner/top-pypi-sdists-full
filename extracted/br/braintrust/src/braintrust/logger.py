@@ -41,11 +41,11 @@ from braintrust.functions.stream import BraintrustStream
 from requests.adapters import HTTPAdapter
 
 from . import context, id_gen
-from .api._routing import EndpointRouter, normalize_proxy_url
-from .api._transport import HTTPConnection, Transport
+from .api._routing import normalize_proxy_url
+from .api._transport import HTTPConnection
 from .api._transport import RetryRequestExceptionsAdapter as RetryRequestExceptionsAdapter
-from .api.client import BraintrustClient
-from .api.errors import BraintrustHTTPError
+from .api.client import BraintrustClient, BraintrustOpenApiClient
+from .api.errors import BraintrustAPIError, BraintrustHTTPError
 from .bt_json import bt_dumps, bt_safe_deep_copy
 from .db_fields import (
     AUDIT_METADATA_FIELD,
@@ -98,7 +98,6 @@ from .types import Metadata
 from .types._eval import ExperimentDatasetEvent
 from .util import (
     GLOBAL_PROJECT,
-    AugmentedHTTPError,
     LazyValue,
     add_azure_blob_headers,
     bt_iscoroutinefunction,
@@ -644,8 +643,8 @@ class BraintrustState:
             )
             self.copy_state(state)
 
-    def api_client(self) -> BraintrustClient:
-        """Return the lazily bootstrapped resource client."""
+    def api_client(self) -> BraintrustOpenApiClient:
+        """Return the lazily bootstrapped OpenAPI client."""
 
         if self._client is None:
             with self._client_lock:
@@ -653,7 +652,7 @@ class BraintrustState:
                     self.login()
         if self._client is None:
             raise RuntimeError("Braintrust API client was not initialized during login")
-        return self._client
+        return self._client.openapi
 
     def app_conn(self):
         if not self._app_conn:
@@ -1533,18 +1532,17 @@ def init(
 
         def compute_metadata():
             state.login(org_name=org_name, api_key=api_key, app_url=app_url)
-            args = {
-                "experiment_name": experiment,
-                "project_name": project,
-                "project_id": project_id,
-                "org_name": state.org_name,
-            }
-
-            response = state.app_conn().post_json("api/experiment/get", args)
-            if len(response) == 0:
+            response = state.api_client().experiments.get_experiment(
+                experiment_name=experiment,
+                **({"project_name": project} if project is not None else {}),
+                **({"project_id": project_id} if project_id is not None else {}),
+                org_name=state.org_name,
+            )
+            objects = response.get("objects") or []
+            if len(objects) == 0:
                 raise ValueError(f"Experiment {experiment} not found in project {project}.")
 
-            info = response[0]
+            info = objects[0]
             return ProjectExperimentMetadata(
                 project=ObjectMetadata(id=info["project_id"], name=project or "UNKNOWN_PROJECT", full_info=dict()),
                 experiment=ObjectMetadata(
@@ -1563,15 +1561,20 @@ def init(
     # pylint: disable=function-redefined
     def compute_metadata():
         state.login(org_name=org_name, api_key=api_key, app_url=app_url)
-        args = {
-            "project_name": project,
-            "project_id": project_id,
-            "org_id": state.org_id,
-            "update": update,
+        if project_id is None:
+            project_info = state.api_client().projects.post_project(
+                body={"name": project or GLOBAL_PROJECT, "org_name": state.org_name}
+            )
+        else:
+            project_info = state.api_client().projects.get_project_id(project_id)
+
+        args: dict[str, Any] = {
+            "project_id": project_info["id"],
+            "ensure_new": update is not True,
         }
 
         if experiment is not None:
-            args["experiment_name"] = experiment
+            args["name"] = experiment
 
         if description is not None:
             args["description"] = description
@@ -1595,7 +1598,16 @@ def init(
         if base_experiment_id is not None:
             args["base_exp_id"] = base_experiment_id
         elif base_experiment is not None:
-            args["base_experiment"] = base_experiment
+            base_response = state.api_client().experiments.get_experiment(
+                experiment_name=base_experiment,
+                project_id=project_info["id"],
+                org_name=state.org_name,
+            )
+            base_objects = base_response.get("objects") or []
+            if base_objects:
+                args["base_exp_id"] = base_objects[0]["id"]
+            else:
+                _logger.warning(f"Base experiment {base_experiment} not found.")
         elif merged_git_metadata_settings and merged_git_metadata_settings.collect != "none":
             args["ancestor_commits"] = list(get_past_n_ancestors())
 
@@ -1625,24 +1637,11 @@ def init(
         if tags is not None:
             args["tags"] = tags
 
-        while True:
-            try:
-                response = state.app_conn().post_json("api/experiment/register", args)
-                break
-            except AugmentedHTTPError as e:
-                if args.get("base_experiment") is not None and "base experiment" in str(e):
-                    _logger.warning(f"Base experiment {args['base_experiment']} not found.")
-                    args["base_experiment"] = None
-                else:
-                    raise
+        response = state.api_client().experiments.post_experiment(body=args)
 
-        resp_project = response["project"]
-        resp_experiment = response["experiment"]
         return ProjectExperimentMetadata(
-            project=ObjectMetadata(id=resp_project["id"], name=resp_project["name"], full_info=resp_project),
-            experiment=ObjectMetadata(
-                id=resp_experiment["id"], name=resp_experiment["name"], full_info=resp_experiment
-            ),
+            project=ObjectMetadata(id=project_info["id"], name=project_info["name"], full_info=dict(project_info)),
+            experiment=ObjectMetadata(id=response["id"], name=response["name"], full_info=dict(response)),
         )
 
     # For experiments, disable queue size limit enforcement (unlimited queue)
@@ -1678,12 +1677,14 @@ def init_dataset(
     _internal_btql: dict[str, Any] | None = None,
     state: BraintrustState | None = None,
     environment: str | None = None,
+    dataset_id: str | None = None,
 ) -> "Dataset":
     """
-    Create a new dataset in a specified project. If the project does not exist, it will be created.
+    Create or load a dataset. When creating a dataset, its project will be created if it does not exist.
 
-    :param project_name: The name of the project to create the dataset in. Must specify at least one of `project_name` or `project_id`.
-    :param name: The name of the dataset to create. If not specified, a name will be generated automatically.
+    :param project: The name of the project to create the dataset in.
+    :param name: The name of the dataset to create. Defaults to `logs` if not specified.
+    :param dataset_id: The id of an existing dataset to load. If specified, this takes precedence over `project`, `project_id`, and `name`.
     :param description: An optional description of the dataset.
     :param version: An optional version of the dataset (to read). If not specified, the latest version will be used.
     :param environment: The environment to load the dataset from. If both `version` and `environment` are provided, `version` takes precedence.
@@ -1711,18 +1712,24 @@ def init_dataset(
 
     def compute_metadata():
         state.login(org_name=org_name, api_key=api_key, app_url=app_url)
-        args = _populate_args(
-            {"project_name": project, "project_id": project_id, "org_id": state.org_id},
-            dataset_name=name,
-            description=description,
-            metadata=metadata,
-        )
-        response = state.app_conn().post_json("api/dataset/register", args)
-        resp_project = response["project"]
-        resp_dataset = response["dataset"]
+        api_client = state.api_client()
+        if dataset_id is not None:
+            resp_dataset = api_client.datasets.get_dataset_id(dataset_id)
+            resp_project = api_client.projects.get_project_id(resp_dataset["project_id"])
+        else:
+            if project_id is not None:
+                resp_project = api_client.projects.get_project_id(project_id)
+            else:
+                resp_project = api_client.projects.post_project(body={"name": project, "org_name": state.org_name})
+            body = _populate_args(
+                {"project_id": resp_project["id"], "name": name or "logs"},
+                description=description,
+                metadata=metadata,
+            )
+            resp_dataset = api_client.datasets.post_dataset(body=body)
         return ProjectDatasetMetadata(
-            project=ObjectMetadata(id=resp_project["id"], name=resp_project["name"], full_info=resp_project),
-            dataset=ObjectMetadata(id=resp_dataset["id"], name=resp_dataset["name"], full_info=resp_dataset),
+            project=ObjectMetadata(id=resp_project["id"], name=resp_project["name"], full_info=dict(resp_project)),
+            dataset=ObjectMetadata(id=resp_dataset["id"], name=resp_dataset["name"], full_info=dict(resp_dataset)),
         )
 
     return Dataset(
@@ -1735,26 +1742,27 @@ def init_dataset(
     )
 
 
-def _compute_logger_metadata(project_name: str | None = None, project_id: str | None = None):
-    login()
-    org_id = _state.org_id
+def _compute_logger_metadata(
+    project_name: str | None = None,
+    project_id: str | None = None,
+    state: BraintrustState | None = None,
+):
+    state = state or _state
+    state.login()
+    org_id = state.org_id
     if project_id is None:
-        response = _state.app_conn().post_json(
-            "api/project/register",
-            {
-                "project_name": project_name or GLOBAL_PROJECT,
-                "org_id": org_id,
-            },
+        response = state.api_client().projects.post_project(
+            body={"name": project_name or GLOBAL_PROJECT, "org_name": state.org_name}
         )
-        resp_project = response["project"]
         return OrgProjectMetadata(
             org_id=org_id,
-            project=ObjectMetadata(id=resp_project["id"], name=resp_project["name"], full_info=resp_project),
+            project=ObjectMetadata(id=response["id"], name=response["name"], full_info=dict(response)),
         )
     elif project_name is None:
-        response = _state.app_conn().get_json("api/project", {"id": project_id})
+        response = state.api_client().projects.get_project_id(project_id)
         return OrgProjectMetadata(
-            org_id=org_id, project=ObjectMetadata(id=project_id, name=response["name"], full_info=response)
+            org_id=org_id,
+            project=ObjectMetadata(id=response["id"], name=response["name"], full_info=dict(response)),
         )
     else:
         return OrgProjectMetadata(
@@ -1802,7 +1810,7 @@ def init_logger(
 
     def compute_metadata():
         state.login(org_name=org_name, api_key=api_key, app_url=app_url, force_login=force_login)
-        return _compute_logger_metadata(**compute_metadata_args)
+        return _compute_logger_metadata(**compute_metadata_args, state=state)
 
     # For loggers, enable queue size limit enforcement (bounded queue)
     state.enforce_queue_size_limit(True)
@@ -2179,13 +2187,12 @@ def login_to_state(
             }
         ]
         _check_org_info(state, test_org_info, org_name)
-        router = EndpointRouter(app_url=state.app_url, api_url=state.api_url, proxy_url=state.proxy_url)
-        state._client = BraintrustClient.from_transport(
-            transport=Transport(adapter=_http_adapter),
-            router=router,
+        state._client = BraintrustClient(
             api_key=TEST_API_KEY,
-            org_id=cast(str, state.org_id),
-            org_name=cast(str, state.org_name),
+            app_url=state.app_url,
+            api_url=state.api_url,
+            proxy_url=state.proxy_url,
+            adapter=_http_adapter,
         )
         state.login_token = TEST_API_KEY
         state.logged_in = True
@@ -2197,19 +2204,24 @@ def login_to_state(
             "or nearest .env.braintrust file."
         )
 
+    client = BraintrustClient(api_key=api_key, app_url=state.app_url, adapter=_http_adapter)
     try:
-        client = BraintrustClient(api_key=api_key, org_name=org_name, app_url=state.app_url, adapter=_http_adapter)
+        login_result = client.auth.login(org_name=org_name)
     except BraintrustHTTPError as exc:
+        client.close()
         masked_api_key = mask_api_key(api_key)
         raise ValueError(f"Invalid API key {masked_api_key}: [{exc.status_code}] {exc.response_body}") from exc
+    except Exception:
+        client.close()
+        raise
 
-    organization = client.login_result.organization
+    organization = login_result.organization
     state._client = client
-    state.org_id = client.org_id
-    state.org_name = client.org_name
-    state.api_url = client.router.api_url
-    state.proxy_url = client.router.proxy_url
-    state.is_universal_api = client.router.is_universal_api
+    state.org_id = organization.id
+    state.org_name = organization.name
+    state.api_url = login_result.api_url
+    state.proxy_url = login_result.proxy_url
+    state.is_universal_api = organization.is_universal_api
     state.git_metadata_settings = (
         GitMetadataSettings(**organization.git_metadata) if organization.git_metadata else None
     )
@@ -2270,7 +2282,7 @@ def summarize(summarize_scores: bool = True, comparison_experiment_id: str | Non
     Summarize the current experiment, including the scores (compared to the closest reference experiment) and metadata.
 
     :param summarize_scores: Whether to summarize the scores. If False, only the metadata will be returned.
-    :param comparison_experiment_id: The experiment to compare against. If None, the most recent experiment on the comparison_commit will be used.
+    :param comparison_experiment_id: The experiment to compare against. If None, the backend uses the experiment's stored base experiment, then the most recent experiment in the same project.
     :returns: `ExperimentSummary`
     """
     eprint(
@@ -4002,7 +4014,40 @@ class ExperimentDatasetIterator:
             return ret
 
 
-class Experiment(ObjectFetcher[ExperimentEvent], Exportable):
+class _ExperimentFetcher(ObjectFetcher[ExperimentEvent]):
+    def _refetch(self, batch_size: int | None = None) -> list[ExperimentEvent]:
+        if self._fetched_data is not None:
+            return self._fetched_data
+
+        state = self._get_state()
+        limit = batch_size if batch_size is not None else DEFAULT_FETCH_BATCH_SIZE
+        cursor = None
+        data: list[ExperimentEvent] = []
+        iterations = 0
+        while True:
+            body: dict[str, Any] = {"limit": limit}
+            if cursor is not None:
+                body["cursor"] = cursor
+            response = state.api_client().experiments.post_experiment_id_fetch(self.id, body=body)
+            events = response.get("events")
+            if not isinstance(events, list):
+                raise ValueError(f"Expected a list in the response, got {type(events)}")
+            data.extend(cast(list[ExperimentEvent], events))
+            cursor = response.get("cursor")
+            if not cursor:
+                break
+            iterations += 1
+            if iterations > MAX_BTQL_ITERATIONS:
+                raise RuntimeError("Too many experiment fetch iterations")
+
+        if self._mutate_record is not None:
+            self._fetched_data = [self._mutate_record(record) for record in data]
+        else:
+            self._fetched_data = data
+        return self._fetched_data
+
+
+class Experiment(_ExperimentFetcher, Exportable):
     """
     An experiment is a collection of logged events, such as model inputs and outputs, which represent
     a snapshot of your application at a particular point in time. An experiment is meant to capture more
@@ -4226,7 +4271,7 @@ class Experiment(ObjectFetcher[ExperimentEvent], Exportable):
         Summarize the experiment, including the scores (compared to the closest reference experiment) and metadata.
 
         :param summarize_scores: Whether to summarize the scores. If False, only the metadata will be returned.
-        :param comparison_experiment_id: The experiment to compare against. If None, the most recent experiment on the origin's main branch will be used.
+        :param comparison_experiment_id: The experiment to compare against. If None, the backend uses the experiment's stored base experiment, then the most recent experiment in the same project.
         :returns: `ExperimentSummary`
         """
         # Flush our events to the API, and to the data warehouse, to ensure that the link we print
@@ -4237,49 +4282,38 @@ class Experiment(ObjectFetcher[ExperimentEvent], Exportable):
         project_url = f"{state.app_public_url}/app/{encode_uri_component(state.org_name)}/p/{encode_uri_component(self.project.name)}"
         experiment_url = f"{project_url}/experiments/{encode_uri_component(self.name)}"
 
-        score_summary = {}
-        metric_summary = {}
         comparison_experiment_name = None
-        if summarize_scores:
-            # Get the comparison experiment
-            if comparison_experiment_id is None:
-                base_experiment = self.fetch_base_experiment()
-                if base_experiment:
-                    comparison_experiment_id = base_experiment.id
-                    comparison_experiment_name = base_experiment.name
-            else:
-                try:
-                    comparison_experiment = state.api_conn().get_json(f"v1/experiment/{comparison_experiment_id}")
-                    comparison_experiment_name = comparison_experiment.get("name")
-                except Exception:
-                    pass
-
+        if not summarize_scores:
+            comparison: SummaryResult = SummarySkipped(reason="Score summarization was disabled")
+        else:
             try:
-                summary_items = state.api_conn().get_json(
-                    "experiment-comparison2",
-                    args={
-                        "experiment_id": self.id,
-                        "base_experiment_id": comparison_experiment_id,
-                    },
+                summary_items = state.api_client().experiments.get_experiment_id_summarize(
+                    self.id,
+                    summarize_scores=True,
+                    comparison_experiment_id=comparison_experiment_id,
                 )
-            except Exception as e:
+            except BraintrustAPIError as e:
                 _logger.warning(
-                    f"Failed to fetch experiment scores and metrics: {e}\n\nView complete results in Braintrust or run experiment.summarize() again."
+                    "Failed to fetch experiment scores and metrics: %s\n\n"
+                    "View complete results in Braintrust or run experiment.summarize() again.",
+                    e,
                 )
-                summary_items = {}
+                comparison = SummarySkipped(reason="Experiment comparison could not be retrieved")
+            else:
+                comparison_experiment_name = summary_items.get("comparison_experiment_name")
+                score_items = summary_items.get("scores") or {}
+                metric_items = summary_items.get("metrics") or {}
 
-            score_items = summary_items.get("scores", {})
-            metric_items = summary_items.get("metrics", {})
+                longest_score_name = max((len(k) for k in score_items), default=0)
+                score_summary = {
+                    k: ScoreSummary(_longest_score_name=longest_score_name, **v) for (k, v) in score_items.items()
+                }
 
-            longest_score_name = max(len(k) for k in score_items.keys()) if score_items else 0
-            score_summary = {
-                k: ScoreSummary(_longest_score_name=longest_score_name, **v) for (k, v) in score_items.items()
-            }
-
-            longest_metric_name = max(len(k) for k in metric_items.keys()) if metric_items else 0
-            metric_summary = {
-                k: MetricSummary(_longest_metric_name=longest_metric_name, **v) for (k, v) in metric_items.items()
-            }
+                longest_metric_name = max((len(k) for k in metric_items), default=0)
+                metric_summary = {
+                    k: MetricSummary(_longest_metric_name=longest_metric_name, **v) for (k, v) in metric_items.items()
+                }
+                comparison = SummarySuccess(scores=score_summary, metrics=metric_summary)
 
         return ExperimentSummary(
             project_name=self.project.name,
@@ -4289,8 +4323,7 @@ class Experiment(ObjectFetcher[ExperimentEvent], Exportable):
             project_url=project_url,
             experiment_url=experiment_url,
             comparison_experiment_name=comparison_experiment_name,
-            scores=score_summary,
-            metrics=metric_summary,
+            comparison=comparison,
         )
 
     def export(self) -> str:
@@ -4357,7 +4390,7 @@ class Experiment(ObjectFetcher[ExperimentEvent], Exportable):
         del exc_type, exc_value, traceback
 
 
-class ReadonlyExperiment(ObjectFetcher[ExperimentEvent]):
+class ReadonlyExperiment(_ExperimentFetcher):
     """
     A read-only view of an experiment, initialized by passing `open=True` to `init()`.
     """
@@ -4971,6 +5004,41 @@ class Dataset(ObjectFetcher[DatasetEvent]):
             self._pinned_version = response["object_version"]
         return self.state
 
+    def _refetch(self, batch_size: int | None = None) -> list[DatasetEvent]:
+        if self._internal_btql:
+            return super()._refetch(batch_size=batch_size)
+        if self._fetched_data is not None:
+            return self._fetched_data
+
+        state = self._get_state()
+        limit = batch_size if batch_size is not None else DEFAULT_FETCH_BATCH_SIZE
+        cursor = None
+        data: list[DatasetEvent] = []
+        iterations = 0
+        while True:
+            body: dict[str, Any] = {"limit": limit}
+            if cursor is not None:
+                body["cursor"] = cursor
+            if self._pinned_version is not None:
+                body["version"] = self._pinned_version
+            response = state.api_client().datasets.post_dataset_id_fetch(self.id, body=body)
+            events = response.get("events")
+            if not isinstance(events, list):
+                raise ValueError(f"Expected a list in the response, got {type(events)}")
+            data.extend(cast(list[DatasetEvent], events))
+            cursor = response.get("cursor")
+            if not cursor:
+                break
+            iterations += 1
+            if iterations > MAX_BTQL_ITERATIONS:
+                raise RuntimeError("Too many dataset fetch iterations")
+
+        if self._mutate_record is not None:
+            self._fetched_data = [self._mutate_record(record) for record in data]
+        else:
+            self._fetched_data = data
+        return self._fetched_data
+
     def _validate_event(
         self,
         expected: Any | None = None,
@@ -5133,18 +5201,15 @@ class Dataset(ObjectFetcher[DatasetEvent]):
         # includes the new experiment.
         self.flush()
         state = self._get_state()
+        response = state.api_client().datasets.get_dataset_id_summarize(self.id, summarize_data=summarize_data)
+        raw_data_summary = response.get("data_summary")
+        data_summary = (
+            DataSummary(new_records=self.new_records, **raw_data_summary)
+            if isinstance(raw_data_summary, Mapping)
+            else None
+        )
         project_url = f"{state.app_public_url}/app/{encode_uri_component(state.org_name)}/p/{encode_uri_component(self.project.name)}"
         dataset_url = f"{project_url}/datasets/{encode_uri_component(self.name)}"
-
-        data_summary = None
-        if summarize_data:
-            data_summary_d = state.api_conn().get_json(
-                "dataset-summary",
-                args={
-                    "dataset_id": self.id,
-                },
-            )
-            data_summary = DataSummary(new_records=self.new_records, **data_summary_d)
 
         return DatasetSummary(
             project_name=self.project.name,
@@ -5489,17 +5554,13 @@ class Project:
         if self._id is None or self._name is None:
             with self.init_lock:
                 if self._id is None:
-                    response = _state.app_conn().post_json(
-                        "api/project/register",
-                        {
-                            "project_name": self._name or GLOBAL_PROJECT,
-                            "org_id": _state.org_id,
-                        },
+                    response = _state.api_client().projects.post_project(
+                        body={"name": self._name or GLOBAL_PROJECT, "org_name": _state.org_name}
                     )
-                    self._id = response["project"]["id"]
-                    self._name = response["project"]["name"]
+                    self._id = response["id"]
+                    self._name = response["name"]
                 elif self._name is None:
-                    response = _state.app_conn().get_json("api/project", {"id": self._id})
+                    response = _state.api_client().projects.get_project_id(self._id)
                     self._name = response["name"]
 
         return self
@@ -5858,9 +5919,34 @@ class MetricSummary(SerializableDataClass):
         )
 
 
+@dataclasses.dataclass(frozen=True)
+class SummarySuccess(SerializableDataClass):
+    """A successfully retrieved experiment comparison."""
+
+    scores: dict[str, ScoreSummary]
+    metrics: dict[str, MetricSummary]
+    status: Literal["success"] = dataclasses.field(default="success", init=False)
+
+
+@dataclasses.dataclass(frozen=True)
+class SummarySkipped(SerializableDataClass):
+    """An experiment comparison that was skipped or could not be retrieved."""
+
+    reason: str
+    status: Literal["skipped"] = dataclasses.field(default="skipped", init=False)
+
+
+SummaryResult = SummarySuccess | SummarySkipped
+
+
 @dataclasses.dataclass
 class ExperimentSummary(SerializableDataClass):
-    """Summary of an experiment's scores and metadata."""
+    """Summary of an experiment's metadata and comparison result.
+
+    Use :attr:`comparison` to consume scores and metrics. The top-level
+    :attr:`scores` and :attr:`metrics` properties exist only for backwards
+    compatibility.
+    """
 
     project_name: str
     """Name of the project that the experiment belongs to."""
@@ -5876,29 +5962,95 @@ class ExperimentSummary(SerializableDataClass):
     """URL to the experiment's page in the Braintrust app."""
     comparison_experiment_name: str | None
     """The experiment scores are baselined against."""
-    scores: dict[str, ScoreSummary]
-    """Summary of the experiment's scores."""
-    metrics: dict[str, MetricSummary]
-    """Summary of the experiment's metrics."""
+    comparison: SummaryResult
+    """The primary result to inspect when consuming an experiment summary.
+
+    A successful comparison contains the score and metric maps. A skipped
+    comparison explains why comparison data is unavailable, so callers do not
+    mistake it for a successful summary with no scores.
+    """
+
+    @property
+    def scores(self) -> dict[str, ScoreSummary]:
+        """Deprecated. Use ``comparison.scores`` after checking its status."""
+        return self.comparison.scores if isinstance(self.comparison, SummarySuccess) else {}
+
+    @property
+    def metrics(self) -> dict[str, MetricSummary]:
+        """Deprecated. Use ``comparison.metrics`` after checking its status."""
+        return self.comparison.metrics if isinstance(self.comparison, SummarySuccess) else {}
+
+    def as_dict(self):
+        serialized = super().as_dict()
+        # Preserve the legacy serialized fields until a future major version.
+        serialized["scores"] = {name: dataclasses.asdict(score) for name, score in self.scores.items()}
+        serialized["metrics"] = {name: dataclasses.asdict(metric) for name, metric in self.metrics.items()}
+        return serialized
+
+    @classmethod
+    def from_dict_deep(cls, d: dict):
+        def deserialize_scores(values: Mapping[str, Any]) -> dict[str, ScoreSummary]:
+            longest_name = max((len(name) for name in values), default=0)
+            return {
+                name: value
+                if isinstance(value, ScoreSummary)
+                else ScoreSummary.from_dict({"name": name, "_longest_score_name": longest_name, **value})
+                for name, value in values.items()
+            }
+
+        def deserialize_metrics(values: Mapping[str, Any]) -> dict[str, MetricSummary]:
+            longest_name = max((len(name) for name in values), default=0)
+            return {
+                name: value
+                if isinstance(value, MetricSummary)
+                else MetricSummary.from_dict({"name": name, "_longest_metric_name": longest_name, **value})
+                for name, value in values.items()
+            }
+
+        raw_comparison = d.get("comparison")
+        if isinstance(raw_comparison, (SummarySuccess, SummarySkipped)):
+            comparison: SummaryResult = raw_comparison
+        elif raw_comparison is None:
+            comparison = SummarySuccess(
+                scores=deserialize_scores(d.get("scores", {})),
+                metrics=deserialize_metrics(d.get("metrics", {})),
+            )
+        elif isinstance(raw_comparison, Mapping):
+            status = raw_comparison.get("status")
+            if status == "success":
+                comparison = SummarySuccess(
+                    scores=deserialize_scores(raw_comparison.get("scores", {})),
+                    metrics=deserialize_metrics(raw_comparison.get("metrics", {})),
+                )
+            elif status == "skipped":
+                comparison = SummarySkipped(reason=raw_comparison["reason"])
+            else:
+                raise ValueError(f"Unknown experiment summary comparison status: {status!r}")
+        else:
+            raise TypeError("Experiment summary comparison must be a mapping")
+
+        return cls.from_dict({**d, "comparison": comparison})
 
     def __str__(self):
         comparison_line = ""
         if self.comparison_experiment_name:
             comparison_line = f"""{self.experiment_name} compared to {self.comparison_experiment_name}:\n"""
-        return (
-            f"""\n=========================SUMMARY=========================\n{comparison_line}"""
-            + "\n".join([str(score) for score in self.scores.values()])
-            + ("\n\n" if self.scores else "")
-            + "\n".join([str(metric) for metric in self.metrics.values()])
-            + ("\n\n" if self.metrics else "")
-            + (
-                textwrap.dedent(
-                    f"""\
-        See results for {self.experiment_name} at {self.experiment_url}"""
-                )
-                if self.experiment_url is not None
-                else ""
+        if isinstance(self.comparison, SummarySkipped):
+            result = f"Summary skipped: {self.comparison.reason}\n\n"
+        else:
+            result = (
+                "\n".join([str(score) for score in self.comparison.scores.values()])
+                + ("\n\n" if self.comparison.scores else "")
+                + "\n".join([str(metric) for metric in self.comparison.metrics.values()])
+                + ("\n\n" if self.comparison.metrics else "")
             )
+        return f"""\n=========================SUMMARY=========================\n{comparison_line}{result}""" + (
+            textwrap.dedent(
+                f"""\
+        See results for {self.experiment_name} at {self.experiment_url}"""
+            )
+            if self.experiment_url is not None
+            else ""
         )
 
 

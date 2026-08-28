@@ -33,6 +33,7 @@ class SqlQuery(_message.Message):
         "query_plan_json",
         "output_uri_prefix",
         "plan_uri",
+        "error",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     AGENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -52,6 +53,7 @@ class SqlQuery(_message.Message):
     QUERY_PLAN_JSON_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_URI_PREFIX_FIELD_NUMBER: _ClassVar[int]
     PLAN_URI_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
     id: str
     agent_id: str
     environment_id: str
@@ -70,6 +72,7 @@ class SqlQuery(_message.Message):
     query_plan_json: str
     output_uri_prefix: str
     plan_uri: str
+    error: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -90,6 +93,7 @@ class SqlQuery(_message.Message):
         query_plan_json: _Optional[str] = ...,
         output_uri_prefix: _Optional[str] = ...,
         plan_uri: _Optional[str] = ...,
+        error: _Optional[str] = ...,
     ) -> None: ...
 
 class ListSqlQueriesRequest(_message.Message):

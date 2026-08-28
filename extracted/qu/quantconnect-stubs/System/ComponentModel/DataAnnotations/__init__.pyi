@@ -151,6 +151,9 @@ class ValidationAttribute(System.Attribute, metaclass=abc.ABCMeta):
     def format_error_message(self, name: str) -> str:
         ...
 
+    def format_message(self, format: str, name: str) -> str:
+        ...
+
     def get_validation_result(self, value: typing.Any, validation_context: System.ComponentModel.DataAnnotations.ValidationContext) -> System.ComponentModel.DataAnnotations.ValidationResult:
         ...
 
@@ -182,6 +185,9 @@ class MinLengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttribu
         ...
 
     def format_error_message(self, name: str) -> str:
+        ...
+
+    def format_message(self, format: str, name: str) -> str:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:
@@ -232,6 +238,9 @@ class MaxLengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttribu
         ...
 
     def format_error_message(self, name: str) -> str:
+        ...
+
+    def format_message(self, format: str, name: str) -> str:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:
@@ -383,6 +392,9 @@ class FileExtensionsAttribute(System.ComponentModel.DataAnnotations.DataTypeAttr
         ...
 
     def format_error_message(self, name: str) -> str:
+        ...
+
+    def format_message(self, format: str, name: str) -> str:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:
@@ -891,6 +903,9 @@ class RangeAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute):
     def format_error_message(self, name: str) -> str:
         ...
 
+    def format_message(self, format: str, name: str) -> str:
+        ...
+
     def is_valid(self, value: typing.Any) -> bool:
         ...
 
@@ -926,6 +941,9 @@ class LengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute)
     def format_error_message(self, name: str) -> str:
         ...
 
+    def format_message(self, format: str, name: str) -> str:
+        ...
+
     def is_valid(self, value: typing.Any) -> bool:
         ...
 
@@ -949,6 +967,9 @@ class CompareAttribute(System.ComponentModel.DataAnnotations.ValidationAttribute
         ...
 
     def format_error_message(self, name: str) -> str:
+        ...
+
+    def format_message(self, format: str, name: str) -> str:
         ...
 
     def is_valid(self, value: typing.Any, validation_context: System.ComponentModel.DataAnnotations.ValidationContext) -> System.ComponentModel.DataAnnotations.ValidationResult:
@@ -989,6 +1010,9 @@ class StringLengthAttribute(System.ComponentModel.DataAnnotations.ValidationAttr
         ...
 
     def format_error_message(self, name: str) -> str:
+        ...
+
+    def format_message(self, format: str, name: str) -> str:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:
@@ -1081,6 +1105,9 @@ class RegularExpressionAttribute(System.ComponentModel.DataAnnotations.Validatio
         ...
 
     def format_error_message(self, name: str) -> str:
+        ...
+
+    def format_message(self, format: str, name: str) -> str:
         ...
 
     def is_valid(self, value: typing.Any) -> bool:

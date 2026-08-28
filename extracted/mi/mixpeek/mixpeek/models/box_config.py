@@ -20,7 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
-from mixpeek.models.credentials import Credentials
+from mixpeek.models.credentials1 import Credentials1
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -29,7 +29,7 @@ class BoxConfig(BaseModel):
     Box cloud content management and file sharing configuration.  Enables Mixpeek to connect to Box for automated file ingestion and synchronization. Supports enterprise-grade content management features including folder sync, metadata, versioning, and retention policies.  Authentication Methods:     1. OAuth 2.0 (for user-level access):         - Standard OAuth flow with access/refresh tokens         - Access scoped to the authorizing user's content      2. Client Credentials Grant (CCG) (RECOMMENDED for production):         - Server-to-server without user interaction         - Acts as service account or specific user         - Requires admin authorization in Box Admin Console      3. JWT (for high-security enterprise):         - RSA key pair for signing JWT assertions         - No user interaction required         - Highest security option  Requirements:     - Box Developer account with an application     - Application authorized in Box Admin Console (for CCG/JWT)     - Network connectivity to api.box.com  Use Cases:     - Sync enterprise document libraries     - Ingest compliance and legal documents     - Monitor collaboration folders for new content     - Archive and search enterprise content
     """ # noqa: E501
     provider_type: Optional[StrictStr] = 'box'
-    credentials: Credentials
+    credentials: Credentials1
     folder_id: Optional[StrictStr] = Field(default='0', description="Box folder ID to sync from. Default '0' is the root folder. Find folder ID: Open folder in Box web UI, copy the numeric ID from the URL. Example URL: https://app.box.com/folder/123456789 → folder_id='123456789'")
     __properties: ClassVar[List[str]] = ["provider_type", "credentials", "folder_id"]
 
@@ -98,7 +98,7 @@ class BoxConfig(BaseModel):
 
         _obj = cls.model_validate({
             "provider_type": obj.get("provider_type") if obj.get("provider_type") is not None else 'box',
-            "credentials": Credentials.from_dict(obj["credentials"]) if obj.get("credentials") is not None else None,
+            "credentials": Credentials1.from_dict(obj["credentials"]) if obj.get("credentials") is not None else None,
             "folder_id": obj.get("folder_id") if obj.get("folder_id") is not None else '0'
         })
         return _obj

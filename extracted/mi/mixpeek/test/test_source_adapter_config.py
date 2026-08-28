@@ -60,7 +60,9 @@ class TestSourceAdapterConfig(unittest.TestCase):
                     auto_submit = True, ),
                 dedup_key = '',
                 webhook_secret = '',
-                webhook_url = ''
+                webhook_url = '',
+                source_collection_id = '',
+                source_filters = { }
             )
         else:
             return SourceAdapterConfig(

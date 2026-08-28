@@ -5,6 +5,7 @@ from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.rpc import code_pb2 as _code_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -16,6 +17,16 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class AuditLogOutcome(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    AUDIT_LOG_OUTCOME_UNSPECIFIED: _ClassVar[AuditLogOutcome]
+    AUDIT_LOG_OUTCOME_OK: _ClassVar[AuditLogOutcome]
+    AUDIT_LOG_OUTCOME_ERROR: _ClassVar[AuditLogOutcome]
+
+AUDIT_LOG_OUTCOME_UNSPECIFIED: AuditLogOutcome
+AUDIT_LOG_OUTCOME_OK: AuditLogOutcome
+AUDIT_LOG_OUTCOME_ERROR: AuditLogOutcome
 
 class AuditLog(_message.Message):
     __slots__ = ("agent", "description", "endpoint", "at", "trace_id", "code", "request", "response", "ip", "error")
@@ -83,6 +94,7 @@ class GetAuditLogsRequest(_message.Message):
         "timestamp_lower_bound_inclusive",
         "timestamp_upper_bound_exclusive",
         "agent_id_filter",
+        "outcome_filters",
     )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -92,6 +104,7 @@ class GetAuditLogsRequest(_message.Message):
     TIMESTAMP_LOWER_BOUND_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_UPPER_BOUND_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
     AGENT_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
+    OUTCOME_FILTERS_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     endpoint_filter: _containers.RepeatedScalarFieldContainer[str]
@@ -100,6 +113,7 @@ class GetAuditLogsRequest(_message.Message):
     timestamp_lower_bound_inclusive: _timestamp_pb2.Timestamp
     timestamp_upper_bound_exclusive: _timestamp_pb2.Timestamp
     agent_id_filter: str
+    outcome_filters: _containers.RepeatedScalarFieldContainer[AuditLogOutcome]
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -110,6 +124,7 @@ class GetAuditLogsRequest(_message.Message):
         timestamp_lower_bound_inclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         timestamp_upper_bound_exclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         agent_id_filter: _Optional[str] = ...,
+        outcome_filters: _Optional[_Iterable[_Union[AuditLogOutcome, str]]] = ...,
     ) -> None: ...
 
 class GetAuditLogsResponse(_message.Message):

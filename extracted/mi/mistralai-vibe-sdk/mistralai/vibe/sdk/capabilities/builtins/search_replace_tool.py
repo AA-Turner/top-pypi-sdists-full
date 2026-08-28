@@ -75,6 +75,7 @@ class SearchReplaceAnnotations(BaseModel):
         "order. Prefer this over rewriting a whole file; use write_file to create new files."
     ),
     input_schema=SearchReplaceArgs,
+    result_schema=SearchReplaceResult,
     ctx_schema=SearchReplaceContext,
     ctx=SearchReplaceContext(),
 )

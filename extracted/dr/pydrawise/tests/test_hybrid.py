@@ -2,16 +2,15 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest.mock import call, create_autospec
 
+import pytest
 from freezegun import freeze_time
 from pytest import fixture
 
-import pytest
-
 from pydrawise.auth import HybridAuth
 from pydrawise.client import Hydrawise
-from pydrawise.exceptions import NotAuthorizedError
+from pydrawise.exceptions import NotAuthorizedError, ThrottledError
 from pydrawise.hybrid import HybridClient, Throttler
-from pydrawise.schema import Controller, Zone, ZoneStatus
+from pydrawise.schema import Controller, Zone, ZoneStatus, ZoneSuspension
 from pydrawise.schema_utils import deserialize
 
 FROZEN_TIME = "2023-01-01 01:00:00"
@@ -395,19 +394,27 @@ async def test_get_zones_secondary_controller_rest_error(
     api, hybrid_auth, mock_gql_client, controller_json, zone, status_schedule
 ):
     """NotAuthorizedError on a secondary controller is suppressed if the primary succeeds."""
-    secondary_json = {**controller_json, "id": controller_json["id"] + 1, "name": "Secondary"}
+    secondary_json = {
+        **controller_json,
+        "id": controller_json["id"] + 1,
+        "name": "Secondary",
+    }
     primary = deserialize(Controller, controller_json)
     secondary = deserialize(Controller, secondary_json)
 
     with freeze_time(FROZEN_TIME):
         # Deplete GQL tokens with two fetches so the third falls back to REST.
-        mock_gql_client.get_controllers.return_value = [deepcopy(primary), deepcopy(secondary)]
+        mock_gql_client.get_controllers.return_value = [
+            deepcopy(primary),
+            deepcopy(secondary),
+        ]
         await api.get_controllers()
         await api.get_controllers()
 
         # Third fetch: primary succeeds via REST, secondary raises NotAuthorizedError.
         hybrid_auth.get.side_effect = lambda path, **kw: (
-            status_schedule if kw.get("controller_id") == primary.id
+            status_schedule
+            if kw.get("controller_id") == primary.id
             else (_ for _ in ()).throw(NotAuthorizedError("API key not valid"))
         )
         controllers = await api.get_controllers()
@@ -426,3 +433,185 @@ async def test_get_zones_all_controllers_rest_error(
         hybrid_auth.get.side_effect = NotAuthorizedError("API key not valid")
         with pytest.raises(NotAuthorizedError):
             await api.get_controllers()
+
+
+async def test_start_zone(api, mock_gql_client, zone):
+    await api.start_zone(zone, mark_run_as_scheduled=True, custom_run_duration=60)
+    mock_gql_client.start_zone.assert_awaited_once_with(zone, True, 60)
+
+
+async def test_stop_zone(api, mock_gql_client, zone):
+    await api.stop_zone(zone)
+    mock_gql_client.stop_zone.assert_awaited_once_with(zone)
+
+
+async def test_start_all_zones(api, mock_gql_client, controller):
+    await api.start_all_zones(
+        controller, mark_run_as_scheduled=True, custom_run_duration=60
+    )
+    mock_gql_client.start_all_zones.assert_awaited_once_with(controller, True, 60)
+
+
+async def test_stop_all_zones(api, mock_gql_client, controller):
+    await api.stop_all_zones(controller)
+    mock_gql_client.stop_all_zones.assert_awaited_once_with(controller)
+
+
+async def test_suspend_zone(api, mock_gql_client, zone):
+    until = datetime(2023, 1, 1)
+    await api.suspend_zone(zone, until)
+    mock_gql_client.suspend_zone.assert_awaited_once_with(zone, until)
+
+
+async def test_resume_zone(api, mock_gql_client, zone):
+    await api.resume_zone(zone)
+    mock_gql_client.resume_zone.assert_awaited_once_with(zone)
+
+
+async def test_suspend_all_zones(api, mock_gql_client, controller):
+    until = datetime(2023, 1, 1)
+    await api.suspend_all_zones(controller, until)
+    mock_gql_client.suspend_all_zones.assert_awaited_once_with(controller, until)
+
+
+async def test_resume_all_zones(api, mock_gql_client, controller):
+    await api.resume_all_zones(controller)
+    mock_gql_client.resume_all_zones.assert_awaited_once_with(controller)
+
+
+async def test_delete_zone_suspension(api, mock_gql_client):
+    suspension = ZoneSuspension(id=42)
+    await api.delete_zone_suspension(suspension)
+    mock_gql_client.delete_zone_suspension.assert_awaited_once_with(suspension)
+
+
+async def test_get_water_flow_summary(api, mock_gql_client, controller, rain_sensor):
+    start = datetime(2023, 1, 1)
+    end = datetime(2023, 1, 2)
+    mock_gql_client.get_water_flow_summary.return_value = "summary"
+    result = await api.get_water_flow_summary(controller, rain_sensor, start, end)
+    assert result == "summary"
+    mock_gql_client.get_water_flow_summary.assert_awaited_once_with(
+        controller, rain_sensor, start, end
+    )
+
+
+async def test_get_watering_report(api, mock_gql_client, controller):
+    start = datetime(2023, 1, 1)
+    end = datetime(2023, 1, 2)
+    mock_gql_client.get_watering_report.return_value = ["entry"]
+    result = await api.get_watering_report(controller, start, end)
+    assert result == ["entry"]
+    mock_gql_client.get_watering_report.assert_awaited_once_with(controller, start, end)
+
+
+async def test_get_water_use_summary(api, mock_gql_client, controller):
+    start = datetime(2023, 1, 1)
+    end = datetime(2023, 1, 2)
+    mock_gql_client.get_water_use_summary.return_value = "summary"
+    result = await api.get_water_use_summary(controller, start, end)
+    assert result == "summary"
+    mock_gql_client.get_water_use_summary.assert_awaited_once_with(
+        controller, start, end
+    )
+
+
+async def test_throttle_cache_is_per_instance(
+    hybrid_auth, mock_gql_client, zone
+) -> None:
+    """Two HybridClients must not share @throttle's cached results.
+
+    The decorator runs once per method at class-definition time, so a cache
+    held in its closure would be shared by every client in the process: a
+    throttled client would then serve another client's data instead of
+    raising ThrottledError.
+    """
+
+    def make_client() -> HybridClient:
+        return HybridClient(
+            hybrid_auth,
+            gql_client=mock_gql_client,
+            # One token, so the second call on a client is always throttled.
+            gql_throttle=Throttler(
+                epoch_interval=timedelta(minutes=30), tokens_per_epoch=1
+            ),
+            rest_throttle=Throttler(
+                epoch_interval=timedelta(minutes=1), tokens_per_epoch=2
+            ),
+        )
+
+    with freeze_time(FROZEN_TIME):
+        first = make_client()
+        mock_gql_client.get_zone.return_value = deepcopy(zone)
+        assert await first.get_zone(zone.id) == zone
+
+        # First client is now out of budget and serves its own cached result.
+        mock_gql_client.get_zone.reset_mock()
+        assert await first.get_zone(zone.id) == zone
+        mock_gql_client.get_zone.assert_not_awaited()
+
+        # A second client starts with its own budget and its own empty cache.
+        second = make_client()
+        mock_gql_client.get_zone.reset_mock()
+        assert await second.get_zone(zone.id) == zone
+        mock_gql_client.get_zone.assert_awaited_once_with(zone.id)
+
+        # Once out of budget with nothing cached of its own, a third client
+        # must raise rather than borrow the others' results.
+        third = make_client()
+        third._gql_throttle.mark()
+        mock_gql_client.get_zone.reset_mock()
+        with pytest.raises(ThrottledError):
+            await third.get_zone(zone.id)
+        mock_gql_client.get_zone.assert_not_awaited()
+
+
+def test_default_throttles_and_gql_client(hybrid_auth):
+    """The documented defaults apply when no throttlers or client are supplied.
+
+    Every other test injects these, so nothing exercised the constructor's
+    own defaults -- which are what real callers get.
+    """
+    client = HybridClient(hybrid_auth)
+
+    assert client._gql_throttle.epoch_interval == timedelta(minutes=30)
+    assert client._gql_throttle.tokens_per_epoch == 5
+    assert client._rest_throttle.epoch_interval == timedelta(minutes=1)
+    assert client._rest_throttle.tokens_per_epoch == 2
+
+    # A GraphQL client is built from the same auth object.
+    assert isinstance(client._gql_client, Hydrawise)
+    assert client._gql_client._auth is hybrid_auth
+
+
+async def test_get_user_throttled_without_zones_does_not_poll_rest(
+    api, hybrid_auth, mock_gql_client, user
+):
+    """fetch_zones=False has nothing REST can refresh, so it must not spend a token."""
+    with freeze_time(FROZEN_TIME):
+        mock_gql_client.get_user.return_value = deepcopy(user)
+        # Exhaust the GraphQL budget (the fixture allows 2 tokens).
+        await api.get_user(fetch_zones=False)
+        await api.get_user(fetch_zones=False)
+        mock_gql_client.get_user.reset_mock()
+        hybrid_auth.get.reset_mock()
+
+        assert await api.get_user(fetch_zones=False) == user
+        mock_gql_client.get_user.assert_not_awaited()
+        hybrid_auth.get.assert_not_awaited()
+
+
+async def test_get_controllers_throttled_without_zones_does_not_poll_rest(
+    api, hybrid_auth, mock_gql_client, controller
+):
+    """Same as get_user: no zones requested means no REST refresh to make."""
+    with freeze_time(FROZEN_TIME):
+        mock_gql_client.get_controllers.return_value = [deepcopy(controller)]
+        await api.get_controllers(fetch_zones=False)
+        await api.get_controllers(fetch_zones=False)
+        mock_gql_client.get_controllers.reset_mock()
+        hybrid_auth.get.reset_mock()
+
+        assert await api.get_controllers(fetch_zones=False) == [controller]
+        mock_gql_client.get_controllers.assert_not_awaited()
+        hybrid_auth.get.assert_not_awaited()

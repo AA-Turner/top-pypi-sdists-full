@@ -1,0 +1,14 @@
+---
+features:
+  - |
+    Client support has been added for the Glance Image API v2.18 cache
+    maintenance endpoints. The following commands have been added to the
+    command line interface:
+
+    * ``cache-clean`` - Clean invalid cache entries and stalled incomplete
+      images
+    * ``cache-prune`` - Prune cached images when the cache size exceeds the
+      maximum configured size
+
+    These commands require a direct glance-api server endpoint and are only
+    available when image caching is enabled on the Glance service.

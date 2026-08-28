@@ -12455,6 +12455,244 @@ class EurostatServicesSurvey(QuantConnect.Data.BaseData):
         ...
 
 
+class USPTOPatentMaintenance(QuantConnect.Data.BaseData):
+    """
+    USPTO patent maintenance activity attributed to a listed company. Each data point covers one
+    publication week and carries the events recorded against that company during it: patents
+    allowed to expire for unpaid maintenance fees, and fees paid at each renewal stage.
+    
+    Letting a patent expire is a decision to stop paying for it, so the expiry count reads as
+    portfolio pruning or cost cutting. Paying the twelfth-year fee is the opposite statement,
+    made about a patent that is already eleven and a half years old.
+    """
+
+    REPORT_FOLDER: str
+    """Output folder under alternative/uspto/ (used by the data processor)."""
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        Publication date of the weekly maintenance fee file, the Tuesday after the week of
+        events closes. This is when LEAN delivers the data point.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def patents_expired(self) -> typing.Optional[float]:
+        """Patents that expired for failure to pay maintenance fees. This is also the data point's Value."""
+        ...
+
+    @patents_expired.setter
+    def patents_expired(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maintenance_paid_fourth_year(self) -> typing.Optional[float]:
+        """Maintenance fees paid at the fourth-year renewal, across all entity sizes."""
+        ...
+
+    @maintenance_paid_fourth_year.setter
+    def maintenance_paid_fourth_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maintenance_paid_eighth_year(self) -> typing.Optional[float]:
+        """Maintenance fees paid at the eighth-year renewal, across all entity sizes."""
+        ...
+
+    @maintenance_paid_eighth_year.setter
+    def maintenance_paid_eighth_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maintenance_paid_twelfth_year(self) -> typing.Optional[float]:
+        """Maintenance fees paid at the twelfth-year renewal, across all entity sizes."""
+        ...
+
+    @maintenance_paid_twelfth_year.setter
+    def maintenance_paid_twelfth_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maintenance_surcharges(self) -> typing.Optional[float]:
+        """Surcharges levied for paying a maintenance fee after its due date."""
+        ...
+
+    @maintenance_surcharges.setter
+    def maintenance_surcharges(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_maintenance_change(self) -> typing.Optional[float]:
+        """Net change in the maintained portfolio: patents kept alive by a payment, less those allowed to expire."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor required by LEAN."""
+        ...
+
+    @overload
+    def __init__(self, csv: typing.List[str]) -> None:
+        """Parses one already-split CSV row into a data point."""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern, the USPTO publication time zone)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Location of the source file: alternative/uspto/patentmaintenance/{ticker}.csv
+        
+        The ticker is the one the company traded under on the date requested, which is what the
+        processor names each file after. RequiresMapping is true, so LEAN moves Symbol.Value on
+        as the subscription crosses a rename and this returns the next file, which is why a
+        renamed company's history is split the same way LEAN splits its own equity data into
+        goog.zip and googl.zip.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse data: most companies have patent events on only a handful of days per year."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses the data from the line provided and loads it into LEAN."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Linked to Equities, so renames and delistings are applied via map files."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only, the weekly cadence is modeled as Daily)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
+class USPTOPatentMaintenanceUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """
+    Universe selection data for the USPTO patent activity dataset. One record per company per
+    publication, so the market can be ranked or filtered by how many patents a company let
+    expire or renewed that week.
+    """
+
+    @property
+    def patents_expired(self) -> typing.Optional[float]:
+        """Patents that expired for failure to pay maintenance fees. This is also the data point's Value."""
+        ...
+
+    @patents_expired.setter
+    def patents_expired(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maintenance_paid_fourth_year(self) -> typing.Optional[float]:
+        """Maintenance fees paid at the fourth-year renewal, across all entity sizes."""
+        ...
+
+    @maintenance_paid_fourth_year.setter
+    def maintenance_paid_fourth_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maintenance_paid_eighth_year(self) -> typing.Optional[float]:
+        """Maintenance fees paid at the eighth-year renewal, across all entity sizes."""
+        ...
+
+    @maintenance_paid_eighth_year.setter
+    def maintenance_paid_eighth_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maintenance_paid_twelfth_year(self) -> typing.Optional[float]:
+        """Maintenance fees paid at the twelfth-year renewal, across all entity sizes."""
+        ...
+
+    @maintenance_paid_twelfth_year.setter
+    def maintenance_paid_twelfth_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maintenance_surcharges(self) -> typing.Optional[float]:
+        """Surcharges levied for paying a maintenance fee after its due date."""
+        ...
+
+    @maintenance_surcharges.setter
+    def maintenance_surcharges(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_maintenance_change(self) -> typing.Optional[float]:
+        """Net change in the maintained portfolio: patents kept alive by a payment, less those allowed to expire."""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends and becomes available to the algorithm."""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Returns a copy carrying the typed fields and the type itself.
+        
+        Without this the base returns a plain BaseDataCollection, so a clone anywhere in the
+        subscription pipeline drops the five counts and stops matching
+        OfType<USPTOPatentMaintenanceUniverse>(), which is how the demonstration algorithms
+        select. Time is assigned rather than EndTime because the two overridden accessors derive
+        from each other and setting both would apply the period twice.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern, the USPTO publication time zone)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the universe file: alternative/uspto/patentmaintenance/universe/{yyyyMMdd}.csv"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse: universe files exist only on publication dates, which are Tuesdays."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses one universe CSV line into a data point."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
 class SpectralTickFlowSignal(QuantConnect.Data.BaseData):
     """
     Spectral Tick-Flow Signal: per-ticker daily signals derived from a proprietary

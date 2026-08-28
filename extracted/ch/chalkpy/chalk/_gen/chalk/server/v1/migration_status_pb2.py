@@ -19,7 +19,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n&chalk/server/v1/migration_status.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/server/v1/flag.proto\x1a\x1fgoogle/protobuf/timestamp.proto"a\n\rFlagCriterion\x12\x12\n\x04\x66lag\x18\x01 \x01(\tR\x04\x66lag\x12<\n\tpredicate\x18\x02 \x01(\x0e\x32\x1e.chalk.server.v1.FlagPredicateR\tpredicate"{\n\x0f\x45nvVarCriterion\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12>\n\tpredicate\x18\x02 \x01(\x0e\x32 .chalk.server.v1.EnvVarPredicateR\tpredicate\x12\x16\n\x06values\x18\x03 \x03(\tR\x06values"\xb6\x01\n\x12MigrationCriterion\x12 \n\x0b\x64\x65scription\x18\x01 \x01(\tR\x0b\x64\x65scription\x12\x34\n\x04\x66lag\x18\x02 \x01(\x0b\x32\x1e.chalk.server.v1.FlagCriterionH\x00R\x04\x66lag\x12;\n\x07\x65nv_var\x18\x03 \x01(\x0b\x32 .chalk.server.v1.EnvVarCriterionH\x00R\x06\x65nvVarB\x0b\n\tcriterion"\xc0\x01\n\tMigration\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12 \n\x0b\x64\x65scription\x18\x03 \x01(\tR\x0b\x64\x65scription\x12\x14\n\x05owner\x18\x04 \x01(\tR\x05owner\x12\x16\n\x06ticket\x18\x05 \x01(\tR\x06ticket\x12?\n\x08\x63riteria\x18\x06 \x03(\x0b\x32#.chalk.server.v1.MigrationCriterionR\x08\x63riteria"\xad\x01\n\x11ObservedFlagState\x12\x15\n\x06is_set\x18\x01 \x01(\x08R\x05isSet\x12\x14\n\x05value\x18\x02 \x01(\x08R\x05value\x12\x30\n\x05scope\x18\x03 \x01(\x0e\x32\x1a.chalk.server.v1.FlagScopeR\x05scope\x12\x39\n\nupdated_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt"^\n\x13ObservedEnvVarState\x12\x15\n\x06is_set\x18\x01 \x01(\x08R\x05isSet\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n\x08redacted\x18\x03 \x01(\x08R\x08redacted"\x8f\x02\n\x0f\x43riterionResult\x12\x41\n\tcriterion\x18\x01 \x01(\x0b\x32#.chalk.server.v1.MigrationCriterionR\tcriterion\x12\x1c\n\tsatisfied\x18\x02 \x01(\x08R\tsatisfied\x12\x43\n\nflag_state\x18\x03 \x01(\x0b\x32".chalk.server.v1.ObservedFlagStateH\x00R\tflagState\x12J\n\renv_var_state\x18\x04 \x01(\x0b\x32$.chalk.server.v1.ObservedEnvVarStateH\x00R\x0b\x65nvVarStateB\n\n\x08observed"\xc3\x02\n\x1a\x45nvironmentMigrationStatus\x12\x17\n\x07team_id\x18\x01 \x01(\tR\x06teamId\x12\x1b\n\tteam_name\x18\x02 \x01(\tR\x08teamName\x12\x1d\n\nproject_id\x18\x03 \x01(\tR\tprojectId\x12%\n\x0e\x65nvironment_id\x18\x04 \x01(\tR\renvironmentId\x12)\n\x10\x65nvironment_name\x18\x05 \x01(\tR\x0f\x65nvironmentName\x12@\n\x05state\x18\x06 \x01(\x0e\x32*.chalk.server.v1.EnvironmentMigrationStateR\x05state\x12<\n\x08\x63riteria\x18\x07 \x03(\x0b\x32 .chalk.server.v1.CriterionResultR\x08\x63riteria"M\n\x0fMigrationCounts\x12\x1a\n\x08migrated\x18\x01 \x01(\x05R\x08migrated\x12\x1e\n\nunmigrated\x18\x02 \x01(\x05R\nunmigrated"\x17\n\x15ListMigrationsRequest"\x81\x02\n\x16ListMigrationsResponse\x12[\n\nmigrations\x18\x01 \x03(\x0b\x32;.chalk.server.v1.ListMigrationsResponse.MigrationWithCountsR\nmigrations\x1a\x89\x01\n\x13MigrationWithCounts\x12\x38\n\tmigration\x18\x01 \x01(\x0b\x32\x1a.chalk.server.v1.MigrationR\tmigration\x12\x38\n\x06\x63ounts\x18\x02 \x01(\x0b\x32 .chalk.server.v1.MigrationCountsR\x06\x63ounts"i\n\x19GetMigrationStatusRequest\x12!\n\x0cmigration_id\x18\x01 \x01(\tR\x0bmigrationId\x12)\n\x10include_archived\x18\x02 \x01(\x08R\x0fincludeArchived"\xe1\x01\n\x1aGetMigrationStatusResponse\x12\x38\n\tmigration\x18\x01 \x01(\x0b\x32\x1a.chalk.server.v1.MigrationR\tmigration\x12\x38\n\x06\x63ounts\x18\x02 \x01(\x0b\x32 .chalk.server.v1.MigrationCountsR\x06\x63ounts\x12O\n\x0c\x65nvironments\x18\x03 \x03(\x0b\x32+.chalk.server.v1.EnvironmentMigrationStatusR\x0c\x65nvironments*\x96\x01\n\rFlagPredicate\x12\x1e\n\x1a\x46LAG_PREDICATE_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x46LAG_PREDICATE_IS_TRUE\x10\x01\x12#\n\x1f\x46LAG_PREDICATE_IS_TRUE_OR_UNSET\x10\x02\x12$\n FLAG_PREDICATE_IS_FALSE_OR_UNSET\x10\x03*\xde\x01\n\x0f\x45nvVarPredicate\x12!\n\x1d\x45NV_VAR_PREDICATE_UNSPECIFIED\x10\x00\x12\x1f\n\x1b\x45NV_VAR_PREDICATE_IS_TRUTHY\x10\x01\x12\'\n#ENV_VAR_PREDICATE_IS_FALSY_OR_UNSET\x10\x02\x12\x1c\n\x18\x45NV_VAR_PREDICATE_IS_SET\x10\x03\x12\x1e\n\x1a\x45NV_VAR_PREDICATE_IS_UNSET\x10\x04\x12 \n\x1c\x45NV_VAR_PREDICATE_EQUALS_ANY\x10\x05*\x9e\x01\n\x19\x45nvironmentMigrationState\x12+\n\'ENVIRONMENT_MIGRATION_STATE_UNSPECIFIED\x10\x00\x12(\n$ENVIRONMENT_MIGRATION_STATE_MIGRATED\x10\x01\x12*\n&ENVIRONMENT_MIGRATION_STATE_UNMIGRATED\x10\x02\x32\xfa\x01\n\x16MigrationStatusService\x12i\n\x0eListMigrations\x12&.chalk.server.v1.ListMigrationsRequest\x1a\'.chalk.server.v1.ListMigrationsResponse"\x06\x90\x02\x01\x80}\x02\x12u\n\x12GetMigrationStatus\x12*.chalk.server.v1.GetMigrationStatusRequest\x1a+.chalk.server.v1.GetMigrationStatusResponse"\x06\x90\x02\x01\x80}\x02\x42\x9d\x01\n\x13\x63om.chalk.server.v1B\x14MigrationStatusProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n&chalk/server/v1/migration_status.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/server/v1/flag.proto\x1a\x1fgoogle/protobuf/timestamp.proto"a\n\rFlagCriterion\x12\x12\n\x04\x66lag\x18\x01 \x01(\tR\x04\x66lag\x12<\n\tpredicate\x18\x02 \x01(\x0e\x32\x1e.chalk.server.v1.FlagPredicateR\tpredicate"{\n\x0f\x45nvVarCriterion\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12>\n\tpredicate\x18\x02 \x01(\x0e\x32 .chalk.server.v1.EnvVarPredicateR\tpredicate\x12\x16\n\x06values\x18\x03 \x03(\tR\x06values"k\n\x10RuntimeCriterion\x12?\n\tpredicate\x18\x01 \x01(\x0e\x32!.chalk.server.v1.RuntimePredicateR\tpredicate\x12\x16\n\x06values\x18\x02 \x03(\tR\x06values"\xf5\x01\n\x12MigrationCriterion\x12 \n\x0b\x64\x65scription\x18\x01 \x01(\tR\x0b\x64\x65scription\x12\x34\n\x04\x66lag\x18\x02 \x01(\x0b\x32\x1e.chalk.server.v1.FlagCriterionH\x00R\x04\x66lag\x12;\n\x07\x65nv_var\x18\x03 \x01(\x0b\x32 .chalk.server.v1.EnvVarCriterionH\x00R\x06\x65nvVar\x12=\n\x07runtime\x18\x04 \x01(\x0b\x32!.chalk.server.v1.RuntimeCriterionH\x00R\x07runtimeB\x0b\n\tcriterion"\xc0\x01\n\tMigration\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12 \n\x0b\x64\x65scription\x18\x03 \x01(\tR\x0b\x64\x65scription\x12\x14\n\x05owner\x18\x04 \x01(\tR\x05owner\x12\x16\n\x06ticket\x18\x05 \x01(\tR\x06ticket\x12?\n\x08\x63riteria\x18\x06 \x03(\x0b\x32#.chalk.server.v1.MigrationCriterionR\x08\x63riteria"\xad\x01\n\x11ObservedFlagState\x12\x15\n\x06is_set\x18\x01 \x01(\x08R\x05isSet\x12\x14\n\x05value\x18\x02 \x01(\x08R\x05value\x12\x30\n\x05scope\x18\x03 \x01(\x0e\x32\x1a.chalk.server.v1.FlagScopeR\x05scope\x12\x39\n\nupdated_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt"^\n\x13ObservedEnvVarState\x12\x15\n\x06is_set\x18\x01 \x01(\x08R\x05isSet\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x1a\n\x08redacted\x18\x03 \x01(\x08R\x08redacted"`\n\x14ObservedRuntimeState\x12\x32\n\x15has_active_deployment\x18\x01 \x01(\x08R\x13hasActiveDeployment\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value"\xdd\x02\n\x0f\x43riterionResult\x12\x41\n\tcriterion\x18\x01 \x01(\x0b\x32#.chalk.server.v1.MigrationCriterionR\tcriterion\x12\x1c\n\tsatisfied\x18\x02 \x01(\x08R\tsatisfied\x12\x43\n\nflag_state\x18\x03 \x01(\x0b\x32".chalk.server.v1.ObservedFlagStateH\x00R\tflagState\x12J\n\renv_var_state\x18\x04 \x01(\x0b\x32$.chalk.server.v1.ObservedEnvVarStateH\x00R\x0b\x65nvVarState\x12L\n\rruntime_state\x18\x05 \x01(\x0b\x32%.chalk.server.v1.ObservedRuntimeStateH\x00R\x0cruntimeStateB\n\n\x08observed"\xc3\x02\n\x1a\x45nvironmentMigrationStatus\x12\x17\n\x07team_id\x18\x01 \x01(\tR\x06teamId\x12\x1b\n\tteam_name\x18\x02 \x01(\tR\x08teamName\x12\x1d\n\nproject_id\x18\x03 \x01(\tR\tprojectId\x12%\n\x0e\x65nvironment_id\x18\x04 \x01(\tR\renvironmentId\x12)\n\x10\x65nvironment_name\x18\x05 \x01(\tR\x0f\x65nvironmentName\x12@\n\x05state\x18\x06 \x01(\x0e\x32*.chalk.server.v1.EnvironmentMigrationStateR\x05state\x12<\n\x08\x63riteria\x18\x07 \x03(\x0b\x32 .chalk.server.v1.CriterionResultR\x08\x63riteria"M\n\x0fMigrationCounts\x12\x1a\n\x08migrated\x18\x01 \x01(\x05R\x08migrated\x12\x1e\n\nunmigrated\x18\x02 \x01(\x05R\nunmigrated"\x17\n\x15ListMigrationsRequest"\x81\x02\n\x16ListMigrationsResponse\x12[\n\nmigrations\x18\x01 \x03(\x0b\x32;.chalk.server.v1.ListMigrationsResponse.MigrationWithCountsR\nmigrations\x1a\x89\x01\n\x13MigrationWithCounts\x12\x38\n\tmigration\x18\x01 \x01(\x0b\x32\x1a.chalk.server.v1.MigrationR\tmigration\x12\x38\n\x06\x63ounts\x18\x02 \x01(\x0b\x32 .chalk.server.v1.MigrationCountsR\x06\x63ounts"i\n\x19GetMigrationStatusRequest\x12!\n\x0cmigration_id\x18\x01 \x01(\tR\x0bmigrationId\x12)\n\x10include_archived\x18\x02 \x01(\x08R\x0fincludeArchived"\xe1\x01\n\x1aGetMigrationStatusResponse\x12\x38\n\tmigration\x18\x01 \x01(\x0b\x32\x1a.chalk.server.v1.MigrationR\tmigration\x12\x38\n\x06\x63ounts\x18\x02 \x01(\x0b\x32 .chalk.server.v1.MigrationCountsR\x06\x63ounts\x12O\n\x0c\x65nvironments\x18\x03 \x03(\x0b\x32+.chalk.server.v1.EnvironmentMigrationStatusR\x0c\x65nvironments*\x96\x01\n\rFlagPredicate\x12\x1e\n\x1a\x46LAG_PREDICATE_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x46LAG_PREDICATE_IS_TRUE\x10\x01\x12#\n\x1f\x46LAG_PREDICATE_IS_TRUE_OR_UNSET\x10\x02\x12$\n FLAG_PREDICATE_IS_FALSE_OR_UNSET\x10\x03*\x88\x02\n\x0f\x45nvVarPredicate\x12!\n\x1d\x45NV_VAR_PREDICATE_UNSPECIFIED\x10\x00\x12\x1f\n\x1b\x45NV_VAR_PREDICATE_IS_TRUTHY\x10\x01\x12\'\n#ENV_VAR_PREDICATE_IS_FALSY_OR_UNSET\x10\x02\x12\x1c\n\x18\x45NV_VAR_PREDICATE_IS_SET\x10\x03\x12\x1e\n\x1a\x45NV_VAR_PREDICATE_IS_UNSET\x10\x04\x12 \n\x1c\x45NV_VAR_PREDICATE_EQUALS_ANY\x10\x05\x12(\n$ENV_VAR_PREDICATE_IS_TRUTHY_OR_UNSET\x10\x06*}\n\x10RuntimePredicate\x12!\n\x1dRUNTIME_PREDICATE_UNSPECIFIED\x10\x00\x12 \n\x1cRUNTIME_PREDICATE_EQUALS_ANY\x10\x01\x12$\n RUNTIME_PREDICATE_NOT_EQUALS_ANY\x10\x02*\x9e\x01\n\x19\x45nvironmentMigrationState\x12+\n\'ENVIRONMENT_MIGRATION_STATE_UNSPECIFIED\x10\x00\x12(\n$ENVIRONMENT_MIGRATION_STATE_MIGRATED\x10\x01\x12*\n&ENVIRONMENT_MIGRATION_STATE_UNMIGRATED\x10\x02\x32\xfa\x01\n\x16MigrationStatusService\x12i\n\x0eListMigrations\x12&.chalk.server.v1.ListMigrationsRequest\x1a\'.chalk.server.v1.ListMigrationsResponse"\x06\x90\x02\x01\x80}\x02\x12u\n\x12GetMigrationStatus\x12*.chalk.server.v1.GetMigrationStatusRequest\x1a+.chalk.server.v1.GetMigrationStatusResponse"\x06\x90\x02\x01\x80}\x02\x42\x9d\x01\n\x13\x63om.chalk.server.v1B\x14MigrationStatusProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -36,40 +36,46 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_MIGRATIONSTATUSSERVICE"].methods_by_name[
         "GetMigrationStatus"
     ]._serialized_options = b"\220\002\001\200}\002"
-    _globals["_FLAGPREDICATE"]._serialized_start = 2329
-    _globals["_FLAGPREDICATE"]._serialized_end = 2479
-    _globals["_ENVVARPREDICATE"]._serialized_start = 2482
-    _globals["_ENVVARPREDICATE"]._serialized_end = 2704
-    _globals["_ENVIRONMENTMIGRATIONSTATE"]._serialized_start = 2707
-    _globals["_ENVIRONMENTMIGRATIONSTATE"]._serialized_end = 2865
+    _globals["_FLAGPREDICATE"]._serialized_start = 2677
+    _globals["_FLAGPREDICATE"]._serialized_end = 2827
+    _globals["_ENVVARPREDICATE"]._serialized_start = 2830
+    _globals["_ENVVARPREDICATE"]._serialized_end = 3094
+    _globals["_RUNTIMEPREDICATE"]._serialized_start = 3096
+    _globals["_RUNTIMEPREDICATE"]._serialized_end = 3221
+    _globals["_ENVIRONMENTMIGRATIONSTATE"]._serialized_start = 3224
+    _globals["_ENVIRONMENTMIGRATIONSTATE"]._serialized_end = 3382
     _globals["_FLAGCRITERION"]._serialized_start = 153
     _globals["_FLAGCRITERION"]._serialized_end = 250
     _globals["_ENVVARCRITERION"]._serialized_start = 252
     _globals["_ENVVARCRITERION"]._serialized_end = 375
-    _globals["_MIGRATIONCRITERION"]._serialized_start = 378
-    _globals["_MIGRATIONCRITERION"]._serialized_end = 560
-    _globals["_MIGRATION"]._serialized_start = 563
-    _globals["_MIGRATION"]._serialized_end = 755
-    _globals["_OBSERVEDFLAGSTATE"]._serialized_start = 758
-    _globals["_OBSERVEDFLAGSTATE"]._serialized_end = 931
-    _globals["_OBSERVEDENVVARSTATE"]._serialized_start = 933
-    _globals["_OBSERVEDENVVARSTATE"]._serialized_end = 1027
-    _globals["_CRITERIONRESULT"]._serialized_start = 1030
-    _globals["_CRITERIONRESULT"]._serialized_end = 1301
-    _globals["_ENVIRONMENTMIGRATIONSTATUS"]._serialized_start = 1304
-    _globals["_ENVIRONMENTMIGRATIONSTATUS"]._serialized_end = 1627
-    _globals["_MIGRATIONCOUNTS"]._serialized_start = 1629
-    _globals["_MIGRATIONCOUNTS"]._serialized_end = 1706
-    _globals["_LISTMIGRATIONSREQUEST"]._serialized_start = 1708
-    _globals["_LISTMIGRATIONSREQUEST"]._serialized_end = 1731
-    _globals["_LISTMIGRATIONSRESPONSE"]._serialized_start = 1734
-    _globals["_LISTMIGRATIONSRESPONSE"]._serialized_end = 1991
-    _globals["_LISTMIGRATIONSRESPONSE_MIGRATIONWITHCOUNTS"]._serialized_start = 1854
-    _globals["_LISTMIGRATIONSRESPONSE_MIGRATIONWITHCOUNTS"]._serialized_end = 1991
-    _globals["_GETMIGRATIONSTATUSREQUEST"]._serialized_start = 1993
-    _globals["_GETMIGRATIONSTATUSREQUEST"]._serialized_end = 2098
-    _globals["_GETMIGRATIONSTATUSRESPONSE"]._serialized_start = 2101
-    _globals["_GETMIGRATIONSTATUSRESPONSE"]._serialized_end = 2326
-    _globals["_MIGRATIONSTATUSSERVICE"]._serialized_start = 2868
-    _globals["_MIGRATIONSTATUSSERVICE"]._serialized_end = 3118
+    _globals["_RUNTIMECRITERION"]._serialized_start = 377
+    _globals["_RUNTIMECRITERION"]._serialized_end = 484
+    _globals["_MIGRATIONCRITERION"]._serialized_start = 487
+    _globals["_MIGRATIONCRITERION"]._serialized_end = 732
+    _globals["_MIGRATION"]._serialized_start = 735
+    _globals["_MIGRATION"]._serialized_end = 927
+    _globals["_OBSERVEDFLAGSTATE"]._serialized_start = 930
+    _globals["_OBSERVEDFLAGSTATE"]._serialized_end = 1103
+    _globals["_OBSERVEDENVVARSTATE"]._serialized_start = 1105
+    _globals["_OBSERVEDENVVARSTATE"]._serialized_end = 1199
+    _globals["_OBSERVEDRUNTIMESTATE"]._serialized_start = 1201
+    _globals["_OBSERVEDRUNTIMESTATE"]._serialized_end = 1297
+    _globals["_CRITERIONRESULT"]._serialized_start = 1300
+    _globals["_CRITERIONRESULT"]._serialized_end = 1649
+    _globals["_ENVIRONMENTMIGRATIONSTATUS"]._serialized_start = 1652
+    _globals["_ENVIRONMENTMIGRATIONSTATUS"]._serialized_end = 1975
+    _globals["_MIGRATIONCOUNTS"]._serialized_start = 1977
+    _globals["_MIGRATIONCOUNTS"]._serialized_end = 2054
+    _globals["_LISTMIGRATIONSREQUEST"]._serialized_start = 2056
+    _globals["_LISTMIGRATIONSREQUEST"]._serialized_end = 2079
+    _globals["_LISTMIGRATIONSRESPONSE"]._serialized_start = 2082
+    _globals["_LISTMIGRATIONSRESPONSE"]._serialized_end = 2339
+    _globals["_LISTMIGRATIONSRESPONSE_MIGRATIONWITHCOUNTS"]._serialized_start = 2202
+    _globals["_LISTMIGRATIONSRESPONSE_MIGRATIONWITHCOUNTS"]._serialized_end = 2339
+    _globals["_GETMIGRATIONSTATUSREQUEST"]._serialized_start = 2341
+    _globals["_GETMIGRATIONSTATUSREQUEST"]._serialized_end = 2446
+    _globals["_GETMIGRATIONSTATUSRESPONSE"]._serialized_start = 2449
+    _globals["_GETMIGRATIONSTATUSRESPONSE"]._serialized_end = 2674
+    _globals["_MIGRATIONSTATUSSERVICE"]._serialized_start = 3385
+    _globals["_MIGRATIONSTATUSSERVICE"]._serialized_end = 3635
 # @@protoc_insertion_point(module_scope)

@@ -35,6 +35,7 @@ class WhisperRunner:
                 capture_frames=req.capture_frames,
                 min_gap_seconds=req.min_gap_seconds,
                 long_segment_seconds=req.long_segment_seconds,
+                word_timestamps=req.word_timestamps,
             )
 
             whisper_result = result.get("whisper_result", {})

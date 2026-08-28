@@ -183,6 +183,24 @@ class JobConfig(ConfigBase):
     )
     # Per-worker Python + libs baseline. Env var: JOB__APPLIER_WORKER_BASELINE_BYTES.
     applier_worker_baseline_bytes: int = attrs.field(default=1 << 30, converter=int)
+    # What one applier actor reserves when its UDF declares no
+    # ``@udf(memory=)``. Ray gives an actor with no ``memory`` no place in its
+    # memory accounting at all, so the scheduler packs by CPU alone and the
+    # node OOMs under load (GEN-775).
+    #
+    # A flat number is deliberate: this is a scheduling floor, not a
+    # prediction. A derived figure would have to be right about row width, UDF
+    # expansion, and framework buffers to beat a round number, and being wrong
+    # low is the failure the floor exists to prevent.
+    #
+    # 4 GiB holds an ordinary batch pipeline -- Lance readahead plus a working
+    # copy -- without stranding capacity: 32 GiB at the default concurrency of
+    # 8. A job needing more says so with ``@udf(memory=)``, which is used
+    # verbatim; admission warns when the reservation will not fit.
+    # ``0`` means no floor. Env var: JOB__APPLIER_DEFAULT_MEMORY_BYTES.
+    applier_default_memory_bytes: int = attrs.field(
+        default=4 * (1 << 30), converter=int
+    )
     # Working-copy expansion of the scan batch.
     # Env var: JOB__APPLIER_USER_EXPANSION_FACTOR.
     applier_user_expansion_factor: float = attrs.field(default=4.0, converter=float)

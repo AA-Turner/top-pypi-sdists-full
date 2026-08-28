@@ -17,8 +17,7 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PYGI_CACHE_PRIVATE_H__
-#define __PYGI_CACHE_PRIVATE_H__
+#pragma once
 
 #include "pygi-cache.h"
 
@@ -114,19 +113,24 @@ PyGIArgCache *pygi_arg_gerror_new_from_info (
 gboolean pygi_marshal_from_py_basic_type_cache_adapter (
     PyGIInvokeState *state, PyGICallableCache *callable_cache,
     PyGIArgCache *arg_cache, PyObject *py_arg, GIArgument *arg,
-    gpointer *cleanup_data);
+    PyGIMarshalCleanupData *cleanup_data);
 
 PyObject *pygi_marshal_to_py_basic_type_cache_adapter (
     PyGIInvokeState *state, PyGICallableCache *callable_cache,
-    PyGIArgCache *arg_cache, GIArgument *arg, gpointer *cleanup_data);
+    PyGIArgCache *arg_cache, GIArgument *arg,
+    PyGIMarshalCleanupData *cleanup_data);
 
+void pygi_marshal_cleanup_data_init_full (PyGIMarshalCleanupData *cleanup_data,
+                                          gpointer data,
+                                          GDestroyNotify destroy,
+                                          GDestroyNotify destroy_failed);
 
-/* Needed for hack in pygi-cache-array.c */
-void pygi_arg_gvalue_from_py_cleanup (PyGIInvokeState *state,
-                                      PyGIArgCache *arg_cache,
-                                      PyObject *py_arg, gpointer data,
-                                      gboolean was_processed);
+void pygi_marshal_cleanup_data_destroy (PyGIMarshalCleanupData *cleanup_data);
+
+void pygi_marshal_cleanup_data_destroy_failed (
+    PyGIMarshalCleanupData *cleanup_data);
+
+void pygi_marshal_cleanup_data_destroy_array (GArray *item_cleanups);
+void pygi_marshal_cleanup_data_destroy_array_failed (GArray *item_cleanups);
 
 G_END_DECLS
-
-#endif /*__PYGI_CACHE_PRIVATE_H__*/

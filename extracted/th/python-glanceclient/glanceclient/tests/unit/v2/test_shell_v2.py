@@ -3799,6 +3799,106 @@ class ShellV2Test(testtools.TestCase):
                 'Direct server endpoint needs to be provided. Do '
                 'not use loadbalanced or catalog endpoints.')
 
+    def test_do_cache_nodes_list(self):
+        args = argparse.Namespace(
+            id='3a4560a1-e585-443e-9b39-553b46ec92d1')
+        expected_nodes = ['http://node1.example', 'http://node2.example']
+        with mock.patch.object(
+                self.gc.cache, 'list_cached_nodes') as mocked_list_nodes:
+            mocked_list_nodes.return_value = expected_nodes
+            test_shell.do_cache_nodes_list(self.gc, args)
+            mocked_list_nodes.assert_called_once_with(args.id)
+        objs, fields = utils.print_list.call_args[0]
+        self.assertEqual(['Node Reference URL'], fields)
+        self.assertEqual(2, len(objs))
+        self.assertEqual('http://node1.example', objs[0].node_reference_url)
+        self.assertEqual('http://node2.example', objs[1].node_reference_url)
+
+    def test_do_cache_nodes_list_empty(self):
+        args = argparse.Namespace(
+            id='3a4560a1-e585-443e-9b39-553b46ec92d1')
+        with mock.patch.object(
+                self.gc.cache, 'list_cached_nodes') as mocked_list_nodes:
+            mocked_list_nodes.return_value = []
+            test_shell.do_cache_nodes_list(self.gc, args)
+        objs, fields = utils.print_list.call_args[0]
+        self.assertEqual(['Node Reference URL'], fields)
+        self.assertEqual(0, len(objs))
+
+    def test_do_cache_nodes_list_unsupported(self):
+        args = argparse.Namespace(
+            id='3a4560a1-e585-443e-9b39-553b46ec92d1')
+        with mock.patch.object(
+                self.gc.cache, 'list_cached_nodes') as mocked_list_nodes:
+            mocked_list_nodes.side_effect = exc.HTTPNotImplemented
+            self.assertRaises(exc.HTTPNotImplemented,
+                              test_shell.do_cache_nodes_list,
+                              self.gc, args)
+
+    def test_do_cache_nodes_list_forbidden(self):
+        image_id = '3a4560a1-e585-443e-9b39-553b46ec92d1'
+        args = argparse.Namespace(id=image_id)
+        with mock.patch.object(
+                self.gc.cache, 'list_cached_nodes') as mocked_list_nodes:
+            mocked_list_nodes.side_effect = exc.HTTPForbidden
+            with mock.patch(
+                    'glanceclient.common.utils.print_err') as mock_print_err:
+                test_shell.do_cache_nodes_list(self.gc, args)
+            mock_print_err.assert_called_once_with(
+                "You are not permitted to list cached nodes for image '%s'."
+                % image_id)
+
+    def test_do_cache_nodes_list_conflict(self):
+        image_id = '3a4560a1-e585-443e-9b39-553b46ec92d1'
+        args = argparse.Namespace(id=image_id)
+        with mock.patch.object(
+                self.gc.cache, 'list_cached_nodes') as mocked_list_nodes:
+            mocked_list_nodes.side_effect = exc.HTTPConflict
+            with mock.patch(
+                    'glanceclient.common.utils.print_err') as mock_print_err:
+                test_shell.do_cache_nodes_list(self.gc, args)
+            mock_print_err.assert_called_once_with(
+                "'%s': Unable to list cached nodes for image '%s'."
+                % (exc.HTTPConflict(), image_id))
+
+    def test_do_cache_nodes_list_not_found(self):
+        image_id = '3a4560a1-e585-443e-9b39-553b46ec92d1'
+        args = argparse.Namespace(id=image_id)
+        with mock.patch.object(
+                self.gc.cache, 'list_cached_nodes') as mocked_list_nodes:
+            mocked_list_nodes.side_effect = exc.HTTPNotFound
+            with mock.patch(
+                    'glanceclient.common.utils.print_err') as mock_print_err:
+                test_shell.do_cache_nodes_list(self.gc, args)
+            mock_print_err.assert_called_once_with(
+                "'%s': Unable to list cached nodes for image '%s'."
+                % (exc.HTTPNotFound(), image_id))
+
+    def test_do_cache_nodes_list_http_exception(self):
+        image_id = '3a4560a1-e585-443e-9b39-553b46ec92d1'
+        args = argparse.Namespace(id=image_id)
+        with mock.patch.object(
+                self.gc.cache, 'list_cached_nodes') as mocked_list_nodes:
+            mocked_list_nodes.side_effect = exc.HTTPBadRequest
+            with mock.patch(
+                    'glanceclient.common.utils.print_err') as mock_print_err:
+                test_shell.do_cache_nodes_list(self.gc, args)
+            mock_print_err.assert_called_once_with(
+                "'%s': Unable to list cached nodes for image '%s'."
+                % (exc.HTTPBadRequest(), image_id))
+
+    def test_do_cache_nodes_list_endpoint_not_provided(self):
+        args = argparse.Namespace(
+            id='3a4560a1-e585-443e-9b39-553b46ec92d1')
+        self.gc.endpoint_provided = False
+        with mock.patch('glanceclient.common.utils.exit') as mock_exit:
+            mock_exit.side_effect = self._mock_utils_exit
+            with self.assertRaises(SystemExit):
+                test_shell.do_cache_nodes_list(self.gc, args)
+            mock_exit.assert_called_once_with(
+                'Direct server endpoint needs to be provided. Do '
+                'not use loadbalanced or catalog endpoints.')
+
     def _test_cache_queue(self, supported=True, forbidden=False,):
         args = argparse.Namespace(id=['image1'])
         with mock.patch.object(self.gc.cache, 'queue') as mocked_cache_queue:
@@ -3931,3 +4031,91 @@ class ShellV2Test(testtools.TestCase):
             mock_exit.assert_called_once_with(
                 'Direct server endpoint needs to be provided. Do '
                 'not use loadbalanced or catalog endpoints.')
+
+    def _test_cache_clean(self, supported=True, forbidden=False):
+        args = self._make_args({})
+        with mock.patch.object(self.gc.cache, 'clean') as mocked_cache_clean:
+            if supported:
+                mocked_cache_clean.return_value = None
+            else:
+                mocked_cache_clean.side_effect = exc.HTTPNotImplemented
+            if forbidden:
+                mocked_cache_clean.side_effect = exc.HTTPForbidden
+
+            test_shell.do_cache_clean(self.gc, args)
+            if supported:
+                mocked_cache_clean.assert_called_once_with()
+
+    def test_do_cache_clean(self):
+        self._test_cache_clean()
+
+    def test_do_cache_clean_unsupported(self):
+        with mock.patch(
+                'glanceclient.common.utils.print_err') as mock_print_err:
+            self._test_cache_clean(supported=False)
+            mock_print_err.assert_called_once_with(
+                "'HTTP HTTPNotImplemented': Unable to clean the image cache.")
+
+    def test_do_cache_clean_forbidden(self):
+        with mock.patch(
+                'glanceclient.common.utils.print_err') as mock_print_err:
+            self._test_cache_clean(forbidden=True)
+            mock_print_err.assert_called_once_with(
+                "You are not permitted to clean the image cache.")
+
+    def test_do_cache_clean_endpoint_not_provided(self):
+        args = self._make_args({})
+        self.gc.endpoint_provided = False
+        with mock.patch('glanceclient.common.utils.exit') as mock_exit:
+            test_shell.do_cache_clean(self.gc, args)
+            mock_exit.assert_called_once_with(
+                'Direct server endpoint needs to be provided. Do '
+                'not use loadbalanced or catalog endpoints.')
+
+    def _test_cache_prune(self, supported=True, forbidden=False):
+        args = self._make_args({})
+        with mock.patch.object(self.gc.cache, 'prune') as mocked_cache_prune:
+            if supported:
+                mocked_cache_prune.return_value = {
+                    'total_files_pruned': 5,
+                    'total_bytes_pruned': 104857600,
+                }
+            else:
+                mocked_cache_prune.side_effect = exc.HTTPNotImplemented
+            if forbidden:
+                mocked_cache_prune.side_effect = exc.HTTPForbidden
+
+            with mock.patch('builtins.print') as mock_print:
+                test_shell.do_cache_prune(self.gc, args)
+                if supported and not forbidden:
+                    mocked_cache_prune.assert_called_once_with()
+                    mock_print.assert_called_once_with(
+                        'Pruned 5 file(s), 104857600 byte(s).')
+
+    def test_do_cache_prune(self):
+        self._test_cache_prune()
+
+    def test_do_cache_prune_unsupported(self):
+        with mock.patch(
+                'glanceclient.common.utils.print_err') as mock_print_err:
+            self._test_cache_prune(supported=False)
+            mock_print_err.assert_called_once_with(
+                "'HTTP HTTPNotImplemented': Unable to prune the image cache.")
+
+    def test_do_cache_prune_forbidden(self):
+        with mock.patch(
+                'glanceclient.common.utils.print_err') as mock_print_err:
+            self._test_cache_prune(forbidden=True)
+            mock_print_err.assert_called_once_with(
+                "You are not permitted to prune the image cache.")
+
+    def test_do_cache_prune_endpoint_not_provided(self):
+        args = self._make_args({})
+        self.gc.endpoint_provided = False
+        with mock.patch('glanceclient.common.utils.exit') as mock_exit:
+            mock_exit.side_effect = SystemExit
+            self.assertRaises(SystemExit,
+                              test_shell.do_cache_prune, self.gc, args)
+            mock_exit.assert_called_once_with(
+                'Direct server endpoint needs to be provided. Do not use '
+                'loadbalanced or catalog endpoints.')

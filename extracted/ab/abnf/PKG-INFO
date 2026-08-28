@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abnf
-Version: 2.8.3
+Version: 2.9.0
 Summary: Parsers for ABNF grammars.
 Author-email: Charles Yeomans <charles@declaresub.com>
 Project-URL: Homepage, https://github.com/declaresub/abnf
@@ -31,13 +31,13 @@ Requires-Dist: pyright[nodejs]==1.1.411; extra == "dev"
 Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: pytest-benchmark==5.2.3; extra == "dev"
-Requires-Dist: hypothesis==6.165.3; extra == "dev"
-Requires-Dist: ruff==0.16.2; extra == "dev"
+Requires-Dist: hypothesis==6.165.10; extra == "dev"
+Requires-Dist: ruff==0.16.3; extra == "dev"
 Requires-Dist: setuptools==84.0.0; extra == "dev"
-Requires-Dist: tox==4.59.0; extra == "dev"
+Requires-Dist: tox==4.60.0; extra == "dev"
 Requires-Dist: setuptools_scm==10.2.1; extra == "dev"
 Provides-Extra: rust
-Requires-Dist: abnf-rust<3,>=2.8.1; extra == "rust"
+Requires-Dist: abnf-rust<3,>=2.8.3; extra == "rust"
 Provides-Extra: docs
 Requires-Dist: sphinx==8.1.3; extra == "docs"
 Requires-Dist: myst-parser==4.0.1; extra == "docs"
@@ -137,6 +137,19 @@ Run the test suite (skip the slower fuzz tests with `--ignore=tests/fuzz`):
 ```console
 pytest --cov-report term-missing --cov=abnf
 ```
+
+`tests/fuzz/` holds two committed corpora, replayed by every run. If you change a
+grammar module, regenerate them:
+
+```console
+python tests/fuzz/gen_corpus.py rfc9051           # Hypothesis, walks the built parser
+python tests/fuzz/gen_abnfgen_corpus.py rfc9051   # abnfgen, reads the grammar text
+```
+
+The second needs [abnfgen](http://www.quut.com/abnfgen/) on your PATH (or `ABNFGEN`
+set to it); CI only replays what is committed. Reading the text rather than the
+built parser is the point — it catches a grammar that did not become the parser it
+describes, which a generator walking that parser cannot.
 
 Pre-commit hooks run ruff, pyright, check-manifest, and tox. Install them once with
 `pre-commit install`. See the *Explanation* and *How-to* docs for working with the

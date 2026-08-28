@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skillsaw
-Version: 0.18.0
+Version: 0.19.0
 Summary: A configurable linter for agent skills, plugins, and AI coding assistant context
 Author-email: Stephen Benjamin <stephen@bitbin.de>
 License: Apache-2.0
@@ -31,6 +31,10 @@ Requires-Dist: jsonschema<5,>=4.18
 Provides-Extra: docs
 Requires-Dist: mkdocs-material>=9.0; extra == "docs"
 Requires-Dist: mkdocs-redirects<1.2.4,>=1.2; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest>=7.0; extra == "test"
+Requires-Dist: pytest-cov>=7.0; extra == "test"
+Requires-Dist: coverage[toml]>=7.10; extra == "test"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: pytest-cov>=7.0; extra == "dev"
@@ -70,9 +74,9 @@ unsafe configuration, and more.
 It understands Agent Skills,
 [Agent Plugins v1](https://agent-plugins.org/specification), Claude Code
 plugins, OpenAI Codex plugins and marketplaces, CLAUDE.md, AGENTS.md,
-GEMINI.md, Cursor, Copilot, Kiro, hooks, agent configuration, and evals. Safe
-structural fixes can be applied automatically; everything else comes with
-precise, agent-friendly guidance.
+GEMINI.md, QWEN.md, Cursor, Copilot, Cline, Kiro, hooks, agent configuration,
+and evals. Safe structural fixes can be applied automatically; everything else
+comes with precise, agent-friendly guidance.
 
 **[Get started](https://skillsaw.org/getting-started/)** |
 **[Browse the rules](https://skillsaw.org/rules/)** |
@@ -108,11 +112,13 @@ uvx skillsaw baseline  # Accept existing findings and fail only on new ones
 ## What it catches
 
 - **Instruction quality:** weak language, contradictions, tautologies,
-  attention dead zones, missing stop conditions, and bloated context.
+  attention dead zones, missing stop conditions, repetitive tool-call
+  examples, and bloated context.
 - **Structure and compatibility:** invalid frontmatter, manifests, commands,
   skills, agents, hooks, marketplaces, and tool-specific configuration.
 - **Security risks:** embedded secrets, invisible Unicode, encoded payloads,
-  hidden instructions, dangerous hooks, and prohibited MCP servers.
+  hidden instructions, unallowlisted dynamic context, dangerous hooks, and
+  prohibited MCP servers.
 - **Repository drift:** broken references, unreferenced files, inconsistent
   terminology, stale baselines, and context-budget regressions.
 
@@ -131,7 +137,9 @@ skillsaw works locally, in CI, and inside coding-agent workflows. It provides
 line-level findings, explanations for every rule, deterministic autofixes,
 baselines for gradual adoption, GitHub and GitLab integration, and text, JSON,
 SARIF, HTML, and Code Climate output. Rules are configurable, and projects can
-add local rules or install rule plugins.
+add local rules or install rule plugins. Typo'd or wrong-typed rule options
+in `.skillsaw.yaml` are reported with did-you-mean suggestions instead of
+being silently ignored.
 
 | Goal | Documentation |
 | --- | --- |
@@ -145,6 +153,7 @@ add local rules or install rule plugins.
 | Publish reusable rule packages | [Rule Plugins](https://skillsaw.org/plugins/) |
 | Review the security model | [Supply Chain Protection](https://skillsaw.org/supply-chain-protection/) |
 | Look up commands and flags | [CLI Reference](https://skillsaw.org/cli/) |
+| Feed the docs to an AI agent | [llms.txt](https://skillsaw.org/llms.txt) index, [llms-full.txt](https://skillsaw.org/llms-full.txt) full docs |
 
 ## Measure the result
 

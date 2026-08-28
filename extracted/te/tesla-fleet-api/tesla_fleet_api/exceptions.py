@@ -408,6 +408,23 @@ class LibraryError(Exception):
     """Errors related to this library."""
 
 
+class SigningDisabled(LibraryError):
+    """A signed operation was attempted on a vehicle constructed with signing explicitly disabled.
+
+    Pass ``private_key=False`` only for a passive listener that never sends a
+    command; construct with a real key (or leave the argument at ``None`` to
+    inherit the parent's) to issue signed commands.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "This vehicle was constructed with private_key=False, explicitly "
+            "disabling command signing. It can only observe unsolicited "
+            "broadcasts (the listen_* methods); any signed command or read "
+            "needs a real private_key."
+        )
+
+
 class SignedCommandRequired(TeslaFleetError):
     """The requested action requires a signed command; the unsigned cloud API cannot actuate it.
 
@@ -463,7 +480,11 @@ class SessionInfoAuthenticationFault(TeslaFleetError):
     Raised when the reply's ``session_info_tag`` HMAC does not verify, is
     absent, the echoed ``request_uuid`` does not match the outstanding
     request it claims to answer, or its clock time regresses within the same
-    epoch. The session's prior state is left unmodified.
+    epoch. Also raised when the reply carries an empty ``publicKey`` (so no
+    shared key can be derived to verify a tag) with a status other than
+    ``SESSION_INFO_STATUS_KEY_NOT_ON_WHITELIST``, which raises
+    ``NotOnWhitelistFault`` instead. The session's prior state is left
+    unmodified.
     """
 
     message = "Session info reply failed authentication and was discarded."

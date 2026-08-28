@@ -85,6 +85,11 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageResponse.FromString,
         )
+        self.UpdateCloudComponentStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/UpdateCloudComponentStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentStorageResponse.FromString,
+        )
         self.DeleteCloudComponentStorage = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/DeleteCloudComponentStorage",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageRequest.SerializeToString,
@@ -194,6 +199,26 @@ class CloudComponentsServiceStub(object):
             "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterGateway",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.FromString,
+        )
+        self.CreateBindingServicesGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/CreateBindingServicesGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingServicesGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingServicesGatewayResponse.FromString,
+        )
+        self.GetBindingServicesGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/GetBindingServicesGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingServicesGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingServicesGatewayResponse.FromString,
+        )
+        self.ListBindingServicesGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ListBindingServicesGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingServicesGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingServicesGatewayResponse.FromString,
+        )
+        self.DeleteBindingServicesGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingServicesGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingServicesGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingServicesGatewayResponse.FromString,
         )
         self.CreateBindingPrivateGateway = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/CreateBindingPrivateGateway",
@@ -384,6 +409,12 @@ class CloudComponentsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def UpdateCloudComponentStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeleteCloudComponentStorage(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -513,6 +544,30 @@ class CloudComponentsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def DeleteBindingClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateBindingServicesGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBindingServicesGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListBindingServicesGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBindingServicesGateway(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -711,6 +766,11 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageResponse.SerializeToString,
         ),
+        "UpdateCloudComponentStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateCloudComponentStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentStorageResponse.SerializeToString,
+        ),
         "DeleteCloudComponentStorage": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteCloudComponentStorage,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageRequest.FromString,
@@ -820,6 +880,26 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             servicer.DeleteBindingClusterGateway,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.SerializeToString,
+        ),
+        "CreateBindingServicesGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateBindingServicesGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingServicesGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingServicesGatewayResponse.SerializeToString,
+        ),
+        "GetBindingServicesGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBindingServicesGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingServicesGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingServicesGatewayResponse.SerializeToString,
+        ),
+        "ListBindingServicesGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.ListBindingServicesGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingServicesGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingServicesGatewayResponse.SerializeToString,
+        ),
+        "DeleteBindingServicesGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBindingServicesGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingServicesGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingServicesGatewayResponse.SerializeToString,
         ),
         "CreateBindingPrivateGateway": grpc.unary_unary_rpc_method_handler(
             servicer.CreateBindingPrivateGateway,
@@ -1328,6 +1408,35 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/ListCloudComponentStorage",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateCloudComponentStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/UpdateCloudComponentStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentStorageResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1966,6 +2075,122 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterGateway",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateBindingServicesGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/CreateBindingServicesGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingServicesGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingServicesGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBindingServicesGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/GetBindingServicesGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingServicesGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingServicesGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListBindingServicesGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ListBindingServicesGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingServicesGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingServicesGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBindingServicesGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingServicesGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingServicesGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingServicesGatewayResponse.FromString,
             options,
             channel_credentials,
             insecure,

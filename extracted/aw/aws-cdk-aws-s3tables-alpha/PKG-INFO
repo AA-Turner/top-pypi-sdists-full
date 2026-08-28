@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-s3tables-alpha
-Version: 2.266.0a0
+Version: 2.267.0a0
 Summary: CDK Constructs for S3 Tables
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -24,7 +24,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.266.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.267.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
 Requires-Dist: jsii<2.0.0,>=1.139.0
 Requires-Dist: publication>=0.0.3
@@ -271,6 +271,38 @@ table_bucket_with_metrics = TableBucket(scope, "TableBucketWithMetrics",
     request_metrics_status=RequestMetricsStatus.ENABLED
 )
 ```
+
+### Configuring Storage Class
+
+You can configure the storage class for your table bucket and tables. Storage class determines how data is stored and billed, allowing you to optimize for different access patterns.
+
+```python
+# Create a table bucket with INTELLIGENT_TIERING storage class
+table_bucket_with_storage_class = TableBucket(scope, "TableBucketWithStorageClass",
+    table_bucket_name="storage-class-bucket",
+    storage_class=StorageClass.INTELLIGENT_TIERING
+)
+```
+
+Tables inherit the storage class from their parent bucket by default. You can also override the storage class at the table level:
+
+```python
+# Create a table with explicit storage class (overrides bucket default)
+table_with_storage_class = Table(scope, "TableWithStorageClass",
+    table_name="storage_class_table",
+    namespace=namespace,
+    open_table_format=OpenTableFormat.ICEBERG,
+    without_metadata=True,
+    storage_class=StorageClass.STANDARD
+)
+```
+
+Available storage classes:
+
+* `StorageClass.STANDARD` - For frequently accessed data
+* `StorageClass.INTELLIGENT_TIERING` - Automatically moves data between access tiers based on usage patterns
+
+Note: Table storage class is a create-only property and cannot be changed after the table is created.
 
 ### Controlling Table Permissions
 

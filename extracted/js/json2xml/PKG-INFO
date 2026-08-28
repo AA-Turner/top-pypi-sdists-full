@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json2xml
-Version: 7.0.0
+Version: 7.0.1
 Summary: Simple Python Library to convert JSON to XML
 Author-email: Vinit Kumar <mail@vinitkumar.me>
 License: Apache Software License 2.0

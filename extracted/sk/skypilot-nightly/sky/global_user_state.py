@@ -31,6 +31,7 @@ from sky import skypilot_config
 from sky.metrics import utils as metrics_lib
 from sky.skylet import constants
 from sky.utils import annotations
+from sky.utils import asyncio_utils
 from sky.utils import common_utils
 from sky.utils import context_utils
 from sky.utils import registry
@@ -54,7 +55,11 @@ _ALLOWED_CLOUDS_KEY_PREFIX = 'allowed_clouds_'
 DEFAULT_CLUSTER_EVENT_RETENTION_HOURS = 30 * 24.0
 DEBUG_CLUSTER_EVENT_RETENTION_HOURS = 30 * 24.0
 TERMINAL_CLUSTER_EVENT_RETENTION_HOURS = 30 * 24.0
-MIN_CLUSTER_EVENT_DAEMON_INTERVAL_SECONDS = 3600
+# How often the cluster-event retention daemon wakes up. Fixed, and
+# deliberately independent of the retention windows above: events become
+# eligible for deletion continuously, so the interval decides how much
+# work accumulates between passes, not how long events are kept.
+CLUSTER_EVENT_DAEMON_INTERVAL_SECONDS = 3600
 
 _UNIQUE_CONSTRAINT_FAILED_ERROR_MSGS = [
     # sqlite
@@ -1261,6 +1266,7 @@ def cleanup_cluster_events_with_retention(retention_hours: float,
 
 async def cluster_event_retention_daemon():
     """Garbage collect cluster events periodically."""
+    await asyncio_utils.sleep_startup_jitter('cluster event retention daemon')
     while True:
         logger.info('Running cluster event retention daemon...')
         # Use the latest config.
@@ -1302,11 +1308,7 @@ async def cluster_event_retention_daemon():
         except Exception as e:  # pylint: disable=broad-except
             logger.error(f'Error running cluster event retention daemon: {e}')
 
-        # Run daemon at most once every hour to avoid too frequent cleanup.
-        sleep_amount = max(
-            min(retention_hours * 3600, debug_retention_hours * 3600),
-            MIN_CLUSTER_EVENT_DAEMON_INTERVAL_SECONDS)
-        await asyncio.sleep(sleep_amount)
+        await asyncio.sleep(CLUSTER_EVENT_DAEMON_INTERVAL_SECONDS)
 
 
 @typing.overload
@@ -3011,29 +3013,85 @@ def _volume_record_from_row(row: Any) -> Dict[str, Any]:
     }
 
 
+def _query_volumes(
+    columns: List[Any],
+    is_ephemeral: Optional[bool],
+    workspaces_filter: Optional[Set[str]],
+    volume_names: Optional[List[str]],
+) -> List[Any]:
+    """Rows of `columns` for the volumes every given filter allows."""
+    engine = _db_manager.get_engine()
+
+    def filtered(session: 'orm.Session') -> Any:
+        query = session.query(*columns)
+        if is_ephemeral is not None:
+            query = query.filter_by(is_ephemeral=int(is_ephemeral))
+        if workspaces_filter is not None:
+            query = query.filter(
+                volume_table.c.workspace.in_(workspaces_filter))
+        return query
+
+    rows: List[Any] = []
+    with orm.Session(engine) as session:
+        if volume_names is None:
+            rows = filtered(session).all()
+        else:
+            # Chunk the IN list for the same reason as
+            # get_volumes_from_names: SQLite caps bound parameters and
+            # PostgreSQL plans huge IN clauses badly.
+            for offset in range(0, len(volume_names),
+                                _CLUSTER_IN_QUERY_CHUNK_SIZE):
+                batch = volume_names[offset:offset +
+                                     _CLUSTER_IN_QUERY_CHUNK_SIZE]
+                rows.extend(
+                    filtered(session).filter(
+                        volume_table.c.name.in_(batch)).all())
+    return rows
+
+
 @metrics_lib.time_me
 def get_volumes(
     is_ephemeral: Optional[bool] = None,
     workspaces_filter: Optional[Set[str]] = None,
+    volume_names: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Get volumes from the database.
+
+    Every filter given is applied, so a caller narrowing by name cannot widen
+    what another filter allows -- naming a volume outside `workspaces_filter`
+    still returns nothing.
 
     Args:
         is_ephemeral: If specified, only include volumes with this
             ephemerality.
         workspaces_filter: If specified, only include volumes whose workspace
             is in this set. Use workspace names.
+        volume_names: If specified, only include volumes with these names.
+            An empty list therefore matches nothing, while None means "do not
+            filter by name". Names with no row are simply absent.
     """
-    engine = _db_manager.get_engine()
-    with orm.Session(engine) as session:
-        query = session.query(volume_table)
-        if is_ephemeral is not None:
-            query = query.filter_by(is_ephemeral=int(is_ephemeral))
-        if workspaces_filter is not None:
-            query = query.filter(
-                volume_table.c.workspace.in_(workspaces_filter))
-        rows = query.all()
-    return [_volume_record_from_row(row) for row in rows]
+    return [
+        _volume_record_from_row(row) for row in _query_volumes(
+            [volume_table], is_ephemeral, workspaces_filter, volume_names)
+    ]
+
+
+@metrics_lib.time_me
+def get_volume_names(
+    is_ephemeral: Optional[bool] = None,
+    workspaces_filter: Optional[Set[str]] = None,
+    volume_names: Optional[List[str]] = None,
+) -> List[str]:
+    """Names of the volumes every given filter allows.
+
+    Same filters as `get_volumes`, but reads only the name column: building a
+    record unpickles the handle and decodes the usedby fields, which a caller
+    that wants names alone pays for and throws away.
+    """
+    return [
+        row.name for row in _query_volumes([volume_table.c.name], is_ephemeral,
+                                           workspaces_filter, volume_names)
+    ]
 
 
 @metrics_lib.time_me

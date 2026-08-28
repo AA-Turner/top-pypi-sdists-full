@@ -102,8 +102,32 @@ lane() {
   done
 }
 
+# ── The client install runs BEFORE any lane, not inside one ──────────────────
+#
+# It was the first check in lane 1. Lanes run CONCURRENTLY, and lane 4's
+# localization guard imports `ciris_client` immediately — so on a machine where
+# the package is absent, the guard could fail while the install it needs was
+# still running in another lane. Ordering within a lane says nothing about
+# ordering across them, and putting a shared prerequisite in one lane makes it
+# look sequenced when it is not (Codex on #489).
+#
+# Sequential here and unconditional: it is idempotent, and a few seconds costs
+# less than a race that reproduces once in ten runs.
+echo "preflight: installing the pinned ciris-client (shared prerequisite)"
+if ! python3 tools/client_pin.py --install; then
+  echo "preflight: FAILED to install the pinned ciris-client — the localization guard" >&2
+  echo "  and two Rust suites resolve their bundle through it and would report a" >&2
+  echo "  zero-denominator pass. Refusing to run lanes that cannot be trusted." >&2
+  exit 1
+fi
+
 echo "preflight: 4 lanes, $( [ "$SEQUENTIAL" = 1 ] && echo sequential || echo parallel )"
 
+# `cargo test` runs `admin_ops` and `mesh_config_consumers`, which resolve the
+# localization bundle through the INSTALLED `ciris-client` (CIRISServer#471 —
+# the bundle is a package artifact now, not a path in this tree) and fail HARD
+# when it is absent rather than skipping. Same step, same reason, as ci.yml's
+# clippy-test job; gate0 asserts the two lists agree.
 L1=( "clippy"              "cargo clippy --all-targets -- -D warnings"
      "tests"               "cargo test"
      "tests-lens-core"     "cargo test -p ciris-lens-core --lib"
@@ -132,10 +156,17 @@ L4=( "rustfmt"             "cargo fmt --all --check"
      # cargo lane: it builds nothing, so it costs a subprocess. The ceiling must
      # match ci.yml — a preflight that passes what CI fails is worse than no
      # preflight, because it teaches people to trust it.
-     "cohort-scope"        "python3 tools/audit_cohort_scope_callers.py --max-federation 43"
-     "localization"        "python3 client/tools/check_localization_sync.py --strict"
-     "client-version"      "./scripts/sync-client-version.sh --check"
-     "release-gates"       "CARGO_TARGET_DIR=target/pf-default cargo test --test release_gates" )
+     "cohort-scope"        "python3 tools/audit_cohort_scope_callers.py --max-federation 44"
+     "localization"        "python3 tools/check_server_localization.py --strict"
+     "release-gates"       "CARGO_TARGET_DIR=target/pf-default cargo test --test release_gates"
+     # The boundary gates are `#[ignore]`d — correctly, since they reach the
+     # network — so `cargo test` skips them and nothing ran them until CI grew a
+     # step. A gate nothing runs is a gate that cannot fail, which is the defect
+     # this ladder was rebuilt to end. Advisory here as in CI: they answer
+     # questions about the WORLD, and each reports BLOCKED rather than passing
+     # when it cannot be evaluated.
+     "client-wheel"        "CARGO_TARGET_DIR=target/pf-default cargo test --test release_gates -- --include-ignored gate_pinned_client_offers_a_non_desktop_wheel"
+     "boundary-advisory"   "CARGO_TARGET_DIR=target/pf-default cargo test --test release_gates -- --include-ignored gate_registry_surface_present gate_peer_nodes_on_the_shipping_floor || true" )
 
 if [ "$SEQUENTIAL" = "1" ]; then
   lane target/pf-default "${L1[@]}"

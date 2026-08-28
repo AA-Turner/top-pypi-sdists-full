@@ -65,9 +65,21 @@ def terminate_tree(proc, sig: int = signal.SIGTERM) -> None:
         _safe_terminate(proc)
         return
     # POSIX: try the process group first, then the bare pid.
+    #
+    # NEVER signal our OWN process group (k119). A spawned child calls
+    # os.setpgrp() as its first statement, but there is a real window between
+    # Process.start() and that call — under `spawn` the child re-imports the
+    # whole package first, which on a busy virtiofs box takes tens of seconds.
+    # Signal the group in that window and getpgid(child) is still the PARENT's
+    # group: killpg then SIGTERMs the caller too. Observed 2026-08-21 02:47:15 —
+    # the download stall killer fired during a slow child import and took
+    # hugpy-downloader-dev down with the transfer it meant to kill. Fall back to
+    # the bare pid, which is always correct and merely less thorough.
     try:
-        os.killpg(os.getpgid(pid), sig)
-        return
+        pgid = os.getpgid(pid)
+        if pgid != os.getpgrp():
+            os.killpg(pgid, sig)
+            return
     except (ProcessLookupError, PermissionError):
         return
     except (AttributeError, OSError):

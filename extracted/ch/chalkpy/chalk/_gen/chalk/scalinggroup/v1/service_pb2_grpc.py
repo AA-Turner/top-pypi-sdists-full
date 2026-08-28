@@ -20,6 +20,11 @@ class ScalingGroupManagerServiceStub(object):
             request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.CreateScalingGroupRequest.SerializeToString,
             response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.CreateScalingGroupResponse.FromString,
         )
+        self.UpdateScalingGroup = channel.unary_unary(
+            "/chalk.scalinggroup.v1.ScalingGroupManagerService/UpdateScalingGroup",
+            request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.UpdateScalingGroupRequest.SerializeToString,
+            response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.UpdateScalingGroupResponse.FromString,
+        )
         self.GetScalingGroup = channel.unary_unary(
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/GetScalingGroup",
             request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.GetScalingGroupRequest.SerializeToString,
@@ -30,6 +35,11 @@ class ScalingGroupManagerServiceStub(object):
             request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsRequest.SerializeToString,
             response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsResponse.FromString,
         )
+        self.DeleteScalingGroup = channel.unary_unary(
+            "/chalk.scalinggroup.v1.ScalingGroupManagerService/DeleteScalingGroup",
+            request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.SerializeToString,
+            response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.FromString,
+        )
         self.GetScalingGroupRevision = channel.unary_unary(
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/GetScalingGroupRevision",
             request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.GetScalingGroupRevisionRequest.SerializeToString,
@@ -39,11 +49,6 @@ class ScalingGroupManagerServiceStub(object):
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/ListScalingGroupRevisions",
             request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupRevisionsRequest.SerializeToString,
             response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupRevisionsResponse.FromString,
-        )
-        self.DeleteScalingGroup = channel.unary_unary(
-            "/chalk.scalinggroup.v1.ScalingGroupManagerService/DeleteScalingGroup",
-            request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.SerializeToString,
-            response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.FromString,
         )
         self.BatchUpdateScalingGroupStatus = channel.unary_unary(
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/BatchUpdateScalingGroupStatus",
@@ -56,7 +61,15 @@ class ScalingGroupManagerServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def CreateScalingGroup(self, request, context):
-        """CreateScalingGroup creates a new scaling group as a Kubernetes Deployment"""
+        """Preserves deployed clients' create-or-append behavior. New callers that
+        address an existing resource should use UpdateScalingGroup.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateScalingGroup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -73,6 +86,12 @@ class ScalingGroupManagerServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteScalingGroup(self, request, context):
+        """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetScalingGroupRevision(self, request, context):
         """GetScalingGroupRevision retrieves a specific scaling group revision"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -81,12 +100,6 @@ class ScalingGroupManagerServiceServicer(object):
 
     def ListScalingGroupRevisions(self, request, context):
         """ListScalingGroupRevisions lists scaling group revisions in the current environment"""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def DeleteScalingGroup(self, request, context):
-        """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -105,6 +118,11 @@ def add_ScalingGroupManagerServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.CreateScalingGroupRequest.FromString,
             response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.CreateScalingGroupResponse.SerializeToString,
         ),
+        "UpdateScalingGroup": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateScalingGroup,
+            request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.UpdateScalingGroupRequest.FromString,
+            response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.UpdateScalingGroupResponse.SerializeToString,
+        ),
         "GetScalingGroup": grpc.unary_unary_rpc_method_handler(
             servicer.GetScalingGroup,
             request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.GetScalingGroupRequest.FromString,
@@ -115,6 +133,11 @@ def add_ScalingGroupManagerServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsRequest.FromString,
             response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupsResponse.SerializeToString,
         ),
+        "DeleteScalingGroup": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteScalingGroup,
+            request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.FromString,
+            response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.SerializeToString,
+        ),
         "GetScalingGroupRevision": grpc.unary_unary_rpc_method_handler(
             servicer.GetScalingGroupRevision,
             request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.GetScalingGroupRevisionRequest.FromString,
@@ -124,11 +147,6 @@ def add_ScalingGroupManagerServiceServicer_to_server(servicer, server):
             servicer.ListScalingGroupRevisions,
             request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupRevisionsRequest.FromString,
             response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupRevisionsResponse.SerializeToString,
-        ),
-        "DeleteScalingGroup": grpc.unary_unary_rpc_method_handler(
-            servicer.DeleteScalingGroup,
-            request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.FromString,
-            response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.SerializeToString,
         ),
         "BatchUpdateScalingGroupStatus": grpc.unary_unary_rpc_method_handler(
             servicer.BatchUpdateScalingGroupStatus,
@@ -165,6 +183,35 @@ class ScalingGroupManagerService(object):
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/CreateScalingGroup",
             chalk_dot_scalinggroup_dot_v1_dot_service__pb2.CreateScalingGroupRequest.SerializeToString,
             chalk_dot_scalinggroup_dot_v1_dot_service__pb2.CreateScalingGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateScalingGroup(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.scalinggroup.v1.ScalingGroupManagerService/UpdateScalingGroup",
+            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.UpdateScalingGroupRequest.SerializeToString,
+            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.UpdateScalingGroupResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -234,6 +281,35 @@ class ScalingGroupManagerService(object):
         )
 
     @staticmethod
+    def DeleteScalingGroup(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.scalinggroup.v1.ScalingGroupManagerService/DeleteScalingGroup",
+            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.SerializeToString,
+            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetScalingGroupRevision(
         request,
         target,
@@ -281,35 +357,6 @@ class ScalingGroupManagerService(object):
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/ListScalingGroupRevisions",
             chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupRevisionsRequest.SerializeToString,
             chalk_dot_scalinggroup_dot_v1_dot_service__pb2.ListScalingGroupRevisionsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
-
-    @staticmethod
-    def DeleteScalingGroup(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            "/chalk.scalinggroup.v1.ScalingGroupManagerService/DeleteScalingGroup",
-            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.SerializeToString,
-            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.FromString,
             options,
             channel_credentials,
             insecure,

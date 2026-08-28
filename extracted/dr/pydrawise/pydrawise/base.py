@@ -167,9 +167,9 @@ class HydrawiseBase(ABC):
 
         :param controller: Controller that controls the sensor.
         :param sensor: Sensor for which a water flow summary is fetched.
-        :param start:
-        :param end:
-        :rtype: list[Sensor]
+        :param start: Start time.
+        :param end: End time.
+        :rtype: SensorFlowSummary
         """
 
     @abstractmethod

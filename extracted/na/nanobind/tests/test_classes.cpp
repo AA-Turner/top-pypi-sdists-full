@@ -316,7 +316,12 @@ NB_MODULE(test_classes_ext, m) {
     nb::class_<OptionalNoneTest>(m, "OptionalNoneTest")
         .def(nb::init<>())
         .def("compute", &OptionalNoneTest::compute,
-             "i"_a, "j"_a = nb::none(), "k"_a = 0);
+             "i"_a, "j"_a = nb::none(), "k"_a = 0)
+        // A method whose only parameter is a 'self' that carries an implicit
+        // annotation, which leaves the function record without any records
+        .def("optional_self", [](std::optional<OptionalNoneTest> self) {
+            return self.has_value();
+        });
 
     m.def("stats", []{
         nb::dict d;
@@ -610,14 +615,18 @@ NB_MODULE(test_classes_ext, m) {
     // test17_name_qualname_module()
     m.def("f", []{});
     struct MyClass { struct NestedClass { }; struct Sibling { }; };
+    struct TopLevelSibling { };
     nb::class_<MyClass> mcls(m, "MyClass");
+    nb::class_<TopLevelSibling>(m, "Sibling");
     nb::class_<MyClass::Sibling> sib_cls(mcls, "Sibling");
     nb::class_<MyClass::NestedClass> ncls(mcls, "NestedClass");
     mcls.def(nb::init<>());
     mcls.def("f", [](MyClass&){});
+    // A reference to a nested class must keep its qualified name: a type
+    // checker reads a short name in a stub as the module level one, and the
+    // module also holds a class called "Sibling".
+    mcls.def("g", [](MyClass&, MyClass::Sibling){});
     ncls.def("f", [](MyClass::NestedClass&){});
-    // A sibling reference must keep its qualified name ("MyClass.Sibling"):
-    // class scopes don't nest, so "Sibling" is not in NestedClass's scope.
     ncls.def("g", [](MyClass::NestedClass&, MyClass::Sibling){});
 
     // test18_static_properties

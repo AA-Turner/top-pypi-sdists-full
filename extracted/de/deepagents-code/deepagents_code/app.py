@@ -73,7 +73,12 @@ from deepagents_code._git import (
 )
 from deepagents_code._invocation import invoked_name
 from deepagents_code._markdown import escape_markdown as _escape_markdown
-from deepagents_code._paths import PATHS
+from deepagents_code._paths import (
+    PATHS,
+    get_project_agent_md_path,
+    get_user_agent_md_path,
+    user_deepagents_dir,
+)
 from deepagents_code._session_stats import (
     USAGE_KIND_LABELS,
     USAGE_KIND_ORDER,
@@ -84,7 +89,7 @@ from deepagents_code._session_stats import (
     format_token_count,
 )
 
-# All config imports — settings, create_model, detect_provider, is_ascii_mode,
+# All config imports — credentials, create_model, detect_provider, is_ascii_mode,
 # etc. — are deferred to local imports at their call sites since they are only
 # accessed after user interaction begins. The one exception is
 # `configuration.theme_resolution` below: the theme helpers run before the
@@ -397,6 +402,27 @@ def _load_non_negative_int_option(key: str, default: int, *, label: str) -> int:
         logger.warning("Invalid %s %r; using the default", label, value)
         return default
     return value
+
+
+def _load_shell_allow_list() -> list[str] | None:
+    """Resolve the shell command allow-list from the shared resolver.
+
+    Returns:
+        The configured allow-list, or `None` when shell access is disabled.
+
+    Raises:
+        RuntimeError: If the option is absent from the manifest.
+    """
+    from deepagents_code.config_manifest import _emit_ranked_diagnostics, get_option
+    from deepagents_code.configuration.resolver import get_config_resolver
+
+    option = get_option("shell.allow_list")
+    if option is None:
+        msg = "shell.allow_list is missing from the configuration manifest"
+        raise RuntimeError(msg)
+    resolved = get_config_resolver().get(option)
+    _emit_ranked_diagnostics(option, resolved)
+    return cast("list[str] | None", resolved.value)
 
 
 def _load_float_option(
@@ -3040,13 +3066,11 @@ class DeepAgentsApp(App):
             priority=True,
         ),
         Binding("ctrl+d", "quit_app", "Quit", show=False, priority=True),
-        Binding("ctrl+t", "toggle_auto_approve", "Toggle Approval Mode", show=False),
-        Binding("ctrl+g", "toggle_subagent_panel", "Toggle Subagents", show=False),
+        Binding("ctrl+t", "toggle_subagent_panel", "Toggle Subagents", show=False),
         # `check_action` steps this binding aside (returns `False`) while a
         # `DebugConsoleScreen` is active so the console's own `shift+tab`
         # reverse-focus traversal runs instead; keep the action name in sync
-        # there. That branch keys on the `toggle_auto_approve` action, so it also
-        # steps aside the `ctrl+t` binding above while the console is open.
+        # there.
         Binding(
             "shift+tab",
             "toggle_auto_approve",
@@ -3062,7 +3086,7 @@ class DeepAgentsApp(App):
             priority=True,
         ),
         Binding(
-            "ctrl+x",
+            "ctrl+g",
             "open_editor",
             "Open Editor",
             show=False,
@@ -4554,7 +4578,7 @@ class DeepAgentsApp(App):
             UI components for the main chat area and status bar.
         """
         from deepagents_code._env_vars import SHOW_HEADER, is_env_truthy
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
 
         if is_env_truthy(SHOW_HEADER) or self._installation_stale:
             yield _StaticHeader(id="app-header")
@@ -4563,8 +4587,8 @@ class DeepAgentsApp(App):
         # `_ChatScroll` keeps clicks on messages from stealing input focus.
         with _ChatScroll(id="chat"):
             yield WelcomeBanner(
-                model_provider=settings.model_provider or "",
-                model_name=settings.model_name or "",
+                model_provider=runtime_state.model_provider or "",
+                model_name=runtime_state.model_name or "",
                 cwd=self._cwd,
                 thread_id=self._lc_thread_id,
                 mcp_tool_count=self._mcp_tool_count,
@@ -4801,17 +4825,25 @@ class DeepAgentsApp(App):
         in `main._warn_if_interpreter_disabled_by_sandbox`.
 
         Gated on the raw `--interpreter` tri-state (`self._interpreter_arg`) so an
-        explicit `--no-interpreter` opt-out stays quiet, and on the local default
-        from `settings` so users who disabled the interpreter in config are not
-        nagged.
+        explicit `--no-interpreter` opt-out stays quiet, and on the resolver-backed
+        local default so users who disabled the interpreter in config are not nagged.
         """
         from deepagents_code._server_config import _interpreter_suppressed_by_sandbox
-        from deepagents_code.config import settings
+        from deepagents_code.config_manifest import _emit_ranked_diagnostics, get_option
+        from deepagents_code.configuration.resolver import get_config_resolver
+
+        option = get_option("interpreter.enable_interpreter")
+        if option is None:
+            logger.error("Interpreter enable option is missing from the manifest")
+            return
+        resolved = get_config_resolver().get(option)
+        _emit_ranked_diagnostics(option, resolved)
+        local_default = bool(resolved.value)
 
         if not _interpreter_suppressed_by_sandbox(
             enable_interpreter=self._interpreter_arg,
             sandbox_type=self._sandbox_type,
-            local_default=settings.enable_interpreter,
+            local_default=local_default,
         ):
             return
         self.notify(
@@ -5291,11 +5323,11 @@ class DeepAgentsApp(App):
         Returns:
             Whether the caller may continue.
         """
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
 
         outcome = await self._hooks.on_session_start(
             cause,
-            model=settings.model_name or None,
+            model=runtime_state.model_name or None,
         )
         if outcome.ok:
             return True
@@ -5585,6 +5617,7 @@ class DeepAgentsApp(App):
             assistant_id,
             plugin_skill_sources=plugin_skill_sources,
             plugin_skill_roots=plugin_skill_roots,
+            path_base=Path(self._cwd),
         )
 
     def _discover_skills_and_roots_with_import_lock(
@@ -5762,7 +5795,7 @@ class DeepAgentsApp(App):
         if self._resume_thread_intent:
             await self._resolve_resume_thread()
 
-        # Run deferred model creation. settings.model_name / model_provider
+        # Run deferred model creation. runtime_state.model_name / model_provider
         # are already set eagerly for the status bar display; this call
         # does the heavy langchain import + SDK init and may refine them
         # (e.g., context_limit from the model profile).
@@ -5818,7 +5851,7 @@ class DeepAgentsApp(App):
             except ModelConfigError as exc:
                 self.post_message(self.ServerStartFailed(error=exc))
                 return
-            result.apply_to_settings()
+            result.apply_to_runtime_state()
             resolved_spec = f"{result.provider}:{result.model_name}"
             await self._restore_effort_override(resolved_spec)
             # Best-effort persistence. `resolved_spec` came out of `create_model`, so
@@ -5959,8 +5992,8 @@ class DeepAgentsApp(App):
         # Refresh the status bar model so a successful retry after a failed
         # startup (e.g. `/model` switching providers after `ModelConfigError`)
         # surfaces the now-active model. `StatusBar.on_mount` only runs once,
-        # and `_retry_startup_with_model` updates `settings` via
-        # `apply_to_settings` without pushing into the widget.
+        # and `_retry_startup_with_model` updates `runtime_state` via
+        # `apply_to_runtime_state` without pushing into the widget.
         if self._status_bar is None:
             logger.warning("Status bar not found during server ready transition")
         else:
@@ -6246,7 +6279,7 @@ class DeepAgentsApp(App):
             copy_selection_to_clipboard,  # noqa: F401
         )
         from deepagents_code.command_registry import ALWAYS_IMMEDIATE  # noqa: F401
-        from deepagents_code.config import settings  # noqa: F401
+        from deepagents_code.config import credentials  # noqa: F401
         from deepagents_code.hooks import dispatch_hook  # noqa: F401
         from deepagents_code.model_config import ModelSpec  # noqa: F401
         from deepagents_code.tui.textual_adapter import TextualUIAdapter  # noqa: F401
@@ -9361,7 +9394,6 @@ class DeepAgentsApp(App):
         """
         from deepagents_code.config import (
             is_shell_command_allowed,
-            settings,
         )
 
         loop = asyncio.get_running_loop()
@@ -9372,14 +9404,15 @@ class DeepAgentsApp(App):
             and request["description"].startswith("Auto human fallback")
             for request in action_requests or []
         )
-        if settings.shell_allow_list and action_requests and not is_auto_fallback:
+        shell_allow_list = _load_shell_allow_list()
+        if shell_allow_list and action_requests and not is_auto_fallback:
             all_auto_approved = True
             approved_commands = []
 
             for req in action_requests:
                 if req.get("name") == "execute":
                     command = req.get("args", {}).get("command", "")
-                    if is_shell_command_allowed(command, settings.shell_allow_list):
+                    if is_shell_command_allowed(command, shell_allow_list):
                         approved_commands.append(command)
                     else:
                         all_auto_approved = False
@@ -10926,9 +10959,9 @@ class DeepAgentsApp(App):
         spawn-time tools, so web search takes full effect on the next launch (or
         after a restart).
         """
-        from deepagents_code.config import settings
+        from deepagents_code.config import credentials
 
-        if settings.has_tavily:
+        if credentials.has_tavily:
             return
 
         from deepagents_code.tui.widgets.auth import AuthPromptScreen, AuthResult
@@ -12706,7 +12739,7 @@ class DeepAgentsApp(App):
             get_skill_sources,
             get_system_prompt,
         )
-        from deepagents_code.config import is_memory_auto_save_enabled, settings
+        from deepagents_code.config import credentials, is_memory_auto_save_enabled
         from deepagents_code.context_doctor import (
             build_context_doctor_report,
             format_memory_prompt,
@@ -12738,10 +12771,8 @@ class DeepAgentsApp(App):
             except Exception:
                 logger.exception("Failed to build base prompt for /context-doctor")
             memory_paths = [
-                settings.get_user_agent_md_path(
-                    self._assistant_id or DEFAULT_AGENT_NAME
-                ),
-                *settings.get_project_agent_md_path(),
+                get_user_agent_md_path(self._assistant_id or DEFAULT_AGENT_NAME),
+                *get_project_agent_md_path(credentials.project_root),
             ]
             for path in memory_paths:
                 try:
@@ -12817,6 +12848,79 @@ class DeepAgentsApp(App):
         await self._mount_message(
             AppMessage(render_context_doctor_report(report), markdown=False)
         )
+
+    async def _handle_extensions_command(self, command: str) -> None:
+        await self._mount_message(UserMessage(command))
+        from deepagents_code._env_vars import EXPERIMENTAL, is_env_truthy
+
+        if not is_env_truthy(EXPERIMENTAL):
+            await self._mount_message(
+                AppMessage(
+                    "Python extensions require `DEEPAGENTS_CODE_EXPERIMENTAL=1` "
+                    "before starting dcode."
+                )
+            )
+            return
+        if self._server_proc is None:
+            await self._mount_message(
+                AppMessage("Extension provenance is unavailable for this agent.")
+            )
+            return
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                response = await client.get(f"{self._server_proc.url}/extensions")
+                response.raise_for_status()
+                payload = response.json()
+        except Exception:
+            logger.exception("Failed to query extension provenance")
+            await self._mount_message(
+                AppMessage("Could not retrieve extension provenance from the server.")
+            )
+            return
+        await self._mount_message(
+            AppMessage(self._render_extensions(payload), markdown=True)
+        )
+
+    @staticmethod
+    def _render_extensions(payload: object) -> str:
+        """Render untrusted endpoint data as escaped markdown.
+
+        Returns:
+            A markdown provenance table or validation error.
+        """
+        if not isinstance(payload, dict):
+            return "The server returned invalid extension metadata."
+        raw = payload.get("registrations")
+        rows: list[list[str]] = []
+        if isinstance(raw, list):
+            for item in raw:
+                if not isinstance(item, dict):
+                    continue
+                source = item.get("source")
+                if not isinstance(source, dict):
+                    continue
+                rows.append(
+                    [
+                        str(item.get("kind", "")),
+                        str(item.get("name", "")),
+                        str(source.get("scope", "")),
+                        str(source.get("path", "")),
+                    ]
+                )
+        body = (
+            _markdown_table(("Kind", "Name", "Scope", "Source"), rows)
+            if rows
+            else "No extensions are loaded."
+        )
+        errors = payload.get("errors")
+        if isinstance(errors, list) and errors:
+            details = "\n".join(f"- {_escape_markdown(str(error))}" for error in errors)
+            body = f"{body}\n\nLoad failures:\n{details}"
+        if payload.get("restart_required") is True:
+            body = f"{body}\n\nRun `/restart` to apply graph-bound extension changes."
+        return body
 
     def _mcp_server_info_for_tools(self) -> list[MCPServerInfo]:
         """Return MCP metadata matching the tools bound to the running agent.
@@ -15360,12 +15464,12 @@ class DeepAgentsApp(App):
         source: Literal["goal", "rubric"] = "rubric",
     ) -> None:
         """Open the model selector for choosing a grader model."""
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
         from deepagents_code.model_config import ModelSpec
         from deepagents_code.tui.widgets.model_selector import ModelSelectorScreen
 
-        current_provider = settings.model_provider
-        current_model = settings.model_name
+        current_provider = runtime_state.model_provider
+        current_model = runtime_state.model_name
         if self._rubric_model:
             parsed = ModelSpec.try_parse(self._rubric_model)
             if parsed:
@@ -15642,7 +15746,7 @@ class DeepAgentsApp(App):
         Args:
             command: The slash command (including /)
         """
-        from deepagents_code.config import newline_shortcut, settings
+        from deepagents_code.config import newline_shortcut, runtime_state
 
         cmd = command.lower().strip()
 
@@ -15668,10 +15772,11 @@ class DeepAgentsApp(App):
                 "Interactive Features:\n"
                 "  Enter           Submit your message\n"
                 f"  {newline_shortcut():<15} Insert newline\n"
-                f"  Ctrl+X          {editor_help}\n"
+                f"  Ctrl+G          {editor_help}\n"
                 "  Ctrl+R          Search and reuse submitted prompts\n"
                 "                  (press again for the full-screen view)\n"
                 "  Ctrl+N          Review pending notifications\n"
+                "  Ctrl+T          Toggle the subagent panel\n"
                 "  Ctrl+\\          Toggle the debug console\n"
                 "  Shift+Tab       Toggle auto-approve mode\n"
                 "  @filename       Auto-complete files and inject content\n"
@@ -15894,8 +15999,8 @@ class DeepAgentsApp(App):
                 ContextUsageScreen(
                     context_tokens=context_tokens,
                     conversation_tokens=conversation_tokens,
-                    context_limit=settings.model_context_limit,
-                    model_spec=self._effective_model_spec() or settings.model_name,
+                    context_limit=runtime_state.model_context_limit,
+                    model_spec=self._effective_model_spec() or runtime_state.model_name,
                     approximate=approximate,
                 ),
                 lambda _result: self._focus_chat_input_after_refresh(),
@@ -15908,8 +16013,8 @@ class DeepAgentsApp(App):
                 count = self._context_tokens
                 formatted = format_token_count(count)
 
-                model_name = settings.model_name
-                context_limit = settings.model_context_limit
+                model_name = runtime_state.model_name
+                context_limit = runtime_state.model_context_limit
 
                 if context_limit is not None:
                     limit_str = format_token_count(context_limit)
@@ -15947,6 +16052,8 @@ class DeepAgentsApp(App):
             await self._mount_message(AppMessage(self._format_cost_summary()))
         elif cmd == "/tools":
             await self._handle_tools_command(command)
+        elif cmd == "/extensions":
+            await self._handle_extensions_command(command)
         elif cmd == "/remember" or cmd.startswith("/remember "):
             # Convenience alias for /skill:remember — shorter and discoverable
             # before skill loading completes.
@@ -16209,6 +16316,7 @@ class DeepAgentsApp(App):
         await self._send_to_agent(
             envelope.prompt,
             message_kwargs=envelope.message_kwargs,
+            skill_name=envelope.skill_name,
         )
 
     async def _prompt_skill_trust_and_retry(
@@ -16441,13 +16549,13 @@ class DeepAgentsApp(App):
         Raises:
             asyncio.CancelledError: After any active reload thread has settled.
         """
-        from deepagents_code.config import settings
+        from deepagents_code.config import credentials
 
         if start_path is None:
-            reload_work = asyncio.to_thread(settings.reload_from_environment)
+            reload_work = asyncio.to_thread(credentials.reload_from_environment)
         else:
             reload_work = asyncio.to_thread(
-                settings.reload_from_environment,
+                credentials.reload_from_environment,
                 start_path=start_path,
             )
         reload_task = asyncio.create_task(reload_work, name="settings-reload")
@@ -16864,13 +16972,13 @@ class DeepAgentsApp(App):
         try:
             await self._set_spinner("Offloading")
             from deepagents_code._cli_context import CLIContext
-            from deepagents_code.config import settings
+            from deepagents_code.config import runtime_state
 
             context = CLIContext(
                 model=self._effective_model_spec(),
                 model_params=self._model_params_override or {},
                 profile_overrides=self._profile_override or {},
-                model_context_limit=settings.model_context_limit,
+                model_context_limit=runtime_state.model_context_limit,
                 thread_id=self._lc_thread_id,
                 # The operation runs the agent's `PreCompact` and `PreToolUse`
                 # hooks, and the server defaults a missing mode to `manual`.
@@ -17173,6 +17281,7 @@ class DeepAgentsApp(App):
         message: str,
         *,
         message_kwargs: dict[str, Any] | None = None,
+        skill_name: str | None = None,
     ) -> None:
         """Send a message to the agent and start execution.
 
@@ -17184,6 +17293,7 @@ class DeepAgentsApp(App):
             message: The prompt to send to the agent.
             message_kwargs: Extra fields merged into the stream input message
                 dict (e.g., `additional_kwargs` for skill metadata).
+            skill_name: Invoked skill name for trace attribution, or `None`.
         """
         # Anchor to bottom so streaming response stays visible
         with suppress(NoMatches, ScreenStackError):
@@ -17248,6 +17358,7 @@ class DeepAgentsApp(App):
                     self._run_agent_task,
                     message,
                     message_kwargs=message_kwargs,
+                    skill_name=skill_name,
                     goal_notice_current=resuming_blocked,
                 )
                 # Cast because Textual's `WorkType` alias admits both a
@@ -17324,16 +17435,16 @@ class DeepAgentsApp(App):
         """Return the `provider:model` spec in effect for the next invocation.
 
         Prefers a per-session `/model` override; otherwise falls back to the
-        startup-resolved model from `settings`. Returns `None` when neither
+        startup-resolved model from `runtime_state`. Returns `None` when neither
         yields a usable spec (e.g. credentials not yet configured), so
         `ResumeStateMiddleware` records nothing rather than a malformed spec.
         """
         if self._model_override:
             return self._model_override
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
 
-        provider = settings.model_provider or ""
-        model = settings.model_name or ""
+        provider = runtime_state.model_provider or ""
+        model = runtime_state.model_name or ""
         if provider and model:
             return f"{provider}:{model}"
         return None
@@ -17342,27 +17453,27 @@ class DeepAgentsApp(App):
         """Return the provider name in effect for the next invocation.
 
         Derives the provider from the effective `provider:model` spec, falling
-        back to `settings.model_provider`. Used to diagnose gateway/key
+        back to `runtime_state.model_provider`. Used to diagnose gateway/key
         mismatches when an error is rendered.
         """
         spec = self._effective_model_spec()
         if spec and ":" in spec:
             return spec.split(":", 1)[0] or None
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
 
-        return settings.model_provider or None
+        return runtime_state.model_provider or None
 
     def _sync_status_model(self) -> None:
         """Update model displays and the `/effort` hint for the active model."""
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
         from deepagents_code.reasoning_effort import (
             current_effort_from_model_params,
             default_effort_for_model,
             supported_efforts_for_model,
         )
 
-        provider = settings.model_provider or ""
-        model = settings.model_name or ""
+        provider = runtime_state.model_provider or ""
+        model = runtime_state.model_name or ""
         spec = self._effective_model_spec()
         if self._chat_input is not None:
             try:
@@ -17390,10 +17501,10 @@ class DeepAgentsApp(App):
             logger.debug("Screen stack empty during model sync", exc_info=True)
         if self._status_bar is None:
             return
-        self._status_bar.set_context_limit(settings.model_context_limit)
+        self._status_bar.set_context_limit(runtime_state.model_context_limit)
         if not provider or not model:
             logger.warning(
-                "Settings missing model identity at status sync "
+                "Runtime state missing model identity at status sync "
                 "(provider=%r, model=%r); status bar will render blank",
                 provider,
                 model,
@@ -17648,6 +17759,7 @@ class DeepAgentsApp(App):
         message: str,
         *,
         message_kwargs: dict[str, Any] | None = None,
+        skill_name: str | None = None,
         graph_input: dict[str, Any] | None = None,
         goal_notice_current: bool = False,
     ) -> None:
@@ -17659,6 +17771,7 @@ class DeepAgentsApp(App):
             message: The prompt to send to the agent.
             message_kwargs: Extra fields merged into the stream input message
                 dict (e.g., `additional_kwargs` for skill metadata).
+            skill_name: Invoked skill name for trace attribution, or `None`.
             graph_input: Prepared non-conversation input for a server operation.
             goal_notice_current: Whether the caller just persisted the current notice.
         """
@@ -17667,7 +17780,7 @@ class DeepAgentsApp(App):
         # `_agent_turn_started`.
         self._agent_turn_started = True
 
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
         from deepagents_code.hooks.client_lifecycle import ClientHookStopError
         from deepagents_code.resume_state import RUBRIC_RESULT_VALUES
         from deepagents_code.tui.textual_adapter import (
@@ -17732,7 +17845,7 @@ class DeepAgentsApp(App):
             if self._approval_mode_blocked:
                 await self._mount_message(
                     ErrorMessage(
-                        "Manual approval mode has not been persisted. Press Ctrl+T "
+                        "Manual approval mode has not been persisted. Press Shift+Tab "
                         "to retry before starting another run."
                     )
                 )
@@ -17840,6 +17953,7 @@ class DeepAgentsApp(App):
                 image_tracker=self._image_tracker,
                 sandbox_type=self._sandbox_type,
                 message_kwargs=message_kwargs,
+                skill_name=skill_name,
                 graph_input=graph_input,
                 rubric=rubric,
                 goal_active=goal_backed_grading,
@@ -17850,7 +17964,7 @@ class DeepAgentsApp(App):
                     model=self._model_override,
                     model_params=self._model_params_override or {},
                     profile_overrides=self._profile_override or {},
-                    model_context_limit=settings.model_context_limit,
+                    model_context_limit=runtime_state.model_context_limit,
                     classifier_model=self._auto_classifier_context_value(),
                 ),
                 turn_stats=turn_stats,
@@ -21525,15 +21639,15 @@ class DeepAgentsApp(App):
 
     async def _show_auto_classifier_model_selector(self) -> None:
         """Open the model selector for choosing the Auto classifier model."""
-        from deepagents_code.config import detect_provider, settings
+        from deepagents_code.config import detect_provider, runtime_state
         from deepagents_code.model_config import ModelSpec
         from deepagents_code.tui.widgets.model_selector import (
             AUTO_CLASSIFIER_DEFAULT_SCOPE,
             ModelSelectorScreen,
         )
 
-        current_provider = settings.model_provider
-        current_model = settings.model_name
+        current_provider = runtime_state.model_provider
+        current_model = runtime_state.model_name
         if display := self._auto_classifier_display_spec():
             parsed = ModelSpec.try_parse(display)
             if parsed:
@@ -22134,7 +22248,7 @@ class DeepAgentsApp(App):
         focused = self.focused
         # Ancestor (not identity) check: unlike goal-review's single `_edit_input`,
         # a menu owns two possible inputs (free-text vs "Other"), and this also
-        # rejects a stale menu's still-focused field from hijacking Ctrl+X.
+        # rejects a stale menu's still-focused field from hijacking Ctrl+G.
         if (
             not isinstance(focused, AskUserTextArea)
             or menu not in focused.ancestors
@@ -22496,15 +22610,15 @@ class DeepAgentsApp(App):
         Returns:
             Configured model selector modal.
         """
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
         from deepagents_code.tui.widgets.model_selector import (
             MAIN_MODEL_DEFAULT_SCOPE,
             ModelSelectorScreen,
         )
 
         return ModelSelectorScreen(
-            current_model=settings.model_name,
-            current_provider=settings.model_provider,
+            current_model=runtime_state.model_name,
+            current_provider=runtime_state.model_provider,
             cli_profile_override=self._profile_override,
             curated=curated,
             title="Choose a Recommended Model" if curated else None,
@@ -22681,15 +22795,15 @@ class DeepAgentsApp(App):
         callers reach it through `_schedule_off_message_pump` because their
         continuation starts on the App message pump.
         """
-        from deepagents_code.config import detect_provider, settings
+        from deepagents_code.config import detect_provider, runtime_state
         from deepagents_code.model_config import ModelSpec
 
         target = model_spec.removeprefix(":")
         parsed = ModelSpec.try_parse(target)
         provider = parsed.provider if parsed else detect_provider(target)
         model_name = parsed.model if parsed else target
-        if model_name == settings.model_name and (
-            not provider or provider == settings.model_provider
+        if model_name == runtime_state.model_name and (
+            not provider or provider == runtime_state.model_provider
         ):
             await self._switch_model(target, extra_kwargs=extra_kwargs)
             return
@@ -22703,7 +22817,7 @@ class DeepAgentsApp(App):
                 ModelSwitchWarningScreen,
             )
 
-            current = f"{settings.model_provider}:{settings.model_name}"
+            current = f"{runtime_state.model_provider}:{runtime_state.model_name}"
             display = f"{provider}:{model_name}" if provider and not parsed else target
             screen = ModelSwitchWarningScreen(
                 current_model=current,
@@ -23036,9 +23150,9 @@ class DeepAgentsApp(App):
 
         if provider != TAVILY_SERVICE:
             return
-        from deepagents_code.config import settings
+        from deepagents_code.config import credentials
 
-        if settings.has_tavily:
+        if credentials.has_tavily:
             return
         if self._server_proc is None or self._server_kwargs is None:
             return
@@ -23230,8 +23344,6 @@ class DeepAgentsApp(App):
         Args:
             agent_name: The name of the agent to switch to.
         """
-        from deepagents_code.config import settings
-
         if agent_name == self._assistant_id:
             return
 
@@ -23291,7 +23403,7 @@ class DeepAgentsApp(App):
             return
 
         try:
-            agent_dir_exists = (settings.user_deepagents_dir / agent_name).is_dir()
+            agent_dir_exists = (user_deepagents_dir() / agent_name).is_dir()
         except OSError:
             logger.warning(
                 "Could not stat agent directory for %r",
@@ -23855,9 +23967,7 @@ class DeepAgentsApp(App):
             cursor-style modals via `_SupportsReverseNav` and otherwise no-ops
             under a `ModalScreen` that lacks dedicated `shift+tab` handling
             (as `DebugConsoleScreen` does), so the key would be silently
-            swallowed. Note this keys on the action, and `toggle_auto_approve`
-            is also bound to `ctrl+t`, so that binding is stepped aside under
-            the console for either chord.
+            swallowed.
         - `quit_or_interrupt` (`ctrl+c`): the prompt clipboard owns this chord for
             copying the selected prompt rather than the focused search text.
         - `interrupt` (`escape`): while the prompt-search query has focus,
@@ -24017,6 +24127,7 @@ class DeepAgentsApp(App):
         from deepagents_code._debug import installed_debug_log_path
         from deepagents_code._env_vars import DEBUG, EXPERIMENTAL, is_env_truthy
         from deepagents_code._version import __version__
+        from deepagents_code.config import _get_editable_install_path
         from deepagents_code.tui.widgets.debug_console import SnapshotField
 
         def _safe(
@@ -24119,8 +24230,12 @@ class DeepAgentsApp(App):
             )
             return SnapshotField(label="Debug log", value=value)
 
+        install_path = _safe(
+            "Install path", lambda: _get_editable_install_path() or "", copyable=True
+        )
         return [
             _safe("Version", lambda: __version__, copyable=True),
+            *([install_path] if install_path.value else []),
             _model_field(),
             _thread_field(),
             _safe("Messages", _messages),
@@ -26479,9 +26594,9 @@ class DeepAgentsApp(App):
         post-install offer: same guards, watchdog, and fallback messaging, with
         web-search-specific copy.
         """
-        from deepagents_code.config import settings
+        from deepagents_code.config import credentials
 
-        if settings.has_tavily:
+        if credentials.has_tavily:
             # A respawn happened between arming the offer and now — e.g. an
             # install-on-select in the same `/auth` session auto-restarted the
             # server, which reloaded config and rebound `web_search`. The
@@ -27520,11 +27635,9 @@ class DeepAgentsApp(App):
             await self._mount_message(AppMessage("Agent switch already in progress."))
             return
 
-        from deepagents_code.config import settings
-
         try:
             agent_available = await asyncio.to_thread(
-                (settings.user_deepagents_dir / target.agent_name).is_dir
+                (user_deepagents_dir() / target.agent_name).is_dir
             )
         except OSError:
             logger.warning(
@@ -28149,11 +28262,11 @@ class DeepAgentsApp(App):
     @staticmethod
     async def _preview_project_settings_change(cwd: Path) -> bool:
         """Return whether switching cwd would refresh project settings."""
-        from deepagents_code.config import settings
+        from deepagents_code.config import credentials
 
         try:
             changes = await asyncio.to_thread(
-                settings.preview_reload_from_environment,
+                credentials.preview_reload_from_environment,
                 start_path=cwd,
             )
         except (OSError, ValueError):
@@ -28713,7 +28826,7 @@ class DeepAgentsApp(App):
                 messaging (which model couldn't be restored and what the session
                 is falling back to) rather than the interactive `/model` errors.
         """
-        from deepagents_code.config import detect_provider, settings
+        from deepagents_code.config import detect_provider, runtime_state
         from deepagents_code.model_config import (
             ModelSpec,
             ProviderAuthState,
@@ -28810,10 +28923,10 @@ class DeepAgentsApp(App):
                 )
 
             # Check if already using this exact model
-            if model_name == settings.model_name and (
-                not provider or provider == settings.model_provider
+            if model_name == runtime_state.model_name and (
+                not provider or provider == runtime_state.model_provider
             ):
-                current = f"{settings.model_provider}:{settings.model_name}"
+                current = f"{runtime_state.model_provider}:{runtime_state.model_name}"
                 # Mirror the regular-switch path so `--model-params` semantics
                 # are consistent across same-model and different-model cases:
                 # passing params applies them, omitting params clears any
@@ -28853,7 +28966,7 @@ class DeepAgentsApp(App):
                     extra_kwargs=extra_kwargs,
                     profile_overrides=self._profile_override,
                 )
-                result.apply_to_settings()
+                result.apply_to_runtime_state()
             except Exception as exc:
                 logger.exception("Failed to resolve model metadata for %s", display)
                 if from_resume:

@@ -301,21 +301,27 @@ class BuildCustomImageResponse(_message.Message):
     def __init__(self, image: _Optional[str] = ..., build_id: _Optional[str] = ...) -> None: ...
 
 class VolumeMount(_message.Message):
-    __slots__ = ("name", "mount_path", "type", "size_limit")
+    __slots__ = ("name", "mount_path", "type", "size_limit", "version_id", "ref_name")
     NAME_FIELD_NUMBER: _ClassVar[int]
     MOUNT_PATH_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     SIZE_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    VERSION_ID_FIELD_NUMBER: _ClassVar[int]
+    REF_NAME_FIELD_NUMBER: _ClassVar[int]
     name: str
     mount_path: str
     type: str
     size_limit: str
+    version_id: int
+    ref_name: str
     def __init__(
         self,
         name: _Optional[str] = ...,
         mount_path: _Optional[str] = ...,
         type: _Optional[str] = ...,
         size_limit: _Optional[str] = ...,
+        version_id: _Optional[int] = ...,
+        ref_name: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateSandboxRequest(_message.Message):
@@ -330,6 +336,7 @@ class CreateSandboxRequest(_message.Message):
         "entrypoint",
         "knowledge_cutoff",
         "network_policy",
+        "restart_policy",
     )
     class EnvEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -349,6 +356,7 @@ class CreateSandboxRequest(_message.Message):
     ENTRYPOINT_FIELD_NUMBER: _ClassVar[int]
     KNOWLEDGE_CUTOFF_FIELD_NUMBER: _ClassVar[int]
     NETWORK_POLICY_FIELD_NUMBER: _ClassVar[int]
+    RESTART_POLICY_FIELD_NUMBER: _ClassVar[int]
     image: str
     image_spec: ImageSpec
     resource_limits: ResourceLimits
@@ -359,6 +367,7 @@ class CreateSandboxRequest(_message.Message):
     entrypoint: _containers.RepeatedScalarFieldContainer[str]
     knowledge_cutoff: _timestamp_pb2.Timestamp
     network_policy: _service_pb2.NetworkPolicy
+    restart_policy: _service_pb2.RestartPolicy
     def __init__(
         self,
         image: _Optional[str] = ...,
@@ -371,6 +380,7 @@ class CreateSandboxRequest(_message.Message):
         entrypoint: _Optional[_Iterable[str]] = ...,
         knowledge_cutoff: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         network_policy: _Optional[_Union[_service_pb2.NetworkPolicy, _Mapping]] = ...,
+        restart_policy: _Optional[_Union[_service_pb2.RestartPolicy, str]] = ...,
     ) -> None: ...
 
 class ResourceLimits(_message.Message):

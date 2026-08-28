@@ -1,16 +1,15 @@
 """Factory functions for volumetric and voxel-based objects."""
 
-import numpy as np
-from typing import Any
+from typing import Any, Optional, Tuple, Union
 from typing import Dict as TypingDict
 from typing import List as TypingList
-from typing import Optional, Tuple, Union
 
-from .common import _default_color, default_colormap, nice_colors
+import numpy as np
+
 from ..helpers import check_attribute_color_range
-from ..objects import (MIP, MarchingCubes, SparseVoxels, Volume, VolumeSlice,
-                       VoxelChunk, Voxels, VoxelsGroup)
+from ..objects import MIP, MarchingCubes, SparseVoxels, Volume, VolumeSlice, VoxelChunk, Voxels, VoxelsGroup
 from ..transform import process_transform_arguments
+from .common import _default_color, default_colormap, nice_colors
 
 # Type aliases for better readability
 ArrayLike = Union[TypingList, np.ndarray, Tuple]
@@ -27,6 +26,8 @@ def volume(
         samples: float = 512.0,
         alpha_coef: float = 50.0,
         gradient_step: float = 0.005,
+        roughness: float = 0.25,
+        metalness: float = 0.0,
         shadow: str = "off",
         interpolation: bool = True,
         shadow_delay: int = 500,
@@ -77,6 +78,8 @@ def volume(
             samples=samples,
             alpha_coef=alpha_coef,
             gradient_step=gradient_step,
+            roughness=roughness,
+            metalness=metalness,
             interpolation=interpolation,
             shadow=shadow,
             shadow_delay=shadow_delay,
@@ -101,6 +104,8 @@ def mip(
         color_range: ColorRange = None,
         samples: float = 512.0,
         gradient_step: float = 0.005,
+        roughness: float = 0.25,
+        metalness: float = 0.0,
         interpolation: bool = True,
         mask: ArrayLike = None,
         mask_opacities: ArrayLike = None,
@@ -145,6 +150,8 @@ def mip(
             color_range=color_range,
             samples=samples,
             gradient_step=gradient_step,
+            roughness=roughness,
+            metalness=metalness,
             interpolation=interpolation,
             mask=mask,
             mask_opacities=mask_opacities,
@@ -232,6 +239,8 @@ def voxels(
         outlines: bool = True,
         outlines_color: int = 0,
         opacity: float = 1.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
         bounds: Optional[ArrayLike] = None,
         name: Optional[str] = None,
         group: Optional[str] = None,
@@ -256,6 +265,8 @@ def voxels(
             outlines=outlines,
             outlines_color=outlines_color,
             opacity=opacity,
+            roughness=roughness,
+            metalness=metalness,
             name=name,
             group=group,
             custom_data=custom_data,
@@ -273,6 +284,8 @@ def sparse_voxels(
         outlines: bool = True,
         outlines_color: int = 0,
         opacity: float = 1.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
         bounds: Optional[ArrayLike] = None,
         name: Optional[str] = None,
         group: Optional[str] = None,
@@ -298,6 +311,8 @@ def sparse_voxels(
             outlines=outlines,
             outlines_color=outlines_color,
             opacity=opacity,
+            roughness=roughness,
+            metalness=metalness,
             name=name,
             group=group,
             custom_data=custom_data,
@@ -316,6 +331,8 @@ def voxels_group(
         outlines: bool = True,
         outlines_color: int = 0,
         opacity: float = 1.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
         name: Optional[str] = None,
         group: Optional[str] = None,
         custom_data: Optional[TypingDict[str, Any]] = None,
@@ -347,6 +364,8 @@ def voxels_group(
             outlines=outlines,
             outlines_color=outlines_color,
             opacity=opacity,
+            roughness=roughness,
+            metalness=metalness,
             name=name,
             group=group,
             custom_data=custom_data,
@@ -366,7 +385,9 @@ def marching_cubes(
         opacity_function: OpacityFunction = None,
         wireframe: bool = False,
         flat_shading: bool = True,
-        shininess: float = 50.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
+        shininess: float = None,
         opacity: float = 1.0,
         spacings_x: ArrayLike = None,
         spacings_y: ArrayLike = None,
@@ -412,6 +433,8 @@ def marching_cubes(
             level=level,
             wireframe=wireframe,
             flat_shading=flat_shading,
+            roughness=roughness,
+            metalness=metalness,
             shininess=shininess,
             opacity=opacity,
             name=name,

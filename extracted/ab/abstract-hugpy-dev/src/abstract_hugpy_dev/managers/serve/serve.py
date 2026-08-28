@@ -202,6 +202,20 @@ def _model_file_for(model_key, cfg):
             return picked
     except Exception:
         pass
+    # Fit-aware quant auto-pick ("most amicable gguf"): only reachable when NO
+    # designation exists (autofit_gguf_prefer returns None for any pin /
+    # cfg.filename), so the precedence chain per-worker pin -> model-wide pin ->
+    # cfg.filename -> auto-pick -> election holds by construction.
+    try:
+        from .overrides import autofit_gguf_prefer
+        pick = autofit_gguf_prefer(model_key, get_model_path(model_key), cfg)
+        if pick:
+            from ...imports.config.main import get_gguf_file
+            got = get_gguf_file(get_model_path(model_key), cfg, prefer=pick)
+            if got:
+                return got
+    except Exception:
+        pass
     try:
         source = resolve_model_source(model_key)
         if source and os.path.isfile(source):

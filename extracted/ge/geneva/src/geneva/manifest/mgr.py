@@ -106,9 +106,17 @@ class GenevaManifest:
     def create_pip(name: str) -> "PipManifestBuilder":
         """Create a pip-based manifest builder.
 
+        Pin dependencies to exact versions: they are installed on the Ray
+        workers, so ranged specifiers can resolve to versions that differ from
+        the local environment.
+
         Examples
         --------
-            manifest = GenevaManifest.create_pip("my-manifest").pip(["numpy"]).build()
+            manifest = (
+                GenevaManifest.create_pip("my-manifest")
+                .pip(["numpy==2.1.3"])
+                .build()
+            )
         """
         from geneva.manifest.builder import PipManifestBuilder
 
@@ -117,6 +125,10 @@ class GenevaManifest:
     @staticmethod
     def create_conda(name: str) -> "CondaManifestBuilder":
         """Create a conda-based manifest builder.
+
+        Pin dependencies to exact versions: they are installed on the Ray
+        workers, so ranged specifiers can resolve to versions that differ from
+        the local environment.
 
         Examples
         --------
@@ -347,4 +359,57 @@ def _build_capture_uploader(conn: Any) -> Any:
         namespace_config=conn._ns_config,
         table_id=table_id,
         **kwargs,
+    )
+
+
+def warn_if_manifest_not_applied(
+    manifest: "GenevaManifest | None",
+    *,
+    target: str,
+    udf_name: str,
+    operation: str = "backfill",
+) -> None:
+    """Warn when a manifest will not shape the worker environment.
+
+    Locally dispatched jobs (KubeRay, external Ray) build the worker
+    environment once, when the cluster context is entered, so a manifest
+    attached with ``@udf(manifest=...)`` — or with ``@udtf`` / ``@chunker``
+    — afterwards has no effect on the running workers. Emits a warning
+    naming what is in force instead. Stays silent when the active context
+    already carries an equivalent manifest, or when there is no manifest.
+
+    Parameters
+    ----------
+    manifest: GenevaManifest | None
+        The manifest attached to the UDF, UDTF, or chunker being run.
+    target: str
+        What the job operates on, already labeled for the message
+        (e.g. ``"column 'emb'"`` or ``"view 'chunks'"``).
+    udf_name: str
+        Name of the UDF, UDTF, or chunker carrying the manifest.
+    operation: str
+        Job kind naming the operation in the message. Default:
+        ``"backfill"``.
+    """
+    if manifest is None:
+        return
+
+    from geneva._context import get_current_context
+
+    active = getattr(get_current_context(), "manifest", None)
+    if active is not None and active.compute_checksum() == manifest.compute_checksum():
+        return
+
+    in_force = (
+        f"manifest '{active.name}'"
+        if active is not None
+        else "the environment the cluster was created with"
+    )
+    _LOG.warning(
+        "The manifest attached to '%s' is not applied to this %s of %s. Workers "
+        "run with %s. To apply it, create the cluster context with this manifest.",
+        udf_name,
+        operation,
+        target,
+        in_force,
     )

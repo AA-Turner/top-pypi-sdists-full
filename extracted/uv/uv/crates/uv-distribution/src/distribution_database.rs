@@ -1,6 +1,7 @@
+use std::fmt::Display;
 use std::future::Future;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -19,14 +20,16 @@ use uv_client::{
 };
 use uv_distribution_filename::WheelFilename;
 use uv_distribution_types::{
-    BuildInfo, BuildableSource, BuiltDist, Dist, DistRef, File, HashPolicy, Hashed, IndexUrl,
-    InstalledDist, Name, SourceDist, ToUrlError,
+    BuildInfo, BuildableSource, BuiltDist, Dist, DistRef, HashPolicy, Hashed, IndexUrl,
+    InstalledDist, Name, SourceDist,
 };
+use uv_extract::dirhash::{DirectoryDigest, DirhashTree, dirhash_path};
 use uv_extract::hash::Hasher;
-use uv_fs::write_atomic;
+use uv_fs::{PortablePath, write_atomic};
 use uv_git::{GIT_LFS, GitError};
 use uv_install_wheel::validate_and_heal_record;
 use uv_platform_tags::Tags;
+use uv_preview::PreviewFeature;
 use uv_pypi_types::{HashDigest, HashDigests, PyProjectToml};
 use uv_python::PythonVariant;
 use uv_redacted::DisplaySafeUrl;
@@ -56,6 +59,7 @@ pub struct DistributionDatabase<'a, Context: BuildContext> {
     builder: SourceDistributionBuilder<'a, Context>,
     client: ManagedClient<'a>,
     reporter: Option<Arc<dyn Reporter>>,
+    content_addressed_cache: bool,
 }
 
 impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
@@ -64,11 +68,17 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         build_context: &'a Context,
         downloads_semaphore: Arc<Semaphore>,
     ) -> Self {
+        // When ZIP validation is disabled, the extracted tree can contain files that aren't
+        // represented in the central directory and therefore aren't included in its digest.
+        // Avoid using an incomplete digest as a content-addressed archive ID.
+        let content_addressed_cache = uv_preview::is_enabled(PreviewFeature::ContentAddressedCache)
+            && !uv_extract::insecure_no_validate();
         Self {
             build_context,
             builder: SourceDistributionBuilder::new(build_context),
             client: ManagedClient::new(client, downloads_semaphore),
             reporter: None,
+            content_addressed_cache,
         }
     }
 
@@ -184,11 +194,8 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         match dist {
             BuiltDist::Registry(wheels) => {
                 let wheel = wheels.best_wheel();
-                let WheelTarget {
-                    url,
-                    extension,
-                    size,
-                } = WheelTarget::try_from(&*wheel.file)?;
+                let url = wheel.file.url.to_url()?;
+                let size = wheel.file.size;
 
                 // Create a cache entry for the wheel.
                 let wheel_entry = self.build_context.cache().entry(
@@ -203,14 +210,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                         .to_file_path()
                         .map_err(|()| Error::NonFileUrl(url.clone()))?;
                     return self
-                        .load_wheel(
-                            &path,
-                            &wheel.filename,
-                            WheelExtension::Whl,
-                            wheel_entry,
-                            dist,
-                            hashes,
-                        )
+                        .load_wheel(&path, &wheel.filename, wheel_entry, dist, hashes)
                         .await;
                 }
 
@@ -220,7 +220,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                         url.clone(),
                         dist.index(),
                         &wheel.filename,
-                        extension,
                         size,
                         &wheel_entry,
                         dist,
@@ -258,7 +257,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                                 url,
                                 dist.index(),
                                 &wheel.filename,
-                                extension,
                                 size,
                                 &wheel_entry,
                                 dist,
@@ -297,7 +295,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                         wheel.url.raw().clone(),
                         None,
                         &wheel.filename,
-                        WheelExtension::Whl,
                         wheel.size,
                         &wheel_entry,
                         dist,
@@ -335,7 +332,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                                 wheel.url.raw().clone(),
                                 None,
                                 &wheel.filename,
-                                WheelExtension::Whl,
                                 wheel.size,
                                 &wheel_entry,
                                 dist,
@@ -394,15 +390,8 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
                 let install_path = fetch.path().join(&wheel.install_path);
 
-                self.load_wheel(
-                    &install_path,
-                    &wheel.filename,
-                    WheelExtension::Whl,
-                    cache_entry,
-                    dist,
-                    hashes,
-                )
-                .await
+                self.load_wheel(&install_path, &wheel.filename, cache_entry, dist, hashes)
+                    .await
             }
 
             BuiltDist::Path(wheel) => {
@@ -415,7 +404,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                 self.load_wheel(
                     &wheel.install_path,
                     &wheel.filename,
-                    WheelExtension::Whl,
                     cache_entry,
                     dist,
                     hashes,
@@ -669,7 +657,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         url: DisplaySafeUrl,
         index: Option<&IndexUrl>,
         filename: &WheelFilename,
-        extension: WheelExtension,
         size: Option<u64>,
         wheel_entry: &CacheEntry,
         dist: &BuiltDist,
@@ -716,34 +703,24 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                 let temp_dir = tempfile::tempdir_in(self.build_context.cache().root())
                     .map_err(Error::CacheWrite)?;
 
-                let files = match progress {
+                let mut extracted = match progress {
                     Some((reporter, progress)) => {
                         let mut reader = ProgressReader::new(&mut hasher, progress, &**reporter);
-                        match extension {
-                            WheelExtension::Whl => {
-                                uv_extract::stream::unzip(&mut reader, temp_dir.path())
-                                    .await
-                                    .map_err(|err| Error::Extract(filename.to_string(), err))?
-                            }
-                            WheelExtension::WhlZst => {
-                                uv_extract::stream::untar_zst(&mut reader, temp_dir.path())
-                                    .await
-                                    .map_err(|err| Error::Extract(filename.to_string(), err))?
-                            }
-                        }
+                        ExtractedWheelManifest::extract_streaming(
+                            &mut reader,
+                            temp_dir.path(),
+                            self.content_addressed_cache,
+                        )
+                        .await
+                        .map_err(|err| Error::Extract(filename.to_string(), err))?
                     }
-                    None => match extension {
-                        WheelExtension::Whl => {
-                            uv_extract::stream::unzip(&mut hasher, temp_dir.path())
-                                .await
-                                .map_err(|err| Error::Extract(filename.to_string(), err))?
-                        }
-                        WheelExtension::WhlZst => {
-                            uv_extract::stream::untar_zst(&mut hasher, temp_dir.path())
-                                .await
-                                .map_err(|err| Error::Extract(filename.to_string(), err))?
-                        }
-                    },
+                    None => ExtractedWheelManifest::extract_streaming(
+                        &mut hasher,
+                        temp_dir.path(),
+                        self.content_addressed_cache,
+                    )
+                    .await
+                    .map_err(|err| Error::Extract(filename.to_string(), err))?,
                 };
                 // Exhaust the reader to compute the hashes.
                 hasher.finish().await.map_err(Error::HashExhaustion)?;
@@ -760,16 +737,12 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
                 // Before we make the wheel accessible by persisting it, ensure that the RECORD is
                 // valid.
-                validate_and_heal_record(temp_dir.path(), files.iter(), dist)
-                    .map_err(Error::InstallWheelError)?;
+                extracted.validate_and_heal_record(temp_dir.path(), dist)?;
 
                 // Persist the temporary directory to the directory store.
                 let id = self
-                    .build_context
-                    .cache()
-                    .persist(temp_dir.keep(), wheel_entry.path())
-                    .await
-                    .map_err(Error::CacheRead)?;
+                    .persist_extracted_wheel(temp_dir, wheel_entry.path(), extracted.tree)
+                    .await?;
 
                 if let Some((reporter, progress)) = progress {
                     reporter.on_download_complete(dist.name(), progress);
@@ -871,7 +844,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         url: DisplaySafeUrl,
         index: Option<&IndexUrl>,
         filename: &WheelFilename,
-        extension: WheelExtension,
         size: Option<u64>,
         wheel_entry: &CacheEntry,
         dist: &BuiltDist,
@@ -882,6 +854,8 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             BuiltDist::DirectUrl(_) => size,
             _ => None,
         };
+
+        let content_addressed_cache = self.content_addressed_cache;
 
         // Acquire an advisory lock, to guard against concurrent writes.
         #[cfg(windows)]
@@ -958,29 +932,22 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                     .map_err(Error::CacheWrite)?;
 
                 let target = temp_dir.path().to_owned();
-                let files = match extension {
-                    WheelExtension::Whl => {
-                        let file = file.into_std().await;
-                        tokio::task::spawn_blocking(move || uv_extract::unzip(file, &target))
-                            .await?
-                    }
-                    WheelExtension::WhlZst => uv_extract::stream::untar_zst(file, &target).await,
-                }
+                let file = file.into_std().await;
+                let mut extracted = tokio::task::spawn_blocking(move || {
+                    ExtractedWheelManifest::extract_seekable(file, &target, content_addressed_cache)
+                })
+                .await?
                 .map_err(|err| Error::Extract(filename.to_string(), err))?;
                 let hashes = hashers.into_iter().map(HashDigest::from).collect();
 
                 // Before we make the wheel accessible by persisting it, ensure that the RECORD is
                 // valid.
-                validate_and_heal_record(temp_dir.path(), files.iter(), dist)
-                    .map_err(Error::InstallWheelError)?;
+                extracted.validate_and_heal_record(temp_dir.path(), dist)?;
 
                 // Persist the temporary directory to the directory store.
                 let id = self
-                    .build_context
-                    .cache()
-                    .persist(temp_dir.keep(), wheel_entry.path())
-                    .await
-                    .map_err(Error::CacheRead)?;
+                    .persist_extracted_wheel(temp_dir, wheel_entry.path(), extracted.tree)
+                    .await?;
 
                 if let Some((reporter, progress)) = progress {
                     reporter.on_download_complete(dist.name(), progress);
@@ -1081,7 +1048,6 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         &self,
         path: &Path,
         filename: &WheelFilename,
-        extension: WheelExtension,
         wheel_entry: CacheEntry,
         dist: &BuiltDist,
         hashes: HashPolicy<'_>,
@@ -1162,16 +1128,13 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             let mut hasher = uv_extract::hash::HashReader::new(file, &mut hashers);
 
             // Unzip the wheel to a temporary directory.
-            let files = match extension {
-                WheelExtension::Whl => uv_extract::stream::unzip(&mut hasher, temp_dir.path())
-                    .await
-                    .map_err(|err| Error::Extract(filename.to_string(), err))?,
-                WheelExtension::WhlZst => {
-                    uv_extract::stream::untar_zst(&mut hasher, temp_dir.path())
-                        .await
-                        .map_err(|err| Error::Extract(filename.to_string(), err))?
-                }
-            };
+            let mut extracted = ExtractedWheelManifest::extract_streaming(
+                &mut hasher,
+                temp_dir.path(),
+                self.content_addressed_cache,
+            )
+            .await
+            .map_err(|err| Error::Extract(filename.to_string(), err))?;
 
             // Exhaust the reader to compute the hash.
             hasher.finish().await.map_err(Error::HashExhaustion)?;
@@ -1180,16 +1143,12 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
             // Before we make the wheel accessible by persisting it, ensure that the RECORD is
             // valid.
-            validate_and_heal_record(temp_dir.path(), files.iter(), dist)
-                .map_err(Error::InstallWheelError)?;
+            extracted.validate_and_heal_record(temp_dir.path(), dist)?;
 
             // Persist the temporary directory to the directory store.
             let id = self
-                .build_context
-                .cache()
-                .persist(temp_dir.keep(), wheel_entry.path())
-                .await
-                .map_err(Error::CacheWrite)?;
+                .persist_extracted_wheel(temp_dir, wheel_entry.path(), extracted.tree)
+                .await?;
 
             // Create an archive.
             let archive = Archive::new(id, hashes, filename.clone(), None);
@@ -1223,33 +1182,57 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         target: &Path,
         dist: DistRef<'_>,
     ) -> Result<ArchiveId, Error> {
-        let (temp_dir, files) = tokio::task::spawn_blocking({
+        let content_addressed_cache = self.content_addressed_cache;
+
+        let (temp_dir, mut extracted) = tokio::task::spawn_blocking({
             let path = path.to_owned();
             let root = self.build_context.cache().root().to_path_buf();
             move || -> Result<_, Error> {
                 // Unzip the wheel into a temporary directory.
                 let temp_dir = tempfile::tempdir_in(root).map_err(Error::CacheWrite)?;
                 let reader = fs_err::File::open(&path).map_err(Error::CacheWrite)?;
-                let files = uv_extract::unzip(reader, temp_dir.path())
-                    .map_err(|err| Error::Extract(path.to_string_lossy().into_owned(), err))?;
-                Ok((temp_dir, files))
+                let extracted = ExtractedWheelManifest::extract_seekable(
+                    reader,
+                    temp_dir.path(),
+                    content_addressed_cache,
+                )
+                .map_err(|err| Error::Extract(path.to_string_lossy().into_owned(), err))?;
+                Ok((temp_dir, extracted))
             }
         })
         .await??;
 
         // Before we make the wheel accessible by persisting it, ensure that the RECORD is valid.
-        validate_and_heal_record(temp_dir.path(), files.iter(), dist)
-            .map_err(Error::InstallWheelError)?;
+        extracted.validate_and_heal_record(temp_dir.path(), dist)?;
 
         // Persist the temporary directory to the directory store.
         let id = self
-            .build_context
-            .cache()
-            .persist(temp_dir.keep(), target)
-            .await
-            .map_err(Error::CacheWrite)?;
+            .persist_extracted_wheel(temp_dir, target, extracted.tree)
+            .await?;
 
         Ok(id)
+    }
+
+    /// Persist an extracted wheel into the archive store.
+    ///
+    /// A hash tree makes identical extracted trees converge on one archive entry. Without one,
+    /// persistence retains the existing behavior of assigning a unique archive ID.
+    async fn persist_extracted_wheel(
+        &self,
+        temp_dir: tempfile::TempDir,
+        target: &Path,
+        tree: Option<DirhashTree>,
+    ) -> Result<ArchiveId, Error> {
+        let cache = self.build_context.cache();
+        match tree {
+            Some(tree) => {
+                let digest = DirectoryDigest::from(tree.hash());
+                let id = ArchiveId::from_digest(digest.into());
+                cache.persist_with_id(temp_dir, target, id).await
+            }
+            None => cache.persist(temp_dir.keep(), target).await,
+        }
+        .map_err(Error::CacheWrite)
     }
 
     /// Returns a GET [`reqwest::Request`] for the given URL.
@@ -1271,6 +1254,79 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
     /// Return the [`ManagedClient`] used by this resolver.
     pub fn client(&self) -> &ManagedClient<'a> {
         &self.client
+    }
+}
+
+/// The manifest of files extracted from a wheel, along with a hash tree of the unpacked archive.
+struct ExtractedWheelManifest {
+    files: Vec<(PathBuf, u64)>,
+    tree: Option<DirhashTree>,
+}
+
+impl ExtractedWheelManifest {
+    /// Extract a wheel from a streaming reader, optionally computing its directory hash tree.
+    async fn extract_streaming<R>(
+        reader: R,
+        target: &Path,
+        content_addressed: bool,
+    ) -> Result<Self, uv_extract::Error>
+    where
+        R: AsyncRead + Unpin,
+    {
+        if content_addressed {
+            let (files, tree) = uv_extract::stream::unzip_and_hash(reader, target).await?;
+            Ok(Self {
+                files,
+                tree: Some(tree),
+            })
+        } else {
+            let files = uv_extract::stream::unzip(reader, target).await?;
+            Ok(Self::without_tree(files))
+        }
+    }
+
+    /// Extract a wheel from a seekable file, optionally computing its directory hash tree.
+    fn extract_seekable(
+        reader: fs_err::File,
+        target: &Path,
+        content_addressed: bool,
+    ) -> Result<Self, uv_extract::Error> {
+        if content_addressed {
+            let (files, tree) = uv_extract::unzip_and_hash(reader, target)?;
+            Ok(Self {
+                files,
+                tree: Some(tree),
+            })
+        } else {
+            let files = uv_extract::unzip(reader, target)?;
+            Ok(Self::without_tree(files))
+        }
+    }
+
+    fn without_tree(files: Vec<(PathBuf, u64)>) -> Self {
+        Self { files, tree: None }
+    }
+
+    /// Heal the wheel's `RECORD` and keep its hash tree consistent with the repaired contents.
+    fn validate_and_heal_record(&mut self, root: &Path, dist: impl Display) -> Result<(), Error> {
+        let Some(record_path) = validate_and_heal_record(root, self.files.iter(), dist)
+            .map_err(Error::InstallWheelError)?
+        else {
+            return Ok(());
+        };
+        let Some(tree) = self.tree.as_mut() else {
+            return Ok(());
+        };
+
+        let hash = dirhash_path(&root.join(&record_path)).map_err(|err| {
+            Error::Extract(
+                record_path.display().to_string(),
+                uv_extract::Error::from(err),
+            )
+        })?;
+        let record_path = PortablePath::from(record_path.as_path()).to_string();
+        tree.update_file(&record_path, hash)
+            .map_err(|err| Error::Extract(record_path, uv_extract::Error::from(err)))
     }
 }
 
@@ -1443,92 +1499,5 @@ impl PathArchivePointer {
     /// Return the [`BuildInfo`] from the pointer.
     pub fn to_build_info(&self) -> Option<BuildInfo> {
         None
-    }
-}
-
-#[derive(Debug, Clone)]
-struct WheelTarget {
-    /// The URL from which the wheel can be downloaded.
-    url: DisplaySafeUrl,
-    /// The expected extension of the wheel file.
-    extension: WheelExtension,
-    /// The expected size of the wheel file, if known.
-    size: Option<u64>,
-}
-
-impl TryFrom<&File> for WheelTarget {
-    type Error = ToUrlError;
-
-    /// Determine the [`WheelTarget`] from a [`File`].
-    fn try_from(file: &File) -> Result<Self, Self::Error> {
-        let url = file.url.to_url()?;
-        if let Some(zstd) = file.zstd.as_ref() {
-            Ok(Self {
-                url: add_tar_zst_extension(url),
-                extension: WheelExtension::WhlZst,
-                size: zstd.size,
-            })
-        } else {
-            Ok(Self {
-                url,
-                extension: WheelExtension::Whl,
-                size: file.size,
-            })
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum WheelExtension {
-    /// A `.whl` file.
-    Whl,
-    /// A `.whl.tar.zst` file.
-    WhlZst,
-}
-
-/// Add `.tar.zst` to the end of the URL path, if it doesn't already exist.
-#[must_use]
-fn add_tar_zst_extension(mut url: DisplaySafeUrl) -> DisplaySafeUrl {
-    let mut path = url.path().to_string();
-
-    if !path.ends_with(".tar.zst") {
-        path.push_str(".tar.zst");
-    }
-
-    url.set_path(&path);
-    url
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_add_tar_zst_extension() {
-        let url =
-            DisplaySafeUrl::parse("https://files.pythonhosted.org/flask-3.1.0-py3-none-any.whl")
-                .unwrap();
-        assert_eq!(
-            add_tar_zst_extension(url).as_str(),
-            "https://files.pythonhosted.org/flask-3.1.0-py3-none-any.whl.tar.zst"
-        );
-
-        let url = DisplaySafeUrl::parse(
-            "https://files.pythonhosted.org/flask-3.1.0-py3-none-any.whl.tar.zst",
-        )
-        .unwrap();
-        assert_eq!(
-            add_tar_zst_extension(url).as_str(),
-            "https://files.pythonhosted.org/flask-3.1.0-py3-none-any.whl.tar.zst"
-        );
-
-        let url = DisplaySafeUrl::parse(
-            "https://files.pythonhosted.org/flask-3.1.0%2Bcu124-py3-none-any.whl",
-        )
-        .unwrap();
-        assert_eq!(
-            add_tar_zst_extension(url).as_str(),
-            "https://files.pythonhosted.org/flask-3.1.0%2Bcu124-py3-none-any.whl.tar.zst"
-        );
     }
 }

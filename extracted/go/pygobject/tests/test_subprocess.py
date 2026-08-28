@@ -1,12 +1,17 @@
 import sys
 import os
+import signal
+import gc
 import unittest
+from unittest import mock
 import warnings
 
 import pytest
 
+from gi.module import get_introspection_module
 from gi.repository import GLib
 from gi import PyGIDeprecationWarning
+
 
 from .helper import capture_gi_deprecation_warnings
 
@@ -204,3 +209,70 @@ class TestProcess(unittest.TestCase):
             self.assertEqual(
                 GLib.SpawnFlags.DO_NOT_REAP_CHILD, GLib.SPAWN_DO_NOT_REAP_CHILD
             )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="not on Windows")
+def test_spawn_async_fds_with_child_setup(tmp_path):
+    callback_file = tmp_path / "child_setup_called"
+
+    def cb(data):
+        callback_file.write_text(str(data))
+
+    pid, _stdin, _stdout, _stderr = GLib.spawn_async(
+        ["cat"],
+        flags=GLib.SpawnFlags.SEARCH_PATH,
+        child_setup=cb,
+        user_data="data",
+    )
+    pid.close()
+
+    assert callback_file.exists()
+    assert callback_file.read_text() == "data"
+
+
+def test_pid_is_a_number():
+    argv = [sys.executable, "-c", "import sys"]
+    pid, _stdin, _stdout, _stderr = GLib.spawn_async(
+        argv, flags=GLib.SpawnFlags.DO_NOT_REAP_CHILD
+    )
+    pid.close()
+
+    assert isinstance(pid, int)
+    assert pid > 0
+
+
+def test_pid_can_be_closed_multiple_times():
+    argv = [sys.executable, "-c", "import sys"]
+    pid, _stdin, _stdout, _stderr = GLib.spawn_async(
+        argv, flags=GLib.SpawnFlags.DO_NOT_REAP_CHILD
+    )
+    pid.close()
+    pid.close()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="not on Windows")
+def test_os_kill_with_pid():
+    argv = [sys.executable, "-c", "import sys"]
+    pid, _stdin, _stdout, _stderr = GLib.spawn_async(
+        argv, flags=GLib.SpawnFlags.DO_NOT_REAP_CHILD
+    )
+    os.kill(pid, signal.SIGTERM)
+
+
+def test_close_pid_when_deleted(monkeypatch):
+    gc.collect()  # for Pypy
+
+    argv = [sys.executable, "-c", "import sys"]
+    pid, _stdin, _stdout, _stderr = GLib.spawn_async(
+        argv, flags=GLib.SpawnFlags.DO_NOT_REAP_CHILD
+    )
+
+    GLibMod = get_introspection_module("GLib")
+    spawn_close_pid_spy = mock.Mock(wraps=GLibMod.spawn_close_pid)
+    monkeypatch.setattr(GLibMod, "spawn_close_pid", spawn_close_pid_spy)
+
+    del pid
+
+    gc.collect()  # for Pypy
+
+    spawn_close_pid_spy.assert_called_once()

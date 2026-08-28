@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.billing_pb2 import (
+    CheckSelfHostedLicenseRequest,
+    CheckSelfHostedLicenseResponse,
     GetAvailableInstanceTypesRequest,
     GetAvailableInstanceTypesResponse,
     GetCreditBundlesRequest,
@@ -136,6 +138,14 @@ class BillingServiceStub:
     """GetResourceGroupServiceDetail returns all pods for a given service kind
     and resource group within a time range, from the BigQuery usage data.
     """
+    CheckSelfHostedLicense: UnaryUnaryMultiCallable[
+        CheckSelfHostedLicenseRequest,
+        CheckSelfHostedLicenseResponse,
+    ]
+    """CheckSelfHostedLicense reports the self-hosted license key the caller
+    authenticated with. A server that federates its billing reads polls this
+    to verify its configured key still authenticates.
+    """
 
 class BillingServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -253,6 +263,16 @@ class BillingServiceServicer(metaclass=ABCMeta):
     ) -> GetResourceGroupServiceDetailResponse:
         """GetResourceGroupServiceDetail returns all pods for a given service kind
         and resource group within a time range, from the BigQuery usage data.
+        """
+    @abstractmethod
+    def CheckSelfHostedLicense(
+        self,
+        request: CheckSelfHostedLicenseRequest,
+        context: ServicerContext,
+    ) -> CheckSelfHostedLicenseResponse:
+        """CheckSelfHostedLicense reports the self-hosted license key the caller
+        authenticated with. A server that federates its billing reads polls this
+        to verify its configured key still authenticates.
         """
 
 def add_BillingServiceServicer_to_server(servicer: BillingServiceServicer, server: Server) -> None: ...

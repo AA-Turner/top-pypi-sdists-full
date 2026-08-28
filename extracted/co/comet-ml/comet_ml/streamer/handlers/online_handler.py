@@ -123,6 +123,25 @@ class RestApiSendResult(NamedTuple):
     throttled: bool
 
 
+def is_connection_error(response: Any) -> bool:
+    """Whether an upload failure was the network going away, rather than a refusal.
+
+    This is the one failure worth replaying: nothing is wrong with the asset or the
+    request, so the same upload succeeds once the connection is back. Anything else
+    would be rejected again.
+
+    A named function rather than a condition inline in the callback below, because
+    the callback is invoked inside a ``try/except Exception`` that logs and continues.
+    Anything that raises in there is swallowed, and the upload is dropped with only a
+    warning - which is exactly what happened while this read a ``is_connection_error``
+    attribute that S3UploadError has never had.
+    """
+    if isinstance(response, (ConnectionError, requests.ConnectionError)):
+        return True
+
+    return isinstance(response, S3UploadError) and response.due_connection_error
+
+
 class OnlineMessageHandler(BaseMessageHandler):
     """
     Handles online messages and orchestrates their processing.
@@ -338,13 +357,7 @@ class OnlineMessageHandler(BaseMessageHandler):
         self, message_id: int, message_callback: Optional[Callable] = None
     ):
         def _callback(response):
-            if (
-                isinstance(response, ConnectionError)
-                or isinstance(response, requests.ConnectionError)
-                or (
-                    isinstance(response, S3UploadError) and response.is_connection_error
-                )
-            ):
+            if is_connection_error(response):
                 self._on_messages_sent_completed(
                     [message_id],
                     success=False,

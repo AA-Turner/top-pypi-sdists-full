@@ -1,0 +1,6 @@
+"""Auto-generated stub for module: cli."""
+from typing import Any
+
+# Functions
+def build_parser() -> Any.Any: ...
+def main(argv: Any[str] | None = None) -> int: ...

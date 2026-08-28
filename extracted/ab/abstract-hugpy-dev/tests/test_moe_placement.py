@@ -1232,6 +1232,10 @@ def evict_rig(monkeypatch):
     monkeypatch.setattr(A, "_total_vram_bytes", lambda: card["total"])
     monkeypatch.setattr(A, "_free_vram_bytes", lambda: card["free"])
     monkeypatch.setattr(A, "_free_ram_bytes", lambda: card.get("ram", 60 * GIB))
+    # The mmap-eligibility ceiling (2026-08-28): the expert-RAM guard prices
+    # against the BOX (total RAM), falling back to free when unmeasurable.
+    # None by default so rig tests that only set "ram" exercise the fallback.
+    monkeypatch.setattr(A, "_ram_total_bytes", lambda: card.get("ram_total"))
     monkeypatch.setattr(A, "_incoming_need_bytes", lambda mk: card["need"])
     monkeypatch.setattr(A, "_kv_need_bytes", lambda mk, cfg=None: (0, {}))
     monkeypatch.setattr(A, "_calib_correction", lambda mk: None)
@@ -1291,13 +1295,27 @@ def test_admission_moe_split_still_evicts_when_gpu_share_needs_room(evict_rig):
 
 
 def test_admission_moe_ram_guard_keeps_full_need(evict_rig):
-    # Experts (43.5G) exceed budgetable RAM -> no re-target; the full-need
-    # path stands and refuses honestly (no admit-then-thrash).
+    # Experts (43.5G) exceed the BOX (total RAM, the mmap-eligibility ceiling
+    # since 2026-08-28) -> no re-target; the full-need path stands and refuses
+    # honestly (no admit-then-thrash).
     evict_rig.card["ram"] = 20 * GIB
+    evict_rig.card["ram_total"] = 20 * GIB
     verdict = A._vram_evict_to_fit(_State(), "coder-next")
     assert verdict["action"] == "refuse"
     assert "coder-next" not in A._MOE_SPLIT
     assert verdict["reason"]["moe_split"]["was_plan"] is False
+
+
+def test_admission_moe_experts_fit_total_ram_despite_low_free(evict_rig):
+    """The ae 2026-08-28 shape: experts (43.5G) fit the BOX (125G installed)
+    while momentary free RAM (34G — mostly reclaimable page cache) is below
+    them. Expert bytes are file-backed mmap page cache, so the split re-target
+    must proceed instead of falling back to a doomed 47.8G full-need refusal."""
+    evict_rig.card["ram"] = 34 * GIB
+    evict_rig.card["ram_total"] = 125 * GIB
+    verdict = A._vram_evict_to_fit(_State(), "coder-next")
+    assert verdict["action"] == "partial"
+    assert verdict["n_gpu_layers"] == -1 and verdict["n_cpu_moe"] == 999
 
 
 def test_admission_fits_whole_ALSO_SPLITS_and_evicts_nobody(evict_rig):
@@ -1327,14 +1345,47 @@ def test_admission_fits_whole_ALSO_SPLITS_and_evicts_nobody(evict_rig):
 
 def test_admission_fits_whole_but_experts_exceed_ram_keeps_full_need(evict_rig):
     """The viability guard holds on the admission side too: experts that can't
-    fit RAM mean no re-target, and the full-need path stands unchanged."""
+    fit the BOX (total RAM — the mmap-eligibility ceiling, 2026-08-28) mean no
+    re-target, and the full-need path stands unchanged."""
     evict_rig.card["need"] = 18 * GIB
     evict_rig.card["free"] = 22 * GIB             # 22 - 18 > 2.4G reserve
     evict_rig.card["ram"] = 20 * GIB              # experts are 43.5G
+    evict_rig.card["ram_total"] = 20 * GIB
     verdict = A._vram_evict_to_fit(_State(), "coder-next")
     assert verdict["action"] == "proceed"
     assert verdict.get("n_cpu_moe") is None
     assert "coder-next" not in A._MOE_SPLIT
+
+
+def test_admission_moe_first_preempts_dense_degenerate(evict_rig, monkeypatch):
+    """ae 2026-08-28 transcript shape: a cold load whose spill shape skipped
+    _moe_plan_for reached the DENSE partial-offload planner, which priced a
+    3-layer dense floor (~3.2 GB layer-bytes) against the MoE-derived 1.5 GiB
+    budget and refused "degenerate" — mixed bases in one verdict. A detected
+    MoE must defer to the dense-backbone-first split BEFORE dense layer math:
+    48 layers, 45.1 GiB dense, 1.49 GiB non-expert, 21.5 GB free VRAM ->
+    admit via the MoE plan (-1 + --n-cpu-moe), never 'degenerate'."""
+    from abstract_hugpy_dev.managers.spill import MOE_ALL_LAYERS
+    evict_rig.plan["value"] = None            # the spill shape that skipped the plan
+    evict_rig.card["need"] = int(45.1 * GIB)
+    evict_rig.card["free"] = int(21.5e9)      # 21.5 GB free of a 24G card
+    evict_rig.card["ram"] = 34 * GIB
+    evict_rig.card["ram_total"] = 125 * GIB   # experts fit the BOX (mmap)
+    per_layer = int(43.59 * GIB) // 48
+    detail = {"is_moe": True, "expert_bytes": per_layer * 48,
+              "non_expert_bytes": int(1.49 * GIB),
+              "expert_bytes_by_layer": {i: per_layer for i in range(48)}}
+    monkeypatch.setattr(A, "_served_gguf_geometry", lambda mk: ("/x.gguf", 48))
+    monkeypatch.setattr(A, "_moe_detail_for", lambda mk: detail)
+    monkeypatch.setattr(A, "_moe_auto_gpu_budget",
+                        lambda mk, p: int(1.5 * GIB))  # the non-expert cap
+    verdict = A._vram_evict_to_fit(_State(), "coder-next")
+    assert verdict["action"] == "partial", verdict
+    assert verdict["n_gpu_layers"] == -1
+    assert verdict["n_cpu_moe"] == MOE_ALL_LAYERS
+    assert not verdict.get("reason")
+    assert "degenerate" not in (verdict.get("note") or "")
+    assert A._MOE_SPLIT["coder-next"]["n_cpu_moe"] == MOE_ALL_LAYERS
 
 
 def test_clear_partial_ngl_also_clears_moe_commit():

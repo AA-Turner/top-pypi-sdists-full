@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: deepagents-acp
-Version: 0.0.10
+Version: 0.0.11
 Summary: Agent Client Protocol integration for Deep Agents
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/

@@ -3,6 +3,8 @@ from chalk._gen.chalk.artifacts.v1 import chart_pb2 as _chart_pb2
 from chalk._gen.chalk.artifacts.v1 import cron_aggregate_backfill_pb2 as _cron_aggregate_backfill_pb2
 from chalk._gen.chalk.artifacts.v1 import cron_query_pb2 as _cron_query_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
 from chalk._gen.chalk.graph.v2 import sources_pb2 as _sources_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf.internal import containers as _containers

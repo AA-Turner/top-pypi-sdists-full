@@ -1351,6 +1351,18 @@ class TestBuildStreamConfig:
         config = build_stream_config("t-yolo", assistant_id=None, auto_approve=True)
         assert config["metadata"]["dcode_auto_approve"] is True
 
+    def test_skill_name_included_when_invoked(self) -> None:
+        """Skill invocations should be identifiable in trace metadata."""
+        config = build_stream_config(
+            "t-skill", assistant_id=None, skill_name="code-review"
+        )
+        assert config["metadata"]["ls_skill_name"] == "code-review"
+
+    def test_skill_name_absent_by_default(self) -> None:
+        """Ordinary turns should not carry skill attribution."""
+        config = build_stream_config("t-no-skill", assistant_id=None)
+        assert "ls_skill_name" not in config["metadata"]
+
     def test_auto_approve_absent_when_inactive(self) -> None:
         """Manual-approval runs should not carry the auto-approve label."""
         config = build_stream_config("t-manual", assistant_id=None, auto_approve=False)
@@ -2861,6 +2873,29 @@ class TestExecuteTaskTextualTurnMarkers:
         # The session state itself reflects the latest turn.
         assert session_state.turn_number == 2
 
+    async def test_skill_name_reaches_stream_config(self) -> None:
+        """The TUI should attribute a skill invocation to the streamed trace."""
+        from deepagents_code.app import TextualSessionState
+
+        session_state = TextualSessionState(thread_id="thread-1", auto_approve=False)
+        agent = _SequencedAgent([[]])
+        adapter = TextualUIAdapter(
+            mount_message=_mock_mount,
+            update_status=_noop_status,
+            request_approval=_mock_approval,
+        )
+
+        await execute_task_textual(
+            user_input="review this",
+            agent=agent,
+            assistant_id="assistant",
+            session_state=session_state,
+            adapter=adapter,
+            skill_name="code-review",
+        )
+
+        assert agent.configs[0]["metadata"]["ls_skill_name"] == "code-review"
+
     async def test_auto_approve_absent_from_stream_config_when_disabled(self) -> None:
         """A manual-approval session must not label its trace as auto-approve.
 
@@ -3229,7 +3264,7 @@ class TestExecuteTaskTextualUsageStats:
     """`execute_task_textual` forwards the active provider into usage stats.
 
     The per-model recording API is unit-tested directly elsewhere; this guards
-    the call site actually reading `settings.model_provider` and threading it
+    the call site actually reading `runtime_state.model_provider` and threading it
     through `record_request`.
     """
 
@@ -3254,11 +3289,11 @@ class TestExecuteTaskTextualUsageStats:
         adapter._on_provisional_cost = record_cost
 
         with (
-            patch("deepagents_code.config.settings") as mock_settings,
+            patch("deepagents_code.config.runtime_state") as mock_runtime_state,
             patch("deepagents_code.cost_tracking.estimate_cost", return_value=0.42),
         ):
-            mock_settings.model_name = "gpt-5.5"
-            mock_settings.model_provider = "openai"
+            mock_runtime_state.model_name = "gpt-5.5"
+            mock_runtime_state.model_provider = "openai"
             await execute_task_textual(
                 user_input="hello",
                 agent=_FakeAgent([_usage_chunk(input_tokens=100, output_tokens=50)]),
@@ -3307,11 +3342,11 @@ class TestExecuteTaskTextualUsageStats:
         )
 
         with (
-            patch("deepagents_code.config.settings") as mock_settings,
+            patch("deepagents_code.config.runtime_state") as mock_runtime_state,
             patch("deepagents_code.cost_tracking.estimate_cost", return_value=0.42),
         ):
-            mock_settings.model_name = "gpt-5.5"
-            mock_settings.model_provider = "openai"
+            mock_runtime_state.model_name = "gpt-5.5"
+            mock_runtime_state.model_provider = "openai"
             stats = await execute_task_textual(
                 user_input="hello",
                 agent=agent,
@@ -3375,11 +3410,11 @@ class TestExecuteTaskTextualUsageStats:
         ]
 
         with (
-            patch("deepagents_code.config.settings") as mock_settings,
+            patch("deepagents_code.config.runtime_state") as mock_runtime_state,
             patch("deepagents_code.cost_tracking.estimate_cost", return_value=0.1),
         ):
-            mock_settings.model_name = "gpt-5.5"
-            mock_settings.model_provider = "openai"
+            mock_runtime_state.model_name = "gpt-5.5"
+            mock_runtime_state.model_provider = "openai"
             await execute_task_textual(
                 user_input="hello",
                 agent=_FakeAgent(chunks),
@@ -3451,11 +3486,11 @@ class TestExecuteTaskTextualUsageStats:
         turn_stats = SessionStats()
 
         with (
-            patch("deepagents_code.config.settings") as mock_settings,
+            patch("deepagents_code.config.runtime_state") as mock_runtime_state,
             patch("deepagents_code.cost_tracking.estimate_cost", return_value=0.1),
         ):
-            mock_settings.model_name = "gpt-5.5"
-            mock_settings.model_provider = "openai"
+            mock_runtime_state.model_name = "gpt-5.5"
+            mock_runtime_state.model_provider = "openai"
             await execute_task_textual(
                 user_input="hello",
                 agent=agent,
@@ -3508,11 +3543,11 @@ class TestExecuteTaskTextualUsageStats:
         turn_stats = SessionStats()
 
         with (
-            patch("deepagents_code.config.settings") as mock_settings,
+            patch("deepagents_code.config.runtime_state") as mock_runtime_state,
             patch("deepagents_code.cost_tracking.estimate_cost", return_value=0.1),
         ):
-            mock_settings.model_name = "configured-model"
-            mock_settings.model_provider = "google_genai"
+            mock_runtime_state.model_name = "configured-model"
+            mock_runtime_state.model_provider = "google_genai"
             await execute_task_textual(
                 user_input="hello",
                 agent=agent,
@@ -3639,11 +3674,11 @@ class TestSessionCostEvents:
         turn_stats = SessionStats()
 
         with (
-            patch("deepagents_code.config.settings") as mock_settings,
+            patch("deepagents_code.config.runtime_state") as mock_runtime_state,
             patch("deepagents_code.cost_tracking.estimate_cost", return_value=0.42),
         ):
-            mock_settings.model_name = "gpt-5.5"
-            mock_settings.model_provider = "openai"
+            mock_runtime_state.model_name = "gpt-5.5"
+            mock_runtime_state.model_provider = "openai"
             await execute_task_textual(
                 user_input="hello",
                 agent=_FakeAgent(chunks),
@@ -8788,6 +8823,71 @@ class TestToolHooksTextual:
         assert result_payloads[0]["tool_args"] == {}
         assert any(
             "ghost-1" in record.message
+            and "no correlated" in record.message
+            and record.levelname == "WARNING"
+            for record in caplog.records
+        )
+
+    async def test_auto_denied_tool_result_skips_uncorrelated_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A synthetic auto-mode denial does not log the uncorrelated warning.
+
+        Covers the adapter branch given an already-marked message. A no-argument
+        call such as `onepassword_authenticate` streams no args, so no widget
+        mounts and its denial result arrives uncorrelated. The marker must
+        suppress the warning while the tool.result hook still fires with empty
+        args.
+
+        That the marker reaches this point is covered separately by
+        `test_policy_denial_marker_survives_server_round_trip`.
+        """
+        from deepagents_code.auto_mode import AUTO_DENIED_METADATA_KEY
+
+        chunks = [
+            (
+                (),
+                "messages",
+                (
+                    ToolMessage(
+                        content="Auto denied [credential_access]: not authorized",
+                        tool_call_id="call-1",
+                        name="onepassword_authenticate",
+                        status="error",
+                        additional_kwargs={AUTO_DENIED_METADATA_KEY: True},
+                    ),
+                    {},
+                ),
+            ),
+        ]
+        adapter = TextualUIAdapter(
+            mount_message=_mock_mount,
+            update_status=_noop_status,
+            request_approval=_mock_approval,
+        )
+
+        with (
+            caplog.at_level("WARNING", logger="deepagents_code.tui.textual_adapter"),
+            patch(
+                "deepagents_code.tui.textual_adapter.dispatch_hook_fire_and_forget"
+            ) as mock_dispatch,
+        ):
+            await execute_task_textual(
+                user_input="hello",
+                agent=_FakeAgent(chunks),
+                assistant_id="assistant",
+                session_state=_session_state(auto_approve=False),
+                adapter=adapter,
+            )
+
+        result_payloads = [
+            c[0][1] for c in mock_dispatch.call_args_list if c[0][0] == "tool.result"
+        ]
+        assert len(result_payloads) == 1
+        assert result_payloads[0]["tool_id"] == "call-1"
+        assert result_payloads[0]["tool_args"] == {}
+        assert not any(
+            "call-1" in record.message
             and "no correlated" in record.message
             and record.levelname == "WARNING"
             for record in caplog.records

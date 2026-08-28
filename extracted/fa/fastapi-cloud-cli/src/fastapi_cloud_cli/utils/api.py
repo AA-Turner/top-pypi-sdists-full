@@ -14,6 +14,7 @@ from typing import (
 
 import httpx
 import typer
+from agent_detector import detect_agent
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from rich_toolkit.progress import Progress
 from typing_extensions import ParamSpec
@@ -149,12 +150,17 @@ class DeploymentStatus(str, Enum):
     extracting_failed_archive_too_large = "extracting_failed_archive_too_large"
     building_image = "building_image"
     building_image_failed = "building_image_failed"
+    building_image_failed_timeout = "building_image_failed_timeout"
     deploying = "deploying"
+    deploying_skipped = "deploying_skipped"
     deploying_failed = "deploying_failed"
     verifying = "verifying"
     verifying_failed = "verifying_failed"
+    verification_failed_oom = "verification_failed_oom"
     verifying_skipped = "verifying_skipped"
     success = "success"
+    degraded_oom = "degraded_oom"
+    degraded = "degraded"
     expired = "expired"
     failed = "failed"
 
@@ -170,12 +176,17 @@ class DeploymentStatus(str, Enum):
             cls.extracting_failed_archive_too_large: "Archive Too Large",
             cls.building_image: "Building Image",
             cls.building_image_failed: "Build Failed",
+            cls.building_image_failed_timeout: "Build Timed Out",
             cls.deploying: "Deploying Image",
+            cls.deploying_skipped: "Deployment Skipped",
             cls.deploying_failed: "Deployment Failed",
             cls.verifying: "Verifying Readiness",
             cls.verifying_failed: "Verification Failed",
+            cls.verification_failed_oom: "Verification Failed (OOM)",
             cls.verifying_skipped: "Verification Skipped",
             cls.success: "Ready",
+            cls.degraded_oom: "Degraded (OOM)",
+            cls.degraded: "Degraded",
             cls.expired: "Expired",
             cls.failed: "Failed",
         }[status]
@@ -185,8 +196,11 @@ SUCCESSFUL_STATUSES = {DeploymentStatus.success, DeploymentStatus.verifying_skip
 FAILED_STATUSES = {
     DeploymentStatus.failed,
     DeploymentStatus.verifying_failed,
+    DeploymentStatus.verification_failed_oom,
     DeploymentStatus.deploying_failed,
+    DeploymentStatus.deploying_skipped,
     DeploymentStatus.building_image_failed,
+    DeploymentStatus.building_image_failed_timeout,
     DeploymentStatus.extracting_failed,
     DeploymentStatus.extracting_failed_archive_too_large,
 }
@@ -304,6 +318,15 @@ def get_http_error_hint(code: ErrorCode, *, auth_mode: AuthMode = "user") -> str
     return None
 
 
+def _get_user_agent() -> str:
+    user_agent = f"fastapi-cloud-cli/{__version__}"
+
+    if detection := detect_agent(minimum_confidence="high"):
+        user_agent = f"{user_agent} AI-Agent/{detection.agent}"
+
+    return user_agent
+
+
 class APIClient(httpx.Client):
     auth_mode: AuthMode
 
@@ -319,7 +342,7 @@ class APIClient(httpx.Client):
             token = identity.user_token
             self.auth_mode = "user"
 
-        headers = {"User-Agent": f"fastapi-cloud-cli/{__version__}"}
+        headers = {"User-Agent": _get_user_agent()}
         if token:
             headers["Authorization"] = f"Bearer {token}"
 

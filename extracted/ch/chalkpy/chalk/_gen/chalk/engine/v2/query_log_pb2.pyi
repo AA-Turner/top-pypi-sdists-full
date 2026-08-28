@@ -131,7 +131,6 @@ class QueryLogEntry(_message.Message):
         "query_plan_id",
         "value_tables",
         "meta_query_hash",
-        "multi_query_id",
     )
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -150,7 +149,6 @@ class QueryLogEntry(_message.Message):
     QUERY_PLAN_ID_FIELD_NUMBER: _ClassVar[int]
     VALUE_TABLES_FIELD_NUMBER: _ClassVar[int]
     META_QUERY_HASH_FIELD_NUMBER: _ClassVar[int]
-    MULTI_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     environment_id: str
     deployment_id: str
@@ -168,7 +166,6 @@ class QueryLogEntry(_message.Message):
     query_plan_id: str
     value_tables: _containers.RepeatedScalarFieldContainer[str]
     meta_query_hash: str
-    multi_query_id: str
     def __init__(
         self,
         operation_id: _Optional[str] = ...,
@@ -188,7 +185,6 @@ class QueryLogEntry(_message.Message):
         query_plan_id: _Optional[str] = ...,
         value_tables: _Optional[_Iterable[str]] = ...,
         meta_query_hash: _Optional[str] = ...,
-        multi_query_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetQueryLogEntriesResponse(_message.Message):

@@ -965,18 +965,45 @@ def loaded_model_keys() -> List[Tuple[str, str]]:
         return sorted(_INSTANCES.keys())
 
 
-# Model dirs are immutable once pulled, so walk each once and memoize by path.
-_DISK_DETAIL_CACHE: Dict[str, dict] = {}
+# Model dirs are immutable once pulled, so walk each once and memoize. The key
+# is (path, chosen_gguf): WHICH quant serves is operator-mutable (the gguf_file
+# override), so a plain path key held the stale weight_bytes forever after a
+# re-pin — keying on the chosen artifact makes an override change miss the
+# cache naturally (set_override already drops the physical record; this cache
+# re-derives on the next read because the chosen basename changed).
+_DISK_DETAIL_CACHE: Dict[tuple, dict] = {}
 _WEIGHT_EXTS = (".safetensors", ".bin", ".pt", ".pth", ".gguf", ".ckpt", ".onnx")
 
 
-def _dir_size_detail(path: str) -> dict:
+def _dir_size_detail(path: str, model_key: Optional[str] = None,
+                     cfg: Optional[dict] = None) -> dict:
     """Recursively size a model dir: total on-disk bytes + weight-file bytes.
 
-    The weight sum (safetensors/bin/…) is a coarse expected-VRAM proxy — what
-    the framework will pull into memory, minus tokenizer/config/README noise.
-    Cached by path; returns {} for a missing/unreadable dir (caller degrades)."""
-    cached = _DISK_DETAIL_CACHE.get(path)
+    ``model_bytes`` is the WHOLE-DIR total (the row's on-disk size, contract
+    unchanged). ``weight_bytes`` is what the framework will actually pull into
+    memory — and for gguf/llama_cpp that is the SINGLE designated/elected quant
+    (+ mmproj, shards summed), NOT every quant in the dir: a 24-quant repo used
+    to report its full ~53GB litter as the expected-VRAM proxy. Resolved via
+    ``effective_load_requirement`` when (model_key, cfg) are supplied; non-GGUF
+    (or no model identity) keeps the recursive weight-ext sum exactly as
+    before. Cached; returns {} for a missing/unreadable dir (caller degrades)."""
+    chosen = None
+    eff_weight = None
+    framework = ""
+    if isinstance(cfg, dict):
+        framework = str(cfg.get("framework") or "").lower()
+    elif cfg is not None:
+        framework = str(getattr(cfg, "framework", "") or "").lower()
+    if model_key and framework in ("gguf", "llama_cpp"):
+        try:
+            from ..serve.overrides import effective_load_requirement
+            req = effective_load_requirement(model_key, path, cfg) or {}
+            chosen = req.get("chosen_gguf")
+            eff_weight = req.get("weights_bytes")
+        except Exception:  # noqa: BLE001 — sizing refinement is best-effort
+            chosen = eff_weight = None
+    cache_key = (path, chosen)
+    cached = _DISK_DETAIL_CACHE.get(cache_key)
     if cached is not None:
         return cached
     total = weight = 0
@@ -992,13 +1019,15 @@ def _dir_size_detail(path: str) -> dict:
                     weight += sz
     except OSError:
         return {}
+    if eff_weight:
+        weight = int(eff_weight)             # the artifact that loads, not the litter
     out: dict = {}
     if total:
         out["model_bytes"] = total          # frontend renders this as the row's size
     if weight:
         out["weight_bytes"] = weight         # expected-VRAM proxy
     if out:
-        _DISK_DETAIL_CACHE[path] = out
+        _DISK_DETAIL_CACHE[cache_key] = out
     return out
 
 
@@ -1026,7 +1055,7 @@ def loaded_disk_detail() -> dict:
             path = route_destination(cfg)
         except Exception:
             continue
-        d = _dir_size_detail(path)
+        d = _dir_size_detail(path, model_key=mk, cfg=cfg)
         if d:
             out[mk] = d
     return out

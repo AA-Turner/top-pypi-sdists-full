@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-glue-alpha",
-    "2.266.0-alpha.0",
+    "2.267.0-alpha.0",
     __name__[0:-6],
-    "aws-glue-alpha@2.266.0-alpha.0.jsii.tgz",
+    "aws-glue-alpha@2.267.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

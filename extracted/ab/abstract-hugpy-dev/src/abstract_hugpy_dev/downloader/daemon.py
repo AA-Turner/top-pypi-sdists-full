@@ -42,14 +42,34 @@ import time
 
 from ..comms.jobs import job_store
 from . import presence
-from .engine import DOWNLOAD_KIND, run_download_job
+from .engine import DOWNLOAD_KIND, hf_token_present, run_download_job
 
 logger = logging.getLogger("hugpy.downloader")
 
 POLL_SECONDS = float(os.environ.get("HUGPY_DOWNLOADER_POLL_SECONDS", "1.5") or 1.5)
 MAX_CONCURRENT = int(os.environ.get("HUGPY_DOWNLOADER_MAX_CONCURRENT", "2") or 2)
+# How often an in-flight transfer narrates itself into the journal (k119). The
+# old daemon logged only `polling (active=N)`: an operator could not tell a
+# healthy 40GB transfer from a wedged one, nor a claimed job from a lost one.
+PROGRESS_LOG_SECONDS = float(
+    os.environ.get("HUGPY_DOWNLOADER_PROGRESS_LOG_SECONDS", "30") or 30)
+# How often the idle heartbeat prints. It now carries QUEUE DEPTH and MIRROR
+# HEALTH, because "polling (active=0)" was logged happily for 11 days while the
+# mirror was quarantined and 65 download jobs rotted unclaimed.
+IDLE_LOG_SECONDS = float(
+    os.environ.get("HUGPY_DOWNLOADER_IDLE_LOG_SECONDS", "300") or 300)
 
 _ADOPT_MESSAGE = "Re-queued after a downloader restart — resuming…"
+
+
+def _human(n: int | float) -> str:
+    """Bytes for a human, so a progress line is readable at a glance."""
+    n = float(n or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(n) < 1024.0 or unit == "TB":
+            return f"{n:.1f}{unit}"
+        n /= 1024.0
+    return f"{n:.1f}TB"
 
 
 def owner_id() -> str:
@@ -70,8 +90,12 @@ class Downloader:
         self.max_concurrent = max(1, int(max_concurrent))
         self.poll_seconds = max(0.2, float(poll_seconds))
         self._active: dict[str, threading.Thread] = {}
+        self._done: set[str] = set()
         self._lock = threading.Lock()
         self._stop = threading.Event()
+        # Latches so an outage is announced ONCE (and its recovery once), instead
+        # of every 5 minutes forever or — as before — never.
+        self._queue_down_since: float = 0.0
 
     # -- lifecycle -----------------------------------------------------------
     def stop(self, *_a) -> None:
@@ -119,14 +143,96 @@ class Downloader:
                          model_name=claimed.get("model"),
                          payload=payload, total_bytes=total_bytes,
                          status="pending")
-        logger.info("claimed %s (%s)", job_id, model_key)
+        hub_id = (model or {}).get("hub_id") or model_key
+        logger.info("CLAIMED %s model_key=%s hub_id=%s total_bytes=%s",
+                    job_id, model_key, hub_id, total_bytes or "?")
+        started = time.time()
+        # A per-claim progress ticker. `polling (active=N)` said nothing about
+        # whether the transfer that IS running is moving — an operator watching
+        # the journal could not tell a 40GB download from a wedged one. The
+        # engine owns the job row; this thread only READS it and narrates.
+        ticker = threading.Thread(
+            target=self._narrate, args=(job_id, model_key), daemon=True,
+            name=f"narrate-{str(job_id)[:8]}")
+        ticker.start()
         try:
             status = run_download_job(job_id, model_key, model,
                                       total_bytes=total_bytes)
-            logger.info("job %s (%s) -> %s", job_id, model_key, status)
+            job = job_store.get(job_id)
+            err = getattr(job, "error", None) if job else None
+            logger.info("%s %s (%s) after %.0fs%s",
+                        "DONE" if status == "completed" else status.upper(),
+                        job_id, model_key, time.time() - started,
+                        f" — {err}" if err else "")
         except Exception as exc:  # noqa: BLE001 — a crash must not lose the job
-            logger.exception("download job %s crashed", job_id)
+            logger.exception("FAILED %s (%s) — download job crashed",
+                             job_id, model_key)
             job_store.finish(job_id, "failed", error=exc)
+        finally:
+            self._done.add(job_id)
+
+    def _narrate(self, job_id: str, model_key: str) -> None:
+        """Log this transfer's progress every PROGRESS_LOG_SECONDS until it goes
+        terminal, so the journal shows movement (or the absence of it) per job
+        instead of only an idle heartbeat."""
+        while job_id not in self._done and not self._stop.is_set():
+            self._stop.wait(PROGRESS_LOG_SECONDS)
+            job = job_store.get(job_id)
+            if job is None or job_id in self._done:
+                return
+            pct = float(getattr(job, "progress", 0.0) or 0.0) * 100.0
+            got = getattr(job, "downloaded_bytes", 0) or 0
+            total = getattr(job, "total_bytes", 0) or 0
+            bps = getattr(job, "bytes_per_second", None) or 0
+            stalled = bool(getattr(job, "stalled", False))
+            logger.info(
+                "downloading %s (%s) %.1f%% %s/%s at %.1f MB/s%s",
+                job_id, model_key, pct, _human(got),
+                _human(total) if total else "?",
+                bps / 1e6, "  [STALLED]" if stalled else "")
+
+    # -- queue health ---------------------------------------------------------
+    def _queue_health(self) -> dict:
+        """Depth of the unclaimed download queue + the mirror's breaker state.
+
+        This is the fact the daemon was missing. `claim_next` returning None is
+        AMBIGUOUS — it means "nothing to do" and "I cannot see the queue at all"
+        with the same value, and the second case is what the download outage
+        actually was."""
+        mirror = job_store.mirror
+        if mirror is None:
+            return {"queued": "?", "mirror": "absent", "ok": False}
+        try:
+            h = mirror.health()
+        except Exception:  # noqa: BLE001 — health must never break the loop
+            return {"queued": "?", "mirror": "unknown", "ok": True}
+        if not h.get("ok"):
+            return {"queued": "?",
+                    "mirror": f"QUARANTINED retry_in={h.get('retry_in', 0):.0f}s"
+                              f" last={h.get('last_error') or '?'}",
+                    "ok": False}
+        try:
+            depth = mirror.claimable_count((DOWNLOAD_KIND,))
+        except Exception:  # noqa: BLE001
+            depth = "?"
+        return {"queued": depth, "mirror": "ok", "ok": True}
+
+    def _watch_queue_health(self) -> None:
+        """Announce a queue outage ONCE, and its recovery once. The 2026-08-10
+        outage logged a single ERROR and then eleven days of cheerful INFO."""
+        h = self._queue_health()
+        if not h["ok"] and not self._queue_down_since:
+            self._queue_down_since = time.time()
+            logger.error(
+                "QUEUE UNREACHABLE (%s) — this daemon can claim NOTHING; every "
+                "Add-model request will sit queued until it recovers. The mirror "
+                "retries itself; check %s.",
+                h["mirror"], os.environ.get("HUGPY_COMMS_DB") or "(default db)")
+        elif h["ok"] and self._queue_down_since:
+            down = time.time() - self._queue_down_since
+            self._queue_down_since = 0.0
+            logger.warning("QUEUE RECOVERED after %.0fs — resuming claims "
+                           "(queued=%s)", down, h["queued"])
 
     def _dispatch(self) -> int:
         started = 0
@@ -148,9 +254,12 @@ class Downloader:
 
     def run(self) -> int:
         logger.info("hugpy downloader starting — owner=%s max_concurrent=%d "
-                    "poll=%.1fs comms_db=%s", self.owner, self.max_concurrent,
-                    self.poll_seconds,
-                    os.environ.get("HUGPY_COMMS_DB") or "(default)")
+                    "poll=%.1fs comms_db=%s hf_token=%s",
+                    self.owner, self.max_concurrent, self.poll_seconds,
+                    os.environ.get("HUGPY_COMMS_DB") or "(default)",
+                    # Boolean only — a token value is never logged.
+                    "present" if hf_token_present() else "ABSENT (gated/private "
+                    "repos will fail; save one in the console)")
         if job_store.mirror is None:
             logger.error("no cross-process comms mirror (HUGPY_COMMS_DB=off or "
                          "unwritable) — there is no queue to serve. Refusing to "
@@ -167,15 +276,21 @@ class Downloader:
                 if now - last_beat >= presence.BEAT_INTERVAL:
                     presence.beat(self.owner)
                     last_beat = now
+                self._watch_queue_health()
                 if started:
                     idle_logged = now
-                elif now - idle_logged >= 300:
+                elif now - idle_logged >= IDLE_LOG_SECONDS:
                     # A heartbeat in the journal, so an operator can see the
                     # daemon is polling and not wedged. Every 5 min, not every
-                    # tick — this runs ~40x a minute.
+                    # tick — this runs ~40x a minute. It now reports the QUEUE
+                    # (depth + mirror health), because the old line said
+                    # "polling (active=0)" for 11 days while the mirror was
+                    # quarantined and every Add-model request rotted unclaimed.
                     with self._lock:
                         active = len(self._active)
-                    logger.info("polling (active=%d)", active)
+                    h = self._queue_health()
+                    logger.info("polling (active=%d queued=%s mirror=%s)",
+                                active, h["queued"], h["mirror"])
                     idle_logged = now
             except Exception:  # noqa: BLE001 — the loop must never die
                 logger.exception("downloader poll failed")

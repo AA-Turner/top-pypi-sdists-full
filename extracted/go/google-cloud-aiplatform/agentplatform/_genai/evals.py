@@ -153,9 +153,6 @@ def _CreateEvaluationRunParameters_to_vertex(
             },
         )
 
-    if getv(from_object, ["config"]) is not None:
-        setv(to_object, ["config"], getv(from_object, ["config"]))
-
     if getv(from_object, ["analysis_configs"]) is not None:
         setv(
             to_object,
@@ -173,6 +170,9 @@ def _CreateEvaluationRunParameters_to_vertex(
     if getv(from_object, ["encryption_spec"]) is not None:
         setv(to_object, ["encryptionSpec"], getv(from_object, ["encryption_spec"]))
 
+    if getv(from_object, ["config"]) is not None:
+        setv(to_object, ["config"], getv(from_object, ["config"]))
+
     return to_object
 
 
@@ -187,11 +187,11 @@ def _CreateEvaluationSetParameters_to_vertex(
     if getv(from_object, ["display_name"]) is not None:
         setv(to_object, ["displayName"], getv(from_object, ["display_name"]))
 
-    if getv(from_object, ["config"]) is not None:
-        setv(to_object, ["config"], getv(from_object, ["config"]))
-
     if getv(from_object, ["encryption_spec"]) is not None:
         setv(to_object, ["encryptionSpec"], getv(from_object, ["encryption_spec"]))
+
+    if getv(from_object, ["config"]) is not None:
+        setv(to_object, ["config"], getv(from_object, ["config"]))
 
     return to_object
 
@@ -788,9 +788,6 @@ def _GenerateUserScenariosParameters_to_vertex(
             ),
         )
 
-    if getv(from_object, ["config"]) is not None:
-        setv(to_object, ["config"], getv(from_object, ["config"]))
-
     if getv(from_object, ["allow_cross_region_model"]) is not None:
         setv(
             to_object,
@@ -802,6 +799,9 @@ def _GenerateUserScenariosParameters_to_vertex(
         setv(
             to_object, ["geminiAgentConfig"], getv(from_object, ["gemini_agent_config"])
         )
+
+    if getv(from_object, ["config"]) is not None:
+        setv(to_object, ["config"], getv(from_object, ["config"]))
 
     return to_object
 
@@ -1515,10 +1515,10 @@ class Evals(_api_module.BaseModule):
         inference_configs: Optional[
             dict[str, types.EvaluationRunInferenceConfigOrDict]
         ] = None,
-        config: Optional[types.CreateEvaluationRunConfigOrDict] = None,
         analysis_configs: Optional[list[types.AnalysisConfigOrDict]] = None,
         evaluation_experiment: Optional[str] = None,
         encryption_spec: Optional[genai_types.EncryptionSpecOrDict] = None,
+        config: Optional[types.CreateEvaluationRunConfigOrDict] = None,
     ) -> types.EvaluationRun:
         """
         Creates an EvaluationRun.
@@ -1531,10 +1531,10 @@ class Evals(_api_module.BaseModule):
             evaluation_config=evaluation_config,
             labels=labels,
             inference_configs=inference_configs,
-            config=config,
             analysis_configs=analysis_configs,
             evaluation_experiment=evaluation_experiment,
             encryption_spec=encryption_spec,
+            config=config,
         )
 
         request_url_dict: Optional[dict[str, str]]
@@ -1602,8 +1602,8 @@ class Evals(_api_module.BaseModule):
         *,
         evaluation_items: list[str],
         display_name: Optional[str] = None,
-        config: Optional[types.CreateEvaluationSetConfigOrDict] = None,
         encryption_spec: Optional[genai_types.EncryptionSpecOrDict] = None,
+        config: Optional[types.CreateEvaluationSetConfigOrDict] = None,
     ) -> types.EvaluationSet:
         """
         Creates an EvaluationSet.
@@ -1612,8 +1612,8 @@ class Evals(_api_module.BaseModule):
         parameter_model = types._CreateEvaluationSetParameters(
             evaluation_items=evaluation_items,
             display_name=display_name,
-            config=config,
             encryption_spec=encryption_spec,
+            config=config,
         )
 
         request_url_dict: Optional[dict[str, str]]
@@ -2013,9 +2013,9 @@ class Evals(_api_module.BaseModule):
         user_scenario_generation_config: Optional[
             evals_types.UserScenarioGenerationConfigOrDict
         ] = None,
-        config: Optional[types.GenerateUserScenariosConfigOrDict] = None,
         allow_cross_region_model: Optional[bool] = None,
         gemini_agent_config: Optional[types.GeminiAgentConfigOrDict] = None,
+        config: Optional[types.GenerateUserScenariosConfigOrDict] = None,
     ) -> types.GenerateUserScenariosResponse:
         """
         Generates user scenarios for agent evaluation.
@@ -2026,9 +2026,9 @@ class Evals(_api_module.BaseModule):
             agents=agents,
             root_agent_id=root_agent_id,
             user_scenario_generation_config=user_scenario_generation_config,
-            config=config,
             allow_cross_region_model=allow_cross_region_model,
             gemini_agent_config=gemini_agent_config,
+            config=config,
         )
 
         request_url_dict: Optional[dict[str, str]]
@@ -3031,7 +3031,7 @@ class Evals(_api_module.BaseModule):
         *,
         src: Union[str, pd.DataFrame, types.EvaluationDataset],
         model: Optional[Union[str, Callable[[Any], Any]]] = None,
-        agent: Optional[Union[str, types.AgentEngine, LlmAgent]] = None,
+        agent: Optional[Union[str, types.Runtime, LlmAgent]] = None,
         location: Optional[str] = None,
         config: Optional[types.EvalRunInferenceConfigOrDict] = None,
     ) -> types.EvaluationDataset:
@@ -3054,11 +3054,11 @@ class Evals(_api_module.BaseModule):
               - For custom logic, provide a callable function that accepts a prompt and
                 returns a response.
           agent: This field is experimental and may change in future versions
-                The agent engine used or local agent to run agent, optional for non-agent evaluations.
-              - agent engine resource name in str type, with format
+                The agent runtime used or local agent to run agent, optional for non-agent evaluations.
+              - agent runtime resource name in str type, with format
                 `projects/{project}/locations/{location}/reasoningEngines/{reasoning_engine_id}`,
-                run_inference will fetch the agent engine from the resource name.
-              - Or `types.AgentEngine` object.
+                run_inference will fetch the agent runtime from the resource name.
+              - Or `types.Runtime` object.
               - Or ADK agent in LlMAgent type.
           location: The location to use for the inference. If not specified, the
                 location configured in the client will be used. If specified,
@@ -3090,7 +3090,7 @@ class Evals(_api_module.BaseModule):
                     " populated."
                 )
 
-        agent_engine_instance = None
+        runtime_instance = None
         agent_instance = None
         gemini_agent_instance = None
         if agent:
@@ -3098,15 +3098,15 @@ class Evals(_api_module.BaseModule):
                 agent
             ):
                 gemini_agent_instance = agent
-            elif isinstance(agent, str) or isinstance(agent, types.AgentEngine):
-                agent_engine_instance = agent
+            elif isinstance(agent, str) or isinstance(agent, types.Runtime):
+                runtime_instance = agent
             else:
                 agent_instance = agent
 
         return _evals_common._execute_inference(  # type: ignore[no-any-return]
             api_client=self._api_client,
             model=model,
-            agent_engine=agent_engine_instance,
+            runtime=runtime_instance,
             agent=agent_instance,
             gemini_agent=gemini_agent_instance,
             src=src,
@@ -3579,7 +3579,7 @@ class Evals(_api_module.BaseModule):
                or a Gemini Agent (Vertex AI Agent) resource name
                `projects/{project}/locations/{location}/agents/{agent}`. When a Gemini
                Agent resource is provided, the backend scrapes the agent to produce
-               agent responses. If an Agent Engine resource name is provided, runs
+               agent responses. If an Agent Runtime resource name is provided, runs
                inference with the deployed agent to get agent responses for evaluation.
                The `agent` parameter is required if `agent_info` is provided.
            user_simulator_config: The user simulator configuration for agent evaluation.
@@ -4514,10 +4514,10 @@ class AsyncEvals(_api_module.BaseModule):
         inference_configs: Optional[
             dict[str, types.EvaluationRunInferenceConfigOrDict]
         ] = None,
-        config: Optional[types.CreateEvaluationRunConfigOrDict] = None,
         analysis_configs: Optional[list[types.AnalysisConfigOrDict]] = None,
         evaluation_experiment: Optional[str] = None,
         encryption_spec: Optional[genai_types.EncryptionSpecOrDict] = None,
+        config: Optional[types.CreateEvaluationRunConfigOrDict] = None,
     ) -> types.EvaluationRun:
         """
         Creates an EvaluationRun.
@@ -4530,10 +4530,10 @@ class AsyncEvals(_api_module.BaseModule):
             evaluation_config=evaluation_config,
             labels=labels,
             inference_configs=inference_configs,
-            config=config,
             analysis_configs=analysis_configs,
             evaluation_experiment=evaluation_experiment,
             encryption_spec=encryption_spec,
+            config=config,
         )
 
         request_url_dict: Optional[dict[str, str]]
@@ -4603,8 +4603,8 @@ class AsyncEvals(_api_module.BaseModule):
         *,
         evaluation_items: list[str],
         display_name: Optional[str] = None,
-        config: Optional[types.CreateEvaluationSetConfigOrDict] = None,
         encryption_spec: Optional[genai_types.EncryptionSpecOrDict] = None,
+        config: Optional[types.CreateEvaluationSetConfigOrDict] = None,
     ) -> types.EvaluationSet:
         """
         Creates an EvaluationSet.
@@ -4613,8 +4613,8 @@ class AsyncEvals(_api_module.BaseModule):
         parameter_model = types._CreateEvaluationSetParameters(
             evaluation_items=evaluation_items,
             display_name=display_name,
-            config=config,
             encryption_spec=encryption_spec,
+            config=config,
         )
 
         request_url_dict: Optional[dict[str, str]]
@@ -5024,9 +5024,9 @@ class AsyncEvals(_api_module.BaseModule):
         user_scenario_generation_config: Optional[
             evals_types.UserScenarioGenerationConfigOrDict
         ] = None,
-        config: Optional[types.GenerateUserScenariosConfigOrDict] = None,
         allow_cross_region_model: Optional[bool] = None,
         gemini_agent_config: Optional[types.GeminiAgentConfigOrDict] = None,
+        config: Optional[types.GenerateUserScenariosConfigOrDict] = None,
     ) -> types.GenerateUserScenariosResponse:
         """
         Generates user scenarios for agent evaluation.
@@ -5037,9 +5037,9 @@ class AsyncEvals(_api_module.BaseModule):
             agents=agents,
             root_agent_id=root_agent_id,
             user_scenario_generation_config=user_scenario_generation_config,
-            config=config,
             allow_cross_region_model=allow_cross_region_model,
             gemini_agent_config=gemini_agent_config,
+            config=config,
         )
 
         request_url_dict: Optional[dict[str, str]]
@@ -6219,7 +6219,7 @@ class AsyncEvals(_api_module.BaseModule):
               or a Gemini Agent (Vertex AI Agent) resource name
               `projects/{project}/locations/{location}/agents/{agent}`. When a Gemini
               Agent resource is provided, the backend scrapes the agent to produce
-              agent responses. If an Agent Engine resource name is provided, runs
+              agent responses. If an Agent Runtime resource name is provided, runs
               inference with the deployed agent to get agent responses for evaluation.
               The `agent` parameter is required if `agent_info` is provided.
           user_simulator_config: The user simulator configuration for agent evaluation.

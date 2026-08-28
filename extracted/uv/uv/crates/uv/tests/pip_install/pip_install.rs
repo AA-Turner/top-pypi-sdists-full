@@ -5,8 +5,6 @@ use std::process::Command;
 use anyhow::{Context, Result, anyhow};
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
-#[cfg(unix)]
-use async_compression::tokio::write::ZstdEncoder;
 use async_zip::base::write::ZipFileWriter;
 use async_zip::{Compression, ZipEntryBuilder};
 use fs_err as fs;
@@ -17,8 +15,6 @@ use futures::executor::block_on;
 use indoc::{formatdoc, indoc};
 use insta::{allow_duplicates, assert_snapshot};
 use predicates::prelude::predicate;
-#[cfg(unix)]
-use tokio::io::AsyncWriteExt;
 use url::Url;
 use walkdir::WalkDir;
 use wiremock::{
@@ -26,7 +22,9 @@ use wiremock::{
     matchers::{basic_auth, method, path},
 };
 
+use uv_extract::dirhash::{DirectoryDigest, dirhash_path};
 use uv_fs::{PortablePath, Simplified};
+use uv_install_wheel::validate_and_heal_record;
 use uv_static::EnvVars;
 use uv_test::archive::write_tar_gz;
 #[cfg(feature = "test-git")]
@@ -6849,141 +6847,6 @@ async fn install_package_basic_auth_from_netrc() -> Result<()> {
     );
 
     context.assert_command("import anyio").success();
-
-    Ok(())
-}
-
-/// Install a package from a known pyx URL by falling back to netrc when the pyx store is empty.
-#[tokio::test]
-async fn install_package_known_pyx_url_from_netrc_without_pyx_token() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-    let proxy = crate::pypi_proxy::start().await;
-    let netrc = context.temp_dir.child(".netrc");
-    netrc.write_str(&format!(
-        "machine {} login public password heron",
-        proxy.host()
-    ))?;
-    let pyx_credentials_dir = context.temp_dir.child("pyx-credentials");
-    pyx_credentials_dir.create_dir_all()?;
-
-    uv_snapshot!(context.filters(), context.pip_install()
-        .arg("anyio")
-        .arg("--index-url")
-        .arg(proxy.url("/basic-auth/simple"))
-        .env(EnvVars::NETRC, netrc.as_os_str())
-        .env(EnvVars::PYX_API_URL, proxy.uri())
-        .env(EnvVars::PYX_CREDENTIALS_DIR, pyx_credentials_dir.as_os_str()), @"
-    exit_code: 0 (success)
-    ----- stderr -----
-    Resolved 3 packages in [TIME]
-    Prepared 3 packages in [TIME]
-    Installed 3 packages in [TIME]
-     + anyio==4.3.0
-     + idna==3.6
-     + sniffio==1.3.1
-    "
-    );
-
-    Ok(())
-}
-
-/// Install a package from a known pyx URL by falling back to netrc when the pyx lookup fails.
-#[tokio::test]
-async fn install_package_known_pyx_url_from_netrc_on_pyx_error() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-    let proxy = crate::pypi_proxy::start().await;
-    let netrc = context.temp_dir.child(".netrc");
-    netrc.write_str(&format!(
-        "machine {} login public password heron",
-        proxy.host()
-    ))?;
-    let pyx_credentials_dir = context.temp_dir.child("pyx-credentials");
-    pyx_credentials_dir.create_dir_all()?;
-
-    uv_snapshot!(context.filters(), context.pip_install()
-        .arg("anyio")
-        .arg("--index-url")
-        .arg(proxy.url("/basic-auth/simple"))
-        .env(EnvVars::NETRC, netrc.as_os_str())
-        .env(EnvVars::PYX_API_URL, proxy.uri())
-        .env(EnvVars::PYX_API_KEY, "invalid-api-key")
-        .env(EnvVars::PYX_CREDENTIALS_DIR, pyx_credentials_dir.as_os_str()), @"
-    exit_code: 0 (success)
-    ----- stderr -----
-    Resolved 3 packages in [TIME]
-    Prepared 3 packages in [TIME]
-    Installed 3 packages in [TIME]
-     + anyio==4.3.0
-     + idna==3.6
-     + sniffio==1.3.1
-    "
-    );
-
-    Ok(())
-}
-
-/// Install a package from a known pyx URL using the pyx token even when netrc is available.
-#[tokio::test]
-async fn install_package_known_pyx_url_prefers_pyx_token_to_netrc() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-    let proxy = crate::pypi_proxy::start().await;
-    let netrc = context.temp_dir.child(".netrc");
-    netrc.write_str(&format!(
-        // Pass in an incorrect password so the test fails if we use it.
-        "machine {} login public password incorrect",
-        proxy.host()
-    ))?;
-    let pyx_credentials_dir = context.temp_dir.child("pyx-credentials");
-    pyx_credentials_dir.create_dir_all()?;
-
-    uv_snapshot!(context.filters(), context.pip_install()
-        .arg("anyio")
-        .arg("--index-url")
-        .arg(proxy.url("/bearer-auth/simple"))
-        .env(EnvVars::NETRC, netrc.as_os_str())
-        .env(EnvVars::PYX_API_URL, proxy.uri())
-        .env(EnvVars::PYX_AUTH_TOKEN, crate::pypi_proxy::pyx_test_token())
-        .env(EnvVars::PYX_CREDENTIALS_DIR, pyx_credentials_dir.as_os_str())
-        .arg("--strict"), @"
-    exit_code: 0 (success)
-    ----- stderr -----
-    Resolved 3 packages in [TIME]
-    Prepared 3 packages in [TIME]
-    Installed 3 packages in [TIME]
-     + anyio==4.3.0
-     + idna==3.6
-     + sniffio==1.3.1
-    "
-    );
-
-    Ok(())
-}
-
-/// A known pyx URL with no relevant fallback credentials should still show pyx-specific guidance.
-#[tokio::test]
-async fn install_package_known_pyx_url_failure_shows_pyx_guidance() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-    let proxy = crate::pypi_proxy::start().await;
-    let netrc = context.temp_dir.child(".netrc");
-    netrc.write_str("machine example.com login public password heron")?;
-    let pyx_credentials_dir = context.temp_dir.child("pyx-credentials");
-    pyx_credentials_dir.create_dir_all()?;
-
-    uv_snapshot!(context.filters(), context.pip_install()
-        .arg("anyio")
-        .arg("--index-url")
-        .arg(proxy.url("/bearer-auth/simple"))
-        .env(EnvVars::NETRC, netrc.as_os_str())
-        .env(EnvVars::PYX_API_URL, proxy.uri())
-        .env(EnvVars::PYX_API_KEY, "invalid-api-key")
-        .env(EnvVars::PYX_CREDENTIALS_DIR, pyx_credentials_dir.as_os_str())
-        .arg("--strict"), @"
-    exit_code: 2 (failure)
-    ----- stderr -----
-    error: Failed to fetch: `http://[LOCALHOST]/bearer-auth/simple/anyio/`
-      Caused by: Run `uv auth login pyx.dev` to authenticate uv with pyx
-    "
-    );
 
     Ok(())
 }
@@ -14715,6 +14578,19 @@ fn reject_invalid_streaming_zip() {
       ╰─▶ ZIP file contains multiple entries with different contents for: cbwheelstreamtest/__init__.py
     "
     );
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("cbwheelstreamtest==0.0.1")
+        .arg("--preview-features")
+        .arg("content-addressed-cache"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+      × Failed to download `cbwheelstreamtest==0.0.1`
+      ├─▶ Failed to extract archive: cbwheelstreamtest-0.0.1-py2.py3-none-any.whl
+      ╰─▶ ZIP file contains multiple entries for the same output path: cbwheelstreamtest/__init__.py
+    "
+    );
 }
 
 #[test]
@@ -16549,10 +16425,21 @@ fn handle_record_mismatches() -> Result<()> {
     }
     fs_err::write(&repacked_wheel, block_on(writer.close())?)?;
 
+    // Healing changes the extracted tree, so the archive ID must reflect the repaired RECORD.
+    let extracted = context.temp_dir.join("foo-extracted");
+    let (files, unhealed_tree) =
+        uv_extract::unzip_and_hash(File::open(&repacked_wheel)?, &extracted)?;
+    let unhealed_digest = DirectoryDigest::from(unhealed_tree.hash());
+    assert!(validate_and_heal_record(&extracted, files.iter(), "foo")?.is_some());
+    let healed_digest = DirectoryDigest::from(dirhash_path(&extracted)?);
+    assert_ne!(unhealed_digest, healed_digest);
+
     uv_snapshot!(context.filters(), context.pip_install()
         .arg("--find-links")
         .arg(context.temp_dir.as_ref())
         .arg("--offline")
+        .arg("--preview-features")
+        .arg("content-addressed-cache")
         .arg("foo"), @"
     exit_code: 0 (success)
     ----- stderr -----
@@ -16562,6 +16449,17 @@ fn handle_record_mismatches() -> Result<()> {
      + foo==0.1.0
     "
     );
+
+    context
+        .cache_dir
+        .child("archive-v0")
+        .child(unhealed_digest.as_str())
+        .assert(predicate::path::missing());
+    context
+        .cache_dir
+        .child("archive-v0")
+        .child(healed_digest.as_str())
+        .assert(predicate::path::exists());
 
     // Read the healed RECORD.
     let installed_record =
@@ -16579,113 +16477,6 @@ fn handle_record_mismatches() -> Result<()> {
     foo/__init__.py,,49
     foo/py.typed,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
     ");
-
-    Ok(())
-}
-
-/// A skipped traversal entry in a zstd-compressed tar wheel must not survive RECORD healing and
-/// remove an unrelated environment executable during uninstall.
-#[cfg(unix)]
-#[tokio::test]
-async fn tar_wheel_traversal_is_not_recorded() -> Result<()> {
-    let context = uv_test::test_context!("3.12");
-
-    let victim = venv_bin_path(&context.venv).join("victim");
-    fs_err::write(&victim, "I should not be deleted")?;
-
-    let record = indoc! {"
-        tar_wheel/__init__.py,,
-        tar_wheel-1.0.0.dist-info/METADATA,,
-        tar_wheel-1.0.0.dist-info/WHEEL,,
-        tar_wheel-1.0.0.dist-info/RECORD,,
-        ../../../bin/victim,,
-    "};
-    let entries = [
-        ("tar_wheel/__init__.py", ""),
-        (
-            "tar_wheel-1.0.0.dist-info/METADATA",
-            "Metadata-Version: 2.1\nName: tar-wheel\nVersion: 1.0.0\n",
-        ),
-        (
-            "tar_wheel-1.0.0.dist-info/WHEEL",
-            "Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
-        ),
-        ("tar_wheel-1.0.0.dist-info/RECORD", record),
-        ("../../../bin/victim", "malicious replacement"),
-    ];
-
-    let mut tar = tokio_tar::Builder::new_non_terminated(ZstdEncoder::new(Vec::new()));
-    for (path, contents) in entries {
-        let mut header = tokio_tar::Header::new_gnu();
-        header.as_mut_bytes()[..path.len()].copy_from_slice(path.as_bytes());
-        header.set_size(contents.len() as u64);
-        header.set_mode(0o644);
-        header.set_cksum();
-        tar.append(&header, contents.as_bytes()).await?;
-    }
-    let mut encoder = tar.into_inner().await?;
-    encoder.shutdown().await?;
-    let tar_wheel = encoder.into_inner();
-
-    let server = MockServer::start().await;
-    let wheel_url = format!("{}/files/tar_wheel-1.0.0-py3-none-any.whl", server.uri());
-    Mock::given(method("GET"))
-        .and(path("/tar-wheel/"))
-        .respond_with(ResponseTemplate::new(200).set_body_raw(
-            formatdoc! {r#"
-                {{
-                    "name": "tar-wheel",
-                    "files": [{{
-                        "filename": "tar_wheel-1.0.0-py3-none-any.whl",
-                        "url": "{wheel_url}",
-                        "hashes": {{}},
-                        "core-metadata": true,
-                        "upload-time": "2024-03-24T00:00:00Z",
-                        "zstd": {{
-                            "hashes": {{}},
-                            "size": {}
-                        }}
-                    }}]
-                }}
-            "#, tar_wheel.len()},
-            "application/vnd.pyx.simple.v1+json",
-        ))
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path("/files/tar_wheel-1.0.0-py3-none-any.whl.metadata"))
-        .respond_with(ResponseTemplate::new(200).set_body_string(indoc! {"
-            Metadata-Version: 2.1
-            Name: tar-wheel
-            Version: 1.0.0
-        "}))
-        .expect(1)
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path("/files/tar_wheel-1.0.0-py3-none-any.whl.tar.zst"))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(tar_wheel))
-        .expect(1)
-        .mount(&server)
-        .await;
-
-    context
-        .pip_install()
-        .arg("tar-wheel==1.0.0")
-        .arg("--default-index")
-        .arg(server.uri())
-        .assert()
-        .success();
-
-    let installed_record = fs_err::read_to_string(
-        context
-            .site_packages()
-            .join("tar_wheel-1.0.0.dist-info/RECORD"),
-    )?;
-    assert!(!installed_record.contains("../../../bin/victim"));
-
-    context.pip_uninstall().arg("tar-wheel").assert().success();
-    assert_eq!(fs_err::read_to_string(&victim)?, "I should not be deleted");
 
     Ok(())
 }

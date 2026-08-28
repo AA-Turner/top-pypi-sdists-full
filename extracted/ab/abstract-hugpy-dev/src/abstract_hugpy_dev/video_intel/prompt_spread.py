@@ -74,6 +74,7 @@ __all__ = [
     "build_spread_messages",
     "build_negative_messages",
     "parse_spread_reply",
+    "coordinate_spread",
 ]
 
 
@@ -793,6 +794,78 @@ def parse_spread_reply(text, target) -> Dict[str, Any]:
         "invented_identity_attributes": invented,
         "missing_segments": missing,
     }
+
+
+# --------------------------------------------------------------------------- #
+# COORDINATION REVIEW (k121) — the half this module was missing
+#
+# This module already SPEAKS the joint modes to the writer (``JOINT_MODE_PLAIN``,
+# ``_render_timeline``): a model shown the sentence writes prose that continues
+# the previous shot instead of restarting it. That is half the job, and until now
+# it was the only half. The prose came back saying "continuous" and the ROW'S
+# KNOBS stayed exactly as they were — ``joint_mode`` unset, no parent link, the
+# model's default frame count, a recurring character with no identity behind it.
+# The operator's cinema session is the whole finding: "not a single prompt was
+# created with the proper knobs turned".
+#
+# ``coordinate_spread`` closes it. It reads the prose THIS spread just wrote (plus
+# the locked rows, which are context here exactly as they are for the writer),
+# derives the knob state that prose implies, applies the ratchet-safe ones, and
+# attaches a report so nothing is silent.
+#
+# ⚠ INVARIANT 9 IS NOT WEAKENED. What crosses between rows here is MECHANICS
+# only — joint_mode, a parent pointer, a seed, a frame count, identity references
+# — through ``prompt_coordination.apply_decisions``, whose writable key list does
+# not contain ``prompt``. No generated row's TEXT is ever read into another row.
+# --------------------------------------------------------------------------- #
+def coordinate_spread(req: SpreadRequest, parsed: Dict[str, Any],
+                      context: Optional[Dict[str, Any]] = None,
+                      llm=None) -> Dict[str, Any]:
+    """Review + set the knobs for a parsed spread reply. Returns ``parsed``.
+
+    The review runs over the WHOLE timeline — locked rows included — for the same
+    reason the writer sees the whole timeline: a segment's join is a fact about it
+    and its NEIGHBOUR, and a review blind to the neighbour would set half a chain.
+    Locked rows are marked ``locked`` so the review reports them but never writes
+    them (they are the user's own work; see ``prompt_coordination``'s ratchet rule).
+
+    Each result row gains a ``knobs`` object — the knob values that were actually
+    APPLIED to it, ready to be merged into the row's spec — and the return value
+    gains ``coordination``, the full report. Both keys are ADDITIVE: a caller that
+    ignores them behaves exactly as it did before this existed.
+    """
+    from . import prompt_coordination as PC
+
+    prose = {s["segment_id"]: s.get("prompt", "")
+             for s in parsed.get("segments") or []}
+    rows: List[Dict[str, Any]] = []
+    for s in list(req.fixed_segments) + list(req.target_segments):
+        sid = s["segment_id"]
+        row = dict(s)
+        # A target the model actually wrote is reviewed on its NEW prose; one it
+        # skipped keeps its old prompt, because that is what will render.
+        row["prompt"] = prose.get(sid) or s.get("prompt", "")
+        row["locked"] = bool(s.get("locked"))
+        rows.append(row)
+
+    ctx: Dict[str, Any] = dict(context or {})
+    ident = req.context.get("identity_profile")
+    if ident is not None:
+        ctx.setdefault("identity_profiles", ident)
+    if req.steering_seed is not None:
+        ctx.setdefault("seed_base", req.steering_seed)
+
+    report = PC.review(rows, notes=req.hint, context=ctx, llm=llm)
+    applied_rows, applied = PC.apply_decisions(rows, report)
+    by_id = {r["segment_id"]: r for r in applied_rows}
+    touched: Dict[str, Dict[str, Any]] = {}
+    for d in applied:
+        touched.setdefault(d.segment_id, {})[d.knob] = by_id[d.segment_id][d.knob]
+
+    for seg in parsed.get("segments") or []:
+        seg["knobs"] = touched.get(seg["segment_id"], {})
+    parsed["coordination"] = report.as_dict()
+    return parsed
 
 
 def spread_debug_payload(req: SpreadRequest) -> str:

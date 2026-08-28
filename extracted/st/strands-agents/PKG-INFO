@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents
-Version: 1.53.0
+Version: 1.54.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -47,60 +47,67 @@ Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
 Requires-Dist: aws-bedrock-token-generator<2.0.0,>=1.1.0; extra == 'all'
+Requires-Dist: aws-sdk-bedrock-runtime[awscrt]<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'all'
 Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'all'
 Requires-Dist: cedar-policy-mcp-schema-generator==0.6.0; extra == 'all'
 Requires-Dist: cedarpy==4.8.7; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.133.0; extra == 'all'
 Requires-Dist: google-genai<3.0.0,>=1.67.0; extra == 'all'
+Requires-Dist: google-genai<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
 Requires-Dist: litellm<=1.96.0,>=1.75.9; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: mistralai<3.0.0,>=2.0.0; extra == 'all'
+Requires-Dist: numpy<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
+Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'all'
+Requires-Dist: pywebrtc-audio<0.2.0,>=0.1.0; extra == 'all'
+Requires-Dist: smithy-aws-core<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'all'
+Requires-Dist: smithy-core<0.9.0,>=0.8.0; (python_version >= '3.12') and extra == 'all'
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'all'
 Requires-Dist: sphinx-rtd-theme<4.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'all'
 Requires-Dist: starlette<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'all'
+Requires-Dist: websockets<17.0.0,>=16.0.0; extra == 'all'
 Requires-Dist: writer-sdk<4.0.0,>=2.2.0; extra == 'all'
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: bidi
-Requires-Dist: aws-sdk-bedrock-runtime<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi'
-Requires-Dist: smithy-aws-core<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi'
+Requires-Dist: aws-sdk-bedrock-runtime[awscrt]<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'bidi'
+Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi'
+Requires-Dist: smithy-aws-core<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'bidi'
+Requires-Dist: smithy-core<0.9.0,>=0.8.0; (python_version >= '3.12') and extra == 'bidi'
 Provides-Extra: bidi-aec
-Requires-Dist: numpy<3.0.0,>=1.21.0; extra == 'bidi-aec'
-Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-aec'
-Requires-Dist: pyaudio<1.0.0,>=0.2.13; extra == 'bidi-aec'
-Requires-Dist: pywebrtc-audio<1.0.0,>=0.1.0; extra == 'bidi-aec'
+Requires-Dist: numpy<3.0.0,>=2.0.0; extra == 'bidi-aec'
+Requires-Dist: pywebrtc-audio<0.2.0,>=0.1.0; extra == 'bidi-aec'
 Provides-Extra: bidi-all
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'bidi-all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'bidi-all'
-Requires-Dist: aws-sdk-bedrock-runtime<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi-all'
+Requires-Dist: aws-sdk-bedrock-runtime[awscrt]<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'bidi-all'
 Requires-Dist: fastapi<1.0.0,>=0.133.0; extra == 'bidi-all'
-Requires-Dist: google-genai<3.0.0,>=1.67.0; extra == 'bidi-all'
+Requires-Dist: google-genai<3.0.0,>=2.0.0; extra == 'bidi-all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'bidi-all'
-Requires-Dist: numpy<3.0.0,>=1.21.0; extra == 'bidi-all'
+Requires-Dist: numpy<3.0.0,>=2.0.0; extra == 'bidi-all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'bidi-all'
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-all'
-Requires-Dist: pyaudio<1.0.0,>=0.2.13; extra == 'bidi-all'
-Requires-Dist: pywebrtc-audio<1.0.0,>=0.1.0; extra == 'bidi-all'
-Requires-Dist: smithy-aws-core<1.0.0,>=0.4.0; (python_version >= '3.12') and extra == 'bidi-all'
+Requires-Dist: pywebrtc-audio<0.2.0,>=0.1.0; extra == 'bidi-all'
+Requires-Dist: smithy-aws-core<0.12.0,>=0.11.0; (python_version >= '3.12') and extra == 'bidi-all'
+Requires-Dist: smithy-core<0.9.0,>=0.8.0; (python_version >= '3.12') and extra == 'bidi-all'
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'bidi-all'
 Requires-Dist: sphinx-rtd-theme<4.0.0,>=1.0.0; extra == 'bidi-all'
 Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'bidi-all'
 Requires-Dist: starlette<2.0.0,>=1.0.0; extra == 'bidi-all'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'bidi-all'
-Requires-Dist: websockets<17.0.0,>=15.0.0; extra == 'bidi-all'
-Provides-Extra: bidi-gemini
-Requires-Dist: google-genai<3.0.0,>=1.67.0; extra == 'bidi-gemini'
-Provides-Extra: bidi-io
-Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-io'
-Requires-Dist: pyaudio<1.0.0,>=0.2.13; extra == 'bidi-io'
+Requires-Dist: websockets<17.0.0,>=16.0.0; extra == 'bidi-all'
+Provides-Extra: bidi-google
+Requires-Dist: google-genai<3.0.0,>=2.0.0; extra == 'bidi-google'
 Provides-Extra: bidi-openai
-Requires-Dist: websockets<17.0.0,>=15.0.0; extra == 'bidi-openai'
+Requires-Dist: websockets<17.0.0,>=16.0.0; extra == 'bidi-openai'
+Provides-Extra: bidi-pyaudio
+Requires-Dist: pyaudio<0.3.0,>=0.2.0; extra == 'bidi-pyaudio'
 Provides-Extra: cedar
 Requires-Dist: cedar-policy-mcp-schema-generator==0.6.0; extra == 'cedar'
 Requires-Dist: cedarpy==4.8.7; extra == 'cedar'
@@ -360,8 +367,11 @@ Build real-time voice and audio conversations with persistent streaming connecti
 # Server-side only (no audio I/O dependencies)
 pip install strands-agents[bidi]
 
-# With audio I/O support (includes PyAudio dependency)
-pip install strands-agents[bidi,bidi-io]
+# With all portable Bidi providers, text I/O, and audio processing
+pip install strands-agents[bidi-all]
+
+# For local microphone/speaker access, install PortAudio for your OS first, then:
+pip install strands-agents[bidi-pyaudio]
 ```
 
 > **Note**: Amazon Nova Sonic requires Python 3.12+ due to its experimental AWS SDK dependency.
@@ -380,7 +390,7 @@ async def main():
     model = BidiNovaSonicModel()
     agent = BidiAgent(model=model, tools=[calculator, stop])
 
-    # Setup audio and text I/O (requires bidi-io extra)
+    # Setup audio and text I/O (local audio requires the bidi-pyaudio extra)
     audio_io = BidiAudioIO()
     text_io = BidiTextIO()
 
@@ -395,7 +405,10 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-> **Note**: `BidiAudioIO` and `BidiTextIO` require the `bidi-io` extra. For server-side deployments where audio I/O is handled by clients (browsers, mobile apps), install only `strands-agents[bidi]` and implement custom input/output handlers using the `BidiInput` and `BidiOutput` protocols.
+> **Note**: `BidiTextIO` is included with the `bidi` extra. `BidiAudioIO` requires the `bidi-pyaudio` extra and
+> the PortAudio system library. For server-side deployments where audio I/O is handled by clients (browsers,
+> mobile apps), install only `strands-agents[bidi]` and implement custom input/output handlers using the
+> `BidiInput` and `BidiOutput` protocols.
 
 **Configuration Options:**
 

@@ -7,7 +7,7 @@ import warnings
 import sys
 import pulumi
 import pulumi.runtime
-from typing import Any, Mapping, Optional, Sequence, Union, overload
+from typing import Any, Mapping, Optional, Sequence, Union, overload, Literal
 if sys.version_info >= (3, 11):
     from typing import NotRequired, TypedDict, TypeAlias
 else:
@@ -45,16 +45,16 @@ class Lease(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['coordination.k8s.io/v1']] = None,
+                 kind: Optional[Literal['Lease']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  spec: Optional['outputs.LeaseSpec'] = None):
         """
         Lease defines a lease concept.
 
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['coordination.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['Lease'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param 'LeaseSpecArgs' spec: spec contains the specification of the Lease. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         """
         if api_version is not None:
@@ -68,7 +68,7 @@ class Lease(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['coordination.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -76,7 +76,7 @@ class Lease(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['Lease']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -86,7 +86,7 @@ class Lease(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -146,9 +146,9 @@ class LeaseSpec(dict):
         :param _builtins.str holder_identity: holderIdentity contains the identity of the holder of a current lease. If Coordinated Leader Election is used, the holder identity must be equal to the elected LeaseCandidate.metadata.name field.
         :param _builtins.int lease_duration_seconds: leaseDurationSeconds is a duration that candidates for a lease need to wait to force acquire it. This is measured against the time of last observed renewTime.
         :param _builtins.int lease_transitions: leaseTransitions is the number of transitions of a lease between holders.
-        :param _builtins.str preferred_holder: PreferredHolder signals to a lease holder that the lease has a more optimal holder and should be given up. This field can only be set if Strategy is also set.
+        :param _builtins.str preferred_holder: preferredHolder signals to a lease holder that the lease has a more optimal holder and should be given up. This field can only be set if Strategy is also set.
         :param _builtins.str renew_time: renewTime is a time when the current holder of a lease has last updated the lease.
-        :param _builtins.str strategy: Strategy indicates the strategy for picking the leader for coordinated leader election. If the field is not specified, there is no active coordination for this lease. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.
+        :param _builtins.str strategy: strategy indicates the strategy for picking the leader for coordinated leader election. If the field is not specified, there is no active coordination for this lease. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.
         """
         if acquire_time is not None:
             pulumi.set(__self__, "acquire_time", acquire_time)
@@ -201,7 +201,7 @@ class LeaseSpec(dict):
     @pulumi.getter(name="preferredHolder")
     def preferred_holder(self) -> Optional[_builtins.str]:
         """
-        PreferredHolder signals to a lease holder that the lease has a more optimal holder and should be given up. This field can only be set if Strategy is also set.
+        preferredHolder signals to a lease holder that the lease has a more optimal holder and should be given up. This field can only be set if Strategy is also set.
         """
         return pulumi.get(self, "preferred_holder")
 
@@ -217,7 +217,7 @@ class LeaseSpec(dict):
     @pulumi.getter
     def strategy(self) -> Optional[_builtins.str]:
         """
-        Strategy indicates the strategy for picking the leader for coordinated leader election. If the field is not specified, there is no active coordination for this lease. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.
+        strategy indicates the strategy for picking the leader for coordinated leader election. If the field is not specified, there is no active coordination for this lease. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.
         """
         return pulumi.get(self, "strategy")
 
@@ -269,9 +269,9 @@ class LeaseSpecPatch(dict):
         :param _builtins.str holder_identity: holderIdentity contains the identity of the holder of a current lease. If Coordinated Leader Election is used, the holder identity must be equal to the elected LeaseCandidate.metadata.name field.
         :param _builtins.int lease_duration_seconds: leaseDurationSeconds is a duration that candidates for a lease need to wait to force acquire it. This is measured against the time of last observed renewTime.
         :param _builtins.int lease_transitions: leaseTransitions is the number of transitions of a lease between holders.
-        :param _builtins.str preferred_holder: PreferredHolder signals to a lease holder that the lease has a more optimal holder and should be given up. This field can only be set if Strategy is also set.
+        :param _builtins.str preferred_holder: preferredHolder signals to a lease holder that the lease has a more optimal holder and should be given up. This field can only be set if Strategy is also set.
         :param _builtins.str renew_time: renewTime is a time when the current holder of a lease has last updated the lease.
-        :param _builtins.str strategy: Strategy indicates the strategy for picking the leader for coordinated leader election. If the field is not specified, there is no active coordination for this lease. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.
+        :param _builtins.str strategy: strategy indicates the strategy for picking the leader for coordinated leader election. If the field is not specified, there is no active coordination for this lease. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.
         """
         if acquire_time is not None:
             pulumi.set(__self__, "acquire_time", acquire_time)
@@ -324,7 +324,7 @@ class LeaseSpecPatch(dict):
     @pulumi.getter(name="preferredHolder")
     def preferred_holder(self) -> Optional[_builtins.str]:
         """
-        PreferredHolder signals to a lease holder that the lease has a more optimal holder and should be given up. This field can only be set if Strategy is also set.
+        preferredHolder signals to a lease holder that the lease has a more optimal holder and should be given up. This field can only be set if Strategy is also set.
         """
         return pulumi.get(self, "preferred_holder")
 
@@ -340,7 +340,7 @@ class LeaseSpecPatch(dict):
     @pulumi.getter
     def strategy(self) -> Optional[_builtins.str]:
         """
-        Strategy indicates the strategy for picking the leader for coordinated leader election. If the field is not specified, there is no active coordination for this lease. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.
+        strategy indicates the strategy for picking the leader for coordinated leader election. If the field is not specified, there is no active coordination for this lease. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.
         """
         return pulumi.get(self, "strategy")
 

@@ -47,13 +47,17 @@ from typing import Any, Callable, Optional
 from .shared import SqliteMirror
 
 CANONICAL_STATUSES = ("pending", "processing", "streaming",
-                      "done", "cancelled", "failed", "expired")
+                      "done", "cancelled", "failed", "expired", "discarded")
 # `expired` (slice 9): a terminal state for a pending job that was NEVER
 # dispatched (no worker, no progress past the orphan threshold) — distinct from
 # `cancelled` (an operator/owner asked) and `failed` (it ran and errored). Making
 # it terminal means the orphan sweep + the authoritative cancel can retire a
 # stuck pending row that no owner will ever finish.
-TERMINAL_STATUSES = frozenset(("done", "cancelled", "failed", "expired"))
+# `discarded` (k121): an admin explicitly dismissed a persistent FAILURE RECORD
+# (failed/expired rows are never auto-pruned — operator ruling 2026-08-20).
+# Hidden from every view and swept by the mirror prune shortly after.
+TERMINAL_STATUSES = frozenset(("done", "cancelled", "failed", "expired",
+                               "discarded"))
 
 # The media_bus job kinds bridged in via video_intel.job_bridge (transport
 # "media"). snapshot(live_only=False) surfaces a sibling process's *terminal*
@@ -209,6 +213,12 @@ class Job:
     model_name: Optional[str] = None      # display name (model_key is the key)
     message: str = ""
     error: Optional[JobError] = None
+    # A TYPED failure code the console can branch on — "gated_repo" | "auth" |
+    # "not_found" | "no_space" (downloader/engine.classify_download_error).
+    # `error` keeps the raw detail; this says what KIND of wrong it is, so the
+    # UI can offer "save an HF token" instead of printing a 401 traceback.
+    # Omit-when-unset: every non-download row's wire shape is unchanged.
+    error_reason: Optional[str] = None
     # WHERE a media/video job physically executes — {source, host, worker_id, gpu,
     # process, reserved_bytes} (omit-when-unset). Stamped by the media-bus job
     # bridge (video_intel.placement); None for every non-media job, and omitted
@@ -309,6 +319,8 @@ class Job:
             d["placement"] = self.placement
         if self.payload is not None:
             d["payload"] = self.payload
+        if self.error_reason:
+            d["error_reason"] = self.error_reason
         return d
 
     def to_legacy_dict(self) -> dict[str, Any]:
@@ -719,6 +731,30 @@ class JobStore:
                 pass
         return None
 
+    def discard(self, job_id: str) -> bool:
+        """ADMIN DISCARD of a terminal failure record (k121). Flips the row to
+        `discarded` — the only way a persistent failed/expired record leaves the
+        queue view — locally AND in the mirror (override_terminal: this verb
+        alone may overwrite a terminal status). Never touches a live job; the
+        caller gates on terminal status (cancel is the verb for live rows)."""
+        removed = False
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is not None:
+                if not job.terminal:
+                    return False
+                self._jobs.pop(job_id, None)
+                removed = True
+        if self.mirror is not None:
+            try:
+                if self.mirror.force_terminal(job_id, "discarded",
+                                              "discarded by operator",
+                                              override_terminal=True):
+                    removed = True
+            except Exception:
+                pass
+        return removed
+
     @staticmethod
     def _fire(handle: Optional[Callable[[], None]]) -> None:
         # Always outside the store lock: a handle may touch the store.
@@ -849,22 +885,34 @@ class JobStore:
         and those two decisions should not share a number.
 
         Best-effort: never raises into a view."""
-        from .shared import _pending_expiry_seconds
+        from .shared import (CLAIM_QUEUE_KINDS, _claim_queue_expiry_seconds,
+                             _pending_expiry_seconds)
         expired: list[str] = []
         try:
             cutoff = time.time() - _pending_expiry_seconds()
+            # k119: a claim-queue kind (download) is dispatched by a DAEMON
+            # taking a claim, never by a worker being assigned, so the
+            # worker-dispatch cutoff retired every queued download after 30
+            # minutes under the message "no capable worker" — a lie, and a
+            # silent loss of the operator's request. Own clock, own message.
+            claim_cutoff = time.time() - _claim_queue_expiry_seconds()
             wedge_cutoff = time.time() - _stalled_expiry_seconds()
             msg = ("never dispatched — model unresolvable or no capable worker "
                    "(auto-expired)")
+            claim_msg = ("never claimed by the downloader service — it was not "
+                         "running, or its queue was unreachable (auto-expired). "
+                         "Re-add the model once hugpy-downloader is up.")
             wedged: list[tuple] = []
             with self._lock:
                 for jid, job in list(self._jobs.items()):
                     status = normalize_status(job.status)
+                    claimable = str(job.kind or "") in CLAIM_QUEUE_KINDS
+                    pending_cutoff = claim_cutoff if claimable else cutoff
                     if (status == "pending"
                             and not job.worker
-                            and float(job.progressed_at or 0) < cutoff):
+                            and float(job.progressed_at or 0) < pending_cutoff):
                         job.status = "expired"
-                        job.message = msg
+                        job.message = claim_msg if claimable else msg
                         if job.ended_ts is None:
                             job.ended_ts = time.time()
                         job.updated_at = _utcnow_iso()

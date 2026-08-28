@@ -92,6 +92,9 @@ from mixpeek.models.auto_billing_toggle_response import AutoBillingToggleRespons
 from mixpeek.models.available_org_model_item import AvailableOrgModelItem
 from mixpeek.models.available_org_models_response import AvailableOrgModelsResponse
 from mixpeek.models.available_steps_response import AvailableStepsResponse
+from mixpeek.models.azure_blob_config import AzureBlobConfig
+from mixpeek.models.azure_managed_identity_credentials import AzureManagedIdentityCredentials
+from mixpeek.models.azure_storage_account_key_credentials import AzureStorageAccountKeyCredentials
 from mixpeek.models.byo_document import BYODocument
 from mixpeek.models.byo_upsert_request import BYOUpsertRequest
 from mixpeek.models.byo_upsert_response import BYOUpsertResponse
@@ -321,6 +324,7 @@ from mixpeek.models.credentials1 import Credentials1
 from mixpeek.models.credentials2 import Credentials2
 from mixpeek.models.credentials3 import Credentials3
 from mixpeek.models.credentials4 import Credentials4
+from mixpeek.models.credentials5 import Credentials5
 from mixpeek.models.credit_balance_response import CreditBalanceResponse
 from mixpeek.models.current_usage_response import CurrentUsageResponse
 from mixpeek.models.cursor_pagination_params import CursorPaginationParams
@@ -471,6 +475,8 @@ from mixpeek.models.flat_taxonomy_config_output import FlatTaxonomyConfigOutput
 from mixpeek.models.float_index_params import FloatIndexParams
 from mixpeek.models.folder_item import FolderItem
 from mixpeek.models.folder_path_source import FolderPathSource
+from mixpeek.models.gcs_config import GCSConfig
+from mixpeek.models.gcs_service_account_key_credentials import GCSServiceAccountKeyCredentials
 from mixpeek.models.gaussian_mixture_params import GaussianMixtureParams
 from mixpeek.models.gemini_multifile_extractor_params import GeminiMultifileExtractorParams
 from mixpeek.models.generate_from_interactions_request import GenerateFromInteractionsRequest

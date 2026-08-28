@@ -290,10 +290,14 @@ class GCPSecondaryIpRange(_message.Message):
     def __init__(self, range_name: _Optional[str] = ..., ip_cidr_range: _Optional[str] = ...) -> None: ...
 
 class CloudComponentStorage(_message.Message):
-    __slots__ = ("uri",)
+    __slots__ = ("uri", "retention")
     URI_FIELD_NUMBER: _ClassVar[int]
+    RETENTION_FIELD_NUMBER: _ClassVar[int]
     uri: str
-    def __init__(self, uri: _Optional[str] = ...) -> None: ...
+    retention: CloudStorageLifecyclePolicy
+    def __init__(
+        self, uri: _Optional[str] = ..., retention: _Optional[_Union[CloudStorageLifecyclePolicy, _Mapping]] = ...
+    ) -> None: ...
 
 class CloudComponentStorageResponse(_message.Message):
     __slots__ = (
@@ -363,6 +367,30 @@ class CloudComponentStorageRequest(_message.Message):
         managed: bool = ...,
         cloud_credential_id: _Optional[str] = ...,
     ) -> None: ...
+
+class CloudStorageLifecycleRule(_message.Message):
+    __slots__ = ("id", "expire_after_days", "prefix", "enabled")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    EXPIRE_AFTER_DAYS_FIELD_NUMBER: _ClassVar[int]
+    PREFIX_FIELD_NUMBER: _ClassVar[int]
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    expire_after_days: int
+    prefix: str
+    enabled: bool
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        expire_after_days: _Optional[int] = ...,
+        prefix: _Optional[str] = ...,
+        enabled: bool = ...,
+    ) -> None: ...
+
+class CloudStorageLifecyclePolicy(_message.Message):
+    __slots__ = ("rules",)
+    RULES_FIELD_NUMBER: _ClassVar[int]
+    rules: _containers.RepeatedCompositeFieldContainer[CloudStorageLifecycleRule]
+    def __init__(self, rules: _Optional[_Iterable[_Union[CloudStorageLifecycleRule, _Mapping]]] = ...) -> None: ...
 
 class EnvironmentCloudStorageBinding(_message.Message):
     __slots__ = ("id", "cloud_storage_id", "storage_role", "environment_id", "created_at", "updated_at")
@@ -568,7 +596,26 @@ class CloudComponentCluster(_message.Message):
         "dataplane_controller",
         "cluster_class",
         "maintenance_window",
+        "dynamic_config",
+        "deploy_auxiliary_components",
+        "chalk_dataplane_version",
     )
+    class DeployAuxiliaryComponents(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        DEPLOY_AUXILIARY_COMPONENTS_NONE_UNSPECIFIED: _ClassVar[CloudComponentCluster.DeployAuxiliaryComponents]
+        DEPLOY_AUXILIARY_COMPONENTS_ENABLED: _ClassVar[CloudComponentCluster.DeployAuxiliaryComponents]
+
+    DEPLOY_AUXILIARY_COMPONENTS_NONE_UNSPECIFIED: CloudComponentCluster.DeployAuxiliaryComponents
+    DEPLOY_AUXILIARY_COMPONENTS_ENABLED: CloudComponentCluster.DeployAuxiliaryComponents
+    class ChalkDataplaneVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        CHALK_DATAPLANE_VERSION_UNSPECIFIED: _ClassVar[CloudComponentCluster.ChalkDataplaneVersion]
+        CHALK_DATAPLANE_VERSION_V1: _ClassVar[CloudComponentCluster.ChalkDataplaneVersion]
+        CHALK_DATAPLANE_VERSION_V2: _ClassVar[CloudComponentCluster.ChalkDataplaneVersion]
+
+    CHALK_DATAPLANE_VERSION_UNSPECIFIED: CloudComponentCluster.ChalkDataplaneVersion
+    CHALK_DATAPLANE_VERSION_V1: CloudComponentCluster.ChalkDataplaneVersion
+    CHALK_DATAPLANE_VERSION_V2: CloudComponentCluster.ChalkDataplaneVersion
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
     KUBERNETES_VERSION_FIELD_NUMBER: _ClassVar[int]
@@ -577,6 +624,9 @@ class CloudComponentCluster(_message.Message):
     DATAPLANE_CONTROLLER_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_CLASS_FIELD_NUMBER: _ClassVar[int]
     MAINTENANCE_WINDOW_FIELD_NUMBER: _ClassVar[int]
+    DYNAMIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    DEPLOY_AUXILIARY_COMPONENTS_FIELD_NUMBER: _ClassVar[int]
+    CHALK_DATAPLANE_VERSION_FIELD_NUMBER: _ClassVar[int]
     name: str
     designator: str
     kubernetes_version: str
@@ -585,6 +635,9 @@ class CloudComponentCluster(_message.Message):
     dataplane_controller: DataplaneController
     cluster_class: _cluster_class_pb2.ClusterClass
     maintenance_window: MaintenanceWindow
+    dynamic_config: DataplaneDynamicConfig
+    deploy_auxiliary_components: CloudComponentCluster.DeployAuxiliaryComponents
+    chalk_dataplane_version: CloudComponentCluster.ChalkDataplaneVersion
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -595,6 +648,9 @@ class CloudComponentCluster(_message.Message):
         dataplane_controller: _Optional[_Union[DataplaneController, _Mapping]] = ...,
         cluster_class: _Optional[_Union[_cluster_class_pb2.ClusterClass, str]] = ...,
         maintenance_window: _Optional[_Union[MaintenanceWindow, _Mapping]] = ...,
+        dynamic_config: _Optional[_Union[DataplaneDynamicConfig, _Mapping]] = ...,
+        deploy_auxiliary_components: _Optional[_Union[CloudComponentCluster.DeployAuxiliaryComponents, str]] = ...,
+        chalk_dataplane_version: _Optional[_Union[CloudComponentCluster.ChalkDataplaneVersion, str]] = ...,
     ) -> None: ...
 
 class DataPlaneRedis(_message.Message):
@@ -901,10 +957,12 @@ class GetCloudComponentClusterResponse(_message.Message):
     def __init__(self, cluster: _Optional[_Union[CloudComponentClusterResponse, _Mapping]] = ...) -> None: ...
 
 class DeleteCloudComponentClusterRequest(_message.Message):
-    __slots__ = ("id",)
+    __slots__ = ("id", "force")
     ID_FIELD_NUMBER: _ClassVar[int]
+    FORCE_FIELD_NUMBER: _ClassVar[int]
     id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    force: bool
+    def __init__(self, id: _Optional[str] = ..., force: bool = ...) -> None: ...
 
 class DeleteCloudComponentClusterResponse(_message.Message):
     __slots__ = ()
@@ -999,6 +1057,22 @@ class DeleteCloudComponentStorageRequest(_message.Message):
 class DeleteCloudComponentStorageResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class UpdateCloudComponentStorageRequest(_message.Message):
+    __slots__ = ("id", "spec")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    spec: CloudComponentStorage
+    def __init__(
+        self, id: _Optional[str] = ..., spec: _Optional[_Union[CloudComponentStorage, _Mapping]] = ...
+    ) -> None: ...
+
+class UpdateCloudComponentStorageResponse(_message.Message):
+    __slots__ = ("storage",)
+    STORAGE_FIELD_NUMBER: _ClassVar[int]
+    storage: CloudComponentStorageResponse
+    def __init__(self, storage: _Optional[_Union[CloudComponentStorageResponse, _Mapping]] = ...) -> None: ...
 
 class ListCloudComponentStorageRequest(_message.Message):
     __slots__ = ("team_id",)
@@ -1317,6 +1391,56 @@ class ListBindingClusterGatewayResponse(_message.Message):
         self, bindings: _Optional[_Iterable[_Union[GetBindingClusterGatewayResponse, _Mapping]]] = ...
     ) -> None: ...
 
+class CreateBindingServicesGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id", "services_gateway_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    SERVICES_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    services_gateway_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., services_gateway_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingServicesGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteBindingServicesGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingServicesGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingServicesGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingServicesGatewayResponse(_message.Message):
+    __slots__ = ("cluster_id", "services_gateway_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    SERVICES_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    services_gateway_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., services_gateway_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingServicesGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingServicesGatewayResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[GetBindingServicesGatewayResponse]
+    def __init__(
+        self, bindings: _Optional[_Iterable[_Union[GetBindingServicesGatewayResponse, _Mapping]]] = ...
+    ) -> None: ...
+
 class CreateBindingPrivateGatewayRequest(_message.Message):
     __slots__ = ("cluster_id", "private_gateway_id")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1580,3 +1704,23 @@ class ListBindingEnvironmentBackgroundPersistenceDeploymentResponse(_message.Mes
             _Iterable[_Union[GetBindingEnvironmentBackgroundPersistenceDeploymentResponse, _Mapping]]
         ] = ...,
     ) -> None: ...
+
+class DataplaneDynamicConfig(_message.Message):
+    __slots__ = ("dataplane_controller", "hypervisor")
+    DATAPLANE_CONTROLLER_FIELD_NUMBER: _ClassVar[int]
+    HYPERVISOR_FIELD_NUMBER: _ClassVar[int]
+    dataplane_controller: DataplaneControllerDynamicConfig
+    hypervisor: HypervisorDynamicConfig
+    def __init__(
+        self,
+        dataplane_controller: _Optional[_Union[DataplaneControllerDynamicConfig, _Mapping]] = ...,
+        hypervisor: _Optional[_Union[HypervisorDynamicConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class DataplaneControllerDynamicConfig(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class HypervisorDynamicConfig(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

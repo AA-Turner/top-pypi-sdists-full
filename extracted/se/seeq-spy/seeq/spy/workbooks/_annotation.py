@@ -612,11 +612,7 @@ class Journal(Annotation):
             return set()
 
         workstep_references = set()
-        regex = r'workbook%s(%s)&amp;worksheet%s(%s)&amp;workstep%s(%s)' % (
-            _common.HTML_EQUALS_REGEX, _common.GUID_REGEX,
-            _common.HTML_EQUALS_REGEX, _common.GUID_REGEX,
-            _common.HTML_EQUALS_REGEX, _common.GUID_REGEX)
-        matches = re.finditer(regex, self.html, re.IGNORECASE)
+        matches = re.finditer(_common.workstep_reference_regex(), self.html, re.IGNORECASE)
 
         for match in matches:
             workstep_references.add((match.group(1).upper(), match.group(2).upper(), match.group(3).upper()))

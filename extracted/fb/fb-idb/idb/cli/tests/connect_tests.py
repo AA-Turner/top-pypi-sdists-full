@@ -4,11 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 from argparse import Namespace
 
 from idb.cli.commands.target import get_destination
 from idb.common.types import TCPAddress
-from idb.utils.testing import TestCase, ignoreTaskLeaks
+from idb.utils.testing import ignoreTaskLeaks, TestCase
 
 
 @ignoreTaskLeaks

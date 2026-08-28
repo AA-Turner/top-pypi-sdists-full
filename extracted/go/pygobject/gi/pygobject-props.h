@@ -1,8 +1,9 @@
-#ifndef __PYGOBJECT_OBJECT_PROPS_H__
-#define __PYGOBJECT_OBJECT_PROPS_H__
+#pragma once
 
+#include <glib.h>
 #include <pythoncapi_compat.h>
 
+G_BEGIN_DECLS
 
 extern PyTypeObject PyGPropsIter_Type;
 extern PyTypeObject PyGPropsDescr_Type;
@@ -10,4 +11,4 @@ extern PyTypeObject PyGProps_Type;
 
 int pyg_object_props_register_types (PyObject *d);
 
-#endif /*__PYGOBJECT_OBJECT_PROPS_H__*/
+G_END_DECLS

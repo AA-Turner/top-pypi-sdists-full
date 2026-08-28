@@ -1315,32 +1315,53 @@ def test_m1_callback_parser_still_treats_parse_error_as_backtrack():
 
 
 # ---------------------------------------------------------------------------
-# M2 regression: `Literal('')` must raise `ParseError` when invoked at a
-# position past the end of source.  The pure-Python reference checks
-# `start < len(source)` before considering any match (so even an empty
-# literal cannot match at EOF); the Rust fast path skipped that check
-# whenever `plen == 0`, silently matching the empty string at EOF.
+# `Literal('')` must raise `ParseError` when invoked at a position *past* the
+# end of source, and must match everywhere the source reaches, end of input
+# included.
+#
+# The original M2 regression was real: the rust fast path skipped the bounds
+# check whenever `plen == 0`, so an empty literal matched at any offset at all.
+# The fix made rust mirror the pure-Python guard `start < len(source)` -- but
+# that guard was itself wrong, refusing an empty literal at EOF, which is a
+# legitimate position rather than an out-of-range one.  So `""` matched at
+# every offset except `len(source)`, and `"a" ""` could not match `"a"` while
+# `"" "a"` could.
+#
+# Resolving a backend divergence in favour of the reference, without checking
+# the reference against RFC 5234, is what pinned it.  See issue #260.
 # ---------------------------------------------------------------------------
 
 
-def test_m2_empty_literal_raises_at_eof_empty_source():
+def test_260_empty_literal_matches_at_eof_empty_source():
     parser = Literal("")
-    with pytest.raises(ParseError):
-        next(parser.lparse("", 0))
+    assert next(parser.lparse("", 0)).start == 0
 
 
-def test_m2_empty_literal_raises_at_eof_nonempty_source():
+def test_260_empty_literal_matches_at_eof_nonempty_source():
     parser = Literal("")
-    with pytest.raises(ParseError):
-        next(parser.lparse("abc", 3))
+    assert next(parser.lparse("abc", 3)).start == 3
 
 
-def test_m2_empty_literal_matches_inside_source():
-    """Sanity check: empty literal does match when start is strictly
-    inside the source (Python's `start < len(source)` is true)."""
+def test_260_empty_literal_matches_inside_source():
     parser = Literal("")
     match = next(parser.lparse("abc", 1))
     assert match.start == 1  # empty literal advances nothing
+
+
+@pytest.mark.parametrize(("source", "start"), [("", 1), ("abc", 4), ("abc", 99)])
+def test_m2_empty_literal_still_raises_past_end_of_source(source: str, start: int):
+    """The M2 protection that mattered: an offset beyond the source is out of
+    range, and a zero-length pattern must not match there."""
+    parser = Literal("")
+    with pytest.raises(ParseError):
+        next(parser.lparse(source, start))
+
+
+@pytest.mark.parametrize(("source", "start"), [("a", 0), ("ab", 1), ("", 0)])
+def test_260_non_empty_literal_still_needs_room(source: str, start: int):
+    parser = Literal("ab")
+    with pytest.raises(ParseError):
+        next(parser.lparse(source, start))
 
 
 def test_h5_left_recursive_grammar_is_catchable_not_segfault():
@@ -2065,3 +2086,362 @@ def test_218_a_valid_exclusion_still_excludes():
     assert StillExcludes("word").parse_all("go").value == "go"
     with pytest.raises(ParseError):
         StillExcludes("word").parse_all("stop")
+
+
+# ---------------------------------------------------------------------------
+# ParseError attributes (issue #219).  `start` means the same thing on both
+# backends.  `parser` does not: pure Python stores the parser object, the Rust
+# engine a description string prepared once at construction, because an error
+# is built on every failed alternative.  Documented rather than reconciled --
+# carrying the object would put an allocation back on the backtracking path
+# for an attribute only diagnostics read.
+# ---------------------------------------------------------------------------
+
+
+def test_219_parse_error_start_is_the_documented_contract():
+    from abnf.grammars import rfc3986
+
+    with pytest.raises(ParseError) as excinfo:
+        rfc3986.Rule("URI").parse_all("not a uri")
+    assert excinfo.value.start == 0
+    # `str()` works on both backends, whatever `parser` holds.
+    assert str(excinfo.value).endswith(": 0")
+
+
+def test_219_parse_error_parser_is_documented_as_backend_dependent():
+    """Pin the documentation, not the type: the docstring must keep
+    warning that reaching into `parser` is not portable."""
+    doc = ParseError.__doc__ or ""
+    assert "description string" in doc
+    assert "start" in doc
+
+
+# Values returned by a custom parser (issue #220).  Engine-built terminals are
+# spans of the source, which is what lets their values be produced by slicing
+# it (#173).  A node handed *in* by a custom parser need not correspond to any
+# span: returning a normalised or synthesised value is a legitimate thing to
+# write, and the pure-Python backend keeps it.  Slicing the source for one of
+# those silently replaced it with unrelated text.
+# ---------------------------------------------------------------------------
+
+
+class _Synth:
+    """Returns a value that is not the text it spans."""
+
+    def lparse(self, source, start):
+        yield Match([cast(Node, LiteralNode("SYNTH", 0, 2))], 2)
+
+
+def test_220_a_returned_value_is_preserved():
+    match = next(iter(Concatenation(cast(Parser, _Synth())).lparse("abc", 0)))
+    assert match.nodes[0].value == "SYNTH"
+
+
+def test_220_an_enclosing_node_includes_the_returned_value():
+    """The enclosing value cannot be one slice of the source any more,
+    so it has to be joined from the parts."""
+
+    class Wrapper(Rule):
+        pass
+
+    Wrapper("wrap", Concatenation(cast(Parser, _Synth()), Literal("c")))
+    assert Wrapper("wrap").parse_all("abc").value == "SYNTHc"
+
+
+def test_220_a_returned_value_may_contain_a_surrogate():
+    """The value crosses the boundary as code points, so it is subject
+    to the same domain as the source (#173)."""
+
+    class Surrogate:
+        def lparse(self, source, start):
+            yield Match([cast(Node, LiteralNode("\ud800x", 0, 2))], 2)
+
+    match = next(iter(Concatenation(cast(Parser, Surrogate())).lparse("abc", 0)))
+    assert match.nodes[0].value == "\ud800x"
+
+
+def test_220_engine_built_values_are_unchanged():
+    """The slicing fast path still applies to everything the engine
+    builds itself, which is all of a normal parse."""
+
+    class Ordinary(Rule):
+        pass
+
+    Ordinary.create("s = 1*%x61-7A")
+    node = Ordinary("s").parse_all("abc")
+    assert node.value == "abc"
+    assert [c.value for c in node.children] == ["a", "b", "c"]
+
+
+# ---------------------------------------------------------------------------
+# Backend surface parity (issue #221).  The Rust pyclasses are a different kind
+# of object from the pure-Python classes, and two of the differences showed
+# through: the classes were final, and `Repeat` rejected values the reference
+# accepts.
+# ---------------------------------------------------------------------------
+
+
+def test_221_parse_tree_classes_can_be_subclassed():
+    """The how-to says installing the extension changes nothing in your
+    code; subclassing a node is a plausible thing to have written."""
+
+    class MyNode(Node):
+        pass
+
+    class MyLiteralNode(LiteralNode):
+        pass
+
+    class MyMatch(Match):
+        pass
+
+    assert issubclass(MyNode, Node)
+    assert issubclass(MyLiteralNode, LiteralNode)
+    assert issubclass(MyMatch, Match)
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        (-1,),  # pure Python builds it; Repetition then behaves as min=0
+        (0, 2.5),  # a float max never equals the count, so unbounded
+        (0, 3.0),  # ...but an integral one caps where the integer would
+        (),  # the default
+        (1, 5),
+    ],
+)
+def test_221_repeat_accepts_what_the_reference_accepts(args):
+    """Parse behaviour is what has to agree.  The stored attributes may
+    differ for absurd inputs -- a negative min reads back as 0 -- but no
+    input reaches either bound, so nothing observable follows from it."""
+    repetition = Repetition(Repeat(*args), Literal("a"))
+    ends = sorted({m.start for m in repetition.lparse("aaa", 0)})
+    assert ends  # constructed, and parses
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        ((3, 2), GrammarError),  # impossible range
+        ((0, -1), GrammarError),  # negative max is < min
+        ((0, "x"), TypeError),  # not a number at all
+    ],
+)
+def test_221_repeat_still_rejects_what_it_should(args, expected):
+    """Relaxing the accepted set must not swallow the genuine errors --
+    a negative *max* converts to a float cleanly, so it needs the check
+    that a float bound does not route around the `max < min` test."""
+    with pytest.raises(expected):
+        Repeat(*args)
+
+
+def test_221_mutating_a_parse_tree_container_is_documented_not_supported():
+    """Neither backend errors, and they do different things -- pure
+    Python mutates, Rust rebuilds the container per access so the change
+    is dropped.  Making the Rust getters return tuples would raise, but
+    a tuple stops comparing equal to a list, which breaks reading code
+    to fix writing code that should not exist.  So the API reference
+    records it, and this pins that the note stays put."""
+    reference = pathlib.Path("docs/reference/api.md").read_text(encoding="utf-8")
+    assert "Parse trees are results, not workspaces" in reference
+    assert "silently does nothing" in reference
+
+    # Whatever the backend does, reading the tree is unaffected.
+    node = Node("x", cast(Node, LiteralNode("a", 0, 1)))
+    assert len(node.children) == 1
+    assert node.children[0].value == "a"
+
+
+# Issue #259: `visit` looks the node name up casefolded, but the dispatch
+# table was keyed on the method-name suffix verbatim -- so `visit_URI`, the
+# spelling the rule's own name suggests, was filed under a key nothing asks
+# for.  The miss returns `_skip_visit`, so the node was silently skipped with
+# no error and no warning.
+@pytest.mark.parametrize(
+    ('rule_module', 'rule_name', 'src', 'method'),
+    [
+        ('rfc3986', 'URI', 'http://example.com/', 'visit_URI'),
+        ('rfc3986', 'URI', 'http://example.com/', 'visit_uri'),
+        ('rfc3986', 'IPv4address', '1.2.3.4', 'visit_IPv4address'),
+        ('rfc9051', 'ATOM-CHAR', 'a', 'visit_ATOM_CHAR'),
+        ('rfc9051', 'ATOM-CHAR', 'a', 'visit_atom_char'),
+    ],
+)
+def test_259_visitor_dispatch_is_case_insensitive(
+    rule_module: str, rule_name: str, src: str, method: str
+):
+    from importlib import import_module
+
+    module = import_module(f'abnf.grammars.{rule_module}')
+    node = module.Rule(rule_name).parse_all(src)
+
+    called = []
+    visitor = NodeVisitor()
+    setattr(visitor, method, lambda n: called.append(n.name))
+    # Re-run __init__ so the instance-attribute scan sees the method we just
+    # attached, as it would for one defined on a subclass.
+    NodeVisitor.__init__(visitor)
+    visitor.visit(node)
+    assert called == [rule_name], f'{method} was not called for node {rule_name!r}'
+
+
+def test_259_lowercase_spelling_still_wins_when_both_are_defined():
+    """Rule names are case-insensitive, so both spellings name one rule.
+    Whichever won before must keep winning."""
+    from abnf.grammars import rfc3986
+
+    class V(NodeVisitor):
+        def visit_URI(self, node):
+            return 'upper'
+
+        def visit_uri(self, node):
+            return 'lower'
+
+    node = rfc3986.Rule('URI').parse_all('http://example.com/')
+    assert V().visit(node) == 'lower'
+
+
+def test_259_an_unrelated_node_is_still_skipped():
+    """The fix must not make dispatch match more than the node's own name."""
+    from abnf.grammars import rfc3986
+
+    class V(NodeVisitor):
+        def visit_scheme(self, node):
+            return 'scheme'
+
+    node = rfc3986.Rule('URI').parse_all('http://example.com/')
+    assert V().visit(node) is None
+# Issue #258: `first_match_alternation` is a descriptor serving both supported
+# spellings.  Assigning it on a class object -- rather than in a class body --
+# was an ordinary type.__setattr__ that dropped a bool into the class dict and
+# shadowed it.  Nothing read that bool, so the attribute reported a setting the
+# parser was not using; and the documented per-rule spelling silently stopped
+# working for that class from then on, because it too went to a plain dict.
+def test_258_assigning_on_the_class_object_is_refused():
+    class M(Rule):
+        pass
+
+    M.create('r = "a" / "ab"')
+    with pytest.raises(AttributeError, match='cannot be assigned'):
+        M.first_match_alternation = True
+
+
+def test_258_the_message_names_both_supported_spellings():
+    class M(Rule):
+        pass
+
+    with pytest.raises(AttributeError) as excinfo:
+        M.first_match_alternation = True
+    message = str(excinfo.value)
+    assert 'class body' in message
+    assert "first_match_alternation = True" in message
+
+
+def test_258_class_body_spelling_still_works():
+    class N(Rule):
+        first_match_alternation = True
+
+    N.create('r = "a" / "ab"')
+    # First match takes "a" and stops; longest match would consume "ab".
+    assert N('r').parse('ab', 0)[1] == 1
+
+
+def test_258_per_rule_spelling_still_works():
+    class P(Rule):
+        pass
+
+    P.create('r = "a" / "ab"')
+    assert P('r').parse('ab', 0)[1] == 2
+    P('r').first_match_alternation = True
+    assert P('r').parse('ab', 0)[1] == 1
+    P('r').first_match_alternation = False
+    assert P('r').parse('ab', 0)[1] == 2
+
+
+def test_258_a_non_bool_in_the_class_body_is_refused():
+    """It shadows the descriptor exactly as a stray assignment does."""
+    with pytest.raises(TypeError, match='must be True or False'):
+
+        class Q(Rule):
+            first_match_alternation = 1  # pyright: ignore[reportAssignmentType]
+
+
+def test_258_other_class_attributes_are_unaffected():
+    class R2(Rule):
+        pass
+
+    R2.grammar = ['r = "a"']
+    assert R2.grammar == ['r = "a"']
+    R2.create('r = "a"')
+    assert R2('r').parse_all('a').value == 'a'
+
+
+# Issue #261: two grammar-level mistakes escaped as raw Python exceptions.
+@pytest.mark.parametrize(
+    'grammar',
+    ['r = %x110000', 'r = %x7FFFFFFF', 'r = %d1114112', 'r = %b1000000000000000000000'],
+)
+def test_261_num_val_beyond_the_code_point_space(grammar: str):
+    """`chr` raised ValueError, naming neither the rule nor the grammar."""
+
+    class R(Rule):
+        pass
+
+    with pytest.raises(GrammarError, match='not a Unicode code point'):
+        R.create(grammar)
+
+
+@pytest.mark.parametrize('grammar', ['r = %x10FFFF', 'r = %x41', 'r = %d1114111'])
+def test_261_the_top_of_the_range_is_still_valid(grammar: str):
+    class R(Rule):
+        pass
+
+    R.create(grammar)
+    assert R('r').definition is not None
+
+
+def test_261_incremental_alternative_needs_an_existing_definition():
+    """RFC 5234 section 3.3.  Was a bare AttributeError."""
+
+    class R(Rule):
+        pass
+
+    with pytest.raises(GrammarError, match="no definition to add to"):
+        R.create('nope =/ "a"')
+
+
+def test_261_incremental_alternative_still_works_when_defined():
+    class R(Rule):
+        pass
+
+    R.create('q = "x"')
+    R.create('q =/ "y"')
+    assert R('q').parse_all('x').value == 'x'
+    assert R('q').parse_all('y').value == 'y'
+
+
+# Issue #262: the per-parse memo keyed on `id(self)`, and an id is unique only
+# among live objects -- a Repetition freed mid-parse could have its address
+# reused and hand its cached matches to a different parser.
+def test_262_memo_keys_on_the_object_not_its_address():
+    import pathlib
+
+    import abnf._parser_python as reference
+
+    # Read the file rather than inspect the class: `abnf.parser` patches
+    # backend classes onto this module, so under the rust backend
+    # `reference.Repetition` is not the pure-Python one.
+    source = pathlib.Path(reference.__file__).read_text(encoding='utf-8')
+    assert 'cache_key = (self, start)' in source
+    assert 'cache_key = (id(self), start)' not in source
+
+
+def test_262_repetition_results_are_still_correct_and_cached():
+    class R(Rule):
+        pass
+
+    R.create('r = 1*"ab"')
+    assert R('r').parse_all('ababab').value == 'ababab'
+    # Same rule, different sources: nothing may carry over between parses.
+    assert R('r').parse_all('ab').value == 'ab'
+    with pytest.raises(ParseError):
+        R('r').parse_all('abx')

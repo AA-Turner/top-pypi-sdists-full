@@ -4,14 +4,16 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import asyncio
 import json
 import logging
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import AsyncGenerator, List, Optional
+from typing import List, Optional
 
 from idb.common.constants import IDB_STATE_FILE_PATH
 from idb.common.format import json_data_companions, json_to_companion_info
@@ -38,7 +40,7 @@ async def _open_lockfile(filename: str) -> AsyncGenerator[None, None]:
                 yield None
             except FileExistsError:
                 if datetime.now() >= deadline:
-                    raise IdbException("Failed to open the lockfile {lock_path}")
+                    raise IdbException(f"Failed to open the lockfile {lock_path}")
                 await asyncio.sleep(retry_time)
     finally:
         if lock is not None:
@@ -54,12 +56,12 @@ class CompanionSet:
         self.logger = logger
 
     @asynccontextmanager
-    async def _use_stored_companions(self) -> AsyncGenerator[List[CompanionInfo], None]:
+    async def _use_stored_companions(self) -> AsyncGenerator[list[CompanionInfo], None]:
         async with _open_lockfile(filename=self.state_file_path):
             # Create the state file
             Path(self.state_file_path).touch(exist_ok=True)
             fresh_state = False
-            with open(self.state_file_path, "r") as f:
+            with open(self.state_file_path) as f:
                 try:
                     companion_info_in = json_to_companion_info(json.load(f))
                 except json.JSONDecodeError:
@@ -89,11 +91,11 @@ class CompanionSet:
             with open(self.state_file_path, "w") as f:
                 json.dump(json_data_companions(companion_info_out), f)
 
-    async def get_companions(self) -> List[CompanionInfo]:
+    async def get_companions(self) -> list[CompanionInfo]:
         async with self._use_stored_companions() as companions:
             return companions
 
-    async def add_companion(self, companion: CompanionInfo) -> Optional[CompanionInfo]:
+    async def add_companion(self, companion: CompanionInfo) -> CompanionInfo | None:
         async with self._use_stored_companions() as companions:
             udid = companion.udid
             current = {existing.udid: existing for existing in companions}
@@ -109,7 +111,7 @@ class CompanionSet:
             companions.append(companion)
             return None
 
-    async def clear(self) -> List[CompanionInfo]:
+    async def clear(self) -> list[CompanionInfo]:
         async with self._use_stored_companions() as companions:
             cleared = list(companions)
             companions.clear()
@@ -117,7 +119,7 @@ class CompanionSet:
 
     async def remove_companion(
         self, destination: ConnectionDestination
-    ) -> List[CompanionInfo]:
+    ) -> list[CompanionInfo]:
         async with self._use_stored_companions() as companions:
             if isinstance(destination, str):
                 to_remove = [
@@ -144,7 +146,8 @@ class CompanionSet:
                         and companion.address.path == destination.path
                     )
                 ]
+            else:
+                to_remove = []
             for companion in to_remove:
                 companions.remove(companion)
-            # pyre-fixme[61]: `to_remove` may not be initialized here.
             return to_remove

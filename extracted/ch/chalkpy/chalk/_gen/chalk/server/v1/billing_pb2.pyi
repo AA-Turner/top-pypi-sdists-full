@@ -545,3 +545,19 @@ class GetResourceGroupServiceDetailResponse(_message.Message):
         resource_group: _Optional[str] = ...,
         pods: _Optional[_Iterable[_Union[ResourceGroupServicePod, _Mapping]]] = ...,
     ) -> None: ...
+
+class CheckSelfHostedLicenseRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class CheckSelfHostedLicenseResponse(_message.Message):
+    __slots__ = ("license_key_id", "team_id", "name")
+    LICENSE_KEY_ID_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    license_key_id: str
+    team_id: str
+    name: str
+    def __init__(
+        self, license_key_id: _Optional[str] = ..., team_id: _Optional[str] = ..., name: _Optional[str] = ...
+    ) -> None: ...

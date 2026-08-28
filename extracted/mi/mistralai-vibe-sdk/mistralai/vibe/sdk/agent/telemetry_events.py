@@ -9,5 +9,5 @@ TOOL_CALL_FINISHED_EVENT = "vibe.tool_call_finished"
 EVENT_CONTEXT_KEYS: dict[str, tuple[str, ...]] = {
     NEW_SESSION_EVENT: (*COMMON_CONTEXT_KEYS, "nb_skills", "nb_mcp_servers"),
     REQUEST_SENT_EVENT: (*COMMON_CONTEXT_KEYS, "run_mode", "task_id"),
-    TOOL_CALL_FINISHED_EVENT: COMMON_CONTEXT_KEYS,
+    TOOL_CALL_FINISHED_EVENT: (*COMMON_CONTEXT_KEYS, "task_id"),
 }

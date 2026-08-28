@@ -20,8 +20,9 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "pygi-basictype.h"
 #include "pygi-error.h"
+
+#include "pygi-basictype.h"
 #include "pygi-type.h"
 #include "pygi-util.h"
 
@@ -224,7 +225,7 @@ pygerror_to_gvalue (GValue *value, PyObject *pyerror)
     GError *gerror = NULL;
 
     if (pygi_error_marshal_from_py (pyerror, &gerror)) {
-        g_value_take_boxed (value, gerror);
+        g_value_take_boxed (value, g_steal_pointer (&gerror));
         return 0;
     }
 

@@ -17,11 +17,12 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PYGOBJECT_POINTER_H__
-#define __PYGOBJECT_POINTER_H__
+#pragma once
 
 #include <glib-object.h>
 #include <pythoncapi_compat.h>
+
+G_BEGIN_DECLS
 
 extern GQuark pygpointer_class_key;
 
@@ -33,4 +34,4 @@ PyObject *pyg_pointer_new (GType pointer_type, gpointer pointer);
 
 int pygi_pointer_register_types (PyObject *d);
 
-#endif /* __PYGOBJECT_POINTER_H__ */
+G_END_DECLS

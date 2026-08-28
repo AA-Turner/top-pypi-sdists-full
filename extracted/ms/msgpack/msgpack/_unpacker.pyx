@@ -46,7 +46,7 @@ cdef extern from "unpack.h":
         Py_ssize_t count
 
     ctypedef int (*execute_fn)(unpack_context* ctx, const char* data,
-                               Py_ssize_t len, Py_ssize_t* off) except? -1
+                               Py_ssize_t len, Py_ssize_t* off) except -1
     execute_fn unpack_construct
     execute_fn unpack_skip
     execute_fn read_array_header
@@ -190,14 +190,15 @@ def unpackb(object packed, *, object object_hook=None, object list_hook=None,
                  use_list, raw, timestamp, strict_map_key, cerr,
                  max_str_len, max_bin_len, max_array_len, max_map_len, max_ext_len)
         ret = unpack_construct(&ctx, buf, buf_len, &off)
+        if ret == 1:
+            obj = unpack_data(&ctx)
+            if off < buf_len:
+                # buf may point into a temporary contiguous copy owned by view,
+                # so the extra data must be copied out before releasing view.
+                raise ExtraData(obj, PyBytes_FromStringAndSize(buf+off, buf_len-off))
+            return obj
     finally:
         PyBuffer_Release(&view);
-
-    if ret == 1:
-        obj = unpack_data(&ctx)
-        if off < buf_len:
-            raise ExtraData(obj, PyBytes_FromStringAndSize(buf+off, buf_len-off))
-        return obj
 
     unpack_clear(&ctx)
     if ret == 0:
@@ -206,8 +207,6 @@ def unpackb(object packed, *, object object_hook=None, object list_hook=None,
         raise FormatError
     elif ret == -3:
         raise StackError
-    elif PyErr_Occurred():
-        raise
     else:
         raise ValueError("Unpack failed: error = %d" % (ret,))
 
@@ -222,7 +221,7 @@ cdef class Unpacker:
         If specified, unpacker reads serialized data from it and `.feed()` is not usable.
 
     :param int read_size:
-        Used as `file_like.read(read_size)`. (default: `min(16*1024, max_buffer_size)`)
+        Used as `file_like.read(read_size)`. Must be equal to or smaller than *max_buffer_size*.
 
     :param bool use_list:
         If true, unpack msgpack array to Python list.
@@ -305,6 +304,8 @@ cdef class Unpacker:
     Raises ``OutOfData`` when *packed* is incomplete.
     Raises ``FormatError`` when *packed* is not valid msgpack.
     Raises ``StackError`` when *packed* contains too nested.
+    Raises ``RuntimeError`` when ``feed()`` is called while unpacking
+    is in progress (e.g. from a hook).
     Other exceptions can be raised during unpacking.
     """
     cdef unpack_context ctx
@@ -318,6 +319,7 @@ cdef class Unpacker:
     cdef object unicode_errors
     cdef Py_ssize_t max_buffer_size
     cdef uint64_t stream_offset
+    cdef bint _unpacking
 
     def __dealloc__(self):
         unpack_clear(&self.ctx)
@@ -381,6 +383,7 @@ cdef class Unpacker:
         self.buf_head = 0
         self.buf_tail = 0
         self.stream_offset = 0
+        self._unpacking = False
 
         if unicode_errors is not None:
             self.unicode_errors = unicode_errors
@@ -397,6 +400,11 @@ cdef class Unpacker:
         cdef Py_buffer pybuff
         cdef char* buf
         cdef Py_ssize_t buf_len
+
+        if self._unpacking:
+            raise RuntimeError(
+                "Unpacker.feed() cannot be called while unpacking is in progress"
+            )
 
         if self.file_like is not None:
             raise AssertionError(
@@ -465,36 +473,38 @@ cdef class Unpacker:
         cdef object obj
         cdef Py_ssize_t prev_head
 
-        while 1:
-            prev_head = self.buf_head
-            if prev_head < self.buf_tail:
-                ret = execute(&self.ctx, self.buf, self.buf_tail, &self.buf_head)
-                self.stream_offset += self.buf_head - prev_head
-            else:
-                ret = 0
-
-            if ret == 1:
-                obj = unpack_data(&self.ctx)
-                unpack_init(&self.ctx)
-                return obj
-            if ret == 0:
-                if self.file_like is not None:
-                    self.read_from_file()
-                    continue
-                if iter:
-                    raise StopIteration("No more data to unpack.")
+        self._unpacking = True
+        try:
+            while 1:
+                prev_head = self.buf_head
+                if prev_head < self.buf_tail:
+                    ret = execute(&self.ctx, self.buf, self.buf_tail, &self.buf_head)
+                    self.stream_offset += self.buf_head - prev_head
                 else:
-                    raise OutOfData("No more data to unpack.")
+                    ret = 0
 
-            unpack_clear(&self.ctx)
-            if ret == -2:
-                raise FormatError
-            elif ret == -3:
-                raise StackError
-            elif PyErr_Occurred():
-                raise
-            else:
-                raise ValueError("Unpack failed: error = %d" % (ret,))
+                if ret == 1:
+                    obj = unpack_data(&self.ctx)
+                    unpack_init(&self.ctx)
+                    return obj
+                if ret == 0:
+                    if self.file_like is not None:
+                        self.read_from_file()
+                        continue
+                    if iter:
+                        raise StopIteration("No more data to unpack.")
+                    else:
+                        raise OutOfData("No more data to unpack.")
+
+                unpack_clear(&self.ctx)
+                if ret == -2:
+                    raise FormatError
+                elif ret == -3:
+                    raise StackError
+                else:
+                    raise ValueError("Unpack failed: error = %d" % (ret,))
+        finally:
+            self._unpacking = False
 
     @cython.critical_section
     def read_bytes(self, Py_ssize_t nbytes):

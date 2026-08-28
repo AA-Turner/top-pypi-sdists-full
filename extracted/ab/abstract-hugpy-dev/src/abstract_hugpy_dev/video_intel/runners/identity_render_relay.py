@@ -64,20 +64,16 @@ import secrets
 import time
 
 from ..result_schema import JobError, JobResult
+from . import identity_render_client as _client
 
 logger = logging.getLogger(__name__)
 
-# Per-request HTTP budget as a (connect, read) TUPLE: the read side stays generous (a
-# POST carries the b64 reference images — a few MB) but the CONNECT side is short, so a
-# down/firewalled service is detected in seconds, not a 120s hang per attempt (ae's
-# firewall DROPs unknown ports — no RST — so a flat timeout eats the whole budget just
-# discovering "nobody home"; keeper 2026-07-14).
-_HTTP_TIMEOUT_S = (10.0, 120.0)
-# Poll cadence + whole-job deadline. The bus registers identity_mesh_build with a
-# 14400s timeout; poll a touch under it so the runner returns clean errors-as-data
-# rather than being killed mid-poll. Overridable via env for tests / tuning.
-_POLL_INTERVAL_S = float(os.getenv("IDENTITY_RENDER_POLL_INTERVAL_S", "5") or "5")
-_POLL_DEADLINE_S = float(os.getenv("IDENTITY_RENDER_DEADLINE_S", "14100") or "14100")
+# HTTP budget / poll cadence / deadline now live in identity_render_client (k94 —
+# factored out so the three identity relays share ONE submit/poll/download/persist
+# path). The old module-level names stay bound as aliases for any reader/test.
+_HTTP_TIMEOUT_S = _client.HTTP_TIMEOUT_S
+_POLL_INTERVAL_S = _client.POLL_INTERVAL_S
+_POLL_DEADLINE_S = _client.POLL_DEADLINE_S
 
 # ---- fleet-VLM front auto-selection (module docstring) ------------------------- #
 # Per-candidate HTTP budget as a (connect, read) tuple — a vision call is ~5-10s, so
@@ -281,37 +277,9 @@ def _render_pose_front(refs, seed: int, slug: str, job_id: str, should_cancel=No
         return None
 
 
-def _dest_for(mesh_dir: str, turntable_dir: str, fpath: str) -> str:
-    """Map a service file name to its durable destination under the identity dir.
-
-    ``identity.glb`` / ``*.glb`` and ``*.json`` land at the mesh root; ``*.mp4`` and any
-    ``frames/…`` land under ``turntable/`` (frames keep the ``frames/`` subdir). Every
-    component is reduced to ``os.path.basename`` so a hostile ``../`` in a service-supplied
-    name can never escape the mesh dir (defense-in-depth even though the service is trusted)."""
-    norm = (fpath or "").replace("\\", "/").lstrip("/")
-    base = os.path.basename(norm)
-    low = norm.lower()
-    if low.endswith(".glb"):
-        return os.path.join(mesh_dir, base)
-    if low.endswith(".json"):
-        return os.path.join(mesh_dir, base)
-    if norm.startswith("frames/") or (low.endswith(".png") and "frame" in low):
-        return os.path.join(turntable_dir, "frames", base)
-    # mp4 (turntable video) and anything else -> the turntable bucket.
-    return os.path.join(turntable_dir, base)
-
-
-def _atomic_write_bytes(dest: str, data: bytes) -> None:
-    """Write *data* to *dest* atomically (unique temp in the dest dir + os.replace),
-    mirroring identity_profiles' copy idiom so a crashed download never leaves a
-    half-written artifact at the final name."""
-    parent = os.path.dirname(dest)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    tmp = f"{dest}.{os.getpid()}.{secrets.token_hex(4)}.tmp"
-    with open(tmp, "wb") as f:
-        f.write(data)
-    os.replace(tmp, dest)
+# Persist helpers (k94): the shared client owns them; aliases keep the old names.
+_dest_for = _client.dest_for
+_atomic_write_bytes = _client.atomic_write_bytes
 
 
 def run_identity_mesh_build(spec, job_id: str) -> JobResult:
@@ -338,19 +306,14 @@ def run_identity_mesh_build(spec, job_id: str) -> JobResult:
         return JobResult(job_id=job_id, ok=False,
                          error=JobError(code=code, message=message, retryable=retryable))
 
-    url = (os.getenv("IDENTITY_RENDER_URL", "") or "").strip().rstrip("/")
-    token = (os.getenv("IDENTITY_RENDER_TOKEN", "") or "").strip()
+    url, token = _client.service_config()
     if not url or not token:
-        return _fail(
-            "not_configured",
-            "the identity 3D render service is not configured on this host — set "
-            "IDENTITY_RENDER_URL and IDENTITY_RENDER_TOKEN (central has no GPU; mesh "
-            "builds are relayed to a remote GPU render service).",
-            retryable=False)
+        nc = _client.not_configured_error("mesh builds")
+        return _fail(nc.code, nc.message, retryable=nc.retryable)
 
     import requests  # lazy — present (2.34.2); keeps the module boot-cheap
 
-    headers = {"X-Identity-Render-Token": token}
+    headers = _client.auth_headers(token)
 
     # Cancel probe shared by the T-pose stage (relays the mesh job's cancel down to the
     # id_lock render, mirroring identity_reconstruction's should_cancel). is_cancelling is
@@ -502,131 +465,39 @@ def run_identity_mesh_build(spec, job_id: str) -> JobResult:
         running_patch["pose_stage"] = pose_stage
     _set_state(running_patch)
 
-    # ---- POST the job ----
-    try:
-        resp = requests.post(f"{url}/jobs", json=payload, headers=headers,
-                             timeout=_HTTP_TIMEOUT_S)
-    except requests.RequestException as exc:
-        return _fail("render_unreachable",
-                     f"could not reach the identity render service at {url}: {exc}",
-                     retryable=True)
-    if resp.status_code == 401:
-        return _fail("render_unauthorized",
-                     "the identity render service rejected the token (HTTP 401)",
-                     retryable=False)
-    if resp.status_code != 202:
-        body = (resp.text or "")[:300]
-        return _fail("render_rejected",
-                     f"the render service rejected the job (HTTP {resp.status_code}): {body}",
-                     retryable=True)
-    try:
-        remote_id = resp.json()["job_id"]
-    except (ValueError, KeyError, TypeError):
-        return _fail("render_bad_response",
-                     "the render service accepted the job but returned no job_id",
-                     retryable=True)
-    if not isinstance(remote_id, str) or not remote_id:
-        return _fail("render_bad_response",
-                     "the render service returned an empty job_id", retryable=True)
+    # ---- POST the job (shared client — k94) ----
+    remote_id, err = _client.submit_job(requests, url, headers, payload)
+    if err is not None:
+        return _fail(err.code, err.message, retryable=err.retryable)
 
     def _delete_remote() -> None:
-        try:
-            requests.delete(f"{url}/jobs/{remote_id}", headers=headers, timeout=30.0)
-        except requests.RequestException:
-            pass  # best-effort cleanup; never fail the job on it
+        _client.delete_remote(requests, url, headers, remote_id)
 
-    # ---- poll until done / error / cancel / deadline ----
-    deadline = time.time() + _POLL_DEADLINE_S
-    files: list = []
-    while True:
-        if is_cancelling(job_id):
-            _delete_remote()
-            _set_state({"status": "cancelled", "error": None})
+    # ---- poll until done / error / cancel / deadline (shared client — k94) ----
+    # The live stage/progress/log_tail mirror into the media bus (and thence GET
+    # /llm/jobs) rides inside poll_job; a user cancel records mesh state first.
+    files, err = _client.poll_job(
+        requests, url, headers, remote_id, job_id,
+        label=f"identity mesh build for profile {slug!r}",
+        is_cancelling=is_cancelling, set_progress=set_progress,
+        progress_source="identity_render",
+        on_cancel=lambda: _set_state({"status": "cancelled", "error": None}))
+    if err is not None:
+        if err.code == "cancelled":
+            # mesh state was already set to "cancelled" by on_cancel — not an error state.
             return JobResult(job_id=job_id, ok=False, error=JobError(
-                code="cancelled",
-                message=f"identity mesh build for profile {slug!r} cancelled by user",
-                retryable=False))
-        if time.time() > deadline:
-            _delete_remote()
-            return _fail("render_timeout",
-                         f"identity mesh render for profile {slug!r} did not finish within "
-                         f"the deadline ({int(_POLL_DEADLINE_S)}s)",
-                         retryable=True)
-        try:
-            pr = requests.get(f"{url}/jobs/{remote_id}", headers=headers,
-                              timeout=_HTTP_TIMEOUT_S)
-            if pr.status_code == 200:
-                pbody = pr.json()
-                # ---- live progress relay (additive; older services omit these) ----
-                # Mirror ae's per-stage progress + rolling log tail into the media bus
-                # (and thence, via job_bridge.on_progress, into GET /llm/jobs) so a long —
-                # or WEDGED — render surfaces its stage + live log instead of reading
-                # progress 0 / message "". Best-effort + wrapped: any field MAY be absent
-                # (an older render service) -> a partial blob; a DB hiccup here NEVER fails
-                # the render (the poll/done/error logic below is untouched). set_progress
-                # writing 'updated' is also what keeps the honest stall clock ticking —
-                # a stuck remote reporting the SAME stage/progress does not advance it.
-                if isinstance(pbody, dict) and any(
-                        k in pbody for k in ("stage", "progress", "log_tail")):
-                    try:
-                        blob = {"source": "identity_render",
-                                "remote_updated": pbody.get("updated")}
-                        for k in ("stage", "progress", "log_tail"):
-                            if k in pbody:
-                                blob[k] = pbody.get(k)
-                        set_progress(job_id, blob)
-                    except Exception:  # noqa: BLE001 — progress mirror is best-effort only
-                        logger.debug("identity mesh: progress stamp failed for %s",
-                                     job_id, exc_info=True)
-                status = pbody.get("status")
-                if status == "done":
-                    files = pbody.get("files") or []
-                    break
-                if status == "error":
-                    _delete_remote()
-                    msg = pbody.get("error") or "the render service reported an error"
-                    return _fail("render_failed",
-                                 f"identity mesh render failed for profile {slug!r}: {msg}",
-                                 retryable=True)
-                # queued / running -> keep polling
-        except requests.RequestException:
-            pass  # transient poll hiccup — keep polling until the deadline
-        except ValueError:
-            pass  # non-JSON status body — treat as transient
-        time.sleep(_POLL_INTERVAL_S)
+                code="cancelled", message=err.message, retryable=False))
+        return _fail(err.code, err.message, retryable=err.retryable)
 
     # ---- download every produced file + persist under the identity dir ----
     mesh_dir = os.path.join(identity_profiles._identity_dir(slug), "mesh", recon_id)
     turntable_dir = os.path.join(mesh_dir, "turntable")
-    glb_path = mesh_json_path = video_path = None
-    frame_paths: list[str] = []
-    for f in files:
-        if not isinstance(f, str) or not f.strip():
-            continue
-        try:
-            fr = requests.get(f"{url}/jobs/{remote_id}/files/{f}", headers=headers,
-                              timeout=_HTTP_TIMEOUT_S)
-        except requests.RequestException:
-            logger.warning("identity mesh: failed to download %r", f)
-            continue
-        if fr.status_code != 200:
-            logger.warning("identity mesh: file %r -> HTTP %s", f, fr.status_code)
-            continue
-        dest = _dest_for(mesh_dir, turntable_dir, f)
-        try:
-            _atomic_write_bytes(dest, fr.content)
-        except OSError:
-            logger.warning("identity mesh: could not persist %r -> %s", f, dest)
-            continue
-        low = dest.lower()
-        if low.endswith(".glb"):
-            glb_path = dest
-        elif low.endswith(".json"):
-            mesh_json_path = dest
-        elif low.endswith(".mp4"):
-            video_path = dest
-        elif low.endswith(".png"):
-            frame_paths.append(dest)
+    persisted = _client.persist_mesh_files(
+        requests, url, headers, remote_id, files, mesh_dir, turntable_dir)
+    glb_path = persisted.glb_path
+    mesh_json_path = persisted.mesh_json_path
+    video_path = persisted.video_path
+    frame_paths: list[str] = list(persisted.frame_paths)
 
     if glb_path is None:
         return _fail("render_no_glb",

@@ -13,9 +13,10 @@ from geneva.jobs.config import JobConfig
 pytestmark = pytest.mark.ray
 
 
-# Four rollback tests below currently hang in
-# ``FragmentWriterSession.drain()`` — the writer's actor never resolves its
-# ``write.remote()`` future and gets restarted by the stall detector
+# Four rollback tests below currently hang in the writer drain (once
+# ``FragmentWriterSession.drain()``, now
+# ``FragmentWriterManager.drain_sessions()``) — the writer's actor never
+# resolves its ``write.remote()`` future and gets restarted by the stall detector
 # until ``MAX_WRITER_RESTARTS`` is exhausted. The failure pre-dates this
 # branch (reproduces against ``main``'s pipeline / apply / loader code)
 # and the refresh path is being reworked in #717

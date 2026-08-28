@@ -293,8 +293,12 @@ class DeleteGitHubAppConfigResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class GetGitHubAppInstallUrlRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("project_id", "environment_id")
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    project_id: str
+    environment_id: str
+    def __init__(self, project_id: _Optional[str] = ..., environment_id: _Optional[str] = ...) -> None: ...
 
 class GetGitHubAppInstallUrlResponse(_message.Message):
     __slots__ = ("url",)
@@ -303,12 +307,16 @@ class GetGitHubAppInstallUrlResponse(_message.Message):
     def __init__(self, url: _Optional[str] = ...) -> None: ...
 
 class CompleteGitHubAppInstallationRequest(_message.Message):
-    __slots__ = ("installation_id", "setup_action")
+    __slots__ = ("installation_id", "setup_action", "state")
     INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
     SETUP_ACTION_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
     installation_id: int
     setup_action: str
-    def __init__(self, installation_id: _Optional[int] = ..., setup_action: _Optional[str] = ...) -> None: ...
+    state: str
+    def __init__(
+        self, installation_id: _Optional[int] = ..., setup_action: _Optional[str] = ..., state: _Optional[str] = ...
+    ) -> None: ...
 
 class CompleteGitHubAppInstallationResponse(_message.Message):
     __slots__ = ("installation",)
@@ -341,10 +349,16 @@ class SyncGitHubAppInstallationsRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class SyncGitHubAppInstallationsResponse(_message.Message):
-    __slots__ = ("installations",)
+    __slots__ = ("installations", "removed_account_logins")
     INSTALLATIONS_FIELD_NUMBER: _ClassVar[int]
+    REMOVED_ACCOUNT_LOGINS_FIELD_NUMBER: _ClassVar[int]
     installations: _containers.RepeatedCompositeFieldContainer[GitHubAppInstallation]
-    def __init__(self, installations: _Optional[_Iterable[_Union[GitHubAppInstallation, _Mapping]]] = ...) -> None: ...
+    removed_account_logins: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        installations: _Optional[_Iterable[_Union[GitHubAppInstallation, _Mapping]]] = ...,
+        removed_account_logins: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
 
 class ListGitHubRepositoriesRequest(_message.Message):
     __slots__ = ("installation_id", "page", "per_page")
@@ -503,3 +517,105 @@ class GetGitHubRepositoryArchiveResponse(_message.Message):
     DATA_FIELD_NUMBER: _ClassVar[int]
     data: bytes
     def __init__(self, data: _Optional[bytes] = ...) -> None: ...
+
+class RepoFileChangeInput(_message.Message):
+    __slots__ = ("path", "content", "delete", "mode")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    DELETE_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    content: bytes
+    delete: bool
+    mode: str
+    def __init__(
+        self,
+        path: _Optional[str] = ...,
+        content: _Optional[bytes] = ...,
+        delete: bool = ...,
+        mode: _Optional[str] = ...,
+    ) -> None: ...
+
+class CreatePullRequestFromChangesRequest(_message.Message):
+    __slots__ = ("installation_id", "owner", "repo", "base_branch", "head_branch", "title", "body", "draft", "changes")
+    INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REPO_FIELD_NUMBER: _ClassVar[int]
+    BASE_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    HEAD_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    DRAFT_FIELD_NUMBER: _ClassVar[int]
+    CHANGES_FIELD_NUMBER: _ClassVar[int]
+    installation_id: str
+    owner: str
+    repo: str
+    base_branch: str
+    head_branch: str
+    title: str
+    body: str
+    draft: bool
+    changes: _containers.RepeatedCompositeFieldContainer[RepoFileChangeInput]
+    def __init__(
+        self,
+        installation_id: _Optional[str] = ...,
+        owner: _Optional[str] = ...,
+        repo: _Optional[str] = ...,
+        base_branch: _Optional[str] = ...,
+        head_branch: _Optional[str] = ...,
+        title: _Optional[str] = ...,
+        body: _Optional[str] = ...,
+        draft: bool = ...,
+        changes: _Optional[_Iterable[_Union[RepoFileChangeInput, _Mapping]]] = ...,
+    ) -> None: ...
+
+class CreatePullRequestFromChangesResponse(_message.Message):
+    __slots__ = ("html_url", "number", "head_branch")
+    HTML_URL_FIELD_NUMBER: _ClassVar[int]
+    NUMBER_FIELD_NUMBER: _ClassVar[int]
+    HEAD_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    html_url: str
+    number: int
+    head_branch: str
+    def __init__(
+        self, html_url: _Optional[str] = ..., number: _Optional[int] = ..., head_branch: _Optional[str] = ...
+    ) -> None: ...
+
+class CreateVolumeFromGitHubRepoRequest(_message.Message):
+    __slots__ = ("installation_id", "owner", "repo", "ref", "volume_name")
+    INSTALLATION_ID_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REPO_FIELD_NUMBER: _ClassVar[int]
+    REF_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_NAME_FIELD_NUMBER: _ClassVar[int]
+    installation_id: str
+    owner: str
+    repo: str
+    ref: str
+    volume_name: str
+    def __init__(
+        self,
+        installation_id: _Optional[str] = ...,
+        owner: _Optional[str] = ...,
+        repo: _Optional[str] = ...,
+        ref: _Optional[str] = ...,
+        volume_name: _Optional[str] = ...,
+    ) -> None: ...
+
+class CreateVolumeFromGitHubRepoResponse(_message.Message):
+    __slots__ = ("volume_name", "volume_id", "files", "bytes")
+    VOLUME_NAME_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_ID_FIELD_NUMBER: _ClassVar[int]
+    FILES_FIELD_NUMBER: _ClassVar[int]
+    BYTES_FIELD_NUMBER: _ClassVar[int]
+    volume_name: str
+    volume_id: str
+    files: int
+    bytes: int
+    def __init__(
+        self,
+        volume_name: _Optional[str] = ...,
+        volume_id: _Optional[str] = ...,
+        files: _Optional[int] = ...,
+        bytes: _Optional[int] = ...,
+    ) -> None: ...

@@ -26,6 +26,13 @@ from typing import Dict, Tuple
 # join, never by hand-copying values.
 TASK_DEPS: Dict[str, Tuple[str, str]] = {
     "automatic-speech-recognition": ("whisper", "audio"),
+    # SPEECH OUT (chatterbox seat). The distribution is ``chatterbox-tts`` and
+    # the import name is ``chatterbox`` — they differ, and this table's probe is
+    # by MODULE, so the module name is what belongs here. A worker that seats the
+    # backend in a per-model env-PROFILE venv (its torch pins collide with the
+    # agent's) answers False to this find_spec and True to the agent's overlay —
+    # see managers.tts.seat, the same shape as the whisper special case below.
+    "text-to-speech":               ("chatterbox", "tts"),
     "text-summarization":           ("transformers", "transformers"),
     "keyword-extraction":           ("keybert", "keywords"),
     "feature-extraction":           ("sentence_transformers", "embed"),
@@ -52,7 +59,9 @@ def have(mod: str) -> bool:
 def task_capabilities() -> Dict[str, bool]:
     """``{task: bool}`` from the ``find_spec`` probe (cheap, no heavy imports).
 
-    The worker overlays the whisper special case (a guarded real import) on top of
-    this base map before advertising it — see worker_agent.agent._task_capabilities.
+    The worker overlays TWO special cases on top of this base map before
+    advertising it (see worker_agent.agent._task_capabilities): whisper (a
+    guarded real import) and text-to-speech (a seat that may live in a separate
+    env-profile venv, which no probe of THIS interpreter can see).
     """
     return {task: have(mod) for task, (mod, _extra) in TASK_DEPS.items()}

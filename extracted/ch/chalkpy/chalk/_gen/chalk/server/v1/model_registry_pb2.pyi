@@ -1,6 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
-from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
 from chalk._gen.chalk.models.v1 import model_artifact_pb2 as _model_artifact_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -25,9 +25,38 @@ class RunCriterionDirection(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     RUN_CRITERION_DIRECTION_MAX: _ClassVar[RunCriterionDirection]
     RUN_CRITERION_DIRECTION_MIN: _ClassVar[RunCriterionDirection]
 
+class ListModelsSortColumn(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LIST_MODELS_SORT_COLUMN_UNSPECIFIED: _ClassVar[ListModelsSortColumn]
+    LIST_MODELS_SORT_COLUMN_NAME: _ClassVar[ListModelsSortColumn]
+    LIST_MODELS_SORT_COLUMN_CREATED_AT: _ClassVar[ListModelsSortColumn]
+    LIST_MODELS_SORT_COLUMN_UPDATED_AT: _ClassVar[ListModelsSortColumn]
+
+class ListModelsSortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LIST_MODELS_SORT_ORDER_UNSPECIFIED: _ClassVar[ListModelsSortOrder]
+    LIST_MODELS_SORT_ORDER_ASCENDING: _ClassVar[ListModelsSortOrder]
+    LIST_MODELS_SORT_ORDER_DESCENDING: _ClassVar[ListModelsSortOrder]
+
+class ListModelsStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LIST_MODELS_STATUS_UNSPECIFIED: _ClassVar[ListModelsStatus]
+    LIST_MODELS_STATUS_ACTIVE: _ClassVar[ListModelsStatus]
+    LIST_MODELS_STATUS_DELETED: _ClassVar[ListModelsStatus]
+
 RUN_CRITERION_DIRECTION_UNSPECIFIED: RunCriterionDirection
 RUN_CRITERION_DIRECTION_MAX: RunCriterionDirection
 RUN_CRITERION_DIRECTION_MIN: RunCriterionDirection
+LIST_MODELS_SORT_COLUMN_UNSPECIFIED: ListModelsSortColumn
+LIST_MODELS_SORT_COLUMN_NAME: ListModelsSortColumn
+LIST_MODELS_SORT_COLUMN_CREATED_AT: ListModelsSortColumn
+LIST_MODELS_SORT_COLUMN_UPDATED_AT: ListModelsSortColumn
+LIST_MODELS_SORT_ORDER_UNSPECIFIED: ListModelsSortOrder
+LIST_MODELS_SORT_ORDER_ASCENDING: ListModelsSortOrder
+LIST_MODELS_SORT_ORDER_DESCENDING: ListModelsSortOrder
+LIST_MODELS_STATUS_UNSPECIFIED: ListModelsStatus
+LIST_MODELS_STATUS_ACTIVE: ListModelsStatus
+LIST_MODELS_STATUS_DELETED: ListModelsStatus
 
 class ModelArtifact(_message.Message):
     __slots__ = (
@@ -197,15 +226,30 @@ class Model(_message.Message):
     ) -> None: ...
 
 class ListModelsRequest(_message.Message):
-    __slots__ = ("cursor", "limit", "include_deleted")
+    __slots__ = ("cursor", "limit", "include_deleted", "search", "filters", "sort_column", "sort_order")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
+    SEARCH_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    SORT_COLUMN_FIELD_NUMBER: _ClassVar[int]
+    SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     include_deleted: bool
+    search: str
+    filters: ListModelsFilters
+    sort_column: ListModelsSortColumn
+    sort_order: ListModelsSortOrder
     def __init__(
-        self, cursor: _Optional[str] = ..., limit: _Optional[int] = ..., include_deleted: bool = ...
+        self,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        include_deleted: bool = ...,
+        search: _Optional[str] = ...,
+        filters: _Optional[_Union[ListModelsFilters, _Mapping]] = ...,
+        sort_column: _Optional[_Union[ListModelsSortColumn, str]] = ...,
+        sort_order: _Optional[_Union[ListModelsSortOrder, str]] = ...,
     ) -> None: ...
 
 class ListModelsResponse(_message.Message):
@@ -330,22 +374,35 @@ class DeleteModelResponse(_message.Message):
     model: Model
     def __init__(self, model: _Optional[_Union[Model, _Mapping]] = ...) -> None: ...
 
+class ListModelVersionsFilters(_message.Message):
+    __slots__ = ("aliases", "author_ids")
+    ALIASES_FIELD_NUMBER: _ClassVar[int]
+    AUTHOR_IDS_FIELD_NUMBER: _ClassVar[int]
+    aliases: _containers.RepeatedScalarFieldContainer[str]
+    author_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self, aliases: _Optional[_Iterable[str]] = ..., author_ids: _Optional[_Iterable[str]] = ...
+    ) -> None: ...
+
 class ListModelVersionsRequest(_message.Message):
-    __slots__ = ("model_name", "cursor", "limit", "include_deleted")
+    __slots__ = ("model_name", "cursor", "limit", "include_deleted", "filters")
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_DELETED_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     model_name: str
     cursor: str
     limit: int
     include_deleted: bool
+    filters: ListModelVersionsFilters
     def __init__(
         self,
         model_name: _Optional[str] = ...,
         cursor: _Optional[str] = ...,
         limit: _Optional[int] = ...,
         include_deleted: bool = ...,
+        filters: _Optional[_Union[ListModelVersionsFilters, _Mapping]] = ...,
     ) -> None: ...
 
 class ListModelVersionsResponse(_message.Message):
@@ -617,7 +674,7 @@ class ModelReference(_message.Message):
     deployment_id: str
     relations: _containers.RepeatedCompositeFieldContainer[ModelRelation]
     resolvers: _containers.RepeatedScalarFieldContainer[str]
-    source_file_reference: _graph_pb2.SourceFileReference
+    source_file_reference: _source_file_reference_pb2.SourceFileReference
     created_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
@@ -627,7 +684,7 @@ class ModelReference(_message.Message):
         deployment_id: _Optional[str] = ...,
         relations: _Optional[_Iterable[_Union[ModelRelation, _Mapping]]] = ...,
         resolvers: _Optional[_Iterable[str]] = ...,
-        source_file_reference: _Optional[_Union[_graph_pb2.SourceFileReference, _Mapping]] = ...,
+        source_file_reference: _Optional[_Union[_source_file_reference_pb2.SourceFileReference, _Mapping]] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
@@ -744,3 +801,9 @@ class GetModelArtifactResponse(_message.Message):
     MODEL_ARTIFACT_FIELD_NUMBER: _ClassVar[int]
     model_artifact: ModelArtifact
     def __init__(self, model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...) -> None: ...
+
+class ListModelsFilters(_message.Message):
+    __slots__ = ("statuses",)
+    STATUSES_FIELD_NUMBER: _ClassVar[int]
+    statuses: _containers.RepeatedScalarFieldContainer[ListModelsStatus]
+    def __init__(self, statuses: _Optional[_Iterable[_Union[ListModelsStatus, str]]] = ...) -> None: ...

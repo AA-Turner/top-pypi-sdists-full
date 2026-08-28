@@ -13,7 +13,7 @@ class DecodeDiagnosticMessageResponseBody(DaraModel):
         decoded_diagnostic_message: main_models.DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessage = None,
         request_id: str = None,
     ):
-        # The decoded diagnostic information.
+        # The decoded diagnostic message.
         self.decoded_diagnostic_message = decoded_diagnostic_message
         # The request ID.
         self.request_id = request_id
@@ -57,32 +57,19 @@ class DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessage(DaraModel):
         matched_policies: List[main_models.DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessageMatchedPolicies] = None,
         no_permission_policy_type: str = None,
     ):
-        # The operation that is used for authentication in the request.
+        # The action used for authentication in the user request.
         self.auth_action = auth_action
-        # The conditions that are used for authentication in the request.
+        # The list of conditions used for authentication in the user request.
         self.auth_conditions = auth_conditions
-        # The operator that is used for authentication in the request.
+        # The principal used for authentication in the user request.
         self.auth_principal = auth_principal
-        # The resource that is used for authentication in the request.
+        # The resource used for authentication in the user request.
         self.auth_resource = auth_resource
-        # Indicates whether the access denied error is caused by an explicit deny.
-        # 
-        # Valid values:
-        # 
-        # *   true
-        # *   false
+        # Indicates whether the denial is explicit.
         self.explicit_deny = explicit_deny
-        # The policies that are matched.
+        # The list of policies matched during authentication.
         self.matched_policies = matched_policies
-        # The type of the policy that causes the access denied error.
-        # 
-        # Valid values:
-        # 
-        # *   AssumeRolePolicy: role-specific trust policy
-        # *   ControlPolicy: control policy
-        # *   AccountLevelIdentityBasedPolicy: identity-based policy at the account level
-        # *   ResourceGroupLevelIdentityBasedPolicy: identity-based policy at the resource group level
-        # *   SessionPolicy: session policy
+        # The policy type that caused the permission denial.
         self.no_permission_policy_type = no_permission_policy_type
 
     def validate(self):
@@ -171,55 +158,21 @@ class DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessageMatchedPolicies
         policy_type: str = None,
         policy_version: str = None,
     ):
-        # The type of the entity to which the policy is attached.
-        # 
-        # Valid values:
-        # 
-        # *   RamUser: RAM user
-        # *   RamRole: RAM role
-        # *   ResourceDirectoryTarget: entity in a resource directory
-        # *   RamGroup: RAM user group
+        # The entity type to which the policy is attached.
         self.attached_entity_type = attached_entity_type
-        # The authorization scope of the policy.
-        # 
-        # Valid values:
-        # 
-        # *   Account: Alibaba Cloud account
-        # *   Folder: folder in the resource directory
-        # *   ResourceGroup: resource group
+        # The scope to which the policy is attached.
         self.attached_scope = attached_scope
-        # The effect of the policy.
-        # 
-        # Valid values:
-        # 
-        # *   Deny
-        # 
-        #     <!-- -->
-        # 
-        #     <!-- -->
-        # 
-        #     <!-- -->
-        # 
-        # *   Allow
-        # 
-        #     <!-- -->
-        # 
-        #     <!-- -->
-        # 
-        #     <!-- -->
+        # The policy effect.
         self.effect = effect
-        # The identifier of the policy.
+        # The policy name, as follows:
         # 
-        # *   Control policy: the ID of the control policy
-        # *   RAM policy: the name of the policy
+        # - Control policy: The control policy ID.
+        # 
+        # - RAM access policy: The access policy name.
         self.policy_identifier = policy_identifier
-        # The type of the policy.
-        # 
-        # Valid values:
-        # *   Custom: custom policy
-        # *   System: system policy
+        # The policy type.
         self.policy_type = policy_type
-        # The version number of the policy.
+        # The policy version number.
         # 
         # > Only custom policies have version numbers.
         self.policy_version = policy_version
@@ -281,21 +234,17 @@ class DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessageAuthPrincipal(D
         auth_principal_owner_id: str = None,
         auth_principal_type: str = None,
     ):
-        # The identity.
+        # The identity identifier used for authentication in the user request, as follows:
         # 
-        # *   If the operator is a RAM user, the ID of the user is displayed.
-        # *   If the operator is a RAM role, the name and session name of the role are displayed. Example: RoleName:RoleSessionName.
-        # *   If the operator is an SSO federated identity, the type and name of the identity provider (IdP) are displayed. Example: saml-provider/AzureAD.
+        # - RAM user: The UID of the RAM user.
+        # 
+        # - RAM role: The role name and role session name (for example, RoleName:RoleSessionName).
+        # 
+        # - SSO federated identity: The identity provider type and name (for example, saml-provider/AzureAD).
         self.auth_principal_display_name = auth_principal_display_name
-        # The ID of the Alibaba Cloud account to which the identity belongs.
+        # The Alibaba Cloud account UID of the identity used for authentication in the user request.
         self.auth_principal_owner_id = auth_principal_owner_id
-        # The identity type that is used for authentication in the request.
-        # 
-        # Valid values:
-        # 
-        # *   SubUser: RAM user
-        # *   AssumedRoleUser: RAM role
-        # *   Federated: SSO federated identity
+        # The identity type used for authentication in the user request.
         self.auth_principal_type = auth_principal_type
 
     def validate(self):
@@ -336,9 +285,9 @@ class DecodeDiagnosticMessageResponseBodyDecodedDiagnosticMessageAuthConditions(
         condition_key: str = None,
         condition_values: List[str] = None,
     ):
-        # The key of the condition.
+        # The key of the authentication condition.
         self.condition_key = condition_key
-        # The values that correspond to the key.
+        # The list of values corresponding to the authentication condition key.
         self.condition_values = condition_values
 
     def validate(self):

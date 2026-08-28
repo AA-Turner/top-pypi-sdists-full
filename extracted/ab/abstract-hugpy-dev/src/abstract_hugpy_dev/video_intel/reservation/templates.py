@@ -264,6 +264,32 @@ TEMPLATES: Dict[str, ReservationTemplate] = {
                   duration_class="minutes", count_expr="1"),
         ),
     ),
+    # ---- identity from-video (k94: char360 -> one Hunyuan3D GLB per character) ----
+    # ONE chained job on the render service: the cv_track_embed stage of
+    # identity_video_extract followed by identity_mesh_build's mesh + texture stages
+    # (per detected character). Peak == the Hunyuan mesh stage; whole-run window.
+    "identity_from_video": ReservationTemplate(
+        task="identity_from_video", orchestrator="P-central",
+        delegation="identity_render", gpu_affinity="ae",
+        reservation_window="whole_run",
+        preempts=("llm_agent_brain", "comfy_idle_checkpoint"),
+        stages=(
+            Stage(name="cv_track_embed", process="P-identity", host="ae",
+                  gpu_affinity="ae:cuda:0", out_of_band_vram=True,
+                  vram_bytes_est=_gib(3), exclusive=False,
+                  duration_class="minutes", count_expr="1"),
+            Stage(name="mesh_build", process="P-identity", host="ae",
+                  gpu_affinity="ae:cuda:0", out_of_band_vram=True,
+                  models=({"key": "Hunyuan3D-2mini", "disk_bytes": 25258967765},),
+                  vram_bytes_est=_gib(16), exclusive=True,
+                  duration_class="minutes"),
+            Stage(name="texture_bake", process="P-identity", host="ae",
+                  gpu_affinity="ae:cuda:0", out_of_band_vram=True,
+                  models=({"key": "Hunyuan3D-2mini"},),
+                  vram_bytes_est=_gib(12), exclusive=True,
+                  duration_class="minutes", count_expr="1 if texture else 0"),
+        ),
+    ),
     # ---- generate_movie (vision-judge co-resident peak) — §3.3 ------------
     # NOT in the operator's exclusive-heavy list, but §5's worked co-resident
     # example: peak == t2i checkpoint + vision judge held SIMULTANEOUSLY. Reserved

@@ -394,6 +394,17 @@ def screen(hub_id: str, crit: ReviewCriteria, api=None) -> ScreenResult:
     if r.gated:
         r.notes.append("gated repo — needs an accepted licence on your HF account")
 
+    # k120's card knobs (required_specializations / licenses_allowed), answered
+    # from the tags and the repo name only so the screen stays network-free.
+    # Both default to "no rule", so a pre-k120 criteria file screens exactly as
+    # it did before. See discovery_dossier/screening.py.
+    try:
+        from ..discovery_dossier.screening import extra_reasons
+        r.reasons.extend(extra_reasons(hub_id, crit, r.license, r.tags, r.task))
+    except Exception as exc:                        # noqa: BLE001 — a missing
+        # or broken dossier package must never stop the reviewer screening.
+        r.notes.append(f"k120 screen knobs unavailable ({type(exc).__name__})")
+
     # lineage: a fine-tune of something already in the fleet is the candidate
     # most likely to be a drop-in improvement, so surface it explicitly
     for inc in crit.incumbents:

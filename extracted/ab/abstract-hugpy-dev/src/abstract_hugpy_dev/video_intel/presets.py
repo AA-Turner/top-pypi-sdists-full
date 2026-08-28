@@ -20,7 +20,8 @@ understand ``chain``):
                         on the same start frame — no drift)
     "text-to-image"  -> v1 no-start path (pure prompt-scheduled generation)
 The preset keeps ``mode`` as a plain string; translating it to ``chain`` is the
-caller's job (generate_scene defaults chain=True).
+caller's job (chain is OFF by default; HUGPY_LEGACY_CHAIN=1 opts the fleet
+into the legacy pixel chain — see movie_schema.legacy_chain_enabled).
 
 Quant note (do NOT plumb): ``HUGPY_IMG2IMG_QUANTIZE`` is ENV-ONLY (read once in
 ``managers/imagegen/imagegen_runner.py``), NOT per-request. Its default "auto"
@@ -478,7 +479,7 @@ register_movie_preset(MoviePreset(
     steps=24,
     guidance=6.0,
     fps=8,
-    chain=True,
+    chain=False,
     goals=(
         _goal(0, 3, "a tranquil mountain lake at dawn, soft mist, cool blue tones, "
                     "mirror reflections"),
@@ -501,7 +502,7 @@ register_movie_preset(MoviePreset(
     steps=24,
     guidance=6.0,
     fps=8,
-    chain=True,
+    chain=False,
     goals=(
         _goal(0, 3, "a stone cottage in spring, cherry blossoms, fresh green grass, "
                     "gentle light"),
@@ -524,7 +525,7 @@ register_movie_preset(MoviePreset(
     steps=25,
     guidance=6.0,
     fps=8,
-    chain=True,
+    chain=False,
     goals=(
         _goal(0, 3, "a tight red rose bud with dewdrops, macro photography, soft "
                     "blurred background"),
@@ -546,7 +547,7 @@ register_movie_preset(MoviePreset(
     steps=24,
     guidance=6.0,
     fps=8,
-    chain=True,
+    chain=False,
     goals=(
         _goal(0, 3, "a wide green meadow under a calm clear blue sky, gentle breeze"),
         _goal(3, 6, "the same meadow as dark storm clouds gather on the horizon, "
@@ -568,7 +569,7 @@ register_movie_preset(MoviePreset(
     steps=25,
     guidance=7.0,
     fps=8,
-    chain=True,
+    chain=False,
     goals=(
         _goal(0, 3, "anime girl by a classroom window, soft morning light, calm "
                     "expression"),
@@ -591,7 +592,7 @@ register_movie_preset(MoviePreset(
     steps=6,
     guidance=2.0,
     fps=8,
-    chain=True,
+    chain=False,
     goals=(
         _goal(0, 3, "a vast spiral galaxy in deep space, distant wide view, "
                     "scattered stars"),
@@ -624,7 +625,7 @@ register_movie_preset(MoviePreset(
     steps=18,
     guidance=6.0,
     fps=8,
-    chain=True,
+    chain=False,
     strength=0.45,
     negative=("different person, face change, identity change, deformed face, "
               "extra limbs, warped body, morphing, blurry"),

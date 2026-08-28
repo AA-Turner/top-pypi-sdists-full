@@ -7,7 +7,7 @@ import warnings
 import sys
 import pulumi
 import pulumi.runtime
-from typing import Any, Mapping, Optional, Sequence, Union, overload
+from typing import Any, Mapping, Optional, Sequence, Union, overload, Literal
 if sys.version_info >= (3, 11):
     from typing import NotRequired, TypedDict, TypeAlias
 else:
@@ -59,6 +59,8 @@ __all__ = [
     'DeviceTaintSelectorPatch',
     'OpaqueDeviceConfiguration',
     'OpaqueDeviceConfigurationPatch',
+    'PartitionTypeStatus',
+    'PartitionTypeStatusPatch',
     'PodSchedulingContext',
     'PodSchedulingContextSpec',
     'PodSchedulingContextSpecPatch',
@@ -87,6 +89,10 @@ __all__ = [
     'ResourcePoolStatusRequestStatusPatch',
     'ResourceSliceSpec',
     'ResourceSliceSpecPatch',
+    'ShareableCapacityStatus',
+    'ShareableCapacityStatusPatch',
+    'ShareableSummaryStatus',
+    'ShareableSummaryStatusPatch',
 ]
 
 @pulumi.output_type
@@ -938,8 +944,8 @@ class DeviceClass(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.DeviceClassSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['resource.k8s.io/v1alpha3']] = None,
+                 kind: Optional[Literal['DeviceClass']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None):
         """
         DeviceClass is a vendor- or admin-provided resource that contains device configuration and selectors. It can be referenced in the device requests of a claim to apply these presets. Cluster scoped.
@@ -951,8 +957,8 @@ class DeviceClass(dict):
                This is mutable. Consumers have to be prepared for classes changing at any time, either because they get updated or replaced. Claim allocations are done once based on whatever was set in classes at the time of allocation.
                
                Changing the spec automatically increments the metadata.generation number.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param Literal['resource.k8s.io/v1alpha3'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['DeviceClass'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param '_meta.v1.ObjectMetaArgs' metadata: Standard object metadata
         """
         pulumi.set(__self__, "spec", spec)
@@ -977,7 +983,7 @@ class DeviceClass(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['resource.k8s.io/v1alpha3']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -985,7 +991,7 @@ class DeviceClass(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['DeviceClass']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -2020,8 +2026,8 @@ class DeviceTaintRule(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.DeviceTaintRuleSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['resource.k8s.io/v1alpha3']] = None,
+                 kind: Optional[Literal['DeviceTaintRule']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  status: Optional['outputs.DeviceTaintRuleStatus'] = None):
         """
@@ -2030,8 +2036,8 @@ class DeviceTaintRule(dict):
         :param 'DeviceTaintRuleSpecArgs' spec: Spec specifies the selector and one taint.
                
                Changing the spec automatically increments the metadata.generation number.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param Literal['resource.k8s.io/v1alpha3'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['DeviceTaintRule'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param '_meta.v1.ObjectMetaArgs' metadata: Standard object metadata
         :param 'DeviceTaintRuleStatusArgs' status: Status provides information about what was requested in the spec.
         """
@@ -2057,7 +2063,7 @@ class DeviceTaintRule(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['resource.k8s.io/v1alpha3']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -2065,7 +2071,7 @@ class DeviceTaintRule(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['DeviceTaintRule']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -2476,6 +2482,122 @@ class OpaqueDeviceConfigurationPatch(dict):
 
 
 @pulumi.output_type
+class PartitionTypeStatus(dict):
+    """
+    PartitionTypeStatus reports allocatability for a single partition type, identified by the value of a grouping attribute.
+    """
+    def __init__(__self__, *,
+                 allocatable: _builtins.int,
+                 attribute: _builtins.str,
+                 total: _builtins.int,
+                 type: _builtins.str):
+        """
+        PartitionTypeStatus reports allocatability for a single partition type, identified by the value of a grouping attribute.
+
+        :param _builtins.int allocatable: Allocatable is the number of additional devices of this partition type that could still be allocated given current shared-counter consumption.
+        :param _builtins.str attribute: Attribute is the fully qualified name of the device attribute whose value groups this entry. It is the PartitionTypeAttribute declared by the devices' own slice, or the default named in the request when their slice declares none.
+        :param _builtins.int total: Total is the number of devices of this partition type in the pool.
+        :param _builtins.str type: Type is the partition type value (e.g. "Full" or "Half").
+        """
+        pulumi.set(__self__, "allocatable", allocatable)
+        pulumi.set(__self__, "attribute", attribute)
+        pulumi.set(__self__, "total", total)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def allocatable(self) -> _builtins.int:
+        """
+        Allocatable is the number of additional devices of this partition type that could still be allocated given current shared-counter consumption.
+        """
+        return pulumi.get(self, "allocatable")
+
+    @_builtins.property
+    @pulumi.getter
+    def attribute(self) -> _builtins.str:
+        """
+        Attribute is the fully qualified name of the device attribute whose value groups this entry. It is the PartitionTypeAttribute declared by the devices' own slice, or the default named in the request when their slice declares none.
+        """
+        return pulumi.get(self, "attribute")
+
+    @_builtins.property
+    @pulumi.getter
+    def total(self) -> _builtins.int:
+        """
+        Total is the number of devices of this partition type in the pool.
+        """
+        return pulumi.get(self, "total")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        Type is the partition type value (e.g. "Full" or "Half").
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class PartitionTypeStatusPatch(dict):
+    """
+    PartitionTypeStatus reports allocatability for a single partition type, identified by the value of a grouping attribute.
+    """
+    def __init__(__self__, *,
+                 allocatable: Optional[_builtins.int] = None,
+                 attribute: Optional[_builtins.str] = None,
+                 total: Optional[_builtins.int] = None,
+                 type: Optional[_builtins.str] = None):
+        """
+        PartitionTypeStatus reports allocatability for a single partition type, identified by the value of a grouping attribute.
+
+        :param _builtins.int allocatable: Allocatable is the number of additional devices of this partition type that could still be allocated given current shared-counter consumption.
+        :param _builtins.str attribute: Attribute is the fully qualified name of the device attribute whose value groups this entry. It is the PartitionTypeAttribute declared by the devices' own slice, or the default named in the request when their slice declares none.
+        :param _builtins.int total: Total is the number of devices of this partition type in the pool.
+        :param _builtins.str type: Type is the partition type value (e.g. "Full" or "Half").
+        """
+        if allocatable is not None:
+            pulumi.set(__self__, "allocatable", allocatable)
+        if attribute is not None:
+            pulumi.set(__self__, "attribute", attribute)
+        if total is not None:
+            pulumi.set(__self__, "total", total)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def allocatable(self) -> Optional[_builtins.int]:
+        """
+        Allocatable is the number of additional devices of this partition type that could still be allocated given current shared-counter consumption.
+        """
+        return pulumi.get(self, "allocatable")
+
+    @_builtins.property
+    @pulumi.getter
+    def attribute(self) -> Optional[_builtins.str]:
+        """
+        Attribute is the fully qualified name of the device attribute whose value groups this entry. It is the PartitionTypeAttribute declared by the devices' own slice, or the default named in the request when their slice declares none.
+        """
+        return pulumi.get(self, "attribute")
+
+    @_builtins.property
+    @pulumi.getter
+    def total(self) -> Optional[_builtins.int]:
+        """
+        Total is the number of devices of this partition type in the pool.
+        """
+        return pulumi.get(self, "total")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        Type is the partition type value (e.g. "Full" or "Half").
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
 class PodSchedulingContext(dict):
     """
     PodSchedulingContext objects hold information that is needed to schedule a Pod with ResourceClaims that use "WaitForFirstConsumer" allocation mode.
@@ -2501,8 +2623,8 @@ class PodSchedulingContext(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.PodSchedulingContextSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['resource.k8s.io/v1alpha3']] = None,
+                 kind: Optional[Literal['PodSchedulingContext']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  status: Optional['outputs.PodSchedulingContextStatus'] = None):
         """
@@ -2511,8 +2633,8 @@ class PodSchedulingContext(dict):
         This is an alpha type and requires enabling the DRAControlPlaneController feature gate.
 
         :param 'PodSchedulingContextSpecArgs' spec: Spec describes where resources for the Pod are needed.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param Literal['resource.k8s.io/v1alpha3'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['PodSchedulingContext'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param '_meta.v1.ObjectMetaArgs' metadata: Standard object metadata
         :param 'PodSchedulingContextStatusArgs' status: Status describes where resources for the Pod can be allocated.
         """
@@ -2536,7 +2658,7 @@ class PodSchedulingContext(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['resource.k8s.io/v1alpha3']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -2544,7 +2666,7 @@ class PodSchedulingContext(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['PodSchedulingContext']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -2783,8 +2905,12 @@ class PoolStatus(dict):
             suggest = "available_devices"
         elif key == "nodeName":
             suggest = "node_name"
+        elif key == "partitionSummary":
+            suggest = "partition_summary"
         elif key == "resourceSliceCount":
             suggest = "resource_slice_count"
+        elif key == "shareableSummary":
+            suggest = "shareable_summary"
         elif key == "totalDevices":
             suggest = "total_devices"
         elif key == "unavailableDevices":
@@ -2810,7 +2936,9 @@ class PoolStatus(dict):
                  allocated_devices: Optional[_builtins.int] = None,
                  available_devices: Optional[_builtins.int] = None,
                  node_name: Optional[_builtins.str] = None,
+                 partition_summary: Optional[Sequence['outputs.PartitionTypeStatus']] = None,
                  resource_slice_count: Optional[_builtins.int] = None,
+                 shareable_summary: Optional['outputs.ShareableSummaryStatus'] = None,
                  total_devices: Optional[_builtins.int] = None,
                  unavailable_devices: Optional[_builtins.int] = None,
                  validation_error: Optional[_builtins.str] = None):
@@ -2823,7 +2951,9 @@ class PoolStatus(dict):
         :param _builtins.int allocated_devices: AllocatedDevices is the number of devices currently allocated to claims. A value of 0 means no devices are allocated. May be unset when validationError is set.
         :param _builtins.int available_devices: AvailableDevices is the number of devices available for allocation. This equals TotalDevices - AllocatedDevices - UnavailableDevices. A value of 0 means no devices are currently available. May be unset when validationError is set.
         :param _builtins.str node_name: NodeName is the node this pool is associated with. When omitted, the pool is not associated with a specific node. Must be a valid DNS subdomain name (RFC1123).
+        :param Sequence['PartitionTypeStatusArgs'] partition_summary: PartitionSummary reports allocatability per (attribute, partition type) for a partitionable pool that publishes SharedCounters. Each entry names the grouping attribute it was resolved from: the PartitionTypeAttribute declared by a device's own slice, or for devices whose slice declares none, the default named in the request. A pool that mixes partitions declared under different attributes reports each independently. When no slice declares an attribute and the request names no default, the pool reports no partition summary.
         :param _builtins.int resource_slice_count: ResourceSliceCount is the number of ResourceSlices that make up this pool. May be unset when validationError is set.
+        :param 'ShareableSummaryStatusArgs' shareable_summary: ShareableSummary reports aggregate capacity for a pool that contains devices with AllowMultipleAllocations. It is populated only when at least one device in the pool is shareable.
         :param _builtins.int total_devices: TotalDevices is the total number of devices in the pool across all slices. A value of 0 means the pool has no devices. May be unset when validationError is set.
         :param _builtins.int unavailable_devices: UnavailableDevices is the number of devices that are not available due to taints or other conditions, but are not allocated. A value of 0 means all unallocated devices are available. May be unset when validationError is set.
         :param _builtins.str validation_error: ValidationError is set when the pool's data could not be fully validated (e.g., incomplete slice publication). When set, device count fields and ResourceSliceCount may be unset.
@@ -2837,8 +2967,12 @@ class PoolStatus(dict):
             pulumi.set(__self__, "available_devices", available_devices)
         if node_name is not None:
             pulumi.set(__self__, "node_name", node_name)
+        if partition_summary is not None:
+            pulumi.set(__self__, "partition_summary", partition_summary)
         if resource_slice_count is not None:
             pulumi.set(__self__, "resource_slice_count", resource_slice_count)
+        if shareable_summary is not None:
+            pulumi.set(__self__, "shareable_summary", shareable_summary)
         if total_devices is not None:
             pulumi.set(__self__, "total_devices", total_devices)
         if unavailable_devices is not None:
@@ -2895,12 +3029,28 @@ class PoolStatus(dict):
         return pulumi.get(self, "node_name")
 
     @_builtins.property
+    @pulumi.getter(name="partitionSummary")
+    def partition_summary(self) -> Optional[Sequence['outputs.PartitionTypeStatus']]:
+        """
+        PartitionSummary reports allocatability per (attribute, partition type) for a partitionable pool that publishes SharedCounters. Each entry names the grouping attribute it was resolved from: the PartitionTypeAttribute declared by a device's own slice, or for devices whose slice declares none, the default named in the request. A pool that mixes partitions declared under different attributes reports each independently. When no slice declares an attribute and the request names no default, the pool reports no partition summary.
+        """
+        return pulumi.get(self, "partition_summary")
+
+    @_builtins.property
     @pulumi.getter(name="resourceSliceCount")
     def resource_slice_count(self) -> Optional[_builtins.int]:
         """
         ResourceSliceCount is the number of ResourceSlices that make up this pool. May be unset when validationError is set.
         """
         return pulumi.get(self, "resource_slice_count")
+
+    @_builtins.property
+    @pulumi.getter(name="shareableSummary")
+    def shareable_summary(self) -> Optional['outputs.ShareableSummaryStatus']:
+        """
+        ShareableSummary reports aggregate capacity for a pool that contains devices with AllowMultipleAllocations. It is populated only when at least one device in the pool is shareable.
+        """
+        return pulumi.get(self, "shareable_summary")
 
     @_builtins.property
     @pulumi.getter(name="totalDevices")
@@ -2941,10 +3091,14 @@ class PoolStatusPatch(dict):
             suggest = "available_devices"
         elif key == "nodeName":
             suggest = "node_name"
+        elif key == "partitionSummary":
+            suggest = "partition_summary"
         elif key == "poolName":
             suggest = "pool_name"
         elif key == "resourceSliceCount":
             suggest = "resource_slice_count"
+        elif key == "shareableSummary":
+            suggest = "shareable_summary"
         elif key == "totalDevices":
             suggest = "total_devices"
         elif key == "unavailableDevices":
@@ -2969,8 +3123,10 @@ class PoolStatusPatch(dict):
                  driver: Optional[_builtins.str] = None,
                  generation: Optional[_builtins.int] = None,
                  node_name: Optional[_builtins.str] = None,
+                 partition_summary: Optional[Sequence['outputs.PartitionTypeStatusPatch']] = None,
                  pool_name: Optional[_builtins.str] = None,
                  resource_slice_count: Optional[_builtins.int] = None,
+                 shareable_summary: Optional['outputs.ShareableSummaryStatusPatch'] = None,
                  total_devices: Optional[_builtins.int] = None,
                  unavailable_devices: Optional[_builtins.int] = None,
                  validation_error: Optional[_builtins.str] = None):
@@ -2982,8 +3138,10 @@ class PoolStatusPatch(dict):
         :param _builtins.str driver: Driver is the DRA driver name for this pool. Must be a DNS subdomain (e.g., "gpu.example.com").
         :param _builtins.int generation: Generation is the pool generation observed across all ResourceSlices in this pool. Only the latest generation is reported. During a generation rollout, if not all slices at the latest generation have been published, the pool is included with a validationError and device counts unset.
         :param _builtins.str node_name: NodeName is the node this pool is associated with. When omitted, the pool is not associated with a specific node. Must be a valid DNS subdomain name (RFC1123).
+        :param Sequence['PartitionTypeStatusPatchArgs'] partition_summary: PartitionSummary reports allocatability per (attribute, partition type) for a partitionable pool that publishes SharedCounters. Each entry names the grouping attribute it was resolved from: the PartitionTypeAttribute declared by a device's own slice, or for devices whose slice declares none, the default named in the request. A pool that mixes partitions declared under different attributes reports each independently. When no slice declares an attribute and the request names no default, the pool reports no partition summary.
         :param _builtins.str pool_name: PoolName is the name of the pool. Must be a valid resource pool name (DNS subdomains separated by "/").
         :param _builtins.int resource_slice_count: ResourceSliceCount is the number of ResourceSlices that make up this pool. May be unset when validationError is set.
+        :param 'ShareableSummaryStatusPatchArgs' shareable_summary: ShareableSummary reports aggregate capacity for a pool that contains devices with AllowMultipleAllocations. It is populated only when at least one device in the pool is shareable.
         :param _builtins.int total_devices: TotalDevices is the total number of devices in the pool across all slices. A value of 0 means the pool has no devices. May be unset when validationError is set.
         :param _builtins.int unavailable_devices: UnavailableDevices is the number of devices that are not available due to taints or other conditions, but are not allocated. A value of 0 means all unallocated devices are available. May be unset when validationError is set.
         :param _builtins.str validation_error: ValidationError is set when the pool's data could not be fully validated (e.g., incomplete slice publication). When set, device count fields and ResourceSliceCount may be unset.
@@ -2998,10 +3156,14 @@ class PoolStatusPatch(dict):
             pulumi.set(__self__, "generation", generation)
         if node_name is not None:
             pulumi.set(__self__, "node_name", node_name)
+        if partition_summary is not None:
+            pulumi.set(__self__, "partition_summary", partition_summary)
         if pool_name is not None:
             pulumi.set(__self__, "pool_name", pool_name)
         if resource_slice_count is not None:
             pulumi.set(__self__, "resource_slice_count", resource_slice_count)
+        if shareable_summary is not None:
+            pulumi.set(__self__, "shareable_summary", shareable_summary)
         if total_devices is not None:
             pulumi.set(__self__, "total_devices", total_devices)
         if unavailable_devices is not None:
@@ -3050,6 +3212,14 @@ class PoolStatusPatch(dict):
         return pulumi.get(self, "node_name")
 
     @_builtins.property
+    @pulumi.getter(name="partitionSummary")
+    def partition_summary(self) -> Optional[Sequence['outputs.PartitionTypeStatusPatch']]:
+        """
+        PartitionSummary reports allocatability per (attribute, partition type) for a partitionable pool that publishes SharedCounters. Each entry names the grouping attribute it was resolved from: the PartitionTypeAttribute declared by a device's own slice, or for devices whose slice declares none, the default named in the request. A pool that mixes partitions declared under different attributes reports each independently. When no slice declares an attribute and the request names no default, the pool reports no partition summary.
+        """
+        return pulumi.get(self, "partition_summary")
+
+    @_builtins.property
     @pulumi.getter(name="poolName")
     def pool_name(self) -> Optional[_builtins.str]:
         """
@@ -3064,6 +3234,14 @@ class PoolStatusPatch(dict):
         ResourceSliceCount is the number of ResourceSlices that make up this pool. May be unset when validationError is set.
         """
         return pulumi.get(self, "resource_slice_count")
+
+    @_builtins.property
+    @pulumi.getter(name="shareableSummary")
+    def shareable_summary(self) -> Optional['outputs.ShareableSummaryStatusPatch']:
+        """
+        ShareableSummary reports aggregate capacity for a pool that contains devices with AllowMultipleAllocations. It is populated only when at least one device in the pool is shareable.
+        """
+        return pulumi.get(self, "shareable_summary")
 
     @_builtins.property
     @pulumi.getter(name="totalDevices")
@@ -3116,8 +3294,8 @@ class ResourceClaim(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.ResourceClaimSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['resource.k8s.io/v1alpha3']] = None,
+                 kind: Optional[Literal['ResourceClaim']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  status: Optional['outputs.ResourceClaimStatus'] = None):
         """
@@ -3126,8 +3304,8 @@ class ResourceClaim(dict):
         This is an alpha type and requires enabling the DynamicResourceAllocation feature gate.
 
         :param 'ResourceClaimSpecArgs' spec: Spec describes what is being requested and how to configure it. The spec is immutable.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param Literal['resource.k8s.io/v1alpha3'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['ResourceClaim'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param '_meta.v1.ObjectMetaArgs' metadata: Standard object metadata
         :param 'ResourceClaimStatusArgs' status: Status describes whether the claim is ready to use and what has been allocated.
         """
@@ -3151,7 +3329,7 @@ class ResourceClaim(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['resource.k8s.io/v1alpha3']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -3159,7 +3337,7 @@ class ResourceClaim(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['ResourceClaim']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -3734,8 +3912,8 @@ class ResourceClaimTemplate(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.ResourceClaimTemplateSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['resource.k8s.io/v1alpha3']] = None,
+                 kind: Optional[Literal['ResourceClaimTemplate']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None):
         """
         ResourceClaimTemplate is used to produce ResourceClaim objects.
@@ -3745,8 +3923,8 @@ class ResourceClaimTemplate(dict):
         :param 'ResourceClaimTemplateSpecArgs' spec: Describes the ResourceClaim that is to be generated.
                
                This field is immutable. A ResourceClaim will get created by the control plane for a Pod when needed and then not get updated anymore.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param Literal['resource.k8s.io/v1alpha3'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['ResourceClaimTemplate'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param '_meta.v1.ObjectMetaArgs' metadata: Standard object metadata
         """
         pulumi.set(__self__, "spec", spec)
@@ -3769,7 +3947,7 @@ class ResourceClaimTemplate(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['resource.k8s.io/v1alpha3']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -3777,7 +3955,7 @@ class ResourceClaimTemplate(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['ResourceClaimTemplate']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -4039,16 +4217,16 @@ class ResourcePoolStatusRequest(dict):
     def __init__(__self__, *,
                  metadata: '_meta.v1.outputs.ObjectMeta',
                  spec: 'outputs.ResourcePoolStatusRequestSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['resource.k8s.io/v1alpha3']] = None,
+                 kind: Optional[Literal['ResourcePoolStatusRequest']] = None,
                  status: Optional['outputs.ResourcePoolStatusRequestStatus'] = None):
         """
         ResourcePoolStatusRequest triggers a one-time calculation of resource pool status based on the provided filters. Once status is set, the request is considered complete and will not be reprocessed. Users should delete and recreate requests to get updated information.
 
         :param '_meta.v1.ObjectMetaArgs' metadata: Standard object metadata
         :param 'ResourcePoolStatusRequestSpecArgs' spec: Spec defines the filters for which pools to include in the status. The spec is immutable once created.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param Literal['resource.k8s.io/v1alpha3'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['ResourcePoolStatusRequest'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param 'ResourcePoolStatusRequestStatusArgs' status: Status is populated by the controller with the calculated pool status. When status is non-nil, the request is considered complete and the entire object becomes immutable.
         """
         pulumi.set(__self__, "metadata", metadata)
@@ -4078,7 +4256,7 @@ class ResourcePoolStatusRequest(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['resource.k8s.io/v1alpha3']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -4086,7 +4264,7 @@ class ResourcePoolStatusRequest(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['ResourcePoolStatusRequest']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -4109,7 +4287,9 @@ class ResourcePoolStatusRequestSpec(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "poolName":
+        if key == "defaultPartitionTypeAttribute":
+            suggest = "default_partition_type_attribute"
+        elif key == "poolName":
             suggest = "pool_name"
 
         if suggest:
@@ -4125,18 +4305,26 @@ class ResourcePoolStatusRequestSpec(dict):
 
     def __init__(__self__, *,
                  driver: _builtins.str,
+                 default_partition_type_attribute: Optional[_builtins.str] = None,
                  limit: Optional[_builtins.int] = None,
                  pool_name: Optional[_builtins.str] = None):
         """
         ResourcePoolStatusRequestSpec defines the filters for the pool status request.
 
         :param _builtins.str driver: Driver specifies the DRA driver name to filter pools. Only pools from ResourceSlices with this driver will be included. Must be a DNS subdomain (e.g., "gpu.example.com").
+        :param _builtins.str default_partition_type_attribute: DefaultPartitionTypeAttribute optionally names a device attribute (by its fully qualified name, e.g. "gpu.example.com/profile") to use as the default grouping attribute for partitionable devices whose slice has not declared one themselves.
+               
+               A slice's own PartitionTypeAttribute always takes precedence. This default applies only to devices whose slice does not declare one, so that a request can still get an accurate partitionSummary from a driver that has not been updated to declare it. When neither the slice nor this default names an attribute, a partitionable pool reports no partitionSummary.
+               
+               Must include the domain qualifier.
         :param _builtins.int limit: Limit optionally specifies the maximum number of pools to return in the status. If more pools match the filter criteria, the response will be truncated (i.e., len(status.pools) < status.poolCount).
                
                Default: 100 Minimum: 1 Maximum: 1000
         :param _builtins.str pool_name: PoolName optionally filters to a specific pool name. If not specified, all pools from the specified driver are included. When specified, must be a non-empty valid resource pool name (DNS subdomains separated by "/").
         """
         pulumi.set(__self__, "driver", driver)
+        if default_partition_type_attribute is not None:
+            pulumi.set(__self__, "default_partition_type_attribute", default_partition_type_attribute)
         if limit is not None:
             pulumi.set(__self__, "limit", limit)
         if pool_name is not None:
@@ -4149,6 +4337,18 @@ class ResourcePoolStatusRequestSpec(dict):
         Driver specifies the DRA driver name to filter pools. Only pools from ResourceSlices with this driver will be included. Must be a DNS subdomain (e.g., "gpu.example.com").
         """
         return pulumi.get(self, "driver")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultPartitionTypeAttribute")
+    def default_partition_type_attribute(self) -> Optional[_builtins.str]:
+        """
+        DefaultPartitionTypeAttribute optionally names a device attribute (by its fully qualified name, e.g. "gpu.example.com/profile") to use as the default grouping attribute for partitionable devices whose slice has not declared one themselves.
+
+        A slice's own PartitionTypeAttribute always takes precedence. This default applies only to devices whose slice does not declare one, so that a request can still get an accurate partitionSummary from a driver that has not been updated to declare it. When neither the slice nor this default names an attribute, a partitionable pool reports no partitionSummary.
+
+        Must include the domain qualifier.
+        """
+        return pulumi.get(self, "default_partition_type_attribute")
 
     @_builtins.property
     @pulumi.getter
@@ -4177,7 +4377,9 @@ class ResourcePoolStatusRequestSpecPatch(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "poolName":
+        if key == "defaultPartitionTypeAttribute":
+            suggest = "default_partition_type_attribute"
+        elif key == "poolName":
             suggest = "pool_name"
 
         if suggest:
@@ -4192,24 +4394,44 @@ class ResourcePoolStatusRequestSpecPatch(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 default_partition_type_attribute: Optional[_builtins.str] = None,
                  driver: Optional[_builtins.str] = None,
                  limit: Optional[_builtins.int] = None,
                  pool_name: Optional[_builtins.str] = None):
         """
         ResourcePoolStatusRequestSpec defines the filters for the pool status request.
 
+        :param _builtins.str default_partition_type_attribute: DefaultPartitionTypeAttribute optionally names a device attribute (by its fully qualified name, e.g. "gpu.example.com/profile") to use as the default grouping attribute for partitionable devices whose slice has not declared one themselves.
+               
+               A slice's own PartitionTypeAttribute always takes precedence. This default applies only to devices whose slice does not declare one, so that a request can still get an accurate partitionSummary from a driver that has not been updated to declare it. When neither the slice nor this default names an attribute, a partitionable pool reports no partitionSummary.
+               
+               Must include the domain qualifier.
         :param _builtins.str driver: Driver specifies the DRA driver name to filter pools. Only pools from ResourceSlices with this driver will be included. Must be a DNS subdomain (e.g., "gpu.example.com").
         :param _builtins.int limit: Limit optionally specifies the maximum number of pools to return in the status. If more pools match the filter criteria, the response will be truncated (i.e., len(status.pools) < status.poolCount).
                
                Default: 100 Minimum: 1 Maximum: 1000
         :param _builtins.str pool_name: PoolName optionally filters to a specific pool name. If not specified, all pools from the specified driver are included. When specified, must be a non-empty valid resource pool name (DNS subdomains separated by "/").
         """
+        if default_partition_type_attribute is not None:
+            pulumi.set(__self__, "default_partition_type_attribute", default_partition_type_attribute)
         if driver is not None:
             pulumi.set(__self__, "driver", driver)
         if limit is not None:
             pulumi.set(__self__, "limit", limit)
         if pool_name is not None:
             pulumi.set(__self__, "pool_name", pool_name)
+
+    @_builtins.property
+    @pulumi.getter(name="defaultPartitionTypeAttribute")
+    def default_partition_type_attribute(self) -> Optional[_builtins.str]:
+        """
+        DefaultPartitionTypeAttribute optionally names a device attribute (by its fully qualified name, e.g. "gpu.example.com/profile") to use as the default grouping attribute for partitionable devices whose slice has not declared one themselves.
+
+        A slice's own PartitionTypeAttribute always takes precedence. This default applies only to devices whose slice does not declare one, so that a request can still get an accurate partitionSummary from a driver that has not been updated to declare it. When neither the slice nor this default names an attribute, a partitionable pool reports no partitionSummary.
+
+        Must include the domain qualifier.
+        """
+        return pulumi.get(self, "default_partition_type_attribute")
 
     @_builtins.property
     @pulumi.getter
@@ -4637,5 +4859,253 @@ class ResourceSliceSpecPatch(dict):
         Pool describes the pool that this ResourceSlice belongs to.
         """
         return pulumi.get(self, "pool")
+
+
+@pulumi.output_type
+class ShareableCapacityStatus(dict):
+    """
+    ShareableCapacityStatus reports aggregate amounts for a single shareable capacity key.
+    """
+    def __init__(__self__, *,
+                 available: _builtins.str,
+                 consumed: _builtins.str,
+                 name: _builtins.str,
+                 total: _builtins.str):
+        """
+        ShareableCapacityStatus reports aggregate amounts for a single shareable capacity key.
+
+        :param _builtins.str available: Available is Total minus Consumed, never negative.
+        :param _builtins.str consumed: Consumed is the amount drawn by current allocations.
+        :param _builtins.str name: Name is the capacity name.
+        :param _builtins.str total: Total is the sum of this capacity across shareable devices in the pool.
+        """
+        pulumi.set(__self__, "available", available)
+        pulumi.set(__self__, "consumed", consumed)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "total", total)
+
+    @_builtins.property
+    @pulumi.getter
+    def available(self) -> _builtins.str:
+        """
+        Available is Total minus Consumed, never negative.
+        """
+        return pulumi.get(self, "available")
+
+    @_builtins.property
+    @pulumi.getter
+    def consumed(self) -> _builtins.str:
+        """
+        Consumed is the amount drawn by current allocations.
+        """
+        return pulumi.get(self, "consumed")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name is the capacity name.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def total(self) -> _builtins.str:
+        """
+        Total is the sum of this capacity across shareable devices in the pool.
+        """
+        return pulumi.get(self, "total")
+
+
+@pulumi.output_type
+class ShareableCapacityStatusPatch(dict):
+    """
+    ShareableCapacityStatus reports aggregate amounts for a single shareable capacity key.
+    """
+    def __init__(__self__, *,
+                 available: Optional[_builtins.str] = None,
+                 consumed: Optional[_builtins.str] = None,
+                 name: Optional[_builtins.str] = None,
+                 total: Optional[_builtins.str] = None):
+        """
+        ShareableCapacityStatus reports aggregate amounts for a single shareable capacity key.
+
+        :param _builtins.str available: Available is Total minus Consumed, never negative.
+        :param _builtins.str consumed: Consumed is the amount drawn by current allocations.
+        :param _builtins.str name: Name is the capacity name.
+        :param _builtins.str total: Total is the sum of this capacity across shareable devices in the pool.
+        """
+        if available is not None:
+            pulumi.set(__self__, "available", available)
+        if consumed is not None:
+            pulumi.set(__self__, "consumed", consumed)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+        if total is not None:
+            pulumi.set(__self__, "total", total)
+
+    @_builtins.property
+    @pulumi.getter
+    def available(self) -> Optional[_builtins.str]:
+        """
+        Available is Total minus Consumed, never negative.
+        """
+        return pulumi.get(self, "available")
+
+    @_builtins.property
+    @pulumi.getter
+    def consumed(self) -> Optional[_builtins.str]:
+        """
+        Consumed is the amount drawn by current allocations.
+        """
+        return pulumi.get(self, "consumed")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        Name is the capacity name.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def total(self) -> Optional[_builtins.str]:
+        """
+        Total is the sum of this capacity across shareable devices in the pool.
+        """
+        return pulumi.get(self, "total")
+
+
+@pulumi.output_type
+class ShareableSummaryStatus(dict):
+    """
+    ShareableSummaryStatus reports aggregate capacity for a pool that contains devices with AllowMultipleAllocations.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "fullyAvailableDevices":
+            suggest = "fully_available_devices"
+        elif key == "partiallyAvailableDevices":
+            suggest = "partially_available_devices"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ShareableSummaryStatus. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ShareableSummaryStatus.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ShareableSummaryStatus.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 fully_available_devices: _builtins.int,
+                 partially_available_devices: _builtins.int,
+                 capacity: Optional[Sequence['outputs.ShareableCapacityStatus']] = None):
+        """
+        ShareableSummaryStatus reports aggregate capacity for a pool that contains devices with AllowMultipleAllocations.
+
+        :param _builtins.int fully_available_devices: FullyAvailableDevices is the number of shareable devices with no capacity consumed.
+        :param _builtins.int partially_available_devices: PartiallyAvailableDevices is the number of shareable devices with some but not all capacity consumed.
+        :param Sequence['ShareableCapacityStatusArgs'] capacity: Capacity reports aggregate total, consumed, and available amounts per shareable capacity key across the pool.
+        """
+        pulumi.set(__self__, "fully_available_devices", fully_available_devices)
+        pulumi.set(__self__, "partially_available_devices", partially_available_devices)
+        if capacity is not None:
+            pulumi.set(__self__, "capacity", capacity)
+
+    @_builtins.property
+    @pulumi.getter(name="fullyAvailableDevices")
+    def fully_available_devices(self) -> _builtins.int:
+        """
+        FullyAvailableDevices is the number of shareable devices with no capacity consumed.
+        """
+        return pulumi.get(self, "fully_available_devices")
+
+    @_builtins.property
+    @pulumi.getter(name="partiallyAvailableDevices")
+    def partially_available_devices(self) -> _builtins.int:
+        """
+        PartiallyAvailableDevices is the number of shareable devices with some but not all capacity consumed.
+        """
+        return pulumi.get(self, "partially_available_devices")
+
+    @_builtins.property
+    @pulumi.getter
+    def capacity(self) -> Optional[Sequence['outputs.ShareableCapacityStatus']]:
+        """
+        Capacity reports aggregate total, consumed, and available amounts per shareable capacity key across the pool.
+        """
+        return pulumi.get(self, "capacity")
+
+
+@pulumi.output_type
+class ShareableSummaryStatusPatch(dict):
+    """
+    ShareableSummaryStatus reports aggregate capacity for a pool that contains devices with AllowMultipleAllocations.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "fullyAvailableDevices":
+            suggest = "fully_available_devices"
+        elif key == "partiallyAvailableDevices":
+            suggest = "partially_available_devices"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ShareableSummaryStatusPatch. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ShareableSummaryStatusPatch.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ShareableSummaryStatusPatch.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 capacity: Optional[Sequence['outputs.ShareableCapacityStatusPatch']] = None,
+                 fully_available_devices: Optional[_builtins.int] = None,
+                 partially_available_devices: Optional[_builtins.int] = None):
+        """
+        ShareableSummaryStatus reports aggregate capacity for a pool that contains devices with AllowMultipleAllocations.
+
+        :param Sequence['ShareableCapacityStatusPatchArgs'] capacity: Capacity reports aggregate total, consumed, and available amounts per shareable capacity key across the pool.
+        :param _builtins.int fully_available_devices: FullyAvailableDevices is the number of shareable devices with no capacity consumed.
+        :param _builtins.int partially_available_devices: PartiallyAvailableDevices is the number of shareable devices with some but not all capacity consumed.
+        """
+        if capacity is not None:
+            pulumi.set(__self__, "capacity", capacity)
+        if fully_available_devices is not None:
+            pulumi.set(__self__, "fully_available_devices", fully_available_devices)
+        if partially_available_devices is not None:
+            pulumi.set(__self__, "partially_available_devices", partially_available_devices)
+
+    @_builtins.property
+    @pulumi.getter
+    def capacity(self) -> Optional[Sequence['outputs.ShareableCapacityStatusPatch']]:
+        """
+        Capacity reports aggregate total, consumed, and available amounts per shareable capacity key across the pool.
+        """
+        return pulumi.get(self, "capacity")
+
+    @_builtins.property
+    @pulumi.getter(name="fullyAvailableDevices")
+    def fully_available_devices(self) -> Optional[_builtins.int]:
+        """
+        FullyAvailableDevices is the number of shareable devices with no capacity consumed.
+        """
+        return pulumi.get(self, "fully_available_devices")
+
+    @_builtins.property
+    @pulumi.getter(name="partiallyAvailableDevices")
+    def partially_available_devices(self) -> Optional[_builtins.int]:
+        """
+        PartiallyAvailableDevices is the number of shareable devices with some but not all capacity consumed.
+        """
+        return pulumi.get(self, "partially_available_devices")
 
 

@@ -20,7 +20,31 @@ class Client(OpenApiClient):
         config: open_api_util_models.Config,
     ):
         super().__init__(config)
-        self._endpoint_rule = 'central'
+        self._endpoint_rule = 'regional'
+        self._endpoint_map = {
+            'cn-beijing': 'ram.aliyuncs.com',
+            'cn-qingdao': 'ram.aliyuncs.com',
+            'cn-shanghai': 'ram.aliyuncs.com',
+            'cn-hongkong': 'ram.aliyuncs.com',
+            'cn-zhangjiakou': 'ram.aliyuncs.com',
+            'cn-shenzhen': 'ram.aliyuncs.com',
+            'ap-northeast-1': 'ram.aliyuncs.com',
+            'cn-chengdu': 'ram.aliyuncs.com',
+            'ap-southeast-1': 'ram.aliyuncs.com',
+            'ap-southeast-3': 'ram.aliyuncs.com',
+            'cn-huhehaote': 'ram.aliyuncs.com',
+            'ap-southeast-5': 'ram.aliyuncs.com',
+            'cn-hangzhou': 'ram.aliyuncs.com',
+            'us-east-1': 'ram.aliyuncs.com',
+            'eu-west-1': 'ram.aliyuncs.com',
+            'us-west-1': 'ram.aliyuncs.com',
+            'eu-central-1': 'ram.aliyuncs.com',
+            'me-east-1': 'ram.aliyuncs.com',
+            'cn-shenzhen-finance-1': 'ram.aliyuncs.com',
+            'cn-shanghai-finance-1': 'ram.aliyuncs.com',
+            'cn-beijing-finance-1': 'ram.aliyuncs.com',
+            'cn-hangzhou-finance': 'ram.aliyuncs.com'
+        }
         self.check_config(config)
         self._endpoint = self.get_endpoint('ram', self._region_id, self._endpoint_rule, self._network, self._suffix, self._endpoint_map, self._endpoint)
 
@@ -975,6 +999,8 @@ class Client(OpenApiClient):
         if not DaraCore.is_null(tmp_req.tag):
             request.tag_shrink = Utils.array_to_string_with_specified_style(tmp_req.tag, 'Tag', 'json')
         query = {}
+        if not DaraCore.is_null(request.allow_console_login):
+            query['AllowConsoleLogin'] = request.allow_console_login
         if not DaraCore.is_null(request.assume_role_policy_document):
             query['AssumeRolePolicyDocument'] = request.assume_role_policy_document
         if not DaraCore.is_null(request.description):
@@ -1015,6 +1041,8 @@ class Client(OpenApiClient):
         if not DaraCore.is_null(tmp_req.tag):
             request.tag_shrink = Utils.array_to_string_with_specified_style(tmp_req.tag, 'Tag', 'json')
         query = {}
+        if not DaraCore.is_null(request.allow_console_login):
+            query['AllowConsoleLogin'] = request.allow_console_login
         if not DaraCore.is_null(request.assume_role_policy_document):
             query['AssumeRolePolicyDocument'] = request.assume_role_policy_document
         if not DaraCore.is_null(request.description):
@@ -1057,6 +1085,84 @@ class Client(OpenApiClient):
     ) -> main_models.CreateRoleResponse:
         runtime = RuntimeOptions()
         return await self.create_role_with_options_async(request, runtime)
+
+    def create_service_linked_role_with_options(
+        self,
+        request: main_models.CreateServiceLinkedRoleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.CreateServiceLinkedRoleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.custom_suffix):
+            query['CustomSuffix'] = request.custom_suffix
+        if not DaraCore.is_null(request.description):
+            query['Description'] = request.description
+        if not DaraCore.is_null(request.service_name):
+            query['ServiceName'] = request.service_name
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'CreateServiceLinkedRole',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CreateServiceLinkedRoleResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def create_service_linked_role_with_options_async(
+        self,
+        request: main_models.CreateServiceLinkedRoleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.CreateServiceLinkedRoleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.custom_suffix):
+            query['CustomSuffix'] = request.custom_suffix
+        if not DaraCore.is_null(request.description):
+            query['Description'] = request.description
+        if not DaraCore.is_null(request.service_name):
+            query['ServiceName'] = request.service_name
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'CreateServiceLinkedRole',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CreateServiceLinkedRoleResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def create_service_linked_role(
+        self,
+        request: main_models.CreateServiceLinkedRoleRequest,
+    ) -> main_models.CreateServiceLinkedRoleResponse:
+        runtime = RuntimeOptions()
+        return self.create_service_linked_role_with_options(request, runtime)
+
+    async def create_service_linked_role_async(
+        self,
+        request: main_models.CreateServiceLinkedRoleRequest,
+    ) -> main_models.CreateServiceLinkedRoleResponse:
+        runtime = RuntimeOptions()
+        return await self.create_service_linked_role_with_options_async(request, runtime)
 
     def create_user_with_options(
         self,
@@ -1715,6 +1821,76 @@ class Client(OpenApiClient):
     ) -> main_models.DeleteRoleResponse:
         runtime = RuntimeOptions()
         return await self.delete_role_with_options_async(request, runtime)
+
+    def delete_service_linked_role_with_options(
+        self,
+        request: main_models.DeleteServiceLinkedRoleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteServiceLinkedRoleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.role_name):
+            query['RoleName'] = request.role_name
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteServiceLinkedRole',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteServiceLinkedRoleResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def delete_service_linked_role_with_options_async(
+        self,
+        request: main_models.DeleteServiceLinkedRoleRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteServiceLinkedRoleResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.role_name):
+            query['RoleName'] = request.role_name
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteServiceLinkedRole',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteServiceLinkedRoleResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def delete_service_linked_role(
+        self,
+        request: main_models.DeleteServiceLinkedRoleRequest,
+    ) -> main_models.DeleteServiceLinkedRoleResponse:
+        runtime = RuntimeOptions()
+        return self.delete_service_linked_role_with_options(request, runtime)
+
+    async def delete_service_linked_role_async(
+        self,
+        request: main_models.DeleteServiceLinkedRoleRequest,
+    ) -> main_models.DeleteServiceLinkedRoleResponse:
+        runtime = RuntimeOptions()
+        return await self.delete_service_linked_role_with_options_async(request, runtime)
 
     def delete_user_with_options(
         self,
@@ -2687,6 +2863,76 @@ class Client(OpenApiClient):
     async def get_security_preference_async(self) -> main_models.GetSecurityPreferenceResponse:
         runtime = RuntimeOptions()
         return await self.get_security_preference_with_options_async(runtime)
+
+    def get_service_linked_role_template_with_options(
+        self,
+        request: main_models.GetServiceLinkedRoleTemplateRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.GetServiceLinkedRoleTemplateResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.service_name):
+            query['ServiceName'] = request.service_name
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'GetServiceLinkedRoleTemplate',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.GetServiceLinkedRoleTemplateResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def get_service_linked_role_template_with_options_async(
+        self,
+        request: main_models.GetServiceLinkedRoleTemplateRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.GetServiceLinkedRoleTemplateResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.service_name):
+            query['ServiceName'] = request.service_name
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'GetServiceLinkedRoleTemplate',
+            version = '2015-05-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.GetServiceLinkedRoleTemplateResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def get_service_linked_role_template(
+        self,
+        request: main_models.GetServiceLinkedRoleTemplateRequest,
+    ) -> main_models.GetServiceLinkedRoleTemplateResponse:
+        runtime = RuntimeOptions()
+        return self.get_service_linked_role_template_with_options(request, runtime)
+
+    async def get_service_linked_role_template_async(
+        self,
+        request: main_models.GetServiceLinkedRoleTemplateRequest,
+    ) -> main_models.GetServiceLinkedRoleTemplateResponse:
+        runtime = RuntimeOptions()
+        return await self.get_service_linked_role_template_with_options_async(request, runtime)
 
     def get_user_with_options(
         self,
@@ -4863,6 +5109,8 @@ class Client(OpenApiClient):
     ) -> main_models.UpdateRoleResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.new_allow_console_login):
+            query['NewAllowConsoleLogin'] = request.new_allow_console_login
         if not DaraCore.is_null(request.new_assume_role_policy_document):
             query['NewAssumeRolePolicyDocument'] = request.new_assume_role_policy_document
         if not DaraCore.is_null(request.new_description):
@@ -4897,6 +5145,8 @@ class Client(OpenApiClient):
     ) -> main_models.UpdateRoleResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.new_allow_console_login):
+            query['NewAllowConsoleLogin'] = request.new_allow_console_login
         if not DaraCore.is_null(request.new_assume_role_policy_document):
             query['NewAssumeRolePolicyDocument'] = request.new_assume_role_policy_document
         if not DaraCore.is_null(request.new_description):

@@ -756,6 +756,12 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
     def performance_tracking_tool(self, value: QuantConnect.Util.PerformanceTrackingTool) -> None:
         ...
 
+    MAX_RUNTIME_STATISTICS_COUNT: int = 50
+    """Maximum number of runtime statistics"""
+
+    MAX_RUNTIME_STATISTIC_LENGTH: int = 200
+    """Maximum length of a runtime statistic key and value"""
+
     def __init__(self) -> None:
         """
         Creates a new instance
@@ -1199,6 +1205,20 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         
         
         This Class is protected.
+        """
+        ...
+
+    def try_set_runtime_statistic(self, key: str, value: str) -> bool:
+        """
+        Stores a runtime statistic, enforcing the configured count, length and format limits.
+        Callers must hold the runtime_statistics lock.
+        
+        
+        This Class is protected.
+        
+        :param key: Runtime headline statistic name
+        :param value: Runtime headline statistic value
+        :returns: True if the statistic was stored.
         """
         ...
 

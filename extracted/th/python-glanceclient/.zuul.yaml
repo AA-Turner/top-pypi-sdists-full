@@ -59,13 +59,6 @@
     vars:
       tox_envlist: py3
 
-- job:
-    name: glanceclient-dsvm-functional-py3
-    parent: glanceclient-dsvm-functional
-    vars:
-      devstack_localrc:
-        USE_PYTHON3: true
-
 - project:
     templates:
       - check-requirements
@@ -98,6 +91,3 @@
             branches: master
         - glanceclient-tox-py3-oslo-tips:
             branches: master
-    experimental:
-      jobs:
-        - glanceclient-dsvm-functional-py3

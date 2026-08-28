@@ -36,26 +36,15 @@ class TestCredentials(unittest.TestCase):
         model = Credentials()
         if include_optional:
             return Credentials(
-                type = 'oauth',
-                client_id = '',
-                client_secret = '',
-                access_token = '',
-                refresh_token = '',
-                enterprise_id = '',
-                user_id = '',
-                jwt_key_id = '',
-                private_key = '',
-                private_key_passphrase = ''
+                type = 'account_key',
+                account_name = '0',
+                account_key = '0',
+                client_id = ''
             )
         else:
             return Credentials(
-                client_id = '',
-                client_secret = '',
-                access_token = '',
-                refresh_token = '',
-                enterprise_id = '',
-                jwt_key_id = '',
-                private_key = '',
+                account_name = '0',
+                account_key = '0',
         )
         """
 

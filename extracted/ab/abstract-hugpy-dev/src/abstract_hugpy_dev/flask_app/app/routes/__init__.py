@@ -22,3 +22,6 @@ from .group_routes import group_bp
 from .model_group_routes import model_group_bp
 from .oracle_routes import oracle_bp
 from .keeper_help_routes import keeper_help_bp
+from .script_first_routes import script_first_bp
+from .fleet_doctrine_routes import fleet_doctrine_bp
+from .interim_routes import interim_bp

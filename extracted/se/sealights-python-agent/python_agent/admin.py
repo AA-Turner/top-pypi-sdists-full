@@ -12,7 +12,7 @@ from python_agent.build_scanner.executors.build import Build
 from python_agent.build_scanner.executors.config import Config
 from python_agent.build_scanner.executors.pr_config import PrConfig
 from python_agent.common import constants
-from python_agent.common.config_data import ScmConfigArgs
+from python_agent.common.config_data import ConfigData, ScmConfigArgs
 from python_agent.common.configuration_manager import ConfigurationManager
 from python_agent.common.constants import DEFAULT_WORKSPACEPATH
 from python_agent.common.constants import (
@@ -62,8 +62,14 @@ from python_agent.test_listener.executors.test_frameworks.behave_execution impor
 from python_agent.test_listener.executors.test_frameworks.nose_execution import (
     NoseAgentExecution,
 )
+from python_agent.test_listener.executors.test_frameworks.pabot_execution import (
+    PabotAgentExecution,
+)
 from python_agent.test_listener.executors.test_frameworks.pytest_execution import (
     PytestAgentExecution,
+)
+from python_agent.test_listener.executors.test_frameworks.robot_execution import (
+    RobotAgentExecution,
 )
 from python_agent.test_listener.executors.test_frameworks.unittest_execution import (
     UnittestAgentExecution,
@@ -192,6 +198,49 @@ _scm_options = [
 ]
 
 
+_robot_runner_options = [
+    click.option("--labId", help="Lab Id, case-sensitive."),
+    click.option(
+        "--testStage",
+        required=True,
+        default=constants.DEFAULT_ENV,
+        help="The tests stage (e.g 'integration tests', 'regression'). The default will be 'Unit Tests'",
+    ),
+    click.option(
+        "--disableTia",
+        "-tsd",
+        "--test-selection-disable",
+        "test_selection_disable",
+        is_flag=True,
+        help="A flag to disable the test selection otherwise enable",
+    ),
+    click.option(
+        "-tsri",
+        "--test-selection-retry-interval",
+        default=TEST_RECOMMENDATION.interval_sec,
+        help="Test recommendation retry interval in sec",
+    ),
+    click.option(
+        "-tsrt",
+        "--test-selection-retry-timeout",
+        default=TEST_RECOMMENDATION.timeout_sec,
+        help="Test recommendation retry timeout in sec",
+    ),
+    click.option("--testGroupId", required=False, default="", help="The Test Group Id"),
+    click.option("--testProjectId", required=False, help="The Test Project Id"),
+    click.option("--prid", required=False, help="The PR Id"),
+    click.option(
+        "--testNameFormat",
+        type=click.Choice(constants.TEST_NAME_FORMATS),
+        default=constants.TEST_NAME_FORMAT_FULL,
+        help="How Robot tests are named to Sealights: 'full' (suite-qualified, "
+        "the default) or 'short' (the bare test name, as the standalone "
+        "robot/SLListener.py reports it). Changing it retrains TIA. "
+        "Environment form: SL_TEST_NAME_FORMAT.",
+    ),
+]
+
+
 def common_options(f):
     options = (
         _common_options
@@ -199,6 +248,20 @@ def common_options(f):
         else _common_options + _build_session_options
     )
     for option in options:
+        f = option(f)
+    return f
+
+
+def robot_runner_options(f):
+    """Sealights option stack shared by the Robot Framework subcommands.
+
+    Declared once so `robot` and `pabot` cannot drift apart (contract C1,
+    AC2, AC38). It deliberately carries no footprints or coverage flag
+    (`--per-test`, `--interval`, `--cov-report`, the three `--footprints*`):
+    neither command constructs a footprints pipeline, so a knob for one would
+    be a knob for nothing (Business Rule 5, contract C11).
+    """
+    for option in reversed(_robot_runner_options):
         f = option(f)
     return f
 
@@ -221,6 +284,7 @@ def get_config_data(
     footprints_send_interval_secs=None,
     footprints_collect_interval_secs=None,
     footprints_buffer_threshold_mb=None,
+    test_name_format=None,
 ):
     configuration_manager = ConfigurationManager()
     command_type = getattr(ctx, "command_type", CommandType.OTHER)
@@ -240,6 +304,7 @@ def get_config_data(
         footprints_send_interval_secs=footprints_send_interval_secs,
         footprints_collect_interval_secs=footprints_collect_interval_secs,
         footprints_buffer_threshold_mb=footprints_buffer_threshold_mb,
+        test_name_format=test_name_format,
     )
     return config_data
 
@@ -924,6 +989,136 @@ def behave(
         testgroupid,
         args,
         browser_page_attr=browser_page_attr,
+    ).execute()
+
+
+@cli.command(context_settings=CONTEXT_SETTINGS)
+@common_options
+@robot_runner_options
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+@click.pass_context
+def robot(
+    ctx,
+    token,
+    tokenfile,
+    proxy,
+    buildsessionid,
+    buildsessionidfile,
+    labid,
+    teststage,
+    test_selection_disable,
+    test_selection_retry_interval,
+    test_selection_retry_timeout,
+    testgroupid,
+    testprojectid,
+    prid,
+    testnameformat,
+    args,
+):
+    ctx.command_type = CommandType.TEST
+    args = list(args)
+    try:
+        config_data = get_config_data(
+            ctx,
+            token,
+            tokenfile,
+            buildsessionid,
+            buildsessionidfile,
+            proxy,
+            labid,
+            testprojectid,
+            prid,
+            test_name_format=testnameformat,
+        )
+    except Exception as e:
+        # Rule 15, AC18: unusable configuration disables Sealights and the
+        # customer's Robot run still executes and still reports its own
+        # results. init_configuration renders the failure banner and re-raises,
+        # which every other subcommand lets abort the run; Robot must not.
+        log.error("Sealights is disabled. Error: %s" % str(e))
+        config_data = ConfigData()
+        config_data.isDisabled = True
+    config_data.command_name = "robot"
+    print_agent_started_message(config_data, "robot")
+    config_data.testSelection.update(
+        {
+            "enable": not test_selection_disable,
+            "interval": test_selection_retry_interval,
+            "timeout": test_selection_retry_timeout,
+        }
+    )
+    if teststage == constants.DEFAULT_ENV:
+        log.warning("Test stage was not provided. Defaulting to 'Unit Tests'")
+    RobotAgentExecution(
+        config_data,
+        labid,
+        teststage,
+        testgroupid,
+        args,
+    ).execute()
+
+
+@cli.command(context_settings=CONTEXT_SETTINGS)
+@common_options
+@robot_runner_options
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+@click.pass_context
+def pabot(
+    ctx,
+    token,
+    tokenfile,
+    proxy,
+    buildsessionid,
+    buildsessionidfile,
+    labid,
+    teststage,
+    test_selection_disable,
+    test_selection_retry_interval,
+    test_selection_retry_timeout,
+    testgroupid,
+    testprojectid,
+    prid,
+    testnameformat,
+    args,
+):
+    ctx.command_type = CommandType.TEST
+    args = list(args)
+    try:
+        config_data = get_config_data(
+            ctx,
+            token,
+            tokenfile,
+            buildsessionid,
+            buildsessionidfile,
+            proxy,
+            labid,
+            testprojectid,
+            prid,
+            test_name_format=testnameformat,
+        )
+    except Exception as e:
+        # Rule 15, AC18, as for `robot`: unusable configuration disables
+        # Sealights and the customer's run still executes.
+        log.error("Sealights is disabled. Error: %s" % str(e))
+        config_data = ConfigData()
+        config_data.isDisabled = True
+    config_data.command_name = "pabot"
+    print_agent_started_message(config_data, "pabot")
+    config_data.testSelection.update(
+        {
+            "enable": not test_selection_disable,
+            "interval": test_selection_retry_interval,
+            "timeout": test_selection_retry_timeout,
+        }
+    )
+    if teststage == constants.DEFAULT_ENV:
+        log.warning("Test stage was not provided. Defaulting to 'Unit Tests'")
+    PabotAgentExecution(
+        config_data,
+        labid,
+        teststage,
+        testgroupid,
+        args,
     ).execute()
 
 

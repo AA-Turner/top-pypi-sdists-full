@@ -3,21 +3,28 @@
 import base64
 import itertools
 import logging
-import msgpack
-import numpy as np
 import os
+import ssl
 import zlib
-from traitlets import TraitError
-from typing import Any
+from typing import Any, Optional, Tuple, Union
 from typing import Dict as TypingDict
 from typing import List as TypingList
-from typing import Optional, Tuple, Union
-from urllib.request import urlopen
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
+import msgpack
+import numpy as np
+from traitlets import Float as _TraitFloat
+from traitlets import Int as _TraitInt
+from traitlets import TraitError
+from traittypes import Array as _TraitArray
 
 from ._protocol import get_protocol
 
 # Set up module-level logger
 logger = logging.getLogger(__name__)
+
+
 if not logger.hasHandlers():
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -26,6 +33,46 @@ if not logger.hasHandlers():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logger.setLevel(logging.INFO)
+
+
+class Array(_TraitArray):
+    """Array trait that converts silently in two cases: float64 narrowed to the float32 the
+    GPU takes, and a dtype differing only in byte order (legacy VTK files are big-endian),
+    which traittypes reports as 'float32 does not match float32' because it names dtypes
+    without their order. Any other mismatch still warns.
+    """
+
+    def validate(self, obj, value):
+        if self.dtype is not None and isinstance(value, np.ndarray):
+            target = np.dtype(self.dtype)
+
+            if target == np.float32 and value.dtype == np.float64:
+                value = value.astype(np.float32)
+            elif value.dtype != target and value.dtype.name == target.name:
+                value = value.astype(target)
+
+        return super().validate(obj, value)
+
+
+class Float(_TraitFloat):
+    """Float trait that also takes numpy scalars: np.float64 subclasses Python float and
+    passes traitlets, np.float32 does not."""
+
+    def validate(self, obj, value):
+        if isinstance(value, (np.floating, np.integer)):
+            value = float(value)
+
+        return super().validate(obj, value)
+
+
+class Int(_TraitInt):
+    """An Int trait that also takes numpy integers, which are not Python ints."""
+
+    def validate(self, obj, value):
+        if isinstance(value, np.integer):
+            value = int(value)
+
+        return super().validate(obj, value)
 
 
 # pylint: disable=unused-argument
@@ -60,13 +107,13 @@ def array_to_json(
         raise ValueError(f"Unsupported dtype: {ar.dtype}")
 
     if ar.dtype == np.float64:  # WebGL does not support float64
-        logger.info("Converting float64 array to float32 for WebGL compatibility.")
+        logger.debug("Converting float64 array to float32 for WebGL compatibility.")
         ar = ar.astype(np.float32)
     elif ar.dtype == np.int64:  # JS does not support int64
-        logger.info("Converting int64 array to int32 for JS compatibility.")
+        logger.debug("Converting int64 array to int32 for JS compatibility.")
         ar = ar.astype(np.int32)
     elif ar.dtype == np.uint64:  # the JS deserializer has no uint64 typed array
-        logger.info("Converting uint64 array to uint32 for JS compatibility.")
+        logger.debug("Converting uint64 array to uint32 for JS compatibility.")
         ar = ar.astype(np.uint32)
 
     # make sure it's contiguous
@@ -90,8 +137,7 @@ def array_to_json(
         return "base64_" + base64.b64encode(
             msgpack.packb(ret, use_bin_type=True)
         ).decode("ascii")
-    else:
-        return ret
+    return ret
 
 
 # noinspection PyUnusedLocal
@@ -114,14 +160,15 @@ def json_to_array(
         Numpy array or None.
     """
     if value:
-        if "data" in value:
-            return np.frombuffer(value["data"], dtype=value["dtype"]).reshape(
-                value["shape"]
-            )
-        else:
-            return np.frombuffer(
-                zlib.decompress(value["compressed_data"]), dtype=value["dtype"]
-            ).reshape(value["shape"])
+        data = (value["data"] if "data" in value
+                else bytearray(zlib.decompress(value["compressed_data"])))
+
+        ar = np.frombuffer(data, dtype=value["dtype"]).reshape(value["shape"])
+
+        if not ar.flags["WRITEABLE"]:
+            ar = ar.copy()
+
+        return ar
     return None
 
 
@@ -157,21 +204,20 @@ def to_json(
             ret[str(key)] = to_json(key, value, property, compression_level)
 
         return ret
-    elif isinstance(input, np.ndarray) and input.dtype is np.dtype(object):
+    if isinstance(input, np.ndarray) and input.dtype is np.dtype(object):
         return to_json(name, input.tolist(), obj, compression_level)
-    elif isinstance(input, list):
+    if isinstance(input, list):
         property = obj[name]
         return [
             to_json(idx, v, property, compression_level) for idx, v in enumerate(input)
         ]
-    elif isinstance(input, bytes):
+    if isinstance(input, bytes):
         return array_to_json(np.frombuffer(input, dtype=np.uint8), compression_level)
-    elif isinstance(input, np.ndarray):
+    if isinstance(input, np.ndarray):
         return array_to_json(input, compression_level)
-    elif isinstance(input, np.number):
+    if isinstance(input, np.number):
         return input.tolist()
-    else:
-        return input
+    return input
 
 
 def from_json(input: Any, obj: Optional[Any] = None) -> Any:
@@ -200,16 +246,35 @@ def from_json(input: Any, obj: Optional[Any] = None) -> Any:
             and "shape" in input
     ):
         return json_to_array(input, obj)
-    elif isinstance(input, list):
+    if isinstance(input, list):
         return [from_json(i, obj) for i in input]
-    elif isinstance(input, dict):
+    if isinstance(input, dict):
         ret = {}
         for key, value in input.items():
             ret[key] = from_json(value, obj)
 
         return ret
-    else:
-        return input
+    return input
+
+
+def environment_to_json(value: Any, obj: Optional[Any] = None) -> Any:
+    """Preset names travel as strings, user maps as a typed array."""
+    if value is None or isinstance(value, str):
+        return value
+
+    data = array_to_json(np.ascontiguousarray(np.asarray(value, dtype=np.float32)))
+    name = getattr(obj, "_environment_catalog_name", None)
+
+    if name is not None:
+        data["name"] = name
+
+    return data
+
+
+def environment_from_json(value: Any, obj: Optional[Any] = None) -> Any:
+    if value is None or isinstance(value, str):
+        return value
+    return json_to_array(value)
 
 
 def array_serialization_wrap(name: str) -> TypingDict[str, Any]:
@@ -271,8 +336,28 @@ def download(url: str) -> str:
         logger.info(f"File already exists locally: {basename}")
         return basename
     try:
-        with urlopen(url) as response, open(basename, "wb") as output:
-            output.write(response.read())
+        # some hosts answer the default "Python-urllib" User-Agent with 403/406
+        request = Request(url, headers={"User-Agent": "K3D-jupyter", "Accept": "*/*"})
+
+        try:
+            with urlopen(request) as response, open(basename, "wb") as output:
+                output.write(response.read())
+        except URLError as error:
+            # an unverified retry is acceptable here: public data, never credentials
+            if not isinstance(getattr(error, "reason", None), ssl.SSLCertVerificationError):
+                raise
+
+            logger.warning(
+                f"Certificate verification failed for {url} - retrying without it"
+            )
+
+            unverified = ssl.create_default_context()
+            unverified.check_hostname = False
+            unverified.verify_mode = ssl.CERT_NONE
+
+            with urlopen(request, context=unverified) as response, open(basename, "wb") as output:
+                output.write(response.read())
+
         logger.info(f"Downloaded file from {url} to {basename}")
     except Exception as e:
         logger.error(f"Failed to download {url}: {e}")
@@ -320,8 +405,8 @@ def check_attribute_color_range(
 
     if len(color_range) == 2:
         return color_range
-    elif type(attribute) is dict:
-        t = [minmax(attribute[k]) for k in attribute.keys()]
+    if type(attribute) is dict:
+        t = [minmax(attribute[k]) for k in attribute]
         color_range = [min([v[0] for v in t]), max([v[1] for v in t])]
     elif attribute.size == 0:
         return color_range
@@ -373,8 +458,7 @@ def map_colors(
         for i in range(3)
     ]
 
-    colors = (red << 16) + (green << 8) + blue
-    return colors
+    return (red << 16) + (green << 8) + blue
 
 
 def bounding_corners(
@@ -597,5 +681,4 @@ def contour(data, bounds, values, clustering_factor=0):
         clus = pyacvd.Clustering(mesh)
         clus.cluster(mesh.n_points // clustering_factor)
         return clus.create_mesh()
-    else:
-        return mesh
+    return mesh

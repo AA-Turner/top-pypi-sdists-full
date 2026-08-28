@@ -59,6 +59,34 @@ def test_function_interface_is_in_sync(func: str) -> None:
     assert function_dir_signature.parameters == function_path_signature.parameters
 
 
+@pytest.mark.parametrize("func", ["user_applications_dir", "user_applications_path"])
+def test_user_applications_function_boolean_options_are_keyword_only(func: str) -> None:
+    # These options have not shipped yet, so they can be keyword-only without breaking any caller.
+    parameters = inspect.Signature.from_callable(getattr(platformdirs, func)).parameters
+    positional = [name for name, param in parameters.items() if param.kind is param.POSITIONAL_OR_KEYWORD]
+    assert positional == ["appname", "appauthor", "version"]
+
+
+@pytest.mark.parametrize("func", ["site_applications_dir", "site_applications_path"])
+def test_site_applications_function_keeps_multipath_positional(func: str) -> None:
+    # multipath has been the first positional argument since 4.9.0, so the app arguments are keyword-only.
+    parameters = inspect.Signature.from_callable(getattr(platformdirs, func)).parameters
+    positional = [name for name, param in parameters.items() if param.kind is param.POSITIONAL_OR_KEYWORD]
+    assert positional == ["multipath", "ensure_exists"]
+
+
+def test_function_matches_its_property_for_app_arguments(func: str) -> None:
+    function = getattr(platformdirs, func)
+    scoped = getattr(platformdirs.PlatformDirs("MyApp", "MyCompany", version="1.0"), func)
+    if {"appname", "version"} <= inspect.Signature.from_callable(function).parameters.keys():
+        assert function(appname="MyApp", appauthor="MyCompany", version="1.0") == scoped
+    else:
+        # A function without the app arguments can only ever return the unscoped base directory, so a property that
+        # is app-scoped on any platform is out of its reach. Only one direction holds: a function may have to take
+        # arguments this platform ignores because another platform scopes the same property.
+        assert scoped == getattr(platformdirs.PlatformDirs(), func)
+
+
 @pytest.mark.parametrize("root", ["A", "/system", None])
 @pytest.mark.parametrize("data", ["D", "/data", None])
 @pytest.mark.parametrize("path", ["/data/data/a/files", "/C"])

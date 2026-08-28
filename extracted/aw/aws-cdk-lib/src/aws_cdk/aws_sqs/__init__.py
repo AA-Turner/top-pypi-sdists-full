@@ -108,6 +108,72 @@ queue2 = sqs.Queue(self, "Queue",
     )
 )
 ```
+
+## Monitoring
+
+SQS metrics are available as `metric*` methods on a queue; `metric()` returns any metric by name:
+
+```python
+queue = sqs.Queue(self, "Queue")
+
+queue.metric_approximate_age_of_oldest_message().create_alarm(self, "MessagesTooOld",
+    threshold=Duration.minutes(15).to_seconds(),
+    evaluation_periods=3
+)
+```
+
+`metricApproximateNumberOfMessagesOutstanding()` returns
+`ApproximateNumberOfMessagesVisible + ApproximateNumberOfMessagesNotVisible` as a metric math
+expression: messages waiting to be picked up, plus messages received but not yet deleted.
+
+### Autoscaling consumers on queue depth
+
+Scaling a worker fleet on queue depth needs a different metric in each direction:
+
+* **Scale out on `ApproximateNumberOfMessagesVisible`** — work nobody has started yet. An in-flight
+  message is already owned by a consumer, so adding capacity for it produces an idle consumer.
+* **Scale in on `metricApproximateNumberOfMessagesOutstanding()`** — everything still owed.
+  Receiving a message moves it from `Visible` to `NotVisible`, so a policy watching `Visible` alone
+  cannot tell a consumer that just picked up work from one that finished it, and can terminate a
+  consumer mid-message. The message reappears only after its visibility timeout, so the longer
+  consumers hold messages, the longer that work stalls.
+
+That means two one-sided policies; the `change: 0` step keeps each from acting in the other
+direction:
+
+```python
+# service: ecs.FargateService
+
+queue = sqs.Queue(self, "Queue")
+
+task_count = service.auto_scale_task_count(min_capacity=1, max_capacity=10)
+
+task_count.scale_on_metric("ScaleOutOnWaitingWork",
+    metric=queue.metric_approximate_number_of_messages_visible(period=Duration.minutes(1)),
+    scaling_steps=[appscaling.ScalingInterval(upper=30, change=0), appscaling.ScalingInterval(lower=30, change=+1)
+    ],
+    adjustment_type=appscaling.AdjustmentType.CHANGE_IN_CAPACITY
+)
+
+# Remove a task only when nothing is outstanding, so it cannot be holding a message.
+task_count.scale_on_metric("ScaleInOnOutstandingWork",
+    metric=queue.metric_approximate_number_of_messages_outstanding(period=Duration.minutes(1)),
+    scaling_steps=[appscaling.ScalingInterval(upper=0, change=-1), appscaling.ScalingInterval(lower=0, change=0)
+    ],
+    adjustment_type=appscaling.AdjustmentType.CHANGE_IN_CAPACITY
+)
+```
+
+Caveats:
+
+* **Target tracking rejects this metric.** It accepts only direct metrics, so
+  `scaleToTrackCustomMetric()` throws `Only direct metrics are supported for Target Tracking`
+  ([aws-cdk#20659](https://github.com/aws/aws-cdk/issues/20659)).
+* `ApproximateNumberOfMessagesNotVisible` can briefly report non-zero on an empty queue if an SQS
+  storage server is unavailable. Evaluate several consecutive datapoints, especially when scaling in
+  to zero.
+* Neither term counts delayed messages. Add `metricApproximateNumberOfMessagesDelayed()` if you use
+  delay queues or `DelaySeconds`.
 '''
 from __future__ import annotations
 
@@ -1808,6 +1874,50 @@ class IQueue(
         '''
         ...
 
+    @jsii.member(jsii_name="metricApproximateNumberOfMessagesOutstanding")
+    def metric_approximate_number_of_messages_outstanding(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cloudwatch_386c5543.MathExpression":
+        '''The number of messages waiting to be picked up plus the number in flight.
+
+        ``ApproximateNumberOfMessagesVisible + ApproximateNumberOfMessagesNotVisible``, as a metric math
+        expression. Prefer this over ``metricApproximateNumberOfMessagesVisible`` when scaling consumers
+        in: receiving a message lowers ``Visible``, so a policy watching only ``Visible`` cannot tell a
+        consumer that just picked up work from one that finished it.
+
+        ``statistic``, ``unit`` and dimensions apply to both underlying metrics, ``label``, ``color`` and
+        ``period`` to the expression.
+
+        Maximum over 5 minutes
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+        '''
+        ...
+
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesVisible")
     def metric_approximate_number_of_messages_visible(
         self,
@@ -2384,6 +2494,65 @@ class _IQueueProxy(
         )
 
         return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateNumberOfMessagesNotVisible", [props]))
+
+    @jsii.member(jsii_name="metricApproximateNumberOfMessagesOutstanding")
+    def metric_approximate_number_of_messages_outstanding(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cloudwatch_386c5543.MathExpression":
+        '''The number of messages waiting to be picked up plus the number in flight.
+
+        ``ApproximateNumberOfMessagesVisible + ApproximateNumberOfMessagesNotVisible``, as a metric math
+        expression. Prefer this over ``metricApproximateNumberOfMessagesVisible`` when scaling consumers
+        in: receiving a message lowers ``Visible``, so a policy watching only ``Visible`` cannot tell a
+        consumer that just picked up work from one that finished it.
+
+        ``statistic``, ``unit`` and dimensions apply to both underlying metrics, ``label``, ``color`` and
+        ``period`` to the expression.
+
+        Maximum over 5 minutes
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+        '''
+        props = _aws_cloudwatch_386c5543.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cloudwatch_386c5543.MathExpression", jsii.invoke(self, "metricApproximateNumberOfMessagesOutstanding", [props]))
 
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesVisible")
     def metric_approximate_number_of_messages_visible(
@@ -3208,6 +3377,65 @@ class QueueBase(
         )
 
         return typing.cast("_aws_cloudwatch_386c5543.Metric", jsii.invoke(self, "metricApproximateNumberOfMessagesNotVisible", [props]))
+
+    @jsii.member(jsii_name="metricApproximateNumberOfMessagesOutstanding")
+    def metric_approximate_number_of_messages_outstanding(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cloudwatch_386c5543.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cloudwatch_386c5543.MathExpression":
+        '''The number of messages waiting to be picked up plus the number in flight.
+
+        ``ApproximateNumberOfMessagesVisible + ApproximateNumberOfMessagesNotVisible``, as a metric math
+        expression. Prefer this over ``metricApproximateNumberOfMessagesVisible`` when scaling consumers
+        in: receiving a message lowers ``Visible``, so a policy watching only ``Visible`` cannot tell a
+        consumer that just picked up work from one that finished it.
+
+        ``statistic``, ``unit`` and dimensions apply to both underlying metrics, ``label``, ``color`` and
+        ``period`` to the expression.
+
+        Maximum over 5 minutes
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+        '''
+        props = _aws_cloudwatch_386c5543.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cloudwatch_386c5543.MathExpression", jsii.invoke(self, "metricApproximateNumberOfMessagesOutstanding", [props]))
 
     @jsii.member(jsii_name="metricApproximateNumberOfMessagesVisible")
     def metric_approximate_number_of_messages_visible(

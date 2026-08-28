@@ -41,7 +41,9 @@ from .config_constants import (
     MESSAGE_BATCH_STDOUT_MAX_BATCH_SIZE,
     MESSAGE_BATCH_USE_COMPRESSION_DEFAULT,
     S3_MULTIPART_EXPIRES_IN,
+    S3_MULTIPART_PART_SIZE_DEFAULT,
     S3_MULTIPART_SIZE_THRESHOLD_DEFAULT,
+    S3_MULTIPART_UPLOAD_CONCURRENCY_DEFAULT,
 )
 
 # Represents dictionary with all configuration options available
@@ -295,6 +297,29 @@ CONFIG_MAP = {
         "type": int,
         "default": S3_MULTIPART_EXPIRES_IN,
     },
+    "comet.s3_multipart.upload_concurrency": {
+        "type": int,
+        "default": S3_MULTIPART_UPLOAD_CONCURRENCY_DEFAULT,
+    },
+    # Clamped to S3's own 5 MiB..5 GiB range, and overridden upward when the
+    # asset would otherwise need more than 10,000 parts. An upper bound rather
+    # than the size parts actually get: the asset is divided evenly across the
+    # part count this setting implies, so 5 GiB on a 12 GiB asset gives three
+    # 4 GiB parts rather than two of 5 GiB and one of 2 GiB.
+    "comet.s3_multipart.part_size": {
+        "type": int,
+        "default": S3_MULTIPART_PART_SIZE_DEFAULT,
+    },
+    # Not a tuning knob. Before per-part parallelism existed, each asset uploaded
+    # its parts serially on its own asset-pool thread, so the process already had
+    # a ceiling of one in-flight PUT per asset thread. This reuses that number as
+    # the global ceiling, which means parity at the worst case - every asset-pool
+    # thread busy - and deliberately more concurrency below it, where the old path
+    # left connections idle. Unset by default and resolved from the asset pool
+    # size. It lives under comet.internal because the number to tune is
+    # comet.s3_multipart.upload_concurrency; lower this one only to cap the
+    # process as a whole.
+    "comet.internal.s3_multipart_total_concurrency": {"type": int},
     "comet.s3_direct_multipart.upload_enabled": {
         "type": bool,
         "default": False,

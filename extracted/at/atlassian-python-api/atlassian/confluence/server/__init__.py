@@ -7,7 +7,7 @@ import re
 import sys
 import time
 import warnings
-from typing import cast
+from typing import Optional, cast
 from urllib.parse import urljoin
 
 import requests
@@ -238,7 +238,8 @@ class Server(ConfluenceServerBase):
 
     def get_page_space(self, page_id):
         """Get space key from page ID."""
-        page = self.get_content(page_id, expand="space")
+        params = {"expand": "space"}
+        page = self.get(f"content/{page_id}", params=params)
         return page.get("space", {}).get("key")
 
     def get_page_child_by_type(self, page_id, type="page", start=None, limit=None, expand=None):
@@ -337,13 +338,16 @@ class Server(ConfluenceServerBase):
 
     def get_page_id(self, space, title, type="page"):
         """
-        Provide content id from search result by title and space.
+        Get page ID by searching for it by space key and title - returns the ID from the first result or None if not found.
         :param space: SPACE key
         :param title: title
         :param type: type of content: Page or Blogpost. Defaults to page
         :return:
         """
-        return (self.get_page_by_title(space, title, type=type) or {}).get("id")
+        json_response = self.get_page_by_title(space, title, type=type)
+        if json_response and "results" in json_response and len(json_response["results"]) > 0:
+            return json_response["results"][0]["id"]
+        return None
 
     def get_parent_content_id(self, page_id):
         """
@@ -1153,16 +1157,38 @@ class Server(ConfluenceServerBase):
             path = f"rest/api/content/{page_id}/child/attachment"
 
             try:
-                # Confluence's multipart PUT endpoint atomically creates an
-                # attachment or adds a revision when the filename already
-                # exists. A GET followed by POST is racy and Cloud may reject
-                # the attachment-data endpoint for a same-name upload.
-                response = self.put(
-                    path=path,
-                    data=data,
-                    headers=headers,
-                    files={"file": (name, content, content_type)},
-                )
+                # Confluence Server doesn't support PUT on the child/attachment endpoint.
+                # We need to check if the attachment exists first, then create or update accordingly.
+                # GET existing attachment to check if it exists
+                existing_attachment = None
+                try:
+                    attachments = self.get(path=path, headers=headers)
+                    if "results" in attachments:
+                        for attachment in attachments["results"]:
+                            if attachment.get("title") == name:
+                                existing_attachment = attachment
+                                break
+                except HTTPError:
+                    pass
+
+                if existing_attachment:
+                    # Update existing attachment using PUT on the specific attachment ID
+                    attachment_id = existing_attachment["id"]
+                    update_path = f"rest/api/content/{attachment_id}"
+                    response = self.put(
+                        path=update_path,
+                        data=data,
+                        headers=headers,
+                        files={"file": (name, content, content_type)},
+                    )
+                else:
+                    # Create new attachment using POST
+                    response = self.post(
+                        path=path,
+                        data=data,
+                        headers=headers,
+                        files={"file": (name, content, content_type)},
+                    )
             except HTTPError as e:
                 if e.response.status_code == 403:
                     # Raise ApiError as the documented reason is ambiguous
@@ -1365,6 +1391,36 @@ class Server(ConfluenceServerBase):
         else:
             url = f"rest/experimental/content/{attachment_id}/version/{version}"
         return self.delete(url)
+
+    def move_or_update_attachment_json_rpc(
+        self,
+        originalContentId: str,
+        originalName: str,
+        newContentEntityId: Optional[str] = None,
+        newName: Optional[str] = None,
+    ):
+        """
+        Move attachment from source confluence page to destination confluence page optionally with new title
+        OR
+        Just update attachment from source confluence page with new title
+        via JSON-RPC.
+        :param str originalContentId: confluence source page id
+        :param str newContentEntityId: confluence destination page id
+        :param str originalName: source attachment title
+        :param str newName: new attachment title
+        """
+        if self.api_version == "cloud" or self.cloud:
+            return {}
+        url = "rpc/json-rpc/confluenceservice-v2"
+        data = {
+            "jsonrpc": "2.0",
+            "method": "moveAttachment",
+            "id": 9,
+            "params": [originalContentId, originalName, newContentEntityId, newName],
+        }
+
+        response = self.post(url, data=data)
+        return (response or {}).get("result") or {}
 
     def remove_page_attachment_keep_version(self, page_id, filename, keep_last_versions):
         """

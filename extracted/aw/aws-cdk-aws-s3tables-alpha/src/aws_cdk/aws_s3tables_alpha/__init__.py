@@ -242,6 +242,38 @@ table_bucket_with_metrics = TableBucket(scope, "TableBucketWithMetrics",
 )
 ```
 
+### Configuring Storage Class
+
+You can configure the storage class for your table bucket and tables. Storage class determines how data is stored and billed, allowing you to optimize for different access patterns.
+
+```python
+# Create a table bucket with INTELLIGENT_TIERING storage class
+table_bucket_with_storage_class = TableBucket(scope, "TableBucketWithStorageClass",
+    table_bucket_name="storage-class-bucket",
+    storage_class=StorageClass.INTELLIGENT_TIERING
+)
+```
+
+Tables inherit the storage class from their parent bucket by default. You can also override the storage class at the table level:
+
+```python
+# Create a table with explicit storage class (overrides bucket default)
+table_with_storage_class = Table(scope, "TableWithStorageClass",
+    table_name="storage_class_table",
+    namespace=namespace,
+    open_table_format=OpenTableFormat.ICEBERG,
+    without_metadata=True,
+    storage_class=StorageClass.STANDARD
+)
+```
+
+Available storage classes:
+
+* `StorageClass.STANDARD` - For frequently accessed data
+* `StorageClass.INTELLIGENT_TIERING` - Automatically moves data between access tiers based on usage patterns
+
+Note: Table storage class is a create-only property and cannot be changed after the table is created.
+
 ### Controlling Table Permissions
 
 ```python
@@ -2602,6 +2634,42 @@ class Status(enum.Enum):
     '''
 
 
+@jsii.enum(jsii_type="@aws-cdk/aws-s3tables-alpha.StorageClass")
+class StorageClass(enum.Enum):
+    '''(experimental) Storage class for S3 Tables.
+
+    Determines the storage tier used for table data, allowing optimization
+    for different access patterns and cost profiles.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # Create a table bucket with INTELLIGENT_TIERING storage class
+        table_bucket_with_storage_class = TableBucket(scope, "TableBucketWithStorageClass",
+            table_bucket_name="storage-class-bucket",
+            storage_class=StorageClass.INTELLIGENT_TIERING
+        )
+    '''
+
+    STANDARD = "STANDARD"
+    '''(experimental) Standard storage class for frequently accessed data.
+
+    Use this for tables with consistent, high-frequency access patterns.
+
+    :stability: experimental
+    '''
+    INTELLIGENT_TIERING = "INTELLIGENT_TIERING"
+    '''(experimental) Intelligent-Tiering storage class that automatically moves data between access tiers.
+
+    Use this for tables with unknown or changing access patterns to optimize costs
+    while maintaining performance for frequently accessed data.
+
+    :stability: experimental
+    '''
+
+
 @jsii.implements(_aws_cdk_ceddda9d.ITaggableV2, ITable)
 class Table(
     _aws_cdk_ceddda9d.Resource,
@@ -2615,41 +2683,25 @@ class Table(
 
     Example::
 
-        from aws_cdk.aws_s3tables_alpha import IcebergMetadataProperty, IcebergSchemaProperty, SchemaFieldProperty, SchemaFieldProperty, CompactionProperty, SnapshotManagementProperty
-        # Build a table
-        sample_table = Table(scope, "ExampleTable",
-            table_name="example_table",
-            namespace=namespace,
-            open_table_format=OpenTableFormat.ICEBERG,
-            without_metadata=True
-        )
-        
-        # Build a table with an Iceberg Schema
-        sample_table_with_schema = Table(scope, "ExampleSchemaTable",
-            table_name="example_table_with_schema",
+        from aws_cdk.aws_s3tables_alpha import IcebergMetadataProperty, IcebergSchemaProperty, SchemaFieldProperty, SchemaFieldProperty, IcebergPartitionSpec, IcebergPartitionField
+        # Build a table with partition spec (minimal configuration)
+        partitioned_table = Table(scope, "PartitionedTable",
+            table_name="partitioned_table",
             namespace=namespace,
             open_table_format=OpenTableFormat.ICEBERG,
             iceberg_metadata=IcebergMetadataProperty(
                 iceberg_schema=IcebergSchemaProperty(
-                    schema_field_list=[SchemaFieldProperty(
-                        name="id",
-                        type="int",
-                        required=True
-                    ), SchemaFieldProperty(
-                        name="name",
-                        type="string"
+                    schema_field_list=[SchemaFieldProperty(name="event_date", type="date", required=True), SchemaFieldProperty(name="event_name", type="string")
+                    ]
+                ),
+                iceberg_partition_spec=IcebergPartitionSpec(
+                    fields=[IcebergPartitionField(
+                        source_id=1,
+                        transform=IcebergTransform.IDENTITY,
+                        name="date_partition"
                     )
                     ]
                 )
-            ),
-            compaction=CompactionProperty(
-                status=Status.ENABLED,
-                target_file_size_mb=128
-            ),
-            snapshot_management=SnapshotManagementProperty(
-                status=Status.ENABLED,
-                max_snapshot_age_hours=48,
-                min_snapshots_to_keep=5
             )
         )
     '''
@@ -2666,6 +2718,7 @@ class Table(
         iceberg_metadata: typing.Optional[typing.Union["IcebergMetadataProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         snapshot_management: typing.Optional[typing.Union["SnapshotManagementProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        storage_class: typing.Optional["StorageClass"] = None,
         without_metadata: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -2678,6 +2731,7 @@ class Table(
         :param iceberg_metadata: (experimental) Contains details about the metadata for an Iceberg table. Default: table is created without any metadata
         :param removal_policy: (experimental) Controls what happens to this table it it stoped being managed by cloudformation. Default: RETAIN
         :param snapshot_management: (experimental) Contains details about the snapshot management settings for an Iceberg table. Default: enabled: MinimumSnapshots is 1 by default and MaximumSnapshotAge is 120 hours by default.
+        :param storage_class: (experimental) The storage class for the table. Determines the storage tier used for table data, allowing optimization for different access patterns and cost profiles. Note: This is a create-only property and cannot be changed after the table is created. Default: - Inherits from the table bucket's storage class configuration
         :param without_metadata: (experimental) If true, indicates that you don't want to specify a schema for the table. This property is mutually exclusive to 'IcebergMetadata'. Default: false
 
         :stability: experimental
@@ -2694,6 +2748,7 @@ class Table(
             iceberg_metadata=iceberg_metadata,
             removal_policy=removal_policy,
             snapshot_management=snapshot_management,
+            storage_class=storage_class,
             without_metadata=without_metadata,
         )
 
@@ -2993,6 +3048,7 @@ class TableBucket(
         region: typing.Optional[builtins.str] = None,
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         request_metrics_status: typing.Optional["RequestMetricsStatus"] = None,
+        storage_class: typing.Optional["StorageClass"] = None,
         unreferenced_file_removal: typing.Optional[typing.Union["UnreferencedFileRemoval", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
@@ -3005,6 +3061,7 @@ class TableBucket(
         :param region: (experimental) AWS region that the table bucket exists in. Default: - it's assumed the bucket is in the same region as the scope it's being imported into
         :param removal_policy: (experimental) Controls what happens to this table bucket it it stoped being managed by cloudformation. Default: RETAIN
         :param request_metrics_status: (experimental) CloudWatch request metrics configuration for the table bucket. When enabled, S3 Tables publishes CloudWatch request metrics for the table bucket. Request metrics provide insight into Amazon S3 Tables requests. Default: - Request metrics are disabled
+        :param storage_class: (experimental) The storage class for the table bucket. Determines the storage tier used for table data, allowing optimization for different access patterns and cost profiles. Default: - STANDARD storage class
         :param unreferenced_file_removal: (experimental) Unreferenced file removal settings for the S3 TableBucket. Default: Enabled with default values
 
         :stability: experimental
@@ -3021,6 +3078,7 @@ class TableBucket(
             region=region,
             removal_policy=removal_policy,
             request_metrics_status=request_metrics_status,
+            storage_class=storage_class,
             unreferenced_file_removal=unreferenced_file_removal,
         )
 
@@ -3661,6 +3719,7 @@ class TableBucketPolicyProps:
         "region": "region",
         "removal_policy": "removalPolicy",
         "request_metrics_status": "requestMetricsStatus",
+        "storage_class": "storageClass",
         "unreferenced_file_removal": "unreferencedFileRemoval",
     },
 )
@@ -3675,6 +3734,7 @@ class TableBucketProps:
         region: typing.Optional[builtins.str] = None,
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         request_metrics_status: typing.Optional["RequestMetricsStatus"] = None,
+        storage_class: typing.Optional["StorageClass"] = None,
         unreferenced_file_removal: typing.Optional[typing.Union["UnreferencedFileRemoval", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Parameters for constructing a TableBucket.
@@ -3686,6 +3746,7 @@ class TableBucketProps:
         :param region: (experimental) AWS region that the table bucket exists in. Default: - it's assumed the bucket is in the same region as the scope it's being imported into
         :param removal_policy: (experimental) Controls what happens to this table bucket it it stoped being managed by cloudformation. Default: RETAIN
         :param request_metrics_status: (experimental) CloudWatch request metrics configuration for the table bucket. When enabled, S3 Tables publishes CloudWatch request metrics for the table bucket. Request metrics provide insight into Amazon S3 Tables requests. Default: - Request metrics are disabled
+        :param storage_class: (experimental) The storage class for the table bucket. Determines the storage tier used for table data, allowing optimization for different access patterns and cost profiles. Default: - STANDARD storage class
         :param unreferenced_file_removal: (experimental) Unreferenced file removal settings for the S3 TableBucket. Default: Enabled with default values
 
         :stability: experimental
@@ -3716,6 +3777,7 @@ class TableBucketProps:
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument request_metrics_status", value=request_metrics_status, expected_type=type_hints["request_metrics_status"])
+            check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
             check_type(argname="argument unreferenced_file_removal", value=unreferenced_file_removal, expected_type=type_hints["unreferenced_file_removal"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "table_bucket_name": table_bucket_name,
@@ -3732,6 +3794,8 @@ class TableBucketProps:
             self._values["removal_policy"] = removal_policy
         if request_metrics_status is not None:
             self._values["request_metrics_status"] = request_metrics_status
+        if storage_class is not None:
+            self._values["storage_class"] = storage_class
         if unreferenced_file_removal is not None:
             self._values["unreferenced_file_removal"] = unreferenced_file_removal
 
@@ -3823,6 +3887,20 @@ class TableBucketProps:
         '''
         result = self._values.get("request_metrics_status")
         return typing.cast(typing.Optional["RequestMetricsStatus"], result)
+
+    @builtins.property
+    def storage_class(self) -> typing.Optional["StorageClass"]:
+        '''(experimental) The storage class for the table bucket.
+
+        Determines the storage tier used for table data, allowing optimization
+        for different access patterns and cost profiles.
+
+        :default: - STANDARD storage class
+
+        :stability: experimental
+        '''
+        result = self._values.get("storage_class")
+        return typing.cast(typing.Optional["StorageClass"], result)
 
     @builtins.property
     def unreferenced_file_removal(self) -> typing.Optional["UnreferencedFileRemoval"]:
@@ -4111,6 +4189,7 @@ class TablePropertyEntry:
         "iceberg_metadata": "icebergMetadata",
         "removal_policy": "removalPolicy",
         "snapshot_management": "snapshotManagement",
+        "storage_class": "storageClass",
         "without_metadata": "withoutMetadata",
     },
 )
@@ -4125,6 +4204,7 @@ class TableProps:
         iceberg_metadata: typing.Optional[typing.Union["IcebergMetadataProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         snapshot_management: typing.Optional[typing.Union["SnapshotManagementProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        storage_class: typing.Optional["StorageClass"] = None,
         without_metadata: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Properties for creating a new S3 Table.
@@ -4136,6 +4216,7 @@ class TableProps:
         :param iceberg_metadata: (experimental) Contains details about the metadata for an Iceberg table. Default: table is created without any metadata
         :param removal_policy: (experimental) Controls what happens to this table it it stoped being managed by cloudformation. Default: RETAIN
         :param snapshot_management: (experimental) Contains details about the snapshot management settings for an Iceberg table. Default: enabled: MinimumSnapshots is 1 by default and MaximumSnapshotAge is 120 hours by default.
+        :param storage_class: (experimental) The storage class for the table. Determines the storage tier used for table data, allowing optimization for different access patterns and cost profiles. Note: This is a create-only property and cannot be changed after the table is created. Default: - Inherits from the table bucket's storage class configuration
         :param without_metadata: (experimental) If true, indicates that you don't want to specify a schema for the table. This property is mutually exclusive to 'IcebergMetadata'. Default: false
 
         :stability: experimental
@@ -4143,41 +4224,25 @@ class TableProps:
 
         Example::
 
-            from aws_cdk.aws_s3tables_alpha import IcebergMetadataProperty, IcebergSchemaProperty, SchemaFieldProperty, SchemaFieldProperty, CompactionProperty, SnapshotManagementProperty
-            # Build a table
-            sample_table = Table(scope, "ExampleTable",
-                table_name="example_table",
-                namespace=namespace,
-                open_table_format=OpenTableFormat.ICEBERG,
-                without_metadata=True
-            )
-            
-            # Build a table with an Iceberg Schema
-            sample_table_with_schema = Table(scope, "ExampleSchemaTable",
-                table_name="example_table_with_schema",
+            from aws_cdk.aws_s3tables_alpha import IcebergMetadataProperty, IcebergSchemaProperty, SchemaFieldProperty, SchemaFieldProperty, IcebergPartitionSpec, IcebergPartitionField
+            # Build a table with partition spec (minimal configuration)
+            partitioned_table = Table(scope, "PartitionedTable",
+                table_name="partitioned_table",
                 namespace=namespace,
                 open_table_format=OpenTableFormat.ICEBERG,
                 iceberg_metadata=IcebergMetadataProperty(
                     iceberg_schema=IcebergSchemaProperty(
-                        schema_field_list=[SchemaFieldProperty(
-                            name="id",
-                            type="int",
-                            required=True
-                        ), SchemaFieldProperty(
-                            name="name",
-                            type="string"
+                        schema_field_list=[SchemaFieldProperty(name="event_date", type="date", required=True), SchemaFieldProperty(name="event_name", type="string")
+                        ]
+                    ),
+                    iceberg_partition_spec=IcebergPartitionSpec(
+                        fields=[IcebergPartitionField(
+                            source_id=1,
+                            transform=IcebergTransform.IDENTITY,
+                            name="date_partition"
                         )
                         ]
                     )
-                ),
-                compaction=CompactionProperty(
-                    status=Status.ENABLED,
-                    target_file_size_mb=128
-                ),
-                snapshot_management=SnapshotManagementProperty(
-                    status=Status.ENABLED,
-                    max_snapshot_age_hours=48,
-                    min_snapshots_to_keep=5
                 )
             )
         '''
@@ -4196,6 +4261,7 @@ class TableProps:
             check_type(argname="argument iceberg_metadata", value=iceberg_metadata, expected_type=type_hints["iceberg_metadata"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
             check_type(argname="argument snapshot_management", value=snapshot_management, expected_type=type_hints["snapshot_management"])
+            check_type(argname="argument storage_class", value=storage_class, expected_type=type_hints["storage_class"])
             check_type(argname="argument without_metadata", value=without_metadata, expected_type=type_hints["without_metadata"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "namespace": namespace,
@@ -4210,6 +4276,8 @@ class TableProps:
             self._values["removal_policy"] = removal_policy
         if snapshot_management is not None:
             self._values["snapshot_management"] = snapshot_management
+        if storage_class is not None:
+            self._values["storage_class"] = storage_class
         if without_metadata is not None:
             self._values["without_metadata"] = without_metadata
 
@@ -4289,6 +4357,22 @@ class TableProps:
         '''
         result = self._values.get("snapshot_management")
         return typing.cast(typing.Optional["SnapshotManagementProperty"], result)
+
+    @builtins.property
+    def storage_class(self) -> typing.Optional["StorageClass"]:
+        '''(experimental) The storage class for the table.
+
+        Determines the storage tier used for table data, allowing optimization
+        for different access patterns and cost profiles.
+
+        Note: This is a create-only property and cannot be changed after the table is created.
+
+        :default: - Inherits from the table bucket's storage class configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("storage_class")
+        return typing.cast(typing.Optional["StorageClass"], result)
 
     @builtins.property
     def without_metadata(self) -> typing.Optional[builtins.bool]:
@@ -4478,6 +4562,7 @@ __all__ = [
     "SnapshotManagementProperty",
     "SortDirection",
     "Status",
+    "StorageClass",
     "Table",
     "TableAttributes",
     "TableBucket",
@@ -4700,6 +4785,7 @@ def _typecheckingstub__9e5378cdcc21935af950b3c144ea6d1e345b4c98cccbf5fe2a92dff41
     iceberg_metadata: typing.Optional[typing.Union[IcebergMetadataProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     snapshot_management: typing.Optional[typing.Union[SnapshotManagementProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    storage_class: typing.Optional[StorageClass] = None,
     without_metadata: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4770,6 +4856,7 @@ def _typecheckingstub__c8d9c0bf5c954c2a6797301b7dc6cb8abd812336f3507addc92f72b80
     region: typing.Optional[builtins.str] = None,
     removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     request_metrics_status: typing.Optional[RequestMetricsStatus] = None,
+    storage_class: typing.Optional[StorageClass] = None,
     unreferenced_file_removal: typing.Optional[typing.Union[UnreferencedFileRemoval, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4875,6 +4962,7 @@ def _typecheckingstub__aa14ccf904c2576c446af7122d6335d3a92b012274a231120ab28c942
     region: typing.Optional[builtins.str] = None,
     removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     request_metrics_status: typing.Optional[RequestMetricsStatus] = None,
+    storage_class: typing.Optional[StorageClass] = None,
     unreferenced_file_removal: typing.Optional[typing.Union[UnreferencedFileRemoval, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4917,6 +5005,7 @@ def _typecheckingstub__adbbcc05d3dc39dfd296a872f006be429c733d0afc6f602e57bd2bede
     iceberg_metadata: typing.Optional[typing.Union[IcebergMetadataProperty, typing.Dict[builtins.str, typing.Any]]] = None,
     removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
     snapshot_management: typing.Optional[typing.Union[SnapshotManagementProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    storage_class: typing.Optional[StorageClass] = None,
     without_metadata: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

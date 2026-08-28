@@ -131,12 +131,18 @@ check("never-served model last_picked is None (no central stamp)",
 # --- explicit cap WINS over the free-disk reserve ----------------------------
 # disk_free 100 GiB is ABOVE the 50 GiB reserve (reserve mode would NOT trip),
 # but the 150 GiB cap is BELOW the 200 GiB cache_used -> cap-mode over budget.
-capw = _worker(limits={"disk_cache_gib": 150},
+# Reserve (50) is carved OUT of the allocation: 200 allocated -> 150 effective.
+capw = _worker(limits={"disk_cache_gib": 200},
                disk={"free_bytes": 100 * GiB, "total_bytes": 500 * GiB})
 capw["storage"]["disk_free"] = 100 * GiB
 pc = W.storage_proposal(capw)
 check("cap mode: budget_basis is cap", pc["budget_basis"] == "cap")
-check("cap mode: budget == cap bytes (150 GiB)", pc["budget"] == 150 * GiB)
+check("cap mode: budget == allocation - reserve (200 - 50 = 150 GiB)", pc["budget"] == 150 * GiB)
+check("cap mode: allocation_bytes surfaced (200 GiB)", pc["allocation_bytes"] == 200 * GiB)
+check("cap mode: budget_sources shows the carve-out",
+      pc["budget_sources"]["allocation_gib"] == 200.0
+      and pc["budget_sources"]["reserve_gib"] == 50.0
+      and pc["budget_sources"]["effective_gib"] == 150.0)
 check("cap wins: over budget on cache_used>cap even though disk_free>reserve",
       pc["over_budget"] is True and pc["need_bytes"] == 50 * GiB)
 cap_keys = [e["model_key"] for e in pc["proposed_evictions"]]

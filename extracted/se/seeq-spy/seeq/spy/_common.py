@@ -161,6 +161,21 @@ WORKSHEET_LINK_REGEX = fr'links\?type{HTML_EQUALS_REGEX}workstep{HTML_AMPERSAND_
                        fr'workbook{HTML_EQUALS_REGEX}({GUID_REGEX}){HTML_AMPERSAND_REGEX}' \
                        fr'worksheet{HTML_EQUALS_REGEX}({GUID_REGEX}){HTML_AMPERSAND_REGEX}'
 WORKSTEP_LINK_REGEX = fr'{WORKSHEET_LINK_REGEX}workstep{HTML_EQUALS_REGEX}({GUID_REGEX})'
+
+
+def workstep_reference_regex(workbook_id=None, worksheet_id=None, workstep_id=None):
+    # Builds the regex Journal.find_workstep_references() uses to scan for workstep references in a document. Pass
+    # specific GUIDs to build a regex that matches only that exact (workbook, worksheet, workstep) reference (e.g.
+    # to rewrite it), or omit them (the default) to get the generic scanning regex with capture groups.
+    def _part(value):
+        return re.escape(value) if value is not None else f'({GUID_REGEX})'
+
+    return r'workbook%s%s&amp;worksheet%s%s&amp;workstep%s%s' % (
+        HTML_EQUALS_REGEX, _part(workbook_id),
+        HTML_EQUALS_REGEX, _part(worksheet_id),
+        HTML_EQUALS_REGEX, _part(workstep_id))
+
+
 EMAIL_REGEX = r"^([-!#-'*+/-9=?A-Z^-~]+(\.[-!#-'*+/-9=?A-Z^-~]+)*|\"([]!#-[^-~ \t]|(\\[\t -~]))+\")@([" \
               r"-!#-'*+/-9=?A-Z^-~]+(\.[-!#-'*+/-9=?A-Z^-~]+)*|\[[\t -Z^-~]*])$"
 HEX_COLORCODE_REGEX = r'^#(?:[0-9a-fA-F]{3}){1,2}$'

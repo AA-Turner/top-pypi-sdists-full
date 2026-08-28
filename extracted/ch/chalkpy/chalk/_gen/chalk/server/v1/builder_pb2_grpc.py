@@ -40,6 +40,16 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationResponse.FromString,
         )
+        self.PopulateNamedQueryPlans = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/PopulateNamedQueryPlans",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.PopulateNamedQueryPlansRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.PopulateNamedQueryPlansResponse.FromString,
+        )
+        self.PrepareGraphSupplement = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/PrepareGraphSupplement",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareGraphSupplementRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareGraphSupplementResponse.FromString,
+        )
         self.StartShadowBuildFromDeployment = channel.unary_unary(
             "/chalk.server.v1.BuilderService/StartShadowBuildFromDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentRequest.SerializeToString,
@@ -89,6 +99,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/ResolveEngineBaseImage",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageResponse.FromString,
+        )
+        self.ListEngineBaseImages = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ListEngineBaseImages",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesResponse.FromString,
         )
         self.GetClusterTimescaleDB = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetClusterTimescaleDB",
@@ -245,6 +260,21 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesResponse.FromString,
         )
+        self.UpsertChalkMachineTypeOverride = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/UpsertChalkMachineTypeOverride",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpsertChalkMachineTypeOverrideRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpsertChalkMachineTypeOverrideResponse.FromString,
+        )
+        self.DeleteChalkMachineTypeOverride = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DeleteChalkMachineTypeOverride",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteChalkMachineTypeOverrideRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteChalkMachineTypeOverrideResponse.FromString,
+        )
+        self.GetClusterChalkMachineTypes = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetClusterChalkMachineTypes",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterChalkMachineTypesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterChalkMachineTypesResponse.FromString,
+        )
         self.AddNodepool = channel.unary_unary(
             "/chalk.server.v1.BuilderService/AddNodepool",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolRequest.SerializeToString,
@@ -304,6 +334,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/PrepareDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentResponse.FromString,
+        )
+        self.BuildImage = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/BuildImage",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.BuildImageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.BuildImageResponse.FromString,
         )
         self.GetTelemetryDeployment = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetTelemetryDeployment",
@@ -417,6 +452,22 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def PopulateNamedQueryPlans(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def PrepareGraphSupplement(self, request, context):
+        """Assigns internal versions for a deployment's uploaded proto graph and
+        uploads the resulting graph supplement, so build-time planning can use the
+        same version map engines download at boot. Idempotent; graph ingestion
+        later recomputes the assignment and remains authoritative.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def StartShadowBuildFromDeployment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -476,6 +527,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ResolveEngineBaseImage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListEngineBaseImages(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -674,6 +731,28 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def UpsertChalkMachineTypeOverride(self, request, context):
+        """----- Chalk machine type fallback overrides -----
+        Override CRUD is team-level (cluster-scoped rows are cross-environment configuration), so
+        requests name the target cluster explicitly and writes are gated on a team-level permission
+        grant rather than an environment-scoped one — mirroring CloudComponentsService cluster CRUD.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteChalkMachineTypeOverride(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetClusterChalkMachineTypes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def AddNodepool(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -742,6 +821,14 @@ class BuilderServiceServicer(object):
 
     def PrepareDeployment(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def BuildImage(self, request, context):
+        """Builds an engine image from the provided source and pushes it to caller-specified
+        registries. Creates no deployment: nothing is promoted and no environment state changes.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -864,6 +951,16 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationResponse.SerializeToString,
         ),
+        "PopulateNamedQueryPlans": grpc.unary_unary_rpc_method_handler(
+            servicer.PopulateNamedQueryPlans,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.PopulateNamedQueryPlansRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.PopulateNamedQueryPlansResponse.SerializeToString,
+        ),
+        "PrepareGraphSupplement": grpc.unary_unary_rpc_method_handler(
+            servicer.PrepareGraphSupplement,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareGraphSupplementRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareGraphSupplementResponse.SerializeToString,
+        ),
         "StartShadowBuildFromDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.StartShadowBuildFromDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.StartShadowBuildFromDeploymentRequest.FromString,
@@ -913,6 +1010,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.ResolveEngineBaseImage,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageResponse.SerializeToString,
+        ),
+        "ListEngineBaseImages": grpc.unary_unary_rpc_method_handler(
+            servicer.ListEngineBaseImages,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesResponse.SerializeToString,
         ),
         "GetClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterTimescaleDB,
@@ -1069,6 +1171,21 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesResponse.SerializeToString,
         ),
+        "UpsertChalkMachineTypeOverride": grpc.unary_unary_rpc_method_handler(
+            servicer.UpsertChalkMachineTypeOverride,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpsertChalkMachineTypeOverrideRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpsertChalkMachineTypeOverrideResponse.SerializeToString,
+        ),
+        "DeleteChalkMachineTypeOverride": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteChalkMachineTypeOverride,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteChalkMachineTypeOverrideRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteChalkMachineTypeOverrideResponse.SerializeToString,
+        ),
+        "GetClusterChalkMachineTypes": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterChalkMachineTypes,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterChalkMachineTypesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterChalkMachineTypesResponse.SerializeToString,
+        ),
         "AddNodepool": grpc.unary_unary_rpc_method_handler(
             servicer.AddNodepool,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolRequest.FromString,
@@ -1128,6 +1245,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.PrepareDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentResponse.SerializeToString,
+        ),
+        "BuildImage": grpc.unary_unary_rpc_method_handler(
+            servicer.BuildImage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.BuildImageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.BuildImageResponse.SerializeToString,
         ),
         "GetTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.GetTelemetryDeployment,
@@ -1348,6 +1470,64 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/RunPostIndexValidation",
             chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.RunPostIndexValidationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PopulateNamedQueryPlans(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/PopulateNamedQueryPlans",
+            chalk_dot_server_dot_v1_dot_builder__pb2.PopulateNamedQueryPlansRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.PopulateNamedQueryPlansResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PrepareGraphSupplement(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/PrepareGraphSupplement",
+            chalk_dot_server_dot_v1_dot_builder__pb2.PrepareGraphSupplementRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.PrepareGraphSupplementResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1638,6 +1818,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/ResolveEngineBaseImage",
             chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.ResolveEngineBaseImageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListEngineBaseImages(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ListEngineBaseImages",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ListEngineBaseImagesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -2548,6 +2757,93 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def UpsertChalkMachineTypeOverride(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/UpsertChalkMachineTypeOverride",
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpsertChalkMachineTypeOverrideRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpsertChalkMachineTypeOverrideResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteChalkMachineTypeOverride(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DeleteChalkMachineTypeOverride",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteChalkMachineTypeOverrideRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteChalkMachineTypeOverrideResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterChalkMachineTypes(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetClusterChalkMachineTypes",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterChalkMachineTypesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterChalkMachineTypesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def AddNodepool(
         request,
         target,
@@ -2885,6 +3181,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/PrepareDeployment",
             chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def BuildImage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/BuildImage",
+            chalk_dot_server_dot_v1_dot_builder__pb2.BuildImageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.BuildImageResponse.FromString,
             options,
             channel_credentials,
             insecure,

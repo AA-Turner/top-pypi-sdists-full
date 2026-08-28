@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bx-python
-Version: 0.15.0
+Version: 0.15.1
 Summary: Tools for manipulating biological data, particularly multiple sequence alignments
 Author: Bob Harris, David King, Brent Pedersen, Kanwei Li
 Author-email: James Taylor <james@jamestaylor.org>, Nicola Soranzo <nicola.soranzo@earlham.ac.uk>
@@ -28,7 +28,7 @@ Requires-Dist: numpy
 Requires-Dist: pyparsing
 Dynamic: license-file
 
-[![Build Status](https://travis-ci.org/bxlab/bx-python.svg?branch=master)](https://travis-ci.org/bxlab/bx-python)
+![PyPI Version](https://img.shields.io/pypi/v/bx-python)
 
 [![Read the Docs](https://img.shields.io/readthedocs/bx-python.svg)](https://bx-python.readthedocs.io/)
 
@@ -44,7 +44,7 @@ The bx-python project is a Python library and associated set of scripts for rapi
 
 ## Requirements
 
-Build currently requires liblzo, e.g. sudo apt-get install liblzo2-dev on debian/ubuntu).
+Testing requires liblzo, e.g. sudo apt-get install liblzo2-dev on Debian/Ubuntu.
 
 ## Installing
 
@@ -62,4 +62,4 @@ It is available in [Debian](https://tracker.debian.org/pkg/python-bx) and [Ubunt
 
 Or can be built from a checkout of the repository:
 
-```python setup.py install```
+```pip install .```

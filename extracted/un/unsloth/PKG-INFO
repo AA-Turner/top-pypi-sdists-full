@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2026.8.21
+Version: 2026.8.22
 Summary: 2-5X faster training, reinforcement learning & finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -18,7 +18,7 @@ Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: unsloth_zoo>=2026.8.15
+Requires-Dist: unsloth_zoo>=2026.8.16
 Requires-Dist: wheel>=0.42.0
 Requires-Dist: packaging
 Requires-Dist: torch<2.12.0,>=2.4.0
@@ -85,7 +85,7 @@ Provides-Extra: triton
 Requires-Dist: triton>=3.0.0; "linux" in sys_platform and extra == "triton"
 Requires-Dist: triton-windows; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "triton"
 Provides-Extra: huggingface
-Requires-Dist: unsloth_zoo>=2026.8.15; extra == "huggingface"
+Requires-Dist: unsloth_zoo>=2026.8.16; extra == "huggingface"
 Requires-Dist: wheel>=0.42.0; extra == "huggingface"
 Requires-Dist: packaging; extra == "huggingface"
 Requires-Dist: torchvision; extra == "huggingface"
@@ -109,7 +109,7 @@ Requires-Dist: pydantic; extra == "huggingface"
 Requires-Dist: pyyaml; extra == "huggingface"
 Requires-Dist: nest-asyncio; extra == "huggingface"
 Provides-Extra: huggingfacenotorch
-Requires-Dist: unsloth_zoo>=2026.8.15; extra == "huggingfacenotorch"
+Requires-Dist: unsloth_zoo>=2026.8.16; extra == "huggingfacenotorch"
 Requires-Dist: wheel>=0.42.0; extra == "huggingfacenotorch"
 Requires-Dist: packaging; extra == "huggingfacenotorch"
 Requires-Dist: numpy; extra == "huggingfacenotorch"
@@ -132,7 +132,7 @@ Provides-Extra: amd
 Requires-Dist: unsloth[huggingfacenotorch]; extra == "amd"
 Requires-Dist: bitsandbytes>=0.50.0; ("linux" in sys_platform and (platform_machine == "AMD64" or platform_machine == "x86_64" or platform_machine == "aarch64")) and extra == "amd"
 Requires-Dist: bitsandbytes>=0.50.0; (sys_platform == "win32" and (platform_machine == "AMD64" or platform_machine == "x86_64")) and extra == "amd"
-Requires-Dist: unsloth_zoo>=2026.8.15; extra == "amd"
+Requires-Dist: unsloth_zoo>=2026.8.16; extra == "amd"
 Requires-Dist: torchvision; extra == "amd"
 Requires-Dist: unsloth[triton]; extra == "amd"
 Provides-Extra: windows
@@ -425,7 +425,7 @@ Requires-Dist: bitsandbytes!=0.46.0,!=0.48.0,>=0.45.5; extra == "colab-ampere-to
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2026.8.15; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2026.8.16; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
 Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.0,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.5.0,>=4.51.3; extra == "colab-new"
@@ -661,7 +661,7 @@ Unsloth is the first desktop app to run and train models.
 
 <p align="center">
   <a href="#-features">Features</a> •
-  <a href="#-install">Quickstart</a> •
+  <a href="#-get-started">Quickstart</a> •
   <a href="#-free-notebooks">Notebooks</a> •
   <a href="https://unsloth.ai/docs">Documentation</a>
 </p>
@@ -681,23 +681,19 @@ Download the native Unsloth Desktop app for your operating system:
   </tr>
   <tr>
     <td><b>Windows</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-Windows.exe'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.803-beta/Unsloth-Desktop-0_1_803_beta-Windows.exe'>Download</a></td>
   </tr>
   <tr>
     <td><b>macOS</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-MacOS.dmg'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.803-beta/Unsloth-Desktop-0_1_803_beta-MacOS.dmg'>Download</a></td>
   </tr>
   <tr>
     <td><b>Linux / Ubuntu (deb)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-Ubuntu.deb'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.803-beta/Unsloth-Desktop-0_1_803_beta-Ubuntu.deb'>Download</a></td>
   </tr>
   <tr>
     <td><b>Linux (AppImage)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-Linux.AppImage'>Download</a></td>
-  </tr>
-  <tr>
-    <td><b>Linux (Arm64)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-ARM64.app.tar.gz'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.803-beta/Unsloth-Desktop-0_1_803_beta-Linux.AppImage'>Download</a></td>
   </tr>
 </table>
 
@@ -723,7 +719,7 @@ irm https://unsloth.ai/install.ps1 | iex
 Unsloth works on **Windows, Linux, WSL** and **macOS**. We support **Multi GPU setups, NVIDIA, AMD, Intel GPUs, CPUs** and the **Vulkan** backend.
 
 ### Run & Build with AI
-* Run and train LLMs, diffusion, embedding, audio models: [Kimi K3](https://unsloth.ai/docs/models/kimi-k3), MiniMax-H3, Qwen3.8, [Muse Glimmer](https://unsloth.ai/docs/models/muse-glimmer), [DeepSeek-V4](https://unsloth.ai/docs/models/deepseek-v4), [Gemma 4](https://unsloth.ai/docs/models/gemma-4).
+* Run and train LLMs, diffusion, embedding, audio models: [Qwen3.8](https://unsloth.ai/docs/models/qwen3.8), [Kimi K3](https://unsloth.ai/docs/models/kimi-k3), MiniMax-H3, [Muse Glimmer](https://unsloth.ai/docs/models/muse-glimmer), [DeepSeek-V4](https://unsloth.ai/docs/models/deepseek-v4), [Gemma 4](https://unsloth.ai/docs/models/gemma-4).
 * **Agents & Tools:** Use local models with [Claude Code](https://unsloth.ai/docs/basics/claude-code), [Codex](https://unsloth.ai/docs/basics/codex), and [MCP](https://unsloth.ai/docs/basics/mcp), including tool calling and code execution.
 * **Search & RAG:** Use private and unlimited web search, deep research, auto-compaction (rolling context window) and RAG.
 * **Image and video:** Run and train [image](https://unsloth.ai/docs/basics/diffusion-image) and video diffusion or multimodal models
@@ -765,23 +761,19 @@ Unsloth can be used in three ways: **[Unsloth Desktop](https://unsloth.ai/downlo
   </tr>
   <tr>
     <td><b>Windows</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-Windows.exe'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.803-beta/Unsloth-Desktop-0_1_803_beta-Windows.exe'>Download</a></td>
   </tr>
   <tr>
     <td><b>macOS</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-MacOS.dmg'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.803-beta/Unsloth-Desktop-0_1_803_beta-MacOS.dmg'>Download</a></td>
   </tr>
   <tr>
     <td><b>Linux / Ubuntu (deb)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-Ubuntu.deb'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.803-beta/Unsloth-Desktop-0_1_803_beta-Ubuntu.deb'>Download</a></td>
   </tr>
   <tr>
     <td><b>Linux (AppImage)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-Linux.AppImage'>Download</a></td>
-  </tr>
-  <tr>
-    <td><b>Linux (Arm64)</b></td>
-    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.802-beta/Unsloth-Desktop-0_1_802_beta-ARM64.app.tar.gz'>Download</a></td>
+    <td><a href='https://github.com/unslothai/unsloth/releases/download/v0.1.803-beta/Unsloth-Desktop-0_1_803_beta-Linux.AppImage'>Download</a></td>
   </tr>
 </table>
 

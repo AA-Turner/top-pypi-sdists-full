@@ -216,6 +216,14 @@ def show_help() -> None:
         "  --trust-project-hooks      Trust project hooks.json command handlers"
     )
     console.print(
+        "  --trust-project-extensions Trust project .deepagents/extensions Python "
+        "(experimental)"
+    )
+    console.print(
+        "  -e, --extension PATH       Load extension file or directory "
+        "(experimental, repeatable)"
+    )
+    console.print(
         "  --interpreter, --no-interpreter"
         "  Enable or disable JS interpreter (`js_eval`) middleware"
     )
@@ -255,7 +263,6 @@ def show_help() -> None:
     )
     console.print(
         "  --recursion-limit N        Override the agent's graph recursion_limit"
-        " (default 2000)"
     )
     console.print(
         "  --timeout SECONDS          Hard wall-clock limit; exits 124 on expiry"
@@ -778,7 +785,7 @@ def show_mcp_help() -> None:
     console.print("  dcode mcp <command> [options]")
     console.print()
     console.print("[bold]Commands:[/bold]", style=theme.PRIMARY)
-    console.print("  login <server>    Run the OAuth login flow for an MCP server")
+    console.print("  login [server]    List servers needing login or authenticate one")
     console.print("  config            Show MCP config discovery paths")
     console.print()
     _print_option_section()
@@ -801,7 +808,11 @@ def show_mcp_login_help() -> None:
     """Show help information for the `mcp login` subcommand."""
     console.print()
     console.print("[bold]Usage:[/bold]", style=theme.PRIMARY)
-    console.print("  dcode mcp login <server> [--mcp-config PATH]")
+    console.print("  dcode mcp login [server] [--mcp-config PATH]")
+    console.print()
+    console.print(
+        "With no server, lists configured OAuth servers that have no stored login."
+    )
     console.print()
     _print_option_section(
         "  --mcp-config PATH       Path to an MCP config JSON file "
@@ -814,6 +825,7 @@ def show_mcp_login_help() -> None:
     console.print(_MCP_CONFIG_FORMAT_EXAMPLE, style=theme.MUTED)
     console.print()
     console.print("[bold]Examples:[/bold]", style=theme.PRIMARY)
+    console.print("  dcode mcp login")
     console.print("  dcode mcp login notion")
     console.print("  dcode mcp login linear --mcp-config ./mcp-config.json")
     console.print()

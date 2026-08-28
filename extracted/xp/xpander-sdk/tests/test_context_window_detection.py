@@ -182,3 +182,14 @@ def test_unknown_model_warning_dedup_set_records_id() -> None:
     _detect_context_window(_M(unique_id))
     _detect_context_window(_M(unique_id))
     assert len(_LOGGED_UNKNOWN_MODEL_IDS) == before
+
+
+def test_gateway_fast_chain_models_resolve_without_default() -> None:
+    # the gateway sizes its context optimizer off these windows; a table miss means the 128K default
+    assert _detect_context_window(_M("gpt-oss-120b")) == 131_072
+    assert _detect_context_window(_M("gemma-4-31b")) == 131_072
+    assert _detect_context_window(_M("google/gemma-4-31b-it")) == 131_072
+    assert _detect_context_window(_M("gemini-3.7-flash")) == 1_000_000
+    assert _detect_context_window(_M("zai.glm-4.7-flash")) == 203_000
+    assert _detect_context_window(_M("gpt-4.1-nano")) == 1_047_576
+    assert _detect_context_window(_M("tzafon.northstar-cua-fast-1.6")) == 256_000

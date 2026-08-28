@@ -40,6 +40,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     DeleteScimGroupResponse,
     DeleteScimGroupUsersRequest,
     DeleteScimGroupUsersResponse,
+    DeleteSelfSignupTeamRequest,
+    DeleteSelfSignupTeamResponse,
     DeleteServiceTokenRequest,
     DeleteServiceTokenResponse,
     DeleteServiceTokenTeamScopedRequest,
@@ -231,6 +233,17 @@ class TeamServiceStub:
         ArchiveEnvironmentRequest,
         ArchiveEnvironmentResponse,
     ]
+    DeleteSelfSignupTeam: UnaryUnaryMultiCallable[
+        DeleteSelfSignupTeamRequest,
+        DeleteSelfSignupTeamResponse,
+    ]
+    """Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
+    only for an @chalk.ai address, and no role grants it, so a customer cannot
+    reach this even as the owner of their own team. A service token can only
+    carry it if a Chalk employee deliberately minted one with it --
+    CreateServiceToken requires the permission to be a subset of the caller's
+    own, and GetAvailablePermissions does not offer it in the UI.
+    """
     DeactivateUser: UnaryUnaryMultiCallable[
         DeactivateUserRequest,
         DeactivateUserResponse,
@@ -471,6 +484,19 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: ArchiveEnvironmentRequest,
         context: ServicerContext,
     ) -> ArchiveEnvironmentResponse: ...
+    @abstractmethod
+    def DeleteSelfSignupTeam(
+        self,
+        request: DeleteSelfSignupTeamRequest,
+        context: ServicerContext,
+    ) -> DeleteSelfSignupTeamResponse:
+        """Chalk-employee-only: PERMISSION_CHALK_ADMIN is injected into a user agent
+        only for an @chalk.ai address, and no role grants it, so a customer cannot
+        reach this even as the owner of their own team. A service token can only
+        carry it if a Chalk employee deliberately minted one with it --
+        CreateServiceToken requires the permission to be a subset of the caller's
+        own, and GetAvailablePermissions does not offer it in the UI.
+        """
     @abstractmethod
     def DeactivateUser(
         self,

@@ -79,6 +79,20 @@ class ErrorCode(str, Enum):
     # rejected reason — so the caller always learns exactly why the pin didn't bind.
     # Deterministic (the same pin fails identically) -> the bus classifies it not-retryable.
     PINNED_MODEL_UNAVAILABLE = "pinned_model_unavailable"
+    # DETERMINISTIC INFERENCE FAILURES (2026-08-21 incident: a studio render looped on
+    # "[io_error] ... The size of tensor a (36) must match the size of tensor b (16)"
+    # marked retryable — the SAME spec re-run fails identically, so a retry loop only
+    # burns hours of GPU time). Neither is retryable (runners/studio_i2v's
+    # _RETRYABLE_CODES does not list them).
+    #   SHAPE_ERROR  — a tensor shape/size mismatch raised by the framework mid-denoise
+    #                  (channels / frames / resolution disagree between spec, checkpoint
+    #                  and pipeline class). Fix the spec or the checkpoint pairing.
+    #   CONFIG_ERROR — a spec/checkpoint/pipeline pairing known to be wrong BEFORE or
+    #                  AFTER the render (i2v checkpoint with no start image, a t2v
+    #                  checkpoint asked to condition on an image, an API mismatch with
+    #                  the installed diffusers). Fix the request or the install.
+    SHAPE_ERROR = "shape_error"
+    CONFIG_ERROR = "config_error"
 
 
 @dataclass(frozen=True)

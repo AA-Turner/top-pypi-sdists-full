@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkknx_frontend=self.rspackChunkknx_frontend||[]).push([[88914],{73449(e,s,n){n(3362);(0,n(46779).C)("qr-scanner","scanning QR codes with the camera");const o={hasCamera:()=>Promise.resolve(!1)};n.d(s,{},{default:o})},46779(e,s,n){n.d(s,{},{C:(e,s)=>{console.error(`[KNX] "${e}" is stubbed out in this build, so ${s} does not work here. The KNX panel is not supposed to need it — if it does, remove the entry from build-scripts/stubs.cjs.`)}})}}]);
+//# sourceMappingURL=88914.5b8d3ae8f61e69a6.js.map

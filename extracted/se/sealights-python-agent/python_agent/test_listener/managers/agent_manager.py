@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import time
+import uuid
 
 from python_agent import __legacy_mode__ as is_legacy_mode
 from python_agent.common.agent_events.agent_events_manager import AgentEventsManager
@@ -48,14 +49,17 @@ class AgentManager(object):
         self.agents_events_manager.send_agent_start(
             lab_id=config_data.labId, test_stage=config_data.testStage
         )
-        self.footprints_manager = FootprintsManager(
-            config_data, self.backend_proxy, self.agents_events_manager
-        )
+        self.footprints_manager = None
+        if not config_data.skipFootprintsPipeline:
+            self.footprints_manager = FootprintsManager(
+                config_data, self.backend_proxy, self.agents_events_manager
+            )
         self.events_manager = EventsManager(
             config_data, self.backend_proxy, self.agents_events_manager
         )
         self.tia_manager = TIAManager(config_data)
-        self.footprints_manager.start()
+        if self.footprints_manager:
+            self.footprints_manager.start()
         self.events_manager.start()
 
         # Install custom exit handler to track application exit codes
@@ -81,9 +85,7 @@ class AgentManager(object):
 
     def create_execution_id(self):
         if self.footprints_manager is None:
-            raise Exception(
-                "Footprints Manager is not initialized, cannot create execution id"
-            )
+            return str(uuid.uuid4())
         return self.footprints_manager.get_current_execution_id()
 
     def start_execution(self, execution_id):
@@ -130,7 +132,8 @@ class AgentManager(object):
 
     def send_all(self):
         self.events_manager.send_all()
-        self.footprints_manager.ensure_all_footprints_sent()
+        if self.footprints_manager:
+            self.footprints_manager.ensure_all_footprints_sent()
 
     def shutdown(self):
         """
@@ -142,7 +145,8 @@ class AgentManager(object):
         if self.pid == os.getpid():
             log.info("Shutting down Sealights Agent...")
             self.events_manager.shutdown()
-            self.footprints_manager.shutdown(self.is_master)
+            if self.footprints_manager:
+                self.footprints_manager.shutdown(self.is_master)
             self.agents_events_manager.send_agent_stop()
             log.info("Sealights Agent has been shut down.")
 
@@ -165,6 +169,8 @@ class AgentManager(object):
                 )
 
     def get_trace_function(self):
+        if self.footprints_manager is None:
+            return None
         return self.footprints_manager.get_trace_function()
 
     def agent_started(self):

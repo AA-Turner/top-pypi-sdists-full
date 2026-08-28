@@ -16,9 +16,9 @@ refresh_registry() explicitly — e.g. on hugpy module startup.
 
 from .imports import *
 from ...src.model_classifier import (
-    ADAPTER_TASK, NEEDS_CLASSIFICATION_TASK, adapter_refusal,
-    classify_model_dir, needs_classification_refusal, pipeline_class_name,
-    tasks_for_pipeline_class,
+    ADAPTER_TASK, NEEDS_CLASSIFICATION_TASK, TTS as TTS_TASK, adapter_refusal,
+    classify_model_dir, is_speech_checkpoint_dir, needs_classification_refusal,
+    pipeline_class_name, tasks_for_pipeline_class,
 )
 
 # EMFILE burst hardening (incident 2026-07-23): media_models.json lives on the
@@ -488,6 +488,37 @@ def _inherit_adapter_base_task(framework, tasks, row):
     return inherited
 
 
+def _correct_speech_task(framework, tasks, row):
+    """A TTS checkpoint must not advertise text-generation.
+
+    CONTENT/DECLARATION-AUTHORITATIVE OVERRIDE, shaped like ``_correct_video_task``
+    and ``_correct_diffusers_task`` and for the identical reason: ``_base_tasks``
+    short-circuits on a STORED ``tasks`` value, and the stored value is exactly
+    what was wrong here. ``Viral2AI~chatterbox`` carried
+    ``tasks: ["text-generation"]`` (a 2026-07-11 reconcile stamp) while its own
+    card declared ``pipeline_tag: text-to-speech`` and its dir held a chatterbox
+    checkpoint — so the oracle could only bind ``audio.tts`` by NAME MARKER and
+    had to report the misclassification as a reason (k98).
+
+    Two independent witnesses, either of which is the model speaking for itself:
+      * the dir holds a chatterbox-family checkpoint
+        (``model_classifier.is_speech_checkpoint_dir`` — the exact weight files
+        the backend's own loader reads), or
+      * the row's own hub declaration says ``pipeline_tag: text-to-speech``.
+
+    Fires ONLY over the two "nobody classified this" verdicts (text-generation /
+    needs-classification), so a row that already declares a real task of its own
+    is never re-labelled."""
+    if framework == "gguf" or not ({"text-generation", NEEDS_CLASSIFICATION_TASK}
+                                   & set(tasks)):
+        return tasks
+    if is_speech_checkpoint_dir(row.get("dir")):
+        return [TTS_TASK]
+    if str(row.get("pipeline_tag") or "").lower() == TTS_TASK:
+        return [TTS_TASK]
+    return tasks
+
+
 def _correct_adapter_only(framework, tasks, row):
     """A dir holding only LoRA/adapter weights is an ADAPTER, never a model.
 
@@ -603,6 +634,7 @@ def derive_model_config_row(name, row):
     tasks = _correct_gguf_vision(framework, tasks, row)   # mmproj-authoritative, not pipeline_tag/path
     tasks = _correct_video_task(framework, tasks, row)    # config-authoritative: t2v/vace are NOT chat models
     tasks = _correct_diffusers_task(framework, tasks, row) # model_index-authoritative: the pipeline's own declaration wins
+    tasks = _correct_speech_task(framework, tasks, row)    # content-authoritative: a TTS checkpoint is not a chat model
     tasks = _correct_adapter_only(framework, tasks, row)   # content-authoritative: a LoRA dir is a delta, not a model
     tasks = _inherit_adapter_base_task(framework, tasks, row)  # a pairable delta serves what its base serves
     tasks = _correct_pipeline_component(framework, tasks, row)  # path-authoritative: an encoder/vae split is not a chat model
@@ -671,6 +703,13 @@ def derive_model_config_row(name, row):
         **{k: row[k] for k in ("display_name", "civitai_id",
                                "civitai_version_id", "civitai_base_model")
            if row.get(k) is not None},
+        # LICENSE — the row's own declaration (discovery reads it off the HF
+        # card). Dropped here, it was unreadable downstream, and the oracle
+        # catalog's license gate had to report "not recorded on the registry
+        # row" for a model whose card plainly says MIT (k98). Passed through by
+        # NAME like the provenance decoration above; absent stays absent, which
+        # is still reported as UNKNOWN and never assumed permissive.
+        **({"license": row["license"]} if row.get("license") else {}),
     }, None
 
 def _absorb_disk(staple, disc):

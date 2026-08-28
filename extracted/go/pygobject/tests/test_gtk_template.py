@@ -426,6 +426,29 @@ def test_from_file():
         os.remove(name)
 
 
+def test_from_path(tmp_path):
+    name = tmp_path / "tmpl.xml"
+    type_name = new_gtype_name()
+
+    with open(name, "wb") as h:
+        h.write(
+            f"""\
+<interface>
+    <template class="{type_name}" parent="GtkBox">
+    <property name="spacing">42</property>
+    </template>
+</interface>
+""".encode()
+        )
+
+    @Gtk.Template.from_file(name)
+    class Foo(Gtk.Box):
+        __gtype_name__ = type_name
+
+    foo = Foo()
+    assert foo.props.spacing == 42
+
+
 def test_property_override():
     type_name = new_gtype_name()
 

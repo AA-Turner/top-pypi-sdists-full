@@ -1367,6 +1367,10 @@ class Identity(BaseModel):
         None,
         description="How the request authenticated. `ingress` is the Home Assistant Ingress passthrough the add-on deployment uses.",
     )
+    expires_at: AwareDatetime | None = Field(
+        None,
+        description='The instant the credential behind this identity stops being accepted, in UTC. Absent means the credential has no server-side expiry — a `basic`, `ingress` or unbounded `bearer` identity. It is the deadline a long-lived consumer needs: a WebSocket captures its identity at the upgrade and is closed when this instant passes, so a client that reads it can refill its credential through the in-band `{op:"reauth"}` frame instead of discovering the rotation through a 401.',
+    )
 
 
 class UserListEntry(BaseModel):
@@ -1869,7 +1873,8 @@ class CustomDataPointStateChangedPayload(BaseModel):
         description="Canonical loom-namespaced routing key (`loom_<routing-key>`)\nfor this custom data point. Always present and non-empty — see\nDataPointValueChangedPayload.unique_id.\n",
     )
     state: dict[str, Any] = Field(
-        ..., description="Composed state snapshot — keys depend on the CDP category."
+        ...,
+        description="Composed state snapshot — keys depend on the CDP category.\n\n**Units and scales are the ones a Home Assistant client\nexpects, not the CCU's wire values.** This is the abstraction\nplane: the raw parameter values live on the data-point plane\n(`DataPointValueChangedPayload.value`, `GET\n/devices/{addr}/channels/{ch}/data-points`), where the daemon\nreports whatever the CCU sent.\n\nThe one that has caused a real mis-read: for a colour light,\n`color` is `{h, s}` with **hue in degrees 0..360 and\nsaturation 0..100** — already scaled from the wire\n`SATURATION` parameter, which carries the fraction 0..1. A\nclient that reads `color.s` and scales it again ends up with\nevery colour fully saturated. The `set_color` operation takes\nsaturation on the same 0..100 scale, so the two directions\nmatch and neither needs converting.\n",
     )
 
 
@@ -2399,8 +2404,19 @@ class DeviceCreatedPayload(BaseModel):
     device_address: str
     model: str
     source: str | None = Field(
-        None, description="hmenum.SourceOfDeviceCreation (CACHE, INIT, NEW_DEVICE, …)."
+        None,
+        description="Which kind of arrival this is, from `hmenum.SourceOfDeviceCreation`: `NEW` a CCU pairing, `REFRESH` a factory-reset re-pair (the device kept its address but rebuilt its channels), `MANUAL` an operator accepting a device out of the deferred-creation inbox, `CACHE` a device restored from the persisted description cache at boot. `INIT` is defined by the enum but has no producer on this broadcast. Treat the set as forward-compatible and ignore values you do not know.",
     )
+    released: bool | None = Field(
+        None,
+        description="Whether the device has finished onboarding and may be\nadopted. `false` means it is accepted and configurable but\ndeliberately not yet published to the ecosystems — a\nconsumer that adopts devices should wait for the matching\n`device.released` frame rather than act on this one.\n\nCarried on the creation frame rather than left to a\nseparate lookup because the alternative is a race: a client\nthat reads the state from a snapshot can receive this push\nfirst and adopt a device it would have filtered.\n\nAlways `true` on an installation that never used the\nonboarding wizard.\n",
+    )
+
+
+class DeviceReleasedPayload(BaseModel):
+    central: str
+    interface_id: str
+    device_address: str
 
 
 class DeviceRemovedPayload(BaseModel):
@@ -3141,6 +3157,10 @@ class InboxDevice(BaseModel):
     serial: str | None = None
     manufacturer: str | None = None
     first_seen: int | None = None
+    awaiting_release: bool | None = Field(
+        None,
+        description='True when the device is already accepted and fully\nmaterialised — it has its CCU ise_id, its channels and its\ndata points, and it can be renamed and assigned rooms right\nnow — but is still withheld from the ecosystems (MQTT and\ntherefore Home Assistant, the Matter bridge, outbound\nwebhooks) until the operator finishes onboarding it with\nPOST /devices/{addr}/release.\n\nThis is the onboarding wizard\'s middle state and a different\nask than `pending_creation`: that one means "decide whether\nthis device exists", this one means "configure it, then\npublish it". A client must not offer an accept action for an\nentry flagged here — it is already accepted.\n',
+    )
     pending_creation: bool | None = Field(
         None,
         description="True when the daemon itself is holding the device back:\nwith `central.behavior.delay_new_device_creation` enabled the\nannounced descriptions are parked until an operator accepts\nthem, so the device exists on the CCU but has no data points\nhere yet. Accepting it (POST /devices/{addr}/accept) also\nmaterialises it.\n",

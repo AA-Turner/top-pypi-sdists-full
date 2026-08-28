@@ -714,6 +714,36 @@ def _require_member_strict() -> None:
         abort(401, description="Authentication required for this route.")
 
 
+def _require_member_or_api_key() -> None:
+    """Member/operator OR a valid ``hp_`` product key — DOWNLOAD surfaces only.
+
+    Distribution normalization (operator ruling, 2026-08-20): a minted key IS
+    the install credential — install.sh sends it as a bearer to /info and the
+    artifact download, then persists it on the installed machine
+    (~/.config/hugpy-station/station.env). Before this, artifact routes took
+    only a session cookie or the operator token, so a freshly minted key could
+    never drive a preprocessed install. NEVER use this on minting surfaces —
+    install-links and key creation stay _require_member_strict."""
+    try:
+        from ..operator_auth import member_authenticated
+        if member_authenticated():
+            return
+    except Exception:  # noqa: BLE001 — gate module unhappy: fall through to key
+        pass
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+    if not token:
+        token = (request.headers.get("X-API-Key") or "").strip()
+    if token.startswith("hp_"):
+        try:
+            from ..functions.imports.utils.api_keys import verify_api_key
+            if verify_api_key(token):
+                return
+        except Exception:  # noqa: BLE001 — store hiccup must not open the gate
+            pass
+    abort(401, description="Authentication required for this route.")
+
+
 def _caller_is_operator() -> bool:
     try:
         from ..operator_auth import operator_authenticated
@@ -1318,13 +1348,44 @@ _CONSOLE_ARTIFACTS_DIR = os.getenv(
     "HUGPY_CONSOLE_ARTIFACTS_DIR", "/mnt/llm_storage/_keeper_deploy/console")
 
 
-def _console_artifact(prefix: str, suffix: str) -> "dict | None":
+# The desktop app was RENAMED fleet-console -> hugpy-station at 1.0.37
+# (2026-08-13, "console" was carrying four products). One version lineage,
+# two artifact name eras — the resolver must span both, ordered by the
+# VERSION EMBEDDED IN THE FILENAME (a plain name sort would rank every
+# hugpy-station_* above every fleet-console_* forever, which happens to be
+# right today and wrong the day someone stages a fleet-console hotfix).
+_STATION_DEB_PREFIXES = ("hugpy-station_", "fleet-console_")
+
+# 2026-08-21: the station is built by electron-builder and ships FOUR Linux
+# artifacts, not one deb (station-app/build-release.sh). The non-deb formats use
+# a dash before the version (hugpy-station-1.0.42.x86_64.rpm), so they need the
+# separator-less prefixes; the suffix is what disambiguates the format.
+_STATION_PREFIXES = ("hugpy-station", "fleet-console")
+
+# kind -> (prefixes, filename suffix). The order here is the order /info reports
+# them and the order the installer prefers when it has a choice.
+_STATION_ARTIFACT_KINDS = {
+    "deb": (_STATION_DEB_PREFIXES, ".deb"),
+    "rpm": (_STATION_PREFIXES, ".rpm"),
+    "pacman": (_STATION_PREFIXES, ".pacman"),
+    "appimage": (_STATION_PREFIXES, ".AppImage"),
+}
+
+# Extensions servable from the artifacts dir. .whl is the paired hugpy_agent
+# wheel; the rest are station packages.
+_CONSOLE_ARTIFACT_EXTS = (".deb", ".rpm", ".pacman", ".AppImage", ".whl")
+
+
+def _console_artifact(prefix, suffix: str) -> "dict | None":
     """Newest matching artifact in the console dir as an info row, or None.
-    'Newest' = highest natural version sort of the filename (falls back to
-    mtime on a tie) so 1.0.12 beats 1.0.7 the way a human means it."""
+    ``prefix`` may be one prefix or a tuple of equivalent prefixes (the
+    renamed-package case). 'Newest' = highest embedded dotted version
+    (mtime breaks ties) so 1.0.12 beats 1.0.7 the way a human means it,
+    across name eras."""
+    prefixes = prefix if isinstance(prefix, tuple) else (prefix,)
     try:
         names = [n for n in os.listdir(_CONSOLE_ARTIFACTS_DIR)
-                 if n.startswith(prefix) and n.endswith(suffix)]
+                 if n.startswith(prefixes) and n.endswith(suffix)]
     except OSError:
         return None
     if not names:
@@ -1332,9 +1393,9 @@ def _console_artifact(prefix: str, suffix: str) -> "dict | None":
 
     def _natkey(n: str):
         import re as _re
-        return ([int(t) if t.isdigit() else t
-                 for t in _re.split(r"(\d+)", n)],
-                os.path.getmtime(os.path.join(_CONSOLE_ARTIFACTS_DIR, n)))
+        m = _re.search(r"(\d+(?:\.\d+)+)", n)
+        ver = tuple(int(t) for t in m.group(1).split(".")) if m else ()
+        return (ver, os.path.getmtime(os.path.join(_CONSOLE_ARTIFACTS_DIR, n)))
     name = max(names, key=_natkey)
     path = os.path.join(_CONSOLE_ARTIFACTS_DIR, name)
     row = {"filename": name, "size_bytes": os.path.getsize(path),
@@ -1356,16 +1417,25 @@ def console_dist_info():
     not to the open internet. Anonymous -> 401.
 
     2026-08-12: also carries the curl-install one-liner (the script itself is
-    public — see console_install_sh) so the API tab can show it verbatim."""
-    _require_member_strict()
+    public — see console_install_sh) so the API tab can show it verbatim.
+
+    2026-08-20: gate widened to _require_member_or_api_key — a minted hp_ key
+    is now the install credential (distribution normalization)."""
+    _require_member_or_api_key()
     # 2026-08-13: base was request.host_url + script_root, which behind the
     # /api-stripping nginx proxy rendered "http://dev.hugpy.ai/agent/..." —
     # wrong scheme AND missing mount, so the copy-paste example 404'd.
     # _install_public_base() is the one function that already solves exactly
     # this (HUGPY_PUBLIC_BASE / X-Forwarded-* + unconditional /api).
     base = _install_public_base()
+    # 2026-08-21: four formats, one lineage. ``deb`` stays a top-level key for
+    # the older installers and the API tab that already read it; the full set
+    # lives under ``artifacts`` keyed by the name station-install.sh asks for.
+    artifacts = {kind: _console_artifact(prefixes, suffix)
+                 for kind, (prefixes, suffix) in _STATION_ARTIFACT_KINDS.items()}
     return jsonify({
-        "deb": _console_artifact("fleet-console_", ".deb"),
+        "deb": artifacts["deb"],
+        "artifacts": artifacts,
         "agent_whl": _console_artifact("hugpy_agent-", ".whl"),
         "install": {
             "url": "/agent/console/install.sh",
@@ -1378,7 +1448,7 @@ def console_dist_info():
 
 @agent_bp.route("/agent/console/install.sh", methods=["GET"])
 def console_install_sh():
-    """Public: the fleet-console curl installer, one line::
+    """Public: the hugpy Station curl installer, one line::
 
         curl -fsSL https://dev.hugpy.ai/api/agent/console/install.sh \\
             | HUGPY_TOKEN=<token> bash
@@ -1387,11 +1457,36 @@ def console_install_sh():
     plain client code with NO embedded secret — it reads the member/operator
     credential from the caller's environment at RUN time and presents it as a
     bearer to the (member-gated) info + download routes, verifying the sha256
-    sidecar before installing via apt. The artifacts themselves stay gated."""
+    sidecar before installing. The artifacts themselves stay gated.
+
+    2026-08-21: distro-detecting. apt -> .deb, dnf/yum -> .rpm,
+    zypper -> .rpm, pacman -> .pacman, anything else -> the .AppImage into
+    ~/.local/bin (no root). All four are built from one source tree by
+    station-app/build-release.sh."""
     from flask import Response
     path = os.path.join(_ICON_DIR, "console-install.sh")
     if not os.path.isfile(path):
         abort(404, description="console-install.sh not on this deployment.")
+    with open(path, encoding="utf-8") as fh:
+        return Response(fh.read(), mimetype="text/x-shellscript")
+
+
+@agent_bp.route("/agent/console/station-fix.sh", methods=["GET"])
+def console_station_fix_sh():
+    """Public: repair an installed hugpy Station on any Linux desktop::
+
+        curl -fsSL https://dev.hugpy.ai/api/agent/console/station-fix.sh | bash
+
+    Same rule as ``install.sh``: plain client code, no embedded secret. It
+    installs aiohttp for the backend interpreter (dnf/apt/zypper/pacman or
+    pip --user), the 1.0.42 launcher (``--version`` without Electron, clean
+    no-display exit, interpreter probing), fixes the ``/usr/bin`` alternative
+    and ``chrome-sandbox`` mode that deb->rpm conversions drop, and optionally
+    sets the console password in the user's config dir (``--set-password``)."""
+    from flask import Response
+    path = os.path.join(_ICON_DIR, "station-fix.sh")
+    if not os.path.isfile(path):
+        abort(404, description="station-fix.sh not on this deployment.")
     with open(path, encoding="utf-8") as fh:
         return Response(fh.read(), mimetype="text/x-shellscript")
 
@@ -1401,26 +1496,38 @@ def console_dist_download(filename):
     """MEMBER or OPERATOR download of a staged console artifact (2026-08-06: was
     public — see console_dist_info). Only bare filenames that actually sit in
     the artifacts dir and carry a distributable extension are servable — no
-    traversal, no sidecar/README leakage.
+    traversal, no sidecar/README leakage. Distributable since 2026-08-21 means
+    .deb / .rpm / .pacman / .AppImage (the four station formats) plus the
+    paired hugpy_agent .whl.
 
     2026-08-12: ``latest.deb`` / ``latest.whl`` are stable aliases resolving to
     the newest staged artifact (same version sort as /info), so scripts don't
     need the info round-trip; the response still downloads under the real
-    versioned filename."""
-    _require_member_strict()
-    if filename == "latest.deb":
-        row = _console_artifact("fleet-console_", ".deb")
-        if row is None:
-            abort(404, description="No fleet-console .deb staged.")
-        filename = row["filename"]
-    elif filename == "latest.whl":
+    versioned filename.
+
+    2026-08-20: gate widened to _require_member_or_api_key — a minted hp_ key
+    is now the install credential (distribution normalization)."""
+    _require_member_or_api_key()
+    if filename == "latest.whl":
         row = _console_artifact("hugpy_agent-", ".whl")
         if row is None:
             abort(404, description="No hugpy_agent .whl staged.")
         filename = row["filename"]
+    elif filename.startswith("latest."):
+        # latest.deb / latest.rpm / latest.pacman / latest.AppImage — one alias
+        # per packaging format since 2026-08-21 (station-app/build-release.sh
+        # stages all four); resolution is the same version sort as /info.
+        kind = filename[len("latest."):].lower()
+        spec = _STATION_ARTIFACT_KINDS.get(kind)
+        if spec is None:
+            abort(404, description=f"Unknown station artifact kind '{kind}'.")
+        row = _console_artifact(*spec)
+        if row is None:
+            abort(404, description=f"No station {kind} staged.")
+        filename = row["filename"]
     if "/" in filename or filename != os.path.basename(filename):
         abort(404)
-    if not (filename.endswith(".deb") or filename.endswith(".whl")):
+    if not filename.endswith(_CONSOLE_ARTIFACT_EXTS):
         abort(404)
     path = os.path.join(_CONSOLE_ARTIFACTS_DIR, filename)
     if not os.path.isfile(path):
@@ -1454,9 +1561,9 @@ def console_install_link_create():
     + {url, commands: {linux}} — NEVER the raw key. 503 (not a dead link
     later) when no .deb is staged: refuse to mint a link that cannot serve."""
     _require_member_strict()
-    if _console_artifact("fleet-console_", ".deb") is None:
+    if _console_artifact(_STATION_DEB_PREFIXES, ".deb") is None:
         abort(503, description=(
-            "No fleet-console .deb staged on this central — stage one under "
+            "No station .deb staged on this central — stage one under "
             "the console artifacts dir before minting install links."))
     body = request.get_json(silent=True) or {}
     try:
@@ -1486,9 +1593,9 @@ def console_install_link_sh(link_id):
     if not os.path.isfile(tpl_path):
         abort(404, description=(
             "console-install-link.sh not on this deployment."))
-    row = _console_artifact("fleet-console_", ".deb")
+    row = _console_artifact(_STATION_DEB_PREFIXES, ".deb")
     if row is None:
-        abort(404, description="No fleet-console .deb staged.")
+        abort(404, description="No station .deb staged.")
     remote = (request.headers.get("X-Forwarded-For") or
               request.remote_addr or "").split(",")[0].strip()
     raw_key = mod.consume_download(link_id, remote_addr=remote,
@@ -1525,9 +1632,9 @@ def console_install_link_deb(link_id):
         abort(410, description=(
             "This install link is no longer valid — it expired or was "
             "revoked. Ask the console owner to mint a fresh one."))
-    row = _console_artifact("fleet-console_", ".deb")
+    row = _console_artifact(_STATION_DEB_PREFIXES, ".deb")
     if row is None:
-        abort(404, description="No fleet-console .deb staged.")
+        abort(404, description="No station .deb staged.")
     remote = (request.headers.get("X-Forwarded-For") or
               request.remote_addr or "").split(",")[0].strip()
     mod.note_wrapper_fetch(link_id, remote_addr=remote, kind="deb")

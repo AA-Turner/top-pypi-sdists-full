@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dstack
-Version: 0.21.2
+Version: 0.21.3
 Summary: dstack is an open-source orchestration engine for running AI workloads on any cloud or on-premises.
 Project-URL: Homepage, https://dstack.ai
 Project-URL: Source, https://github.com/dstackai/dstack

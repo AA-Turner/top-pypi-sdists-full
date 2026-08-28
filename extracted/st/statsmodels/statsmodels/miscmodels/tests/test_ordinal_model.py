@@ -8,9 +8,10 @@ import numpy as np
 from numpy.testing import assert_allclose, assert_equal
 import pandas as pd
 import pytest
-import scipy.stats as stats
+from scipy import stats
 
 from statsmodels.discrete.discrete_model import Logit
+from statsmodels.iolib.summary import Summary
 from statsmodels.miscmodels.ordinal_model import OrderedModel
 from statsmodels.tools.sm_exceptions import HessianInversionWarning
 from statsmodels.tools.tools import add_constant
@@ -156,16 +157,17 @@ class TestLogitModel(CheckOrdinalModelMixin):
         )
         resp = modp.fit(method="bfgs", disp=False)
         # fit with formula
-        modf = OrderedModel.from_formula(
-            "apply ~ pared + public + gpa - 1",
-            data={
-                "apply": data["apply"].values.codes,
-                "pared": data["pared"],
-                "public": data["public"],
-                "gpa": data["gpa"],
-            },
-            distr="logit",
-        )
+        with pytest.warns(DeprecationWarning, match="Using"):
+            modf = OrderedModel.from_formula(
+                "apply ~ pared + public + gpa - 1",
+                data={
+                    "apply": data["apply"].values.codes,
+                    "pared": data["pared"],
+                    "public": data["public"],
+                    "gpa": data["gpa"],
+                },
+                distr="logit",
+            )
         resf = modf.fit(method="bfgs", disp=False)
         # fit on data with ordered=False
         modu = OrderedModel(
@@ -244,16 +246,17 @@ class TestProbitModel(CheckOrdinalModelMixin):
         )
         resp = modp.fit(method="bfgs", disp=False)
 
-        modf = OrderedModel.from_formula(
-            "apply ~ pared + public + gpa - 1",
-            data={
-                "apply": data["apply"].values.codes,
-                "pared": data["pared"],
-                "public": data["public"],
-                "gpa": data["gpa"],
-            },
-            distr="probit",
-        )
+        with pytest.warns(DeprecationWarning, match="Using"):
+            modf = OrderedModel.from_formula(
+                "apply ~ pared + public + gpa - 1",
+                data={
+                    "apply": data["apply"].values.codes,
+                    "pared": data["pared"],
+                    "public": data["public"],
+                    "gpa": data["gpa"],
+                },
+                distr="probit",
+            )
         resf = modf.fit(method="bfgs", disp=False)
 
         modu = OrderedModel(
@@ -276,7 +279,7 @@ class TestProbitModel(CheckOrdinalModelMixin):
             [
                 [202, 18, 0, 220],
                 [112, 28, 0, 140],
-                [27, 13, 0, 40],  # noqa
+                [27, 13, 0, 40],
                 [341, 59, 0, 400],
             ],
             dtype=np.int64,
@@ -319,20 +322,39 @@ class TestProbitModel(CheckOrdinalModelMixin):
         assert hasattr(modf2.data, "frame")
         assert not hasattr(modf2, "frame")
 
-        msg = "Only ordered pandas Categorical"
-        with pytest.raises(ValueError, match=msg):
+        with pytest.raises(ValueError, match="Only ordered pandas Categorical"):
             # only ordered categorical or numerical endog are allowed
             # string endog raises ValueError
-            OrderedModel.from_formula(
-                "apply ~ pared + public + gpa - 1",
-                data={
-                    "apply": np.asarray(data["apply"]),
-                    "pared": data["pared"],
-                    "public": data["public"],
-                    "gpa": data["gpa"],
-                },
-                distr="probit",
-            )
+
+            with pytest.warns(DeprecationWarning, match="Using"):
+                OrderedModel.from_formula(
+                    "apply ~ pared + public + gpa - 1",
+                    data={
+                        "apply": np.asarray(data["apply"]),
+                        "pared": data["pared"],
+                        "public": data["public"],
+                        "gpa": data["gpa"],
+                    },
+                    distr="probit",
+                )
+
+    def test_formula_eval_env(self):
+        def times_two(x):
+            return 2 * x
+
+        resp = self.resp
+        data = ds.df
+
+        formula = "apply ~ times_two(pared) + public + gpa - 1"
+        modf2 = OrderedModel.from_formula(formula, data, distr="probit")
+        resf2 = modf2.fit(method="bfgs", disp=False)
+
+        # Transform original params to reflext rescale
+        trans_params = resp.params.copy()
+        trans_params["pared"] = trans_params["pared"] / 2
+        # Loose check that transformation worked
+        assert_allclose(resf2.params, trans_params, atol=1e-2)
+        assert "times_two(pared)" in resf2.model.exog_names
 
     def test_offset(self):
 
@@ -457,18 +479,17 @@ class TestCLogLogModel(CheckOrdinalModelMixin):
             data["apply"], data[["pared", "public", "gpa"]], distr=cloglog
         )
         resp = modp.fit(method="bfgs", disp=False)
-
-        # with pytest.warns(UserWarning):
-        modf = OrderedModel.from_formula(
-            "apply ~ pared + public + gpa - 1",
-            data={
-                "apply": data["apply"].values.codes,
-                "pared": data["pared"],
-                "public": data["public"],
-                "gpa": data["gpa"],
-            },
-            distr=cloglog,
-        )
+        with pytest.warns(DeprecationWarning, match="Using"):
+            modf = OrderedModel.from_formula(
+                "apply ~ pared + public + gpa - 1",
+                data={
+                    "apply": data["apply"].values.codes,
+                    "pared": data["pared"],
+                    "public": data["public"],
+                    "gpa": data["gpa"],
+                },
+                distr=cloglog,
+            )
         resf = modf.fit(method="bfgs", disp=False)
 
         modu = OrderedModel(
@@ -551,3 +572,40 @@ def test_nan_endog_exceptions():
         msg = "missing values in categorical endog"
         with pytest.raises(ValueError, match=msg):
             OrderedModel(df["endog"], df[["exog"]])
+
+
+def test_summary_after_remove_data():
+    # summary() must still work after remove_data() has been called
+    data = ds.df
+    mod = OrderedModel(
+        data["apply"].values.codes,
+        np.asarray(data[["pared", "public", "gpa"]], float),
+        distr="logit",
+    )
+    res = mod.fit(method="bfgs", disp=False)
+
+    assert isinstance(res.summary(), Summary)
+    res.remove_data()
+    assert isinstance(res.summary(), Summary)
+
+
+def test_predict_which():
+    data = ds.df
+    mod = OrderedModel(
+        data["apply"].values.codes,
+        np.asarray(data[["pared", "public", "gpa"]], float),
+        distr="logit",
+    )
+    res = mod.fit(method="bfgs", disp=False)
+
+    prob = res.predict(which="prob")
+    cum = res.predict(which="cum")
+    cumprob = res.predict(which="cumprob")
+    linpred = res.predict(which="linpred")
+
+    assert_allclose(cum, cumprob)
+    assert_allclose(np.cumsum(prob, axis=1), cumprob, atol=1e-10)
+    assert linpred.ndim == 1
+
+    with pytest.raises(ValueError, match="which"):
+        res.predict(which="not-a-real-option")

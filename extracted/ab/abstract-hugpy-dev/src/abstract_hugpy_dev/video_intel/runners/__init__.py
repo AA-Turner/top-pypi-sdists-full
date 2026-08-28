@@ -46,10 +46,23 @@ from .identity_render_relay import run_identity_mesh_build
 # requests + the store imports stay lazy INSIDE the runner, so this top-level import can
 # never break app boot AND never pulls a char360 dependency onto the central side.
 from .identity_video_extract_relay import run_identity_video_extract
+# Identity FROM-VIDEO (k94) — ONE chained char360 + Hunyuan3D GLB relay to the SAME remote
+# render service (clownworld's ``video_characters_glb`` MO). Import-safe like the other
+# relays: requests + the store imports stay lazy INSIDE the runner.
+from .identity_from_video import run_identity_from_video
+# TTS (Chatterbox) — voice vertical I (k98). Import-safe like the relays: torch/
+# chatterbox/torchaudio imports stay lazy INSIDE the runner, so this top-level
+# import can never break app boot on a worker without the backend installed.
+from .tts_chatterbox import run_tts_chatterbox
 # MLT/Kdenlive headless render (k22) — a CPU-only LOCAL subprocess runner (melt). Import-safe:
 # its module top is pure stdlib (subprocess/xml/re) so this boot-time import can never break
 # app boot, and it pulls no GPU/char360 dependency onto the central side.
 from .mlt_render import run_mlt_render
+# video.performance (k106) — the media-bus socket for the oracle's audio-first
+# FAT orchestrator. Import-safe like the relays: its module top is STDLIB ONLY
+# (the oracle import, which builds the model registry, stays lazy INSIDE the
+# runner), so this boot-time import can never break app boot and costs nothing.
+from .performance_relay import run_video_performance
 
 DISPATCH = {
     ("ffmpeg", "crop"): run_crop,
@@ -64,5 +77,8 @@ DISPATCH = {
     ("identity", "reconstruction"): run_identity_reconstruction,
     ("identity", "mesh_build"): run_identity_mesh_build,
     ("identity", "video_extract"): run_identity_video_extract,
+    ("identity", "from_video"): run_identity_from_video,
+    ("chatterbox", "tts"): run_tts_chatterbox,
     ("mlt", "render"): run_mlt_render,
+    ("oracle", "performance"): run_video_performance,
 }

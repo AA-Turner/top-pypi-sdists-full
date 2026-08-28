@@ -29,6 +29,7 @@ from tesla_fleet_api.exceptions import (
     NotOnWhitelistFault,
     SessionInfoAuthenticationFault,
     SignedCommandResponseReplayed,
+    SigningDisabled,
     TeslaFleetError,
     # TeslaFleetMessageFaultInvalidSignature,
     TeslaFleetMessageFaultIncorrectEpoch,
@@ -428,7 +429,7 @@ class Session(Generic[CommandParentT]):
 class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
     """Class describing the Tesla Fleet API vehicle endpoints and commands for a specific vehicle with command signing."""
 
-    private_key: ec.EllipticCurvePrivateKey
+    private_key: ec.EllipticCurvePrivateKey | None
     _public_key: bytes
     _from_destination: bytes
     _sessions: dict[int, Session[CommandParentT]]
@@ -440,9 +441,19 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         self,
         parent: CommandParentT,
         vin: str,
-        private_key: ec.EllipticCurvePrivateKey | None = None,
+        private_key: ec.EllipticCurvePrivateKey | Literal[False] | None = None,
         public_key: bytes | None = None,
     ):
+        """Initialize with a signing key, or ``private_key=False`` to disable signing.
+
+        ``None`` (the default, and an explicit ``None``) keeps the long-standing
+        behaviour: fall back to the parent's key, raising ``ValueError`` if it
+        has none. Passing ``private_key=False`` explicitly disables signing for
+        this vehicle - for a passive BLE listener that only observes broadcasts
+        and never sends a command. ``False`` is used rather than ``None`` so
+        that no caller who already passes ``private_key=None`` meaning "I
+        haven't got one" silently gets a vehicle that cannot sign.
+        """
         super().__init__(parent, vin)
 
         self._from_destination = randbytes(16)
@@ -453,19 +464,30 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
             Domain.DOMAIN_INFOTAINMENT: Session(self, Domain.DOMAIN_INFOTAINMENT),
         }
 
-        if private_key:
+        # Identity checks, not truthiness: ``False`` and ``None`` are both
+        # falsy, and collapsing them would make an explicit ``None`` silently
+        # disable signing instead of falling back to the parent's key.
+        if private_key is False:
+            self.private_key = None
+        elif private_key is not None:
             self.private_key = private_key
-        elif parent.private_key:
+        elif parent.private_key is not None:
             self.private_key = parent.private_key
         else:
             raise ValueError("No private key.")
 
-        self._public_key = public_key or self.private_key.public_key().public_bytes(
-            encoding=Encoding.X962, format=PublicFormat.UncompressedPoint
+        self._public_key = public_key or (
+            self.private_key.public_key().public_bytes(
+                encoding=Encoding.X962, format=PublicFormat.UncompressedPoint
+            )
+            if self.private_key is not None
+            else b""
         )
 
     def shared_key(self, vehicleKey: bytes) -> bytes:
         """Derive the 16-byte shared key used for signed-command session encryption."""
+        if self.private_key is None:
+            raise SigningDisabled()
         exchange = self.private_key.exchange(
             ec.ECDH(),
             ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), vehicleKey),
@@ -522,7 +544,12 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
         replayed against a newer request. Only once that tag checks out do we
         act on anything the message claims, including its own whitelist
         status, and even then ``Session.commit`` still refuses a clock time
-        that regresses within the same epoch.
+        that regresses within the same epoch. The one exception is an empty
+        public key: no shared key can be derived from it to verify a tag, so
+        a key-not-on-whitelist status - the only real-world reply that omits
+        the key, since no session exists yet for an unpaired key - is
+        accepted unauthenticated; any other status paired with an empty key
+        is malformed and rejected outright.
 
         VCSEC typically leaves the wire-level ``request_uuid`` field empty on
         real hardware (memory constraints) - its absence must never be
@@ -536,6 +563,22 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
 
         session = self._sessions[msg.from_destination.domain]
         info = SessionInfo.FromString(msg.session_info)
+
+        # A key-not-on-whitelist reply carries no publicKey (no session exists
+        # for an unpaired key), so it cannot be HMAC-verified; accept that one
+        # status unauthenticated rather than deriving keys from an empty
+        # point. Any other status with an empty key is malformed, not this
+        # known case, so it still raises rather than being silently accepted.
+        if not info.publicKey:
+            if (
+                info.status
+                == Session_Info_Status.SESSION_INFO_STATUS_KEY_NOT_ON_WHITELIST
+            ):
+                raise NotOnWhitelistFault
+            raise SessionInfoAuthenticationFault(
+                "Session info reply has no public key."
+            )
+
         shared_key, hmac_key, session_info_key = session.keys_for(info.publicKey)
 
         tag = msg.signature_data.session_info_tag.tag
@@ -1088,6 +1131,8 @@ class Commands(ABC, Vehicle[CommandParentT], Generic[CommandParentT]):
 
     async def _handshake(self, domain: Domain) -> bool:
         """Perform a handshake with the vehicle."""
+        if self.private_key is None:
+            raise SigningDisabled()
 
         LOGGER.debug(f"Handshake with domain {Domain.Name(domain)}")
         msg = RoutableMessage(

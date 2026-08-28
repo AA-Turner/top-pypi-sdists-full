@@ -13966,31 +13966,29 @@ class MetricOptions(CommonMetricOptions):
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :exampleMetadata: fixture=default infused
+        :exampleMetadata: infused
 
         Example::
 
             import aws_cdk.aws_cloudwatch as cloudwatch
             
+            # delivery_stream: firehose.DeliveryStream
             
-            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
-                guardrail_name="my-BedrockGuardrails"
-            )
-            # Get a specific metric for this guardrail
-            invocations_metric = guardrail.metric_invocations(
-                statistic="Sum",
-                period=Duration.minutes(5)
+            
+            # Alarm that triggers when the per-second average of incoming bytes exceeds 90% of the current service limit
+            incoming_bytes_percent_of_limit = cloudwatch.MathExpression(
+                expression="incomingBytes / 300 / bytePerSecLimit",
+                using_metrics={
+                    "incoming_bytes": delivery_stream.metric_incoming_bytes(statistic=cloudwatch.Statistic.SUM),
+                    "byte_per_sec_limit": delivery_stream.metric("BytesPerSecondLimit")
+                }
             )
             
-            # Create a CloudWatch alarm for high invocation latency
-            cloudwatch.Alarm(self, "HighLatencyAlarm",
-                metric=guardrail.metric_invocation_latency(),
-                threshold=1000,  # 1 second
+            cloudwatch.Alarm(self, "Alarm",
+                metric=incoming_bytes_percent_of_limit,
+                threshold=0.9,
                 evaluation_periods=3
             )
-            
-            # Get metrics for all guardrails
-            all_invocations_metric = bedrock.Guardrail.metric_all_invocations()
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0dbe737a4d124c27184430b7c20048e16171cb8b5b94bdac632b26d8480d8116)

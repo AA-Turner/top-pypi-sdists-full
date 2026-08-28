@@ -43,6 +43,11 @@ class DatasetMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksResponse.FromString,
         )
+        self.GetDatasetRevisionPerformanceLinks = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetDatasetRevisionPerformanceLinks",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPerformanceLinksRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPerformanceLinksResponse.FromString,
+        )
         self.StreamDatasetRevisionDownloadLinks = channel.unary_stream(
             "/chalk.server.v1.DatasetMetadataService/StreamDatasetRevisionDownloadLinks",
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.StreamDatasetRevisionDownloadLinksRequest.SerializeToString,
@@ -158,6 +163,12 @@ class DatasetMetadataServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetDatasetRevisionDownloadLinks(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetDatasetRevisionPerformanceLinks(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -316,6 +327,11 @@ def add_DatasetMetadataServiceServicer_to_server(servicer, server):
             servicer.GetDatasetRevisionDownloadLinks,
             request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksResponse.SerializeToString,
+        ),
+        "GetDatasetRevisionPerformanceLinks": grpc.unary_unary_rpc_method_handler(
+            servicer.GetDatasetRevisionPerformanceLinks,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPerformanceLinksRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPerformanceLinksResponse.SerializeToString,
         ),
         "StreamDatasetRevisionDownloadLinks": grpc.unary_stream_rpc_method_handler(
             servicer.StreamDatasetRevisionDownloadLinks,
@@ -548,6 +564,35 @@ class DatasetMetadataService(object):
             "/chalk.server.v1.DatasetMetadataService/GetDatasetRevisionDownloadLinks",
             chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionDownloadLinksResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetDatasetRevisionPerformanceLinks(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetDatasetRevisionPerformanceLinks",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPerformanceLinksRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPerformanceLinksResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -10,6 +10,7 @@ from typing_extensions import override
 from faststream._internal.endpoint.utils import ParserComposition
 from faststream._internal.parser import DefaultCodec
 from faststream._internal.testing.broker import EnterType, TestBroker
+from faststream._internal.types import IdGenerator
 from faststream.exceptions import SubscriberNotFound
 from faststream.message import gen_cor_id
 from faststream.nats.broker import NatsBroker
@@ -92,14 +93,16 @@ class TestNatsBroker(TestBroker[NatsBroker, EnterType]):
         sub: LogicSubscriber[Any] | None = None
         for handler in (s for b in self.brokers for s in b.subscribers):
             handler = cast("LogicSubscriber[Any]", handler)
-            if _is_handler_matches(handler, publisher.subject, publisher_stream):
+            if _is_handler_matches(handler, publisher.subject.template, publisher_stream):
                 sub = handler
                 break
 
         if sub is None:
             is_real = False
             sub = broker.subscriber(
-                publisher.subject, persistent=False, stream=publisher_stream
+                publisher.subject.template,
+                persistent=False,
+                stream=publisher_stream,
             )
         else:
             is_real = True
@@ -159,6 +162,7 @@ class FakeProducer(NatsFastProducer):
             reply_to=cmd.reply_to,
             serializer=self.broker.config.fd_config._serializer,
             codec=self.codec,
+            id_generator=self.broker.config.id_generator,
         )
 
         for handler in _find_handler(
@@ -184,6 +188,7 @@ class FakeProducer(NatsFastProducer):
             correlation_id=cmd.correlation_id,
             serializer=self.broker.config.fd_config._serializer,
             codec=self.codec,
+            id_generator=self.broker.config.id_generator,
         )
 
         for handler in _find_handler(
@@ -218,6 +223,7 @@ class FakeProducer(NatsFastProducer):
             correlation_id=result.correlation_id,
             serializer=self.broker.config.fd_config._serializer,
             codec=self.codec,
+            id_generator=self.broker.config.id_generator,
         )
 
 
@@ -249,7 +255,7 @@ def _is_handler_matches(
         if stream != handler_stream.name:
             return False
 
-    if is_subject_match_wildcard(subject, handler.clear_subject):
+    if is_subject_match_wildcard(subject, handler.subject.broker_address):
         return True
 
     for filter_subject in handler.filter_subjects or ():
@@ -268,6 +274,7 @@ async def build_message(
     headers: dict[str, str] | None = None,
     serializer: Optional["SerializerProto"] = None,
     codec: Optional["CodecProto"] = None,
+    id_generator: IdGenerator = gen_cor_id,
 ) -> "PatchedMessage":
     if codec is None:
         codec = DefaultCodec()
@@ -279,7 +286,7 @@ async def build_message(
         data=msg,
         headers={
             "content-type": content_type or "",
-            "correlation_id": correlation_id or gen_cor_id(),
+            "correlation_id": correlation_id or id_generator(),
             **(headers or {}),
         },
     )

@@ -1438,6 +1438,7 @@ async def execute_task_textual(
     *,
     sandbox_type: str | None = None,
     message_kwargs: dict[str, Any] | None = None,
+    skill_name: str | None = None,
     graph_input: dict[str, Any] | None = None,
     rubric: str | None = None,
     goal_active: bool = False,
@@ -1465,6 +1466,7 @@ async def execute_task_textual(
         message_kwargs: Extra fields merged into the stream input message
             dict (e.g., `additional_kwargs` for persisting skill metadata
             in the checkpoint).
+        skill_name: Invoked skill name for trace attribution, or `None`.
         graph_input: Prepared non-conversation input for a server-side graph
             operation. When provided, no user message or media is constructed.
         rubric: Acceptance criteria supplied to `RubricMiddleware` via graph
@@ -1499,7 +1501,11 @@ async def execute_task_textual(
     from pydantic import ValidationError
 
     from deepagents_code.approval_mode import ApprovalMode, awrite_approval_mode
-    from deepagents_code.auto_mode import USER_PROMPT_METADATA_KEY, user_prompt_metadata
+    from deepagents_code.auto_mode import (
+        AUTO_DENIED_METADATA_KEY,
+        USER_PROMPT_METADATA_KEY,
+        user_prompt_metadata,
+    )
     from deepagents_code.hooks.client_lifecycle import ClientHookStopError
     from deepagents_code.hooks.models.domain import HookEvent
 
@@ -1568,6 +1574,7 @@ async def execute_task_textual(
         turn_id=turn_id,
         turn_number=turn_number,
         auto_approve=bool(session_state.auto_approve),
+        skill_name=skill_name,
     )
 
     captured_input_tokens = 0
@@ -1715,13 +1722,13 @@ async def execute_task_textual(
     completed_compaction_ids: set[str] = set()
 
     async def _after_automatic_compact() -> None:
-        from deepagents_code.config import settings
+        from deepagents_code.config import runtime_state
         from deepagents_code.hooks.client_lifecycle import ClientHookStopError
         from deepagents_code.hooks.models.domain import SessionStartCause
 
         outcome = await hooks.on_session_start(
             SessionStartCause.COMPACT,
-            model=settings.model_name or None,
+            model=runtime_state.model_name or None,
         )
         if not outcome.ok:
             raise ClientHookStopError(
@@ -1853,14 +1860,14 @@ async def execute_task_textual(
                     # recorded is still ours, not input for the handlers below.
                     if not is_main_agent and _session_stats.is_model_usage_event(data):
                         try:
-                            from deepagents_code.config import settings
+                            from deepagents_code.config import runtime_state
 
                             recorded_usage = _session_stats.record_model_usage_event(
                                 turn_stats,
                                 data,
                                 active_thread_id=thread_id,
-                                fallback_model=settings.model_name or "",
-                                fallback_provider=settings.model_provider or "",
+                                fallback_model=runtime_state.model_name or "",
+                                fallback_provider=runtime_state.model_provider or "",
                                 recorded_requests=recorded_usage_requests,
                             )
                         except Exception:
@@ -2153,13 +2160,13 @@ async def execute_task_textual(
                     # spend money even though their text stays out of the chat.
                     recorded_usage = None
                     if getattr(message, "usage_metadata", None):
-                        from deepagents_code.config import settings
+                        from deepagents_code.config import runtime_state
 
                         recorded_usage = _session_stats.record_message_usage(
                             turn_stats,
                             message,
-                            fallback_model=settings.model_name or "",
-                            fallback_provider=settings.model_provider or "",
+                            fallback_model=runtime_state.model_name or "",
+                            fallback_provider=runtime_state.model_provider or "",
                             request_metadata=(
                                 metadata if isinstance(metadata, dict) else None
                             ),
@@ -2400,19 +2407,35 @@ async def execute_task_textual(
                             # widget concept; see `non_interactive.py`. The
                             # parity contract is documented in `_tool_stream`.
                             if tool_id:
-                                # Warning, not info/debug: a real-id result with
-                                # no mounted widget (its args never parsed, so no
-                                # tool.use fired) means a hook consumer sees a
-                                # `tool.result` with empty args for a tool that
-                                # actually executed — degraded audit fidelity worth
-                                # surfacing at default log levels, matching the
-                                # headless path.
-                                logger.warning(
-                                    "ToolMessage tool_call_id=%s not in "
-                                    "_current_tool_messages; no correlated "
-                                    "tool.use, sending empty tool_args",
-                                    tool_id,
+                                # An auto-mode denial is stamped at the source in
+                                # `auto_mode`. For a no-argument call no widget
+                                # ever mounts, so the denial result lands here as
+                                # a matter of course. That is a routine path, not
+                                # degraded audit fidelity, so skip the warning.
+                                # The tool.result hook below still fires with
+                                # empty args. The headless twin in
+                                # `non_interactive.py` keeps its warning: auto
+                                # mode is never installed on that surface, so it
+                                # cannot see a denial.
+                                metadata = message.additional_kwargs
+                                is_auto_denied = isinstance(metadata, dict) and bool(
+                                    metadata.get(AUTO_DENIED_METADATA_KEY)
                                 )
+                                if not is_auto_denied:
+                                    # Warning, not info/debug: a real-id result
+                                    # with no mounted widget (its args never
+                                    # parsed, so no tool.use fired) means a hook
+                                    # consumer sees a `tool.result` with empty
+                                    # args for a tool that actually executed —
+                                    # degraded audit fidelity worth surfacing at
+                                    # default log levels, matching the headless
+                                    # path.
+                                    logger.warning(
+                                        "ToolMessage tool_call_id=%s not in "
+                                        "_current_tool_messages; no correlated "
+                                        "tool.use, sending empty tool_args",
+                                        tool_id,
+                                    )
                             if tool_status == "error":
                                 _dispatch_tool_error_hook(tool_name)
                             _dispatch_tool_result_hook(

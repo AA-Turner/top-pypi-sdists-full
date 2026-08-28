@@ -40,18 +40,17 @@ class Run(AgentExecution):
         root_directory = os.path.dirname(root_directory)
         boot_directory = os.path.join(root_directory, "bootstrap")
 
-        python_path = boot_directory
-
+        # Keep bootstrap first exactly once. The previous "not in path" guard
+        # skipped the rebuild when bootstrap was already present (container-wide
+        # PYTHONPATH injection, SLDEV-28572), which wiped every other entry.
+        existing = []
         if "PYTHONPATH" in os.environ:
-            path = os.environ["PYTHONPATH"].split(os.path.pathsep)
-            if boot_directory not in path:
-                python_path = "%s%s%s" % (
-                    boot_directory,
-                    os.path.pathsep,
-                    os.environ["PYTHONPATH"],
-                )
-
-        os.environ["PYTHONPATH"] = python_path
+            existing = [
+                entry
+                for entry in os.environ["PYTHONPATH"].split(os.path.pathsep)
+                if entry and entry != boot_directory
+            ]
+        os.environ["PYTHONPATH"] = os.path.pathsep.join([boot_directory] + existing)
 
     def find_program_exe_path(self, args):
         if not args:

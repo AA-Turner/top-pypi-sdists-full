@@ -89,6 +89,19 @@ class AddressesColumn(cliff_columns.FormattableColumn[Any]):
             for k, v in (self._value.items() if self._value else [])
         }
 
+    def __lt__(self, other: Any) -> bool:
+        # cliff only ever compares two values from the same column,
+        # so `other` is expected to also be an AddressesColumn
+        return self.human_readable() < other.human_readable()
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AddressesColumn):
+            return NotImplemented
+        return self.human_readable() == other.human_readable()
+
+    def __hash__(self) -> int:
+        return hash(self.human_readable())
+
 
 class HostColumn(cliff_columns.FormattableColumn[str | None]):
     """Generate a formatted string of a hostname."""
@@ -1239,6 +1252,15 @@ class CreateServer(command.ShowOne):
                 'options.'
             ),
         )
+        parser.add_argument(
+            '--delete-on-termination',
+            action='store_true',
+            default=False,
+            help=_(
+                'Delete the boot volume automatically when the server is '
+                'deleted (only valid with --boot-from-volume).'
+            ),
+        )
         # TODO(stephenfin): Remove this in the v7.0
         parser.add_argument(
             '--block-device-mapping',
@@ -1583,8 +1605,10 @@ class CreateServer(command.ShowOne):
                 'If unset, a hostname will be automatically generated from '
                 'the server name. '
                 'A utility such as cloud-init is required to propagate the '
-                'hostname in the metadata service to the guest OS itself. '
-                '(supported by --os-compute-api-version 2.90 or above)'
+                'hostname in the metadata service to the guest OS itself '
+                '(hostnames supported by --os-compute-api-version 2.90 or '
+                'above, FQDNs supported by --os-compute-api-version 2.94 or '
+                'above)'
             ),
         )
         parser.add_argument(
@@ -1698,6 +1722,16 @@ class CreateServer(command.ShowOne):
                 ignore_missing=False,
             ).id
 
+        if (
+            parsed_args.delete_on_termination
+            and not parsed_args.boot_from_volume
+        ):
+            msg = _(
+                "--delete-on-termination can only be used with "
+                "--boot-from-volume"
+            )
+            raise exceptions.CommandError(msg)
+
         snapshot = None
         if parsed_args.snapshot:
             # --snapshot and --boot-from-volume are mutually exclusive.
@@ -1783,6 +1817,7 @@ class CreateServer(command.ShowOne):
                     'source_type': 'image',
                     'destination_type': 'volume',
                     'volume_size': parsed_args.boot_from_volume,
+                    'delete_on_termination': parsed_args.delete_on_termination,
                 }
             ]
             # If booting from volume we do not pass an image to compute.
@@ -3705,8 +3740,10 @@ class RebuildServer(command.ShowOne):
             help=_(
                 'Hostname configured for the server in the metadata service. '
                 'A separate utility running in the guest is required to '
-                'propagate changes to this value to the guest OS itself. '
-                '(supported by --os-compute-api-version 2.90 or above)'
+                'propagate changes to this value to the guest OS itself '
+                '(hostnames supported by --os-compute-api-version 2.90 or '
+                'above, FQDNs supported by --os-compute-api-version 2.94 or '
+                'above)'
             ),
         )
         parser.add_argument(
@@ -4702,8 +4739,10 @@ class SetServer(command.Command):
             help=_(
                 'Hostname configured for the server in the metadata service. '
                 'A separate utility running in the guest is required to '
-                'propagate changes to this value to the guest OS itself. '
-                '(supported by --os-compute-api-version 2.90 or above)'
+                'propagate changes to this value to the guest OS itself '
+                '(hostnames supported by --os-compute-api-version 2.90 or '
+                'above, FQDNs supported by --os-compute-api-version 2.94 or '
+                'above)'
             ),
         )
         parser.add_argument(

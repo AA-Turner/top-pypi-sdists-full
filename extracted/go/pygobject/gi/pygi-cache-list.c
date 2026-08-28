@@ -19,8 +19,8 @@
  */
 
 #include "pygi-argument.h"
-#include "pygi-util.h"
 #include "pygi-cache-private.h"
+#include "pygi-util.h"
 
 typedef PyGISequenceCache PyGIArgGList;
 
@@ -31,14 +31,16 @@ static gboolean
 _pygi_marshal_from_py_glist (PyGIInvokeState *state,
                              PyGICallableCache *callable_cache,
                              PyGIArgCache *arg_cache, PyObject *py_arg,
-                             GIArgument *arg, gpointer *cleanup_data)
+                             GIArgument *arg,
+                             PyGIMarshalCleanupData *cleanup_data)
 {
     PyGIMarshalFromPyFunc from_py_marshaller;
-    int i;
-    Py_ssize_t length;
+    Py_ssize_t i, py_length;
+    guint length;
     GList *list_ = NULL;
     PyGISequenceCache *sequence_cache = (PyGISequenceCache *)arg_cache;
-
+    GArray *item_cleanups = NULL;
+    PyGIMarshalCleanupData list_cleanup_data = { 0 };
 
     if (Py_IsNone (py_arg)) {
         arg->v_pointer = NULL;
@@ -51,13 +53,21 @@ _pygi_marshal_from_py_glist (PyGIInvokeState *state,
         return FALSE;
     }
 
-    length = PySequence_Length (py_arg);
-    if (length < 0) return FALSE;
+    py_length = PySequence_Length (py_arg);
+    if (py_length < 0) return FALSE;
+    if (!pygi_guint_from_pyssize (py_length, &length)) return FALSE;
+
+    item_cleanups = g_array_sized_new (
+        FALSE, TRUE, sizeof (PyGIMarshalCleanupData), length + 1);
+    pygi_marshal_cleanup_data_init_full (
+        cleanup_data, item_cleanups,
+        (GDestroyNotify)pygi_marshal_cleanup_data_destroy_array,
+        (GDestroyNotify)pygi_marshal_cleanup_data_destroy_array_failed);
 
     from_py_marshaller = sequence_cache->item_cache->from_py_marshaller;
-    for (i = 0; i < length; i++) {
+    for (i = 0; i < py_length; i++) {
         GIArgument item = PYGI_ARG_INIT;
-        gpointer item_cleanup_data = NULL;
+        PyGIMarshalCleanupData item_cleanup_data = { 0 };
         PyObject *py_item = PySequence_GetItem (py_arg, i);
         if (py_item == NULL) goto err;
 
@@ -65,6 +75,8 @@ _pygi_marshal_from_py_glist (PyGIInvokeState *state,
                                  sequence_cache->item_cache, py_item, &item,
                                  &item_cleanup_data))
             goto err;
+
+        g_array_append_val (item_cleanups, item_cleanup_data);
 
         Py_DECREF (py_item);
         list_ = g_list_prepend (
@@ -85,17 +97,14 @@ err:
 
     arg->v_pointer = g_list_reverse (list_);
 
-    if (arg_cache->transfer == GI_TRANSFER_NOTHING) {
-        /* Free everything in cleanup. */
-        *cleanup_data = arg->v_pointer;
-    } else if (arg_cache->transfer == GI_TRANSFER_CONTAINER) {
-        /* Make a shallow copy so we can free the elements later in cleanup
-         * because it is possible invoke will free the list before our cleanup. */
-        *cleanup_data = g_list_copy (arg->v_pointer);
-    } else { /* GI_TRANSFER_EVERYTHING */
-        /* No cleanup, everything is given to the callee. */
-        *cleanup_data = NULL;
-    }
+    pygi_marshal_cleanup_data_init_full (
+        &list_cleanup_data, arg->v_pointer,
+        arg_cache->transfer == GI_TRANSFER_NOTHING
+            ? (GDestroyNotify)g_list_free
+            : NULL,
+        (GDestroyNotify)g_list_free);
+    g_array_append_val (item_cleanups, list_cleanup_data);
+
     return TRUE;
 }
 
@@ -104,13 +113,16 @@ static gboolean
 _pygi_marshal_from_py_gslist (PyGIInvokeState *state,
                               PyGICallableCache *callable_cache,
                               PyGIArgCache *arg_cache, PyObject *py_arg,
-                              GIArgument *arg, gpointer *cleanup_data)
+                              GIArgument *arg,
+                              PyGIMarshalCleanupData *cleanup_data)
 {
     PyGIMarshalFromPyFunc from_py_marshaller;
-    int i;
-    Py_ssize_t length;
+    Py_ssize_t i, py_length;
+    guint length;
     GSList *list_ = NULL;
     PyGISequenceCache *sequence_cache = (PyGISequenceCache *)arg_cache;
+    GArray *item_cleanups = NULL;
+    PyGIMarshalCleanupData list_cleanup_data = { 0 };
 
     if (Py_IsNone (py_arg)) {
         arg->v_pointer = NULL;
@@ -123,13 +135,21 @@ _pygi_marshal_from_py_gslist (PyGIInvokeState *state,
         return FALSE;
     }
 
-    length = PySequence_Length (py_arg);
-    if (length < 0) return FALSE;
+    py_length = PySequence_Length (py_arg);
+    if (py_length < 0) return FALSE;
+    if (!pygi_guint_from_pyssize (py_length, &length)) return FALSE;
+
+    item_cleanups = g_array_sized_new (
+        FALSE, TRUE, sizeof (PyGIMarshalCleanupData), length + 1);
+    pygi_marshal_cleanup_data_init_full (
+        cleanup_data, item_cleanups,
+        (GDestroyNotify)pygi_marshal_cleanup_data_destroy_array,
+        (GDestroyNotify)pygi_marshal_cleanup_data_destroy_array_failed);
 
     from_py_marshaller = sequence_cache->item_cache->from_py_marshaller;
-    for (i = 0; i < length; i++) {
+    for (i = 0; i < py_length; i++) {
         GIArgument item = { 0 };
-        gpointer item_cleanup_data = NULL;
+        PyGIMarshalCleanupData item_cleanup_data = { 0 };
         PyObject *py_item = PySequence_GetItem (py_arg, i);
         if (py_item == NULL) goto err;
 
@@ -137,6 +157,8 @@ _pygi_marshal_from_py_gslist (PyGIInvokeState *state,
                                  sequence_cache->item_cache, py_item, &item,
                                  &item_cleanup_data))
             goto err;
+
+        g_array_append_val (item_cleanups, item_cleanup_data);
 
         Py_DECREF (py_item);
         list_ = g_slist_prepend (
@@ -158,58 +180,16 @@ err:
 
     arg->v_pointer = g_slist_reverse (list_);
 
-    if (arg_cache->transfer == GI_TRANSFER_NOTHING) {
-        /* Free everything in cleanup. */
-        *cleanup_data = arg->v_pointer;
-    } else if (arg_cache->transfer == GI_TRANSFER_CONTAINER) {
-        /* Make a shallow copy so we can free the elements later in cleanup
-         * because it is possible invoke will free the list before our cleanup. */
-        *cleanup_data = g_slist_copy (arg->v_pointer);
-    } else { /* GI_TRANSFER_EVERYTHING */
-        /* No cleanup, everything is given to the callee. */
-        *cleanup_data = NULL;
-    }
+    pygi_marshal_cleanup_data_init_full (
+        &list_cleanup_data, arg->v_pointer,
+        arg_cache->transfer == GI_TRANSFER_NOTHING
+            ? (GDestroyNotify)g_slist_free
+            : NULL,
+        (GDestroyNotify)g_slist_free);
+    g_array_append_val (item_cleanups, list_cleanup_data);
 
     return TRUE;
 }
-
-static void
-_pygi_marshal_cleanup_from_py_glist (PyGIInvokeState *state,
-                                     PyGIArgCache *arg_cache, PyObject *py_arg,
-                                     gpointer data, gboolean was_processed)
-{
-    if (was_processed) {
-        GSList *list_;
-        PyGISequenceCache *sequence_cache = (PyGISequenceCache *)arg_cache;
-
-        list_ = (GSList *)data;
-
-        /* clean up items first */
-        if (sequence_cache->item_cache->from_py_cleanup != NULL) {
-            PyGIMarshalFromPyCleanupFunc cleanup_func =
-                sequence_cache->item_cache->from_py_cleanup;
-            GSList *node = list_;
-            gsize i = 0;
-            while (node != NULL) {
-                PyObject *py_item = PySequence_GetItem (py_arg, i);
-                cleanup_func (state, sequence_cache->item_cache, py_item,
-                              node->data, TRUE);
-                Py_XDECREF (py_item);
-                node = node->next;
-                i++;
-            }
-        }
-
-        if (arg_cache->type_tag == GI_TYPE_TAG_GLIST) {
-            g_list_free ((GList *)list_);
-        } else if (arg_cache->type_tag == GI_TYPE_TAG_GSLIST) {
-            g_slist_free (list_);
-        } else {
-            g_assert_not_reached ();
-        }
-    }
-}
-
 
 /*
  * GList and GSList to Python
@@ -218,16 +198,17 @@ static PyObject *
 _pygi_marshal_to_py_glist (PyGIInvokeState *state,
                            PyGICallableCache *callable_cache,
                            PyGIArgCache *arg_cache, GIArgument *arg,
-                           gpointer *cleanup_data)
+                           PyGIMarshalCleanupData *cleanup_data)
 {
     GList *list_;
     guint length;
     guint i;
-    GPtrArray *item_cleanups;
+    GArray *item_cleanups;
 
     PyGIMarshalToPyFunc item_to_py_marshaller;
     PyGIArgCache *item_arg_cache;
     PyGISequenceCache *seq_cache = (PyGISequenceCache *)arg_cache;
+    PyGIMarshalCleanupData list_cleanup_data = { 0 };
 
     PyObject *py_obj = NULL;
 
@@ -237,8 +218,9 @@ _pygi_marshal_to_py_glist (PyGIInvokeState *state,
     py_obj = PyList_New (length);
     if (py_obj == NULL) return NULL;
 
-    item_cleanups = g_ptr_array_sized_new (length);
-    *cleanup_data = item_cleanups;
+    // Last item is for the list itself
+    item_cleanups = g_array_sized_new (
+        FALSE, TRUE, sizeof (PyGIMarshalCleanupData), length + 1);
 
     item_arg_cache = seq_cache->item_cache;
     item_to_py_marshaller = item_arg_cache->to_py_marshaller;
@@ -246,25 +228,38 @@ _pygi_marshal_to_py_glist (PyGIInvokeState *state,
     for (i = 0; list_ != NULL; list_ = g_list_next (list_), i++) {
         GIArgument item_arg;
         PyObject *py_item;
-        gpointer item_cleanup_data = NULL;
+        PyGIMarshalCleanupData item_cleanup_data = { 0 };
 
         item_arg.v_pointer = list_->data;
         _pygi_hash_pointer_to_arg_in_place (&item_arg,
                                             item_arg_cache->type_info);
         py_item = item_to_py_marshaller (state, callable_cache, item_arg_cache,
                                          &item_arg, &item_cleanup_data);
-
-        g_ptr_array_index (item_cleanups, i) = item_cleanup_data;
+        g_array_append_val (item_cleanups, item_cleanup_data);
 
         if (py_item == NULL) {
             Py_CLEAR (py_obj);
             _PyGI_ERROR_PREFIX ("Item %u: ", i);
-            g_ptr_array_unref (item_cleanups);
+            g_array_unref (item_cleanups);
             return NULL;
         }
 
         PyList_SET_ITEM (py_obj, i, py_item);
     }
+
+    pygi_marshal_cleanup_data_init_full (
+        &list_cleanup_data, arg->v_pointer,
+        arg_cache->transfer != GI_TRANSFER_NOTHING
+            ? (GDestroyNotify)g_list_free
+            : NULL,
+        (GDestroyNotify)g_list_free);
+    g_array_append_val (item_cleanups, list_cleanup_data);
+
+    pygi_marshal_cleanup_data_init_full (
+        cleanup_data, item_cleanups,
+        (GDestroyNotify)pygi_marshal_cleanup_data_destroy_array,
+        (GDestroyNotify)pygi_marshal_cleanup_data_destroy_array_failed);
+
 
     return py_obj;
 }
@@ -273,16 +268,17 @@ static PyObject *
 _pygi_marshal_to_py_gslist (PyGIInvokeState *state,
                             PyGICallableCache *callable_cache,
                             PyGIArgCache *arg_cache, GIArgument *arg,
-                            gpointer *cleanup_data)
+                            PyGIMarshalCleanupData *cleanup_data)
 {
     GSList *list_;
     guint length;
     guint i;
-    GPtrArray *item_cleanups;
+    GArray *item_cleanups;
 
     PyGIMarshalToPyFunc item_to_py_marshaller;
     PyGIArgCache *item_arg_cache;
     PyGISequenceCache *seq_cache = (PyGISequenceCache *)arg_cache;
+    PyGIMarshalCleanupData list_cleanup_data = { 0 };
 
     PyObject *py_obj = NULL;
 
@@ -292,8 +288,9 @@ _pygi_marshal_to_py_gslist (PyGIInvokeState *state,
     py_obj = PyList_New (length);
     if (py_obj == NULL) return NULL;
 
-    item_cleanups = g_ptr_array_sized_new (length);
-    *cleanup_data = item_cleanups;
+    // Last item is for the list itself
+    item_cleanups = g_array_sized_new (
+        FALSE, TRUE, sizeof (PyGIMarshalCleanupData), length + 1);
 
     item_arg_cache = seq_cache->item_cache;
     item_to_py_marshaller = item_arg_cache->to_py_marshaller;
@@ -301,95 +298,41 @@ _pygi_marshal_to_py_gslist (PyGIInvokeState *state,
     for (i = 0; list_ != NULL; list_ = g_slist_next (list_), i++) {
         GIArgument item_arg;
         PyObject *py_item;
-        gpointer item_cleanup_data = NULL;
+        PyGIMarshalCleanupData item_cleanup_data = { 0 };
 
         item_arg.v_pointer = list_->data;
         _pygi_hash_pointer_to_arg_in_place (&item_arg,
                                             item_arg_cache->type_info);
         py_item = item_to_py_marshaller (state, callable_cache, item_arg_cache,
                                          &item_arg, &item_cleanup_data);
+        g_array_append_val (item_cleanups, item_cleanup_data);
 
-        g_ptr_array_index (item_cleanups, i) = item_cleanup_data;
         if (py_item == NULL) {
             Py_CLEAR (py_obj);
             _PyGI_ERROR_PREFIX ("Item %u: ", i);
-            g_ptr_array_unref (item_cleanups);
+            g_array_unref (item_cleanups);
             return NULL;
         }
 
         PyList_SET_ITEM (py_obj, i, py_item);
     }
 
+    pygi_marshal_cleanup_data_init_full (
+        &list_cleanup_data, arg->v_pointer,
+        arg_cache->transfer != GI_TRANSFER_NOTHING
+            ? (GDestroyNotify)g_slist_free
+            : NULL,
+        (GDestroyNotify)g_slist_free);
+    g_array_append_val (item_cleanups, list_cleanup_data);
+
+    pygi_marshal_cleanup_data_init_full (
+        cleanup_data, item_cleanups,
+        (GDestroyNotify)pygi_marshal_cleanup_data_destroy_array,
+        (GDestroyNotify)pygi_marshal_cleanup_data_destroy_array_failed);
+
+
     return py_obj;
 }
-
-static void
-_pygi_marshal_cleanup_to_py_glist (PyGIInvokeState *state,
-                                   PyGIArgCache *arg_cache,
-                                   gpointer cleanup_data, gpointer data,
-                                   gboolean was_processed)
-{
-    GPtrArray *item_cleanups = (GPtrArray *)cleanup_data;
-    PyGISequenceCache *sequence_cache = (PyGISequenceCache *)arg_cache;
-    GSList *list_ = (GSList *)data;
-
-    if (sequence_cache->item_cache->to_py_cleanup != NULL) {
-        PyGIMarshalToPyCleanupFunc cleanup_func =
-            sequence_cache->item_cache->to_py_cleanup;
-        GSList *node = list_;
-        guint i = 0;
-
-        while (node != NULL) {
-            cleanup_func (state, sequence_cache->item_cache,
-                          g_ptr_array_index (item_cleanups, i), node->data,
-                          was_processed);
-            node = node->next;
-            i++;
-        }
-    }
-
-    if (arg_cache->transfer == GI_TRANSFER_EVERYTHING
-        || arg_cache->transfer == GI_TRANSFER_CONTAINER) {
-        if (arg_cache->type_tag == GI_TYPE_TAG_GLIST) {
-            g_list_free ((GList *)list_);
-        } else if (arg_cache->type_tag == GI_TYPE_TAG_GSLIST) {
-            g_slist_free (list_);
-        } else {
-            g_assert_not_reached ();
-        }
-    }
-
-    g_ptr_array_unref (item_cleanups);
-}
-
-static void
-_arg_cache_from_py_glist_setup (PyGIArgCache *arg_cache, GITransfer transfer)
-{
-    arg_cache->from_py_marshaller = _pygi_marshal_from_py_glist;
-    arg_cache->from_py_cleanup = _pygi_marshal_cleanup_from_py_glist;
-}
-
-static void
-_arg_cache_to_py_glist_setup (PyGIArgCache *arg_cache, GITransfer transfer)
-{
-    arg_cache->to_py_marshaller = _pygi_marshal_to_py_glist;
-    arg_cache->to_py_cleanup = _pygi_marshal_cleanup_to_py_glist;
-}
-
-static void
-_arg_cache_from_py_gslist_setup (PyGIArgCache *arg_cache, GITransfer transfer)
-{
-    arg_cache->from_py_marshaller = _pygi_marshal_from_py_gslist;
-    arg_cache->from_py_cleanup = _pygi_marshal_cleanup_from_py_glist;
-}
-
-static void
-_arg_cache_to_py_gslist_setup (PyGIArgCache *arg_cache, GITransfer transfer)
-{
-    arg_cache->to_py_marshaller = _pygi_marshal_to_py_gslist;
-    arg_cache->to_py_cleanup = _pygi_marshal_cleanup_to_py_glist;
-}
-
 
 /*
  * GList/GSList Interface
@@ -411,10 +354,10 @@ pygi_arg_glist_new_from_info (GITypeInfo *type_info, GIArgInfo *arg_info,
     }
 
     if (direction & PYGI_DIRECTION_FROM_PYTHON)
-        _arg_cache_from_py_glist_setup (arg_cache, transfer);
+        arg_cache->from_py_marshaller = _pygi_marshal_from_py_glist;
 
     if (direction & PYGI_DIRECTION_TO_PYTHON)
-        _arg_cache_to_py_glist_setup (arg_cache, transfer);
+        arg_cache->to_py_marshaller = _pygi_marshal_to_py_glist;
 
     return arg_cache;
 }
@@ -435,10 +378,10 @@ pygi_arg_gslist_new_from_info (GITypeInfo *type_info, GIArgInfo *arg_info,
     }
 
     if (direction & PYGI_DIRECTION_FROM_PYTHON)
-        _arg_cache_from_py_gslist_setup (arg_cache, transfer);
+        arg_cache->from_py_marshaller = _pygi_marshal_from_py_gslist;
 
     if (direction & PYGI_DIRECTION_TO_PYTHON)
-        _arg_cache_to_py_gslist_setup (arg_cache, transfer);
+        arg_cache->to_py_marshaller = _pygi_marshal_to_py_gslist;
 
     return arg_cache;
 }

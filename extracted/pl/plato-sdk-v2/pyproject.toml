@@ -85,7 +85,7 @@ path = "VERSION"
 pattern = "(?P<version>.+)"
 
 [tool.hatch.build]
-exclude = ["plato-fuse/", "tests/"]
+exclude = ["plato-fuse/", "tests/", "/templates/"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["plato"]

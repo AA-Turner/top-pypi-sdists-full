@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import environment_secrets_pb2 as _environment_secrets_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -40,6 +41,11 @@ class IntegrationKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INTEGRATION_KIND_MSSQL: _ClassVar[IntegrationKind]
     INTEGRATION_KIND_HUGGINGFACE: _ClassVar[IntegrationKind]
 
+class IntegrationWarningCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    INTEGRATION_WARNING_CODE_UNSPECIFIED: _ClassVar[IntegrationWarningCode]
+    INTEGRATION_WARNING_CODE_SNOWFLAKE_UNLOAD_NOT_CONFIGURED: _ClassVar[IntegrationWarningCode]
+
 INTEGRATION_KIND_UNSPECIFIED: IntegrationKind
 INTEGRATION_KIND_ATHENA: IntegrationKind
 INTEGRATION_KIND_AWS: IntegrationKind
@@ -61,21 +67,43 @@ INTEGRATION_KIND_SPANNER: IntegrationKind
 INTEGRATION_KIND_TRINO: IntegrationKind
 INTEGRATION_KIND_MSSQL: IntegrationKind
 INTEGRATION_KIND_HUGGINGFACE: IntegrationKind
+INTEGRATION_WARNING_CODE_UNSPECIFIED: IntegrationWarningCode
+INTEGRATION_WARNING_CODE_SNOWFLAKE_UNLOAD_NOT_CONFIGURED: IntegrationWarningCode
+
+class IntegrationWarning(_message.Message):
+    __slots__ = ("code", "title", "message", "config_keys")
+    CODE_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_KEYS_FIELD_NUMBER: _ClassVar[int]
+    code: IntegrationWarningCode
+    title: str
+    message: str
+    config_keys: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        code: _Optional[_Union[IntegrationWarningCode, str]] = ...,
+        title: _Optional[str] = ...,
+        message: _Optional[str] = ...,
+        config_keys: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
 
 class Integration(_message.Message):
-    __slots__ = ("id", "name", "kind", "environment_id", "created_at", "updated_at")
+    __slots__ = ("id", "name", "kind", "environment_id", "created_at", "updated_at", "warnings")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     kind: IntegrationKind
     environment_id: str
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
+    warnings: _containers.RepeatedCompositeFieldContainer[IntegrationWarning]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -84,6 +112,7 @@ class Integration(_message.Message):
         environment_id: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        warnings: _Optional[_Iterable[_Union[IntegrationWarning, _Mapping]]] = ...,
     ) -> None: ...
 
 class IntegrationWithSecrets(_message.Message):
@@ -430,4 +459,93 @@ class TestIntegrationResponse(_message.Message):
         message: _Optional[str] = ...,
         latency_seconds: _Optional[float] = ...,
         preview_messages: _Optional[_Iterable[_Union[PreviewedMessage, _Mapping]]] = ...,
+    ) -> None: ...
+
+class SnowflakeNamedStage(_message.Message):
+    __slots__ = ("name", "database_name", "schema_name", "reference", "kind", "url", "comment", "storage_integration")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DATABASE_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    URL_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_INTEGRATION_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    database_name: str
+    schema_name: str
+    reference: str
+    kind: str
+    url: str
+    comment: str
+    storage_integration: str
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        database_name: _Optional[str] = ...,
+        schema_name: _Optional[str] = ...,
+        reference: _Optional[str] = ...,
+        kind: _Optional[str] = ...,
+        url: _Optional[str] = ...,
+        comment: _Optional[str] = ...,
+        storage_integration: _Optional[str] = ...,
+    ) -> None: ...
+
+class SnowflakeUnloadStorageIntegration(_message.Message):
+    __slots__ = ("name", "type", "provider", "enabled", "allowed_locations", "comment")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    ALLOWED_LOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    type: str
+    provider: str
+    enabled: bool
+    allowed_locations: _containers.RepeatedScalarFieldContainer[str]
+    comment: str
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        type: _Optional[str] = ...,
+        provider: _Optional[str] = ...,
+        enabled: bool = ...,
+        allowed_locations: _Optional[_Iterable[str]] = ...,
+        comment: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListSnowflakeNamedStagesRequest(_message.Message):
+    __slots__ = ("config", "integration_id")
+    class ConfigEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: IntegrationConfigValue
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[IntegrationConfigValue, _Mapping]] = ...
+        ) -> None: ...
+
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
+    config: _containers.MessageMap[str, IntegrationConfigValue]
+    integration_id: str
+    def __init__(
+        self, config: _Optional[_Mapping[str, IntegrationConfigValue]] = ..., integration_id: _Optional[str] = ...
+    ) -> None: ...
+
+class ListSnowflakeNamedStagesResponse(_message.Message):
+    __slots__ = ("stages", "truncated", "storage_integrations")
+    STAGES_FIELD_NUMBER: _ClassVar[int]
+    TRUNCATED_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_INTEGRATIONS_FIELD_NUMBER: _ClassVar[int]
+    stages: _containers.RepeatedCompositeFieldContainer[SnowflakeNamedStage]
+    truncated: bool
+    storage_integrations: _containers.RepeatedCompositeFieldContainer[SnowflakeUnloadStorageIntegration]
+    def __init__(
+        self,
+        stages: _Optional[_Iterable[_Union[SnowflakeNamedStage, _Mapping]]] = ...,
+        truncated: bool = ...,
+        storage_integrations: _Optional[_Iterable[_Union[SnowflakeUnloadStorageIntegration, _Mapping]]] = ...,
     ) -> None: ...

@@ -75,3 +75,39 @@ class IPAvailabilityTests(common.NetworkTests):
             self.NETWORK_NAME,
             cmd_output['network_name'],
         )
+
+    def test_ip_availability_details(self):
+        """Test the network-ip-availability-details extension fields"""
+        if not self.is_extension_enabled('network-ip-availability-details'):
+            self.skipTest("No network-ip-availability-details extension")
+
+        cmd_output = self.openstack(
+            'ip availability show ' + self.NETWORK_NAME,
+            parse_output=True,
+        )
+        details = cmd_output['ip_availability_details']
+        # 10.10.10.0/24 minus the network and broadcast addresses
+        self.assertEqual(254, details['total_ips_in_subnet'])
+        self.assertGreaterEqual(
+            details['total_ips_in_subnet'],
+            details['total_ips_in_allocation_pool'],
+        )
+        self.assertGreaterEqual(
+            details['used_ips_in_subnet'],
+            details['used_ips_in_allocation_pool'],
+        )
+
+        cmd_output = self.openstack(
+            'ip availability list',
+            parse_output=True,
+        )
+        network = next(
+            x for x in cmd_output if x['Network Name'] == self.NETWORK_NAME
+        )
+        self.assertEqual(
+            details['total_ips_in_subnet'], network['Total IPs in Subnet']
+        )
+        self.assertEqual(
+            details['total_ips_in_allocation_pool'],
+            network['Total IPs in Allocation Pool'],
+        )

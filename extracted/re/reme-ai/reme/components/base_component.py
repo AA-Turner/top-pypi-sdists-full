@@ -5,7 +5,7 @@ from abc import ABC
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
-from ..enumeration import ComponentEnum
+from ..enumeration import ComponentEnum, ComponentType, component_type_name
 from ..utils import get_logger
 
 if TYPE_CHECKING:
@@ -61,24 +61,24 @@ class Dependency:
 
     def __init__(
         self,
-        ctype: ComponentEnum,
+        ctype: ComponentType,
         name: str,
         default_factory: Callable[[], Any] | None = None,
         optional: bool = True,
     ) -> None:
-        self.ctype = ctype
+        self.ctype = component_type_name(ctype)
         self.name = name
         self.default_factory = default_factory
         self.optional = optional
 
     def __repr__(self) -> str:
         suffix = "?" if self.optional else ""
-        return f"<unresolved {self.ctype.value}:{self.name}{suffix}>"
+        return f"<unresolved {self.ctype}:{self.name}{suffix}>"
 
     def __getattr__(self, item: str) -> Any:
         # Catches accidental use of the placeholder before start() resolves it.
         raise RuntimeError(
-            f"Dependency {self.ctype.value}:{self.name} accessed before start() " f"(attribute '{item}')",
+            f"Dependency {self.ctype}:{self.name} accessed before start() " f"(attribute '{item}')",
         )
 
 
@@ -98,6 +98,10 @@ class BaseComponent(ComponentMixin, ABC):
 
         self._is_started: bool = False
         self._lock: asyncio.Lock = asyncio.Lock()
+        # Preserve bind() declarations after their Dependency placeholders are
+        # resolved. Application uses these specs to validate and rewire a live
+        # component replacement without guessing from arbitrary attributes.
+        self._binding_specs: dict[str, Dependency] = {}
         # Components created via bind() default_factory in standalone mode;
         # their lifecycle is owned by this component.
         self._owned: list["BaseComponent"] = []
@@ -126,21 +130,35 @@ class BaseComponent(ComponentMixin, ABC):
         if not name:
             return None
         ctype = getattr(base_cls, "component_type", None)
-        if not isinstance(ctype, ComponentEnum) or ctype is ComponentEnum.BASE:
+        try:
+            ctype = component_type_name(ctype)
+        except (TypeError, ValueError) as exc:
             raise TypeError(
-                f"{base_cls.__name__} must declare a non-BASE ComponentEnum 'component_type'",
-            )
+                f"{base_cls.__name__} must declare a non-BASE string 'component_type'",
+            ) from exc
+        if ctype == ComponentEnum.BASE.value:
+            raise TypeError(f"{base_cls.__name__} must declare a non-BASE 'component_type'")
         return cast(T, Dependency(ctype, name, default_factory, optional))
 
     @property
     def dependencies(self) -> list[Dependency]:
-        """All unresolved dependency placeholders on this instance."""
-        return [v for v in self.__dict__.values() if isinstance(v, Dependency)]
+        """All declared dependencies, including bindings resolved at start."""
+        bindings = dict(self._binding_specs)
+        bindings.update((attr, value) for attr, value in self.__dict__.items() if isinstance(value, Dependency))
+        return list(bindings.values())
+
+    @property
+    def dependency_bindings(self) -> dict[str, Dependency]:
+        """Map dependency attributes to their stable bind specifications."""
+        bindings = dict(self._binding_specs)
+        bindings.update((attr, value) for attr, value in self.__dict__.items() if isinstance(value, Dependency))
+        return bindings
 
     async def _resolve_bindings(self) -> None:
         """Replace every ``Dependency`` attribute with its resolved target."""
         for attr, dep in list(self.__dict__.items()):
             if isinstance(dep, Dependency):
+                self._binding_specs[attr] = dep
                 self._resolve_one(attr, dep)
 
     def _resolve_one(self, attr: str, dep: Dependency) -> None:
@@ -172,7 +190,7 @@ class BaseComponent(ComponentMixin, ABC):
         elif dep.optional:
             setattr(self, attr, None)
         else:
-            raise ValueError(f"{dep.ctype.value} '{dep.name}' not found.")
+            raise ValueError(f"{dep.ctype} '{dep.name}' not found.")
 
     # ----- Workspace path helpers --------------------------------------------
 
@@ -186,7 +204,7 @@ class BaseComponent(ComponentMixin, ABC):
     @property
     def component_metadata_path(self) -> Path:
         """Per-component metadata directory under the workspace."""
-        return self.workspace_metadata_path / self.component_type.value
+        return self.workspace_metadata_path / component_type_name(self.component_type)
 
     # ----- Lifecycle hooks (override in subclasses) ----------------------
 
@@ -205,15 +223,41 @@ class BaseComponent(ComponentMixin, ABC):
     # ----- Lifecycle control --------------------------------------------
 
     async def start(self) -> None:
-        """Start the component once: resolve deps → start owned → run _start."""
+        """Start once, rolling back partial resources when any startup stage fails."""
         async with self._lock:
             if self._is_started:
                 return
-            await self._resolve_bindings()
-            for owned in self._owned:
-                await owned.start()
-            await self._start()
-            self._is_started = True
+            started_owned: list[BaseComponent] = []
+            start_hook_entered = False
+            try:
+                await self._resolve_bindings()
+                for owned in self._owned:
+                    await owned.start()
+                    started_owned.append(owned)
+                start_hook_entered = True
+                await self._start()
+                self._is_started = True
+            except BaseException:
+                await self._rollback_start(start_hook_entered, started_owned)
+                raise
+
+    async def _rollback_start(
+        self,
+        start_hook_entered: bool,
+        started_owned: list["BaseComponent"],
+    ) -> None:
+        """Best-effort cleanup that preserves the original startup error."""
+        if start_hook_entered:
+            try:
+                await self._close()
+            except BaseException as exc:
+                self.logger.exception(f"Failed to roll back partially started component {self.name}: {exc}")
+        for owned in reversed(started_owned):
+            try:
+                await owned.close()
+            except BaseException as exc:
+                self.logger.exception(f"Failed to close owned component {owned.name} during startup rollback: {exc}")
+        self._is_started = False
 
     async def close(self) -> None:
         """Close the component once: run _close → close owned in reverse order."""

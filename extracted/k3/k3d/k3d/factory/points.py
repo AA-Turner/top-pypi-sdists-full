@@ -1,15 +1,15 @@
 """Factory function for point cloud objects."""
 
-import numpy as np
-from typing import Any
+from typing import Any, Optional, Tuple, Union
 from typing import Dict as TypingDict
 from typing import List as TypingList
-from typing import Optional, Tuple, Union
 
-from .common import _default_color, default_colormap
+import numpy as np
+
 from ..helpers import check_attribute_color_range
 from ..objects import Points
 from ..transform import process_transform_arguments
+from .common import _default_color, default_colormap
 
 # Type aliases for better readability
 ArrayLike = Union[TypingList, np.ndarray, Tuple]
@@ -24,8 +24,10 @@ def points(
         color: int = _default_color,
         point_size: float = 1.0,
         point_sizes: ArrayLike = None,
-        shininess: float = 50.0,
-        shader: str = "3dSpecular",
+        roughness: float = 0.4,
+        metalness: float = 0.0,
+        shininess: float = None,
+        shader: str = "3d",
         opacity: float = 1.0,
         opacities: ArrayLike = None,
         attribute: ArrayLike = None,
@@ -55,6 +57,11 @@ def points(
     if color_map is None:
         color_map = default_colormap
 
+    # pre-2.19 alias: '3dSpecular' folded into '3d' - the highlights are driven
+    # by roughness/metalness now
+    if shader == "3dSpecular":
+        shader = "3d"
+
     attribute = (
         np.array(attribute, np.float32) if type(attribute) is not dict else attribute
     )
@@ -67,6 +74,8 @@ def points(
             color=color,
             point_size=point_size,
             point_sizes=point_sizes,
+            roughness=roughness,
+            metalness=metalness,
             shininess=shininess,
             shader=shader,
             opacity=opacity,

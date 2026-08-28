@@ -92,6 +92,7 @@ class AsyncSession:
         self._run_in_progress = False
         self._task_config_stale = False
         self._tool_calls = session_observability.ToolCallTelemetryState()
+        self._current_task_id: str | None = None
         with observability_context(**self._session_context_bindings()):
             session_observability.emit_session_created()
 
@@ -188,6 +189,7 @@ class AsyncSession:
             prior_history = list(self._history)
             self._tool_calls.record_existing_results(prior_history, self._task_config)
             state = self._build_state(prompt)
+            self._current_task_id = state.id
             async with self._run_telemetry(mode="stream", current_state=lambda: state):
                 async for message, next_state in self._run_task(state):
                     state = next_state
@@ -201,7 +203,9 @@ class AsyncSession:
         if self._channel is None:
             raise RuntimeError("No active session run")
         await self._channel.send(message)
-        with observability_context(**self._session_context_bindings()):
+        with observability_context(
+            **self._session_context_bindings(), task_id=self._current_task_id
+        ):
             await session_observability.emit_callback_tool_call_finished(
                 message=message,
                 tool_calls=self._tool_calls,
@@ -218,6 +222,7 @@ class AsyncSession:
             prior_history = list(self._history)
             self._tool_calls.record_existing_results(prior_history, self._task_config)
             state = self._build_state(prompt)
+            self._current_task_id = state.id
             async with self._run_telemetry(mode="completion", current_state=lambda: state):
                 async for message, next_state in self._run_task(state):
                     if isinstance(message, CallbackCallEvent):

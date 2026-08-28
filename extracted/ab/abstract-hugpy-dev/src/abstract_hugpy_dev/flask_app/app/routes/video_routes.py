@@ -83,6 +83,9 @@ from abstract_hugpy_dev.video_intel.identity_reconstruction_schema import (
 from abstract_hugpy_dev.video_intel.identity_video_extract_schema import (
     make_identity_video_extract,
 )
+from abstract_hugpy_dev.video_intel.identity_from_video_schema import (
+    make_identity_from_video,
+)
 from abstract_hugpy_dev.video_intel.chains import (
     resolve_video_parts,
     resolve_video_parts_scene,
@@ -1248,6 +1251,10 @@ def video_studio_movie():
             # IDENTITY LOCK: the validated reference image uris (jail-resolved + image-classified
             # above). Non-empty -> an identity movie (every segment renders id_lock).
             reference_images=tuple(resolved_refs),
+            # k120 slice 2 — PRODUCER CONTINUITY REFRESH: rewrite each non-root
+            # segment's prompt from what the previous segment ACTUALLY rendered.
+            continuity_refresh=bool(body.get("continuity_refresh", False)),
+            continuity_model=(body.get("continuity_model") or None),
         )
     except (ValueError, TypeError) as exc:  # bad node / geometry / chain = 400
         return jsonify({"error": str(exc)}), 400
@@ -1289,6 +1296,16 @@ def video_studio_movie():
             "segments": _seg_problems,
         }), 400
 
+    # COORDINATION PREFLIGHT (k121) — the words-vs-knobs half of the same idea.
+    # The capability preflight above proves the movie CAN render; this one asks
+    # whether it renders the film the prompts describe. Same submit-time timing,
+    # same per-segment refusal shape, and the full review rides the response
+    # either way so "reviewed and fine" is visible, not merely implied.
+    from .video_coordination import COORDINATION_KEY as _COORD_KEY, movie_coordination
+    _coord_refusal, _coord_report = movie_coordination(spec, body)
+    if _coord_refusal is not None:
+        return jsonify(_coord_refusal), 400
+
     job_id = _video_enqueue("generate_studio_movie", spec)
 
     # SESSION PERSISTENCE (k91). Stamp the submitted spec into the movie dir the
@@ -1309,7 +1326,7 @@ def video_studio_movie():
         logger.warning("studio movie %s: submit-time spec.json write failed", job_id,
                        exc_info=True)
 
-    return jsonify({"job_id": job_id}), 200
+    return jsonify({"job_id": job_id, _COORD_KEY: _coord_report}), 200
 
 
 # --------------------------------------------------------------------------- #
@@ -1994,6 +2011,43 @@ _SPREAD_TOKENS_MAX = 4000
 _NEGATIVE_MAX_TOKENS = 200
 
 
+# MEDIA PRETEXT (KEEPER-TASK k93 §C) — the sampling/describing/caching lives in
+# video_assist_media.py (Flask-free); these three shims are the route's glue.
+from . import video_assist_media as _assist_media  # noqa: E402
+
+
+def _assist_media_describe(media, execute_prompt):
+    """Describe ``media`` through the route's OWN execute_prompt seam (the one
+    tests patch, the one /chat/stream uses) driven synchronously via _await_sync,
+    jailed by _jail_resolve, owned by the caller. Raises MediaError."""
+    def _execute(**kw):
+        return _await_sync(execute_prompt(**kw))
+    return _assist_media.describe_media(
+        media, jail_resolve=_jail_resolve, execute=_execute,
+        owner=_caller_username())
+
+
+def _assist_media_log_fields(media_info):
+    """Extra assist-log fields so the operator can read what the model was told
+    (``/video/prompt/assist/log``). Empty dict when no media rode the request, so
+    the record is unchanged for every caller that doesn't use it."""
+    if not media_info:
+        return {}
+    return {"media_uri": media_info["uri"], "media_kind": media_info["kind"],
+            "media_model": media_info["model"], "media_cached": media_info["cached"],
+            "media_frames": len(media_info["frames"]),
+            "media_pretext": media_info["pretext"]}
+
+
+def _assist_media_response_fields(media_info):
+    if not media_info:
+        return {}
+    return {"media": {"uri": media_info["uri"], "kind": media_info["kind"],
+                      "model": media_info["model"], "cached": media_info["cached"],
+                      "frames": media_info["frames"],
+                      "pretext": media_info["pretext"]}}
+
+
 def _assist_framing(kind):
     """Return (system_prompt, medium_noun) for the requested kind. Video kinds
     ask for motion/camera; everything else (incl. None) keeps still-image
@@ -2122,6 +2176,15 @@ def video_prompt_assist():
         return jsonify({"error": "context.hint must be a string"}), 400
     hint = hint.strip() if hint else ""
 
+    # MEDIA PRETEXT (k93 §C): an optional context.media {uri, mime, label} is
+    # described by a vision model and prepended to the prompt. Validated here,
+    # next to context.kind, so a malformed block is the same 400 style; absent
+    # -> media_info stays None and every line below is byte-identical to before.
+    try:
+        media = _assist_media.validate_media(context)
+    except _assist_media.MediaError as exc:
+        return jsonify({"error": str(exc)}), exc.status
+
     system_prompt, medium = _assist_framing(kind)
 
     if mode == "detail":
@@ -2168,17 +2231,36 @@ def video_prompt_assist():
     if preface:
         user += "\n\n" + preface
 
+    # Late imports (mirrors prompt_routes/discord_routes) — dodges circulars
+    # and keeps this module app-boot cheap when chat's plane isn't touched.
+    from ..functions.imports import execute_prompt
+    from ..functions.chat.streaming import _friendly_stream_error
+
+    # MEDIA PRETEXT (k93 §C): describe the attached media through the SAME
+    # execute_prompt seam (vision task), then put the description in FRONT of
+    # the instruction. Cached per uri, so generate→enhance on one clip costs
+    # one describe. Failures are honest: 400/404 for a bad uri, 502 when the
+    # vision plane is down — never a silent "ignored your video".
+    media_info = None
+    if media is not None:
+        try:
+            media_info = _assist_media_describe(media, execute_prompt)
+        except _assist_media.MediaError as exc:
+            _log_assist(run_id=_assist_log.new_run_id(), mode=mode, kind=kind,
+                        model_requested=model_key, media_uri=media["uri"],
+                        outcome=(_assist_log.OUTCOME_WORKER_ERROR if exc.status >= 500
+                                 else _assist_log.OUTCOME_RESOLVE_ERROR),
+                        error=str(exc))
+            return jsonify({"error": str(exc)}), exc.status
+        user = _assist_media.prepend_pretext(user, media_info["pretext"])
+    media_log = _assist_media_log_fields(media_info)
+
     # NO-THINK, half 1 of 2: suppress the monologue at GENERATION. The user's own draft
     # rides through untouched — the directive is appended, never substituted.
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": _with_no_think(user)},
     ]
-
-    # Late imports (mirrors prompt_routes/discord_routes) — dodges circulars
-    # and keeps this module app-boot cheap when chat's plane isn't touched.
-    from ..functions.imports import execute_prompt
-    from ..functions.chat.streaming import _friendly_stream_error
     # STUDIO-ASSIST LOG (operator, 2026-07-31): the detail/generate path runs its
     # own generation (not through _assist_execute), so it mints its own run_id and
     # records the terminal outcome directly. There is no downstream parse — a
@@ -2201,7 +2283,7 @@ def video_prompt_assist():
         # resolve()/builder validation errors (e.g. unknown model_key, or the
         # model doesn't support text-generation) — the caller's to fix, same
         # envelope /prompt uses for the identical exception set.
-        _log_assist(run_id=_run_id, mode=mode, kind=kind,
+        _log_assist(run_id=_run_id, mode=mode, kind=kind, **media_log,
                     model_requested=model_key,
                     outcome=_assist_log.OUTCOME_RESOLVE_ERROR,
                     error=str(exc).strip("'\""), elapsed_ms=_elapsed_ms())
@@ -2227,7 +2309,7 @@ def video_prompt_assist():
                 model_key = _PROMPT_ASSIST_FALLBACK_MODEL
             except Exception as exc2:
                 logger.exception("prompt/assist failed (primary + fallback)")
-                _log_assist(run_id=_run_id, mode=mode, kind=kind,
+                _log_assist(run_id=_run_id, mode=mode, kind=kind, **media_log,
                             model_requested=_PROMPT_ASSIST_FALLBACK_MODEL,
                             outcome=_assist_log.OUTCOME_WORKER_ERROR,
                             error=_friendly_stream_error(exc2),
@@ -2237,7 +2319,7 @@ def video_prompt_assist():
             # Actionable message via the same mapper /chat/stream uses, never a
             # raw traceback, never a 500.
             logger.exception("prompt/assist failed")
-            _log_assist(run_id=_run_id, mode=mode, kind=kind,
+            _log_assist(run_id=_run_id, mode=mode, kind=kind, **media_log,
                         model_requested=model_key,
                         outcome=_assist_log.OUTCOME_WORKER_ERROR,
                         error=_friendly_stream_error(exc), elapsed_ms=_elapsed_ms())
@@ -2249,7 +2331,7 @@ def video_prompt_assist():
     if not ok or not raw:
         err = result.get("error") if isinstance(result, dict) else getattr(result, "error", None)
         err = err or "assist produced no text"
-        _log_assist(run_id=_run_id, mode=mode, kind=kind,
+        _log_assist(run_id=_run_id, mode=mode, kind=kind, **media_log,
                     model_requested=model_key, model_resolved=_resolved, raw=raw,
                     outcome=_assist_log.classify_execute_error(502, err),
                     error=err, elapsed_ms=_elapsed_ms())
@@ -2267,7 +2349,7 @@ def video_prompt_assist():
         err = ("the assistant returned nothing — neither a prompt nor "
                f"reasoning came back from {model_key!r}; retry, or choose "
                "a different text generator")
-        _log_assist(run_id=_run_id, mode=mode, kind=kind,
+        _log_assist(run_id=_run_id, mode=mode, kind=kind, **media_log,
                     model_requested=model_key, model_resolved=_resolved, raw=raw,
                     reasoning=reasoning, from_reasoning=from_reasoning,
                     outcome=_assist_log.OUTCOME_EMPTY, error=err,
@@ -2278,10 +2360,16 @@ def video_prompt_assist():
             "reasoning": reasoning,
         }), 502
 
-    _log_assist(run_id=_run_id, mode=mode, kind=kind,
+    _log_assist(run_id=_run_id, mode=mode, kind=kind, **media_log,
                 model_requested=model_key, model_resolved=_resolved, raw=raw,
                 text=text, reasoning=reasoning, from_reasoning=from_reasoning,
                 outcome=_assist_log.OUTCOME_SERVED, elapsed_ms=_elapsed_ms())
+    # COORDINATION REVIEW (k121): the single-row path gets the same check the
+    # spread does, over the SAME typed context the writer was shown — what the
+    # model was told about the join is exactly what the knobs are checked against.
+    from .video_coordination import COORDINATION_KEY as _COORD_KEY, assist_coordination
+    _coord = assist_coordination(typed_ctx, text)
+
     # PROVENANCE (SPEC §1f, the honest half): say which model was ASKED FOR and
     # which one actually answered. The 35B incident showed generated text
     # displayed as though it came from a model that had failed to load; a caller
@@ -2290,8 +2378,10 @@ def video_prompt_assist():
     return jsonify({"prompt": text, "model": model_key, "kind": kind,
                     "reasoning": reasoning, "thinking_suppressed": True,
                     "from_reasoning": from_reasoning,
+                    _COORD_KEY: _coord,
                     "model_requested": model_key,
-                    "model_resolved": _resolved}), 200
+                    "model_resolved": _resolved,
+                    **_assist_media_response_fields(media_info)}), 200
 
 
 # --------------------------------------------------------------------------- #
@@ -2547,9 +2637,31 @@ def _assist_spread(body):
     budget = max(_SPREAD_TOKENS_MIN,
                  min(_SPREAD_TOKENS_MAX, n * _SPREAD_TOKENS_PER_SEGMENT))
 
-    payload, err = _assist_execute(
-        model_key, prompt_spread.build_spread_messages(req), budget,
-        _log_mode="spread")
+    messages = prompt_spread.build_spread_messages(req)
+
+    # MEDIA PRETEXT (k93 §C) — same contract as detail/generate: validated next
+    # to the rest of context, described once (cached per uri), prepended to the
+    # ONE generator call's user message. Absent -> messages untouched.
+    media_info = None
+    try:
+        media = _assist_media.validate_media(body.get("context") or {})
+        if media is not None:
+            from ..functions.imports import execute_prompt
+            media_info = _assist_media_describe(media, execute_prompt)
+    except _assist_media.MediaError as exc:
+        _log_assist(run_id=_assist_log.new_run_id(), mode="spread",
+                    model_requested=model_key,
+                    media_uri=((body.get("context") or {}).get("media") or {}).get("uri"),
+                    outcome=(_assist_log.OUTCOME_WORKER_ERROR if exc.status >= 500
+                             else _assist_log.OUTCOME_RESOLVE_ERROR),
+                    error=str(exc))
+        return jsonify({"error": str(exc)}), exc.status
+    if media_info is not None:
+        messages[-1]["content"] = _assist_media.prepend_pretext(
+            messages[-1]["content"], media_info["pretext"])
+    media_log = _assist_media_log_fields(media_info)
+
+    payload, err = _assist_execute(model_key, messages, budget, _log_mode="spread")
     if err is not None:
         body_out, status = err
         return jsonify(body_out), status
@@ -2566,7 +2678,7 @@ def _assist_spread(body):
         # TERMINAL LOG RECORD: this is the "did not return the JSON object the
         # spread contract requires" case — capture the FULL raw reply so the
         # operator can read exactly what the model sent.
-        _log_assist(run_id=payload["run_id"], mode="spread",
+        _log_assist(run_id=payload["run_id"], mode="spread", **media_log,
                     model_requested=model_key,
                     model_resolved=payload["model_resolved"],
                     raw=payload["raw"], text=payload["text"],
@@ -2583,19 +2695,27 @@ def _assist_spread(body):
             "reasoning": payload["reasoning"],
         }), 502
 
-    _log_assist(run_id=payload["run_id"], mode="spread",
+    _log_assist(run_id=payload["run_id"], mode="spread", **media_log,
                 model_requested=model_key,
                 model_resolved=payload["model_resolved"], raw=payload["raw"],
                 text=payload["text"], reasoning=payload["reasoning"],
                 from_reasoning=payload["from_reasoning"],
                 outcome=_assist_log.OUTCOME_SERVED,
                 elapsed_ms=payload.get("elapsed_ms"))
+    # COORDINATION REVIEW (k121). The spread already tells the writer what each
+    # join MEANS; this turns the knob the writer was told about. Sets the
+    # ratchet-safe ones onto the result rows (``segments[i].knobs``) and attaches
+    # the report. Additive: a caller that ignores both keys is unchanged.
+    from .video_coordination import COORDINATION_KEY as _COORD_KEY, spread_coordination
+    parsed = spread_coordination(req, parsed)
+
     return jsonify({
         "mode": "spread",
         "segments": parsed["segments"],
         "missing_segments": parsed["missing_segments"],
         "warnings": parsed["warnings"],
         "invented_identity_attributes": parsed["invented_identity_attributes"],
+        _COORD_KEY: parsed.get(_COORD_KEY),
         # Echo the steering set + the seed that produced it so the caller can PIN
         # a spread it liked and re-spread a subset into the same world later.
         "steering": req.steering,
@@ -2605,6 +2725,7 @@ def _assist_spread(body):
         "model_resolved": payload["model_resolved"],
         "reasoning": payload["reasoning"],
         "thinking_suppressed": True,
+        **_assist_media_response_fields(media_info),
     }), 200
 
 
@@ -2667,6 +2788,235 @@ def _assist_negative(body):
         "model": model_key,
         "model_requested": model_key,
         "model_resolved": payload["model_resolved"],
+        "reasoning": payload["reasoning"],
+        "thinking_suppressed": True,
+    }), 200
+
+
+# --------------------------------------------------------------------------- #
+# POST /video/producer/plan — the CINEMA PRODUCER (KEEPER-TASK k120, slice 1).
+#
+# ONE call: premise → full structured film plan → per-segment
+# {prompt, negative, seconds, joint}. The cinema composer populates its rows
+# from this instead of the operator hand-counting segments and prompting each.
+# Lengths ride as SECONDS (fps is movie-level; the composer owns the
+# seconds→frames conversion, and the server clamps/snaps at submit anyway).
+#
+# Contracts, in the family's own idioms:
+#   * Model: body["model"] wins, else the k109 routing-matrix pick for
+#     screenplay.complete (resolve_authoring_model — lazy import, same reason
+#     as script_first_routes._sf), else _DEFAULT_SPREAD_MODEL. NEVER the silent
+#     3B task-default (k53 §2 spirit; operator: "the 3B is no good").
+#   * Output is JSON (unlike spread's labelled blocks) because the plan is
+#     TYPED — seconds and joint per segment — parsed with
+#     utils.json_scavenge.extract_json_object on the think-stripped text, with
+#     exactly ONE repair retry echoing why (screenplay._author's two-attempt
+#     contract), then an honest 502 carrying the raw reply.
+#   * Segment 0 is forced joint="cut" (studio_movie_schema hard-refuses a
+#     non-cut first joint); later segments default to "vace_extend" so N+1
+#     extends N's closing frame — the continuity chain the operator asked for.
+# --------------------------------------------------------------------------- #
+_PRODUCER_TOKENS_PER_SEGMENT = 340
+_PRODUCER_TOKENS_MIN = 900
+_PRODUCER_TOKENS_MAX = 4000
+_PRODUCER_MAX_SEGMENTS = 64
+_PRODUCER_VALID_JOINTS = ("cut", "still", "vace_extend")
+_PRODUCER_DEFAULT_SECONDS = 3.4
+
+_PRODUCER_SYSTEM = (
+    "You are a film producer and director planning an AI-generated short film "
+    "for an image-to-video pipeline. You break a premise into sequential "
+    "segments (shots) and write each segment's generation prompt. Reply with "
+    "ONLY one JSON object — no preamble, no markdown fences, no commentary."
+)
+
+
+def _producer_messages(premise, segment_count, target_seconds, global_negative):
+    schema = (
+        '{"title": "...", "logline": "...", '
+        '"style": {"setting": "...", "cast": "...", "visual_style": "...", '
+        '"camera_language": "..."}, '
+        '"segments": [{"prompt": "...", "negative": "...", '
+        '"seconds": 3.4, "joint": "cut"}]}'
+    )
+    rules = [
+        "Return ONLY the JSON object, matching this shape exactly: " + schema,
+        "Each segment prompt must be a SELF-CONTAINED visual description "
+        "(subject, action, setting, camera, lighting, present tense) — the "
+        "video model sees one segment at a time and remembers nothing.",
+        "Keep characters, wardrobe, setting and light continuous from segment "
+        "to segment by RESTATING them; never write 'the same man as before'.",
+        'joint says how a segment attaches to the previous one: "vace_extend" '
+        "continues directly from the previous shot's last frame (same scene, "
+        'continuous motion); "cut" starts a new shot. The FIRST segment must '
+        'be "cut".',
+        "seconds is the segment's duration; typical shots run 2–8 seconds.",
+    ]
+    if segment_count:
+        rules.append(f"Use exactly {int(segment_count)} segments.")
+    else:
+        rules.append("Choose the segment count the story needs.")
+    if target_seconds:
+        rules.append(
+            f"The whole film should total roughly {float(target_seconds):g} seconds."
+        )
+    if global_negative:
+        rules.append(
+            "A movie-level negative prompt already covers: "
+            + str(global_negative)[:400]
+            + " — per-segment negatives should only add SEGMENT-SPECIFIC exclusions."
+        )
+    user = "Premise:\n" + premise + "\n\nRules:\n- " + "\n- ".join(rules)
+    return [
+        {"role": "system", "content": _PRODUCER_SYSTEM},
+        {"role": "user", "content": user},
+    ]
+
+
+def _producer_parse(text):
+    """(plan, "") on success, (None, why) on failure — never raises."""
+    from ....utils.json_scavenge import extract_json_object
+
+    obj = extract_json_object(text or "")
+    if not isinstance(obj, dict):
+        return None, "no JSON object found in the reply"
+    segs = obj.get("segments")
+    if not isinstance(segs, list) or not segs:
+        return None, 'the JSON object has no non-empty "segments" array'
+    return obj, ""
+
+
+@video_bp.route("/video/producer/plan", methods=["POST"])
+def video_producer_plan():
+    body = request.get_json(silent=True) or {}
+    premise = str(body.get("premise") or "").strip()
+    if not premise:
+        return jsonify({"error": "premise is required"}), 400
+
+    seg_count = body.get("segment_count")
+    try:
+        seg_count = int(seg_count) if seg_count not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "segment_count must be an integer"}), 400
+    if seg_count is not None and not 1 <= seg_count <= _PRODUCER_MAX_SEGMENTS:
+        return jsonify({"error": f"segment_count must be 1..{_PRODUCER_MAX_SEGMENTS}"}), 400
+    target_seconds = body.get("target_seconds")
+    try:
+        target_seconds = float(target_seconds) if target_seconds not in (None, "") else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "target_seconds must be a number"}), 400
+
+    # Model: request pin > routing matrix (screenplay.complete) > spread default.
+    model_key = str(body.get("model") or "").strip()
+    route_reason = "request"
+    if not model_key:
+        try:
+            from ....oracle.script_first import resolve_authoring_model
+
+            choice = resolve_authoring_model("screenplay")
+            model_key = str(choice.get("requested_model") or "").strip()
+            if model_key:
+                route_reason = f"{choice.get('source')}: {choice.get('reason')}"
+        except Exception as exc:  # noqa: BLE001 — matrix trouble must not kill the plan
+            logger.warning("producer: routing matrix unavailable (%s)", exc)
+    if not model_key:
+        model_key = _DEFAULT_SPREAD_MODEL
+        route_reason = "producer default (spread model)"
+
+    budget = max(
+        _PRODUCER_TOKENS_MIN,
+        min(_PRODUCER_TOKENS_MAX, (seg_count or 10) * _PRODUCER_TOKENS_PER_SEGMENT),
+    )
+    messages = _producer_messages(
+        premise, seg_count, target_seconds, body.get("global_negative"),
+    )
+    payload, err = _assist_execute(
+        model_key, messages, budget, _log_mode="producer", _log_kind="plan",
+    )
+    if err:
+        return err
+    plan, why = _producer_parse(payload["text"])
+    if plan is None:
+        # Exactly one repair attempt (screenplay._author's contract): echo the
+        # reply and the reason, ask for the JSON alone. Then 502 honestly.
+        repair = messages + [
+            {"role": "assistant", "content": (payload.get("raw") or "")[:4000]},
+            {
+                "role": "user",
+                "content": (
+                    "Your reply could not be used: " + why + ". Return ONLY the "
+                    "corrected JSON object described above — nothing else."
+                ),
+            },
+        ]
+        payload2, err2 = _assist_execute(
+            model_key, repair, budget, _log_mode="producer", _log_kind="plan-repair",
+        )
+        if err2:
+            return err2
+        plan, why = _producer_parse(payload2["text"])
+        if plan is None:
+            logger.error("producer: unparseable after repair (%s)", why)
+            return jsonify({
+                "error": "producer reply unparseable",
+                "detail": why,
+                "raw": (payload2.get("raw") or "")[:4000],
+            }), 502
+        payload = payload2
+
+    warnings: list = []
+    segments = []
+    for i, seg in enumerate(plan.get("segments", [])[:_PRODUCER_MAX_SEGMENTS]):
+        if not isinstance(seg, dict):
+            warnings.append(f"segment {i + 1}: not an object — dropped")
+            continue
+        prompt = str(seg.get("prompt") or seg.get("text") or "").strip()
+        if not prompt:
+            warnings.append(f"segment {i + 1}: empty prompt — dropped")
+            continue
+        try:
+            seconds = float(seg.get("seconds") or 0)
+        except (TypeError, ValueError):
+            seconds = 0
+        if not 0.2 <= seconds <= 120:
+            if seg.get("seconds") not in (None, ""):
+                warnings.append(
+                    f"segment {i + 1}: seconds {seg.get('seconds')!r} out of range — "
+                    f"defaulted to {_PRODUCER_DEFAULT_SECONDS}"
+                )
+            seconds = _PRODUCER_DEFAULT_SECONDS
+        joint = str(seg.get("joint") or "").strip().lower()
+        if joint not in _PRODUCER_VALID_JOINTS:
+            joint = "vace_extend"
+        segments.append({
+            "segment_id": f"seg{len(segments) + 1:02d}",
+            "prompt": prompt,
+            "negative": str(seg.get("negative") or "").strip(),
+            "seconds": round(seconds, 2),
+            "joint": joint,
+        })
+    if not segments:
+        return jsonify({
+            "error": "the plan contained no usable segments",
+            "raw": (payload.get("raw") or "")[:4000],
+        }), 502
+    # studio_movie_schema hard-refuses a non-cut joint on segment 0 — there is
+    # no previous shot to carry a frame from.
+    segments[0]["joint"] = "cut"
+
+    style = plan.get("style")
+    return jsonify({
+        "mode": "producer",
+        "title": str(plan.get("title") or "").strip(),
+        "logline": str(plan.get("logline") or "").strip(),
+        "style": style if isinstance(style, dict) else {},
+        "segments": segments,
+        "total_seconds": round(sum(s["seconds"] for s in segments), 2),
+        "warnings": warnings,
+        "model": model_key,
+        "model_requested": model_key,
+        "model_resolved": payload["model_resolved"],
+        "route_reason": route_reason,
         "reasoning": payload["reasoning"],
         "thinking_suppressed": True,
     }), 200
@@ -4981,6 +5331,149 @@ def video_identity_profiles_from_groups():
 
 
 # --------------------------------------------------------------------------- #
+# k94 — ONE PATH: a video (or a few photos) of a character in -> a bindable identity
+#       (reference views + canonical + 3D GLB) out. No knobs on the happy path.
+#
+# POST /video/identity-profiles/from-video
+#     Body: {"source": <MediaRef video>, "name": "…", "mesh_params"?: {texture?,
+#            octree_resolution?}}  (mesh_params defaults {texture:true,
+#            octree_resolution:256} — clownworld's; accepted optionally, never required)
+#     -> 202 {"job_id", "name", "slug", "kind": "identity_from_video"}
+#     ONE chained ``video_characters_glb`` job on the render service (char360 + one
+#     Hunyuan3D GLB per detected character), relayed by runners/identity_from_video.py.
+#     On done the runner creates/refreshes ONE profile per character: ``slug`` for the
+#     first, ``<slug>-2``, ``<slug>-3`` … for extras; reference images = the char360
+#     view crops (front first); GLB + mesh state attached via the existing helpers.
+#     Poll GET /video/jobs/<job_id>: ``progress`` carries the service's stage / progress
+#     / log_tail; the terminal ``result.identities`` lists the profiles created.
+#     An unconfigured/unreachable render service fails the JOB as data (the route
+#     still 202s); the source uri is jailed exactly like /video-extract.
+#
+# POST /video/identity-profiles/from-images
+#     Body: {"sources": [<MediaRef image> | <path>, …], "name": "…", "mesh_params"?}
+#     -> 202 {"job_id", "recon_id", "slug", "profile", "kind": "identity_mesh_build"}
+#     = create the profile (the SAME validation + copy path as POST
+#     /video/identity-profiles) + the one-click full-identity build
+#     (``_enqueue_full_identity``: mesh -> turntable -> auto-promoted canonical, front
+#     auto-selected by the fleet-VLM step) chained server-side in ONE request. A
+#     duplicate name is a 409 (nothing enqueued), like the create route.
+# --------------------------------------------------------------------------- #
+def _name_and_slug_from_body(body):
+    """``(name, slug, error_tuple_or_None)`` for the k94 create routes."""
+    name = body.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return None, None, ({"error": "name is required"}, 400)
+    name = name.strip()
+    slug = identity_profiles.slugify(name)
+    if not slug:
+        return None, None, ({"error": "name has no url-safe characters"}, 400)
+    return name, slug, None
+
+
+@video_bp.route("/video/identity-profiles/from-video", methods=["POST"])
+def video_identity_profiles_from_video():
+    body = request.get_json(silent=True) or {}
+
+    # source: a MediaRef-shaped dict for a VIDEO, rehydrated + jailed exactly like the
+    # /video-extract route (the runner forwards its uri as video_path — never an
+    # arbitrary file).
+    source_d = body.get("source")
+    if not isinstance(source_d, dict):
+        return jsonify({"error": "missing or invalid 'source' MediaRef (a video)"}), 400
+    try:
+        source = make_media_ref(**source_d)
+    except (ValueError, TypeError) as exc:
+        return jsonify({"error": f"invalid source MediaRef: {exc}"}), 400
+    if source.kind != "video":
+        return jsonify({"error": f"source must be a video; got kind={source.kind!r}"}), 400
+    if _jail_resolve(source.uri) is None:
+        return jsonify({"error": "source video is outside the storage jail"}), 400
+
+    name, slug, nerr = _name_and_slug_from_body(body)
+    if nerr is not None:
+        payload, status = nerr
+        return jsonify(payload), status
+
+    mesh_params = body.get("mesh_params")
+    if mesh_params is not None and not isinstance(mesh_params, dict):
+        return jsonify({"error": "mesh_params must be an object"}), 400
+
+    try:
+        spec = make_identity_from_video(
+            source=source, name=name, mesh_params=mesh_params, identity_id=slug)
+    except (ValueError, TypeError) as exc:  # bad fields = 400
+        return jsonify({"error": str(exc)}), 400
+
+    job_id = _video_enqueue("identity_from_video", spec)
+    return jsonify({"job_id": job_id, "name": name, "slug": slug,
+                    "kind": "identity_from_video"}), 202
+
+
+@video_bp.route("/video/identity-profiles/from-images", methods=["POST"])
+def video_identity_profiles_from_images():
+    body = request.get_json(silent=True) or {}
+
+    name, _slug, nerr = _name_and_slug_from_body(body)
+    if nerr is not None:
+        payload, status = nerr
+        return jsonify(payload), status
+
+    # sources: MediaRef-shaped dicts (kind image) or bare paths — either way every path
+    # runs the SAME jail + ingest + image-classify validation as POST create.
+    sources = body.get("sources")
+    if not isinstance(sources, list) or not sources:
+        return jsonify({"error": "sources must be a non-empty list of image MediaRefs"}), 400
+    raw_paths: list = []
+    for s in sources:
+        if isinstance(s, dict):
+            try:
+                ref = make_media_ref(**s)
+            except (ValueError, TypeError) as exc:
+                return jsonify({"error": f"invalid source MediaRef: {exc}"}), 400
+            if ref.kind != "image":
+                return jsonify({"error": f"every source must be an image; got kind={ref.kind!r}"}), 400
+            raw_paths.append(ref.uri)
+        elif isinstance(s, str):
+            raw_paths.append(s)
+        else:
+            return jsonify({"error": "each source must be a MediaRef object or a path"}), 400
+    resolved, err = _validate_profile_reference_images(raw_paths)
+    if err is not None:
+        payload, status = err
+        return jsonify(payload), status
+
+    mesh_params = body.get("mesh_params")
+    if mesh_params is not None and not isinstance(mesh_params, dict):
+        return jsonify({"error": "mesh_params must be an object"}), 400
+    mesh_params = dict(mesh_params or {})
+
+    try:
+        profile = identity_profiles.create_profile(name, resolved, notes="")
+    except identity_profiles.ProfileError as exc:  # dup slug / bad shape = errors-as-data
+        status = 409 if exc.code == "duplicate" else 400
+        return jsonify({"error": str(exc), "code": exc.code}), status
+
+    # The one-click full-identity build, on the just-created profile. The happy path is
+    # clownworld's mesh_params (textured, octree 256); everything else is the /generate
+    # default (turntable chained, canonical auto-promoted, fleet-VLM front select).
+    gen_body: dict = {
+        "texture": bool(mesh_params.get("texture", True)),
+        "octree_resolution": mesh_params.get("octree_resolution", 256),
+    }
+    resp, status = _enqueue_full_identity(profile["slug"], profile, gen_body)
+    if status != 200:
+        # The profile exists (a valid, bindable reference set) but the build could not be
+        # enqueued — say so honestly rather than hiding the created profile.
+        resp = dict(resp)
+        resp["profile"] = profile
+        resp["slug"] = profile["slug"]
+        return jsonify(resp), status
+    resp = dict(resp)
+    resp.update({"slug": profile["slug"], "profile": profile, "kind": "identity_mesh_build"})
+    return jsonify(resp), 202
+
+
+# --------------------------------------------------------------------------- #
 # 5i) POST /video/identity-profiles/<slug>/generate
 #     ONE-CLICK FULL IDENTITY GENERATION — the template that turns a saved identity
 #     PROFILE into a complete 3D identity in a single action: a Hunyuan3D mesh, a
@@ -5084,12 +5577,21 @@ def video_identity_profile_generate(slug):
         return jsonify({"error": "identity profile not found"}), 404
 
     body = request.get_json(silent=True) or {}
+    resp, status = _enqueue_full_identity(slug, profile, body)
+    return jsonify(resp), status
 
+
+def _enqueue_full_identity(slug, profile, body):
+    """The ONE-CLICK full-identity enqueue (the /generate body above), factored (k94) so
+    POST /video/identity-profiles/from-images can chain "create profile" + this in ONE
+    request without copying it. Returns ``(payload_dict, http_status)``; the caller
+    jsonifies. ``body`` follows the /generate contract exactly (all optional), plus an
+    additive optional ``octree_resolution`` (positive int; default 380 as before)."""
     # Cardinal view map, JAILED to the profile's own images (shared with the 5g route).
     view_map, view_candidates, verr = _resolve_profile_mesh_views(profile, body.get("views"))
     if verr is not None:
         payload, status = verr
-        return jsonify(payload), status
+        return payload, status
 
     # POSE NORMALIZATION (IDENTITY-VERSIONS-SLICE.md slice 3): optional pose, validated
     # none|t-pose. The t-pose RENDER STAGE (render an id_lock T-pose still and mesh THAT to
@@ -5104,7 +5606,7 @@ def video_identity_profile_generate(slug):
     if pose_req is None:
         pose_req = "none"
     if not isinstance(pose_req, str) or pose_req not in _POSE_CHOICES:
-        return jsonify({"error": f"pose must be one of {list(_POSE_CHOICES)}"}), 400
+        return {"error": f"pose must be one of {list(_POSE_CHOICES)}"}, 400
     effective_pose = "none"
     pose_notice = None
     if pose_req == "t-pose":
@@ -5181,6 +5683,9 @@ def video_identity_profile_generate(slug):
             texture=bool(body.get("texture", True)),
             chain_turntable=True,   # the full-identity template always renders the 360°
             auto_promote=bool(body.get("auto_promote", True)),
+            # k94 (additive): the from-images path passes clownworld's leaner 256 so the
+            # texture bake doesn't take ~24 min/character; a bare /generate keeps 380.
+            octree_resolution=_pos_int(body, "octree_resolution", 380),
             frame_count=_pos_int(tt, "frame_count", 72),
             fps=_pos_int(tt, "fps", 24),
             width=_pos_int(tt, "width", 768),
@@ -5194,7 +5699,7 @@ def video_identity_profile_generate(slug):
             negative_prompt=negative_prompt,
         )
     except (ValueError, TypeError) as exc:  # bad fields = 400
-        return jsonify({"error": str(exc)}), 400
+        return {"error": str(exc)}, 400
 
     # Seed mesh state to "queued" so GET .../reconstruction/<recon_id>/mesh + the UI
     # reflect the in-flight build immediately (set_mesh_state creates the record for this
@@ -5210,7 +5715,7 @@ def video_identity_profile_generate(slug):
     # (pose="none") keeps the exact {job_id, recon_id} shape it has today.
     if pose_notice is not None:
         resp["pose"] = pose_notice
-    return jsonify(resp), 200
+    return resp, 200
 
 
 # --------------------------------------------------------------------------- #

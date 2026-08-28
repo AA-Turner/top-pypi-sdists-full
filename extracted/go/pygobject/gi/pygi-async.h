@@ -17,10 +17,11 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PYGI_ASYNC_H__
-#define __PYGI_ASYNC_H__
+#pragma once
 
 #include "pygi-info.h"
+
+G_BEGIN_DECLS
 
 typedef struct {
     PyObject *func;
@@ -51,4 +52,4 @@ void pygi_async_finish_cb (GObject *source_object, gpointer res,
 
 PyObject *pygi_async_new (PyObject *async_finish, PyObject *cancellable);
 
-#endif /* __PYGI_ASYNCRESULT_H__ */
+G_END_DECLS

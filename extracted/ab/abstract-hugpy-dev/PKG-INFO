@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstract_hugpy_dev
-Version: 0.1.233
+Version: 0.1.241
 Summary: Self-hosted LLM console: model registry & downloads, streaming chat, OpenAI-compatible /v1 API with on-site keys, GPU worker fleet with cross-machine RPC sharding
 Home-page: https://github.com/AbstractEndeavors/abstract_hugpy_dev
 Author: putkoff
@@ -63,6 +63,7 @@ Requires-Dist: requests
 Requires-Dist: abstract_essentials
 Requires-Dist: platformdirs
 Requires-Dist: huggingface_hub>=0.26
+Requires-Dist: abstract_identity>=0.1.0
 Requires-Dist: beautifulsoup4
 Requires-Dist: PyPDF2
 Requires-Dist: pdfplumber

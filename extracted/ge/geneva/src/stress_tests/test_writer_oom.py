@@ -525,6 +525,11 @@ def test_writer_survives_buffering_workload(
     # default so an applier-side crash is retried promptly rather than
     # burning the job's wall clock -- see _is_applier_subprocess_crash.
     monkeypatch.setenv("GENEVA_APPLIER_WORKER_STALL_TIMEOUT_S", "60")
+    # No unset-memory floor: this test runs under a deliberately tight
+    # container so the writer meets real memory pressure, and an applier floor
+    # sized for ordinary nodes would compete for that budget or exceed what
+    # Ray publishes as schedulable, changing what the test measures.
+    monkeypatch.setenv("JOB__APPLIER_DEFAULT_MEMORY_BYTES", "0")
     monkeypatch.setattr(_pipeline_mod, "MAX_WRITER_RESTARTS", 0)
     monkeypatch.setattr(
         OOMRecoveryBudgetConfig,

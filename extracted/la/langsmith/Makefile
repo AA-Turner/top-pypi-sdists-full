@@ -1,4 +1,4 @@
-.PHONY: tests lint format build publish doctest integration_tests integration_tests_fast evals benchmark benchmark-fast test-wheel-imports
+.PHONY: tests lint format build publish doctest integration_tests integration_tests_fast evals benchmark benchmark-fast benchmark-codspeed benchmark-datadog test-wheel-imports
 
 
 OUTPUT ?= out/benchmark.json
@@ -12,6 +12,18 @@ benchmark-fast:
 	mkdir -p out
 	rm -f $(OUTPUT)
 	uv run python -m bench -o $(OUTPUT) --fast
+
+# Same cases as `benchmark`, run under pytest-benchmark's `benchmark` fixture so
+# pytest-codspeed (a drop-in for that fixture) can pick them up. `--codspeed` is
+# a no-op locally without the CodSpeed runner but keeps the CLI identical to CI.
+benchmark-codspeed:
+	uv run --group bench python -m pytest bench/test_bench.py --codspeed
+
+# Same cases again, under plain pytest-benchmark. Emits to Datadog Test
+# Optimization when PYTEST_ADDOPTS=--ddtrace is exported by the
+# datadog/test-visibility-github-action step; a plain local run stays offline.
+benchmark-datadog:
+	uv run --group bench python -m pytest bench/test_bench.py
 
 PROFILE_NAME ?= output
 

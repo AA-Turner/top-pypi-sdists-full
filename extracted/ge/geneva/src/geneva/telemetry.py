@@ -313,13 +313,48 @@ _METRIC_DESCRIPTIONS: dict[str, str] = {
 }
 
 
+#: Bucket boundaries (ms) advised for every duration histogram. The OTel SDK's
+#: default explicit buckets top out at 10 000 ms, so any read task / UDF run
+#: longer than 10 s collapses into the +Inf bucket and dashboard
+#: ``histogram_quantile`` percentiles flatline ("peg") at exactly 10 000.
+#: Geneva's wall-clock work runs seconds to hours, so the ladder extends to a
+#: day — mirroring the distributed indexer's seconds-scale buckets
+#: (sophon ``core/src/telemetry.rs``) — while keeping sub-second rungs for the
+#: fast checkpoint metrics.
+DURATION_BUCKET_BOUNDARIES_MS: tuple[float, ...] = (
+    1,
+    5,
+    10,
+    50,
+    100,
+    500,
+    1_000,
+    5_000,
+    10_000,
+    30_000,
+    60_000,
+    120_000,
+    300_000,
+    600_000,
+    1_800_000,
+    3_600_000,
+    7_200_000,
+    14_400_000,
+    28_800_000,
+    43_200_000,
+    86_400_000,
+)
+
+
 def get_histogram(
     name: str, *, unit: str = "", description: str = ""
 ) -> Histogram | None:
     """Get-or-create a cached histogram, or ``None`` when telemetry is disabled.
 
     Caching avoids the duplicate-instrument warning the SDK emits when the same
-    name is created twice in a process.
+    name is created twice in a process. Millisecond histograms advise
+    :data:`DURATION_BUCKET_BOUNDARIES_MS` so long-running tasks don't all land
+    in the +Inf bucket of the SDK's default 0-10 s bucket set.
     """
     meter = get_meter()
     if meter is None:
@@ -329,9 +364,20 @@ def get_histogram(
         with _lock:
             histogram = _histograms.get(name)
             if histogram is None:
-                histogram = meter.create_histogram(
-                    name, unit=unit, description=description
-                )
+                kwargs: dict = {}
+                if unit == "ms":
+                    kwargs["explicit_bucket_boundaries_advisory"] = list(
+                        DURATION_BUCKET_BOUNDARIES_MS
+                    )
+                try:
+                    histogram = meter.create_histogram(
+                        name, unit=unit, description=description, **kwargs
+                    )
+                except TypeError:
+                    # SDK predates bucket advisories (< 1.23); default buckets.
+                    histogram = meter.create_histogram(
+                        name, unit=unit, description=description
+                    )
                 _histograms[name] = histogram
     return histogram
 

@@ -134,6 +134,41 @@ def _username() -> str:
         return ""
 
 
+@keeper_help_bp.route("/keeper/help/ask", methods=["POST"])
+def keeper_help_ask():
+    """THE DIRECT LINE (operator ruling 2026-08-20): the help widget's Ask tab
+    talks to the hugpy VM's KEEPER — the same B seat as the station console and
+    the bridge watcher — grounded in live fleet facts (workers, downloader,
+    queue incl. persistent failure records, store space) plus B's own MCT
+    ledger state. No canned answers and no substitute model: if the keeper's
+    brain is unreachable the caller gets ``offline: true`` and B's
+    deterministic state readout, clearly labelled.
+
+    Body: {"text": str, "history": [{role, content}, ...]?}
+    Reply: {"ok": bool, "reply": str, "offline": bool}
+    """
+    gate = _require_member()
+    if gate is not None:
+        return gate
+    from ..keeper_line import fleet_grounding, keeper_ask
+    body = request.get_json(silent=True) or {}
+    text = _clip(body.get("text"), _MAX_CONTEXT)
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+    history = body.get("history") if isinstance(body.get("history"), list) else []
+    grounded = (
+        "You are the hugpy fleet keeper answering the console help line. "
+        "Resolve the user's issue: name the cause and the concrete action. "
+        "If the fix needs an operator's hands, say exactly what to run/click "
+        "and suggest filing it via the help widget's 'Request a fix' tab.\n\n"
+        f"LIVE FLEET FACTS:\n{fleet_grounding()}\n\n"
+        f"USER ({_username() or 'member'}):\n{text}")
+    res = keeper_ask(grounded, history=history)
+    return jsonify({"ok": bool(res.get("reply")),
+                    "reply": res.get("reply") or "",
+                    "offline": bool(res.get("offline"))})
+
+
 @keeper_help_bp.route("/keeper/help/report", methods=["POST"])
 def keeper_help_report():
     """MEMBER or OPERATOR: file a help request / proposed action for approval.

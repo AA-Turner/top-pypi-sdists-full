@@ -16,21 +16,22 @@
 import asyncio
 import importlib
 import sys
-from typing import Optional, Union, TYPE_CHECKING
-from types import TracebackType, ModuleType
+from types import ModuleType, TracebackType
+from typing import Optional, TYPE_CHECKING, Union
 
 import google.auth
-from google.cloud.aiplatform import version as aip_version
+from agentplatform import __version__
+from google.genai import _api_client as genai_api_client
 from google.genai import _common
 from google.genai import client as genai_client
 from google.genai import types
 from google.genai import version as genai_version
-from google.genai import _api_client as genai_api_client
+
 from . import live
 
 if TYPE_CHECKING:
     from agentplatform._genai import (
-        agent_engines as agent_engines_module,
+        runtimes as runtimes_module,
     )
     from agentplatform._genai import datasets as datasets_module
     from agentplatform._genai import evals as evals_module
@@ -47,8 +48,19 @@ if TYPE_CHECKING:
     from agentplatform._genai import (
         feedback_entries as feedback_entries_module,
     )
+    from agentplatform._genai import sessions as sessions_module
+    from agentplatform._genai import (
+        sandboxes as sandboxes_module,
+    )
+
     from agentplatform._genai import (
         endpoints as endpoints_module,
+    )
+    from agentplatform._genai import (
+        example_stores as example_stores_module,
+    )
+    from agentplatform._genai import (
+        memory_banks as memory_banks_module,
     )
 
 _GENAI_MODULES_TELEMETRY_HEADER = "vertex-genai-modules"
@@ -57,7 +69,7 @@ _GENAI_MODULES_TELEMETRY_HEADER = "vertex-genai-modules"
 def _custom_append_library_version_headers(headers: dict[str, str]) -> None:
     """Overridde GenAI SDK header injection to use custom vertex-genai-modules header."""
     genai_sdk_version = genai_version.__version__
-    module_version = aip_version.__version__
+    module_version = __version__
     python_version = sys.version.split()[0]
 
     combined_label = f"google-genai-sdk/{genai_sdk_version}+{_GENAI_MODULES_TELEMETRY_HEADER}/{module_version}"
@@ -87,7 +99,7 @@ class AsyncClient:
         self._api_client = api_client
         self._live = live.AsyncLive(self._api_client)
         self._evals: Optional[ModuleType] = None
-        self._agent_engines: Optional[ModuleType] = None
+        self._runtimes: Optional[ModuleType] = None
         self._prompt_optimizer: Optional[ModuleType] = None
         self._prompts: Optional[ModuleType] = None
         self._datasets: Optional[ModuleType] = None
@@ -96,6 +108,10 @@ class AsyncClient:
         self._model_garden: Optional[ModuleType] = None
         self._feedback_entries: Optional[ModuleType] = None
         self._endpoints: Optional[ModuleType] = None
+        self._example_stores: Optional[ModuleType] = None
+        self._sessions: Optional[ModuleType] = None
+        self._sandboxes: Optional[ModuleType] = None
+        self._memory_banks: Optional[ModuleType] = None
 
     @property
     @_common.experimental_warning(
@@ -129,22 +145,58 @@ class AsyncClient:
         return self._prompt_optimizer.AsyncPromptOptimizer(self._api_client)  # type: ignore[no-any-return]
 
     @property
-    def agent_engines(self) -> "agent_engines_module.AsyncAgentEngines":
-        if self._agent_engines is None:
+    def runtimes(self) -> "runtimes_module.AsyncRuntimes":
+        if self._runtimes is None:
             try:
-                # We need to lazy load the agent_engines module to handle the
+                # We need to lazy load the runtimes module to handle the
                 # possibility of ImportError when dependencies are not installed.
-                self._agent_engines = importlib.import_module(
-                    ".agent_engines",
+                self._runtimes = importlib.import_module(
+                    ".runtimes",
                     __package__,
                 )
             except ImportError as e:
                 raise ImportError(
-                    "The 'agent_engines' module requires 'additional packages'. "
+                    "The 'runtimes' module requires 'additional packages'. "
                     "Please install them using pip install "
                     "google-cloud-aiplatform[agent_engines]"
                 ) from e
-        return self._agent_engines.AsyncAgentEngines(self._api_client)  # type: ignore[no-any-return]
+        return self._runtimes.AsyncRuntimes(self._api_client)  # type: ignore[no-any-return]
+
+    @property
+    def sessions(self) -> "sessions_module.AsyncSessions":
+        if self._sessions is None:
+            try:
+                # We need to lazy load the sessions module to handle the
+                # possibility of ImportError when dependencies are not installed.
+                self._sessions = importlib.import_module(
+                    ".sessions",
+                    __package__,
+                )
+            except ImportError as e:
+                raise ImportError(
+                    "The 'sessions' module requires 'additional packages'. "
+                    "Please install them using pip install "
+                    "google-cloud-aiplatform[agent_engines]"
+                ) from e
+        return self._sessions.AsyncSessions(self._api_client)  # type: ignore[no-any-return]
+
+    @property
+    def sandboxes(self) -> "sandboxes_module.AsyncSandboxes":
+        if self._sandboxes is None:
+            try:
+                # We need to lazy load the sandboxes module to handle the
+                # possibility of ImportError when dependencies are not installed.
+                self._sandboxes = importlib.import_module(
+                    ".sandboxes",
+                    __package__,
+                )
+            except ImportError as e:
+                raise ImportError(
+                    "The 'sandboxes' module requires 'additional packages'. "
+                    "Please install them using pip install "
+                    "google-cloud-aiplatform[agent_engines]"
+                ) from e
+        return self._sandboxes.AsyncSandboxes(self._api_client)  # type: ignore[no-any-return]
 
     @property
     def prompts(self) -> "prompts_module.AsyncPrompts":
@@ -196,6 +248,15 @@ class AsyncClient:
         return self._endpoints.AsyncEndpoints(self._api_client)  # type: ignore[no-any-return]
 
     @property
+    def example_stores(self) -> "example_stores_module.AsyncExampleStores":
+        if self._example_stores is None:
+            self._example_stores = importlib.import_module(
+                ".example_stores",
+                __package__,
+            )
+        return self._example_stores.AsyncExampleStores(self._api_client)  # type: ignore[no-any-return]
+
+    @property
     @_common.experimental_warning(
         "The Vertex SDK GenAI async rag module is experimental, "
         "and may change in future versions."
@@ -219,6 +280,12 @@ class AsyncClient:
                 __package__,
             )
         return self._model_garden.AsyncModelGarden(self._api_client)  # type: ignore[no-any-return]
+
+    @property
+    def memory_banks(self) -> "memory_banks_module.AsyncMemoryBanks":
+        if self._memory_banks is None:
+            self._memory_banks = importlib.import_module(".memory_banks", __package__)
+        return self._memory_banks.AsyncMemoryBanks(self._api_client)  # type: ignore[no-any-return]
 
     async def aclose(self) -> None:
         """Closes the async client explicitly.
@@ -320,7 +387,7 @@ class Client:
         self._aio = AsyncClient(self._api_client)
         self._evals: Optional[ModuleType] = None
         self._prompt_optimizer: Optional[ModuleType] = None
-        self._agent_engines: Optional[ModuleType] = None
+        self._runtimes: Optional[ModuleType] = None
         self._prompts: Optional[ModuleType] = None
         self._datasets: Optional[ModuleType] = None
         self._skills: Optional[ModuleType] = None
@@ -328,6 +395,10 @@ class Client:
         self._model_garden: Optional[ModuleType] = None
         self._feedback_entries: Optional[ModuleType] = None
         self._endpoints: Optional[ModuleType] = None
+        self._example_stores: Optional[ModuleType] = None
+        self._sessions: Optional[ModuleType] = None
+        self._sandboxes: Optional[ModuleType] = None
+        self._memory_banks: Optional[ModuleType] = None
 
     @property
     def evals(self) -> "evals_module.Evals":
@@ -385,22 +456,58 @@ class Client:
         return None
 
     @property
-    def agent_engines(self) -> "agent_engines_module.AgentEngines":
-        if self._agent_engines is None:
+    def runtimes(self) -> "runtimes_module.Runtimes":
+        if self._runtimes is None:
             try:
-                # We need to lazy load the agent_engines module to handle the
+                # We need to lazy load the runtimes module to handle the
                 # possibility of ImportError when dependencies are not installed.
-                self._agent_engines = importlib.import_module(
-                    ".agent_engines",
+                self._runtimes = importlib.import_module(
+                    ".runtimes",
                     __package__,
                 )
             except ImportError as e:
                 raise ImportError(
-                    "The 'agent_engines' module requires 'additional packages'. "
+                    "The 'runtimes' module requires 'additional packages'. "
                     "Please install them using pip install "
                     "google-cloud-aiplatform[agent_engines]"
                 ) from e
-        return self._agent_engines.AgentEngines(self._api_client)  # type: ignore[no-any-return]
+        return self._runtimes.Runtimes(self._api_client)  # type: ignore[no-any-return]
+
+    @property
+    def sessions(self) -> "sessions_module.Sessions":
+        if self._sessions is None:
+            try:
+                # We need to lazy load the sessions module to handle the
+                # possibility of ImportError when dependencies are not installed.
+                self._sessions = importlib.import_module(
+                    ".sessions",
+                    __package__,
+                )
+            except ImportError as e:
+                raise ImportError(
+                    "The 'sessions' module requires 'additional packages'. "
+                    "Please install them using pip install "
+                    "google-cloud-aiplatform[agent_engines]"
+                ) from e
+        return self._sessions.Sessions(self._api_client)  # type: ignore[no-any-return]
+
+    @property
+    def sandboxes(self) -> "sandboxes_module.Sandboxes":
+        if self._sandboxes is None:
+            try:
+                # We need to lazy load the sandboxes module to handle the
+                # possibility of ImportError when dependencies are not installed.
+                self._sandboxes = importlib.import_module(
+                    ".sandboxes",
+                    __package__,
+                )
+            except ImportError as e:
+                raise ImportError(
+                    "The 'sandboxes' module requires 'additional packages'. "
+                    "Please install them using pip install "
+                    "google-cloud-aiplatform[agent_engines]"
+                ) from e
+        return self._sandboxes.Sandboxes(self._api_client)  # type: ignore[no-any-return]
 
     @property
     def prompts(self) -> "prompts_module.Prompts":
@@ -453,6 +560,15 @@ class Client:
         return self._endpoints.Endpoints(self._api_client)  # type: ignore[no-any-return]
 
     @property
+    def example_stores(self) -> "example_stores_module.ExampleStores":
+        if self._example_stores is None:
+            self._example_stores = importlib.import_module(
+                ".example_stores",
+                __package__,
+            )
+        return self._example_stores.ExampleStores(self._api_client)  # type: ignore[no-any-return]
+
+    @property
     @_common.experimental_warning(
         "The Vertex SDK GenAI rag module is experimental, "
         "and may change in future versions."
@@ -476,3 +592,9 @@ class Client:
                 __package__,
             )
         return self._model_garden.ModelGarden(self._api_client)  # type: ignore[no-any-return]
+
+    @property
+    def memory_banks(self) -> "memory_banks_module.MemoryBanks":
+        if self._memory_banks is None:
+            self._memory_banks = importlib.import_module(".memory_banks", __package__)
+        return self._memory_banks.MemoryBanks(self._api_client)  # type: ignore[no-any-return]

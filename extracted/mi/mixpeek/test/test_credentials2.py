@@ -36,19 +36,24 @@ class TestCredentials2(unittest.TestCase):
         model = Credentials2()
         if include_optional:
             return Credentials2(
-                type = 'access_key',
-                access_key_id = '0123456789101112131415',
-                secret_access_key = '0123456789101112131415161718192021222324252627282930313233343536373839',
-                session_token = '',
-                role_arn = 'arn:aws:iam::048072888001:role/5y0FjLWeLG@sipwl',
-                external_id = '01234567'
+                type = 'service_account',
+                project_id = '',
+                private_key_id = '',
+                private_key = '',
+                client_email = '',
+                client_id = '',
+                client_secret = '',
+                refresh_token = ''
             )
         else:
             return Credentials2(
-                access_key_id = '0123456789101112131415',
-                secret_access_key = '0123456789101112131415161718192021222324252627282930313233343536373839',
-                role_arn = 'arn:aws:iam::048072888001:role/5y0FjLWeLG@sipwl',
-                external_id = '01234567',
+                project_id = '',
+                private_key_id = '',
+                private_key = '',
+                client_email = '',
+                client_id = '',
+                client_secret = '',
+                refresh_token = '',
         )
         """
 

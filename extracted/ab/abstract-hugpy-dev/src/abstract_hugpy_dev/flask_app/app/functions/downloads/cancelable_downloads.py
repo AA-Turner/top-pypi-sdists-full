@@ -40,7 +40,7 @@ from .....downloader.engine import (           # noqa: F401 — re-exported API
 # ── the queue (what a ROUTE is allowed to do) ─────────────────────────────
 from .....downloader.queue import (             # noqa: F401 — re-exported API
     cancel_download, retry_download, enqueue_download, list_downloads,
-    get_download,
+    get_download, queue_depth, queue_healthy,
 )
 
 

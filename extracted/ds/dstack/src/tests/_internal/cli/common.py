@@ -17,18 +17,18 @@ from dstack._internal.cli.models.preset_agent import (
     PresetSessionState,
     PresetSessionWorkspace,
 )
-from dstack._internal.cli.models.presets import (
-    PresetBenchmark,
-    PresetVerificationReplicaGroup,
-    VerifiedPreset,
-)
+from dstack._internal.cli.models.presets import VerifiedPreset
 from dstack._internal.compat import IS_WINDOWS
 from dstack._internal.core.models.configurations import (
     DEFAULT_REPLICA_GROUP_NAME,
+    PresetConfiguration,
     ServiceConfiguration,
 )
 from dstack._internal.core.models.instances import Disk, Gpu, Resources
-from dstack._internal.core.models.presets import PresetConfiguration
+from dstack._internal.core.models.presets import (
+    PresetBenchmark,
+    PresetVerificationReplicaGroup,
+)
 from dstack._internal.core.models.resources import ResourcesSpec
 from dstack._internal.core.models.runs import JobStatus, Run, RunStatus, ServiceSpec
 
@@ -77,6 +77,20 @@ def run_dstack_cli(
             if repo_dir is not None:
                 os.chdir(cwd)
     return exit_code
+
+
+# The trial workload from the SGLang session in dstackai/dstack#4198: a synthetic
+# shared-prefix benchmark run with a tool that does not call its generated data
+# `random`. It used to match neither of the two workload models the schema offered.
+SHARED_PREFIX_WORKLOAD = {
+    "api": "completions",
+    "dataset": "generated-shared-prefix",
+    "num_requests": 16,
+    "input_tokens": 131072,
+    "output_tokens": 512,
+    "concurrency": 4,
+    "shared_prefix_tokens": 130048,
+}
 
 
 def get_preset_benchmark() -> PresetBenchmark:
@@ -132,8 +146,8 @@ def get_preset(
         ),
         base="Qwen/Qwen3.5-27B",
         id=preset_id,
-        model="community/Qwen3.5-27B-GPTQ-Int4",
-        submitted_at=datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc),
+        repo="community/Qwen3.5-27B-GPTQ-Int4",
+        created_at=datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc),
         service=ServiceConfiguration.model_validate(
             {
                 "image": "vllm/vllm-openai:v0.11.0",
@@ -210,7 +224,6 @@ def get_session_state(**overrides: Any) -> PresetSessionState:
         "trials_num": None,
         "previous": [],
         "created_at": datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc),
-        "debug": False,
         "status": "running",
         "owner": None,
         "run": None,

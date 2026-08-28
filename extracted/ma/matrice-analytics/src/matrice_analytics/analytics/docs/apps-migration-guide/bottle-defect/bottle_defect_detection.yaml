@@ -1,0 +1,99 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+app:
+  id: bottle_defect_detection
+  name: "Bottle Defect Detection"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+#   Determines which processors are loaded.
+#   Bottle defect detection runs both QUALITY
+#   (defect rate) and VOLUME (throughput) processors.
+# ──────────────────────────────────────────────
+categories:
+  - QUALITY
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+#   Keys are semantic entity names used by processors.
+#   Values are detection class(es) from the model.
+#
+#   Two models feed detections:
+#     bottle-detector.pt        → class "bottle"
+#     defect-detection-yolov11m → class "defect"
+# ──────────────────────────────────────────────
+entity_mapping:
+  bottle: bottle
+  defect: defect
+
+# ──────────────────────────────────────────────
+# Quality Module — Bottle Defect Detection
+#
+# inspection_classes:
+#   Entity names representing items being inspected.
+#   Used for total_inspected count.
+#
+# defect_classes:
+#   Entity names that count as "defects" for
+#   defect_count and defect_rate computation.
+#
+# defect_rate = defect_count / total_inspected
+#
+# metrics:
+#   - defect_count (sum)      — defects found in 60s window
+#   - total_inspected (sum)   — total items inspected
+#   - defect_rate (avg)       — mean per-frame defect rate
+# ──────────────────────────────────────────────
+quality:
+  inspection_classes:
+    - bottle
+  defect_classes:
+    - defect
+
+  metrics:
+    - key: defect_count
+      agg_type: sum
+    - key: total_inspected
+      agg_type: sum
+    - key: defect_rate
+      agg_type: avg
+
+# ──────────────────────────────────────────────
+# Volume Module — Bottle Throughput
+#
+# Tracks bottle throughput on the inspection line
+# using simple track-ID counting mode:
+#   new track_id  = entry (bottle entered frame)
+#   no exit logic (no zone geometry supplied)
+#
+# target_categories are derived from entity_mapping
+# above ([bottle, defect]), so per-category counts
+# are emitted for both entities -- backend gets
+# bottle throughput AND defect throughput separately.
+#
+# metrics:
+#   - entry_count (sum)        — new track IDs per 60s window
+#   - current_occupancy (last) — entities in frame at window end
+# ──────────────────────────────────────────────
+volume:
+  metrics:
+    - key: entry_count
+      agg_type: sum
+    - key: current_occupancy
+      agg_type: last
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults:
+    - metric: defect_count
+      condition:
+        operator: ">"
+        value: 0
+      severity: HIGH
+
+  overrides: []

@@ -75,7 +75,12 @@ from ..logging_messages import (
 )
 from ..s3.multipart_upload.assets_helper import S3MultipartAssetsHelper
 from ..s3.multipart_upload.base_helper import S3MultipartBaseHelper
+from ..s3.multipart_upload.file_parts import (
+    PartsUploadPool,
+    create_parts_upload_scheduler,
+)
 from ..s3.multipart_upload.file_parts_strategy import (
+    BaseFilePartsStrategy,
     FileLikePartsStrategy,
     FilePartsStrategy,
 )
@@ -381,22 +386,25 @@ def send_direct_s3_multipart_file(
     file_size: int,
     upload_helper: S3MultipartBaseHelper,
     session: requests.Session,
+    multipart_options: MultipartUploadOptions,
+    parts_pool: Optional[PartsUploadPool] = None,
     _monitor: Optional[UploadSizeMonitor] = None,
 ) -> Tuple[int, requests.Response]:
     LOGGER.debug(
         "Started S3 direct file upload of %r with size: %d", file_path, file_size
     )
 
-    file_parts_strategy = FilePartsStrategy(
-        file_path=file_path,
-        file_size=file_size,
-    )
-    uploader = S3MultipartUploader(
-        file_parts_strategy=file_parts_strategy, s3_helper=upload_helper
-    )
-    return uploader.upload(
+    return _send_direct_s3_multipart(
+        file_parts_strategy=FilePartsStrategy(
+            file_path=file_path,
+            file_size=file_size,
+            max_file_part_size=multipart_options.part_size,
+        ),
+        upload_helper=upload_helper,
         session=session,
-        monitor=_monitor,
+        multipart_options=multipart_options,
+        parts_pool=parts_pool,
+        _monitor=_monitor,
     )
 
 
@@ -406,24 +414,52 @@ def send_direct_s3_multipart_file_like(
     file_size: int,
     upload_helper: S3MultipartBaseHelper,
     session: requests.Session,
+    multipart_options: MultipartUploadOptions,
+    parts_pool: Optional[PartsUploadPool] = None,
     _monitor: Optional[UploadSizeMonitor] = None,
 ) -> Tuple[int, requests.Response]:
     LOGGER.debug(
         "Started S3 direct file-like upload of %r with size: %d", file_name, file_size
     )
 
-    file_parts_strategy = FileLikePartsStrategy(
-        file_name=file_name,
-        file_like=file_like,
-        file_size=file_size,
-    )
-    uploader = S3MultipartUploader(
-        file_parts_strategy=file_parts_strategy, s3_helper=upload_helper
-    )
-    return uploader.upload(
+    return _send_direct_s3_multipart(
+        file_parts_strategy=FileLikePartsStrategy(
+            file_name=file_name,
+            file_like=file_like,
+            file_size=file_size,
+            max_file_part_size=multipart_options.part_size,
+        ),
+        upload_helper=upload_helper,
         session=session,
-        monitor=_monitor,
+        multipart_options=multipart_options,
+        parts_pool=parts_pool,
+        _monitor=_monitor,
     )
+
+
+def _send_direct_s3_multipart(
+    file_parts_strategy: BaseFilePartsStrategy,
+    upload_helper: S3MultipartBaseHelper,
+    session: requests.Session,
+    multipart_options: MultipartUploadOptions,
+    parts_pool: Optional[PartsUploadPool],
+    _monitor: Optional[UploadSizeMonitor],
+) -> Tuple[int, requests.Response]:
+    """The upload itself, shared by the file and file-like entry points.
+
+    Those two differ only in which strategy exposes the asset's bytes. Keeping the
+    rest here means a change to how parts are scheduled cannot reach one production
+    path and miss the other.
+    """
+    uploader = S3MultipartUploader.create(
+        file_parts_strategy=file_parts_strategy,
+        s3_helper=upload_helper,
+        scheduler=create_parts_upload_scheduler(
+            pool=parts_pool, options=multipart_options.parts_upload_options
+        ),
+    )
+
+    return uploader.upload(session=session, monitor=_monitor)
 
 
 def _create_strategy_and_helper_for_s3_direct_upload(
@@ -469,6 +505,7 @@ def _create_strategy_and_helper_for_s3_direct_upload(
 def upload_s3_multipart_file(
     options: FileUploadOptions,
     multipart_options: MultipartUploadOptions,
+    parts_pool: Optional[PartsUploadPool] = None,
     _monitor: Optional[UploadSizeMonitor] = None,
 ) -> requests.Response:
     retry_strategy, upload_helper = _create_strategy_and_helper_for_s3_direct_upload(
@@ -487,6 +524,8 @@ def upload_s3_multipart_file(
             file_size=options.estimated_size,
             upload_helper=upload_helper,
             session=session,
+            multipart_options=multipart_options,
+            parts_pool=parts_pool,
             _monitor=_monitor,
         )
 
@@ -566,6 +605,7 @@ def upload_s3_multipart_file(
 def upload_s3_multipart_file_like(
     options: FileLikeUploadOptions,
     multipart_options: MultipartUploadOptions,
+    parts_pool: Optional[PartsUploadPool] = None,
     _monitor: Optional[UploadSizeMonitor] = None,
 ) -> requests.Response:
     retry_strategy, upload_helper = _create_strategy_and_helper_for_s3_direct_upload(
@@ -585,6 +625,8 @@ def upload_s3_multipart_file_like(
             file_size=options.estimated_size,
             upload_helper=upload_helper,
             session=session,
+            multipart_options=multipart_options,
+            parts_pool=parts_pool,
             _monitor=_monitor,
         )
 

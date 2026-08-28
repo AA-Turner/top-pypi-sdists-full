@@ -1,14 +1,23 @@
 # SPDX-License-Identifier: PROPRIETARY
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
+import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from geneva.cluster.builder import default_image
+from geneva.manifest.pinning import (
+    unpinned_pip_requirements,
+    unpinned_requirements_file,
+    warn_unpinned,
+)
 
 if TYPE_CHECKING:
     from typing import Self
 
     from .mgr import GenevaManifest
+
+_LOG = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -37,6 +46,7 @@ class _ManifestBuilderBase:
         self._delete_local_zips: bool = False
         self._local_zip_output_dir: str | None = None
         self._env_vars: dict[str, str] = {}
+        self._allow_unpinned: bool = False
 
     def name(self, name: str) -> "Self":
         """Set the manifest name."""
@@ -119,6 +129,30 @@ class _ManifestBuilderBase:
         self._env_vars[key] = value
         return self  # type: ignore[return-value]
 
+    def allow_unpinned(self, allow: bool = True) -> "Self":
+        """Silence the recommendation to pin exact dependency versions.
+
+        Dependencies are installed on the Ray workers at run time, so ranged
+        or unversioned specifiers may resolve to versions that differ from the
+        local environment. Use this only when that drift is intended.
+        """
+        self._allow_unpinned = allow
+        return self  # type: ignore[return-value]
+
+    def _warn_unpinned(self, source: str, find: Callable[[], list[str]]) -> None:
+        """Recommend exact pins unless the user opted out.
+
+        Fails open: this is advice, so any error raised while working out
+        what to advise is swallowed. A manifest pip would accept must never
+        fail to build because the advisory could not read it.
+        """
+        if self._allow_unpinned:
+            return
+        try:
+            warn_unpinned(self._name, find(), source)
+        except Exception:
+            _LOG.debug("Skipping pinning check for %s", source, exc_info=True)
+
     def _build_manifest(
         self,
         pip: list[str] | None = None,
@@ -156,12 +190,17 @@ class PipManifestBuilder(_ManifestBuilderBase):
 
     This builder does NOT have conda methods - use CondaManifestBuilder for conda.
 
+    Pin every dependency to an exact version. Ranged specifiers
+    (``numpy>=2``) are resolved when Ray installs them on the workers, so they
+    can pick up a different version than the local environment and cause
+    failures that are hard to trace back to the manifest.
+
     Examples
     --------
 
         manifest = (
             PipManifestBuilder.create("my-manifest")
-            .pip(["numpy", "pandas"])
+            .pip(["numpy==2.1.3", "pandas==2.2.3"])
             .build()
         )
     """
@@ -175,18 +214,24 @@ class PipManifestBuilder(_ManifestBuilderBase):
     def pip(self, packages: list[str]) -> "PipManifestBuilder":
         """Set the runtime pip packages list.
 
+        Pin exact versions (``"numpy==2.1.3"``) rather than ranges so workers
+        install the same versions as the local environment.
+
         Cannot be used with .requirements_path().
         """
         self._pip = packages.copy()
         return self
 
     def add_pip(self, package: str) -> "PipManifestBuilder":
-        """Add a single pip package to the runtime environment."""
+        """Add a single pip package, ideally pinned (``"numpy==2.1.3"``)."""
         self._pip.append(package)
         return self
 
     def requirements_path(self, path: str) -> "PipManifestBuilder":
         """Set the path to a requirements.txt file.
+
+        Prefer a fully pinned file, such as one produced by ``pip freeze`` or
+        ``uv pip compile``.
 
         Cannot be used with .pip().
         """
@@ -203,9 +248,19 @@ class PipManifestBuilder(_ManifestBuilderBase):
         return self
 
     def build(self) -> "GenevaManifest":
-        """Build the GenevaManifest with pip configuration."""
+        """Build the GenevaManifest with pip configuration.
+
+        Logs a recommendation when any dependency is not pinned to an exact
+        version; call ``.allow_unpinned()`` to silence it.
+        """
         if len(self._pip) > 0 and self._requirements_path is not None:
             raise ValueError("Cannot set both pip and requirements_path")
+
+        if self._pip:
+            self._warn_unpinned("pip", lambda: unpinned_pip_requirements(self._pip))
+        elif self._requirements_path is not None:
+            path = self._requirements_path
+            self._warn_unpinned(path, lambda: unpinned_requirements_file(path))
 
         return self._build_manifest(
             pip=self._pip,
@@ -224,12 +279,18 @@ class CondaManifestBuilder(_ManifestBuilderBase):
 
     This builder does NOT have pip methods - use PipManifestBuilder for pip.
 
+    Pin every dependency to an exact version. Ranged specifiers
+    (``numpy>=2``) are resolved when Ray creates the environment on the
+    workers, so they can pick up a different version than the local
+    environment and cause failures that are hard to trace back to the
+    manifest.
+
     Examples
     --------
 
         manifest = (
             CondaManifestBuilder.create("my-manifest")
-            .conda({"dependencies": ["python=3.10", "numpy"]})
+            .conda({"dependencies": ["python=3.10.14", "numpy=2.1.3"]})
             .build()
         )
     """
@@ -242,6 +303,9 @@ class CondaManifestBuilder(_ManifestBuilderBase):
     def conda(self, dependencies: dict[str, Any]) -> "CondaManifestBuilder":
         """Set the conda dependencies for the runtime environment.
 
+        Pin exact versions (``"numpy=2.1.3"``) rather than ranges so workers
+        install the same versions as the local environment.
+
         Cannot be used with .conda_environment_path().
         """
         self._conda = dependencies.copy()
@@ -250,13 +314,20 @@ class CondaManifestBuilder(_ManifestBuilderBase):
     def conda_environment_path(self, path: str) -> "CondaManifestBuilder":
         """Set the path to a conda environment.yml file.
 
+        Prefer a fully pinned file, such as one produced by
+        ``conda env export``.
+
         Cannot be used with .conda().
         """
         self._conda_environment_path = path
         return self
 
     def build(self) -> "GenevaManifest":
-        """Build the GenevaManifest with conda configuration."""
+        """Build the GenevaManifest with conda configuration.
+
+        Logs a recommendation when any dependency is not pinned to an exact
+        version; call ``.allow_unpinned()`` to silence it.
+        """
         if len(self._conda) > 0 and self._conda_environment_path is not None:
             raise ValueError("Cannot set both conda and conda_environment_path")
 

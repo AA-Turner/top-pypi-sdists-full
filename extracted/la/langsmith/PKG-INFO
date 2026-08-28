@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langsmith
-Version: 0.11.1
+Version: 0.11.2
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
@@ -36,7 +36,7 @@ Provides-Extra: langsmith-pyo3
 Requires-Dist: langsmith-pyo3>=0.1.0rc2; extra == 'langsmith-pyo3'
 Provides-Extra: livekit
 Requires-Dist: cachetools>=5.0.0; extra == 'livekit'
-Requires-Dist: livekit-agents>=1.0; extra == 'livekit'
+Requires-Dist: livekit-agents>=1.6; extra == 'livekit'
 Requires-Dist: opentelemetry-api>=1.30.0; extra == 'livekit'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0; extra == 'livekit'
 Requires-Dist: opentelemetry-sdk>=1.30.0; extra == 'livekit'

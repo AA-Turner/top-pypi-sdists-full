@@ -51,7 +51,15 @@ AGENT_TYPE_BUILD_SCANNER = "BuildScanner"
 # the agent must defer arming coverage and skip backend execution polling
 # until the runner opens its own execution; otherwise footprints can be
 # attributed to a stale executionId or carry pre-execution timestamps.
-RUNNER_MANAGED_COMMANDS = ("pytest", "nose", "unittest", "behave")
+RUNNER_MANAGED_COMMANDS = ("pytest", "nose", "unittest", "behave", "robot", "pabot")
+
+# `--testNameFormat` values (contract C1, Rule 8). `full` reports Robot's
+# suite-qualified name; `short` reports the bare test name, which is what the
+# standalone robot/SLListener.py reports, so customers migrating with TIA
+# history keyed on bare names are not forced to retrain.
+TEST_NAME_FORMAT_FULL = "full"
+TEST_NAME_FORMAT_SHORT = "short"
+TEST_NAME_FORMATS = (TEST_NAME_FORMAT_FULL, TEST_NAME_FORMAT_SHORT)
 
 FUTURE_STATEMENTS = {
     "generators": 0,

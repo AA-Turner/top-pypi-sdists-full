@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.auth_pb2 import (
     CheckTeamInvitesRequest,
     CheckTeamInvitesResponse,
+    CreateSelfHostedLicenseKeyRequest,
+    CreateSelfHostedLicenseKeyResponse,
     CreateSessionRequest,
     CreateSessionResponse,
     CreateUserRequest,
@@ -34,8 +36,16 @@ from chalk._gen.chalk.server.v1.auth_pb2 import (
     GetUserByEmailResponse,
     GetUserByIdRequest,
     GetUserByIdResponse,
+    GetWorkloadIdentityTokenRequest,
+    GetWorkloadIdentityTokenResponse,
     LinkAccountRequest,
     LinkAccountResponse,
+    ListSelfHostedLicenseKeysRequest,
+    ListSelfHostedLicenseKeysResponse,
+    RenewInternalExchangeTokenRequest,
+    RenewInternalExchangeTokenResponse,
+    RevokeSelfHostedLicenseKeyRequest,
+    RevokeSelfHostedLicenseKeyResponse,
     SelfServiceCreateTeamRequest,
     SelfServiceCreateTeamResponse,
     UpdateLinkSessionRequest,
@@ -153,6 +163,29 @@ class AuthServiceStub:
     GetInternalWorkingToken: UnaryUnaryMultiCallable[
         GetInternalWorkingTokenRequest,
         GetInternalWorkingTokenResponse,
+    ]
+    RenewInternalExchangeToken: UnaryUnaryMultiCallable[
+        RenewInternalExchangeTokenRequest,
+        RenewInternalExchangeTokenResponse,
+    ]
+    GetWorkloadIdentityToken: UnaryUnaryMultiCallable[
+        GetWorkloadIdentityTokenRequest,
+        GetWorkloadIdentityTokenResponse,
+    ]
+    """Issues a short-lived OIDC ID token that third parties supporting workload
+    identity federation can validate against the JWKS published at <issuer>/.well-known/jwks.json.
+    """
+    CreateSelfHostedLicenseKey: UnaryUnaryMultiCallable[
+        CreateSelfHostedLicenseKeyRequest,
+        CreateSelfHostedLicenseKeyResponse,
+    ]
+    RevokeSelfHostedLicenseKey: UnaryUnaryMultiCallable[
+        RevokeSelfHostedLicenseKeyRequest,
+        RevokeSelfHostedLicenseKeyResponse,
+    ]
+    ListSelfHostedLicenseKeys: UnaryUnaryMultiCallable[
+        ListSelfHostedLicenseKeysRequest,
+        ListSelfHostedLicenseKeysResponse,
     ]
 
 class AuthServiceServicer(metaclass=ABCMeta):
@@ -290,5 +323,38 @@ class AuthServiceServicer(metaclass=ABCMeta):
         request: GetInternalWorkingTokenRequest,
         context: ServicerContext,
     ) -> GetInternalWorkingTokenResponse: ...
+    @abstractmethod
+    def RenewInternalExchangeToken(
+        self,
+        request: RenewInternalExchangeTokenRequest,
+        context: ServicerContext,
+    ) -> RenewInternalExchangeTokenResponse: ...
+    @abstractmethod
+    def GetWorkloadIdentityToken(
+        self,
+        request: GetWorkloadIdentityTokenRequest,
+        context: ServicerContext,
+    ) -> GetWorkloadIdentityTokenResponse:
+        """Issues a short-lived OIDC ID token that third parties supporting workload
+        identity federation can validate against the JWKS published at <issuer>/.well-known/jwks.json.
+        """
+    @abstractmethod
+    def CreateSelfHostedLicenseKey(
+        self,
+        request: CreateSelfHostedLicenseKeyRequest,
+        context: ServicerContext,
+    ) -> CreateSelfHostedLicenseKeyResponse: ...
+    @abstractmethod
+    def RevokeSelfHostedLicenseKey(
+        self,
+        request: RevokeSelfHostedLicenseKeyRequest,
+        context: ServicerContext,
+    ) -> RevokeSelfHostedLicenseKeyResponse: ...
+    @abstractmethod
+    def ListSelfHostedLicenseKeys(
+        self,
+        request: ListSelfHostedLicenseKeysRequest,
+        context: ServicerContext,
+    ) -> ListSelfHostedLicenseKeysResponse: ...
 
 def add_AuthServiceServicer_to_server(servicer: AuthServiceServicer, server: Server) -> None: ...

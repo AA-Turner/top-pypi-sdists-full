@@ -6,6 +6,11 @@ from typing import ClassVar as _ClassVar
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class PermissionPrincipal(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    PERMISSION_PRINCIPAL_UNSPECIFIED: _ClassVar[PermissionPrincipal]
+    PERMISSION_PRINCIPAL_SERVICE_TOKEN: _ClassVar[PermissionPrincipal]
+
 class Permission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     PERMISSION_UNSPECIFIED: _ClassVar[Permission]
@@ -45,7 +50,11 @@ class Permission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PERMISSION_INTERNAL_WORKING_TOKEN_EXCHANGE: _ClassVar[Permission]
     PERMISSION_BILLING_WRITE: _ClassVar[Permission]
     PERMISSION_QUERY_OFFLINE_READ: _ClassVar[Permission]
+    PERMISSION_INTERNAL_RESOURCE_SHARE_VIEW: _ClassVar[Permission]
+    PERMISSION_INTERNAL_EXCHANGE_TOKEN_RENEW: _ClassVar[Permission]
 
+PERMISSION_PRINCIPAL_UNSPECIFIED: PermissionPrincipal
+PERMISSION_PRINCIPAL_SERVICE_TOKEN: PermissionPrincipal
 PERMISSION_UNSPECIFIED: Permission
 PERMISSION_INSECURE_UNAUTHENTICATED: Permission
 PERMISSION_AUTHENTICATED: Permission
@@ -83,10 +92,14 @@ PERMISSION_INTERNAL_DATAPLANE_STATUS_UPDATE: Permission
 PERMISSION_INTERNAL_WORKING_TOKEN_EXCHANGE: Permission
 PERMISSION_BILLING_WRITE: Permission
 PERMISSION_QUERY_OFFLINE_READ: Permission
+PERMISSION_INTERNAL_RESOURCE_SHARE_VIEW: Permission
+PERMISSION_INTERNAL_EXCHANGE_TOKEN_RENEW: Permission
 DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
 description: _descriptor.FieldDescriptor
 SLUG_FIELD_NUMBER: _ClassVar[int]
 slug: _descriptor.FieldDescriptor
+ASSIGNABLE_TO_FIELD_NUMBER: _ClassVar[int]
+assignable_to: _descriptor.FieldDescriptor
 PERMISSION_FIELD_NUMBER: _ClassVar[int]
 permission: _descriptor.FieldDescriptor
 TEAM_PERMISSION_FIELD_NUMBER: _ClassVar[int]

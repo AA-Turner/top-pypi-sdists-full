@@ -6,12 +6,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from . import github_shell_bindings as _bindings
+from . import github_shell_control_flow as _control_flow
 from .github_capability_contract import (
     GitHubCommandAssessment,
     combine_github_assessments,
     github_assessment,
 )
 from .github_command_capabilities import classify_github_cli
+from .github_shell_redirections import github_shell_args_and_redirection
 
 
 def _text_assignment_updates(
@@ -123,7 +125,7 @@ def classify_github_shell_capabilities(
     analysis_text = _bindings.normalize_github_lookup_assignments(analysis_text)
     parts = analysis.split_parts(analysis_text)
     pipelines = analysis.pipelines(parts)
-    conditional_pipeline_indexes, definitely_skipped_pipelines = _bindings.pipeline_control_flow(
+    conditional_pipeline_indexes, definitely_skipped_pipelines = _control_flow.pipeline_control_flow(
         parts,
         pipelines,
         primary_command=analysis.primary_command,
@@ -461,27 +463,7 @@ def _classify_indirect_github_segment(
 
 
 def _classify_github_shell_segment(segment: list[str], command_index: int) -> GitHubCommandAssessment:
-    args: list[str] = []
-    has_redirection = False
-    index = command_index + 1
-    while index < len(segment):
-        token = segment[index]
-        if token in {"2>&1", "1>&2", "2>/dev/null", "2>NUL", "2>nul"}:
-            index += 1
-            continue
-        if token == "2>" and index + 1 < len(segment) and segment[index + 1].casefold() in {"/dev/null", "nul"}:
-            index += 2
-            continue
-        if token in {">", ">>", ">|", "<", "<<", "<<<"}:
-            has_redirection = True
-            index += 2
-            continue
-        if any(marker in token for marker in (">", "<")):
-            has_redirection = True
-            index += 1
-            continue
-        args.append(token)
-        index += 1
+    args, has_redirection = github_shell_args_and_redirection(segment, command_index)
     github_operation = classify_github_cli(args)
     if not has_redirection:
         return github_operation

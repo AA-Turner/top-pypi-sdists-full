@@ -1,0 +1,64 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+# NOTE: "_new" suffix is intentional — testing apps for the new
+# AnalyticsEngine flow are registered in the backend with distinct names
+# (e.g. "Flare Detection New") so the ORIGINAL app keeps running the legacy
+# post_processing flow. Drop the suffix only when the new flow replaces
+# the legacy one for this app.
+app:
+  id: flare_detection_new
+  name: "Flare Detection New"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+# ──────────────────────────────────────────────
+categories:
+  - INCIDENT
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+# ──────────────────────────────────────────────
+entity_mapping:
+  BadFlare: BadFlare
+  GoodFlare: GoodFlare
+
+# ──────────────────────────────────────────────
+# Incident Module — Flare Detection
+#
+# quant_strategy: count_based
+#   Computes incident_quant as (len(detections) / count_threshold) * 100,
+#   matching flare_analysis.py's existing intensity formula
+#   (min(10, total/threshold*10)) scaled from 0-10 to 0-100. Count-based,
+#   not area-based: a stray single large flare shouldn't dominate the way
+#   it would under fire's area_ratio strategy.
+#
+# count_threshold: 15
+#   Matches flare_analysis.py's default alert_config.count_thresholds["all"].
+# ──────────────────────────────────────────────
+incident:
+  quant_strategy: count_based
+  count_threshold: 15
+
+  incidentTypes:
+    - key: flare_detection
+      name: "Flare Detection"
+      thresholds:
+        - level: low
+          percentage: 0.0001
+        - level: medium
+          percentage: 50
+        - level: significant
+          percentage: 70
+        - level: critical
+          percentage: 90
+      order: ascending
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults: []
+  overrides: []

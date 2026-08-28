@@ -657,6 +657,17 @@ class MapTask(ABC):
     def memory(self) -> int | None:
         """Return the amount of RAM the task should use (None for default)"""
 
+    def resolve_memory(self, default_bytes: int) -> int | None:
+        """Bytes one actor reserves for this task.
+
+        The default is what the task declares, and nothing when it declares
+        nothing. ``default_bytes`` is the unset-UDF floor, which is a
+        *backfill* policy: only :class:`BackfillUDFTask` applies it, so a task
+        type that has its own memory contract -- a bulk load, a view refresh --
+        keeps it, and a new one keeps it without having to say so.
+        """
+        return self.memory()
+
     @abstractmethod
     def batch_size(self) -> int:
         """Return the batch size the task should use"""
@@ -1139,6 +1150,17 @@ class BackfillUDFTask(MapTask):
     def memory(self) -> int | None:
         _, udf = self.__get_udf()
         return udf.memory
+
+    @override
+    def resolve_memory(self, default_bytes: int) -> int | None:
+        """A UDF that declares no ``memory`` reserves the floor.
+
+        The one task the unset-UDF policy covers. ``@udf(memory=0)`` is a
+        declaration like any other -- a deliberate request for unreserved
+        scheduling -- so the test is ``is None`` rather than truthiness.
+        """
+        declared = self.memory()
+        return default_bytes if declared is None else declared
 
     @override
     def batch_size(self) -> int:

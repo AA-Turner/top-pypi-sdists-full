@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 from argparse import ArgumentParser, Namespace
 from typing import Dict
 
@@ -11,7 +12,7 @@ from idb.cli import ClientCommand
 from idb.common.types import Client, Permission
 
 
-_ARG_TO_ENUM: Dict[str, Permission] = {
+_ARG_TO_ENUM: dict[str, Permission] = {
     key.lower(): value for (key, value) in Permission.__members__.items()
 }
 

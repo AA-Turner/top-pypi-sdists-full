@@ -13,8 +13,11 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as chalk_dot_utils_dot_v1_dot_sensitive__pb2
+
+
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/server/v1/cloud_config.proto\x12\x0f\x63halk.server.v1"{\n\x13\x41WSCloudWatchConfig\x12)\n\x0elog_group_path\x18\x01 \x01(\tH\x00R\x0clogGroupPath\x88\x01\x01\x12&\n\x0flog_group_paths\x18\x02 \x03(\tR\rlogGroupPathsB\x11\n\x0f_log_group_path"\xab\x02\n\x16\x41WSSecretManagerConfig\x12)\n\x0esecret_kms_arn\x18\x01 \x01(\tH\x00R\x0csecretKmsArn\x88\x01\x01\x12X\n\x0bsecret_tags\x18\x02 \x03(\x0b\x32\x37.chalk.server.v1.AWSSecretManagerConfig.SecretTagsEntryR\nsecretTags\x12(\n\rsecret_prefix\x18\x03 \x01(\tH\x01R\x0csecretPrefix\x88\x01\x01\x1a=\n\x0fSecretTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x11\n\x0f_secret_kms_arnB\x10\n\x0e_secret_prefix"9\n\x1bGCPSecretReplicationReplica\x12\x1a\n\x08location\x18\x01 \x01(\tR\x08location"D\n\x0fGCPRegionConfig\x12"\n\nscope_type\x18\x01 \x01(\tH\x00R\tscopeType\x88\x01\x01\x42\r\n\x0b_scope_type"\x9e\x01\n\x16GCPSecretManagerConfig\x12(\n\rsecret_region\x18\x01 \x01(\tH\x00R\x0csecretRegion\x88\x01\x01\x12H\n\x08replicas\x18\x02 \x03(\x0b\x32,.chalk.server.v1.GCPSecretReplicationReplicaR\x08replicasB\x10\n\x0e_secret_region"\xad\x01\n\x13GCPWorkloadIdentity\x12,\n\x12gcp_project_number\x18\x01 \x01(\tR\x10gcpProjectNumber\x12.\n\x13gcp_service_account\x18\x02 \x01(\tR\x11gcpServiceAccount\x12\x17\n\x07pool_id\x18\x03 \x01(\tR\x06poolId\x12\x1f\n\x0bprovider_id\x18\x04 \x01(\tR\nproviderId"\x88\x02\n\x11\x44ockerBuildConfig\x12\x18\n\x07\x62uilder\x18\x01 \x01(\tR\x07\x62uilder\x12,\n\x12push_registry_type\x18\x02 \x01(\tR\x10pushRegistryType\x12\x37\n\x18push_registry_tag_prefix\x18\x03 \x01(\tR\x15pushRegistryTagPrefix\x12\x43\n\x1eregistry_credentials_secret_id\x18\x04 \x01(\tR\x1bregistryCredentialsSecretId\x12-\n\x12notification_topic\x18\x05 \x01(\tR\x11notificationTopic"l\n\x16\x45lasticsearchLogConfig\x12\x1a\n\x08username\x18\x01 \x01(\tR\x08username\x12\x1a\n\x08password\x18\x02 \x01(\tR\x08password\x12\x1a\n\x08\x65ndpoint\x18\x03 \x01(\tR\x08\x65ndpoint"\x83\x08\n\x0e\x41WSCloudConfig\x12\x1d\n\naccount_id\x18\x01 \x01(\tR\taccountId\x12.\n\x13management_role_arn\x18\x02 \x01(\tR\x11managementRoleArn\x12\x16\n\x06region\x18\x03 \x01(\tR\x06region\x12$\n\x0b\x65xternal_id\x18\x04 \x01(\tH\x00R\nexternalId\x88\x01\x01\x12k\n\x1d\x64\x65precated_cloud_watch_config\x18\x05 \x01(\x0b\x32$.chalk.server.v1.AWSCloudWatchConfigB\x02\x18\x01R\x1a\x64\x65precatedCloudWatchConfig\x12t\n deprecated_secret_manager_config\x18\x06 \x01(\x0b\x32\'.chalk.server.v1.AWSSecretManagerConfigB\x02\x18\x01R\x1d\x64\x65precatedSecretManagerConfig\x12U\n\x11workload_identity\x18\x07 \x01(\x0b\x32$.chalk.server.v1.GCPWorkloadIdentityB\x02\x18\x01R\x10workloadIdentity\x12R\n\x13\x64ocker_build_config\x18\x08 \x01(\x0b\x32".chalk.server.v1.DockerBuildConfigR\x11\x64ockerBuildConfig\x12\x61\n\x18\x65lasticsearch_log_config\x18\t \x01(\x0b\x32\'.chalk.server.v1.ElasticsearchLogConfigR\x16\x65lasticsearchLogConfig\x12Q\n\x11\x63loudwatch_config\x18\n \x01(\x0b\x32$.chalk.server.v1.AWSCloudWatchConfigR\x10\x63loudwatchConfig\x12Z\n\x14secretmanager_config\x18\x0b \x01(\x0b\x32\'.chalk.server.v1.AWSSecretManagerConfigR\x13secretmanagerConfig\x12X\n\x15gcp_workload_identity\x18\x0c \x01(\x0b\x32$.chalk.server.v1.GCPWorkloadIdentityR\x13gcpWorkloadIdentity\x12=\n\x18permissions_boundary_arn\x18\r \x01(\tH\x01R\x16permissionsBoundaryArn\x88\x01\x01\x42\x0e\n\x0c_external_idB\x1b\n\x19_permissions_boundary_arn"\xa0\x03\n\x0eGCPCloudConfig\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId\x12\x16\n\x06region\x18\x02 \x01(\tR\x06region\x12\x41\n\x1amanagement_service_account\x18\x03 \x01(\tH\x00R\x18managementServiceAccount\x88\x01\x01\x12R\n\x13\x64ocker_build_config\x18\x04 \x01(\x0b\x32".chalk.server.v1.DockerBuildConfigR\x11\x64ockerBuildConfig\x12Z\n\x14secretmanager_config\x18\x05 \x01(\x0b\x32\'.chalk.server.v1.GCPSecretManagerConfigR\x13secretmanagerConfig\x12\x45\n\rregion_config\x18\x06 \x01(\x0b\x32 .chalk.server.v1.GCPRegionConfigR\x0cregionConfigB\x1d\n\x1b_management_service_account"Z\n\x1c\x41zureContainerRegistryConfig\x12(\n\rregistry_name\x18\x01 \x01(\tH\x00R\x0cregistryName\x88\x01\x01\x42\x10\n\x0e_registry_name"H\n\x13\x41zureKeyVaultConfig\x12"\n\nvault_name\x18\x01 \x01(\tH\x00R\tvaultName\x88\x01\x01\x42\r\n\x0b_vault_name"\x80\x04\n\x10\x41zureCloudConfig\x12\'\n\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1b\n\ttenant_id\x18\x02 \x01(\tR\x08tenantId\x12\x16\n\x06region\x18\x03 \x01(\tR\x06region\x12%\n\x0eresource_group\x18\x04 \x01(\tR\rresourceGroup\x12R\n\x13\x64ocker_build_config\x18\x06 \x01(\x0b\x32".chalk.server.v1.DockerBuildConfigR\x11\x64ockerBuildConfig\x12i\n\x19\x63ontainer_registry_config\x18\x07 \x01(\x0b\x32-.chalk.server.v1.AzureContainerRegistryConfigR\x17\x63ontainerRegistryConfig\x12N\n\x10key_vault_config\x18\x08 \x01(\x0b\x32$.chalk.server.v1.AzureKeyVaultConfigR\x0ekeyVaultConfig\x12X\n\x15gcp_workload_identity\x18\t \x01(\x0b\x32$.chalk.server.v1.GCPWorkloadIdentityR\x13gcpWorkloadIdentity"\xbc\x01\n\x0b\x43loudConfig\x12\x33\n\x03\x61ws\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.AWSCloudConfigH\x00R\x03\x61ws\x12\x33\n\x03gcp\x18\x02 \x01(\x0b\x32\x1f.chalk.server.v1.GCPCloudConfigH\x00R\x03gcp\x12\x39\n\x05\x61zure\x18\x03 \x01(\x0b\x32!.chalk.server.v1.AzureCloudConfigH\x00R\x05\x61zureB\x08\n\x06\x63onfigB\x99\x01\n\x13\x63om.chalk.server.v1B\x10\x43loudConfigProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n"chalk/server/v1/cloud_config.proto\x12\x0f\x63halk.server.v1\x1a\x1e\x63halk/utils/v1/sensitive.proto"{\n\x13\x41WSCloudWatchConfig\x12)\n\x0elog_group_path\x18\x01 \x01(\tH\x00R\x0clogGroupPath\x88\x01\x01\x12&\n\x0flog_group_paths\x18\x02 \x03(\tR\rlogGroupPathsB\x11\n\x0f_log_group_path"\xab\x02\n\x16\x41WSSecretManagerConfig\x12)\n\x0esecret_kms_arn\x18\x01 \x01(\tH\x00R\x0csecretKmsArn\x88\x01\x01\x12X\n\x0bsecret_tags\x18\x02 \x03(\x0b\x32\x37.chalk.server.v1.AWSSecretManagerConfig.SecretTagsEntryR\nsecretTags\x12(\n\rsecret_prefix\x18\x03 \x01(\tH\x01R\x0csecretPrefix\x88\x01\x01\x1a=\n\x0fSecretTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x11\n\x0f_secret_kms_arnB\x10\n\x0e_secret_prefix"9\n\x1bGCPSecretReplicationReplica\x12\x1a\n\x08location\x18\x01 \x01(\tR\x08location"D\n\x0fGCPRegionConfig\x12"\n\nscope_type\x18\x01 \x01(\tH\x00R\tscopeType\x88\x01\x01\x42\r\n\x0b_scope_type"\x9e\x01\n\x16GCPSecretManagerConfig\x12(\n\rsecret_region\x18\x01 \x01(\tH\x00R\x0csecretRegion\x88\x01\x01\x12H\n\x08replicas\x18\x02 \x03(\x0b\x32,.chalk.server.v1.GCPSecretReplicationReplicaR\x08replicasB\x10\n\x0e_secret_region"\xad\x01\n\x13GCPWorkloadIdentity\x12,\n\x12gcp_project_number\x18\x01 \x01(\tR\x10gcpProjectNumber\x12.\n\x13gcp_service_account\x18\x02 \x01(\tR\x11gcpServiceAccount\x12\x17\n\x07pool_id\x18\x03 \x01(\tR\x06poolId\x12\x1f\n\x0bprovider_id\x18\x04 \x01(\tR\nproviderId"\x88\x02\n\x11\x44ockerBuildConfig\x12\x18\n\x07\x62uilder\x18\x01 \x01(\tR\x07\x62uilder\x12,\n\x12push_registry_type\x18\x02 \x01(\tR\x10pushRegistryType\x12\x37\n\x18push_registry_tag_prefix\x18\x03 \x01(\tR\x15pushRegistryTagPrefix\x12\x43\n\x1eregistry_credentials_secret_id\x18\x04 \x01(\tR\x1bregistryCredentialsSecretId\x12-\n\x12notification_topic\x18\x05 \x01(\tR\x11notificationTopic"r\n\x16\x45lasticsearchLogConfig\x12\x1a\n\x08username\x18\x01 \x01(\tR\x08username\x12 \n\x08password\x18\x02 \x01(\tB\x04\xd8\xa1\'\x01R\x08password\x12\x1a\n\x08\x65ndpoint\x18\x03 \x01(\tR\x08\x65ndpoint"\x83\x08\n\x0e\x41WSCloudConfig\x12\x1d\n\naccount_id\x18\x01 \x01(\tR\taccountId\x12.\n\x13management_role_arn\x18\x02 \x01(\tR\x11managementRoleArn\x12\x16\n\x06region\x18\x03 \x01(\tR\x06region\x12$\n\x0b\x65xternal_id\x18\x04 \x01(\tH\x00R\nexternalId\x88\x01\x01\x12k\n\x1d\x64\x65precated_cloud_watch_config\x18\x05 \x01(\x0b\x32$.chalk.server.v1.AWSCloudWatchConfigB\x02\x18\x01R\x1a\x64\x65precatedCloudWatchConfig\x12t\n deprecated_secret_manager_config\x18\x06 \x01(\x0b\x32\'.chalk.server.v1.AWSSecretManagerConfigB\x02\x18\x01R\x1d\x64\x65precatedSecretManagerConfig\x12U\n\x11workload_identity\x18\x07 \x01(\x0b\x32$.chalk.server.v1.GCPWorkloadIdentityB\x02\x18\x01R\x10workloadIdentity\x12R\n\x13\x64ocker_build_config\x18\x08 \x01(\x0b\x32".chalk.server.v1.DockerBuildConfigR\x11\x64ockerBuildConfig\x12\x61\n\x18\x65lasticsearch_log_config\x18\t \x01(\x0b\x32\'.chalk.server.v1.ElasticsearchLogConfigR\x16\x65lasticsearchLogConfig\x12Q\n\x11\x63loudwatch_config\x18\n \x01(\x0b\x32$.chalk.server.v1.AWSCloudWatchConfigR\x10\x63loudwatchConfig\x12Z\n\x14secretmanager_config\x18\x0b \x01(\x0b\x32\'.chalk.server.v1.AWSSecretManagerConfigR\x13secretmanagerConfig\x12X\n\x15gcp_workload_identity\x18\x0c \x01(\x0b\x32$.chalk.server.v1.GCPWorkloadIdentityR\x13gcpWorkloadIdentity\x12=\n\x18permissions_boundary_arn\x18\r \x01(\tH\x01R\x16permissionsBoundaryArn\x88\x01\x01\x42\x0e\n\x0c_external_idB\x1b\n\x19_permissions_boundary_arn"\xa0\x03\n\x0eGCPCloudConfig\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId\x12\x16\n\x06region\x18\x02 \x01(\tR\x06region\x12\x41\n\x1amanagement_service_account\x18\x03 \x01(\tH\x00R\x18managementServiceAccount\x88\x01\x01\x12R\n\x13\x64ocker_build_config\x18\x04 \x01(\x0b\x32".chalk.server.v1.DockerBuildConfigR\x11\x64ockerBuildConfig\x12Z\n\x14secretmanager_config\x18\x05 \x01(\x0b\x32\'.chalk.server.v1.GCPSecretManagerConfigR\x13secretmanagerConfig\x12\x45\n\rregion_config\x18\x06 \x01(\x0b\x32 .chalk.server.v1.GCPRegionConfigR\x0cregionConfigB\x1d\n\x1b_management_service_account"Z\n\x1c\x41zureContainerRegistryConfig\x12(\n\rregistry_name\x18\x01 \x01(\tH\x00R\x0cregistryName\x88\x01\x01\x42\x10\n\x0e_registry_name"H\n\x13\x41zureKeyVaultConfig\x12"\n\nvault_name\x18\x01 \x01(\tH\x00R\tvaultName\x88\x01\x01\x42\r\n\x0b_vault_name"\x80\x04\n\x10\x41zureCloudConfig\x12\'\n\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1b\n\ttenant_id\x18\x02 \x01(\tR\x08tenantId\x12\x16\n\x06region\x18\x03 \x01(\tR\x06region\x12%\n\x0eresource_group\x18\x04 \x01(\tR\rresourceGroup\x12R\n\x13\x64ocker_build_config\x18\x06 \x01(\x0b\x32".chalk.server.v1.DockerBuildConfigR\x11\x64ockerBuildConfig\x12i\n\x19\x63ontainer_registry_config\x18\x07 \x01(\x0b\x32-.chalk.server.v1.AzureContainerRegistryConfigR\x17\x63ontainerRegistryConfig\x12N\n\x10key_vault_config\x18\x08 \x01(\x0b\x32$.chalk.server.v1.AzureKeyVaultConfigR\x0ekeyVaultConfig\x12X\n\x15gcp_workload_identity\x18\t \x01(\x0b\x32$.chalk.server.v1.GCPWorkloadIdentityR\x13gcpWorkloadIdentity"\xbc\x01\n\x0b\x43loudConfig\x12\x33\n\x03\x61ws\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.AWSCloudConfigH\x00R\x03\x61ws\x12\x33\n\x03gcp\x18\x02 \x01(\x0b\x32\x1f.chalk.server.v1.GCPCloudConfigH\x00R\x03gcp\x12\x39\n\x05\x61zure\x18\x03 \x01(\x0b\x32!.chalk.server.v1.AzureCloudConfigH\x00R\x05\x61zureB\x08\n\x06\x63onfigB\x99\x01\n\x13\x63om.chalk.server.v1B\x10\x43loudConfigProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -27,40 +30,42 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.server.v1B\020CloudConfigProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
     _globals["_AWSSECRETMANAGERCONFIG_SECRETTAGSENTRY"]._options = None
     _globals["_AWSSECRETMANAGERCONFIG_SECRETTAGSENTRY"]._serialized_options = b"8\001"
+    _globals["_ELASTICSEARCHLOGCONFIG"].fields_by_name["password"]._options = None
+    _globals["_ELASTICSEARCHLOGCONFIG"].fields_by_name["password"]._serialized_options = b"\330\241'\001"
     _globals["_AWSCLOUDCONFIG"].fields_by_name["deprecated_cloud_watch_config"]._options = None
     _globals["_AWSCLOUDCONFIG"].fields_by_name["deprecated_cloud_watch_config"]._serialized_options = b"\030\001"
     _globals["_AWSCLOUDCONFIG"].fields_by_name["deprecated_secret_manager_config"]._options = None
     _globals["_AWSCLOUDCONFIG"].fields_by_name["deprecated_secret_manager_config"]._serialized_options = b"\030\001"
     _globals["_AWSCLOUDCONFIG"].fields_by_name["workload_identity"]._options = None
     _globals["_AWSCLOUDCONFIG"].fields_by_name["workload_identity"]._serialized_options = b"\030\001"
-    _globals["_AWSCLOUDWATCHCONFIG"]._serialized_start = 55
-    _globals["_AWSCLOUDWATCHCONFIG"]._serialized_end = 178
-    _globals["_AWSSECRETMANAGERCONFIG"]._serialized_start = 181
-    _globals["_AWSSECRETMANAGERCONFIG"]._serialized_end = 480
-    _globals["_AWSSECRETMANAGERCONFIG_SECRETTAGSENTRY"]._serialized_start = 382
-    _globals["_AWSSECRETMANAGERCONFIG_SECRETTAGSENTRY"]._serialized_end = 443
-    _globals["_GCPSECRETREPLICATIONREPLICA"]._serialized_start = 482
-    _globals["_GCPSECRETREPLICATIONREPLICA"]._serialized_end = 539
-    _globals["_GCPREGIONCONFIG"]._serialized_start = 541
-    _globals["_GCPREGIONCONFIG"]._serialized_end = 609
-    _globals["_GCPSECRETMANAGERCONFIG"]._serialized_start = 612
-    _globals["_GCPSECRETMANAGERCONFIG"]._serialized_end = 770
-    _globals["_GCPWORKLOADIDENTITY"]._serialized_start = 773
-    _globals["_GCPWORKLOADIDENTITY"]._serialized_end = 946
-    _globals["_DOCKERBUILDCONFIG"]._serialized_start = 949
-    _globals["_DOCKERBUILDCONFIG"]._serialized_end = 1213
-    _globals["_ELASTICSEARCHLOGCONFIG"]._serialized_start = 1215
-    _globals["_ELASTICSEARCHLOGCONFIG"]._serialized_end = 1323
-    _globals["_AWSCLOUDCONFIG"]._serialized_start = 1326
-    _globals["_AWSCLOUDCONFIG"]._serialized_end = 2353
-    _globals["_GCPCLOUDCONFIG"]._serialized_start = 2356
-    _globals["_GCPCLOUDCONFIG"]._serialized_end = 2772
-    _globals["_AZURECONTAINERREGISTRYCONFIG"]._serialized_start = 2774
-    _globals["_AZURECONTAINERREGISTRYCONFIG"]._serialized_end = 2864
-    _globals["_AZUREKEYVAULTCONFIG"]._serialized_start = 2866
-    _globals["_AZUREKEYVAULTCONFIG"]._serialized_end = 2938
-    _globals["_AZURECLOUDCONFIG"]._serialized_start = 2941
-    _globals["_AZURECLOUDCONFIG"]._serialized_end = 3453
-    _globals["_CLOUDCONFIG"]._serialized_start = 3456
-    _globals["_CLOUDCONFIG"]._serialized_end = 3644
+    _globals["_AWSCLOUDWATCHCONFIG"]._serialized_start = 87
+    _globals["_AWSCLOUDWATCHCONFIG"]._serialized_end = 210
+    _globals["_AWSSECRETMANAGERCONFIG"]._serialized_start = 213
+    _globals["_AWSSECRETMANAGERCONFIG"]._serialized_end = 512
+    _globals["_AWSSECRETMANAGERCONFIG_SECRETTAGSENTRY"]._serialized_start = 414
+    _globals["_AWSSECRETMANAGERCONFIG_SECRETTAGSENTRY"]._serialized_end = 475
+    _globals["_GCPSECRETREPLICATIONREPLICA"]._serialized_start = 514
+    _globals["_GCPSECRETREPLICATIONREPLICA"]._serialized_end = 571
+    _globals["_GCPREGIONCONFIG"]._serialized_start = 573
+    _globals["_GCPREGIONCONFIG"]._serialized_end = 641
+    _globals["_GCPSECRETMANAGERCONFIG"]._serialized_start = 644
+    _globals["_GCPSECRETMANAGERCONFIG"]._serialized_end = 802
+    _globals["_GCPWORKLOADIDENTITY"]._serialized_start = 805
+    _globals["_GCPWORKLOADIDENTITY"]._serialized_end = 978
+    _globals["_DOCKERBUILDCONFIG"]._serialized_start = 981
+    _globals["_DOCKERBUILDCONFIG"]._serialized_end = 1245
+    _globals["_ELASTICSEARCHLOGCONFIG"]._serialized_start = 1247
+    _globals["_ELASTICSEARCHLOGCONFIG"]._serialized_end = 1361
+    _globals["_AWSCLOUDCONFIG"]._serialized_start = 1364
+    _globals["_AWSCLOUDCONFIG"]._serialized_end = 2391
+    _globals["_GCPCLOUDCONFIG"]._serialized_start = 2394
+    _globals["_GCPCLOUDCONFIG"]._serialized_end = 2810
+    _globals["_AZURECONTAINERREGISTRYCONFIG"]._serialized_start = 2812
+    _globals["_AZURECONTAINERREGISTRYCONFIG"]._serialized_end = 2902
+    _globals["_AZUREKEYVAULTCONFIG"]._serialized_start = 2904
+    _globals["_AZUREKEYVAULTCONFIG"]._serialized_end = 2976
+    _globals["_AZURECLOUDCONFIG"]._serialized_start = 2979
+    _globals["_AZURECLOUDCONFIG"]._serialized_end = 3491
+    _globals["_CLOUDCONFIG"]._serialized_start = 3494
+    _globals["_CLOUDCONFIG"]._serialized_end = 3682
 # @@protoc_insertion_point(module_scope)

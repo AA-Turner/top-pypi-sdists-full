@@ -16,8 +16,9 @@ class UntagResourcesShrinkRequest(DaraModel):
         # 
         # Enumerated values:
         # 
-        # *   true
-        # *   false
+        # - true
+        # 
+        # - false
         self.all = all
         # The names of the resources. You can specify up to 50 resource names.
         self.resource_names_shrink = resource_names_shrink
@@ -25,8 +26,9 @@ class UntagResourcesShrinkRequest(DaraModel):
         # 
         # Enumerated values:
         # 
-        # *   role: RAM roles.
-        # *   policy: policies.
+        # - role: RAM roles.
+        # 
+        # - policy: policies.
         self.resource_type = resource_type
         # The keys of the tags. You can specify up to 20 tag keys.
         self.tag_keys_shrink = tag_keys_shrink

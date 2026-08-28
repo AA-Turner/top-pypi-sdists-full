@@ -30,6 +30,7 @@ from geneva.checkpoint import (
 from geneva.db import NamespaceConfig, _directory_namespace_storage_properties
 from geneva.errors import CheckpointCoverageError, ShortFragmentWriteError
 from geneva.fragment_writer import get_fragment_file_writer
+from geneva.runners.ray.naming import ray_name
 from geneva.utils import (
     get_null_value_for_type,
     make_null_array,
@@ -1141,6 +1142,10 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
         default=None,
         validator=attrs.validators.optional(attrs.validators.gt(0)),
     )
+    # Dashboard-only labels so this actor's Ray repr names the job and table it
+    # writes for; see ``__repr__``.
+    job_id: str | None = None
+    table_name: str | None = None
 
     _store: CheckpointStore = attrs.field(init=False)
     # Written by write(), read by the probe thread: a lone reference swap of a
@@ -1154,14 +1159,21 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
     def __repr__(self) -> str:
         """Crash-safe repr Ray uses as the per-line log prefix.
 
-        Ray stamps ``repr(self)`` onto every log line this actor emits, so the
-        full attrs repr would splat the writer config onto every line. Keep it
-        to a short fragment identifier.
+        Ray stamps ``repr(self)`` onto every log line this actor emits and shows
+        it in the dashboard's actor list, so the full attrs repr would splat the
+        writer config onto every line. Keep it to the fragment plus the fields
+        that tie the actor back to its ``_geneva_jobs`` row.
         """
         try:
-            return f"FragmentWriter(fragment_id={self.fragment_id})"
+            return ray_name(
+                "writer",
+                table=self.table_name,
+                column=",".join(self.column_names) if self.column_names else None,
+                job_id=self.job_id,
+                detail=f"frag={self.fragment_id}",
+            )
         except Exception:
-            return "FragmentWriter"
+            return "writer"
 
     def __attrs_post_init__(self) -> None:
         self._store = CheckpointStore.from_uri(

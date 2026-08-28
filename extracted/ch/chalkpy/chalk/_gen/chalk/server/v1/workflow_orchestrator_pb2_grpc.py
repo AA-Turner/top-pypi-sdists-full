@@ -17,6 +17,11 @@ class WorkflowOrchestratorServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.GetWorkflowOrchestratorConnectionDetails = channel.unary_unary(
+            "/chalk.server.v1.WorkflowOrchestratorService/GetWorkflowOrchestratorConnectionDetails",
+            request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorConnectionDetailsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorConnectionDetailsResponse.FromString,
+        )
         self.ListWorkflowOrchestratorNamespaces = channel.unary_unary(
             "/chalk.server.v1.WorkflowOrchestratorService/ListWorkflowOrchestratorNamespaces",
             request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.ListWorkflowOrchestratorNamespacesRequest.SerializeToString,
@@ -41,6 +46,14 @@ class WorkflowOrchestratorServiceStub(object):
 
 class WorkflowOrchestratorServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def GetWorkflowOrchestratorConnectionDetails(self, request, context):
+        """Returns how a client (e.g. chalkpy's chalk.workflows) should reach this
+        environment's Temporal frontend directly to start and await workflows.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def ListWorkflowOrchestratorNamespaces(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -69,6 +82,11 @@ class WorkflowOrchestratorServiceServicer(object):
 
 def add_WorkflowOrchestratorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "GetWorkflowOrchestratorConnectionDetails": grpc.unary_unary_rpc_method_handler(
+            servicer.GetWorkflowOrchestratorConnectionDetails,
+            request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorConnectionDetailsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorConnectionDetailsResponse.SerializeToString,
+        ),
         "ListWorkflowOrchestratorNamespaces": grpc.unary_unary_rpc_method_handler(
             servicer.ListWorkflowOrchestratorNamespaces,
             request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.ListWorkflowOrchestratorNamespacesRequest.FromString,
@@ -99,6 +117,35 @@ def add_WorkflowOrchestratorServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class WorkflowOrchestratorService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def GetWorkflowOrchestratorConnectionDetails(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorkflowOrchestratorService/GetWorkflowOrchestratorConnectionDetails",
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorConnectionDetailsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorConnectionDetailsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def ListWorkflowOrchestratorNamespaces(

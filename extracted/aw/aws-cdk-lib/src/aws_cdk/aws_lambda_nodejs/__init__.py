@@ -1655,7 +1655,7 @@ class NodejsFunction(
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -1915,7 +1915,7 @@ class NodejsFunctionProps(_aws_lambda_b8f2f472.FunctionOptions):
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -2714,7 +2714,8 @@ class NodejsFunctionProps(_aws_lambda_b8f2f472.FunctionOptions):
     def snap_start(self) -> typing.Optional["_aws_lambda_b8f2f472.SnapStartConf"]:
         '''Enable SnapStart for Lambda Function.
 
-        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime
+        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime,
+        as well as container image (OCI) deployments.
 
         :default: - No snapstart
         '''

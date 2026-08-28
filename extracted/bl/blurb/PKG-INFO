@@ -1,23 +1,23 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: blurb
-Version: 2.0.0
+Version: 2.1.0
 Summary: Command-line tool to manage CPython Misc/NEWS.d entries.
 Project-URL: Changelog, https://github.com/python/blurb/blob/main/CHANGELOG.md
 Project-URL: Homepage, https://github.com/python/blurb
 Project-URL: Source, https://github.com/python/blurb
 Author-email: Larry Hastings <larry@hastings.org>
-Maintainer-email: Python Core Developers <core-workflow@mail.python.org>
+Maintainer: Python Core Team
 License-File: LICENSE.txt
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10
 Provides-Extra: tests
 Requires-Dist: pyfakefs; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
@@ -89,14 +89,6 @@ managers.
 
 
 
-### blurb help
-
-**blurb** is self-documenting through the `blurb help` subcommand.
-Run without any further arguments, it prints a list of all subcommands,
-with a one-line summary of the functionality of each.  Run with a
-third argument, it prints help on that subcommand (e.g. `blurb help release`).
-
-
 ### blurb add
 
 `blurb add` adds a new `Misc/NEWS` entry for you.
@@ -113,7 +105,7 @@ The template for the `blurb add` message looks like this:
 
     #
     # Uncomment one of these "section:" lines to specify which section
-    # this entry should go in in Misc/NEWS.
+    # this entry should go in Misc/NEWS.
     #
     #.. section: Security
     #.. section: Core and Builtins
@@ -135,11 +127,25 @@ Here's how you interact with the file:
 
 * Add the GitHub issue number for this commit to the
   end of the `.. gh-issue:` line.
+  The issue can also be specified via the ``-i`` / ``--issue`` option:
+
+  ```shell
+  $ blurb add -i 109198
+  # or equivalently
+  $ blurb add -i https://github.com/python/cpython/issues/109198
+  ```
 
 * Uncomment the line with the relevant `Misc/NEWS` section for this entry.
   For example, if this should go in the `Library` section, uncomment
   the line reading `#.. section: Library`.  To uncomment, just delete
   the `#` at the front of the line.
+  The section can also be specified via the ``-s`` / ``--section`` option:
+
+  ```shell
+  $ blurb add -s Library
+  # or
+  $ blurb add -s library
+  ```
 
 * Finally, go to the end of the file, and enter your `NEWS` entry.
   This should be a single paragraph of English text using
@@ -235,6 +241,12 @@ don't need to touch anything up — the system will already do
 the right thing.  If `NEWS` entries were already written to the
 final version directory, you'd have to move those around as
 part of the cherry-picking process.
+
+## Getting help
+
+Run `blurb --help` for a list of subcommands,
+and `blurb <subcommand> --help` for help on a specific subcommand.
+
 
 ## Copyright
 

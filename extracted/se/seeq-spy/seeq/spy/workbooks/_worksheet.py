@@ -399,13 +399,52 @@ class WorksheetForAnalysisOrRoom(Worksheet):
 
         workstep_tuples_to_pull = set()
         if current_workstep_id is not None:
-            workstep_tuples_to_pull.add((self.workbook.id, self.id, current_workstep_id))
-            self._definition['Current Workstep ID'] = current_workstep_id
+            self._pull_current_workstep(session, current_workstep_id, status)
 
         if include_referenced_worksteps and self._annotation is not None:
             for workbook_id, worksheet_id, workstep_id in self._annotation.referenced_worksteps:
-                if isinstance(self._annotation, Journal) or worksheet_id == self.id:
+                if workstep_id is None:
+                    continue
+
+                if worksheet_id == self.id:
+                    # This worksheet's Journal claims to own the workstep -- pull it as normal. Ownership is
+                    # verified (not trusted outright) in _pull_worksteps(): Annotation.push() unconditionally
+                    # rewrites every workstep link's "worksheet=" portion to match the *containing* worksheet, so a
+                    # copy/pasted link whose workstep is actually foreign can still show up here with worksheet_id
+                    # == self.id.
                     workstep_tuples_to_pull.add((workbook_id, worksheet_id, workstep_id))
+                    continue
+
+                # This worksheet's Journal references a workstep it doesn't own -- e.g. a copy/pasted Journal link,
+                # whether from a sibling worksheet or a different workbook entirely. We can't just adopt the
+                # original: that would give two Worksheet objects a copy of the same Workstep, which then gets
+                # pushed twice, with the second push clobbering the first one's entry in the item map (CRAB-63894).
+                # And even if we routed it to whichever Worksheet object really owns it, push would still corrupt
+                # the link: Annotation.push() unconditionally rewrites every workstep link's "worksheet=" portion to
+                # match the *containing* worksheet, so a link that (correctly) named some other worksheet would come
+                # out the other side pointing at a worksheet that doesn't actually contain that workstep.
+                #
+                # So instead we fetch the workstep's Data directly via the (non-worksheet-scoped) Items API -- it
+                # doesn't care whether the claimed owner is accurate -- mint a private copy owned by this worksheet,
+                # and rewrite the Journal link to match. This mirrors what the appserver itself does when
+                # duplicating a workbook: it mints a brand-new Workstep for each one a Journal links to and rewrites
+                # the GUIDs in the document (see Duplicator.kt), rather than reusing the original.
+                data = self._fetch_workstep_data_via_items_api(session, workstep_id, status)
+                if data is None:
+                    status.warn(f'{self} Journal references Workstep {workstep_id} of Worksheet '
+                                f'{worksheet_id} in Workbook {workbook_id}, but that Workstep could not be found at '
+                                f'all. The Journal link will be left as-is.')
+                    continue
+
+                cloned_workstep = self._instantiate_new_workstep(definition={'Data': data})
+
+                pattern = _common.workstep_reference_regex(workbook_id, worksheet_id, workstep_id)
+                replacement = f'workbook={self.workbook.id}&amp;worksheet={self.id}&amp;workstep={cloned_workstep.id}'
+                self._annotation.html = re.sub(pattern, replacement, self._annotation.html, flags=re.IGNORECASE)
+
+                status.log(f'{self} Journal references Workstep {workstep_id} of Worksheet {worksheet_id} in '
+                           f'Workbook {workbook_id}, which this worksheet does not own. Created a copy (Workstep '
+                           f'{cloned_workstep.id}) owned by {self} and updated the Journal link to match.')
 
         if extra_workstep_tuples:
             for extra_workbook_id, extra_worksheet_id, extra_workstep_id in extra_workstep_tuples:
@@ -418,14 +457,89 @@ class WorksheetForAnalysisOrRoom(Worksheet):
             workstep = self._instantiate_new_workstep()
             self._definition['Current Workstep ID'] = workstep['ID']
 
+    def _pull_workstep_if_correctly_owned_by_this_worksheet(self, session: Session, workstep_tuple, status: Status) -> \
+            Optional[Workstep]:
+        workstep_id = workstep_tuple[2]
+        workstep = AnalysisWorkstep(self, {'ID': workstep_id})
+        if not workstep._pull(session, workstep_tuple, status, none_if_not_owned=True):
+            self.worksteps.pop(workstep_id, None)
+            return None
+        return workstep
+
+    def _pull_current_workstep(self, session: Session, current_workstep_id: str, status: Status):
+        workstep_tuple = (self.workbook.id, self.id, current_workstep_id)
+        workstep = self._pull_workstep_if_correctly_owned_by_this_worksheet(session, workstep_tuple, status)
+        if workstep is not None:
+            self.worksteps[current_workstep_id] = workstep
+            self._definition['Current Workstep ID'] = current_workstep_id
+            return
+
+        # get_workstep() enforces single ownership, so this means the worksheet's own reported current workstep
+        # isn't actually owned by it.
+        data = self._fetch_workstep_data_via_items_api(session, current_workstep_id, status)
+        if data is None:
+            status.warn(f'{self} reports Current Workstep ID {current_workstep_id}, but that Workstep could not '
+                        f'be found at all. {self} will be pulled with a new, blank current workstep instead.')
+            return
+
+        # The workstep genuinely exists, just not under this worksheet -- mint a private copy owned by this
+        # worksheet instead, the same way a foreign Journal reference is handled above.
+        cloned_workstep = self._instantiate_new_workstep(definition={'Data': data})
+        self._definition['Current Workstep ID'] = cloned_workstep.id
+        status.warn(f'{self} reports Current Workstep ID {current_workstep_id}, but that Workstep is actually '
+                    f'owned by a different worksheet. Created a private copy (Workstep {cloned_workstep.id}) '
+                    f'owned by {self} instead.')
+
+    @staticmethod
+    def _fetch_workstep_data_via_items_api(session: Session, workstep_id: str, status: Status):
+        # get_workstep() is worksheet-scoped and 404s unless the given worksheet actually owns the workstep. The
+        # generic Items API isn't worksheet-scoped, so it can still recover the Data as long as the item exists.
+        items_api = ItemsApi(session.client)
+        item = safely(
+            lambda: items_api.get_item_and_all_properties(id=workstep_id),
+            action_description=f'get Item and properties for Workstep {workstep_id}',
+            ignore_errors=[404],
+            status=status)
+
+        if item is None:
+            return None
+
+        data_property = next((p for p in item.properties if p.name == 'Data'), None)
+        if data_property is None or data_property.value is None:
+            return None
+
+        return Workstep.parse_data(data_property.value, workstep_id, status)
+
     def _pull_worksteps(self, session: Session, workstep_tuples, status: Status):
         for workstep_tuple in workstep_tuples:
             workbook_id, worksheet_id, workstep_id = workstep_tuple
-            if workstep_id not in self.worksteps:
-                self.workbook.update_status('Pulling worksteps', 0)
-                self.worksteps[workstep_id] = Workstep.pull(workstep_tuple, worksheet=self, session=session,
-                                                            status=status)
-                self.workbook.update_status('Pulling worksteps', 1)
+            if workstep_id in self.worksteps:
+                continue
+
+            self.workbook.update_status('Pulling worksteps', 0)
+            workstep = self._pull_workstep_if_correctly_owned_by_this_worksheet(session, workstep_tuple, status)
+            if workstep is None:
+                # The tuple claimed to be owned by this worksheet (e.g. via a Journal link whose "worksheet="
+                # portion Annotation.push() rewrote while its "workstep=" stayed foreign. See the comment in
+                # pull_worksheet()), but it isn't actually. Recover it the same way a foreign Journal reference is
+                # handled: mint a private copy from wherever the data can be found and rewrite the link to match.
+                data = self._fetch_workstep_data_via_items_api(session, workstep_id, status)
+                if data is None:
+                    status.warn(f'{self} references Workstep {workstep_id}, but that Workstep could not be found '
+                                f'at all. The reference will be left as-is.')
+                else:
+                    cloned_workstep = self._instantiate_new_workstep(definition={'Data': data})
+                    if self._annotation is not None:
+                        pattern = _common.workstep_reference_regex(workbook_id, worksheet_id, workstep_id)
+                        replacement = (f'workbook={self.workbook.id}&amp;worksheet={self.id}&amp;'
+                                       f'workstep={cloned_workstep.id}')
+                        self._annotation.html = re.sub(pattern, replacement, self._annotation.html,
+                                                       flags=re.IGNORECASE)
+                    status.warn(f'{self} references Workstep {workstep_id}, which it does not actually own. '
+                                f'Created a copy (Workstep {cloned_workstep.id}) owned by {self} and updated the '
+                                f'Journal link to match')
+
+            self.workbook.update_status('Pulling worksteps', 1)
 
     def pull_current_workstep(self, quiet: bool = False, status: Optional[Status] = None,
                               session: Optional[Session] = None):

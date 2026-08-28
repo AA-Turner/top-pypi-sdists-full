@@ -204,6 +204,35 @@ async def create_set(
         )
         raise typer.Exit(1)
 
+    # Resolve the set before prompting. A referenced set is refused outright, so
+    # confirming first would spend the user's answer on a command that cannot
+    # apply to this set (cli#197 review). The result also decides the
+    # create-vs-modify wording below.
+    existing_set = None
+    with console.status(
+        f"[dim]Checking for existing secret set with name [bold]'{name}'[/bold][/dim]",
+        spinner="dots",
+    ):
+        # Fetch the set itself rather than its key names (same misread as the
+        # deploy guard, cli#197): a referenced set carries no key-name rows by
+        # design, so testing the key array reads "exists but referenced" as
+        # "does not exist".
+        set_data, error = await API.secrets_get(org=org, secret_set=name)
+
+        if error:
+            raise typer.Exit(1)
+
+        if set_data and set_data.get("source") == "referenced":
+            console.error(
+                f"Secret set [bold]'{name}'[/bold] is a referenced secret set. Its "
+                "contents live in your cluster and are managed there (for example "
+                f"with kubectl), not with '{PIPECAT_CLI_NAME} secrets set'."
+            )
+            raise typer.Exit(1)
+
+        if set_data:
+            existing_set = set_data.get("secrets") or []
+
     if not skip_confirm:
         table = Table(
             border_style="dim", box=box.SIMPLE, show_header=True, show_edge=True, show_lines=False
@@ -239,20 +268,6 @@ async def create_set(
         ).ask_async()
         if not looks_good:
             raise typer.Exit(1)
-
-    # Confirm if we are sure we want to create a new secret set (if one doesn't already exist)
-    existing_set = None
-    with console.status(
-        f"[dim]Checking for existing secret set with name [bold]'{name}'[/bold][/dim]",
-        spinner="dots",
-    ):
-        data, error = await API.secrets_list(org=org, secret_set=name)
-
-        if error:
-            raise typer.Exit(1)
-
-        if data and len(data):
-            existing_set = data
 
     # Check for overlapping secret names
     if existing_set:
@@ -680,4 +695,61 @@ async def image_pull_secret(
     action = "updated" if existing_secret else "created"
     console.success(
         f"Image pull secret [bold green]'{name}'[/bold green] for [bold green]{host}[/bold green] {action} successfully{region_info}.",
+    )
+
+
+@secrets_cli.command(
+    name="reference",
+    help="Reference an existing Kubernetes Secret in a self-hosted region (enterprise)",
+)
+@synchronizer.create_blocking
+@requires_login
+async def reference_secret(
+    name: str = typer.Argument(
+        help="Name of the Kubernetes Secret in your workloads namespace (becomes the secret set name)"
+    ),
+    region: str = typer.Option(
+        ...,
+        "--region",
+        "-r",
+        help="Self-hosted region containing the secret",
+    ),
+    organization: str = typer.Option(
+        None,
+        "--organization",
+        "-o",
+        help="Organization the region belongs to",
+    ),
+):
+    """Reference an existing Kubernetes Secret so agents can use it.
+
+    Enterprise / self-hosted regions only. The secret stays in your cluster:
+    Pipecat Cloud verifies it exists and tracks readiness, but never sees its
+    values or keys. Manage the secret's contents with your own tooling
+    (kubectl); deploy agents against it by set name as usual.
+    """
+    org = organization or config.get("org")
+
+    if region and not await validate_region(region):
+        valid_regions = await get_region_codes()
+        console.print(
+            f"[red]Error: Invalid region '{region}'. Valid regions are: {', '.join(valid_regions)}[/red]"
+        )
+        raise typer.Exit(1)
+
+    with console.status(
+        f"[dim]Verifying secret [bold]'{name}'[/bold] exists in [bold]{region}[/bold][/dim]",
+        spinner="dots",
+    ):
+        data, error = await API.secrets_reference(name=name, region=region, org=org)
+
+        if error:
+            raise typer.Exit(1)
+
+    set_type = (data or {}).get("type")
+    type_info = " (image pull secret)" if set_type == "imagePullSecret" else ""
+    console.success(
+        f"Secret [bold green]'{name}'[/bold green] referenced in [bold cyan]{region}[/bold cyan]{type_info}\n"
+        f"[dim]The secret stays in your cluster; deleting it there will block deploys that use it.[/dim]\n"
+        f"[dim]Deploy your agent with {PIPECAT_CLI_NAME} deploy agent-name --secrets {name}[/dim]"
     )

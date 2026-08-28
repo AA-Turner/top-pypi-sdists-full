@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msgpack
-Version: 1.2.1
+Version: 1.2.2
 Summary: MessagePack serializer
 Author-email: Inada Naoki <songofacandy@gmail.com>
 License-Expression: Apache-2.0

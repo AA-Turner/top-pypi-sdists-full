@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: realtimestt
-Version: 1.0.4
+Version: 1.1.0
 Summary: A fast Voice Activity Detection and Transcription System
-Home-page: https://github.com/KoljaB/RealTimeSTT
+Home-page: https://github.com/KoljaB/RealtimeSTT
 Author: Kolja Beigel
 Author-email: kolja.beigel@web.de
 License: MIT
 Keywords: real-time,audio,transcription,speech-to-text,voice-activity-detection,VAD,real-time-transcription,ambient-noise-detection,microphone-input,faster_whisper,speech-recognition,voice-assistants,audio-processing,buffered-transcription,pyaudio,ambient-noise-level,voice-deactivity
-Requires-Python: >=3.11
+Requires-Python: >=3.11,<3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyAudio==0.2.14
@@ -27,6 +27,12 @@ Provides-Extra: whisper-cpp
 Requires-Dist: pywhispercpp; extra == "whisper-cpp"
 Provides-Extra: whispercpp
 Requires-Dist: pywhispercpp; extra == "whispercpp"
+Provides-Extra: transcribe-cpp
+Requires-Dist: transcribe-cpp==0.2.1; extra == "transcribe-cpp"
+Provides-Extra: transcribecpp
+Requires-Dist: transcribe-cpp==0.2.1; extra == "transcribecpp"
+Provides-Extra: parakeet-transcribe-cpp
+Requires-Dist: transcribe-cpp==0.2.1; extra == "parakeet-transcribe-cpp"
 Provides-Extra: openai-whisper
 Requires-Dist: openai-whisper; extra == "openai-whisper"
 Provides-Extra: sherpa-onnx
@@ -120,6 +126,7 @@ Requires-Dist: silero-vad[onnx-cpu]>=6.2.1; python_version >= "3.8" and extra ==
 Provides-Extra: all
 Requires-Dist: faster-whisper==1.2.1; extra == "all"
 Requires-Dist: pywhispercpp; extra == "all"
+Requires-Dist: transcribe-cpp==0.2.1; extra == "all"
 Requires-Dist: openai-whisper; extra == "all"
 Requires-Dist: sherpa-onnx==1.13.4; extra == "all"
 Requires-Dist: fastapi<1,>=0.115; extra == "all"
@@ -179,6 +186,7 @@ Available extras include:
 
 - faster-whisper: default CTranslate2 Whisper backend
 - whisper-cpp: whisper.cpp backend through pywhispercpp
+- transcribe-cpp: first-party transcribe.cpp Python binding; add the matching CUDA provider separately
 - openai-whisper: original OpenAI Whisper Python backend
 - sherpa-onnx: sherpa-onnx CPU backends
 - server/production-server: versioned FastAPI HTTP and WebSocket ASR server
@@ -319,7 +327,8 @@ See the [Kroko-ONNX engine guide](docs/engines/kroko-onnx.md),
 
 ## Install
 
-Use Python 3.11 or newer for the current pinned dependency set.
+The current CI matrix covers Python 3.11 and 3.12. Python 3.13 and newer are
+not release targets until dependency and CI gates are available.
 
 ```bash
 pip install "RealtimeSTT[faster-whisper]"

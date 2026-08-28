@@ -19,9 +19,9 @@
  */
 
 #include "pygi-async.h"
+#include "pygi-cache-private.h"
 #include "pygi-ccallback.h"
 #include "pygi-closure.h"
-#include "pygi-cache-private.h"
 
 extern PyObject *_PyGIDefaultArgPlaceholder;
 
@@ -40,7 +40,7 @@ _pygi_marshal_from_py_interface_callback (PyGIInvokeState *state,
                                           PyGICallableCache *callable_cache,
                                           PyGIArgCache *arg_cache,
                                           PyObject *py_arg, GIArgument *arg,
-                                          gpointer *cleanup_data)
+                                          PyGIMarshalCleanupData *cleanup_data)
 {
     GICallableInfo *callable_info;
     PyGICClosure *closure;
@@ -168,17 +168,21 @@ _pygi_marshal_from_py_interface_callback (PyGIInvokeState *state,
     }
 
     /* Use the PyGIClosure as data passed to cleanup for GI_SCOPE_TYPE_CALL. */
-    *cleanup_data = closure;
+    pygi_marshal_cleanup_data_init_full (
+        cleanup_data, closure,
+        callback_cache->scope == GI_SCOPE_TYPE_CALL
+            ? (GDestroyNotify)_pygi_invoke_closure_free
+            : NULL,
+        (GDestroyNotify)_pygi_invoke_closure_free);
 
     return TRUE;
 }
 
 static PyObject *
-_pygi_marshal_to_py_interface_callback (PyGIInvokeState *state,
-                                        PyGICallableCache *callable_cache,
-                                        PyGIArgCache *arg_cache,
-                                        GIArgument *arg,
-                                        gpointer *arg_cleanup_data)
+_pygi_marshal_to_py_interface_callback (
+    PyGIInvokeState *state, PyGICallableCache *callable_cache,
+    PyGIArgCache *arg_cache, GIArgument *arg,
+    PyGIMarshalCleanupData *from_py_arg_cleanup_data)
 {
     PyGICallbackCache *callback_cache = (PyGICallbackCache *)arg_cache;
     gpointer user_data = NULL;
@@ -195,20 +199,6 @@ _pygi_marshal_to_py_interface_callback (PyGIInvokeState *state,
     return _pygi_ccallback_new (
         arg->v_pointer, user_data, callback_cache->scope,
         GI_CALLABLE_INFO (callback_cache->interface_info), destroy_notify);
-}
-
-static void
-_pygi_marshal_cleanup_from_py_interface_callback (PyGIInvokeState *state,
-                                                  PyGIArgCache *arg_cache,
-                                                  PyObject *py_arg,
-                                                  gpointer data,
-                                                  gboolean was_processed)
-{
-    PyGICallbackCache *callback_cache = (PyGICallbackCache *)arg_cache;
-
-    if (was_processed && callback_cache->scope == GI_SCOPE_TYPE_CALL) {
-        _pygi_invoke_closure_free (data);
-    }
 }
 
 static void
@@ -314,8 +304,6 @@ pygi_arg_callback_new_from_info (GITypeInfo *type_info,
             GI_CALLABLE_INFO (callback_cache->interface_info));
         arg_cache->from_py_marshaller =
             _pygi_marshal_from_py_interface_callback;
-        arg_cache->from_py_cleanup =
-            _pygi_marshal_cleanup_from_py_interface_callback;
 
         if (callback_cache->scope == GI_SCOPE_TYPE_ASYNC)
             callback_cache->arg_cache.async_context =

@@ -20,10 +20,22 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import pytest  # noqa: E402
+
 from abstract_hugpy_dev.worker_agent import budget  # noqa: E402
 from abstract_hugpy_dev.flask_app.app.functions.imports.utils import (  # noqa: E402
     workers as central)
 from abstract_hugpy_dev.managers import eviction as ev  # noqa: E402
+
+
+# The reserve is carved OUT of disk_cache_gib since 2026-08-22 (effective =
+# allocation - reserve). These tests reason in pure-allocation numbers, so pin
+# the reserve to 0 here; the carve-out itself is covered by
+# tests/test_budget_reserve_carveout.py.
+@pytest.fixture(autouse=True)
+def _zero_disk_reserve(monkeypatch):
+    monkeypatch.setenv("HUGPY_WORKER_DISK_RESERVE_GIB", "0")
+
 
 GIB = 1 << 30
 CAP_GIB = 100

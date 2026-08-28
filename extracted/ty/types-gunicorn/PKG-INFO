@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-gunicorn
-Version: 26.1.0.20260820
+Version: 26.2.0.20260827
 Summary: Typing stubs for gunicorn
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -25,7 +25,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`gunicorn`](https://github.com/benoitc/gunicorn) package. It can be used by type checkers
 to check code that uses `gunicorn`. This version of
 `types-gunicorn` aims to provide accurate annotations for
-`gunicorn==26.1.0`.
+`gunicorn==26.2.0`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -41,4 +41,4 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`e8b9e19e53e15a7461b9c16b2f1103f1dc38ffe3`](https://github.com/python/typeshed/commit/e8b9e19e53e15a7461b9c16b2f1103f1dc38ffe3).
+[`c10142fb9463b1dd0c581d3f08f4c01c5c08a09e`](https://github.com/python/typeshed/commit/c10142fb9463b1dd0c581d3f08f4c01c5c08a09e).

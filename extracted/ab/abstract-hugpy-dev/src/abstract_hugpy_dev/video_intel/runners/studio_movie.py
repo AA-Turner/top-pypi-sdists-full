@@ -665,6 +665,111 @@ def _assemble_movie(movie_root: str, work_dir: str, seg_records: "list[dict]",
     return assembly
 
 
+# --------------------------------------------------------------------------- #
+# k120 slice 2 — PRODUCER CONTINUITY REFRESH (advisory, opt-in).
+#
+# Between segments, when spec.continuity_refresh is set: describe the frame the
+# previous segment ACTUALLY ended on (the vision plane, movie.py's judge idiom),
+# then have a text model rewrite the next segment's prompt so it opens from that
+# real state, keeping the authored action. Advisory discipline throughout: any
+# failure returns (None, why) and the authored prompt renders unchanged — the
+# refresh may improve a movie, it must never lose one.
+#
+# RESUME DETERMINISM (k91: "the clips are the checkpoint"): the refreshed prompt
+# is a content-hash input of the clip, so a re-enqueued movie must REUSE the
+# persisted rewrite from movie.json rather than re-rolling a different one —
+# otherwise every refreshed segment re-renders from scratch on resume.
+# --------------------------------------------------------------------------- #
+_REFRESH_TEXT_MODEL = "Qwen2.5-7B-Instruct-GGUF"   # explicit — never the silent 3B task default
+_REFRESH_DESC_TOKENS = 140
+_REFRESH_REWRITE_TOKENS = 260
+
+
+def _result_text(res) -> str:
+    """Best-effort reply text from an execute_prompt result (movie.py idiom)."""
+    txt = getattr(res, "text", None)
+    if txt:
+        return txt
+    for attr in ("model_dump", "to_dict", "dict"):
+        fn = getattr(res, attr, None)
+        if callable(fn):
+            try:
+                d = fn()
+            except TypeError:
+                continue
+            if isinstance(d, dict) and d.get("text"):
+                return d["text"]
+    return str(res)
+
+
+def _persisted_refresh(movie_root: str, segment_id: str) -> "str | None":
+    """The rewrite movie.json already recorded for this segment, or None."""
+    try:
+        with open(os.path.join(movie_root, "movie.json"), encoding="utf-8") as f:
+            data = json.load(f)
+        for rec in (data.get("segments") or []):
+            if (rec.get("segment_id") == segment_id and rec.get("refresh_note")
+                    and rec.get("prompt")):
+                return str(rec["prompt"])
+    except Exception:  # noqa: BLE001 — no movie.json / unreadable == no persisted rewrite
+        return None
+    return None
+
+
+def _continuity_refresh(prev_frame_png: str, prev_prompt: "str | None",
+                        next_prompt: str, model: "str | None" = None,
+                        ) -> "tuple[str | None, str]":
+    """(refreshed_prompt, note) — or (None, why-not). Never raises, never blocks."""
+    try:
+        from abstract_hugpy_dev.managers.dispatch import execute_prompt
+        from abstract_hugpy_dev._platform.async_runtime import run
+        from abstract_hugpy_dev.utils.no_think import with_no_think, strip_think
+
+        desc_ask = (
+            "This is the final frame of a film shot. Describe it in 2-3 factual "
+            "sentences for the director of the NEXT shot: the subject(s) and their "
+            "exact appearance, their position/pose, the setting, the lighting, and "
+            "the camera framing. Only the description."
+        )
+        res = run(execute_prompt(task="image-text-to-text", file=prev_frame_png,
+                                 prompt=with_no_think(desc_ask),
+                                 max_new_tokens=_REFRESH_DESC_TOKENS))
+        if not getattr(res, "ok", True):
+            return None, f"vision describe not-ok: {getattr(res, 'error', None)}"
+        desc, _ = strip_think(_result_text(res))
+        desc = (desc or "").strip()
+        if not desc:
+            return None, "vision describe returned no text"
+
+        rewrite_ask = (
+            "You are a film director keeping continuity between two shots.\n"
+            "The previous shot ACTUALLY ended like this:\n" + desc + "\n\n"
+            + ("Previous shot's prompt:\n" + prev_prompt + "\n\n" if prev_prompt else "")
+            + "The next shot's PLANNED prompt:\n" + next_prompt + "\n\n"
+            "Rewrite the next shot's prompt so it opens exactly from the state the "
+            "previous shot ended in (same subject appearance, position, setting, "
+            "light) while keeping the planned action and intent. Self-contained, "
+            "visual, present tense. Return ONLY the rewritten prompt text."
+        )
+        res2 = run(execute_prompt(task="text-generation",
+                                  model_key=(model or _REFRESH_TEXT_MODEL),
+                                  prompt=with_no_think(rewrite_ask),
+                                  max_new_tokens=_REFRESH_REWRITE_TOKENS))
+        if not getattr(res2, "ok", True):
+            return None, f"rewrite not-ok: {getattr(res2, 'error', None)}"
+        refreshed, _ = strip_think(_result_text(res2))
+        refreshed = (refreshed or "").strip().strip('"')
+        # Sanity: an empty or wildly bloated rewrite is worse than the authored
+        # prompt — keep the author's text and say why.
+        if len(refreshed) < 20:
+            return None, f"rewrite too short ({len(refreshed)} chars) — kept authored prompt"
+        if len(refreshed) > max(1200, 4 * len(next_prompt)):
+            return None, "rewrite implausibly long — kept authored prompt"
+        return refreshed, "opened from previous frame: " + desc[:200]
+    except Exception as exc:  # noqa: BLE001 — advisory: any plane trouble keeps the authored prompt
+        return None, f"refresh skipped ({type(exc).__name__}: {exc})"
+
+
 def _write_movie_json(movie_root: str, spec: StudioMovieSpec, seg_records: "list[dict]",
                       assembly: "dict", job_id: str, partial: bool) -> "dict":
     """(Over)write ``<movie_root>/movie.json`` — the full node list + per-joint
@@ -762,6 +867,7 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
     seg_refs: "list" = []            # per-segment clip MediaRefs, in order
     prev_clip_path: "str | None" = None   # the parent clip the next segment branches from
     prev_frames: int = 0                   # the parent clip's frame count
+    prev_prompt: "str | None" = None       # the previous segment's EFFECTIVE prompt (k120)
 
     # live per-segment meta (for the nested progress blob)
     segments_meta = [
@@ -1015,6 +1121,46 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
                         retryable=False)))
                 start_image = branch_png
 
+        # ---- k120 slice 2: producer continuity refresh (opt-in, advisory) ----
+        # The frame the previous segment ACTUALLY ended on describes itself to a
+        # vision model; a text model then rewrites THIS segment's prompt to open
+        # from that real state. still/vace_extend already extracted the frame; a
+        # cut carries none, so extract one here — a cut is precisely where the
+        # authored prompt drifts furthest from what got rendered.
+        prompt_authored = goal.prompt
+        refresh_note: "str | None" = None
+        if (getattr(spec, "continuity_refresh", False) and seg_i > 0
+                and prev_clip_path is not None and prev_frames > 0):
+            prev_png: "str | None" = None
+            if seg_joint_mode == "still":
+                prev_png = start_image                     # branch.png, extracted above
+            elif seg_joint_mode == "vace_extend" and vace_context_frames:
+                prev_png = vace_context_frames[-1]         # newest context frame
+            else:                                          # cut — no frame carried
+                cut_png = os.path.join(seg_out_root, "refresh_prev.png")
+                ok, _tail = _extract_frame_at(prev_clip_path, prev_frames - 1, cut_png)
+                prev_png = cut_png if ok else None
+            if prev_png is None:
+                refresh_note = "no previous frame available — kept authored prompt"
+            else:
+                persisted = _persisted_refresh(movie_root, goal.segment_id)
+                if persisted is not None:
+                    refreshed: "str | None" = persisted
+                    refresh_note = "reused persisted rewrite (resume determinism)"
+                else:
+                    _emit("refreshing", {"segment_id": goal.segment_id, "index": seg_i})
+                    refreshed, refresh_note = _continuity_refresh(
+                        prev_png, prev_prompt, goal.prompt,
+                        model=getattr(spec, "continuity_model", None))
+                if refreshed is not None:
+                    goal = replace(goal, prompt=refreshed)
+                    segments_meta[seg_i].update(prompt=refreshed,
+                                                prompt_authored=prompt_authored)
+            if refresh_note is not None:
+                segments_meta[seg_i].update(refresh_note=refresh_note)
+                logger.info("studio movie %s: segment %d (%s) continuity refresh — %s",
+                            job_id, seg_i, goal.segment_id, refresh_note)
+
         # ---- deterministic per-segment seed (node override wins) ----
         seg_seed = goal.seed if goal.seed is not None else (spec.seed + seg_i)
 
@@ -1112,6 +1258,8 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
                 "segment_id": goal.segment_id,
                 "parent_segment_id": goal.parent_segment_id,
                 "prompt": goal.prompt,
+                "prompt_authored": prompt_authored,
+                "refresh_note": refresh_note,
                 "capability": capability,
                 # k58 attribution: which model this segment ASKED for and why (the
                 # movie pin, an explicit per-segment choice, or a capability fallback).
@@ -1145,6 +1293,8 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
             "segment_id": goal.segment_id,
             "parent_segment_id": goal.parent_segment_id,
             "prompt": goal.prompt,
+            "prompt_authored": prompt_authored,
+            "refresh_note": refresh_note,
             "capability": capability,
             # k58 attribution: how the model was chosen (``model_source``) and WHICH one
             # actually rendered — the manifest sidecar's bound model when it is readable,
@@ -1185,6 +1335,7 @@ def run_generate_studio_movie(spec: StudioMovieSpec, job_id: str) -> JobResult:
 
         prev_clip_path = outcome.path
         prev_frames = outcome.frames
+        prev_prompt = goal.prompt            # EFFECTIVE (post-refresh) prompt (k120)
         logger.info("studio movie %s: segment %d (%s) %s — %s frames @ %s",
                     job_id, seg_i, goal.segment_id,
                     "RESUMED" if outcome.resumed else "rendered", outcome.frames, outcome.path)

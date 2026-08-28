@@ -23,8 +23,9 @@ class ListTagResourcesShrinkRequest(DaraModel):
         # 
         # Enumerated values:
         # 
-        # *   role: RAM roles.
-        # *   policy: policies.
+        # - role: RAM roles.
+        # 
+        # - policy: policies.
         self.resource_type = resource_type
         # The tags. You can specify up to 20 tags.
         self.tag_shrink = tag_shrink

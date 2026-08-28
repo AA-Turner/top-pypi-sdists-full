@@ -14,6 +14,7 @@ from __future__ import print_function
 
 import logging
 import math
+import threading
 from typing import Callable, List, Optional, Tuple, Union
 
 from .connection.connection_upload import (
@@ -34,6 +35,7 @@ from .logging_messages import (
     FILE_UPLOAD_MANAGER_MONITOR_PROGRESSION_UNKOWN_ETA,
     FILE_UPLOAD_MANAGER_MONITOR_WAITING_BACKEND_ANSWER,
 )
+from .s3.multipart_upload.file_parts import PartsUploadPool, create_parts_upload_pool
 from .s3.multipart_upload.multipart_upload_options import MultipartUploadOptions
 from .thread_pool import Future, get_thread_pool
 from .upload_options import (
@@ -69,6 +71,20 @@ class FileUploadManager(object):
 
         self.closed = False
 
+        # Two pools, one level each. self._executor parallelizes across assets and
+        # its workers act as producers for self._parts_pool, which parallelizes the
+        # parts of a single asset. They must stay separate: an asset task waits for
+        # its own parts, so running both levels on one bounded pool deadlocks once
+        # every worker holds an asset task.
+        #
+        # The parts pool is built on first use, not here. Its executor pre-spawns
+        # every worker it is sized for, and an experiment that only logs small
+        # assets never takes the direct path at all, so building it eagerly would
+        # charge the common case a poolful of threads that never run anything.
+        self._parts_pool: Optional[PartsUploadPool] = None
+        self._parts_pool_lock = threading.Lock()
+        self._asset_pool_size = pool_size
+
         if not self.s3_upload_options.direct_s3_upload_enabled:
             LOGGER.debug(
                 "Direct S3 upload disabled due to unsupported backend version."
@@ -91,6 +107,30 @@ class FileUploadManager(object):
             upload_type=options.upload_type,
             file_size=options.estimated_size,
         )
+
+    def _get_parts_pool(self) -> Optional[PartsUploadPool]:
+        """The parts pool, created on the first asset that actually goes direct.
+
+        Whichever threads log assets arrive here, so several can race and exactly
+        one must do the building.
+        """
+        if self._parts_pool is not None:
+            return self._parts_pool
+
+        with self._parts_pool_lock:
+            if self._parts_pool is None:
+                # Sized from the asset pool so that adding per-part parallelism can
+                # never leave fewer parts in flight than the one-per-asset-thread
+                # concurrency these uploads already had.
+                self._parts_pool = create_parts_upload_pool(
+                    self.s3_upload_options.parts_upload_options,
+                    asset_pool_size=self._asset_pool_size,
+                )
+                LOGGER.debug(
+                    "S3 parts upload pool created for the first direct upload."
+                )
+
+            return self._parts_pool
 
     def upload_file_thread(self, options: FileUploadOptions) -> None:
 
@@ -154,6 +194,7 @@ class FileUploadManager(object):
         kwargs = {"_monitor": monitor, "options": options}
         if s3_multipart is True:
             kwargs["multipart_options"] = self.s3_upload_options
+            kwargs["parts_pool"] = self._get_parts_pool()
 
         if use_limits_guard is True:
             kwargs["upload_limits_guard"] = self.limits_guard
@@ -191,11 +232,35 @@ class FileUploadManager(object):
         return status_list.count(False)
 
     def close(self) -> None:
+        # Only the asset level is closed here. Callers close the manager and then
+        # keep waiting for the uploads that are already running, and those tasks
+        # still need to submit their remaining parts, so the parts pool has to stay
+        # open until they are done.
         self._executor.close()
         self.closed = True
 
     def join(self) -> None:
+        # Asset tasks are the producers for the parts pool, so they have to finish
+        # before it can be shut down.
         self._executor.join()
+        if self._parts_pool is not None:
+            self._parts_pool.close()
+            self._parts_pool.join()
+
+    def shutdown(self) -> None:
+        """Releases both pools without waiting, for the path where we gave up.
+
+        Callers reach this when uploads did not finish in time, which is exactly when
+        join() cannot be used: it waits for every asset task, and those are the tasks
+        that just failed to complete. Closing without waiting hands the worker threads
+        back instead of holding them for the life of the process.
+
+        Idempotent, and safe before join(): shutting an executor down twice is
+        allowed, and the second call is the one that waits.
+        """
+        self._executor.close()
+        if self._parts_pool is not None:
+            self._parts_pool.close()
 
     def has_failed(self) -> bool:
         """Returns True if:

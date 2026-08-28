@@ -1,0 +1,1 @@
+import{l as e}from"./api-Cx4-OE8r.js";var t=t=>Array.isArray(t.labelArgs)?e(t.label,t.labelArgs):e(t.label,t.labelArgs??{});export{t};

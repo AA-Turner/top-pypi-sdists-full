@@ -8,6 +8,7 @@ from ..types.activity_clock_range_in import ActivityClockRangeIn
 from ..types.archive_asset_response_out import ArchiveAssetResponseOut
 from ..types.asset_activity_delta_response_out import AssetActivityDeltaResponseOut
 from ..types.asset_activity_response_out import AssetActivityResponseOut
+from ..types.collab_token_response import CollabTokenResponse
 from ..types.convert_excel_to_sheet_response_out import ConvertExcelToSheetResponseOut
 from ..types.creatable_asset_type import CreatableAssetType
 from ..types.create_asset_response_out import CreateAssetResponseOut
@@ -22,6 +23,7 @@ from ..types.share_recipient import ShareRecipient
 from ..types.workspace_access_response_out import WorkspaceAccessResponseOut
 from ..types.workspace_share_access import WorkspaceShareAccess
 from .raw_client import AsyncRawAssetsClient, RawAssetsClient
+from .types.collab_token_request_access import CollabTokenRequestAccess
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -167,7 +169,7 @@ class AssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, or computer in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously.
 
         Parameters
         ----------
@@ -579,6 +581,45 @@ class AssetsClient:
         _response = self._raw_client.archive(asset_id, request_options=request_options)
         return _response.data
 
+    def create_collab_token(
+        self,
+        asset_id: str,
+        *,
+        access: typing.Optional[CollabTokenRequestAccess] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CollabTokenResponse:
+        """
+        Admin only. Mint a short-lived Keryx capability token for a Generic Doc asset, enabling live collaborative reads (and, with edit permission, writes) over WebSocket and REST. Only generic_doc assets are eligible — Athena-managed asset types are never reachable through this endpoint. The requested access is a ceiling clamped by the caller's permission on the asset.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        access : typing.Optional[CollabTokenRequestAccess]
+            Requested access ceiling. This is a ceiling, not a grant: 'edit' is clamped to read-only unless the caller has edit permission on the asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CollabTokenResponse
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.create_collab_token(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.create_collab_token(asset_id, access=access, request_options=request_options)
+        return _response.data
+
     def download(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.Iterator[bytes]:
@@ -933,7 +974,7 @@ class AsyncAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, or computer in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously.
 
         Parameters
         ----------
@@ -1417,6 +1458,53 @@ class AsyncAssetsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.archive(asset_id, request_options=request_options)
+        return _response.data
+
+    async def create_collab_token(
+        self,
+        asset_id: str,
+        *,
+        access: typing.Optional[CollabTokenRequestAccess] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CollabTokenResponse:
+        """
+        Admin only. Mint a short-lived Keryx capability token for a Generic Doc asset, enabling live collaborative reads (and, with edit permission, writes) over WebSocket and REST. Only generic_doc assets are eligible — Athena-managed asset types are never reachable through this endpoint. The requested access is a ceiling clamped by the caller's permission on the asset.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        access : typing.Optional[CollabTokenRequestAccess]
+            Requested access ceiling. This is a ceiling, not a grant: 'edit' is clamped to read-only unless the caller has edit permission on the asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CollabTokenResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.create_collab_token(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_collab_token(asset_id, access=access, request_options=request_options)
         return _response.data
 
     async def download(

@@ -7,7 +7,7 @@ import warnings
 import sys
 import pulumi
 import pulumi.runtime
-from typing import Any, Mapping, Optional, Sequence, Union, overload
+from typing import Any, Mapping, Optional, Sequence, Union, overload, Literal
 if sys.version_info >= (3, 11):
     from typing import NotRequired, TypedDict, TypeAlias
 else:
@@ -23,18 +23,18 @@ __all__ = ['ClusterRoleInitArgs', 'ClusterRole']
 class ClusterRoleInitArgs:
     def __init__(__self__, *,
                  aggregation_rule: pulumi.Input[Optional['AggregationRuleArgs']] = None,
-                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
-                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 api_version: pulumi.Input[Optional[Literal['rbac.authorization.k8s.io/v1']]] = None,
+                 kind: pulumi.Input[Optional[Literal['ClusterRole']]] = None,
                  metadata: pulumi.Input[Optional['_meta.v1.ObjectMetaArgs']] = None,
                  rules: pulumi.Input[Optional[Sequence[pulumi.Input['PolicyRuleArgs']]]] = None):
         """
         The set of arguments for constructing a ClusterRole resource.
 
-        :param pulumi.Input['AggregationRuleArgs'] aggregation_rule: AggregationRule is an optional field that describes how to build the Rules for this ClusterRole. If AggregationRule is set, then the Rules are controller managed and direct changes to Rules will be stomped by the controller.
-        :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param pulumi.Input['_meta.v1.ObjectMetaArgs'] metadata: Standard object's metadata.
-        :param pulumi.Input[Sequence[pulumi.Input['PolicyRuleArgs']]] rules: Rules holds all the PolicyRules for this ClusterRole
+        :param pulumi.Input['AggregationRuleArgs'] aggregation_rule: aggregationRule is an optional field that describes how to build the Rules for this ClusterRole. If AggregationRule is set, then the Rules are controller managed and direct changes to Rules will be stomped by the controller.
+        :param pulumi.Input[Literal['rbac.authorization.k8s.io/v1']] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param pulumi.Input[Literal['ClusterRole']] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param pulumi.Input['_meta.v1.ObjectMetaArgs'] metadata: metadata is the standard object's metadata.
+        :param pulumi.Input[Sequence[pulumi.Input['PolicyRuleArgs']]] rules: rules holds all the PolicyRules for this ClusterRole
         """
         if aggregation_rule is not None:
             pulumi.set(__self__, "aggregation_rule", aggregation_rule)
@@ -51,7 +51,7 @@ class ClusterRoleInitArgs:
     @pulumi.getter(name="aggregationRule")
     def aggregation_rule(self) -> pulumi.Input[Optional['AggregationRuleArgs']]:
         """
-        AggregationRule is an optional field that describes how to build the Rules for this ClusterRole. If AggregationRule is set, then the Rules are controller managed and direct changes to Rules will be stomped by the controller.
+        aggregationRule is an optional field that describes how to build the Rules for this ClusterRole. If AggregationRule is set, then the Rules are controller managed and direct changes to Rules will be stomped by the controller.
         """
         return pulumi.get(self, "aggregation_rule")
 
@@ -61,33 +61,33 @@ class ClusterRoleInitArgs:
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def api_version(self) -> pulumi.Input[Optional[Literal['rbac.authorization.k8s.io/v1']]]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
         return pulumi.get(self, "api_version")
 
     @api_version.setter
-    def api_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def api_version(self, value: pulumi.Input[Optional[Literal['rbac.authorization.k8s.io/v1']]]):
         pulumi.set(self, "api_version", value)
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def kind(self) -> pulumi.Input[Optional[Literal['ClusterRole']]]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
         return pulumi.get(self, "kind")
 
     @kind.setter
-    def kind(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def kind(self, value: pulumi.Input[Optional[Literal['ClusterRole']]]):
         pulumi.set(self, "kind", value)
 
     @_builtins.property
     @pulumi.getter
     def metadata(self) -> pulumi.Input[Optional['_meta.v1.ObjectMetaArgs']]:
         """
-        Standard object's metadata.
+        metadata is the standard object's metadata.
         """
         return pulumi.get(self, "metadata")
 
@@ -99,7 +99,7 @@ class ClusterRoleInitArgs:
     @pulumi.getter
     def rules(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PolicyRuleArgs']]]]:
         """
-        Rules holds all the PolicyRules for this ClusterRole
+        rules holds all the PolicyRules for this ClusterRole
         """
         return pulumi.get(self, "rules")
 
@@ -115,8 +115,8 @@ class ClusterRole(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  aggregation_rule: pulumi.Input[Optional[Union['AggregationRuleArgs', 'AggregationRuleArgsDict']]] = None,
-                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
-                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 api_version: pulumi.Input[Optional[Literal['rbac.authorization.k8s.io/v1']]] = None,
+                 kind: pulumi.Input[Optional[Literal['ClusterRole']]] = None,
                  metadata: pulumi.Input[Optional[Union['_meta.v1.ObjectMetaArgs', '_meta.v1.ObjectMetaArgsDict']]] = None,
                  rules: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyRuleArgs', 'PolicyRuleArgsDict']]]]] = None,
                  __props__=None):
@@ -125,11 +125,11 @@ class ClusterRole(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['AggregationRuleArgs', 'AggregationRuleArgsDict']] aggregation_rule: AggregationRule is an optional field that describes how to build the Rules for this ClusterRole. If AggregationRule is set, then the Rules are controller managed and direct changes to Rules will be stomped by the controller.
-        :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param pulumi.Input[Union['_meta.v1.ObjectMetaArgs', '_meta.v1.ObjectMetaArgsDict']] metadata: Standard object's metadata.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['PolicyRuleArgs', 'PolicyRuleArgsDict']]]] rules: Rules holds all the PolicyRules for this ClusterRole
+        :param pulumi.Input[Union['AggregationRuleArgs', 'AggregationRuleArgsDict']] aggregation_rule: aggregationRule is an optional field that describes how to build the Rules for this ClusterRole. If AggregationRule is set, then the Rules are controller managed and direct changes to Rules will be stomped by the controller.
+        :param pulumi.Input[Literal['rbac.authorization.k8s.io/v1']] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param pulumi.Input[Literal['ClusterRole']] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param pulumi.Input[Union['_meta.v1.ObjectMetaArgs', '_meta.v1.ObjectMetaArgsDict']] metadata: metadata is the standard object's metadata.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['PolicyRuleArgs', 'PolicyRuleArgsDict']]]] rules: rules holds all the PolicyRules for this ClusterRole
         """
         ...
     @overload
@@ -156,8 +156,8 @@ class ClusterRole(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  aggregation_rule: pulumi.Input[Optional[Union['AggregationRuleArgs', 'AggregationRuleArgsDict']]] = None,
-                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
-                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 api_version: pulumi.Input[Optional[Literal['rbac.authorization.k8s.io/v1']]] = None,
+                 kind: pulumi.Input[Optional[Literal['ClusterRole']]] = None,
                  metadata: pulumi.Input[Optional[Union['_meta.v1.ObjectMetaArgs', '_meta.v1.ObjectMetaArgsDict']]] = None,
                  rules: pulumi.Input[Optional[Sequence[pulumi.Input[Union['PolicyRuleArgs', 'PolicyRuleArgsDict']]]]] = None,
                  __props__=None):
@@ -209,13 +209,13 @@ class ClusterRole(pulumi.CustomResource):
     @pulumi.getter(name="aggregationRule")
     def aggregation_rule(self) -> pulumi.Output['outputs.AggregationRule']:
         """
-        AggregationRule is an optional field that describes how to build the Rules for this ClusterRole. If AggregationRule is set, then the Rules are controller managed and direct changes to Rules will be stomped by the controller.
+        aggregationRule is an optional field that describes how to build the Rules for this ClusterRole. If AggregationRule is set, then the Rules are controller managed and direct changes to Rules will be stomped by the controller.
         """
         return pulumi.get(self, "aggregation_rule")
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> pulumi.Output[_builtins.str]:
+    def api_version(self) -> pulumi.Output[Literal['rbac.authorization.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -223,7 +223,7 @@ class ClusterRole(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> pulumi.Output[_builtins.str]:
+    def kind(self) -> pulumi.Output[Literal['ClusterRole']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -233,7 +233,7 @@ class ClusterRole(pulumi.CustomResource):
     @pulumi.getter
     def metadata(self) -> pulumi.Output['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata.
+        metadata is the standard object's metadata.
         """
         return pulumi.get(self, "metadata")
 
@@ -241,7 +241,7 @@ class ClusterRole(pulumi.CustomResource):
     @pulumi.getter
     def rules(self) -> pulumi.Output[Sequence['outputs.PolicyRule']]:
         """
-        Rules holds all the PolicyRules for this ClusterRole
+        rules holds all the PolicyRules for this ClusterRole
         """
         return pulumi.get(self, "rules")
 

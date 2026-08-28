@@ -210,7 +210,9 @@ def test_parse_vision_verdict():
 # --------------------------------------------------------------------------- #
 # 3) orchestrator — vision OFF, cross-segment carry
 # --------------------------------------------------------------------------- #
-def test_orchestrator_vision_off_carry():
+def test_orchestrator_vision_off_carry(monkeypatch):
+    # Carry is the LEGACY pixel chain: OFF by default (or-k2/or-p1), opt-in only.
+    monkeypatch.setenv("HUGPY_LEGACY_CHAIN", "1")
     tmp = tempfile.mkdtemp(prefix="hugpy_test_movie_off_")
     movie, media_bus = _install(tmp, can_carry=True)
     spec = _spec([(0, 3, "a sunrise"), (3, 7, "the sun overhead")])
@@ -227,12 +229,52 @@ def test_orchestrator_vision_off_carry():
     # deterministic seeds: base + seg*1000 + attempt(0)
     assert RENDER_CALLS[0]["seed"] == 1000 and RENDER_CALLS[1]["seed"] == 2000, \
         [c["seed"] for c in RENDER_CALLS]
-    # manifest
+    # manifest DECLARES the legacy chain with the agreed label
     assert res.movie["drift"] == "carry", res.movie["drift"]
+    assert res.movie["legacy_pixel_chain"] is True
+    assert res.movie["label"] == "legacy (pixel-chained)", res.movie["label"]
+    assert res.movie["limitations"], "a chained movie must list its limitation"
     assert [s["chosen_take"] for s in res.movie["segments"]] == [0, 0]
     # outputs = all frames (3 + 4), no mp4 (assemble=False)
     assert len(res.outputs) == 7, len(res.outputs)
     print("[3] PASS  orchestrator vision-off + cross-segment start-image carry + seed bump")
+
+
+# --------------------------------------------------------------------------- #
+# 3b) the DEFAULT: legacy chain OFF — img2img available, but no carry, no
+#     per-frame chain, and the manifest says so (board or-k2 / proposal or-p1)
+# --------------------------------------------------------------------------- #
+def test_orchestrator_legacy_chain_off_by_default(monkeypatch):
+    monkeypatch.delenv("HUGPY_LEGACY_CHAIN", raising=False)
+    tmp = tempfile.mkdtemp(prefix="hugpy_test_movie_nochain_")
+    movie, media_bus = _install(tmp, can_carry=True)
+    spec = _spec([(0, 3, "a sunrise"), (3, 7, "the sun overhead")], chain=True)
+    job_id = media_bus.enqueue("generate_movie", spec)
+    res = movie.run_generate_movie(spec, job_id)
+
+    assert res.ok, res.error
+    assert len(RENDER_CALLS) == 2
+    # no carry AND the per-frame chain is forced off, even though chain=True was asked for
+    assert all(c["start_frame"] is None for c in RENDER_CALLS), [c["start_frame"] for c in RENDER_CALLS]
+    assert all(c["chain"] is False for c in RENDER_CALLS), [c["chain"] for c in RENDER_CALLS]
+    assert res.movie["legacy_pixel_chain"] is False
+    assert res.movie["label"] == "independent", res.movie["label"]
+    assert res.movie["limitations"] == []
+    assert res.movie["drift"].startswith("independent"), res.movie["drift"]
+    assert "HUGPY_LEGACY_CHAIN=1" in res.movie["drift"], res.movie["drift"]
+    # the live progress blob carries the same declaration
+    assert PROGRESS_BLOBS and all(b["legacy_pixel_chain"] is False and b["label"] == "independent"
+                                  for b in PROGRESS_BLOBS)
+    # explicit "0"/"off" spellings stay off too
+    for off in ("0", "false", "off", ""):
+        monkeypatch.setenv("HUGPY_LEGACY_CHAIN", off)
+        from abstract_hugpy_dev.video_intel.movie_schema import legacy_chain_enabled, effective_chain
+        assert legacy_chain_enabled() is False and effective_chain(True) is False, off
+    for on in ("1", "true", "ON", " yes "):
+        monkeypatch.setenv("HUGPY_LEGACY_CHAIN", on)
+        assert legacy_chain_enabled() is True and effective_chain(True) is True, on
+        assert effective_chain(False) is False, "opt-in never turns chain ON for a chain=false spec"
+    print("[3b] PASS  legacy pixel chain OFF by default; HUGPY_LEGACY_CHAIN=1 opts in")
 
 
 # --------------------------------------------------------------------------- #
@@ -433,7 +475,7 @@ def test_nested_progress_shape():
 
     assert PROGRESS_BLOBS, "progress must have been emitted"
     top_keys = {"stage", "segment_done", "segment_total", "segments", "current",
-                "started_at", "eta_s"}
+                "started_at", "eta_s", "drift", "legacy_pixel_chain", "label"}
     for blob in PROGRESS_BLOBS:
         assert set(blob) == top_keys, f"blob key mismatch: {sorted(blob)}"
         assert blob["segment_total"] == 2

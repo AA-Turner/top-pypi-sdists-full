@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: microsoft-kiota-serialization-text
-Version: 1.11.9
+Version: 1.12.0
 Summary: Core abstractions for kiota generated libraries in Python
 Keywords: kiota,openAPI,Microsoft,Graph
 Author-email: Microsoft <graphtooling+python@microsoft.com>

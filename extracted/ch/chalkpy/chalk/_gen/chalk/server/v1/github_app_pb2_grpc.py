@@ -75,6 +75,16 @@ class GitHubAppServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveResponse.FromString,
         )
+        self.CreatePullRequestFromChanges = channel.unary_unary(
+            "/chalk.server.v1.GitHubAppService/CreatePullRequestFromChanges",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromChangesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromChangesResponse.FromString,
+        )
+        self.CreateVolumeFromGitHubRepo = channel.unary_unary(
+            "/chalk.server.v1.GitHubAppService/CreateVolumeFromGitHubRepo",
+            request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoResponse.FromString,
+        )
         self.LinkProjectToGitHubRepository = channel.unary_unary(
             "/chalk.server.v1.GitHubAppService/LinkProjectToGitHubRepository",
             request_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.LinkProjectToGitHubRepositoryRequest.SerializeToString,
@@ -172,6 +182,22 @@ class GitHubAppServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreatePullRequestFromChanges(self, request, context):
+        """Pushes the given file changes as a single commit on a new branch and
+        opens a pull request against base_branch.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateVolumeFromGitHubRepo(self, request, context):
+        """Downloads the repository archive at ref and commits its contents into a
+        new volume, server-side -- no archive bytes cross the caller.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def LinkProjectToGitHubRepository(self, request, context):
         """-- Project links --"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -258,6 +284,16 @@ def add_GitHubAppServiceServicer_to_server(servicer, server):
             servicer.GetGitHubRepositoryArchive,
             request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveResponse.SerializeToString,
+        ),
+        "CreatePullRequestFromChanges": grpc.unary_unary_rpc_method_handler(
+            servicer.CreatePullRequestFromChanges,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromChangesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromChangesResponse.SerializeToString,
+        ),
+        "CreateVolumeFromGitHubRepo": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateVolumeFromGitHubRepo,
+            request_deserializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoResponse.SerializeToString,
         ),
         "LinkProjectToGitHubRepository": grpc.unary_unary_rpc_method_handler(
             servicer.LinkProjectToGitHubRepository,
@@ -626,6 +662,64 @@ class GitHubAppService(object):
             "/chalk.server.v1.GitHubAppService/GetGitHubRepositoryArchive",
             chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_github__app__pb2.GetGitHubRepositoryArchiveResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreatePullRequestFromChanges(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/CreatePullRequestFromChanges",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromChangesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.CreatePullRequestFromChangesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateVolumeFromGitHubRepo(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GitHubAppService/CreateVolumeFromGitHubRepo",
+            chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_github__app__pb2.CreateVolumeFromGitHubRepoResponse.FromString,
             options,
             channel_credentials,
             insecure,

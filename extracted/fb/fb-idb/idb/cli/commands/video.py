@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import sys
 from argparse import ArgumentParser, Namespace
 from typing import Dict, List
@@ -13,7 +14,7 @@ from idb.common.signal import signal_handler_event, signal_handler_generator
 from idb.common.types import Client, VideoFormat
 
 
-_FORMAT_CHOICE_MAP: Dict[str, VideoFormat] = {
+_FORMAT_CHOICE_MAP: dict[str, VideoFormat] = {
     str(format.value.lower()): format for format in VideoFormat
 }
 
@@ -28,7 +29,7 @@ class VideoRecordCommand(ClientCommand):
         return "video"
 
     @property
-    def aliases(self) -> List[str]:
+    def aliases(self) -> list[str]:
         return ["record-video"]
 
     def add_parser_arguments(self, parser: ArgumentParser) -> None:

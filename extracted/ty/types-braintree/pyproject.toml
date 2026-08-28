@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-braintree"
-version = "4.46.0.20260814"
+version = "4.46.0.20260827"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for braintree"
@@ -25,13 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.3.0
+* [mypy](https://www.mypy-lang.org/) 2.3.0
 * [pyrefly](https://pyrefly.org/) 1.3.0.dev1
-* [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [pyright](https://microsoft.github.io/pyright/) 1.1.411
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`8f448a724e8a1ed31a4b582e642c576d5481c44e`](https://github.com/python/typeshed/commit/8f448a724e8a1ed31a4b582e642c576d5481c44e).
+[`c10142fb9463b1dd0c581d3f08f4c01c5c08a09e`](https://github.com/python/typeshed/commit/c10142fb9463b1dd0c581d3f08f4c01c5c08a09e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

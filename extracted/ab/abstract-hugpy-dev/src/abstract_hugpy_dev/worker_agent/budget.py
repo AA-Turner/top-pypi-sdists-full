@@ -275,14 +275,28 @@ def resolve_effective_cap(limits: dict | None,
         pass
     if not terms:
         return None, sources
-    name, eff = min(terms, key=lambda t: t[1])
+    name, alloc = min(terms, key=lambda t: t[1])
+    # THE ALLOCATION IS THE TOTAL LIMIT (operator rule, 2026-08-22): the
+    # inference headroom/reserve is portioned OUT OF the allocation, not added
+    # beside it. effective = allocation - reserve is the ceiling the cache may
+    # actually reach; "available space + headroom = the limit".
+    reserve = disk_reserve_bytes(limits)
+    eff = max(0, alloc - reserve)
+    sources["allocation_gib"] = round(alloc / GIB, 3)
+    sources["allocation_source"] = name
+    sources["reserve_gib"] = round(reserve / GIB, 3)
     sources["effective_gib"] = round(eff / GIB, 3)
     sources["effective_source"] = name
     return eff, sources
 
 
-def disk_reserve_bytes() -> int:
+def disk_reserve_bytes(limits: dict | None = None) -> int:
     """Free-space reserve (bytes) to keep on the model-root volume after a pull.
+
+    Resolution order: per-worker ``limits.disk_reserve_gib`` (central-set, same
+    dict that carries disk_cache_gib) -> ``HUGPY_WORKER_DISK_RESERVE_GIB`` env ->
+    50. The reserve is carved OUT of the disk_cache_gib allocation (see
+    resolve_effective_cap), so it is also the inference headroom.
 
     Mirrors the CENTRAL-side ``_disk_reserve_bytes`` (utils/workers.py) exactly —
     same env var, same default — so the worker's own disk-free floor reads the
@@ -295,10 +309,18 @@ def disk_reserve_bytes() -> int:
     volume still corrupts everyone's pull — the op incident — so the disk-free
     check stays. Do NOT invent a second reserve constant; this is the tree's one.
     """
-    try:
-        gib = float(os.environ.get("HUGPY_WORKER_DISK_RESERVE_GIB", "50"))
-    except (TypeError, ValueError):
-        gib = 50.0
+    gib = None
+    v = (limits or {}).get("disk_reserve_gib") if isinstance(limits, dict) else None
+    if v not in (None, ""):
+        try:
+            gib = float(v)
+        except (TypeError, ValueError):
+            gib = None
+    if gib is None:
+        try:
+            gib = float(os.environ.get("HUGPY_WORKER_DISK_RESERVE_GIB", "50"))
+        except (TypeError, ValueError):
+            gib = 50.0
     if gib < 0:
         gib = 0.0
     return int(gib * (1 << 30))
@@ -462,8 +484,19 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
     # Fall back to central-only cap_bytes when the caller didn't supply one, so
     # every legacy caller/test is unchanged. budget_sources is carried through to
     # the plan/refusal verbatim for operator visibility.
-    cap = effective_cap if effective_cap is not None else cap_bytes(limits)
+    # ``effective_cap`` from resolve_effective_cap is ALREADY allocation-minus-
+    # reserve. The central-only fallback applies the same carve-out here so the
+    # two paths (and central's over_budget) agree on one ceiling (Parity).
+    cap = effective_cap
     srcs = dict(budget_sources or {})
+    if cap is None:
+        alloc = cap_bytes(limits)
+        if alloc is not None:
+            reserve = disk_reserve_bytes(limits)
+            cap = max(0, alloc - reserve)
+            srcs.setdefault("allocation_gib", round(alloc / (1 << 30), 3))
+            srcs.setdefault("reserve_gib", round(reserve / (1 << 30), 3))
+            srcs.setdefault("effective_gib", round(cap / (1 << 30), 3))
     rows = [r for r in (storage.get("models") or [])
             if isinstance(r, dict) and r.get("model_key")]
     used = int(storage.get("cache_used_bytes") or 0)
@@ -493,7 +526,7 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
     # to [Errno 28] (the op incident), and central/console read the reason.
     if shared_store:
         free = int(storage.get("disk_free") or 0)
-        reserve = disk_reserve_bytes()
+        reserve = disk_reserve_bytes(limits)
         note = ("store is shared/central — worker cap gate not applicable; "
                 "volume is centrally managed")
         if delta and free and (free - delta) < reserve:
@@ -529,6 +562,28 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
                 "note": "no disk_cache_gib allocation set — budget unmanaged"}
 
     if used + delta <= cap:
+        # Second safety check: the real volume must still keep the reserve free
+        # after this pull. Redundant when allocation == volume (then cap already
+        # carved it out); harmless otherwise — it never evicts, only refuses.
+        free = int(storage.get("disk_free") or 0)
+        reserve = disk_reserve_bytes(limits)
+        if delta and free and (free - delta) < reserve:
+            reason = {
+                "state": "refused",
+                "model_key": model_key,
+                "reason": (
+                    f"won't fit on volume: needs {_human(delta)}, "
+                    f"{_human(free)} free, {_human(reserve)} reserve kept — "
+                    f"under the cache ceiling {_human(cap)} but the real volume "
+                    f"is too full to land this pull safely"
+                ),
+                "needs_bytes": delta,
+                "disk_free_bytes": free,
+                "disk_reserve_bytes": reserve,
+                "budget_effective_bytes": cap,
+                "budget_sources": srcs,
+            }
+            return {"action": "refuse", "evict": [], "reason": reason}
         return {"action": "proceed", "evict": [], "reason": None,
                 "budget_effective_bytes": cap, "budget_sources": srcs}
 

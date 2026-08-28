@@ -307,16 +307,246 @@ def _weights_missing_msg(weight_uri: str, hot: str | None, shared_root: str | No
             f"--local-dir {_local_model_dir(dl_root, weight_uri)}`")
 
 
+# Wan spatial grid: the VAE compresses space 8:1 and the DiT patchifies 2x2 latent
+# pixels, so height/width must be multiples of 8*2 = 16 (diffusers' own check is
+# ``vae_scale_factor_spatial * patch_size``). Temporal: 4:1 + 1 -> num_frames = 4k+1.
+_WAN_SPATIAL_MULTIPLE = 16
+_WAN_TEMPORAL_STRIDE = 4
+
+
+def _snap_geometry(width: int, height: int, n_frames: int) -> tuple[int, int, int]:
+    """Pure snap of a requested (w, h, frames) onto Wan's grid: w/h DOWN to the
+    nearest multiple of 16 (floor 16), frames DOWN to the nearest 4k+1 (floor 1).
+    Snapping down never grows the VRAM need of a geometry the router already priced."""
+    m = _WAN_SPATIAL_MULTIPLE
+    w = max(m, (int(width) // m) * m)
+    h = max(m, (int(height) // m) * m)
+    n = max(1, int(n_frames))
+    n = ((n - 1) // _WAN_TEMPORAL_STRIDE) * _WAN_TEMPORAL_STRIDE + 1
+    return w, h, n
+
+
 def _wan_geometry(manifest: RenderManifest) -> tuple[int, int, int, int]:
     """(width, height, fps, n_frames) mirroring synthetic's ``_geometry`` but
-    snapped to Wan's temporal cadence: the latent VAE compresses time 4:1, so the
-    pipeline requires ``num_frames == 4*k + 1`` (e.g. 81). Snapping here (not in
-    the real path) keeps the resume check and the generation call agreeing on the
-    exact frame count."""
+    snapped to Wan's grid (``_snap_geometry``): the latent VAE compresses time 4:1,
+    so the pipeline requires ``num_frames == 4*k + 1`` (e.g. 81), and space 8:1
+    under a 2x2 patch, so height/width must be multiples of 16. Snapping here (not
+    in the real path) keeps the resume check and the generation call agreeing on
+    the exact geometry. Anything snapped is logged ONCE, explicitly."""
     width, height, fps, n = _geometry(manifest)
-    n = max(1, n)
-    n = ((n - 1) // 4) * 4 + 1        # nearest 4k+1 <= n
-    return width, height, fps, n
+    w, h, nn = _snap_geometry(width, height, n)
+    if (w, h, nn) != (width, height, n):
+        logger.warning(
+            "wan geometry snapped to the model grid: requested %dx%d x%df -> "
+            "%dx%d x%df (width/height -> multiple of %d, frames -> 4k+1)",
+            width, height, n, w, h, nn, _WAN_SPATIAL_MULTIPLE)
+    return w, h, fps, nn
+
+
+def _fit_image(img, width: int, height: int):
+    """Resize a PIL conditioning image to EXACTLY (width, height): center-crop to
+    the target aspect first (no distortion), then LANCZOS resample. The pipeline
+    does its own preprocess too, but feeding it the exact grid size means the image
+    latent and the noise latent can never disagree on spatial shape."""
+    from PIL import Image
+    img = img.convert("RGB")
+    sw, sh = img.size
+    if (sw, sh) == (width, height):
+        return img
+    target = width / float(height)
+    src = sw / float(sh)
+    if abs(src - target) > 1e-6:
+        if src > target:                      # too wide -> crop width
+            new_w = int(round(sh * target))
+            left = (sw - new_w) // 2
+            img = img.crop((left, 0, left + new_w, sh))
+        else:                                 # too tall -> crop height
+            new_h = int(round(sw / target))
+            top = (sh - new_h) // 2
+            img = img.crop((0, top, sw, top + new_h))
+    resample = getattr(getattr(Image, "Resampling", Image), "LANCZOS")
+    return img.resize((width, height), resample)
+
+
+# --------------------------------------------------------------------------- #
+# Checkpoint <-> task pairing (2026-08-21 incident) and resolution-variant pick
+# --------------------------------------------------------------------------- #
+# The Wan 2.1 i2v DiT takes 36 latent channels (16 noise + 4 mask + 16 image
+# condition) and emits 16; the t2v DiT takes and emits 16. diffusers' t2v
+# ``WanPipeline`` sizes its noise from ``transformer.config.in_channels``, so an i2v
+# checkpoint driven through it makes 36-channel latents against a 16-channel
+# prediction and the scheduler step dies with "The size of tensor a (36) must match
+# the size of tensor b (16) at non-singleton dimension 1" -- AFTER loading ~14GB.
+_WAN_I2V_IN_CHANNELS = 36
+_WAN_T2V_IN_CHANNELS = 16
+
+
+def _transformer_in_channels(model_dir: str) -> int | None:
+    """``in_channels`` from ``<model_dir>/transformer/config.json`` (None if the
+    file is absent/unreadable -- the check is then skipped, never fatal)."""
+    try:
+        with open(os.path.join(model_dir, "transformer", "config.json"),
+                  encoding="utf-8") as fh:
+            return int(json.load(fh).get("in_channels"))
+    except Exception:
+        return None
+
+
+def _checkpoint_pairing_error(in_channels: int | None, has_start_image: bool,
+                              weight_uri: str) -> str | None:
+    """Pure: the human-readable CONFIG_ERROR reason when the checkpoint's DiT input
+    width and the conditioning mode disagree, else None."""
+    if in_channels is None:
+        return None
+    if in_channels == _WAN_I2V_IN_CHANNELS and not has_start_image:
+        return (f"{weight_uri} is an IMAGE-to-video checkpoint (DiT in_channels="
+                f"{in_channels}) but this render has no start_image, so it would "
+                f"run through the text-to-video WanPipeline and fail with a 36-vs-16 "
+                f"latent-channel mismatch. Provide start_image (or source_video to "
+                f"extend), or pin a t2v model (e.g. wan2.1-t2v-1.3b).")
+    if in_channels == _WAN_T2V_IN_CHANNELS and has_start_image:
+        return (f"{weight_uri} is a TEXT-to-video checkpoint (DiT in_channels="
+                f"{in_channels}) but this render supplies a start_image; the i2v "
+                f"pipeline needs a 36-channel i2v DiT. Drop the image or pin an "
+                f"i2v model (e.g. wan2.1-i2v-14b-720p).")
+    return None
+
+
+_WAN_480P_MAX_LONG_SIDE = 832
+
+
+def _variant_for_geometry(weight_uri: str, width: int, height: int) -> str:
+    """Pure: the Wan-AI checkpoint name whose training resolution matches the
+    requested geometry. Wan 2.1 ships ``...-480P`` and ``...-720P`` i2v variants;
+    the 720P one renders 480p but was not tuned for it. Returns ``weight_uri``
+    unchanged when no sibling applies."""
+    long_side = max(int(width), int(height))
+    if weight_uri.endswith("-720P") and long_side <= _WAN_480P_MAX_LONG_SIDE:
+        return weight_uri[:-len("-720P")] + "-480P"
+    if weight_uri.endswith("-480P") and long_side > _WAN_480P_MAX_LONG_SIDE:
+        return weight_uri[:-len("-480P")] + "-720P"
+    return weight_uri
+
+
+def _pick_checkpoint_variant(manifest: RenderManifest, weight_uri: str,
+                             model_dir: str, width: int, height: int
+                             ) -> tuple[str, str, str]:
+    """(model_dir, weight_uri, note): swap to the resolution-matched sibling
+    checkpoint ONLY when it is actually on disk (hot or shared root). Opt out with
+    HUGPY_WAN_VARIANT_BY_RESOLUTION=0. The choice is logged and recorded in
+    provenance; it is not part of the content_hash (the registry row is)."""
+    if os.environ.get("HUGPY_WAN_VARIANT_BY_RESOLUTION", "1").strip() == "0":
+        return model_dir, weight_uri, "variant pick disabled by env"
+    want = _variant_for_geometry(weight_uri, width, height)
+    if want == weight_uri:
+        return model_dir, weight_uri, f"{weight_uri} matches {width}x{height}"
+    alt_dir, _root = _resolve_model_dir(manifest, want)
+    if alt_dir and os.path.isfile(os.path.join(alt_dir, "model_index.json")):
+        logger.info("wan checkpoint variant: %dx%d -> using %s (%s) instead of %s",
+                    width, height, want, alt_dir, weight_uri)
+        return alt_dir, want, f"{want} picked for {width}x{height}"
+    logger.info("wan checkpoint variant: %s would suit %dx%d but is not on disk; "
+                "serving with %s", want, width, height, weight_uri)
+    return model_dir, weight_uri, f"{want} not on disk; serving {weight_uri}"
+
+
+# --------------------------------------------------------------------------- #
+# Exception classification + per-spec retry budget (2026-08-21 incident)
+# --------------------------------------------------------------------------- #
+_SHAPE_ERROR_MARKERS = (
+    "must match the size of tensor",
+    "sizes of tensors must match",
+    "shape mismatch",
+    "size mismatch",
+    "shape '[",                      # view()/reshape() failures
+    "invalid for input of size",
+    "expected input",                # conv channel-count mismatch
+    "cannot be multiplied",          # mat1 and mat2 shapes
+    "does not match",                # "... does not match the shape ..."
+    "must be divisible by",
+    "is not divisible by",
+)
+_CONFIG_ERROR_MARKERS = (
+    "unexpected keyword argument",
+    "has no attribute",
+    "got an unexpected",
+    "not supported for",
+    "is not a valid",
+)
+
+
+def _classify_exception(exc: BaseException) -> tuple[ErrorCode, str]:
+    """Pure: (ErrorCode, short label) for an exception raised by the real path.
+
+      * CUDA OOM (torch.OutOfMemoryError / "out of memory")   -> OOM          (retryable)
+      * tensor shape/size/channel mismatch (RuntimeError etc.) -> SHAPE_ERROR  (NOT retryable)
+      * API/config mismatch (TypeError/AttributeError/KeyError,
+        unexpected kwarg, missing attribute)                  -> CONFIG_ERROR (NOT retryable)
+      * everything else (disk, ffmpeg, transport)             -> IO_ERROR     (retryable)
+    """
+    name = type(exc).__name__
+    text = str(exc).lower()
+    if "outofmemory" in name.lower() or "out of memory" in text:
+        return ErrorCode.OOM, "ran out of VRAM"
+    if any(m in text for m in _SHAPE_ERROR_MARKERS):
+        return ErrorCode.SHAPE_ERROR, "hit a tensor shape mismatch"
+    if (isinstance(exc, (TypeError, AttributeError, KeyError))
+            or any(m in text for m in _CONFIG_ERROR_MARKERS)):
+        return ErrorCode.CONFIG_ERROR, "hit a pipeline/config mismatch"
+    return ErrorCode.IO_ERROR, "inference failed"
+
+
+_FAILURES_NAME = "failures.json"
+_RETRY_BUDGET_ENV = "HUGPY_WAN_RETRY_BUDGET"
+_DEFAULT_RETRY_BUDGET = 3
+_RETRYABLE_RUNNER_CODES = frozenset({ErrorCode.OOM, ErrorCode.IO_ERROR,
+                                     ErrorCode.ASSEMBLY_FAILED, ErrorCode.NAN_IN_VAE})
+
+
+def _retry_budget() -> int:
+    raw = os.environ.get(_RETRY_BUDGET_ENV, "").strip()
+    try:
+        return max(1, int(raw)) if raw else _DEFAULT_RETRY_BUDGET
+    except ValueError:
+        return _DEFAULT_RETRY_BUDGET
+
+
+def _record_failure(out_dir: str, code: ErrorCode, message: str) -> int:
+    """Append this failure to ``<out_dir>/failures.json`` (the content-addressed
+    dir, so the ledger is PER SPEC and survives the process). Returns the number of
+    failures now recorded for ``code``. Best-effort: any IO problem returns 1."""
+    path = os.path.join(out_dir, _FAILURES_NAME)
+    try:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                ledger = json.load(fh)
+        except (OSError, ValueError):
+            ledger = {}
+        if not isinstance(ledger, dict):
+            ledger = {}
+        row = ledger.setdefault(code.value, {"count": 0, "last": "", "ts": 0.0})
+        row["count"] = int(row.get("count", 0)) + 1
+        row["last"] = message[:500]
+        row["ts"] = time.time()
+        os.makedirs(out_dir, exist_ok=True)
+        atomic_write_text(path, json.dumps(ledger, indent=2, sort_keys=True))
+        return int(row["count"])
+    except Exception:  # noqa: BLE001 -- the ledger never breaks error reporting
+        return 1
+
+
+def _budgeted_context(out_dir: str, code: ErrorCode, message: str,
+                      base: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str], ...]:
+    """Context for an Err: records the failure and, once a RETRYABLE code has been
+    seen ``_retry_budget()`` times for this spec, vetoes further retries with
+    ("retryable", "false") -- which the bus adapter honours."""
+    n = _record_failure(out_dir, code, message)
+    ctx = base + (("failures", str(n)),)
+    if code in _RETRYABLE_RUNNER_CODES and n >= _retry_budget():
+        logger.warning("wan retry budget exhausted for %s: %d x %s -> not retryable",
+                       dict(base).get("content_hash", "?"), n, code.value)
+        ctx += (("retryable", "false"), ("retry_budget", f"exhausted:{n}"))
+    return ctx
 
 
 def _frame_to_pil(frame):
@@ -1092,6 +1322,300 @@ def _place_pipe(pipe, place_whole: bool) -> list[str]:
 
 
 # --------------------------------------------------------------------------- #
+# MULTI-GPU PLACEMENT (2026-08-21) — a-brain-Super-Server: 2x RTX 3090 24G on one
+# board, NO NVLink, PCIe only. Pure planner (unit-tested with a fake device
+# inventory, no GPU) + a BOX-ONLY applier with a single-GPU fallback.
+#
+#   component (default with >=2 GPUs): DiT on cuda:0; UMT5 text encoder + CLIP
+#             image encoder + VAE on cuda:1. Encoders/VAE get pre/post hooks that
+#             move their inputs to cuda:1 and their outputs back to cuda:0, so the
+#             only PCIe traffic is one embedding tensor per encoder call and one
+#             latent tensor per VAE encode/decode. The DiT is BF16 when it fits
+#             cuda:0's FREE memory alone, else bnb nf4 ("FP8" in this registry).
+#   layers:   BF16 DiT sharded across both cards with accelerate's device_map
+#             (sequential blocks; activations cross PCIe once per block boundary
+#             at the split). Aux modules on cuda:1 as in component mode. Falls
+#             back to component when the two cards' per-device budgets cannot
+#             hold the BF16 DiT.
+#   single:   the historical one-card path (_place_pipe).
+#
+# NEVER POOLED: every capacity test is against ONE device's free memory. Mode from
+# HUGPY_WAN_DEVICE_MODE (component|layers|single|auto); auto = component with 2+
+# GPUs else single. Any pipeline/class that cannot take the placement logs why and
+# falls back to single.
+# --------------------------------------------------------------------------- #
+_DEVICE_MODE_ENV = "HUGPY_WAN_DEVICE_MODE"
+_DEVICE_MODES = ("auto", "component", "layers", "single")
+# Per-device headroom: CUDA context (~0.4-0.6 GiB on a 3090) + allocator slack.
+_DEVICE_RESERVE_GIB = 1.5
+
+
+class DeviceLayout:
+    """The chosen multi-GPU layout (plain class: hashable-by-identity, printable)."""
+    __slots__ = ("mode", "requested", "transformer_device", "aux_device",
+                 "quantize", "max_memory", "reason")
+
+    def __init__(self, mode: str, requested: str, transformer_device: str,
+                 aux_device: str, quantize: bool, max_memory: "dict | None",
+                 reason: str) -> None:
+        self.mode = mode
+        self.requested = requested
+        self.transformer_device = transformer_device
+        self.aux_device = aux_device
+        self.quantize = quantize
+        self.max_memory = max_memory
+        self.reason = reason
+
+    def describe(self) -> str:
+        extra = ""
+        if self.mode == "layers" and self.max_memory:
+            extra = " max_memory=" + ",".join(
+                f"cuda:{k}={v}" for k, v in sorted(self.max_memory.items()))
+        if self.mode == "component":
+            extra = f" transformer={'nf4' if self.quantize else 'as-requested'}"
+        return (f"mode={self.mode} (requested={self.requested}) "
+                f"transformer->{self.transformer_device} "
+                f"text_encoder/image_encoder/vae->{self.aux_device}{extra}; {self.reason}")
+
+
+def _device_mode_from_env(env: "dict | None" = None) -> str:
+    raw = (env if env is not None else os.environ).get(_DEVICE_MODE_ENV, "auto")
+    raw = (raw or "auto").strip().lower()
+    if raw not in _DEVICE_MODES:
+        logger.warning("%s=%r is not one of %s; using auto", _DEVICE_MODE_ENV, raw,
+                       "|".join(_DEVICE_MODES))
+        return "auto"
+    return raw
+
+
+def _cuda_inventory(torch) -> list[tuple[float, float]]:
+    """[(total_gib, free_gib)] per visible CUDA device, via ``mem_get_info`` (the
+    same probe the platform VRAM helpers use). Empty on any failure."""
+    out: list[tuple[float, float]] = []
+    try:
+        n = int(torch.cuda.device_count())
+    except Exception:
+        return out
+    gib = 1024.0 ** 3
+    for i in range(n):
+        try:
+            free, total = torch.cuda.mem_get_info(i)
+            out.append((total / gib, free / gib))
+        except Exception:
+            out.append((0.0, 0.0))
+    return out
+
+
+def _component_sizes_gib(model_id: str, width: int, height: int, n_frames: int
+                         ) -> "tuple[float, float, float, float] | None":
+    """(dit_bf16, dit_nf4, aux, activations) in GiB from the measured footprints;
+    None for a model without one (the planner then falls back to single)."""
+    fp = _WAN_FOOTPRINTS.get(model_id)
+    if fp is None:
+        return None
+    dit_params, has_image_encoder, extra_dit = fp
+    gib = 1024.0 ** 3
+    dit_bf16 = (dit_params + extra_dit) * 2.0 / gib
+    dit_nf4 = dit_params * _BYTES_PER_PARAM["fp8"] / gib + extra_dit * 2.0 / gib
+    aux = _UMT5_PARAMS * 2.0 / gib + _VAE_PARAMS * 4.0 / gib
+    if has_image_encoder:
+        aux += _CLIP_PARAMS * 2.0 / gib
+    u = _WAN_U.get(model_id, _WS_REF_U)
+    tokens = _latent_tokens(width, height, n_frames)
+    act = max(_WS_INTERCEPT_GIB + _WS_SLOPE_GIB_PER_TOKEN * tokens * (u / _WS_REF_U),
+              _DECODE_WS_GIB)
+    return dit_bf16, dit_nf4, aux, act
+
+
+def plan_device_layout(
+    requested: str,
+    devices: "list[tuple[float, float]]",
+    dit_bf16_gib: float,
+    dit_quant_gib: float,
+    aux_gib: float,
+    activations_gib: float,
+    precision_is_bf16: bool = True,
+    reserve_gib: float = _DEVICE_RESERVE_GIB,
+) -> DeviceLayout:
+    """PURE planner. ``devices`` = [(total_gib, free_gib)] per CUDA device; every
+    fit test is per device (nothing is ever summed across cards except the layers
+    shard budget, which is a per-card max_memory map, not a pool)."""
+    requested = requested if requested in _DEVICE_MODES else "auto"
+    n = len(devices)
+    single = lambda why: DeviceLayout(  # noqa: E731
+        "single", requested, "cuda:0", "cuda:0", False, None, why)
+    mode = requested
+    if mode == "auto":
+        mode = "component" if n >= 2 else "single"
+    if mode == "single":
+        return single("single-GPU path" + ("" if n >= 2 else f" ({n} CUDA device(s))"))
+    if n < 2:
+        return single(f"{requested} needs 2+ CUDA devices, found {n}")
+    free0 = devices[0][1]
+    free1 = devices[1][1]
+    aux_budget = free1 - reserve_gib
+    if aux_gib > aux_budget:
+        return single(f"aux modules need {aux_gib:.2f} GiB but cuda:1 has "
+                      f"{aux_budget:.2f} GiB free after reserve")
+
+    def _component(prefix: str) -> DeviceLayout:
+        budget0 = free0 - reserve_gib - activations_gib
+        if precision_is_bf16 and dit_bf16_gib <= budget0:
+            return DeviceLayout("component", requested, "cuda:0", "cuda:1", False, None,
+                                f"{prefix}bf16 DiT {dit_bf16_gib:.2f} GiB fits cuda:0 "
+                                f"budget {budget0:.2f} GiB")
+        if dit_quant_gib <= budget0:
+            why = (f"bf16 DiT {dit_bf16_gib:.2f} GiB exceeds cuda:0 budget "
+                   f"{budget0:.2f} GiB -> nf4 DiT {dit_quant_gib:.2f} GiB"
+                   if precision_is_bf16 else
+                   f"quantized DiT {dit_quant_gib:.2f} GiB fits cuda:0 budget "
+                   f"{budget0:.2f} GiB")
+            return DeviceLayout("component", requested, "cuda:0", "cuda:1", True, None,
+                                prefix + why)
+        return single(f"{prefix}even the quantized DiT ({dit_quant_gib:.2f} GiB) "
+                      f"exceeds cuda:0 budget {budget0:.2f} GiB -> offload path")
+
+    if mode == "component":
+        return _component("")
+    # layers: shard the BF16 DiT by per-card budgets
+    b0 = free0 - reserve_gib - activations_gib
+    b1 = free1 - reserve_gib - aux_gib - activations_gib
+    if b0 > 0 and b1 > 0 and dit_bf16_gib <= b0 + b1:
+        max_memory = {0: f"{b0:.2f}GiB", 1: f"{b1:.2f}GiB"}
+        return DeviceLayout("layers", requested, "cuda:0", "cuda:1", False, max_memory,
+                            f"bf16 DiT {dit_bf16_gib:.2f} GiB sharded over per-card "
+                            f"budgets {b0:.2f}+{b1:.2f} GiB")
+    return _component(f"layers: bf16 DiT {dit_bf16_gib:.2f} GiB exceeds per-card "
+                      f"budgets {max(b0, 0):.2f}+{max(b1, 0):.2f} GiB -> component; ")
+
+
+def _plan_layout_for(manifest: RenderManifest, torch, width: int, height: int,
+                     n_frames: int) -> DeviceLayout:
+    """Bind the env mode + live inventory + measured sizes into a layout."""
+    requested = _device_mode_from_env()
+    devices = _cuda_inventory(torch)
+    sizes = _component_sizes_gib(manifest.model_id, width, height, n_frames)
+    if sizes is None:
+        layout = DeviceLayout("single", requested, "cuda:0", "cuda:0", False, None,
+                              f"no measured footprint for {manifest.model_id}")
+    else:
+        is_bf16 = manifest.precision in (Precision.BF16, Precision.FP16)
+        layout = plan_device_layout(requested, devices, sizes[0], sizes[1], sizes[2],
+                                    sizes[3], precision_is_bf16=is_bf16)
+    logger.info("wan device layout: %s | devices=%s", layout.describe(),
+                ", ".join(f"cuda:{i} {t:.1f}G total/{f:.1f}G free"
+                          for i, (t, f) in enumerate(devices)) or "none")
+    return layout
+
+
+def _move_to_device(obj, device, torch):
+    """Recursively move tensors inside tensors / lists / tuples / dicts / HF
+    ModelOutput objects (dict subclasses) to ``device``."""
+    if isinstance(obj, torch.Tensor):
+        return obj.to(device)
+    if isinstance(obj, dict):                  # includes transformers ModelOutput
+        for k in list(obj.keys()):
+            obj[k] = _move_to_device(obj[k], device, torch)
+        return obj
+    if isinstance(obj, tuple):
+        return tuple(_move_to_device(o, device, torch) for o in obj)
+    if isinstance(obj, list):
+        return [_move_to_device(o, device, torch) for o in obj]
+    latent_dist = getattr(obj, "latent_dist", None)
+    if latent_dist is not None and hasattr(latent_dist, "parameters"):
+        try:
+            obj.latent_dist = type(latent_dist)(latent_dist.parameters.to(device))
+        except Exception:  # noqa: BLE001
+            pass
+        return obj
+    sample = getattr(obj, "sample", None)
+    if isinstance(sample, torch.Tensor):
+        try:
+            obj.sample = sample.to(device)
+        except Exception:  # noqa: BLE001
+            pass
+    return obj
+
+
+def _bridge_module(module, own_device, out_device, torch, methods=("forward",)
+                   ) -> list:
+    """Make ``module`` live on ``own_device`` while looking, to its caller, like it
+    lives on ``out_device``: inputs are moved in, outputs moved back. ``forward``
+    is bridged with torch hooks; other entry points (the VAE's ``encode``/
+    ``decode`` bypass forward) are wrapped directly. Returns zero-arg undo
+    callables (remove hook / restore method) so a failed placement can be unwound."""
+    undo: list = []
+    module.to(own_device)
+    if "forward" in methods:
+        def _pre(_m, args, kwargs):
+            return (_move_to_device(args, own_device, torch),
+                    _move_to_device(kwargs, own_device, torch))
+        def _post(_m, _args, output):
+            return _move_to_device(output, out_device, torch)
+        h1 = module.register_forward_pre_hook(_pre, with_kwargs=True)
+        h2 = module.register_forward_hook(_post)
+        undo.extend((h1.remove, h2.remove))
+    for name in methods:
+        if name == "forward":
+            continue
+        fn = getattr(module, name, None)
+        if fn is None:
+            continue
+        def _wrapped(*args, __fn=fn, **kwargs):
+            args = _move_to_device(args, own_device, torch)
+            kwargs = _move_to_device(kwargs, own_device, torch)
+            return _move_to_device(__fn(*args, **kwargs), out_device, torch)
+        setattr(module, name, _wrapped)
+        undo.append(lambda _m=module, _n=name: _m.__dict__.pop(_n, None))
+    return undo
+
+
+def _pin_execution_device(pipe, device, torch) -> None:
+    """diffusers derives ``_execution_device`` from the FIRST nn.Module component
+    (the text encoder for Wan) — which in component/layers mode sits on cuda:1.
+    Pin both ``device`` and ``_execution_device`` to the DiT's card so prompts,
+    noise and timesteps are created where the DiT runs."""
+    dev = torch.device(device)
+    pinned = type(pipe.__class__.__name__ + "Pinned", (pipe.__class__,), {
+        "_execution_device": property(lambda self: dev),
+        "device": property(lambda self: dev),
+    })
+    pipe.__class__ = pinned
+
+
+def _apply_device_layout(pipe, layout: DeviceLayout, torch) -> list[str]:
+    """BOX-ONLY: place a loaded pipe per ``layout``. Returns the engaged levers.
+    Raises on any placement problem — the caller falls back to single."""
+    tdev = layout.transformer_device
+    adev = layout.aux_device
+    transformer = getattr(pipe, "transformer", None)
+    if transformer is None:
+        raise RuntimeError("pipeline has no .transformer to place")
+    undo: list = []
+    try:
+        if layout.mode == "component":
+            transformer.to(tdev)
+        # layers: the transformer was loaded with device_map and must not be moved.
+        for name in ("text_encoder", "image_encoder"):
+            mod = getattr(pipe, name, None)
+            if mod is not None:
+                undo += _bridge_module(mod, adev, tdev, torch)
+        vae = getattr(pipe, "vae", None)
+        if vae is not None:
+            undo += _bridge_module(vae, adev, tdev, torch,
+                                   methods=("forward", "encode", "decode"))
+        _pin_execution_device(pipe, tdev, torch)
+    except Exception:
+        for fn in reversed(undo):   # unwind so the single-GPU fallback starts clean
+            try:
+                fn()
+            except Exception:  # noqa: BLE001
+                pass
+        raise
+    return _engage_memory_savers(pipe)
+
+
+# --------------------------------------------------------------------------- #
 # The runner
 # --------------------------------------------------------------------------- #
 def run_wan_i2v(
@@ -1198,10 +1722,30 @@ def run_wan_i2v(
     # WEIGHTS SOURCE (item 5): prefer the box-local hot NVMe copy if it holds the
     # model, else the shared root — a faster LOAD only; does not affect content_hash.
     model_dir, weights_root_used = _resolve_model_dir(manifest, cfg.weight_uri)
-    logger.info("wan i2v: loading %s from %s (%s weights root)",
-                cfg.weight_uri, model_dir, weights_root_used)
+    # 480P/720P checkpoint variant by requested geometry (only if the sibling is on
+    # disk) — recorded in provenance below.
+    model_dir, weight_uri_used, variant_note = _pick_checkpoint_variant(
+        manifest, cfg.weight_uri, model_dir, width, height)
+    logger.info("wan i2v: loading %s from %s (%s weights root; %s)",
+                weight_uri_used, model_dir, weights_root_used, variant_note)
     compute_dtype = torch.bfloat16
     quant_config = _bnb_config(manifest.precision, BitsAndBytesConfig, torch)
+    effective_precision = manifest.precision
+    # MULTI-GPU layout (component / layers / single) — decided BEFORE the transformer
+    # loads because layers mode loads it sharded (device_map) and component mode may
+    # quantize it to fit cuda:0 alone. Logged once, with the per-device inventory.
+    layout = _plan_layout_for(manifest, torch, width, height, n_frames)
+    if layout.mode == "component" and layout.quantize and quant_config is None:
+        quant_config = _bnb_config(Precision.FP8, BitsAndBytesConfig, torch)
+        effective_precision = Precision.FP8
+        logger.warning("wan device layout: bf16 DiT will not fit %s alone -> loading "
+                       "the transformer bnb-nf4 (effective precision fp8, recorded in "
+                       "provenance)", layout.transformer_device)
+    if layout.mode == "layers" and quant_config is not None:
+        quant_config = None
+        effective_precision = Precision.BF16
+        logger.info("wan device layout: layers mode shards a BF16 DiT; dropping the "
+                    "requested %s quantization", manifest.precision.value)
     seed = manifest.seeds.global_seed
     steps = manifest.sampler.steps
     cfg_scale = manifest.sampler.cfg
@@ -1247,6 +1791,22 @@ def run_wan_i2v(
         # Placement + the VRAM levers (item 4), engaged on BOTH branches. _place_pipe
         # offloads an over-budget (or unmovably-quantized) pipe and engages attention
         # slicing + VAE tiling/slicing; a model that fits goes wholly to CUDA.
+        if layout.mode in ("component", "layers"):
+            try:
+                _apply_device_layout(pipe, layout, torch)
+                logger.info("wan device layout applied: %s", layout.describe())
+                return
+            except Exception as exc:  # noqa: BLE001 — fall back, never fail a render here
+                if layout.mode == "layers":
+                    # the DiT is already sharded; only the aux placement failed
+                    logger.warning("wan device layout: layers aux placement failed (%s: %s); "
+                                   "keeping the sharded DiT, aux modules stay where "
+                                   "loaded", type(exc).__name__, exc)
+                    _engage_memory_savers(pipe)
+                    return
+                logger.warning("wan device layout: %s placement not supported by %s (%s: "
+                               "%s) -> falling back to single", layout.mode,
+                               type(pipe).__name__, type(exc).__name__, exc)
         _place_pipe(pipe, place_whole)
 
     # Cooperative mid-render cancel wiring (Task 1). diffusers 0.39's
@@ -1297,11 +1857,45 @@ def run_wan_i2v(
                     (("source_video", manifest.source_video),)))
             start_image = last_frame
 
+        # CHECKPOINT <-> CONDITIONING pairing (2026-08-21 incident): an i2v checkpoint
+        # with no start image would take the t2v WanPipeline branch and die mid-denoise
+        # on a 36-vs-16 latent-channel mismatch AFTER loading ~14GB. Refuse HERE, as
+        # deterministic CONFIG_ERROR data, before any weight is touched.
+        pairing = _checkpoint_pairing_error(
+            _transformer_in_channels(model_dir), start_image is not None, weight_uri_used)
+        if pairing is not None:
+            logger.error("wan i2v refused (config_error): %s", pairing)
+            return Err(StageError(
+                ErrorCode.CONFIG_ERROR, pairing,
+                (("content_hash", content_hash), ("model_id", manifest.model_id),
+                 ("weight_uri", weight_uri_used),
+                 ("start_image", "present" if start_image else "absent"),
+                 ("retryable", "false"))))
+
         # bitsandbytes-quantized DiT transformer (int8 / nf4 per precision).
         tf_kwargs = {"subfolder": "transformer", "torch_dtype": compute_dtype}
         if quant_config is not None:
             tf_kwargs["quantization_config"] = quant_config
-        transformer = WanTransformer3DModel.from_pretrained(model_dir, **tf_kwargs)
+        if layout.mode == "layers":
+            # accelerate device_map shard over both cards, bounded PER CARD.
+            tf_kwargs["device_map"] = "balanced"
+            tf_kwargs["max_memory"] = dict(layout.max_memory or {})
+        try:
+            transformer = WanTransformer3DModel.from_pretrained(model_dir, **tf_kwargs)
+        except Exception as exc:  # noqa: BLE001
+            if layout.mode != "layers":
+                raise
+            logger.warning("wan device layout: sharded (layers) load failed (%s: %s) -> "
+                           "falling back to single", type(exc).__name__, exc)
+            layout = DeviceLayout("single", layout.requested, "cuda:0", "cuda:0", False,
+                                  None, f"layers load failed: {type(exc).__name__}")
+            tf_kwargs.pop("device_map", None)
+            tf_kwargs.pop("max_memory", None)
+            quant_config = _bnb_config(manifest.precision, BitsAndBytesConfig, torch)
+            effective_precision = manifest.precision
+            if quant_config is not None:
+                tf_kwargs["quantization_config"] = quant_config
+            transformer = WanTransformer3DModel.from_pretrained(model_dir, **tf_kwargs)
         # Wan's VAE is numerically sensitive; the diffusers Wan reference loads it
         # in fp32 (it is small relative to the DiT, so this is affordable).
         vae = AutoencoderKLWan.from_pretrained(
@@ -1328,8 +1922,14 @@ def run_wan_i2v(
             _prepare_pipe(pipe)
             # C-prompt: the manifest's text prompt (+ negative) drives conditioning.
             # i2v is image-conditioned, so an empty prompt is still valid.
+            # The conditioning still is resized to EXACTLY the snapped grid (center
+            # crop, no distortion) so the image latent and the noise latent agree.
+            cond_image = _fit_image(load_image(start_image), width, height)
+            logger.info("wan i2v: conditioning image %s -> %dx%d, num_frames=%d, "
+                        "flow_shift=%s, pipeline=%s", start_image, width, height,
+                        n_frames, flow_shift, type(pipe).__name__)
             result = pipe(
-                image=load_image(start_image),
+                image=cond_image,
                 prompt=prompt,
                 negative_prompt=negative_prompt,
                 height=height,
@@ -1403,17 +2003,29 @@ def run_wan_i2v(
         # participates in the content_hash.
         prov = _provenance_dict(manifest)
         prov["weights_root_used"] = weights_root_used
+        prov["weight_uri_used"] = weight_uri_used
+        prov["checkpoint_variant_note"] = variant_note
+        prov["effective_precision"] = getattr(effective_precision, "value",
+                                              str(effective_precision))
+        prov["device_layout"] = layout.describe()
+        prov["geometry_used"] = {"width": width, "height": height,
+                                 "num_frames": n_frames, "fps": fps}
         atomic_write_text(
             os.path.join(out_dir, _PROVENANCE_NAME),
             json.dumps(prov, indent=2, sort_keys=True))
     except Exception as exc:  # inference/IO failure rides back as data (INV-3)
-        name = type(exc).__name__
-        is_oom = "OutOfMemory" in name or "out of memory" in str(exc).lower()
-        return Err(StageError(
-            ErrorCode.OOM if is_oom else ErrorCode.IO_ERROR,
-            f"wan i2v {'ran out of VRAM' if is_oom else 'inference failed'}: {exc}",
-            (("content_hash", content_hash), ("model_id", manifest.model_id)),
-        ))
+        # OOM -> retryable; tensor shape mismatch -> SHAPE_ERROR (deterministic, NOT
+        # retryable); API/config mismatch -> CONFIG_ERROR (NOT retryable); else
+        # IO_ERROR (retryable, but under the per-spec retry budget).
+        code, label = _classify_exception(exc)
+        message = f"wan i2v {label}: {exc}"
+        base = (("content_hash", content_hash), ("model_id", manifest.model_id),
+                ("exception", type(exc).__name__),
+                ("geometry", f"{width}x{height}x{n_frames}f"))
+        if code in (ErrorCode.SHAPE_ERROR, ErrorCode.CONFIG_ERROR):
+            base += (("retryable", "false"),)
+        logger.error("wan i2v failed [%s]: %s", code.value, message)
+        return Err(StageError(code, message, _budgeted_context(out_dir, code, message, base)))
     finally:
         if tmp_mp4 is not None and os.path.isfile(tmp_mp4):
             try:

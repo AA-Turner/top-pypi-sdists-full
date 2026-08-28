@@ -128,6 +128,20 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_TELEMETRY_PIPELINE_MIXED_RECEIVED: _ClassVar[MetricKind]
     METRIC_KIND_TELEMETRY_PIPELINE_MIXED_EMITTED: _ClassVar[MetricKind]
     METRIC_KIND_TELEMETRY_PIPELINE_MIXED_DROPPED: _ClassVar[MetricKind]
+    METRIC_KIND_GPU_MEMORY_USED_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_GPU_MEMORY_FREE_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_LOW_CPU_UTILIZATION_POD_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_DISK_USED_PERCENT: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_CPU_PCT_USED: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_CPU_SYSTEM_TIME: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_CPU_IDLE_TIME: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_CPU_USER_TIME: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_MEMORY_LIMIT_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_MEMORY_PCT_USED: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_MEMORY_USED_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_QUERY_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_QUERY_LATENCY_AVG_MS: _ClassVar[MetricKind]
+    METRIC_KIND_CLICKHOUSE_QUERY_LATENCY_MAX_MS: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -161,6 +175,12 @@ class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FILTER_KIND_PLANNER: _ClassVar[FilterKind]
     FILTER_KIND_PLAN_REASON: _ClassVar[FilterKind]
     FILTER_KIND_FUNCTION_CALL_MODE: _ClassVar[FilterKind]
+    FILTER_KIND_OFFLINE_QUERY_OPERATION_ID: _ClassVar[FilterKind]
+    FILTER_KIND_SCRIPT_TASK_OPERATION_ID: _ClassVar[FilterKind]
+    FILTER_KIND_CRON_OPERATION_ID: _ClassVar[FilterKind]
+    FILTER_KIND_CHALKSQL_OPERATION_ID: _ClassVar[FilterKind]
+    FILTER_KIND_NODE_NAME: _ClassVar[FilterKind]
+    FILTER_KIND_SCALING_GROUP_REVISION_ID: _ClassVar[FilterKind]
 
 class ComparatorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -213,6 +233,11 @@ class GroupByKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GROUP_BY_KIND_TELEMETRY_PIPELINE_ROLE: _ClassVar[GroupByKind]
     GROUP_BY_KIND_TELEMETRY_PIPELINE_STEP: _ClassVar[GroupByKind]
     GROUP_BY_KIND_TELEMETRY_PIPELINE_DROP_SCOPE: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_OFFLINE_QUERY_OPERATION_ID: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_SCRIPT_TASK_OPERATION_ID: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_CRON_OPERATION_ID: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_CHALKSQL_OPERATION_ID: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_SCALING_GROUP_REVISION_ID: _ClassVar[GroupByKind]
 
 class MetricFormulaKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -377,6 +402,20 @@ METRIC_KIND_TELEMETRY_PIPELINE_TRACE_DROPPED: MetricKind
 METRIC_KIND_TELEMETRY_PIPELINE_MIXED_RECEIVED: MetricKind
 METRIC_KIND_TELEMETRY_PIPELINE_MIXED_EMITTED: MetricKind
 METRIC_KIND_TELEMETRY_PIPELINE_MIXED_DROPPED: MetricKind
+METRIC_KIND_GPU_MEMORY_USED_BYTES: MetricKind
+METRIC_KIND_GPU_MEMORY_FREE_BYTES: MetricKind
+METRIC_KIND_LOW_CPU_UTILIZATION_POD_COUNT: MetricKind
+METRIC_KIND_DISK_USED_PERCENT: MetricKind
+METRIC_KIND_CLICKHOUSE_CPU_PCT_USED: MetricKind
+METRIC_KIND_CLICKHOUSE_CPU_SYSTEM_TIME: MetricKind
+METRIC_KIND_CLICKHOUSE_CPU_IDLE_TIME: MetricKind
+METRIC_KIND_CLICKHOUSE_CPU_USER_TIME: MetricKind
+METRIC_KIND_CLICKHOUSE_MEMORY_LIMIT_BYTES: MetricKind
+METRIC_KIND_CLICKHOUSE_MEMORY_PCT_USED: MetricKind
+METRIC_KIND_CLICKHOUSE_MEMORY_USED_BYTES: MetricKind
+METRIC_KIND_CLICKHOUSE_QUERY_COUNT: MetricKind
+METRIC_KIND_CLICKHOUSE_QUERY_LATENCY_AVG_MS: MetricKind
+METRIC_KIND_CLICKHOUSE_QUERY_LATENCY_MAX_MS: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind
@@ -407,6 +446,12 @@ FILTER_KIND_CONTAINER_ID: FilterKind
 FILTER_KIND_PLANNER: FilterKind
 FILTER_KIND_PLAN_REASON: FilterKind
 FILTER_KIND_FUNCTION_CALL_MODE: FilterKind
+FILTER_KIND_OFFLINE_QUERY_OPERATION_ID: FilterKind
+FILTER_KIND_SCRIPT_TASK_OPERATION_ID: FilterKind
+FILTER_KIND_CRON_OPERATION_ID: FilterKind
+FILTER_KIND_CHALKSQL_OPERATION_ID: FilterKind
+FILTER_KIND_NODE_NAME: FilterKind
+FILTER_KIND_SCALING_GROUP_REVISION_ID: FilterKind
 COMPARATOR_KIND_UNSPECIFIED: ComparatorKind
 COMPARATOR_KIND_EQ: ComparatorKind
 COMPARATOR_KIND_NEQ: ComparatorKind
@@ -450,6 +495,11 @@ GROUP_BY_KIND_PLAN_REASON: GroupByKind
 GROUP_BY_KIND_TELEMETRY_PIPELINE_ROLE: GroupByKind
 GROUP_BY_KIND_TELEMETRY_PIPELINE_STEP: GroupByKind
 GROUP_BY_KIND_TELEMETRY_PIPELINE_DROP_SCOPE: GroupByKind
+GROUP_BY_KIND_OFFLINE_QUERY_OPERATION_ID: GroupByKind
+GROUP_BY_KIND_SCRIPT_TASK_OPERATION_ID: GroupByKind
+GROUP_BY_KIND_CRON_OPERATION_ID: GroupByKind
+GROUP_BY_KIND_CHALKSQL_OPERATION_ID: GroupByKind
+GROUP_BY_KIND_SCALING_GROUP_REVISION_ID: GroupByKind
 METRIC_FORMULA_KIND_UNSPECIFIED: MetricFormulaKind
 METRIC_FORMULA_KIND_SUM: MetricFormulaKind
 METRIC_FORMULA_KIND_TOTAL_RATIO: MetricFormulaKind
@@ -522,12 +572,16 @@ class AlertTrigger(_message.Message):
     ) -> None: ...
 
 class DatasetFeatureOperand(_message.Message):
-    __slots__ = ("dataset", "feature")
+    __slots__ = ("dataset", "feature", "revision_id")
     DATASET_FIELD_NUMBER: _ClassVar[int]
     FEATURE_FIELD_NUMBER: _ClassVar[int]
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
     dataset: str
     feature: str
-    def __init__(self, dataset: _Optional[str] = ..., feature: _Optional[str] = ...) -> None: ...
+    revision_id: str
+    def __init__(
+        self, dataset: _Optional[str] = ..., feature: _Optional[str] = ..., revision_id: _Optional[str] = ...
+    ) -> None: ...
 
 class MetricFormula(_message.Message):
     __slots__ = ("kind", "single_series_operands", "multi_series_operands", "dataset_feature_operands", "name")
@@ -628,43 +682,63 @@ class MetricConfigSeries(_message.Message):
         raw: _Optional[_Union[RawMetricSeries, _Mapping]] = ...,
     ) -> None: ...
 
+class TimeSeriesVisualizationOptions(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class StatisticVisualizationOptions(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class MetricConfig(_message.Message):
     __slots__ = (
         "name",
         "window_period",
         "series",
         "formulas",
+        "mql_formulas",
         "trigger",
         "graph_generated",
         "id",
         "display_window_period",
+        "time_series_options",
+        "stat_options",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     SERIES_FIELD_NUMBER: _ClassVar[int]
     FORMULAS_FIELD_NUMBER: _ClassVar[int]
+    MQL_FORMULAS_FIELD_NUMBER: _ClassVar[int]
     TRIGGER_FIELD_NUMBER: _ClassVar[int]
     GRAPH_GENERATED_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    TIME_SERIES_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    STAT_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     name: str
     window_period: str
     series: _containers.RepeatedCompositeFieldContainer[MetricConfigSeries]
     formulas: _containers.RepeatedCompositeFieldContainer[MetricFormula]
+    mql_formulas: _containers.RepeatedScalarFieldContainer[str]
     trigger: AlertTrigger
     graph_generated: bool
     id: str
     display_window_period: str
+    time_series_options: TimeSeriesVisualizationOptions
+    stat_options: StatisticVisualizationOptions
     def __init__(
         self,
         name: _Optional[str] = ...,
         window_period: _Optional[str] = ...,
         series: _Optional[_Iterable[_Union[MetricConfigSeries, _Mapping]]] = ...,
         formulas: _Optional[_Iterable[_Union[MetricFormula, _Mapping]]] = ...,
+        mql_formulas: _Optional[_Iterable[str]] = ...,
         trigger: _Optional[_Union[AlertTrigger, _Mapping]] = ...,
         graph_generated: bool = ...,
         id: _Optional[str] = ...,
         display_window_period: _Optional[str] = ...,
+        time_series_options: _Optional[_Union[TimeSeriesVisualizationOptions, _Mapping]] = ...,
+        stat_options: _Optional[_Union[StatisticVisualizationOptions, _Mapping]] = ...,
     ) -> None: ...
 
 class Chart(_message.Message):

@@ -1199,6 +1199,7 @@ class QueryStatisticsTypeDef(TypedDict):
     bytesScanned: NotRequired[float]
     estimatedBytesSkipped: NotRequired[float]
     logGroupsScanned: NotRequired[float]
+    resultCount: NotRequired[float]
 
 
 class ResultFieldTypeDef(TypedDict):

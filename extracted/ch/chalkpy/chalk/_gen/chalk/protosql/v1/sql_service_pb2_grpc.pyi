@@ -10,10 +10,18 @@ from abc import (
 from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
     ExecuteSqlQueryRequest,
     ExecuteSqlQueryResponse,
+    ExecuteSqlQueryStreamRequest,
+    ExecuteSqlQueryStreamResponse,
     GetDbCatalogsRequest,
     GetDbCatalogsResponse,
     GetDbSchemasRequest,
     GetDbSchemasResponse,
+    GetOfflineQueryInputsRequest,
+    GetOfflineQueryInputsResponse,
+    GetOfflineQueryPreviewRequest,
+    GetOfflineQueryPreviewResponse,
+    GetOfflineQueryStatsRequest,
+    GetOfflineQueryStatsResponse,
     GetTablesRequest,
     GetTablesResponse,
     PlanSqlQueryRequest,
@@ -21,19 +29,49 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
     PollSqlQueryRequest,
     PollSqlQueryResponse,
 )
+from collections.abc import (
+    Iterator,
+)
 from grpc import (
     Channel,
     Server,
     ServicerContext,
+    UnaryStreamMultiCallable,
     UnaryUnaryMultiCallable,
 )
 
 class SqlServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    GetOfflineQueryInputs: UnaryUnaryMultiCallable[
+        GetOfflineQueryInputsRequest,
+        GetOfflineQueryInputsResponse,
+    ]
+    GetOfflineQueryPreview: UnaryUnaryMultiCallable[
+        GetOfflineQueryPreviewRequest,
+        GetOfflineQueryPreviewResponse,
+    ]
+    GetOfflineQueryStats: UnaryUnaryMultiCallable[
+        GetOfflineQueryStatsRequest,
+        GetOfflineQueryStatsResponse,
+    ]
     ExecuteSqlQuery: UnaryUnaryMultiCallable[
         ExecuteSqlQueryRequest,
         ExecuteSqlQueryResponse,
     ]
+    ExecuteSqlQueryStream: UnaryStreamMultiCallable[
+        ExecuteSqlQueryStreamRequest,
+        ExecuteSqlQueryStreamResponse,
+    ]
+    """Execute a SQL query, emitting each chunk of the result as the plan produces it instead of
+    gathering the whole result first. Same request as ExecuteSqlQuery and the same execution;
+    only the delivery differs, so a query whose leading rows are cheap becomes visible while
+    its expensive tail is still running.
+
+    Rows are streamed, never persisted, and never profiled: async_options,
+    persistence_settings.enabled and column_profile_options.enabled are each rejected, since
+    each of them replaces the plan's row output with something else (an operation id to poll,
+    a write summary, an aggregation over the whole result). Use ExecuteSqlQuery for those.
+    """
     PlanSqlQuery: UnaryUnaryMultiCallable[
         PlanSqlQueryRequest,
         PlanSqlQueryResponse,
@@ -58,11 +96,45 @@ class SqlServiceStub:
 
 class SqlServiceServicer(metaclass=ABCMeta):
     @abstractmethod
+    def GetOfflineQueryInputs(
+        self,
+        request: GetOfflineQueryInputsRequest,
+        context: ServicerContext,
+    ) -> GetOfflineQueryInputsResponse: ...
+    @abstractmethod
+    def GetOfflineQueryPreview(
+        self,
+        request: GetOfflineQueryPreviewRequest,
+        context: ServicerContext,
+    ) -> GetOfflineQueryPreviewResponse: ...
+    @abstractmethod
+    def GetOfflineQueryStats(
+        self,
+        request: GetOfflineQueryStatsRequest,
+        context: ServicerContext,
+    ) -> GetOfflineQueryStatsResponse: ...
+    @abstractmethod
     def ExecuteSqlQuery(
         self,
         request: ExecuteSqlQueryRequest,
         context: ServicerContext,
     ) -> ExecuteSqlQueryResponse: ...
+    @abstractmethod
+    def ExecuteSqlQueryStream(
+        self,
+        request: ExecuteSqlQueryStreamRequest,
+        context: ServicerContext,
+    ) -> Iterator[ExecuteSqlQueryStreamResponse]:
+        """Execute a SQL query, emitting each chunk of the result as the plan produces it instead of
+        gathering the whole result first. Same request as ExecuteSqlQuery and the same execution;
+        only the delivery differs, so a query whose leading rows are cheap becomes visible while
+        its expensive tail is still running.
+
+        Rows are streamed, never persisted, and never profiled: async_options,
+        persistence_settings.enabled and column_profile_options.enabled are each rejected, since
+        each of them replaces the plan's row output with something else (an operation id to poll,
+        a write summary, an aggregation over the whole result). Use ExecuteSqlQuery for those.
+        """
     @abstractmethod
     def PlanSqlQuery(
         self,

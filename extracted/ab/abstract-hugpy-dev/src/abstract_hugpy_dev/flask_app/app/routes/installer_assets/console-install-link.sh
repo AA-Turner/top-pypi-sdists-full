@@ -63,4 +63,18 @@ TMP_ENV="$ENV_FILE.tmp.$$"
 chmod 600 "$TMP_ENV"
 mv "$TMP_ENV" "$ENV_FILE"
 echo "credential written to $ENV_FILE"
+
+# Canonical location too (uniform with install.sh / hugpy-agent's agent.env).
+CANON="$HOME/.config/hugpy-station/station.env"
+mkdir -p "$(dirname "$CANON")"
+touch "$CANON"; chmod 600 "$CANON"
+TMP_ENV="$CANON.tmp.$$"
+{ grep -v -E '^(HUGPY_API_KEY|HUGPY_BASE|HUGPY_URL)=' "$CANON" 2>/dev/null || true
+  echo "HUGPY_API_KEY=$HUGPY_API_KEY_VALUE"
+  echo "HUGPY_BASE=$CENTRAL"
+  echo "HUGPY_URL=$CENTRAL"
+} > "$TMP_ENV"
+chmod 600 "$TMP_ENV"
+mv "$TMP_ENV" "$CANON"
+echo "credential written to $CANON"
 echo "ok: $DEB_NAME installed — launch 'fleet-console'"

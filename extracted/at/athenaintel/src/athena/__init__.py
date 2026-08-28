@@ -44,6 +44,8 @@ if typing.TYPE_CHECKING:
         ChunkResult,
         ChunkResultChunkId,
         CollabAgentSendMessageResponseOut,
+        CollabTokenResponse,
+        CollabTokenResponseAccessType,
         ConversationAssetInfo,
         ConversationMessage,
         ConversationMessageContent,
@@ -189,6 +191,7 @@ if typing.TYPE_CHECKING:
         users,
         workspaces,
     )
+    from .assets import CollabTokenRequestAccess
     from .client import AsyncAthena, Athena
     from .databases import InsertDataRequestData
     from .environment import AthenaEnvironment
@@ -249,6 +252,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChunkResult": ".types",
     "ChunkResultChunkId": ".types",
     "CollabAgentSendMessageResponseOut": ".types",
+    "CollabTokenRequestAccess": ".assets",
+    "CollabTokenResponse": ".types",
+    "CollabTokenResponseAccessType": ".types",
     "ConflictError": ".errors",
     "ContentTooLargeError": ".errors",
     "ConversationAssetInfo": ".types",
@@ -466,6 +472,9 @@ __all__ = [
     "ChunkResult",
     "ChunkResultChunkId",
     "CollabAgentSendMessageResponseOut",
+    "CollabTokenRequestAccess",
+    "CollabTokenResponse",
+    "CollabTokenResponseAccessType",
     "ConflictError",
     "ContentTooLargeError",
     "ConversationAssetInfo",

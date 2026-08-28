@@ -1,0 +1,432 @@
+[build-system]
+requires = ["setuptools>=70.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matrice_analytics"
+dynamic = ["version"]
+description = "Post-processing analytics for Matrice.ai inference pipelines"
+readme = "README.md"
+authors = [{ name = "Matrice.ai", email = "dipendra@matrice.ai" }]
+# Proprietary, all-rights-reserved (see ./LICENSE) -- this previously said "MIT", which
+# directly contradicted LICENSE's actual terms. "LicenseRef-Proprietary" is the correct
+# SPDX expression for a non-standard/proprietary license (PEP 639); license-files points
+# packaging tools at the real terms instead of a generic SPDX identifier.
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE"]
+requires-python = ">=3.8, <4"
+keywords = ["matrice", "analytics", "post-processing", "inference"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+# numpy and scipy are hard, unguarded top-level imports on the KEEP tracker path
+# (advanced_tracker/matching.py:9, kalman_filter.py:9) but were never declared as
+# runtime dependencies -- only present via the dev extra below. Declaring them here
+# is a no-op for any environment that already has them (inference image, dev extra)
+# and fixes a clean-install gap for anyone installing matrice_analytics standalone.
+# Each floor must be a version APPROVED_DEPS-python.toml (matrice-ai/.github@v2)
+# literally allow-lists. dependency-approval-py reads the *floor* out of each
+# spec -- its regex stops at the first `,` or `;`, so upper bounds and markers are
+# invisible to it -- and demands exact membership in that package's `versions`.
+# ">=1.21.0" was never allow-listed (numpy's set is 2.5.1 / 2.4.4), so this
+# manifest failed the check the first time an unrelated edit put it in a PR diff;
+# the check is path-gated on pyproject.toml, which is why it stayed hidden.
+# 2.4.4 is the lower of the two approved numpy versions and therefore the floor
+# with the widest interpreter reach, but it still needs py3.11+ (2.5.1 needs
+# 3.12+), while this package declares a 3.8 floor. The marker is forced, not
+# stylistic: no approved numpy floor is installable below 3.11, so on 3.8-3.10
+# numpy stays undeclared and the environment/inference image provides it, exactly
+# as it did before this declaration existed. scipy 1.18.0 is the same trade at
+# 3.12. Raising `requires-python` to match reality is the real fix and is its own
+# change -- the engine already needs 3.10+ (see [project.scripts] below).
+dependencies = [
+    'numpy>=2.4.4,<3; python_version >= "3.11"',
+    'scipy>=1.18.0; python_version >= "3.12"',
+]
+
+[project.scripts]
+# `matrice-analytics validate ./v1.4` -- the command an app author runs before publishing.
+# The entry point deliberately does no work at import: the engine needs Python 3.10+ (PEP 604
+# annotations evaluated at runtime by Pydantic) while this package declares a 3.8 floor for its
+# legacy modules, so `cli.main` checks the interpreter and prints a readable message instead of
+# letting the import fail inside Pydantic.
+matrice-analytics = "matrice_analytics.engine.cli:main"
+
+[project.optional-dependencies]
+# ``boxmot`` (AGPL-3.0) has been removed -- see Trackers/deep_oc_sort/adapter.py's
+# module docstring. The ``trackers`` extra (``lap``) is gone with it: ``lap`` is not
+# in APPROVED_DEPS-python.toml, and it was only ever a performance optimization for
+# advanced_tracker/matching.py's linear_assignment, which already falls back to
+# scipy.optimize.linear_sum_assignment when the import fails. Benchmark runs that
+# want the faster path install it directly (`pip install lap`); nothing in the
+# shipped tracker path depends on it.
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov==7.1.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff==0.11.12",
+    "bandit[toml]==1.9.4",
+    # APPROVED_DEPS allows mypy "2.3.0" or the "1.0" floor. The [tool.mypy] block
+    # below (disable_error_code list, follow_imports = "skip") is tuned for 1.x, so
+    # this stays on the 1.x line rather than jumping to 2.3.0 blind.
+    "mypy>=1.0,<2",
+    "pre-commit==4.6.1",
+    # pip-audit / safety dropped: neither is invoked by any workflow, hook or script
+    # in this repo -- dependency vulnerability scanning is OSV-Scanner + Trivy in
+    # ci.yml@v2, and neither pin is allow-listed.
+    "pyyaml>=6.0",
+    # numpy is not repeated here: [project].dependencies already carries it, and the
+    # "<2.0" cap this line used to add is unsatisfiable next to scipy 1.18.0 (which
+    # requires numpy>=2.0.0,<2.8), so `pip install -e ".[dev]"` would not resolve.
+    "matrice-common==0.1.95",
+    "httpx==0.28.1",
+    # redis is a SOFT runtime dependency: the new analytics flow imports it
+    # lazily and degrades to a logged no-op if absent (the inference image
+    # bakes it in, like numpy/httpx). Listed here so test/CI envs have it.
+    "redis>=8.1.0",
+    # pydantic is a HARD runtime import for matrice_analytics.engine (the
+    # contract and manifest modules) and for the older analytics/schemas.py,
+    # which already ships. Declared here rather than in [project].dependencies
+    # for the same deploy-safety reason as the rest: the inference image
+    # provides it, and a forced reinstall over a system package breaks the
+    # deploy. 2.13.4 is the version allowlisted in APPROVED_DEPS-python.toml.
+    "pydantic==2.13.4",
+    # opencv is a HARD runtime import -- an unguarded module-level `import cv2`
+    # in 28 files under src/, e.g. analytics/geometry.py:16 -- and was declared
+    # nowhere at all. `py-test` is skipped for dev-base PRs and was skipped on
+    # the last few prod PRs (they touched only CI/config), so the first prod
+    # promotion carrying Python source (#376) was the first run to actually
+    # execute it, and it died at collection with 17 errors: 15 cv2, 2 requests,
+    # 1 psutil. Nothing had regressed; the job had simply never run in a clean
+    # environment, and every dev box and the inference image already have these.
+    #
+    # This goes in the dev extra rather than [project].dependencies for exactly
+    # the pydantic reason above, and more sharply: the inference image already
+    # provides cv2 via opencv-python, and opencv-python and
+    # opencv-python-headless both install the same `cv2` package, so declaring
+    # the headless build as a hard dependency would force a reinstall over the
+    # system package and let two distributions fight over one import name.
+    # Whether the shipped wheel should declare opencv at all is a real question
+    # with consumer impact -- it is deliberately NOT settled here, inside a
+    # release promotion. Headless is the right build for CI and containers (no
+    # GUI libs); 4.13.0.92 is the lower of the two versions
+    # APPROVED_DEPS-python.toml allow-lists, 5.0.0.93 being a major bump taken
+    # blind.
+    "opencv-python-headless==4.13.0.92",
+    # requests is guarded (`try: import requests`) in the 3 src/ files that use
+    # it, so it is soft at runtime, but 17 test modules import it directly.
+    "requests==2.34.2",
+    # psutil appears only in tests -- never in src/ -- so it is purely a test
+    # dependency that was never declared.
+    "psutil==7.2.2",
+    # confluent-kafka is a TRANSITIVE hard import, not one of ours: nothing in
+    # src/ or tests/ names it. matrice-common 0.1.95's stream/__init__.py imports
+    # .kafka_stream unconditionally, which does `from confluent_kafka import ...`
+    # at module level, and matrice-common does not declare it. Our
+    # analytics/analytics_publisher.py:19 imports matrice_common.stream.
+    # matrice_stream at module level, so the chain
+    #   test -> analytics_publisher -> matrice_common.stream -> confluent_kafka
+    # makes it a hard requirement for importing a SHIPPED module of ours. The
+    # real fix belongs upstream in matrice-common's own manifest; pinning it here
+    # keeps our test tree collectable without waiting on that release.
+    "confluent-kafka==2.15.0",
+    # pymongo supplies `bson`, which 12 modules under tests/integration/face_reg
+    # import (`from bson import ObjectId`, `from bson.errors import InvalidId`).
+    # That is pymongo's bundled bson, NOT the standalone `bson` distribution --
+    # APPROVED_DEPS allow-lists that one too (0.5.10), but it is a DIFFERENT
+    # package that installs a conflicting top-level `bson` and would shadow
+    # pymongo's. Declare pymongo only; never both.
+    "pymongo==4.17.0",
+    # The rest of matrice-common's undeclared imports. matrice-common 0.1.95
+    # publishes requires_dist = None -- it declares NO dependencies at all -- so
+    # every third-party module it imports is a latent ImportError for every
+    # consumer. confluent_kafka above was merely the first one CI reached: an
+    # import fails at its first bad line, so the next stays invisible until the
+    # previous is installed. Rather than discover them one CI run at a time, the
+    # 0.1.95 wheel was read off PyPI and every module reachable from the four
+    # entry points we import at module level (matrice_common.session,
+    # .stream.matrice_stream, .utils, .rpc) was walked for unguarded
+    # module-level imports. That found:
+    #   aiohttp   <- matrice_common.rpc
+    #   aiokafka  <- matrice_common.stream.kafka_stream
+    #   dateutil  <- matrice_common.token_auth   (dist name python-dateutil)
+    #   urllib3   <- matrice_common.rpc, matrice_common.token_auth
+    # Two others exist in the wheel but are NOT reachable from anything we
+    # import, so they stay undeclared deliberately: cupy (stream.databus) and
+    # kafka (stream.event_listener). cupy is not in APPROVED_DEPS at all, which
+    # is reason enough not to pull it in speculatively.
+    #
+    # urllib3 would arrive anyway as a dependency of requests above, but our need
+    # for it is independent of requests, so it is named rather than inherited.
+    # 2.7.0 satisfies requests' own `urllib3<3,>=1.26`, so there is no conflict.
+    #
+    # aiohttp, aiokafka and urllib3 all require py3.10+, which does not narrow
+    # this extra any further: `pytest>=9.0.3` above already needs 3.10+, so the
+    # dev extra has not been installable on this package's declared 3.8 floor
+    # for some time. The floor is a [project] concern, not a dev-extra one.
+    "aiohttp==3.14.3",
+    "aiokafka==0.14.0",
+    "python-dateutil==2.9.0.post0",
+    "urllib3==2.7.0",
+    # kafka-python provides the `kafka` module that
+    # matrice_common/stream/event_listener.py:9-10 imports at module level
+    # (`from kafka import KafkaConsumer`, `from kafka.errors import KafkaError`).
+    #
+    # This is the last of matrice-common's undeclared imports, and this time that
+    # is a proven statement rather than a hopeful one. The earlier passes walked
+    # only the modules matrice-common explicitly imports, which missed the fact
+    # that importing `matrice_common.stream.matrice_stream` first executes
+    # `matrice_common/stream/__init__.py`, and that __init__ eagerly imports EVERY
+    # module in the stream package -- event_listener and databus included. So the
+    # reachable set is the whole package, not the slice we name.
+    #
+    # Every module-level import in every matrice_common module has now been
+    # classified as hard (breaks the import outright) or soft (inside try/except,
+    # or inside a function body, so it degrades or never runs at import time):
+    #   HARD: aiokafka, confluent_kafka, cv2, dateutil, kafka, numpy, redis,
+    #         requests, urllib3   -- all declared here now
+    #   SOFT: aiohttp (rpc.py:448, function-level), cupy
+    #         (cuda_shm_ring_buffer.py:68, try/except), orjson (databus.py:69,
+    #         try/except), torch (databus.py:60, function-level)
+    # The soft four are deliberately NOT declared: they cannot abort an import,
+    # cupy is not in APPROVED_DEPS at all, and torch would add gigabytes to every
+    # CI install for a lazy import nothing in our test path reaches. aiohttp is
+    # already declared above from an earlier pass -- harmless, just not required.
+    "kafka-python==3.0.9",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["matrice_analytics*"]
+
+[tool.ruff]
+target-version = "py311"
+# 100, matching matrice_hooks/ruff.toml in the central .github bundle.
+#
+# This was 120, but INC-2026-295 (2026-08-24) flipped the central lint to
+# `mode = strict`, which makes the central `ruff format --check` (line-length
+# 100) a blocking pre-commit hook. The repo's own `ruff-format [CI mirror]` hook
+# auto-formats to the value here, so with 120 the two hooks were mutually
+# unsatisfiable: they oscillate between two stable formattings and never
+# converge (chained/nested calls that fit in 120 get joined by one and split by
+# the other, with no magic-trailing-comma escape), and both must pass under
+# enforcing mode. That blocked every commit touching a Python file.
+#
+# Aligning to the central value is what makes the battery satisfiable at all.
+# Scope is per-file and lazy: hooks only ever see STAGED files, so a file is
+# reformatted when someone next edits it, not fleet-wide in one sweep.
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "N",    # pep8-naming
+    "S",    # flake8-bandit (security)
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate (commented code)
+    "T20",  # flake8-print
+    "PIE",  # flake8-pie
+    "RET",  # flake8-return
+]
+ignore = [
+    "S101",   # assert allowed in tests
+    "T201",   # print allowed (use logging in production)
+    "ERA001", # commented code sometimes useful
+    "S105",   # hardcoded password string (legacy false positives)
+    "S108",   # hardcoded tmp file (legacy)
+    "S110",   # try-except-pass (audited)
+    "S112",   # try-except-continue (audited)
+    "S311",   # non-cryptographic random (audited)
+    "S602",   # subprocess shell=True (audited)
+    "S603",   # subprocess call (audited)
+    "S606",   # start process with no shell (audited)
+    "S607",   # start process with partial path (audited)
+    "S608",   # hardcoded sql (audited)
+    "S103",   # bad file permissions (audited)
+    "S104",   # hardcoded bind all interfaces (audited)
+    "PTH100", # replaced by pathlib (legacy)
+    "PTH101", # replaced by pathlib (legacy)
+    "PTH103", # replaced by pathlib (legacy)
+    "PTH106", # replaced by pathlib (legacy)
+    "PTH107", # replaced by pathlib (legacy)
+    "PTH108", # replaced by pathlib (legacy)
+    "PTH109", # replaced by pathlib (legacy)
+    "PTH110", # replaced by pathlib (legacy)
+    "PTH111", # replaced by pathlib (legacy)
+    "PTH112", # replaced by pathlib (legacy)
+    "PTH118", # replaced by pathlib (legacy)
+    "PTH119", # replaced by pathlib (legacy)
+    "PTH120", # replaced by pathlib (legacy)
+    "PTH122", # replaced by pathlib (legacy)
+    "PTH123", # replaced by pathlib (legacy)
+    "PTH202", # replaced by pathlib (legacy)
+    "PTH207", # replaced by pathlib (legacy)
+    "PTH208", # replaced by pathlib (legacy)
+    "SIM102", # collapsible if (readability preserved)
+    "SIM103", # needless bool (readability preserved)
+    "SIM105", # suppressible exception (readability preserved)
+    "SIM108", # if-else to ternary (readability preserved)
+    "SIM110", # reimplemented builtin (readability)
+    "SIM114", # if with same arms (readability)
+    "SIM115", # open file with context (audited)
+    "SIM117", # combine with statements (readability)
+    "SIM118", # in-dict-keys (legacy)
+    "SIM910", # dict.get with None default (legacy)
+    "N801",   # invalid class name (legacy)
+    "N803",   # non-lowercase argument name (legacy API compat)
+    "N806",   # non-lowercase variable (legacy)
+    "N812",   # lowercase imported as non-lowercase (legacy)
+    "N814",   # camelcase imported as constant (legacy)
+    "N999",   # invalid module name (legacy)
+    "E501",   # line too long (legacy)
+    "RUF001", # ambiguous unicode in string (intentional)
+    "RUF002", # ambiguous unicode in docstring (intentional)
+    "RUF003", # ambiguous unicode in comment (intentional)
+    "RUF005", # collection literal concatenation (legacy)
+    "RUF010", # explicit f-string conversion (legacy)
+    "RUF012", # mutable class default (dataclass-like)
+    "RUF013", # implicit optional (legacy)
+    "RUF015", # iterable allocation for first (legacy)
+    "RUF022", # unsorted dunder-all (legacy)
+    "RUF046", # cast-to-int (legacy)
+    "A001",   # builtin variable shadowing (legacy)
+    "A002",   # builtin argument shadowing (legacy)
+    "B006",   # mutable argument default (legacy)
+    "B007",   # unused loop control variable (legacy)
+    "B008",   # function call in default arg (legacy)
+    "B904",   # raise from None/err (legacy)
+    "B905",   # zip without explicit strict (legacy)
+    "C408",   # unnecessary collection call (legacy)
+    "C414",   # unnecessary double cast (legacy)
+    "C416",   # unnecessary comprehension (legacy)
+    "C401",   # unnecessary generator set (legacy)
+    "C420",   # unnecessary dict comprehension (legacy)
+    "UP006",  # non-pep585-annotation (py38 compat)
+    "UP007",  # non-pep604-annotation-union (py38 compat)
+    "UP015",  # redundant open modes (legacy)
+    "UP017",  # datetime-timezone-utc (py38 compat)
+    "UP018",  # native literals (legacy)
+    "UP032",  # f-string conversion (legacy)
+    "UP035",  # deprecated import (py38 compat)
+    "UP045",  # non-pep604-annotation-optional (py38 compat)
+    "UP037",  # quoted annotation (legacy)
+    "UP038",  # non-pep604-isinstance (py38 compat)
+    "PIE790", # unnecessary placeholder (legacy)
+    "PIE810", # multiple starts/ends-with (legacy)
+    "RET504", # unnecessary assign before return (legacy)
+    "RET505", # superfluous else-return (legacy)
+    "TC001",  # typing-only first-party import (legacy)
+    "TC002",  # typing-only third-party import (legacy)
+    "TC003",  # typing-only standard library import (legacy)
+    "B009",   # get-attr-with-constant (legacy)
+    "RUF100", # unused-noqa (transition)
+    "B017",   # assert raises exception (tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S106", "S105", "S108", "T201"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.bandit]
+# Vendored third-party tracker submodules (BoT-SORT, deep_sort, OC_SORT) --
+# upstream code, not ours to remediate; 251 of the 255 findings bandit
+# reports without this exclude live here.
+exclude_dirs = ["tests", ".venv", "venv", "build", "dist", "Trackers"]
+# B311 added: non-cryptographic random use for display-only incident ids
+# (car_damage_detection.py, incident_manager_utils.py, engine/manifest/loader.py's
+# retry jitter) -- already reviewed and accepted by each file's own `# noqa: S311`
+# comment, which suppresses ruff's bandit-alias rule but not this standalone
+# bandit run, which needs `# nosec`/a project-level skip instead.
+skips = ["B101", "B105", "B107", "B110", "B112", "B310", "B311", "B404", "B603", "B607", "B608"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-v --tb=short --cov=src/matrice_analytics --cov-report=term-missing --cov-report=xml"
+
+[tool.mypy]
+# 3.12, matching the CI runner image and the org toolchain pin. It must not be
+# lower: the central `mypy-changed` hook passes `--follow-imports=silent`, which
+# overrides the `follow_imports = "skip"` below, so mypy *parses* the installed
+# numpy stubs. numpy 2.x's `__init__.pyi` uses PEP 695 `type X = ...` statements,
+# which are a hard syntax error under any python_version < 3.12 -- mypy then exits
+# 2 with "errors prevented further checking" before looking at a single line of
+# this repo's code, blocking every commit that touches a .py file.
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = false
+follow_imports = "skip"
+ignore_missing_imports = true
+warn_unused_ignores = false
+show_error_codes = true
+# `src/` contains an __init__.py, so without these mypy treats it as a package
+# root too and resolves every file under BOTH "src.matrice_analytics.*" and
+# "matrice_analytics.*" -- which it reports as "Source file found twice under
+# different module names" and hard-fails on before checking anything. Pinning the
+# package base to src/ gives each file exactly one module name (the installed
+# one). `exclude` alone cannot fix this: it filters what is *checked*, not how
+# module names are *resolved*.
+mypy_path = "src"
+explicit_package_bases = true
+namespace_packages = true
+disable_error_code = ["import-untyped", "list-item", "arg-type", "no-redef", "misc", "assignment", "attr-defined", "call-arg", "call-overload", "index", "operator", "return-value", "union-attr", "var-annotated", "name-defined", "no-untyped-def", "no-untyped-call", "annotation-unchecked", "dict-item", "has-type", "override", "return", "str-format", "valid-type", "type-arg", "type-var", "typeddict-item", "typeddict-unknown-key", "used-before-def", "import-not-found", "abstract", "empty-body", "func-returns-value", "has-type", "unreachable"]
+exclude = [
+    "^src/matrice_analytics/.*\\.pyi$",
+    # Benchmark/tooling scripts, not part of the type-checked package surface.
+    # Its subfolders (1_vms-frame-extraction, 2_gt-annotations, 3_benchmarking)
+    # are digit-prefixed -- not valid Python package names -- which makes mypy
+    # hard-fail before analyzing anything else in the tree, blocking every
+    # commit regardless of what actually changed.
+    "^src/matrice_analytics/extract-gt-bench/",
+    # Vendored third-party tracker submodules (BoT-SORT, deep_sort, OC_SORT),
+    # not this package's own code. Their upstream folder names contain
+    # hyphens -- also not valid Python package names, and the same class of
+    # mypy hard-failure as extract-gt-bench above.
+    "^src/matrice_analytics/post_processing/Trackers/",
+]
+
+[[tool.mypy.overrides]]
+module = ["kafka", "kafka.*", "kubernetes", "kubernetes.*", "cv2", "cv2.*", "ultralytics", "ultralytics.*", "sklearn", "sklearn.*", "matrice_common", "matrice_common.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "**/__pycache__/*"]
+
+[tool.coverage.report]
+fail_under = 0
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+]

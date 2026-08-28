@@ -21,9 +21,11 @@
  * USA
  */
 
+#include "pygi-capi.h"
+
+#include "pygboxed.h"
 #include "pygenum.h"
 #include "pygflags.h"
-#include "pygboxed.h"
 #include "pygi-basictype.h"
 #include "pygi-error.h"
 #include "pygi-type.h"
@@ -32,7 +34,6 @@
 #include "pyginterface.h"
 #include "pygobject-object.h"
 #include "pygpointer.h"
-#include "pygi-capi.h"
 
 
 /**
@@ -308,8 +309,7 @@ disable_warning_redirections (void)
 
     if (log_handlers) {
         g_hash_table_foreach (log_handlers, remove_handler, NULL);
-        g_hash_table_destroy (log_handlers);
-        log_handlers = NULL;
+        g_clear_pointer (&log_handlers, g_hash_table_destroy);
     }
 }
 

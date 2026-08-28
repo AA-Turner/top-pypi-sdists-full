@@ -1,0 +1,12 @@
+min_glib_version = "2.80"
+msvc_compatible = true
+
+[rules.g_param_spec_null_nick_blurb]
+ignore = ["tests/*.c"]
+
+[rules.type_style]
+ignore = ["gi/*.c", "gi/*.h", "tests/*.c"]
+style = "c"
+
+[rules.g_error_leak]
+extra_propagation_functions = ["pyg_error_check", "pygi_error_check"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jcodemunch-mcp
-Version: 1.108.301
+Version: 1.108.303
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -244,9 +244,9 @@ That's the highlight reel. The complete tour of 90+ tools, the MUNCH compact wir
 <!-- WHATSNEW:START -->
 #### What's new
 
+- **[v1.108.303](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.303)** (2026-08-27) — The measurement was the defect
+- **[v1.108.302](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.302)** (2026-08-27) — Nothing we could say about Rust
 - **[v1.108.301](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.301)** (2026-08-26) — Green on a defect, three times
-- **[v1.108.300](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.300)** (2026-08-26) — Wider than reported
-- **[v1.108.299](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.299)** (2026-08-25) — A name the file never spells
 <!-- WHATSNEW:END -->
 
 ---
@@ -342,6 +342,23 @@ Racket projects routinely define their own defining forms with `define-syntax`, 
 Each entry maps a form name to what it binds: `function`, `constant`, `class` or `type`. Where the name sits is read from the source rather than declared — `(defstep (check-admin) ...)` takes the head of the parameter list, `(defstudy consent ...)` takes the bare symbol — so a form that appears in both shapes works either way.
 
 ⚠ This is an assertion, not something jCodeMunch can verify. A wrong declaration puts a name in the index that Racket does not actually bind. Declarations are also matched only after every built-in form, so declaring `define` or `struct` has no effect — the built-in handling wins.
+
+### Declaring what a Racket `#lang` looks like
+
+A `#lang` line names a *reader*, and jCodeMunch's Racket parser reads S-expressions. The distribution's langs are built in (`racket/*`, `typed/racket*`, `s-exp`, `info`, `at-exp …`, and the document langs `scribble/*`, `pollen`, `punct`, `markdown` …), but a project's own lang is unknown to it and is treated as a document — no symbols, still text-searchable — until you say what its syntax is:
+
+```jsonc
+{
+  "racket_langs": {
+    "conscript": "at-exp",
+    "mylang": "sexp"
+  }
+}
+```
+
+`sexp` is plain S-expressions; `at-exp` is at-exp text bodies over Racket (the bodies are blanked before parsing, so prose containing `;` `"` `#` or `|` cannot break the grammar); `text` is a document language that is never walked. A key also covers its sub-langs (`conscript` matches `conscript/with-require`), and a project may demote a lang as well as promote one.
+
+Both keys change what the parser emits for *unchanged* files, so a change to either is stamped on the index and forces one full re-parse on the next index (`rebuild_reason: "racket_config_changed"`); you do not need to touch the files or clear the index. An index holding Racket files that was built before this stamp existed re-parses once the same way (`rebuild_reason: "racket_index_predates_gate"`).
 
 ---
 

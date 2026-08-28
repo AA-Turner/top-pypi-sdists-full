@@ -1,0 +1,74 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+app:
+  id: license_plate_recognition
+  name: "License Plate Recognition"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+#   IDENTITY — plate recognition & matching
+# ──────────────────────────────────────────────
+categories:
+  - IDENTITY
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+#   Model: license_plate_detector_v1.pt
+#     0 license_plate     1 mask  (ignored)
+#
+# Only class 0 is mapped -- class "mask" is filtered out at
+# ``_pre_process`` because it has no entity mapping.
+# ──────────────────────────────────────────────
+entity_mapping:
+  license_plate: license_plate
+
+# ──────────────────────────────────────────────
+# Identity Module — License Plate Recognition
+#
+# identity_field:    name of the detection key holding the OCR'd plate
+#                    text (populated by the upstream OCR step).
+# confidence_field:  OCR confidence attached alongside the plate text.
+# whitelist:         plates that are authorised (empty = accept any
+#                    recognised plate as "matched").
+# blacklist:         plates that are flagged for alerting.
+#
+# 1-min aggregation emits window-unique track counts, not raw per-frame
+# sums — a plate visible for N frames counts as 1 identification.
+# ──────────────────────────────────────────────
+identity:
+  identity_field: plate_text
+  confidence_field: identity_confidence
+  whitelist: []
+  blacklist: []
+
+  metrics:
+    - key: total_identifications
+      agg_type: sum
+    - key: matched_count
+      agg_type: sum
+    - key: unknown_count
+      agg_type: sum
+    - key: blacklist_matches
+      agg_type: sum
+    - key: match_confidence_avg
+      agg_type: avg
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults:
+    - metric: blacklist_matches
+      condition:
+        operator: ">"
+        value: 0
+      severity: HIGH
+    - metric: unknown_count
+      condition:
+        operator: ">="
+        value: 5
+      severity: LOW
+
+  overrides: []

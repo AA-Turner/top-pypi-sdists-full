@@ -1,0 +1,6 @@
+"""Auto-generated stub for module: 1_consolidate."""
+from typing import Any
+
+# Functions
+def convert(input_folder: Any, output_file: Any, width: Any, height: Any, fps: Any, video: Any, model: Any, usecase: Any, class_names_str: Any, gt_tracked: Any = None, resolve_phase: Any = False, phase_offset: Any = 0, n_frames: Any = None, detections_source: Any = 'tracking_stats') -> Any: ...
+def main() -> Any: ...

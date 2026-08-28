@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: nanobind
-Version: 3.0.0
+Version: 3.0.1
 Summary: nanobind: tiny and efficient C++/Python bindings
 Author-Email: Wenzel Jakob <wenzel.jakob@epfl.ch>
 Classifier: Intended Audience :: Developers
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Project-URL: Homepage, https://github.com/wjakob/nanobind
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 ![nanobind logo](

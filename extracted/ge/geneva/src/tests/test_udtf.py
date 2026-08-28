@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: PROPRIETARY
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
+import logging
 from collections.abc import Iterator
 from datetime import timedelta
 
@@ -425,6 +426,39 @@ class TestRefreshRoundTrip:
         result = view.to_arrow()
         assert result.num_rows == 4
         assert sorted(result.column("value").to_pylist()) == [20.0, 40.0, 60.0, 80.0]
+
+    def test_refresh_warns_when_manifest_not_applied(
+        self, tmp_path, local_ray_context, caplog
+    ) -> None:
+        """A UDTF manifest cannot shape workers on a local refresh, and the
+        warning is independent of admission control."""
+        from geneva.manifest import GenevaManifest
+
+        db, source_table = _make_source_table(tmp_path)
+
+        @geneva.udtf(
+            output_schema=OUTPUT_SCHEMA,
+            input_columns=["id", "value"],
+            manifest=GenevaManifest.create_pip("udtf-env").pip(["numpy"]).build(),
+        )
+        def double_values(source) -> Iterator[pa.RecordBatch]:
+            tbl = source.to_arrow()
+            yield pa.RecordBatch.from_pydict(
+                {
+                    "id": tbl.column("id").to_pylist(),
+                    "value": [v * 2 for v in tbl.column("value").to_pylist()],
+                }
+            )
+
+        query = source_table.search(None).select(["id", "value"])
+        view = db.create_udtf_view("warn_view", query, double_values)
+
+        with caplog.at_level(logging.WARNING):
+            view.refresh(_admission_check=False)
+
+        assert "is not applied to this refresh" in caplog.text
+        assert "double_values" in caplog.text
+        assert view.to_arrow().num_rows == 4
 
 
 # ---------------------------------------------------------------------------

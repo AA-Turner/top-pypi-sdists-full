@@ -16,6 +16,10 @@ from chalk._gen.chalk.server.v1.cloud_credentials_pb2 import (
     GetCloudCredentialsResponse,
     ListCloudCredentialsRequest,
     ListCloudCredentialsResponse,
+    SimulateClusterPermissionsRequest,
+    SimulateClusterPermissionsResponse,
+    SimulateVPCPermissionsRequest,
+    SimulateVPCPermissionsResponse,
     TestCloudCredentialsRequest,
     TestCloudCredentialsResponse,
     UpdateCloudCredentialsRequest,
@@ -53,6 +57,14 @@ class CloudAccountCredentialsServiceStub:
     TestCloudCredentials: UnaryUnaryMultiCallable[
         TestCloudCredentialsRequest,
         TestCloudCredentialsResponse,
+    ]
+    SimulateClusterPermissions: UnaryUnaryMultiCallable[
+        SimulateClusterPermissionsRequest,
+        SimulateClusterPermissionsResponse,
+    ]
+    SimulateVPCPermissions: UnaryUnaryMultiCallable[
+        SimulateVPCPermissionsRequest,
+        SimulateVPCPermissionsResponse,
     ]
 
 class CloudAccountCredentialsServiceServicer(metaclass=ABCMeta):
@@ -92,6 +104,18 @@ class CloudAccountCredentialsServiceServicer(metaclass=ABCMeta):
         request: TestCloudCredentialsRequest,
         context: ServicerContext,
     ) -> TestCloudCredentialsResponse: ...
+    @abstractmethod
+    def SimulateClusterPermissions(
+        self,
+        request: SimulateClusterPermissionsRequest,
+        context: ServicerContext,
+    ) -> SimulateClusterPermissionsResponse: ...
+    @abstractmethod
+    def SimulateVPCPermissions(
+        self,
+        request: SimulateVPCPermissionsRequest,
+        context: ServicerContext,
+    ) -> SimulateVPCPermissionsResponse: ...
 
 def add_CloudAccountCredentialsServiceServicer_to_server(
     servicer: CloudAccountCredentialsServiceServicer, server: Server

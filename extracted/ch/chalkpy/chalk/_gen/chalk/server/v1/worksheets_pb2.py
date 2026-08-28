@@ -13,7 +13,9 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.common.v1 import dataset_response_pb2 as chalk_dot_common_dot_v1_dot_dataset__response__pb2
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as chalk_dot_common_dot_v1_dot_offline__query__pb2
 from chalk._gen.chalk.common.v1 import online_query_pb2 as chalk_dot_common_dot_v1_dot_online__query__pb2
 from chalk._gen.chalk.protosql.v1 import sql_service_pb2 as chalk_dot_protosql_dot_v1_dot_sql__service__pb2
@@ -21,7 +23,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n chalk/server/v1/worksheets.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a#chalk/common/v1/offline_query.proto\x1a"chalk/common/v1/online_query.proto\x1a#chalk/protosql/v1/sql_service.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xcd\x01\n\x0eWorksheetSpace\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12I\n\nvisibility\x18\x03 \x01(\x0e\x32).chalk.server.v1.WorksheetSpaceVisibilityR\nvisibility\x12\'\n\rowner_user_id\x18\x04 \x01(\tH\x00R\x0bownerUserId\x88\x01\x01\x42\x10\n\x0e_owner_user_id"\xce\x01\n\x10WorksheetBlobRef\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12%\n\x0e\x63ontent_schema\x18\x03 \x01(\tR\rcontentSchema\x12!\n\x0c\x63ontent_hash\x18\x04 \x01(\tR\x0b\x63ontentHash\x12\x39\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt"\xa2\x01\n\x10WorksheetContent\x12%\n\x0e\x63ontent_schema\x18\x01 \x01(\tR\rcontentSchema\x12.\n\x13\x63ontent_proto_bytes\x18\x02 \x01(\x0cR\x11\x63ontentProtoBytes\x12&\n\x0c\x63ontent_hash\x18\x03 \x01(\tH\x00R\x0b\x63ontentHash\x88\x01\x01\x42\x0f\n\r_content_hash"`\n\x19WorksheetSqlQueryDocument\x12\x43\n\x07request\x18\x01 \x01(\x0b\x32).chalk.protosql.v1.ExecuteSqlQueryRequestR\x07request"]\n\x1cWorksheetOnlineQueryDocument\x12=\n\x07request\x18\x01 \x01(\x0b\x32#.chalk.common.v1.OnlineQueryRequestR\x07request"_\n\x1dWorksheetOfflineQueryDocument\x12>\n\x07request\x18\x01 \x01(\x0b\x32$.chalk.common.v1.OfflineQueryRequestR\x07request"\x8f\x01\n\x19WorksheetNotebookDocument\x12\x30\n\x14notebook_proto_bytes\x18\x01 \x01(\x0cR\x12notebookProtoBytes\x12,\n\x0fnotebook_schema\x18\x02 \x01(\tH\x00R\x0enotebookSchema\x88\x01\x01\x42\x12\n\x10_notebook_schema"\xdf\x02\n\x11WorksheetDocument\x12I\n\tsql_query\x18\x01 \x01(\x0b\x32*.chalk.server.v1.WorksheetSqlQueryDocumentH\x00R\x08sqlQuery\x12R\n\x0conline_query\x18\x02 \x01(\x0b\x32-.chalk.server.v1.WorksheetOnlineQueryDocumentH\x00R\x0bonlineQuery\x12U\n\roffline_query\x18\x03 \x01(\x0b\x32..chalk.server.v1.WorksheetOfflineQueryDocumentH\x00R\x0cofflineQuery\x12H\n\x08notebook\x18\x04 \x01(\x0b\x32*.chalk.server.v1.WorksheetNotebookDocumentH\x00R\x08notebookB\n\n\x08\x64ocument"\xa8\x01\n\x15WorksheetContentInput\x12\x44\n\x0braw_content\x18\x01 \x01(\x0b\x32!.chalk.server.v1.WorksheetContentH\x00R\nrawContent\x12@\n\x08\x64ocument\x18\x02 \x01(\x0b\x32".chalk.server.v1.WorksheetDocumentH\x00R\x08\x64ocumentB\x07\n\x05value"\xbe\x03\n\rWorksheetNode\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n\x08space_id\x18\x02 \x01(\tR\x07spaceId\x12%\n\x0e\x65nvironment_id\x18\x03 \x01(\tR\renvironmentId\x12\x36\n\x04kind\x18\x04 \x01(\x0e\x32".chalk.server.v1.WorksheetNodeKindR\x04kind\x12)\n\x0eparent_node_id\x18\x05 \x01(\tH\x00R\x0cparentNodeId\x88\x01\x01\x12\x12\n\x04name\x18\x06 \x01(\tR\x04name\x12\x39\n\x05state\x18\x07 \x01(\x0e\x32#.chalk.server.v1.WorksheetNodeStateR\x05state\x12(\n\x10total_view_count\x18\x08 \x01(\x03R\x0etotalViewCount\x12R\n\x15viewer_last_viewed_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x12viewerLastViewedAt\x88\x01\x01\x42\x11\n\x0f_parent_node_idB\x18\n\x16_viewer_last_viewed_at"\xe2\x04\n\x0fWorksheetCommit\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n\x08space_id\x18\x02 \x01(\tR\x07spaceId\x12%\n\x0e\x65nvironment_id\x18\x03 \x01(\tR\renvironmentId\x12\x17\n\x07user_id\x18\x04 \x01(\tR\x06userId\x12\x39\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12;\n\x05state\x18\x06 \x01(\x0e\x32%.chalk.server.v1.WorksheetCommitStateR\x05state\x12N\n\x0eoperation_kind\x18\x07 \x01(\x0e\x32\'.chalk.server.v1.WorksheetOperationKindR\roperationKind\x12\x17\n\x07node_id\x18\x08 \x01(\tR\x06nodeId\x12)\n\x0eparent_node_id\x18\t \x01(\tH\x00R\x0cparentNodeId\x88\x01\x01\x12\x12\n\x04name\x18\n \x01(\tR\x04name\x12\x42\n\nnode_state\x18\x0b \x01(\x0e\x32#.chalk.server.v1.WorksheetNodeStateR\tnodeState\x12\x1c\n\x07\x62lob_id\x18\x0c \x01(\tH\x01R\x06\x62lobId\x88\x01\x01\x12:\n\x04\x62lob\x18\r \x01(\x0b\x32!.chalk.server.v1.WorksheetBlobRefH\x02R\x04\x62lob\x88\x01\x01\x42\x11\n\x0f_parent_node_idB\n\n\x08_blob_idB\x07\n\x05_blob"h\n\x1b\x43reateWorksheetSpaceRequest\x12I\n\nvisibility\x18\x01 \x01(\x0e\x32).chalk.server.v1.WorksheetSpaceVisibilityR\nvisibility"U\n\x1c\x43reateWorksheetSpaceResponse\x12\x35\n\x05space\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.WorksheetSpaceR\x05space"\x1c\n\x1aListWorksheetSpacesRequest"V\n\x1bListWorksheetSpacesResponse\x12\x37\n\x06spaces\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.WorksheetSpaceR\x06spaces"2\n\x17GetWorksheetNodeRequest\x12\x17\n\x07node_id\x18\x01 \x01(\tR\x06nodeId"N\n\x18GetWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node"\x9f\x01\n\x19ListWorksheetNodesRequest\x12\x19\n\x08space_id\x18\x01 \x01(\tR\x07spaceId\x12)\n\x0eparent_node_id\x18\x02 \x01(\tH\x00R\x0cparentNodeId\x88\x01\x01\x12)\n\x10include_archived\x18\x03 \x01(\x08R\x0fincludeArchivedB\x11\n\x0f_parent_node_id"R\n\x1aListWorksheetNodesResponse\x12\x34\n\x05nodes\x18\x01 \x03(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x05nodes"\x94\x02\n\x1a\x43reateWorksheetNodeRequest\x12\x19\n\x08space_id\x18\x01 \x01(\tR\x07spaceId\x12\x36\n\x04kind\x18\x02 \x01(\x0e\x32".chalk.server.v1.WorksheetNodeKindR\x04kind\x12)\n\x0eparent_node_id\x18\x03 \x01(\tH\x00R\x0cparentNodeId\x88\x01\x01\x12\x12\n\x04name\x18\x04 \x01(\tR\x04name\x12\x45\n\x07\x63ontent\x18\x05 \x01(\x0b\x32&.chalk.server.v1.WorksheetContentInputH\x01R\x07\x63ontent\x88\x01\x01\x42\x11\n\x0f_parent_node_idB\n\n\x08_content"\x8b\x01\n\x1b\x43reateWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"I\n\x1aRenameWorksheetNodeRequest\x12\x17\n\x07node_id\x18\x01 \x01(\tR\x06nodeId\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"\x8b\x01\n\x1bRenameWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"\x9e\x01\n\x18MoveWorksheetNodeRequest\x12\x17\n\x07node_id\x18\x01 \x01(\tR\x06nodeId\x12)\n\x0eparent_node_id\x18\x02 \x01(\tH\x00R\x0cparentNodeId\x88\x01\x01\x12\x1e\n\x08space_id\x18\x03 \x01(\tH\x01R\x07spaceId\x88\x01\x01\x42\x11\n\x0f_parent_node_idB\x0b\n\t_space_id"\x89\x01\n\x19MoveWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"6\n\x1b\x41rchiveWorksheetNodeRequest\x12\x17\n\x07node_id\x18\x01 \x01(\tR\x06nodeId"\x8c\x01\n\x1c\x41rchiveWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"t\n\x1bRestoreWorksheetNodeRequest\x12\x17\n\x07node_id\x18\x01 \x01(\tR\x06nodeId\x12)\n\x0eparent_node_id\x18\x02 \x01(\tH\x00R\x0cparentNodeId\x88\x01\x01\x42\x11\n\x0f_parent_node_id"\x8c\x01\n\x1cRestoreWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"u\n\x18\x41utosaveWorksheetRequest\x12\x17\n\x07node_id\x18\x01 \x01(\tR\x06nodeId\x12@\n\x07\x63ontent\x18\x02 \x01(\x0b\x32&.chalk.server.v1.WorksheetContentInputR\x07\x63ontent"U\n\x19\x41utosaveWorksheetResponse\x12\x38\n\x06\x63ommit\x18\x01 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"\x82\x01\n\x14SaveWorksheetRequest\x12\x17\n\x07node_id\x18\x01 \x01(\tR\x06nodeId\x12\x45\n\x07\x63ontent\x18\x02 \x01(\x0b\x32&.chalk.server.v1.WorksheetContentInputH\x00R\x07\x63ontent\x88\x01\x01\x42\n\n\x08_content"Q\n\x15SaveWorksheetResponse\x12\x38\n\x06\x63ommit\x18\x01 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"a\n\x19GetWorksheetCommitRequest\x12\x1b\n\tcommit_id\x18\x01 \x01(\x03R\x08\x63ommitId\x12\'\n\x0finclude_content\x18\x02 \x01(\x08R\x0eincludeContent"\xa4\x01\n\x1aGetWorksheetCommitResponse\x12\x38\n\x06\x63ommit\x18\x01 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit\x12@\n\x07\x63ontent\x18\x02 \x01(\x0b\x32!.chalk.server.v1.WorksheetContentH\x00R\x07\x63ontent\x88\x01\x01\x42\n\n\x08_content"\xc6\x01\n\x1bListWorksheetCommitsRequest\x12\x17\n\x07node_id\x18\x01 \x01(\tR\x06nodeId\x12%\n\x0einclude_drafts\x18\x02 \x01(\x08R\rincludeDrafts\x12-\n\x10\x62\x65\x66ore_commit_id\x18\x03 \x01(\x03H\x00R\x0e\x62\x65\x66oreCommitId\x88\x01\x01\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x01R\x05limit\x88\x01\x01\x42\x13\n\x11_before_commit_idB\x08\n\x06_limit"Z\n\x1cListWorksheetCommitsResponse\x12:\n\x07\x63ommits\x18\x01 \x03(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x07\x63ommits*\x95\x01\n\x18WorksheetSpaceVisibility\x12*\n&WORKSHEET_SPACE_VISIBILITY_UNSPECIFIED\x10\x00\x12%\n!WORKSHEET_SPACE_VISIBILITY_SHARED\x10\x01\x12&\n"WORKSHEET_SPACE_VISIBILITY_PRIVATE\x10\x02*\xea\x01\n\x11WorksheetNodeKind\x12#\n\x1fWORKSHEET_NODE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n\x1aWORKSHEET_NODE_KIND_FOLDER\x10\x01\x12!\n\x1dWORKSHEET_NODE_KIND_SQL_QUERY\x10\x02\x12$\n WORKSHEET_NODE_KIND_ONLINE_QUERY\x10\x03\x12%\n!WORKSHEET_NODE_KIND_OFFLINE_QUERY\x10\x04\x12 \n\x1cWORKSHEET_NODE_KIND_NOTEBOOK\x10\x05*~\n\x12WorksheetNodeState\x12$\n WORKSHEET_NODE_STATE_UNSPECIFIED\x10\x00\x12\x1f\n\x1bWORKSHEET_NODE_STATE_ACTIVE\x10\x01\x12!\n\x1dWORKSHEET_NODE_STATE_ARCHIVED\x10\x02*\x82\x01\n\x14WorksheetCommitState\x12&\n"WORKSHEET_COMMIT_STATE_UNSPECIFIED\x10\x00\x12 \n\x1cWORKSHEET_COMMIT_STATE_DRAFT\x10\x01\x12 \n\x1cWORKSHEET_COMMIT_STATE_SAVED\x10\x02*\xed\x02\n\x16WorksheetOperationKind\x12(\n$WORKSHEET_OPERATION_KIND_UNSPECIFIED\x10\x00\x12%\n!WORKSHEET_OPERATION_KIND_AUTOSAVE\x10\x01\x12#\n\x1fWORKSHEET_OPERATION_KIND_CREATE\x10\x02\x12!\n\x1dWORKSHEET_OPERATION_KIND_SAVE\x10\x03\x12#\n\x1fWORKSHEET_OPERATION_KIND_RENAME\x10\x04\x12!\n\x1dWORKSHEET_OPERATION_KIND_MOVE\x10\x05\x12$\n WORKSHEET_OPERATION_KIND_ARCHIVE\x10\x06\x12$\n WORKSHEET_OPERATION_KIND_RESTORE\x10\x07\x12&\n"WORKSHEET_OPERATION_KIND_DUPLICATE\x10\x08\x32\x8c\x0c\n\x11WorksheetsService\x12x\n\x14\x43reateWorksheetSpace\x12,.chalk.server.v1.CreateWorksheetSpaceRequest\x1a-.chalk.server.v1.CreateWorksheetSpaceResponse"\x03\x80}\x02\x12x\n\x13ListWorksheetSpaces\x12+.chalk.server.v1.ListWorksheetSpacesRequest\x1a,.chalk.server.v1.ListWorksheetSpacesResponse"\x06\x90\x02\x01\x80}\x02\x12o\n\x10GetWorksheetNode\x12(.chalk.server.v1.GetWorksheetNodeRequest\x1a).chalk.server.v1.GetWorksheetNodeResponse"\x06\x90\x02\x01\x80}\x02\x12u\n\x12ListWorksheetNodes\x12*.chalk.server.v1.ListWorksheetNodesRequest\x1a+.chalk.server.v1.ListWorksheetNodesResponse"\x06\x90\x02\x01\x80}\x02\x12u\n\x13\x43reateWorksheetNode\x12+.chalk.server.v1.CreateWorksheetNodeRequest\x1a,.chalk.server.v1.CreateWorksheetNodeResponse"\x03\x80}\x02\x12u\n\x13RenameWorksheetNode\x12+.chalk.server.v1.RenameWorksheetNodeRequest\x1a,.chalk.server.v1.RenameWorksheetNodeResponse"\x03\x80}\x02\x12o\n\x11MoveWorksheetNode\x12).chalk.server.v1.MoveWorksheetNodeRequest\x1a*.chalk.server.v1.MoveWorksheetNodeResponse"\x03\x80}\x02\x12x\n\x14\x41rchiveWorksheetNode\x12,.chalk.server.v1.ArchiveWorksheetNodeRequest\x1a-.chalk.server.v1.ArchiveWorksheetNodeResponse"\x03\x80}\x02\x12x\n\x14RestoreWorksheetNode\x12,.chalk.server.v1.RestoreWorksheetNodeRequest\x1a-.chalk.server.v1.RestoreWorksheetNodeResponse"\x03\x80}\x02\x12o\n\x11\x41utosaveWorksheet\x12).chalk.server.v1.AutosaveWorksheetRequest\x1a*.chalk.server.v1.AutosaveWorksheetResponse"\x03\x80}\x02\x12\x63\n\rSaveWorksheet\x12%.chalk.server.v1.SaveWorksheetRequest\x1a&.chalk.server.v1.SaveWorksheetResponse"\x03\x80}\x02\x12u\n\x12GetWorksheetCommit\x12*.chalk.server.v1.GetWorksheetCommitRequest\x1a+.chalk.server.v1.GetWorksheetCommitResponse"\x06\x90\x02\x01\x80}\x02\x12{\n\x14ListWorksheetCommits\x12,.chalk.server.v1.ListWorksheetCommitsRequest\x1a-.chalk.server.v1.ListWorksheetCommitsResponse"\x06\x90\x02\x01\x80}\x02\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0fWorksheetsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n chalk/server/v1/worksheets.proto\x12\x0f\x63halk.server.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a&chalk/common/v1/dataset_response.proto\x1a#chalk/common/v1/offline_query.proto\x1a"chalk/common/v1/online_query.proto\x1a#chalk/protosql/v1/sql_service.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xcd\x01\n\x0eWorksheetSpace\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12I\n\nvisibility\x18\x03 \x01(\x0e\x32).chalk.server.v1.WorksheetSpaceVisibilityR\nvisibility\x12\'\n\rowner_user_id\x18\x04 \x01(\tH\x00R\x0bownerUserId\x88\x01\x01\x42\x10\n\x0e_owner_user_id"\xce\x01\n\x10WorksheetBlobRef\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12%\n\x0e\x63ontent_schema\x18\x03 \x01(\tR\rcontentSchema\x12!\n\x0c\x63ontent_hash\x18\x04 \x01(\tR\x0b\x63ontentHash\x12\x39\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt"\xab\x01\n\x10WorksheetContent\x12.\n\x0e\x63ontent_schema\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\rcontentSchema\x12.\n\x13\x63ontent_proto_bytes\x18\x02 \x01(\x0cR\x11\x63ontentProtoBytes\x12&\n\x0c\x63ontent_hash\x18\x03 \x01(\tH\x00R\x0b\x63ontentHash\x88\x01\x01\x42\x0f\n\r_content_hash"`\n\x19WorksheetSqlQueryDocument\x12\x43\n\x07request\x18\x01 \x01(\x0b\x32).chalk.protosql.v1.ExecuteSqlQueryRequestR\x07request"]\n\x1cWorksheetOnlineQueryDocument\x12=\n\x07request\x18\x01 \x01(\x0b\x32#.chalk.common.v1.OnlineQueryRequestR\x07request"_\n\x1dWorksheetOfflineQueryDocument\x12>\n\x07request\x18\x01 \x01(\x0b\x32$.chalk.common.v1.OfflineQueryRequestR\x07request"\x8f\x01\n\x19WorksheetNotebookDocument\x12\x30\n\x14notebook_proto_bytes\x18\x01 \x01(\x0cR\x12notebookProtoBytes\x12,\n\x0fnotebook_schema\x18\x02 \x01(\tH\x00R\x0enotebookSchema\x88\x01\x01\x42\x12\n\x10_notebook_schema"\xe6\x02\n\x11WorksheetDocument\x12I\n\tsql_query\x18\x01 \x01(\x0b\x32*.chalk.server.v1.WorksheetSqlQueryDocumentH\x00R\x08sqlQuery\x12R\n\x0conline_query\x18\x02 \x01(\x0b\x32-.chalk.server.v1.WorksheetOnlineQueryDocumentH\x00R\x0bonlineQuery\x12U\n\roffline_query\x18\x03 \x01(\x0b\x32..chalk.server.v1.WorksheetOfflineQueryDocumentH\x00R\x0cofflineQuery\x12H\n\x08notebook\x18\x04 \x01(\x0b\x32*.chalk.server.v1.WorksheetNotebookDocumentH\x00R\x08notebookB\x11\n\x08\x64ocument\x12\x05\xbaH\x02\x08\x01"\xaf\x01\n\x15WorksheetContentInput\x12\x44\n\x0braw_content\x18\x01 \x01(\x0b\x32!.chalk.server.v1.WorksheetContentH\x00R\nrawContent\x12@\n\x08\x64ocument\x18\x02 \x01(\x0b\x32".chalk.server.v1.WorksheetDocumentH\x00R\x08\x64ocumentB\x0e\n\x05value\x12\x05\xbaH\x02\x08\x01"\x8d\x04\n\rWorksheetNode\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n\x08space_id\x18\x02 \x01(\tR\x07spaceId\x12%\n\x0e\x65nvironment_id\x18\x03 \x01(\tR\renvironmentId\x12\x36\n\x04kind\x18\x04 \x01(\x0e\x32".chalk.server.v1.WorksheetNodeKindR\x04kind\x12)\n\x0eparent_node_id\x18\x05 \x01(\tH\x00R\x0cparentNodeId\x88\x01\x01\x12\x12\n\x04name\x18\x06 \x01(\tR\x04name\x12\x39\n\x05state\x18\x07 \x01(\x0e\x32#.chalk.server.v1.WorksheetNodeStateR\x05state\x12(\n\x10total_view_count\x18\x08 \x01(\x03R\x0etotalViewCount\x12R\n\x15viewer_last_viewed_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x12viewerLastViewedAt\x88\x01\x01\x12>\n\nupdated_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\tupdatedAt\x88\x01\x01\x42\x11\n\x0f_parent_node_idB\x18\n\x16_viewer_last_viewed_atB\r\n\x0b_updated_at"\xe2\x04\n\x0fWorksheetCommit\x12\x0e\n\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n\x08space_id\x18\x02 \x01(\tR\x07spaceId\x12%\n\x0e\x65nvironment_id\x18\x03 \x01(\tR\renvironmentId\x12\x17\n\x07user_id\x18\x04 \x01(\tR\x06userId\x12\x39\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12;\n\x05state\x18\x06 \x01(\x0e\x32%.chalk.server.v1.WorksheetCommitStateR\x05state\x12N\n\x0eoperation_kind\x18\x07 \x01(\x0e\x32\'.chalk.server.v1.WorksheetOperationKindR\roperationKind\x12\x17\n\x07node_id\x18\x08 \x01(\tR\x06nodeId\x12)\n\x0eparent_node_id\x18\t \x01(\tH\x00R\x0cparentNodeId\x88\x01\x01\x12\x12\n\x04name\x18\n \x01(\tR\x04name\x12\x42\n\nnode_state\x18\x0b \x01(\x0e\x32#.chalk.server.v1.WorksheetNodeStateR\tnodeState\x12\x1c\n\x07\x62lob_id\x18\x0c \x01(\tH\x01R\x06\x62lobId\x88\x01\x01\x12:\n\x04\x62lob\x18\r \x01(\x0b\x32!.chalk.server.v1.WorksheetBlobRefH\x02R\x04\x62lob\x88\x01\x01\x42\x11\n\x0f_parent_node_idB\n\n\x08_blob_idB\x07\n\x05_blob"\xbc\x04\n\x0cWorksheetRun\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n\x08space_id\x18\x02 \x01(\tR\x07spaceId\x12%\n\x0e\x65nvironment_id\x18\x03 \x01(\tR\renvironmentId\x12 \n\tcommit_id\x18\x04 \x01(\x03H\x00R\x08\x63ommitId\x88\x01\x01\x12\x17\n\x07user_id\x18\x05 \x01(\tR\x06userId\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x39\n\x16\x65xecution_operation_id\x18\x07 \x01(\tH\x01R\x14\x65xecutionOperationId\x88\x01\x01\x12%\n\x0erequest_schema\x18\x08 \x01(\tR\rrequestSchema\x12N\n\rlaunch_status\x18\t \x01(\x0e\x32).chalk.server.v1.WorksheetRunLaunchStatusR\x0claunchStatus\x12@\n\x0blaunched_at\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\nlaunchedAt\x88\x01\x01\x12&\n\x0claunch_error\x18\x0b \x01(\tH\x03R\x0blaunchError\x88\x01\x01\x42\x0c\n\n_commit_idB\x19\n\x17_execution_operation_idB\x0e\n\x0c_launched_atB\x0f\n\r_launch_error"h\n\x1b\x43reateWorksheetSpaceRequest\x12I\n\nvisibility\x18\x01 \x01(\x0e\x32).chalk.server.v1.WorksheetSpaceVisibilityR\nvisibility"U\n\x1c\x43reateWorksheetSpaceResponse\x12\x35\n\x05space\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.WorksheetSpaceR\x05space"\x1c\n\x1aListWorksheetSpacesRequest"V\n\x1bListWorksheetSpacesResponse\x12\x37\n\x06spaces\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.WorksheetSpaceR\x06spaces";\n\x17GetWorksheetNodeRequest\x12 \n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06nodeId"N\n\x18GetWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node"\xb1\x01\n\x19ListWorksheetNodesRequest\x12"\n\x08space_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x07spaceId\x12\x32\n\x0eparent_node_id\x18\x02 \x01(\tB\x07\xbaH\x04r\x02\x10\x01H\x00R\x0cparentNodeId\x88\x01\x01\x12)\n\x10include_archived\x18\x03 \x01(\x08R\x0fincludeArchivedB\x11\n\x0f_parent_node_id"R\n\x1aListWorksheetNodesResponse\x12\x34\n\x05nodes\x18\x01 \x03(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x05nodes"\xc3\x02\n\x1a\x43reateWorksheetNodeRequest\x12"\n\x08space_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x07spaceId\x12\x42\n\x04kind\x18\x02 \x01(\x0e\x32".chalk.server.v1.WorksheetNodeKindB\n\xbaH\x07\x82\x01\x04\x10\x01 \x00R\x04kind\x12\x32\n\x0eparent_node_id\x18\x03 \x01(\tB\x07\xbaH\x04r\x02\x10\x01H\x00R\x0cparentNodeId\x88\x01\x01\x12#\n\x04name\x18\x04 \x01(\tB\x0f\xbaH\x0cr\n\x10\x01\x32\x06.*\\S.*R\x04name\x12\x45\n\x07\x63ontent\x18\x05 \x01(\x0b\x32&.chalk.server.v1.WorksheetContentInputH\x01R\x07\x63ontent\x88\x01\x01\x42\x11\n\x0f_parent_node_idB\n\n\x08_content"\x8b\x01\n\x1b\x43reateWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"c\n\x1aRenameWorksheetNodeRequest\x12 \n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06nodeId\x12#\n\x04name\x18\x02 \x01(\tB\x0f\xbaH\x0cr\n\x10\x01\x32\x06.*\\S.*R\x04name"\x8b\x01\n\x1bRenameWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"\xc4\x02\n\x18MoveWorksheetNodeRequest\x12 \n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06nodeId\x12\x32\n\x0eparent_node_id\x18\x02 \x01(\tB\x07\xbaH\x04r\x02\x10\x01H\x00R\x0cparentNodeId\x88\x01\x01\x12\'\n\x08space_id\x18\x03 \x01(\tB\x07\xbaH\x04r\x02\x10\x01H\x01R\x07spaceId\x88\x01\x01:\x88\x01\xbaH\x84\x01\x1a\x81\x01\n\x1eworksheet.move.parent_not_self\x12\x1dnode cannot be its own parent\x1a@!has(this.parent_node_id) || this.parent_node_id != this.node_idB\x11\n\x0f_parent_node_idB\x0b\n\t_space_id"\x89\x01\n\x19MoveWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"?\n\x1b\x41rchiveWorksheetNodeRequest\x12 \n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06nodeId"\x8c\x01\n\x1c\x41rchiveWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"\x94\x02\n\x1bRestoreWorksheetNodeRequest\x12 \n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06nodeId\x12\x32\n\x0eparent_node_id\x18\x02 \x01(\tB\x07\xbaH\x04r\x02\x10\x01H\x00R\x0cparentNodeId\x88\x01\x01:\x8b\x01\xbaH\x87\x01\x1a\x84\x01\n!worksheet.restore.parent_not_self\x12\x1dnode cannot be its own parent\x1a@!has(this.parent_node_id) || this.parent_node_id != this.node_idB\x11\n\x0f_parent_node_id"\x8c\x01\n\x1cRestoreWorksheetNodeResponse\x12\x32\n\x04node\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.WorksheetNodeR\x04node\x12\x38\n\x06\x63ommit\x18\x02 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"\x86\x01\n\x18\x41utosaveWorksheetRequest\x12 \n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06nodeId\x12H\n\x07\x63ontent\x18\x02 \x01(\x0b\x32&.chalk.server.v1.WorksheetContentInputB\x06\xbaH\x03\xc8\x01\x01R\x07\x63ontent"U\n\x19\x41utosaveWorksheetResponse\x12\x38\n\x06\x63ommit\x18\x01 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"\x8b\x01\n\x14SaveWorksheetRequest\x12 \n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06nodeId\x12\x45\n\x07\x63ontent\x18\x02 \x01(\x0b\x32&.chalk.server.v1.WorksheetContentInputH\x00R\x07\x63ontent\x88\x01\x01\x42\n\n\x08_content"Q\n\x15SaveWorksheetResponse\x12\x38\n\x06\x63ommit\x18\x01 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit"j\n\x19GetWorksheetCommitRequest\x12$\n\tcommit_id\x18\x01 \x01(\x03\x42\x07\xbaH\x04"\x02 \x00R\x08\x63ommitId\x12\'\n\x0finclude_content\x18\x02 \x01(\x08R\x0eincludeContent"\xa4\x01\n\x1aGetWorksheetCommitResponse\x12\x38\n\x06\x63ommit\x18\x01 \x01(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x06\x63ommit\x12@\n\x07\x63ontent\x18\x02 \x01(\x0b\x32!.chalk.server.v1.WorksheetContentH\x00R\x07\x63ontent\x88\x01\x01\x42\n\n\x08_content"\xd8\x01\n\x1bListWorksheetCommitsRequest\x12 \n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06nodeId\x12%\n\x0einclude_drafts\x18\x02 \x01(\x08R\rincludeDrafts\x12\x36\n\x10\x62\x65\x66ore_commit_id\x18\x03 \x01(\x03\x42\x07\xbaH\x04"\x02 \x00H\x00R\x0e\x62\x65\x66oreCommitId\x88\x01\x01\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x01R\x05limit\x88\x01\x01\x42\x13\n\x11_before_commit_idB\x08\n\x06_limit"Z\n\x1cListWorksheetCommitsResponse\x12:\n\x07\x63ommits\x18\x01 \x03(\x0b\x32 .chalk.server.v1.WorksheetCommitR\x07\x63ommits"\xa6\x01\n\x1fRunOnlineWorksheetCommitRequest\x12$\n\tcommit_id\x18\x01 \x01(\x03\x42\x07\xbaH\x04"\x02 \x00R\x08\x63ommitId\x12]\n\x14online_query_request\x18\x02 \x01(\x0b\x32#.chalk.common.v1.OnlineQueryRequestB\x06\xbaH\x03\xc8\x01\x01R\x12onlineQueryRequest"\xad\x01\n RunOnlineWorksheetCommitResponse\x12/\n\x03run\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.WorksheetRunR\x03run\x12X\n\x15online_query_response\x18\x02 \x01(\x0b\x32$.chalk.common.v1.OnlineQueryResponseR\x13onlineQueryResponse"\xaa\x01\n RunOfflineWorksheetCommitRequest\x12$\n\tcommit_id\x18\x01 \x01(\x03\x42\x07\xbaH\x04"\x02 \x00R\x08\x63ommitId\x12`\n\x15offline_query_request\x18\x02 \x01(\x0b\x32$.chalk.common.v1.OfflineQueryRequestB\x06\xbaH\x03\xc8\x01\x01R\x13offlineQueryRequest"\xa1\x01\n!RunOfflineWorksheetCommitResponse\x12/\n\x03run\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.WorksheetRunR\x03run\x12K\n\x10\x64\x61taset_response\x18\x02 \x01(\x0b\x32 .chalk.common.v1.DatasetResponseR\x0f\x64\x61tasetResponse"\xa3\x01\n\x1cRunSqlWorksheetCommitRequest\x12$\n\tcommit_id\x18\x01 \x01(\x03\x42\x07\xbaH\x04"\x02 \x00R\x08\x63ommitId\x12]\n\x11sql_query_request\x18\x02 \x01(\x0b\x32).chalk.protosql.v1.ExecuteSqlQueryRequestB\x06\xbaH\x03\xc8\x01\x01R\x0fsqlQueryRequest"\xaa\x01\n\x1dRunSqlWorksheetCommitResponse\x12/\n\x03run\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.WorksheetRunR\x03run\x12X\n\x12sql_query_response\x18\x02 \x01(\x0b\x32*.chalk.protosql.v1.ExecuteSqlQueryResponseR\x10sqlQueryResponse";\n\x19\x43\x61ncelWorksheetRunRequest\x12\x1e\n\x06run_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x05runId"M\n\x1a\x43\x61ncelWorksheetRunResponse\x12/\n\x03run\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.WorksheetRunR\x03run"8\n\x16GetWorksheetRunRequest\x12\x1e\n\x06run_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x05runId"J\n\x17GetWorksheetRunResponse\x12/\n\x03run\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.WorksheetRunR\x03run"\xd9\x02\n\x18ListWorksheetRunsRequest\x12%\n\x07node_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01H\x00R\x06nodeId\x88\x01\x01\x12)\n\tcommit_id\x18\x02 \x01(\x03\x42\x07\xbaH\x04"\x02 \x00H\x01R\x08\x63ommitId\x88\x01\x01\x12\x19\n\x05limit\x18\x03 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12$\n\x06\x63ursor\x18\x04 \x01(\tB\x07\xbaH\x04r\x02\x10\x01H\x03R\x06\x63ursor\x88\x01\x01:{\xbaHx\x1av\n\x1dworksheet_runs.node_or_commit\x12+provide exactly one of node_id or commit_id\x1a(has(this.node_id) != has(this.commit_id)B\n\n\x08_node_idB\x0c\n\n_commit_idB\x08\n\x06_limitB\t\n\x07_cursor"\x84\x01\n\x19ListWorksheetRunsResponse\x12\x31\n\x04runs\x18\x01 \x03(\x0b\x32\x1d.chalk.server.v1.WorksheetRunR\x04runs\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor*\x95\x01\n\x18WorksheetSpaceVisibility\x12*\n&WORKSHEET_SPACE_VISIBILITY_UNSPECIFIED\x10\x00\x12%\n!WORKSHEET_SPACE_VISIBILITY_SHARED\x10\x01\x12&\n"WORKSHEET_SPACE_VISIBILITY_PRIVATE\x10\x02*\xea\x01\n\x11WorksheetNodeKind\x12#\n\x1fWORKSHEET_NODE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n\x1aWORKSHEET_NODE_KIND_FOLDER\x10\x01\x12!\n\x1dWORKSHEET_NODE_KIND_SQL_QUERY\x10\x02\x12$\n WORKSHEET_NODE_KIND_ONLINE_QUERY\x10\x03\x12%\n!WORKSHEET_NODE_KIND_OFFLINE_QUERY\x10\x04\x12 \n\x1cWORKSHEET_NODE_KIND_NOTEBOOK\x10\x05*~\n\x12WorksheetNodeState\x12$\n WORKSHEET_NODE_STATE_UNSPECIFIED\x10\x00\x12\x1f\n\x1bWORKSHEET_NODE_STATE_ACTIVE\x10\x01\x12!\n\x1dWORKSHEET_NODE_STATE_ARCHIVED\x10\x02*\x82\x01\n\x14WorksheetCommitState\x12&\n"WORKSHEET_COMMIT_STATE_UNSPECIFIED\x10\x00\x12 \n\x1cWORKSHEET_COMMIT_STATE_DRAFT\x10\x01\x12 \n\x1cWORKSHEET_COMMIT_STATE_SAVED\x10\x02*\xed\x02\n\x16WorksheetOperationKind\x12(\n$WORKSHEET_OPERATION_KIND_UNSPECIFIED\x10\x00\x12%\n!WORKSHEET_OPERATION_KIND_AUTOSAVE\x10\x01\x12#\n\x1fWORKSHEET_OPERATION_KIND_CREATE\x10\x02\x12!\n\x1dWORKSHEET_OPERATION_KIND_SAVE\x10\x03\x12#\n\x1fWORKSHEET_OPERATION_KIND_RENAME\x10\x04\x12!\n\x1dWORKSHEET_OPERATION_KIND_MOVE\x10\x05\x12$\n WORKSHEET_OPERATION_KIND_ARCHIVE\x10\x06\x12$\n WORKSHEET_OPERATION_KIND_RESTORE\x10\x07\x12&\n"WORKSHEET_OPERATION_KIND_DUPLICATE\x10\x08*\xc2\x01\n\x18WorksheetRunLaunchStatus\x12+\n\'WORKSHEET_RUN_LAUNCH_STATUS_UNSPECIFIED\x10\x00\x12\'\n#WORKSHEET_RUN_LAUNCH_STATUS_PENDING\x10\x01\x12(\n$WORKSHEET_RUN_LAUNCH_STATUS_LAUNCHED\x10\x02\x12&\n"WORKSHEET_RUN_LAUNCH_STATUS_FAILED\x10\x03\x32\xf0\x11\n\x11WorksheetsService\x12x\n\x14\x43reateWorksheetSpace\x12,.chalk.server.v1.CreateWorksheetSpaceRequest\x1a-.chalk.server.v1.CreateWorksheetSpaceResponse"\x03\x80}\x02\x12x\n\x13ListWorksheetSpaces\x12+.chalk.server.v1.ListWorksheetSpacesRequest\x1a,.chalk.server.v1.ListWorksheetSpacesResponse"\x06\x90\x02\x01\x80}\x02\x12o\n\x10GetWorksheetNode\x12(.chalk.server.v1.GetWorksheetNodeRequest\x1a).chalk.server.v1.GetWorksheetNodeResponse"\x06\x90\x02\x01\x80}\x02\x12u\n\x12ListWorksheetNodes\x12*.chalk.server.v1.ListWorksheetNodesRequest\x1a+.chalk.server.v1.ListWorksheetNodesResponse"\x06\x90\x02\x01\x80}\x02\x12u\n\x13\x43reateWorksheetNode\x12+.chalk.server.v1.CreateWorksheetNodeRequest\x1a,.chalk.server.v1.CreateWorksheetNodeResponse"\x03\x80}\x02\x12u\n\x13RenameWorksheetNode\x12+.chalk.server.v1.RenameWorksheetNodeRequest\x1a,.chalk.server.v1.RenameWorksheetNodeResponse"\x03\x80}\x02\x12o\n\x11MoveWorksheetNode\x12).chalk.server.v1.MoveWorksheetNodeRequest\x1a*.chalk.server.v1.MoveWorksheetNodeResponse"\x03\x80}\x02\x12x\n\x14\x41rchiveWorksheetNode\x12,.chalk.server.v1.ArchiveWorksheetNodeRequest\x1a-.chalk.server.v1.ArchiveWorksheetNodeResponse"\x03\x80}\x02\x12x\n\x14RestoreWorksheetNode\x12,.chalk.server.v1.RestoreWorksheetNodeRequest\x1a-.chalk.server.v1.RestoreWorksheetNodeResponse"\x03\x80}\x02\x12o\n\x11\x41utosaveWorksheet\x12).chalk.server.v1.AutosaveWorksheetRequest\x1a*.chalk.server.v1.AutosaveWorksheetResponse"\x03\x80}\x02\x12\x63\n\rSaveWorksheet\x12%.chalk.server.v1.SaveWorksheetRequest\x1a&.chalk.server.v1.SaveWorksheetResponse"\x03\x80}\x02\x12u\n\x12GetWorksheetCommit\x12*.chalk.server.v1.GetWorksheetCommitRequest\x1a+.chalk.server.v1.GetWorksheetCommitResponse"\x06\x90\x02\x01\x80}\x02\x12{\n\x14ListWorksheetCommits\x12,.chalk.server.v1.ListWorksheetCommitsRequest\x1a-.chalk.server.v1.ListWorksheetCommitsResponse"\x06\x90\x02\x01\x80}\x02\x12\x84\x01\n\x18RunOnlineWorksheetCommit\x12\x30.chalk.server.v1.RunOnlineWorksheetCommitRequest\x1a\x31.chalk.server.v1.RunOnlineWorksheetCommitResponse"\x03\x80}\x03\x12\x87\x01\n\x19RunOfflineWorksheetCommit\x12\x31.chalk.server.v1.RunOfflineWorksheetCommitRequest\x1a\x32.chalk.server.v1.RunOfflineWorksheetCommitResponse"\x03\x80}\x04\x12{\n\x15RunSqlWorksheetCommit\x12-.chalk.server.v1.RunSqlWorksheetCommitRequest\x1a..chalk.server.v1.RunSqlWorksheetCommitResponse"\x03\x80}\x03\x12r\n\x12\x43\x61ncelWorksheetRun\x12*.chalk.server.v1.CancelWorksheetRunRequest\x1a+.chalk.server.v1.CancelWorksheetRunResponse"\x03\x80}\x04\x12l\n\x0fGetWorksheetRun\x12\'.chalk.server.v1.GetWorksheetRunRequest\x1a(.chalk.server.v1.GetWorksheetRunResponse"\x06\x90\x02\x01\x80}\x02\x12r\n\x11ListWorksheetRuns\x12).chalk.server.v1.ListWorksheetRunsRequest\x1a*.chalk.server.v1.ListWorksheetRunsResponse"\x06\x90\x02\x01\x80}\x02\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0fWorksheetsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -32,6 +34,114 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\017WorksheetsProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_WORKSHEETCONTENT"].fields_by_name["content_schema"]._options = None
+    _globals["_WORKSHEETCONTENT"].fields_by_name["content_schema"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_WORKSHEETDOCUMENT"].oneofs_by_name["document"]._options = None
+    _globals["_WORKSHEETDOCUMENT"].oneofs_by_name["document"]._serialized_options = b"\272H\002\010\001"
+    _globals["_WORKSHEETCONTENTINPUT"].oneofs_by_name["value"]._options = None
+    _globals["_WORKSHEETCONTENTINPUT"].oneofs_by_name["value"]._serialized_options = b"\272H\002\010\001"
+    _globals["_GETWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_GETWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_LISTWORKSHEETNODESREQUEST"].fields_by_name["space_id"]._options = None
+    _globals["_LISTWORKSHEETNODESREQUEST"].fields_by_name["space_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_LISTWORKSHEETNODESREQUEST"].fields_by_name["parent_node_id"]._options = None
+    _globals["_LISTWORKSHEETNODESREQUEST"].fields_by_name[
+        "parent_node_id"
+    ]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_CREATEWORKSHEETNODEREQUEST"].fields_by_name["space_id"]._options = None
+    _globals["_CREATEWORKSHEETNODEREQUEST"].fields_by_name["space_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_CREATEWORKSHEETNODEREQUEST"].fields_by_name["kind"]._options = None
+    _globals["_CREATEWORKSHEETNODEREQUEST"].fields_by_name[
+        "kind"
+    ]._serialized_options = b"\272H\007\202\001\004\020\001 \000"
+    _globals["_CREATEWORKSHEETNODEREQUEST"].fields_by_name["parent_node_id"]._options = None
+    _globals["_CREATEWORKSHEETNODEREQUEST"].fields_by_name[
+        "parent_node_id"
+    ]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_CREATEWORKSHEETNODEREQUEST"].fields_by_name["name"]._options = None
+    _globals["_CREATEWORKSHEETNODEREQUEST"].fields_by_name[
+        "name"
+    ]._serialized_options = b"\272H\014r\n\020\0012\006.*\\S.*"
+    _globals["_RENAMEWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_RENAMEWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_RENAMEWORKSHEETNODEREQUEST"].fields_by_name["name"]._options = None
+    _globals["_RENAMEWORKSHEETNODEREQUEST"].fields_by_name[
+        "name"
+    ]._serialized_options = b"\272H\014r\n\020\0012\006.*\\S.*"
+    _globals["_MOVEWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_MOVEWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_MOVEWORKSHEETNODEREQUEST"].fields_by_name["parent_node_id"]._options = None
+    _globals["_MOVEWORKSHEETNODEREQUEST"].fields_by_name[
+        "parent_node_id"
+    ]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_MOVEWORKSHEETNODEREQUEST"].fields_by_name["space_id"]._options = None
+    _globals["_MOVEWORKSHEETNODEREQUEST"].fields_by_name["space_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_MOVEWORKSHEETNODEREQUEST"]._options = None
+    _globals[
+        "_MOVEWORKSHEETNODEREQUEST"
+    ]._serialized_options = b"\272H\204\001\032\201\001\n\036worksheet.move.parent_not_self\022\035node cannot be its own parent\032@!has(this.parent_node_id) || this.parent_node_id != this.node_id"
+    _globals["_ARCHIVEWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_ARCHIVEWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_RESTOREWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_RESTOREWORKSHEETNODEREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_RESTOREWORKSHEETNODEREQUEST"].fields_by_name["parent_node_id"]._options = None
+    _globals["_RESTOREWORKSHEETNODEREQUEST"].fields_by_name[
+        "parent_node_id"
+    ]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_RESTOREWORKSHEETNODEREQUEST"]._options = None
+    _globals[
+        "_RESTOREWORKSHEETNODEREQUEST"
+    ]._serialized_options = b"\272H\207\001\032\204\001\n!worksheet.restore.parent_not_self\022\035node cannot be its own parent\032@!has(this.parent_node_id) || this.parent_node_id != this.node_id"
+    _globals["_AUTOSAVEWORKSHEETREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_AUTOSAVEWORKSHEETREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_AUTOSAVEWORKSHEETREQUEST"].fields_by_name["content"]._options = None
+    _globals["_AUTOSAVEWORKSHEETREQUEST"].fields_by_name["content"]._serialized_options = b"\272H\003\310\001\001"
+    _globals["_SAVEWORKSHEETREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_SAVEWORKSHEETREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_GETWORKSHEETCOMMITREQUEST"].fields_by_name["commit_id"]._options = None
+    _globals["_GETWORKSHEETCOMMITREQUEST"].fields_by_name["commit_id"]._serialized_options = b'\272H\004"\002 \000'
+    _globals["_LISTWORKSHEETCOMMITSREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_LISTWORKSHEETCOMMITSREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_LISTWORKSHEETCOMMITSREQUEST"].fields_by_name["before_commit_id"]._options = None
+    _globals["_LISTWORKSHEETCOMMITSREQUEST"].fields_by_name[
+        "before_commit_id"
+    ]._serialized_options = b'\272H\004"\002 \000'
+    _globals["_RUNONLINEWORKSHEETCOMMITREQUEST"].fields_by_name["commit_id"]._options = None
+    _globals["_RUNONLINEWORKSHEETCOMMITREQUEST"].fields_by_name[
+        "commit_id"
+    ]._serialized_options = b'\272H\004"\002 \000'
+    _globals["_RUNONLINEWORKSHEETCOMMITREQUEST"].fields_by_name["online_query_request"]._options = None
+    _globals["_RUNONLINEWORKSHEETCOMMITREQUEST"].fields_by_name[
+        "online_query_request"
+    ]._serialized_options = b"\272H\003\310\001\001"
+    _globals["_RUNOFFLINEWORKSHEETCOMMITREQUEST"].fields_by_name["commit_id"]._options = None
+    _globals["_RUNOFFLINEWORKSHEETCOMMITREQUEST"].fields_by_name[
+        "commit_id"
+    ]._serialized_options = b'\272H\004"\002 \000'
+    _globals["_RUNOFFLINEWORKSHEETCOMMITREQUEST"].fields_by_name["offline_query_request"]._options = None
+    _globals["_RUNOFFLINEWORKSHEETCOMMITREQUEST"].fields_by_name[
+        "offline_query_request"
+    ]._serialized_options = b"\272H\003\310\001\001"
+    _globals["_RUNSQLWORKSHEETCOMMITREQUEST"].fields_by_name["commit_id"]._options = None
+    _globals["_RUNSQLWORKSHEETCOMMITREQUEST"].fields_by_name["commit_id"]._serialized_options = b'\272H\004"\002 \000'
+    _globals["_RUNSQLWORKSHEETCOMMITREQUEST"].fields_by_name["sql_query_request"]._options = None
+    _globals["_RUNSQLWORKSHEETCOMMITREQUEST"].fields_by_name[
+        "sql_query_request"
+    ]._serialized_options = b"\272H\003\310\001\001"
+    _globals["_CANCELWORKSHEETRUNREQUEST"].fields_by_name["run_id"]._options = None
+    _globals["_CANCELWORKSHEETRUNREQUEST"].fields_by_name["run_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_GETWORKSHEETRUNREQUEST"].fields_by_name["run_id"]._options = None
+    _globals["_GETWORKSHEETRUNREQUEST"].fields_by_name["run_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_LISTWORKSHEETRUNSREQUEST"].fields_by_name["node_id"]._options = None
+    _globals["_LISTWORKSHEETRUNSREQUEST"].fields_by_name["node_id"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_LISTWORKSHEETRUNSREQUEST"].fields_by_name["commit_id"]._options = None
+    _globals["_LISTWORKSHEETRUNSREQUEST"].fields_by_name["commit_id"]._serialized_options = b'\272H\004"\002 \000'
+    _globals["_LISTWORKSHEETRUNSREQUEST"].fields_by_name["cursor"]._options = None
+    _globals["_LISTWORKSHEETRUNSREQUEST"].fields_by_name["cursor"]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_LISTWORKSHEETRUNSREQUEST"]._options = None
+    _globals[
+        "_LISTWORKSHEETRUNSREQUEST"
+    ]._serialized_options = b"\272Hx\032v\n\035worksheet_runs.node_or_commit\022+provide exactly one of node_id or commit_id\032(has(this.node_id) != has(this.commit_id)"
     _globals["_WORKSHEETSSERVICE"].methods_by_name["CreateWorksheetSpace"]._options = None
     _globals["_WORKSHEETSSERVICE"].methods_by_name["CreateWorksheetSpace"]._serialized_options = b"\200}\002"
     _globals["_WORKSHEETSSERVICE"].methods_by_name["ListWorksheetSpaces"]._options = None
@@ -60,90 +170,130 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_WORKSHEETSSERVICE"].methods_by_name[
         "ListWorksheetCommits"
     ]._serialized_options = b"\220\002\001\200}\002"
-    _globals["_WORKSHEETSPACEVISIBILITY"]._serialized_start = 5904
-    _globals["_WORKSHEETSPACEVISIBILITY"]._serialized_end = 6053
-    _globals["_WORKSHEETNODEKIND"]._serialized_start = 6056
-    _globals["_WORKSHEETNODEKIND"]._serialized_end = 6290
-    _globals["_WORKSHEETNODESTATE"]._serialized_start = 6292
-    _globals["_WORKSHEETNODESTATE"]._serialized_end = 6418
-    _globals["_WORKSHEETCOMMITSTATE"]._serialized_start = 6421
-    _globals["_WORKSHEETCOMMITSTATE"]._serialized_end = 6551
-    _globals["_WORKSHEETOPERATIONKIND"]._serialized_start = 6554
-    _globals["_WORKSHEETOPERATIONKIND"]._serialized_end = 6919
-    _globals["_WORKSHEETSPACE"]._serialized_start = 230
-    _globals["_WORKSHEETSPACE"]._serialized_end = 435
-    _globals["_WORKSHEETBLOBREF"]._serialized_start = 438
-    _globals["_WORKSHEETBLOBREF"]._serialized_end = 644
-    _globals["_WORKSHEETCONTENT"]._serialized_start = 647
-    _globals["_WORKSHEETCONTENT"]._serialized_end = 809
-    _globals["_WORKSHEETSQLQUERYDOCUMENT"]._serialized_start = 811
-    _globals["_WORKSHEETSQLQUERYDOCUMENT"]._serialized_end = 907
-    _globals["_WORKSHEETONLINEQUERYDOCUMENT"]._serialized_start = 909
-    _globals["_WORKSHEETONLINEQUERYDOCUMENT"]._serialized_end = 1002
-    _globals["_WORKSHEETOFFLINEQUERYDOCUMENT"]._serialized_start = 1004
-    _globals["_WORKSHEETOFFLINEQUERYDOCUMENT"]._serialized_end = 1099
-    _globals["_WORKSHEETNOTEBOOKDOCUMENT"]._serialized_start = 1102
-    _globals["_WORKSHEETNOTEBOOKDOCUMENT"]._serialized_end = 1245
-    _globals["_WORKSHEETDOCUMENT"]._serialized_start = 1248
-    _globals["_WORKSHEETDOCUMENT"]._serialized_end = 1599
-    _globals["_WORKSHEETCONTENTINPUT"]._serialized_start = 1602
-    _globals["_WORKSHEETCONTENTINPUT"]._serialized_end = 1770
-    _globals["_WORKSHEETNODE"]._serialized_start = 1773
-    _globals["_WORKSHEETNODE"]._serialized_end = 2219
-    _globals["_WORKSHEETCOMMIT"]._serialized_start = 2222
-    _globals["_WORKSHEETCOMMIT"]._serialized_end = 2832
-    _globals["_CREATEWORKSHEETSPACEREQUEST"]._serialized_start = 2834
-    _globals["_CREATEWORKSHEETSPACEREQUEST"]._serialized_end = 2938
-    _globals["_CREATEWORKSHEETSPACERESPONSE"]._serialized_start = 2940
-    _globals["_CREATEWORKSHEETSPACERESPONSE"]._serialized_end = 3025
-    _globals["_LISTWORKSHEETSPACESREQUEST"]._serialized_start = 3027
-    _globals["_LISTWORKSHEETSPACESREQUEST"]._serialized_end = 3055
-    _globals["_LISTWORKSHEETSPACESRESPONSE"]._serialized_start = 3057
-    _globals["_LISTWORKSHEETSPACESRESPONSE"]._serialized_end = 3143
-    _globals["_GETWORKSHEETNODEREQUEST"]._serialized_start = 3145
-    _globals["_GETWORKSHEETNODEREQUEST"]._serialized_end = 3195
-    _globals["_GETWORKSHEETNODERESPONSE"]._serialized_start = 3197
-    _globals["_GETWORKSHEETNODERESPONSE"]._serialized_end = 3275
-    _globals["_LISTWORKSHEETNODESREQUEST"]._serialized_start = 3278
-    _globals["_LISTWORKSHEETNODESREQUEST"]._serialized_end = 3437
-    _globals["_LISTWORKSHEETNODESRESPONSE"]._serialized_start = 3439
-    _globals["_LISTWORKSHEETNODESRESPONSE"]._serialized_end = 3521
-    _globals["_CREATEWORKSHEETNODEREQUEST"]._serialized_start = 3524
-    _globals["_CREATEWORKSHEETNODEREQUEST"]._serialized_end = 3800
-    _globals["_CREATEWORKSHEETNODERESPONSE"]._serialized_start = 3803
-    _globals["_CREATEWORKSHEETNODERESPONSE"]._serialized_end = 3942
-    _globals["_RENAMEWORKSHEETNODEREQUEST"]._serialized_start = 3944
-    _globals["_RENAMEWORKSHEETNODEREQUEST"]._serialized_end = 4017
-    _globals["_RENAMEWORKSHEETNODERESPONSE"]._serialized_start = 4020
-    _globals["_RENAMEWORKSHEETNODERESPONSE"]._serialized_end = 4159
-    _globals["_MOVEWORKSHEETNODEREQUEST"]._serialized_start = 4162
-    _globals["_MOVEWORKSHEETNODEREQUEST"]._serialized_end = 4320
-    _globals["_MOVEWORKSHEETNODERESPONSE"]._serialized_start = 4323
-    _globals["_MOVEWORKSHEETNODERESPONSE"]._serialized_end = 4460
-    _globals["_ARCHIVEWORKSHEETNODEREQUEST"]._serialized_start = 4462
-    _globals["_ARCHIVEWORKSHEETNODEREQUEST"]._serialized_end = 4516
-    _globals["_ARCHIVEWORKSHEETNODERESPONSE"]._serialized_start = 4519
-    _globals["_ARCHIVEWORKSHEETNODERESPONSE"]._serialized_end = 4659
-    _globals["_RESTOREWORKSHEETNODEREQUEST"]._serialized_start = 4661
-    _globals["_RESTOREWORKSHEETNODEREQUEST"]._serialized_end = 4777
-    _globals["_RESTOREWORKSHEETNODERESPONSE"]._serialized_start = 4780
-    _globals["_RESTOREWORKSHEETNODERESPONSE"]._serialized_end = 4920
-    _globals["_AUTOSAVEWORKSHEETREQUEST"]._serialized_start = 4922
-    _globals["_AUTOSAVEWORKSHEETREQUEST"]._serialized_end = 5039
-    _globals["_AUTOSAVEWORKSHEETRESPONSE"]._serialized_start = 5041
-    _globals["_AUTOSAVEWORKSHEETRESPONSE"]._serialized_end = 5126
-    _globals["_SAVEWORKSHEETREQUEST"]._serialized_start = 5129
-    _globals["_SAVEWORKSHEETREQUEST"]._serialized_end = 5259
-    _globals["_SAVEWORKSHEETRESPONSE"]._serialized_start = 5261
-    _globals["_SAVEWORKSHEETRESPONSE"]._serialized_end = 5342
-    _globals["_GETWORKSHEETCOMMITREQUEST"]._serialized_start = 5344
-    _globals["_GETWORKSHEETCOMMITREQUEST"]._serialized_end = 5441
-    _globals["_GETWORKSHEETCOMMITRESPONSE"]._serialized_start = 5444
-    _globals["_GETWORKSHEETCOMMITRESPONSE"]._serialized_end = 5608
-    _globals["_LISTWORKSHEETCOMMITSREQUEST"]._serialized_start = 5611
-    _globals["_LISTWORKSHEETCOMMITSREQUEST"]._serialized_end = 5809
-    _globals["_LISTWORKSHEETCOMMITSRESPONSE"]._serialized_start = 5811
-    _globals["_LISTWORKSHEETCOMMITSRESPONSE"]._serialized_end = 5901
-    _globals["_WORKSHEETSSERVICE"]._serialized_start = 6922
-    _globals["_WORKSHEETSSERVICE"]._serialized_end = 8470
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["RunOnlineWorksheetCommit"]._options = None
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["RunOnlineWorksheetCommit"]._serialized_options = b"\200}\003"
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["RunOfflineWorksheetCommit"]._options = None
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["RunOfflineWorksheetCommit"]._serialized_options = b"\200}\004"
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["RunSqlWorksheetCommit"]._options = None
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["RunSqlWorksheetCommit"]._serialized_options = b"\200}\003"
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["CancelWorksheetRun"]._options = None
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["CancelWorksheetRun"]._serialized_options = b"\200}\004"
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["GetWorksheetRun"]._options = None
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["GetWorksheetRun"]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["ListWorksheetRuns"]._options = None
+    _globals["_WORKSHEETSSERVICE"].methods_by_name["ListWorksheetRuns"]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_WORKSHEETSPACEVISIBILITY"]._serialized_start = 8918
+    _globals["_WORKSHEETSPACEVISIBILITY"]._serialized_end = 9067
+    _globals["_WORKSHEETNODEKIND"]._serialized_start = 9070
+    _globals["_WORKSHEETNODEKIND"]._serialized_end = 9304
+    _globals["_WORKSHEETNODESTATE"]._serialized_start = 9306
+    _globals["_WORKSHEETNODESTATE"]._serialized_end = 9432
+    _globals["_WORKSHEETCOMMITSTATE"]._serialized_start = 9435
+    _globals["_WORKSHEETCOMMITSTATE"]._serialized_end = 9565
+    _globals["_WORKSHEETOPERATIONKIND"]._serialized_start = 9568
+    _globals["_WORKSHEETOPERATIONKIND"]._serialized_end = 9933
+    _globals["_WORKSHEETRUNLAUNCHSTATUS"]._serialized_start = 9936
+    _globals["_WORKSHEETRUNLAUNCHSTATUS"]._serialized_end = 10130
+    _globals["_WORKSHEETSPACE"]._serialized_start = 299
+    _globals["_WORKSHEETSPACE"]._serialized_end = 504
+    _globals["_WORKSHEETBLOBREF"]._serialized_start = 507
+    _globals["_WORKSHEETBLOBREF"]._serialized_end = 713
+    _globals["_WORKSHEETCONTENT"]._serialized_start = 716
+    _globals["_WORKSHEETCONTENT"]._serialized_end = 887
+    _globals["_WORKSHEETSQLQUERYDOCUMENT"]._serialized_start = 889
+    _globals["_WORKSHEETSQLQUERYDOCUMENT"]._serialized_end = 985
+    _globals["_WORKSHEETONLINEQUERYDOCUMENT"]._serialized_start = 987
+    _globals["_WORKSHEETONLINEQUERYDOCUMENT"]._serialized_end = 1080
+    _globals["_WORKSHEETOFFLINEQUERYDOCUMENT"]._serialized_start = 1082
+    _globals["_WORKSHEETOFFLINEQUERYDOCUMENT"]._serialized_end = 1177
+    _globals["_WORKSHEETNOTEBOOKDOCUMENT"]._serialized_start = 1180
+    _globals["_WORKSHEETNOTEBOOKDOCUMENT"]._serialized_end = 1323
+    _globals["_WORKSHEETDOCUMENT"]._serialized_start = 1326
+    _globals["_WORKSHEETDOCUMENT"]._serialized_end = 1684
+    _globals["_WORKSHEETCONTENTINPUT"]._serialized_start = 1687
+    _globals["_WORKSHEETCONTENTINPUT"]._serialized_end = 1862
+    _globals["_WORKSHEETNODE"]._serialized_start = 1865
+    _globals["_WORKSHEETNODE"]._serialized_end = 2390
+    _globals["_WORKSHEETCOMMIT"]._serialized_start = 2393
+    _globals["_WORKSHEETCOMMIT"]._serialized_end = 3003
+    _globals["_WORKSHEETRUN"]._serialized_start = 3006
+    _globals["_WORKSHEETRUN"]._serialized_end = 3578
+    _globals["_CREATEWORKSHEETSPACEREQUEST"]._serialized_start = 3580
+    _globals["_CREATEWORKSHEETSPACEREQUEST"]._serialized_end = 3684
+    _globals["_CREATEWORKSHEETSPACERESPONSE"]._serialized_start = 3686
+    _globals["_CREATEWORKSHEETSPACERESPONSE"]._serialized_end = 3771
+    _globals["_LISTWORKSHEETSPACESREQUEST"]._serialized_start = 3773
+    _globals["_LISTWORKSHEETSPACESREQUEST"]._serialized_end = 3801
+    _globals["_LISTWORKSHEETSPACESRESPONSE"]._serialized_start = 3803
+    _globals["_LISTWORKSHEETSPACESRESPONSE"]._serialized_end = 3889
+    _globals["_GETWORKSHEETNODEREQUEST"]._serialized_start = 3891
+    _globals["_GETWORKSHEETNODEREQUEST"]._serialized_end = 3950
+    _globals["_GETWORKSHEETNODERESPONSE"]._serialized_start = 3952
+    _globals["_GETWORKSHEETNODERESPONSE"]._serialized_end = 4030
+    _globals["_LISTWORKSHEETNODESREQUEST"]._serialized_start = 4033
+    _globals["_LISTWORKSHEETNODESREQUEST"]._serialized_end = 4210
+    _globals["_LISTWORKSHEETNODESRESPONSE"]._serialized_start = 4212
+    _globals["_LISTWORKSHEETNODESRESPONSE"]._serialized_end = 4294
+    _globals["_CREATEWORKSHEETNODEREQUEST"]._serialized_start = 4297
+    _globals["_CREATEWORKSHEETNODEREQUEST"]._serialized_end = 4620
+    _globals["_CREATEWORKSHEETNODERESPONSE"]._serialized_start = 4623
+    _globals["_CREATEWORKSHEETNODERESPONSE"]._serialized_end = 4762
+    _globals["_RENAMEWORKSHEETNODEREQUEST"]._serialized_start = 4764
+    _globals["_RENAMEWORKSHEETNODEREQUEST"]._serialized_end = 4863
+    _globals["_RENAMEWORKSHEETNODERESPONSE"]._serialized_start = 4866
+    _globals["_RENAMEWORKSHEETNODERESPONSE"]._serialized_end = 5005
+    _globals["_MOVEWORKSHEETNODEREQUEST"]._serialized_start = 5008
+    _globals["_MOVEWORKSHEETNODEREQUEST"]._serialized_end = 5332
+    _globals["_MOVEWORKSHEETNODERESPONSE"]._serialized_start = 5335
+    _globals["_MOVEWORKSHEETNODERESPONSE"]._serialized_end = 5472
+    _globals["_ARCHIVEWORKSHEETNODEREQUEST"]._serialized_start = 5474
+    _globals["_ARCHIVEWORKSHEETNODEREQUEST"]._serialized_end = 5537
+    _globals["_ARCHIVEWORKSHEETNODERESPONSE"]._serialized_start = 5540
+    _globals["_ARCHIVEWORKSHEETNODERESPONSE"]._serialized_end = 5680
+    _globals["_RESTOREWORKSHEETNODEREQUEST"]._serialized_start = 5683
+    _globals["_RESTOREWORKSHEETNODEREQUEST"]._serialized_end = 5959
+    _globals["_RESTOREWORKSHEETNODERESPONSE"]._serialized_start = 5962
+    _globals["_RESTOREWORKSHEETNODERESPONSE"]._serialized_end = 6102
+    _globals["_AUTOSAVEWORKSHEETREQUEST"]._serialized_start = 6105
+    _globals["_AUTOSAVEWORKSHEETREQUEST"]._serialized_end = 6239
+    _globals["_AUTOSAVEWORKSHEETRESPONSE"]._serialized_start = 6241
+    _globals["_AUTOSAVEWORKSHEETRESPONSE"]._serialized_end = 6326
+    _globals["_SAVEWORKSHEETREQUEST"]._serialized_start = 6329
+    _globals["_SAVEWORKSHEETREQUEST"]._serialized_end = 6468
+    _globals["_SAVEWORKSHEETRESPONSE"]._serialized_start = 6470
+    _globals["_SAVEWORKSHEETRESPONSE"]._serialized_end = 6551
+    _globals["_GETWORKSHEETCOMMITREQUEST"]._serialized_start = 6553
+    _globals["_GETWORKSHEETCOMMITREQUEST"]._serialized_end = 6659
+    _globals["_GETWORKSHEETCOMMITRESPONSE"]._serialized_start = 6662
+    _globals["_GETWORKSHEETCOMMITRESPONSE"]._serialized_end = 6826
+    _globals["_LISTWORKSHEETCOMMITSREQUEST"]._serialized_start = 6829
+    _globals["_LISTWORKSHEETCOMMITSREQUEST"]._serialized_end = 7045
+    _globals["_LISTWORKSHEETCOMMITSRESPONSE"]._serialized_start = 7047
+    _globals["_LISTWORKSHEETCOMMITSRESPONSE"]._serialized_end = 7137
+    _globals["_RUNONLINEWORKSHEETCOMMITREQUEST"]._serialized_start = 7140
+    _globals["_RUNONLINEWORKSHEETCOMMITREQUEST"]._serialized_end = 7306
+    _globals["_RUNONLINEWORKSHEETCOMMITRESPONSE"]._serialized_start = 7309
+    _globals["_RUNONLINEWORKSHEETCOMMITRESPONSE"]._serialized_end = 7482
+    _globals["_RUNOFFLINEWORKSHEETCOMMITREQUEST"]._serialized_start = 7485
+    _globals["_RUNOFFLINEWORKSHEETCOMMITREQUEST"]._serialized_end = 7655
+    _globals["_RUNOFFLINEWORKSHEETCOMMITRESPONSE"]._serialized_start = 7658
+    _globals["_RUNOFFLINEWORKSHEETCOMMITRESPONSE"]._serialized_end = 7819
+    _globals["_RUNSQLWORKSHEETCOMMITREQUEST"]._serialized_start = 7822
+    _globals["_RUNSQLWORKSHEETCOMMITREQUEST"]._serialized_end = 7985
+    _globals["_RUNSQLWORKSHEETCOMMITRESPONSE"]._serialized_start = 7988
+    _globals["_RUNSQLWORKSHEETCOMMITRESPONSE"]._serialized_end = 8158
+    _globals["_CANCELWORKSHEETRUNREQUEST"]._serialized_start = 8160
+    _globals["_CANCELWORKSHEETRUNREQUEST"]._serialized_end = 8219
+    _globals["_CANCELWORKSHEETRUNRESPONSE"]._serialized_start = 8221
+    _globals["_CANCELWORKSHEETRUNRESPONSE"]._serialized_end = 8298
+    _globals["_GETWORKSHEETRUNREQUEST"]._serialized_start = 8300
+    _globals["_GETWORKSHEETRUNREQUEST"]._serialized_end = 8356
+    _globals["_GETWORKSHEETRUNRESPONSE"]._serialized_start = 8358
+    _globals["_GETWORKSHEETRUNRESPONSE"]._serialized_end = 8432
+    _globals["_LISTWORKSHEETRUNSREQUEST"]._serialized_start = 8435
+    _globals["_LISTWORKSHEETRUNSREQUEST"]._serialized_end = 8780
+    _globals["_LISTWORKSHEETRUNSRESPONSE"]._serialized_start = 8783
+    _globals["_LISTWORKSHEETRUNSRESPONSE"]._serialized_end = 8915
+    _globals["_WORKSHEETSSERVICE"]._serialized_start = 10133
+    _globals["_WORKSHEETSSERVICE"]._serialized_end = 12421
 # @@protoc_insertion_point(module_scope)

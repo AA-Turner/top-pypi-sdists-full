@@ -82,6 +82,12 @@ setup(
     extras_require={
         "dev": ["check-manifest"],
         "test": ["coverage"],
+        # The >=7.0 floor is functional, not conventional: Listener API v3
+        # gained start_keyword / end_keyword only in Robot Framework 7.0. On
+        # 6.x Robot assigns both to None for a v3 listener and never calls
+        # them, which would silently delete every navigation re-color and the
+        # flush-before-close on all three browser stacks (Rule 30bis, AC57).
+        "robot": ["robotframework>=7.0", "opentelemetry-api"],
     },
     # Ensure console message templates ship with the package.
     package_data={

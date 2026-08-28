@@ -11,9 +11,9 @@ class ListRolesShrinkRequest(DaraModel):
         max_items: int = None,
         tag_shrink: str = None,
     ):
-        # The `marker`. If part of a previous response is truncated, you can use this parameter to obtain the truncated part.
+        # The marker. If the response is truncated, you can use `Marker` to retrieve the content that starts from the position after the truncation point.
         self.marker = marker
-        # The number of entries to return. If a response is truncated because it reaches the value of `MaxItems`, the value of `IsTruncated` will be `true`.
+        # The number of entries to return. If the response is truncated because it reaches the `MaxItems` limit, the `IsTruncated` parameter is set to `true`.
         # 
         # Valid values: 1 to 1000. Default value: 100.
         self.max_items = max_items

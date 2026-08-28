@@ -25,8 +25,7 @@ from dstack._internal.cli.services.profile import (
 )
 from dstack._internal.cli.utils.common import confirm_ask, console
 from dstack._internal.core.errors import CLIError, ConfigurationError, ServerClientError
-from dstack._internal.core.models.configurations import ApplyConfigurationType
-from dstack._internal.core.models.presets import PresetConfiguration
+from dstack._internal.core.models.configurations import ApplyConfigurationType, PresetConfiguration
 from dstack._internal.core.models.profiles import ProfileParams
 from dstack._internal.core.services import validate_dstack_resource_name
 
@@ -66,7 +65,6 @@ class PresetConfigurator(BaseApplyConfigurator[PresetConfiguration]):
                 configuration=conf,
                 store=store,
                 keep_service=configurator_args.keep_service,
-                debug=configurator_args.debug,
                 user_prompt=user_prompt,
                 allowed_fleets=allowed_fleets,
                 previous=previous,
@@ -130,11 +128,6 @@ def register_creation_args(parser: ArgsParser) -> None:
         type=int,
         metavar="N",
         help="The number of benchmarked trials before the best one is promoted",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Save the agent prompt and raw trace",
     )
     parser.add_argument(
         "--previous",

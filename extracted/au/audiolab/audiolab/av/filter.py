@@ -12,12 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Callable, Dict, List
+from collections.abc import Callable, Collection
+from typing import Any
 
 from av import filter
-from av.option import OptionType
 
 from audiolab.av.utils import get_template
+
+# The undertested ``av.option`` and ``av.descriptor`` APIs, together with the
+# related ``Filter`` descriptor accessor (``Filter.options``), were removed in
+# PyAV 17.1.0. Fall back to an empty option list when the accessor is gone; the
+# rendered docstring still points users to ``ffmpeg -h filter=<name>`` for the
+# full option list, so no information is lost.
+try:
+    from av.option import OptionType
+except ImportError:
+    OptionType = None
 
 """
 $ ffmpeg -filters
@@ -26,19 +36,21 @@ $ ffmpeg -filters
 
 class FilterManager:
     def __init__(self):
-        self._filter_data: Dict[str, Dict[str, Any]] = {}
+        self._filter_data: dict[str, dict[str, Any]] = {}
+        self._functions: dict[str, Callable] = {}
         self._initialized: bool = False
 
     def _generate_filter_data(self) -> None:
         for name in filter.filters_available:
             options = []
             _filter = filter.Filter(name)
-            if _filter.options is not None:
-                for opt in _filter.options:
+            filter_options = getattr(_filter, "options", None)
+            if filter_options is not None:
+                for opt in filter_options:
                     try:
                         opt_type = opt.type
                     except ValueError:
-                        opt_type = OptionType.STRING
+                        opt_type = OptionType.STRING if OptionType is not None else "string"
                     options.append(
                         {
                             "name": opt.name,
@@ -47,7 +59,11 @@ class FilterManager:
                             "help": opt.help if opt.name != "temp" else "set temperature °C",
                         }
                     )
-            self._filter_data[name] = {"name": _filter.name, "description": _filter.description, "options": options}
+            self._filter_data[name] = {
+                "name": _filter.name,
+                "description": _filter.description,
+                "options": options,
+            }
 
     def _create_filter_function(self, name: str):
         def filter_func(args=None, **kwargs):
@@ -67,16 +83,19 @@ class FilterManager:
             filter_func.__doc__ = get_template("filter").render(
                 name=data["name"], description=data["description"], options=data["options"]
             )
-            globals()[name] = filter_func
+            self._functions[name] = filter_func
 
         self._initialized = True
 
     def __getattr__(self, name: str) -> Callable:
         self._initialize_filters()
-        return globals().get(name, None)
+        try:
+            return self._functions[name]
+        except KeyError:
+            raise AttributeError(f"{name!r} is not an FFmpeg audio filter") from None
 
     @property
-    def filters(self) -> List[str]:
+    def filters(self) -> Collection[str]:
         return filter.filters_available
 
 

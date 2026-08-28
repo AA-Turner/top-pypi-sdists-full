@@ -20,6 +20,16 @@ class MonitorServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorResponse.FromString,
         )
+        self.GetMonitorEvents = channel.unary_unary(
+            "/chalk.server.v1.MonitorService/GetMonitorEvents",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEventsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEventsResponse.FromString,
+        )
+        self.GetMonitorEvaluation = channel.unary_unary(
+            "/chalk.server.v1.MonitorService/GetMonitorEvaluation",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEvaluationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEvaluationResponse.FromString,
+        )
         self.CreateMonitor = channel.unary_unary(
             "/chalk.server.v1.MonitorService/CreateMonitor",
             request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.CreateMonitorRequest.SerializeToString,
@@ -46,6 +56,18 @@ class MonitorServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetMonitor(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetMonitorEvents(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetMonitorEvaluation(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -82,6 +104,16 @@ def add_MonitorServiceServicer_to_server(servicer, server):
             servicer.GetMonitor,
             request_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorResponse.SerializeToString,
+        ),
+        "GetMonitorEvents": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMonitorEvents,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEventsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEventsResponse.SerializeToString,
+        ),
+        "GetMonitorEvaluation": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMonitorEvaluation,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEvaluationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEvaluationResponse.SerializeToString,
         ),
         "CreateMonitor": grpc.unary_unary_rpc_method_handler(
             servicer.CreateMonitor,
@@ -131,6 +163,64 @@ class MonitorService(object):
             "/chalk.server.v1.MonitorService/GetMonitor",
             chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMonitorEvents(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitorService/GetMonitorEvents",
+            chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEventsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEventsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMonitorEvaluation(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitorService/GetMonitorEvaluation",
+            chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEvaluationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitor__service__pb2.GetMonitorEvaluationResponse.FromString,
             options,
             channel_credentials,
             insecure,

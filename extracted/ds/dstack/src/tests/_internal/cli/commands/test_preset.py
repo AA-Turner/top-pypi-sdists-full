@@ -8,8 +8,10 @@ from unittest.mock import patch
 import pytest
 
 from dstack._internal.cli.commands.preset import _check_stdin_configuration_confirmable
+from dstack._internal.cli.models.preset_agent import PresetSessionWorkspace
 from dstack._internal.cli.services.presets import output as presets_utils
 from dstack._internal.cli.services.presets.store import PresetStore
+from dstack._internal.compat import IS_WINDOWS
 from dstack._internal.core.errors import CLIError
 from dstack._internal.utils.common import render_datetime_as_api
 from tests._internal.cli.common import (
@@ -181,7 +183,7 @@ class TestPresetLocalCommands:
         preset = get_preset()
         PresetStore(tmp_path / ".dstack" / "presets").save(preset)
 
-        output = self._list_output(tmp_path, ["preset", "list"], created_at=preset.submitted_at)
+        output = self._list_output(tmp_path, ["preset", "list"], created_at=preset.created_at)
 
         assert "Qwen/Qwen3.5-27B" in output
         assert "8f3a12c4" in output
@@ -210,7 +212,7 @@ class TestPresetLocalCommands:
 
         joined_verbose = "".join(
             self._list_output(
-                tmp_path, ["preset", "list", "-v"], created_at=preset.submitted_at
+                tmp_path, ["preset", "list", "-v"], created_at=preset.created_at
             ).split()
         )
 
@@ -230,6 +232,102 @@ class TestPresetLocalCommands:
 
         assert PresetStore(tmp_path / ".dstack" / "presets").list() == []
 
+    def test_deletes_an_interrupted_creation_that_never_saved_a_preset(self, tmp_path, capsys):
+        session_dir = self._session(tmp_path, status="interrupted")
+
+        assert run_dstack_cli(["preset", "delete", "smoke", "-y"], home_dir=tmp_path) == 0
+
+        assert not session_dir.exists()
+        assert "OK" in capsys.readouterr().out
+
+    def test_refuses_to_delete_a_running_creation(self, tmp_path, capsys):
+        session_dir = self._session(tmp_path, status="running")
+
+        with patch(
+            "dstack._internal.cli.commands.preset.session_process_alive", return_value=True
+        ):
+            exit_code = run_dstack_cli(["preset", "delete", "ab12cd34", "-y"], home_dir=tmp_path)
+
+        assert exit_code != 0
+        assert "Preset creation is in use" in capsys.readouterr().out
+        assert session_dir.exists()
+
+    def test_refuses_to_delete_an_orphaned_creation_that_recorded_runs(self, tmp_path, capsys):
+        # The agent died without stopping its runs: `runs.jsonl` is the only
+        # record of them, so deleting it would strand them.
+        session_dir = self._session(tmp_path, status="running")
+        session_dir.joinpath("runs.jsonl").write_text('{"name": "qwen-1"}\n')
+
+        exit_code = run_dstack_cli(["preset", "delete", "ab12cd34", "-y"], home_dir=tmp_path)
+
+        assert exit_code != 0
+        assert "Preset creation was interrupted" in capsys.readouterr().out
+        assert session_dir.exists()
+
+    def test_deletes_an_orphaned_creation_without_runs(self, tmp_path):
+        session_dir = self._session(tmp_path, status="running")
+
+        assert run_dstack_cli(["preset", "delete", "ab12cd34", "-y"], home_dir=tmp_path) == 0
+
+        assert not session_dir.exists()
+
+    def test_deletes_a_creation_whose_state_cannot_be_read(self, tmp_path):
+        session_dir = tmp_path / ".dstack" / "presets" / "ab12cd34"
+        session_dir.mkdir(parents=True)
+        session_dir.joinpath("session.json").write_text("{")
+
+        assert run_dstack_cli(["preset", "delete", "ab12cd34", "-y"], home_dir=tmp_path) == 0
+
+        assert not session_dir.exists()
+
+    @pytest.mark.skipif(IS_WINDOWS, reason="workspace alias symlinks are POSIX-only")
+    def test_delete_removes_the_workspace_alias_but_nothing_outside_the_session(self, tmp_path):
+        session_dir = self._session(tmp_path, status="interrupted")
+        workspace = session_dir / "workspace"
+        workspace.mkdir()
+        alias = tmp_path / "dpe-alias"
+        alias.symlink_to(workspace, target_is_directory=True)
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "keep.txt").write_text("keep")
+        session_dir.joinpath("session.json").write_text(
+            json.dumps(
+                get_session_state(
+                    status="interrupted",
+                    run=get_session_run(
+                        workspace=PresetSessionWorkspace(path=str(outside), alias=str(alias))
+                    ),
+                ).model_dump(mode="json")
+            )
+        )
+
+        assert run_dstack_cli(["preset", "delete", "ab12cd34", "-y"], home_dir=tmp_path) == 0
+
+        assert not session_dir.exists()
+        # A dangling symlink is gone from exists() but still on disk.
+        assert not alias.is_symlink()
+        # The recorded path pointed outside the session, so it must survive.
+        assert (outside / "keep.txt").read_text() == "keep"
+
+    def _session(self, tmp_path, *, status: str):
+        session_dir = tmp_path / ".dstack" / "presets" / "ab12cd34"
+        session_dir.mkdir(parents=True)
+        session_dir.joinpath("session.json").write_text(
+            json.dumps(
+                get_session_state(
+                    status=status,
+                    name="smoke",
+                    run=get_session_run(
+                        workspace=PresetSessionWorkspace(
+                            path=str(session_dir / "workspace"),
+                            alias=str(session_dir / "workspace"),
+                        )
+                    ),
+                ).model_dump(mode="json")
+            )
+        )
+        return session_dir
+
     def test_gets_complete_preset_as_json_without_api_client(self, tmp_path, capsys):
         preset = get_preset()
         PresetStore(tmp_path / ".dstack" / "presets").save(preset)
@@ -246,7 +344,7 @@ class TestPresetLocalCommands:
 
         data = json.loads(capsys.readouterr().out)
         assert data["id"] == preset.id
-        assert data["submitted_at"] == render_datetime_as_api(preset.submitted_at)
+        assert data["created_at"] == render_datetime_as_api(preset.created_at)
         assert data["context_length"] == 32768
         assert data["benchmark"]["metrics"]["total_output_tokens"] == 2048
 
@@ -267,11 +365,11 @@ class TestPresetLocalCommands:
         assert len(output["presets"]) == 1
         data = output["presets"][0]
         assert data["id"] == preset.id
-        assert data["submitted_at"] == render_datetime_as_api(preset.submitted_at)
+        assert data["created_at"] == render_datetime_as_api(preset.created_at)
         assert data["context_length"] == 32768
         assert data["benchmark"]["metrics"]["total_output_tokens"] == 2048
 
-    @pytest.mark.parametrize("flag_attribute", [("--base", "base"), ("--repo", "model")])
+    @pytest.mark.parametrize("flag_attribute", [("--base", "base"), ("--repo", "repo")])
     def test_deletes_all_presets_of_model_keeping_others_without_api_client(
         self, tmp_path, flag_attribute
     ):
@@ -283,7 +381,7 @@ class TestPresetLocalCommands:
         # A preset of a different model must survive the delete.
         store.save(
             preset.model_copy(
-                update={"id": "89abcdef", "base": "meta/Llama-4", "model": "meta/Llama-4"}
+                update={"id": "89abcdef", "base": "meta/Llama-4", "repo": "meta/Llama-4"}
             )
         )
 
@@ -299,7 +397,7 @@ class TestPresetLocalCommands:
 
         assert [remaining.id for remaining in store.list()] == ["89abcdef"]
 
-    @pytest.mark.parametrize("flag_attribute", [("--base", "base"), ("--repo", "model")])
+    @pytest.mark.parametrize("flag_attribute", [("--base", "base"), ("--repo", "repo")])
     def test_lists_presets_filtered_by_model(self, tmp_path, capsys, flag_attribute):
         flag, attribute = flag_attribute
         preset = get_preset()
@@ -307,7 +405,7 @@ class TestPresetLocalCommands:
         store.save(preset)
         store.save(
             preset.model_copy(
-                update={"id": "01234567", "base": "meta/Llama-4", "model": "meta/Llama-4"}
+                update={"id": "01234567", "base": "meta/Llama-4", "repo": "meta/Llama-4"}
             )
         )
 
@@ -387,7 +485,6 @@ env:
                     "0.75",
                     "--fleet",
                     "cli-fleet",
-                    "--debug",
                 ],
                 home_dir=tmp_path,
                 repo_dir=tmp_path,
@@ -401,7 +498,6 @@ env:
         assert configuration.max_price == 0.75
         assert configuration.spot_policy.value == "spot"
         assert [fleet.format() for fleet in configuration.fleets] == ["cli-fleet"]
-        assert create.call_args.kwargs["debug"] is True
 
     def test_create_detaches_the_name_from_the_old_preset(self, tmp_path):
         preset = get_preset().model_copy(update={"name": "qwen"})
@@ -462,6 +558,37 @@ env:
         assert run_dstack_cli(["preset", "delete", "qwen", "-y"], home_dir=tmp_path) == 0
         assert PresetStore(tmp_path / ".dstack" / "presets").list() == []
 
+    def test_delete_of_a_qualified_ref_removes_only_the_pulled_copy(self, tmp_path):
+        store = PresetStore(tmp_path / ".dstack" / "presets")
+        local = get_preset()
+        local_dir = store.save(local).parent
+        (local_dir / "patch").mkdir()
+        (local_dir / "patch" / "a.txt").write_text("keep")
+        # A pulled copy: UUID-named directory, qualified `<project>/<name>` name.
+        pulled = get_preset(preset_id="0b2b7b1e-9c1a-4a58-9d5a-3f6a1b2c3d4e").model_copy(
+            update={"name": "main/qwen"}
+        )
+        pulled_dir = store.save(pulled).parent
+
+        assert run_dstack_cli(["preset", "delete", "main/qwen", "-y"], home_dir=tmp_path) == 0
+
+        assert not pulled_dir.exists()
+        assert local_dir.exists()
+        assert (local_dir / "patch" / "a.txt").read_text() == "keep"
+        assert store.get(local.id) is not None
+
+    def test_delete_of_an_unknown_qualified_ref_reports_it_does_not_exist(self, tmp_path, capsys):
+        store = PresetStore(tmp_path / ".dstack" / "presets")
+        store.save(get_preset())
+
+        exit_code = run_dstack_cli(["preset", "delete", "main/unknown", "-y"], home_dir=tmp_path)
+
+        # A qualified ref never names a creation session, so the session
+        # fallback must not turn this into a confusing error.
+        assert exit_code != 0
+        assert "does not exist" in capsys.readouterr().out
+        assert store.list() != []
+
     def test_create_always_asks_even_without_a_name_conflict(self, tmp_path):
         configuration_path = tmp_path / "preset.dstack.yml"
         configuration_path.write_text(
@@ -484,6 +611,47 @@ env:
         assert exit_code == 0
         confirm.assert_called_once_with("Create the preset?")
         create.assert_not_called()
+
+
+class TestPresetRegistryCommands:
+    """`push` and `pull` are the only commands that touch the network; the
+    command layer's whole job is handing the refs to the registry service."""
+
+    def test_push_passes_the_local_and_registry_refs_through(self, tmp_path):
+        with patch("dstack._internal.cli.commands.preset.push_preset_to_registry") as push:
+            exit_code = run_dstack_cli(
+                ["preset", "push", "8f3a12c4", "main/qwen"], home_dir=tmp_path
+            )
+
+        assert exit_code == 0
+        store, local_ref, registry_ref = push.call_args.args
+        assert isinstance(store, PresetStore)
+        assert local_ref == "8f3a12c4"
+        assert registry_ref == "main/qwen"
+
+    def test_pull_passes_the_registry_ref_through(self, tmp_path):
+        with patch("dstack._internal.cli.commands.preset.pull_preset_from_registry") as pull:
+            exit_code = run_dstack_cli(["preset", "pull", "main/qwen"], home_dir=tmp_path)
+
+        assert exit_code == 0
+        store, registry_ref = pull.call_args.args
+        assert isinstance(store, PresetStore)
+        assert registry_ref == "main/qwen"
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["preset", "push", "8f3a12c4", "qwen"],
+            ["preset", "pull", "qwen"],
+        ],
+    )
+    def test_rejects_an_unqualified_ref(self, tmp_path, capsys, args):
+        # The ref is parsed before anything is uploaded, downloaded, or written,
+        # so an unqualified one never reaches a server.
+        exit_code = run_dstack_cli(args, home_dir=tmp_path)
+
+        assert exit_code != 0
+        assert "Invalid registry reference" in capsys.readouterr().out
 
 
 class TestApplyPresetConfiguration:
@@ -532,7 +700,6 @@ min_context_length: 8192
                     "7",
                     "--backend",
                     "gcp",
-                    "--debug",
                 ],
                 home_dir=tmp_path,
                 repo_dir=tmp_path,
@@ -543,7 +710,6 @@ min_context_length: 8192
         assert configuration.name == "cli-name"
         assert configuration.trials == 7
         assert configuration.backends == ["gcp"]
-        assert create.call_args.kwargs["debug"] is True
 
     def test_rejects_detach(self, tmp_path, capsys):
         configuration_path = self._write_configuration(tmp_path)

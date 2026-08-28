@@ -22,9 +22,10 @@
  */
 
 #include "config.h"
+
+#include "pygboxed.h"
 #include "pygenum.h"
 #include "pygflags.h"
-#include "pygboxed.h"
 #include "pygi-async.h"
 #include "pygi-basictype.h"
 #include "pygi-boxed.h"
@@ -44,11 +45,10 @@
 #include "pygi-util.h"
 #include "pygi-value.h"
 #include "pyginterface.h"
-#include "pygobject-types.h"
 #include "pygobject-object.h"
 #include "pygobject-props.h"
+#include "pygobject-types.h"
 #include "pygpointer.h"
-#include "pygspawn.h"
 
 PyObject *PyGIWarning;
 PyObject *PyGIDeprecationWarning;
@@ -320,8 +320,7 @@ static PyObject *
 _wrap_pyg_enum_register (PyObject *self, PyObject *args)
 {
     PyTypeObject *class;
-    const char *type_name = NULL;
-    char *new_type_name;
+    char *type_name = NULL;
 
     if (!PyArg_ParseTuple (args, "O!z:enum_register", &PyType_Type, &class,
                            &type_name))
@@ -332,12 +331,14 @@ _wrap_pyg_enum_register (PyObject *self, PyObject *args)
         return NULL;
     }
 
-    if (type_name)
-        new_type_name = g_strdup (type_name);
-    else
-        new_type_name = get_type_name_for_class (class);
-
-    if (!pyg_enum_register (class, new_type_name)) return NULL;
+    if (type_name) {
+        if (!pyg_enum_register (class, type_name)) return NULL;
+    } else {
+        char *new_type_name = get_type_name_for_class (class);
+        gboolean success = pyg_enum_register (class, new_type_name);
+        g_free (new_type_name);
+        if (!success) return NULL;
+    }
 
     Py_RETURN_NONE;
 }
@@ -346,8 +347,7 @@ static PyObject *
 _wrap_pyg_flags_register (PyObject *self, PyObject *args)
 {
     PyTypeObject *class;
-    const char *type_name = NULL;
-    char *new_type_name;
+    char *type_name = NULL;
 
     if (!PyArg_ParseTuple (args, "O!z:flags_register", &PyType_Type, &class,
                            &type_name))
@@ -358,12 +358,14 @@ _wrap_pyg_flags_register (PyObject *self, PyObject *args)
         return NULL;
     }
 
-    if (type_name)
-        new_type_name = g_strdup (type_name);
-    else
-        new_type_name = get_type_name_for_class (class);
-
-    if (!pyg_flags_register (class, new_type_name)) return NULL;
+    if (type_name) {
+        if (!pyg_flags_register (class, type_name)) return NULL;
+    } else {
+        char *new_type_name = get_type_name_for_class (class);
+        gboolean success = pyg_flags_register (class, new_type_name);
+        g_free (new_type_name);
+        if (!success) return NULL;
+    }
 
     Py_RETURN_NONE;
 }
@@ -450,7 +452,11 @@ _wrap_pyg_register_interface_info (PyObject *self, PyObject *args)
 {
     PyObject *py_g_type;
     GType g_type;
-    GInterfaceInfo *info;
+    GInterfaceInfo info = {
+        .interface_init = (GInterfaceInitFunc)initialize_interface,
+        .interface_finalize = NULL,
+        .interface_data = NULL,
+    };
 
     if (!PyArg_ParseTuple (args, "O!:register_interface_info",
                            &PyGTypeWrapper_Type, &py_g_type)) {
@@ -463,11 +469,7 @@ _wrap_pyg_register_interface_info (PyObject *self, PyObject *args)
         return NULL;
     }
 
-    info = g_new0 (GInterfaceInfo, 1);
-    info->interface_init = (GInterfaceInitFunc)initialize_interface;
-
-    pyg_register_interface_info (g_type, info);
-    g_free (info);
+    pyg_register_interface_info (g_type, &info);
 
     Py_RETURN_NONE;
 }
@@ -613,7 +615,6 @@ pyg_channel_read (PyObject *self, PyObject *args, PyObject *kwargs)
     int max_count = -1;
     PyObject *py_iochannel, *ret_obj = NULL;
     gsize total_read = 0;
-    GError *error = NULL;
     GIOStatus status = G_IO_STATUS_NORMAL;
     GIOChannel *iochannel = NULL;
 
@@ -636,6 +637,8 @@ pyg_channel_read (PyObject *self, PyObject *args, PyObject *kwargs)
         gsize single_read;
         char *buf;
         gsize buf_size;
+        /* Cleared by pygi_check_error(). */
+        GError *error = NULL;
 
         if (max_count == -1)
             buf_size = CHUNK_SIZE;
@@ -1037,15 +1040,6 @@ static PyMethodDef _gi_functions[] = {
     { "require_foreign", (PyCFunction)pygi_require_foreign,
       METH_VARARGS | METH_KEYWORDS },
     { "register_foreign", (PyCFunction)pygi_register_foreign, METH_NOARGS },
-    { "spawn_async", (PyCFunction)pyglib_spawn_async,
-      METH_VARARGS | METH_KEYWORDS,
-      "spawn_async(argv, envp=None, working_directory=None,\n"
-      "            flags=0, child_setup=None, user_data=None,\n"
-      "            standard_input=None, standard_output=None,\n"
-      "            standard_error=None) -> (pid, stdin, stdout, stderr)\n"
-      "\n"
-      "Execute a child program asynchronously within a glib.MainLoop()\n"
-      "See the reference manual for a complete reference.\n" },
     { "type_register", _wrap_pyg_type_register, METH_VARARGS },
     { "enum_register", _wrap_pyg_enum_register, METH_VARARGS },
     { "flags_register", _wrap_pyg_flags_register, METH_VARARGS },
@@ -1181,8 +1175,6 @@ _gi_exec (PyObject *module)
     if ((ret = pygi_ccallback_register_types (module)) < 0) return ret;
     if ((ret = pygi_resulttuple_register_types (module)) < 0) return ret;
     if ((ret = pygi_async_register_types (module) < 0)) return ret;
-
-    if ((ret = pygi_spawn_register_types (module_dict)) < 0) return ret;
 
     if ((ret = pygi_register_constants (module)) < 0) return ret;
     if ((ret = pygi_register_version_tuples (module_dict)) < 0) return ret;

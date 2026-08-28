@@ -24,6 +24,15 @@ DEFAULT_VRAM_BYTES = int(os.environ.get("REVIEW_VRAM_BYTES") or 24 * 1024**3)
 # A model that "just fits" at 100% never actually loads.
 VRAM_HEADROOM_FRACTION = 0.90
 
+# k120: how deep a card's trial goes, cheapest first. Each is a SUPERSET of the
+# one before it. Duplicated deliberately from
+# ``discovery_dossier.dossier.TRIAL_DEPTHS`` rather than imported: this module
+# is loaded by the Flask app, the CLI and a systemd timer and must not pull in
+# the dossier package (which reaches the oracle, which reaches the fleet) just
+# to validate a string. A test asserts the two lists are identical, so the
+# duplication cannot drift.
+TRIAL_DEPTHS = ("screen-only", "load-test", "full-samples")
+
 
 @dataclass
 class ReviewCriteria:
@@ -68,6 +77,51 @@ class ReviewCriteria:
     max_downloads_per_run: int = 2           # disk/bandwidth guard for the timer
     smoke_test: bool = True
     judge: bool = True                       # ask a hugpy-agent for a read
+
+    # ── k120: how much DOSSIER this card wants ────────────────────────────
+    # Every knob below defaults to the pre-k120 behaviour of an existing card,
+    # so a criteria file written in July screens, downloads and load-tests
+    # EXACTLY as it did before and simply gains the sections that cost nothing.
+    # The operator's ask was that "complexity to be dictated" per question —
+    # a cheap nightly sweep and a deep look at one family are the same machine
+    # with different numbers in it.
+    dossier: bool = True                     # build a ModelDossier at all
+    # screen-only | load-test | full-samples. `load-test` is what the reviewer
+    # already did (download + llama.cpp load); `full-samples` adds k109b's
+    # stationary battery and the comparison against the routing matrix's
+    # incumbent. Deliberately NOT the default: it costs GPU time, and a card
+    # that never asked for it must not silently start spending it.
+    trial_depth: str = "load-test"
+    sample_count: int = 2                    # stationary points per candidate
+    # Routing-matrix operation names the candidate is compared against, e.g.
+    # ["plot.construct"]. Empty = compare on whatever the battery sampled.
+    compare_against: list[str] = field(default_factory=list)
+    # Screen knobs, answered from tags + repo name with no extra fetch
+    # (discovery_dossier/screening.py). Empty = no rule, as before.
+    required_specializations: list[str] = field(default_factory=list)
+    licenses_allowed: list[str] = field(default_factory=list)
+    # The two network-facing sections, each switchable per card.
+    external_research: bool = True           # card README + linked papers
+    community: bool = True                   # reddit / HN / HF discussions
+    community_sources: list[str] = field(default_factory=list)   # [] = defaults
+    subreddits: list[str] = field(default_factory=list)          # [] = defaults
+    # GEM RADAR: a second pass over the SAME cached community pulls looking for
+    # models no card is asking about. Off by default — it publishes tips, and a
+    # tip nobody asked for is noise.
+    radar: bool = False
+
+    def __post_init__(self) -> None:
+        # Fail at LOAD, not mid-screen — the same rule the numeric coercion in
+        # from_dict follows. A card asking for "full_samples" (underscore) or
+        # "deep" would otherwise silently fall through to screen-only and the
+        # operator would spend a week wondering why no samples ever ran.
+        if self.trial_depth not in TRIAL_DEPTHS:
+            raise ValueError(
+                f"ReviewCriteria({self.name!r}).trial_depth "
+                f"{self.trial_depth!r} is not one of {list(TRIAL_DEPTHS)}")
+        if int(self.sample_count) < 0:
+            raise ValueError(
+                f"ReviewCriteria({self.name!r}).sample_count must be >= 0")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

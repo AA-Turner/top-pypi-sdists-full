@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 from requests import Response, Session
 
 from ...utils import encode_metadata
+from .file_parts import throttling
 from .retry_strategy import UploadRetryStrategyOp
 
 LOGGER = logging.getLogger(__name__)
@@ -48,6 +49,11 @@ class S3MultipartBaseHelper(object):
         self.upload_start_url = upload_start_url
         self.upload_complete_url = upload_complete_url
         self.upload_retry_strategy_op = upload_retry_strategy
+        # The same brake the part uploads use. Sharing one across both endpoints is
+        # deliberate: while S3 is asking for a slower rate, starting yet another
+        # multipart upload is the wrong thing to do, so a throttle anywhere holds
+        # back new uploads as well as in-flight parts.
+        self.throttle_gate = throttling.default_gate()
 
     def start_multipart_upload(
         self, session: Session, parts_number: int
@@ -76,6 +82,7 @@ class S3MultipartBaseHelper(object):
             url=self.upload_start_url,
             payload=payload,
             headers=self.headers,
+            throttle_gate=self.throttle_gate,
         )
         LOGGER.debug(
             "Got start multipart upload response - attempts made: %d, status: %d"
@@ -124,6 +131,7 @@ class S3MultipartBaseHelper(object):
             url=self.upload_complete_url,
             payload=payload,
             headers=self.headers,
+            throttle_gate=self.throttle_gate,
         )
         LOGGER.debug(
             "Got complete multipart upload response - attempts made: %d, status: %d, text: %s"

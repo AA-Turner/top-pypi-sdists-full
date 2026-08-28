@@ -152,6 +152,54 @@ _DEFAULT_GEN_SETTINGS: dict[str, Any] = {
 }
 _POSE_CHOICES = ("none", "t-pose")
 
+# --------------------------------------------------------------------------- #
+# CONSENT / AUTHORIZATION slice (k97, oracle authority gate).
+#
+# An identity profile is a real person's DNA often enough that reproducing it is
+# a rights question, not a rendering question (oracle architecture invariant 7 +
+# §11: "Real-person likeness and voice replication require typed authorization").
+# So a profile may carry an ``authorization`` block::
+#
+#     "authorization": {"likeness": {"granted": true,
+#                                    "evidence": "release-2026-08-14.pdf",
+#                                    "granted_at": "2026-08-14T10:00:00+00:00"}}
+#
+# ABSENT MEANS UNAUTHORIZED, and nothing migrates: every profile on disk today
+# has no block and is therefore not authorized — which is the honest reading, not
+# a regression. Grandfathering existing profiles into "granted" would fabricate
+# consent nobody gave. ``granted`` is only ever true alongside EVIDENCE a human
+# can go read; the store refuses to record a bare "yes".
+# --------------------------------------------------------------------------- #
+AUTHORIZATION_KINDS = ("likeness", "voice")
+
+
+def _authorization_block(entry: dict[str, Any]) -> dict[str, Any]:
+    """The stored consent block, normalized to the wire shape. Unknown kinds and
+    malformed rows are DROPPED rather than echoed: a half-parsed consent record
+    must never read as a grant."""
+    raw = entry.get("authorization")
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, Any] = {}
+    for kind in AUTHORIZATION_KINDS:
+        row = raw.get(kind)
+        if not isinstance(row, dict):
+            continue
+        out[kind] = {
+            "granted": bool(row.get("granted")),
+            "evidence": str(row.get("evidence") or ""),
+            "granted_at": row.get("granted_at"),
+        }
+    return out
+
+
+def _authority_kind(kind: Any) -> str:
+    """Accept either a plain string or an ``oracle.contracts.AuthorityKind``
+    (a str-Enum) without importing the oracle package — video_intel must not
+    take a dependency on the layer above it."""
+    return str(getattr(kind, "value", kind) or "").strip().lower()
+
+
 class ProfileError(ValueError):
     """Bad-input on the store contract (empty name, no/too-many refs, dup slug).
 
@@ -248,6 +296,9 @@ def _write_profile_json(slug: str, entry: dict[str, Any]) -> None:
         # approval, and any views the operator has promoted to the canonical set.
         "reconstructions": list(entry.get("reconstructions") or []),
         "canonical": list(entry.get("canonical") or []),
+        # k97 consent block — mirrored so the rights record is readable on disk
+        # next to the pixels it governs. Empty ({}) means nothing is authorized.
+        "authorization": _authorization_block(entry),
     }
     path = os.path.join(dir_path, "profile.json")
     tmp = f"{path}.{os.getpid()}.{secrets.token_hex(4)}.tmp"
@@ -646,6 +697,10 @@ def _public(slug: str, entry: dict[str, Any]) -> dict[str, Any]:
     ]
     out["active_version"] = entry.get("active_version")
     out["gen_settings"] = _merged_gen_settings(entry.get("gen_settings"))
+    # CONSENT slice (k97) — ALWAYS present so a reader can rely on the shape; an
+    # EMPTY dict is the honest default and means "nothing is authorized". Never
+    # defaulted to granted, never inferred from the profile existing.
+    out["authorization"] = _authorization_block(entry)
     return out
 
 
@@ -708,6 +763,77 @@ def get_profile(slug: str) -> Optional[dict[str, Any]]:
         entry = data["profiles"].get(slug)
     if entry is None:
         return None
+    return _public(slug, entry)
+
+
+def profile_authorized(slug: str, kind: str = "likeness") -> bool:
+    """Is this identity authorized for ``kind`` ("likeness" | "voice")?
+
+    True ONLY for an active profile carrying an explicit ``granted`` row WITH
+    evidence. Every other answer — unknown slug, archived profile, absent block,
+    granted-without-evidence, unknown kind — is False. This is the accessor the
+    oracle authority gate consults; it is deliberately incapable of returning
+    True by omission."""
+    k = _authority_kind(kind)
+    if k not in AUTHORIZATION_KINDS:
+        return False
+    profile = get_profile(slug)
+    if profile is None:
+        return False
+    row = (profile.get("authorization") or {}).get(k)
+    if not isinstance(row, dict):
+        return False
+    return bool(row.get("granted")) and bool(str(row.get("evidence") or "").strip())
+
+
+def set_profile_authorization(
+    slug: str,
+    kind: str,
+    *,
+    granted: bool,
+    evidence: str = "",
+    granted_at: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
+    """Record (or revoke) consent for one kind on an ACTIVE profile, in place.
+
+    Granting REQUIRES evidence — a pointer to the release/contract/ticket a human
+    can go read (§11: consent is pointed at, never inferred). Revoking
+    (``granted=False``) keeps the evidence string as history: the row flips to
+    not-granted rather than vanishing, so the record of what was once claimed
+    survives (never-delete doctrine). Returns the updated public shape, or None
+    when the slug names no active profile."""
+    k = _authority_kind(kind)
+    if k not in AUTHORIZATION_KINDS:
+        raise ProfileError(
+            f"authorization kind must be one of {list(AUTHORIZATION_KINDS)}, "
+            f"got {kind!r}", code="invalid_profile")
+    evidence = (evidence or "").strip()
+    if granted and not evidence:
+        raise ProfileError(
+            f"granting {k} authorization requires evidence (a release/contract/"
+            f"ticket reference) — consent is never inferred",
+            code="invalid_profile")
+    if not slug or not isinstance(slug, str):
+        return None
+
+    with _LOCK:
+        data = _load()
+        entry = data["profiles"].get(slug)
+        if entry is None:
+            return None
+        entry = dict(entry)  # edit a copy — nothing is written until _save
+        block = dict(entry.get("authorization") or {})
+        prior = block.get(k) if isinstance(block.get(k), dict) else {}
+        block[k] = {
+            "granted": bool(granted),
+            "evidence": evidence or str(prior.get("evidence") or ""),
+            "granted_at": granted_at or (
+                time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())),
+        }
+        entry["authorization"] = block
+        _write_profile_json(slug, entry)  # regenerate the mirror
+        data["profiles"][slug] = entry
+        _save(data)
     return _public(slug, entry)
 
 

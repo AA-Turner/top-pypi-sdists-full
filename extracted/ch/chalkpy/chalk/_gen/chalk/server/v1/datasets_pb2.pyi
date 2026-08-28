@@ -1,7 +1,9 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
+from chalk._gen.chalk.common.v1 import column_profile_pb2 as _column_profile_pb2
 from chalk._gen.chalk.server.v1 import materialized_aggregate_tiles_pb2 as _materialized_aggregate_tiles_pb2
 from chalk._gen.chalk.volume.v1 import volume_pb2 as _volume_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -58,6 +60,12 @@ class SortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SORT_ORDER_DESC: _ClassVar[SortOrder]
     SORT_ORDER_ASC: _ClassVar[SortOrder]
 
+class DatasetKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATASET_KIND_UNSPECIFIED: _ClassVar[DatasetKind]
+    DATASET_KIND_NAMED: _ClassVar[DatasetKind]
+    DATASET_KIND_ANONYMOUS: _ClassVar[DatasetKind]
+
 class ShardPerformanceSummaryStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SHARD_PERFORMANCE_SUMMARY_STATUS_UNSPECIFIED: _ClassVar[ShardPerformanceSummaryStatus]
@@ -90,6 +98,9 @@ DATASET_SORT_COLUMN_CREATED_AT: DatasetSortColumn
 SORT_ORDER_UNSPECIFIED: SortOrder
 SORT_ORDER_DESC: SortOrder
 SORT_ORDER_ASC: SortOrder
+DATASET_KIND_UNSPECIFIED: DatasetKind
+DATASET_KIND_NAMED: DatasetKind
+DATASET_KIND_ANONYMOUS: DatasetKind
 SHARD_PERFORMANCE_SUMMARY_STATUS_UNSPECIFIED: ShardPerformanceSummaryStatus
 SHARD_PERFORMANCE_SUMMARY_STATUS_AVAILABLE: ShardPerformanceSummaryStatus
 SHARD_PERFORMANCE_SUMMARY_STATUS_PENDING: ShardPerformanceSummaryStatus
@@ -195,17 +206,19 @@ class DatasetRevisionMeta(_message.Message):
     ) -> None: ...
 
 class DatasetMeta(_message.Message):
-    __slots__ = ("id", "environment_id", "dataset_name", "created_at", "most_recent_revision")
+    __slots__ = ("id", "environment_id", "dataset_name", "created_at", "most_recent_revision", "num_revisions")
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DATASET_NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     MOST_RECENT_REVISION_FIELD_NUMBER: _ClassVar[int]
+    NUM_REVISIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     dataset_name: str
     created_at: _timestamp_pb2.Timestamp
     most_recent_revision: DatasetRevisionMeta
+    num_revisions: int
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -213,22 +226,42 @@ class DatasetMeta(_message.Message):
         dataset_name: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         most_recent_revision: _Optional[_Union[DatasetRevisionMeta, _Mapping]] = ...,
+        num_revisions: _Optional[int] = ...,
     ) -> None: ...
 
 class ListDatasetsRequest(_message.Message):
-    __slots__ = ("cursor", "limit", "search", "include_anonymous", "sort_column", "sort_order")
+    __slots__ = (
+        "cursor",
+        "limit",
+        "search",
+        "include_anonymous",
+        "sort_column",
+        "sort_order",
+        "status",
+        "kind",
+        "ids",
+        "read_mask",
+    )
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     SEARCH_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_ANONYMOUS_FIELD_NUMBER: _ClassVar[int]
     SORT_COLUMN_FIELD_NUMBER: _ClassVar[int]
     SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    IDS_FIELD_NUMBER: _ClassVar[int]
+    READ_MASK_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     search: str
     include_anonymous: bool
     sort_column: DatasetSortColumn
     sort_order: SortOrder
+    status: _containers.RepeatedScalarFieldContainer[DatasetRevisionStatus]
+    kind: _containers.RepeatedScalarFieldContainer[DatasetKind]
+    ids: _containers.RepeatedScalarFieldContainer[str]
+    read_mask: _field_mask_pb2.FieldMask
     def __init__(
         self,
         cursor: _Optional[str] = ...,
@@ -237,6 +270,10 @@ class ListDatasetsRequest(_message.Message):
         include_anonymous: bool = ...,
         sort_column: _Optional[_Union[DatasetSortColumn, str]] = ...,
         sort_order: _Optional[_Union[SortOrder, str]] = ...,
+        status: _Optional[_Iterable[_Union[DatasetRevisionStatus, str]]] = ...,
+        kind: _Optional[_Iterable[_Union[DatasetKind, str]]] = ...,
+        ids: _Optional[_Iterable[str]] = ...,
+        read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
     ) -> None: ...
 
 class ListDatasetsResponse(_message.Message):
@@ -330,6 +367,16 @@ class ShardPerformanceSummaryLink(_message.Message):
         status: _Optional[_Union[ShardPerformanceSummaryStatus, str]] = ...,
     ) -> None: ...
 
+class ShardRequestBodyLink(_message.Message):
+    __slots__ = ("shard_id", "url", "exists")
+    SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    URL_FIELD_NUMBER: _ClassVar[int]
+    EXISTS_FIELD_NUMBER: _ClassVar[int]
+    shard_id: int
+    url: str
+    exists: bool
+    def __init__(self, shard_id: _Optional[int] = ..., url: _Optional[str] = ..., exists: bool = ...) -> None: ...
+
 class GetDatasetRevisionDownloadLinksResponse(_message.Message):
     __slots__ = (
         "output_urls",
@@ -340,6 +387,7 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
         "error",
         "expiration",
         "performance_summary_links",
+        "shard_request_body_links",
     )
     OUTPUT_URLS_FIELD_NUMBER: _ClassVar[int]
     GIVENS_URLS_FIELD_NUMBER: _ClassVar[int]
@@ -349,6 +397,7 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     EXPIRATION_FIELD_NUMBER: _ClassVar[int]
     PERFORMANCE_SUMMARY_LINKS_FIELD_NUMBER: _ClassVar[int]
+    SHARD_REQUEST_BODY_LINKS_FIELD_NUMBER: _ClassVar[int]
     output_urls: _containers.RepeatedScalarFieldContainer[str]
     givens_urls: _containers.RepeatedScalarFieldContainer[str]
     performance_summary_urls: _containers.RepeatedScalarFieldContainer[str]
@@ -357,6 +406,7 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
     error: str
     expiration: _timestamp_pb2.Timestamp
     performance_summary_links: _containers.RepeatedCompositeFieldContainer[ShardPerformanceSummaryLink]
+    shard_request_body_links: _containers.RepeatedCompositeFieldContainer[ShardRequestBodyLink]
     def __init__(
         self,
         output_urls: _Optional[_Iterable[str]] = ...,
@@ -367,6 +417,28 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
         error: _Optional[str] = ...,
         expiration: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         performance_summary_links: _Optional[_Iterable[_Union[ShardPerformanceSummaryLink, _Mapping]]] = ...,
+        shard_request_body_links: _Optional[_Iterable[_Union[ShardRequestBodyLink, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetDatasetRevisionPerformanceLinksRequest(_message.Message):
+    __slots__ = ("revision_id",)
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    revision_id: str
+    def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
+
+class GetDatasetRevisionPerformanceLinksResponse(_message.Message):
+    __slots__ = ("performance_summary_links", "error", "expiration")
+    PERFORMANCE_SUMMARY_LINKS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    EXPIRATION_FIELD_NUMBER: _ClassVar[int]
+    performance_summary_links: _containers.RepeatedCompositeFieldContainer[ShardPerformanceSummaryLink]
+    error: str
+    expiration: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        performance_summary_links: _Optional[_Iterable[_Union[ShardPerformanceSummaryLink, _Mapping]]] = ...,
+        error: _Optional[str] = ...,
+        expiration: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class StreamDatasetRevisionDownloadLinksRequest(_message.Message):
@@ -764,15 +836,18 @@ class GetDatasetRevisionPreviewRequest(_message.Message):
     def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
 
 class GetDatasetRevisionPreviewResponse(_message.Message):
-    __slots__ = ("output_preview", "summary")
+    __slots__ = ("output_preview", "summary", "column_profiles")
     OUTPUT_PREVIEW_FIELD_NUMBER: _ClassVar[int]
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_PROFILES_FIELD_NUMBER: _ClassVar[int]
     output_preview: _struct_pb2.Value
     summary: _struct_pb2.Value
+    column_profiles: _containers.RepeatedCompositeFieldContainer[_column_profile_pb2.ColumnProfile]
     def __init__(
         self,
         output_preview: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
         summary: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+        column_profiles: _Optional[_Iterable[_Union[_column_profile_pb2.ColumnProfile, _Mapping]]] = ...,
     ) -> None: ...
 
 class GenerateDatasetStatsRequest(_message.Message):

@@ -14,6 +14,23 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.graph.v1 import graph_pb2 as chalk_dot_graph_dot_v1_dot_graph__pb2
+
+try:
+    chalk_dot_graph_dot_v1_dot_source__file__reference__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk_dot_graph_dot_v1_dot_source__file__reference__pb2
+    )
+except AttributeError:
+    chalk_dot_graph_dot_v1_dot_source__file__reference__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk.graph.v1.source_file_reference_pb2
+    )
+try:
+    chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2
+    )
+except AttributeError:
+    chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk.graph.v1.sql_resolver_retry_policy_pb2
+    )
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 

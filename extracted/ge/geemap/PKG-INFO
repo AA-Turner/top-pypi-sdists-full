@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: geemap
-Version: 0.38.3
+Version: 0.38.4
 Summary: A Python package for interactive mapping using Google Earth Engine and ipyleaflet
 Project-URL: Homepage, https://github.com/gee-community/geemap
 Author-email: Qiusheng Wu <giswqs@gmail.com>

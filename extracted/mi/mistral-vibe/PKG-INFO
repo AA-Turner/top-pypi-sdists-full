@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.24.3
+Version: 2.24.5
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -93,6 +93,7 @@ Requires-Dist: pywinpty==3.0.5; sys_platform == 'win32'
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: referencing==0.37.0
 Requires-Dist: requests==2.34.2
+Requires-Dist: rfc8785==0.1.4
 Requires-Dist: rich==15.0.0
 Requires-Dist: rpds-py==0.30.0
 Requires-Dist: secretstorage==3.5.0; sys_platform == 'linux'
@@ -460,6 +461,10 @@ Vibe provides several built-in slash commands. Use slash commands by typing them
 If a model response is interrupted by a backend error, use `/retry` to continue
 from the partial response. Add optional guidance after the command, for example
 `/retry keep the conclusion concise`.
+
+Use `/mcp` or `/connectors` to browse configured MCP servers and workspace
+connectors. The browser starts on the first item; press Up or Left to focus its
+fuzzy search bar, then Up again to wrap to the last item.
 
 ### Custom Slash Commands via Skills
 

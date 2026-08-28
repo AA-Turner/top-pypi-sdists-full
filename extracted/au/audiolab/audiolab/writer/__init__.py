@@ -12,17 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
+from numpy.typing import DTypeLike
 
-from audiolab.av.typing import Dtype
 from audiolab.writer.writer import Writer
 
 
-def save_audio(file: Any, frame: np.ndarray, rate: int, dtype: Optional[Dtype] = None, format: str = "WAV"):
-    with Writer(file, rate, dtype, format) as writer:
-        writer.write(frame)
+def save_audio(
+    destination: Any,
+    audio: np.ndarray,
+    sample_rate: int,
+    dtype: DTypeLike | None = None,
+    container_format: str = "WAV",
+) -> None:
+    """Write a complete channels-first NumPy audio array to a destination."""
+    with Writer(destination, sample_rate, dtype, container_format) as writer:
+        writer.write(audio)
 
 
 __all__ = ["Writer", "save_audio"]

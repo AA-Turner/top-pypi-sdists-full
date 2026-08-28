@@ -27,10 +27,13 @@ const filterKeys: Record<string, RequestParamsKeys> = {
     TARGET_JOBS: 'target_jobs',
     TARGET_VOLUMES: 'target_volumes',
     TARGET_GATEWAYS: 'target_gateways',
+    TARGET_GATEWAY_REPLICAS: 'target_gateway_replicas',
     TARGET_SECRETS: 'target_secrets',
+    TARGET_PRESETS: 'target_presets',
     WITHIN_PROJECTS: 'within_projects',
     WITHIN_FLEETS: 'within_fleets',
     WITHIN_RUNS: 'within_runs',
+    WITHIN_GATEWAYS: 'within_gateways',
     INCLUDE_TARGET_TYPES: 'include_target_types',
     ACTORS: 'actors',
 };
@@ -46,10 +49,13 @@ const multipleChoiseKeys: RequestParamsKeys[] = [
     'target_jobs',
     'target_volumes',
     'target_gateways',
+    'target_gateway_replicas',
     'target_secrets',
+    'target_presets',
     'within_projects',
     'within_fleets',
     'within_runs',
+    'within_gateways',
     'include_target_types',
     'actors',
 ];
@@ -63,7 +69,9 @@ const targetTypes = [
     { label: 'Job', value: 'job' },
     { label: 'Volume', value: 'volume' },
     { label: 'Gateway', value: 'gateway' },
+    { label: 'Gateway replica', value: 'gateway-replica' },
     { label: 'Secret', value: 'secret' },
+    { label: 'Preset', value: 'preset' },
 ];
 
 const baseFilteringProperties = [
@@ -116,10 +124,22 @@ const baseFilteringProperties = [
         groupValuesLabel: 'Gateway ids',
     },
     {
+        key: filterKeys.TARGET_GATEWAY_REPLICAS,
+        operators: ['='],
+        propertyLabel: 'Target gateway replica IDs',
+        groupValuesLabel: 'Gateway replica ids',
+    },
+    {
         key: filterKeys.TARGET_SECRETS,
         operators: ['='],
         propertyLabel: 'Target secret IDs',
         groupValuesLabel: 'Secret ids',
+    },
+    {
+        key: filterKeys.TARGET_PRESETS,
+        operators: ['='],
+        propertyLabel: 'Target preset IDs',
+        groupValuesLabel: 'Preset ids',
     },
 
     {
@@ -141,6 +161,13 @@ const baseFilteringProperties = [
         operators: ['='],
         propertyLabel: 'Within run IDs',
         groupValuesLabel: 'Run ids',
+    },
+
+    {
+        key: filterKeys.WITHIN_GATEWAYS,
+        operators: ['='],
+        propertyLabel: 'Within gateway IDs',
+        groupValuesLabel: 'Gateway ids',
     },
 
     {

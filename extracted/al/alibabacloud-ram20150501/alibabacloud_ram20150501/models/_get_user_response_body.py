@@ -11,7 +11,7 @@ class GetUserResponseBody(DaraModel):
         request_id: str = None,
         user: main_models.GetUserResponseBodyUser = None,
     ):
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
         # The information about the RAM user.
         self.user = user
@@ -57,27 +57,27 @@ class GetUserResponseBodyUser(DaraModel):
         user_id: str = None,
         user_name: str = None,
     ):
-        # The description of the RAM user.
+        # The description.
         self.comments = comments
-        # The point in time when the RAM user was created. The time is displayed in UTC.
+        # The time when the RAM user was created. The time is in UTC.
         self.create_date = create_date
-        # The display name of the RAM user.
+        # The display name.
         self.display_name = display_name
         # The email address of the RAM user.
         # 
-        # >  This parameter can be returned only on the China site (aliyun.com).
+        # > This parameter is available only on the China site (aliyun.com).
         self.email = email
-        # The point in time when the RAM user last logged on to the Alibaba Cloud Management Console by using the password. The time is displayed in UTC.
+        # The last time the user logged on with a password. The time is in UTC.
         self.last_login_date = last_login_date
         # The mobile phone number of the RAM user.
         # 
-        # >  This parameter can be returned only on the China site (aliyun.com).
+        # > This parameter is available only on the China site (aliyun.com).
         self.mobile_phone = mobile_phone
-        # The point in time when the information about the RAM user was last modified. The time is displayed in UTC.
+        # The time when the RAM user was last updated. The time is in UTC.
         self.update_date = update_date
-        # The ID of the RAM user.
+        # The unique ID of the RAM user.
         self.user_id = user_id
-        # The username of the RAM user.
+        # The name of the RAM user.
         self.user_name = user_name
 
     def validate(self):

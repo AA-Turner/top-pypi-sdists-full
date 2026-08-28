@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apkInspector
-Version: 1.3.6
+Version: 1.3.7
 Summary: apkInspector is a tool designed to provide detailed insights into the zip structure of APK files, offering the capability to extract content and decode the AndroidManifest.xml file.
 License: Apache-2.0
 License-File: LICENSE
@@ -89,6 +89,7 @@ The library component of apkInspector is designed with extensibility in mind, al
    - End of Central Directory record defined multiple times
    - Unknown compression methods
    - Compressed entry with empty filename
+   - Filenames/Path collisions
    - Unexpected starting signature of AndroidManifest.xml
    - Tampered StringCount value
    - Strings surpassing maximum length

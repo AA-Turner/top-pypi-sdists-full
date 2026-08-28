@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiomodernforms
-Version: 0.3.0
+Version: 0.3.1
 Summary: Asynchronous Python client for Modern Forms fans.
 Home-page: https://github.com/wonderslug/aiomodernforms
 Author: Brian Towles

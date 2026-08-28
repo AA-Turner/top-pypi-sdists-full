@@ -63,8 +63,9 @@ class CreatePolicyResponseBodyPolicy(DaraModel):
         self.policy_name = policy_name
         # The type of the policy. Valid values:
         # 
-        # *   Custom
-        # *   System
+        # - Custom
+        # 
+        # - System
         self.policy_type = policy_type
 
     def validate(self):

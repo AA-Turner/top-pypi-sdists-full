@@ -129,6 +129,10 @@ class FunctionComplete(BaseModel):
 _tool_registry = EffectRegistry()
 
 
+def _failed_state(state: TaskState, error: Exception) -> TaskState:
+    return state.model_copy(update={"output": FailedOutput(error=str(error))})
+
+
 @_tool_registry.handles(CallFunction)
 async def _handle_call_function(
     effect: CallFunction,
@@ -158,15 +162,25 @@ async def _handle_call_function(
             positional.append(deepcopy(latest_snapshot(state, effect.snapshot_type)))
 
         args = state.input
-        if isinstance(args, dict):
-            result = fn(*positional, **args)
-        elif args is not None:
-            result = fn(*positional, args)
-        else:
-            result = fn(*positional)
+        try:
+            if isinstance(args, dict):
+                result = fn(*positional, **args)
+            elif args is not None:
+                result = fn(*positional, args)
+            else:
+                result = fn(*positional)
 
-        if inspect.isawaitable(result):
-            result = await result
+            if inspect.isawaitable(result):
+                result = await result
+        except ValueError as e:
+            # Expected, model-facing tool failure: builtins raise ValueError for
+            # cases the model can recover from (missing file, non-unique match,
+            # undecodable content). Returned to the model as a tool result, not
+            # an application error, so it logs at warning and stays out of
+            # Sentry. Only the tool call itself is scoped here: SDK-internal
+            # errors (import, snapshot, serialization) fall through below.
+            logger.warning("tool.execution_failed", error=str(e))
+            return [FunctionComplete(output_state=_failed_state(state, e))]
 
         # TODO(HAR-399): Make ToolResult the default response for all tools.
         annotations = None
@@ -191,7 +205,7 @@ async def _handle_call_function(
         )
     except Exception as e:
         logger.exception("tool.execution_failed")
-        new_state = state.model_copy(update={"output": FailedOutput(error=str(e))})
+        new_state = _failed_state(state, e)
 
     return [FunctionComplete(output_state=new_state)]
 

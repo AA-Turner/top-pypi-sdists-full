@@ -30,6 +30,8 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     GetOfflineStoreTableResponse,
     GetResolverRequest,
     GetResolverResponse,
+    GetScheduledQueryLineageIndexRequest,
+    GetScheduledQueryLineageIndexResponse,
     GetStreamResolverRequest,
     GetStreamResolverResponse,
     SmartDiffDeploymentRequest,
@@ -102,6 +104,16 @@ class GraphServiceStub:
         GetDataLineageIndexResponse,
     ]
     """GetDataLineageIndex returns a mapping of resolver names to their data lineage information"""
+    GetScheduledQueryLineageIndex: UnaryUnaryMultiCallable[
+        GetScheduledQueryLineageIndexRequest,
+        GetScheduledQueryLineageIndexResponse,
+    ]
+    """GetScheduledQueryLineageIndex returns, for each scheduled query active on
+    the environment's active deployment, the resolvers and features its latest
+    query plan ran. Companion to GetDataLineageIndex: the resolver names line
+    up, so the lineage graph can hang scheduled queries off the features they
+    compute.
+    """
     GetOfflineStoreTable: UnaryUnaryMultiCallable[
         GetOfflineStoreTableRequest,
         GetOfflineStoreTableResponse,
@@ -208,6 +220,18 @@ class GraphServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetDataLineageIndexResponse:
         """GetDataLineageIndex returns a mapping of resolver names to their data lineage information"""
+    @abstractmethod
+    def GetScheduledQueryLineageIndex(
+        self,
+        request: GetScheduledQueryLineageIndexRequest,
+        context: ServicerContext,
+    ) -> GetScheduledQueryLineageIndexResponse:
+        """GetScheduledQueryLineageIndex returns, for each scheduled query active on
+        the environment's active deployment, the resolvers and features its latest
+        query plan ran. Companion to GetDataLineageIndex: the resolver names line
+        up, so the lineage graph can hang scheduled queries off the features they
+        compute.
+        """
     @abstractmethod
     def GetOfflineStoreTable(
         self,

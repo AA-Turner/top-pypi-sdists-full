@@ -1,15 +1,15 @@
 """Factory functions for geometric objects."""
 
-import numpy as np
-from typing import Any
+from typing import Any, Optional, Tuple, Union
 from typing import Dict as TypingDict
 from typing import List as TypingList
-from typing import Optional, Tuple, Union
 
-from .common import _default_color, default_colormap
+import numpy as np
+
 from ..helpers import check_attribute_color_range
 from ..objects import STL, Line, Lines, Mesh, Surface
 from ..transform import process_transform_arguments
+from .common import _default_color, default_colormap
 
 # Type aliases for better readability
 ArrayLike = Union[TypingList, np.ndarray, Tuple]
@@ -28,7 +28,9 @@ def lines(
         color_range: ColorRange = None,
         width: float = 0.01,
         shader: str = "thick",
-        shininess: float = 50.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
+        shininess: float = None,
         radial_segments: int = 8,
         opacity: float = 1.0,
         name: Optional[str] = None,
@@ -51,19 +53,25 @@ def lines(
     color : int, optional
         Packed RGB color of the lines (0xff0000 is red, 0xff is blue) when `colors` is empty. Default is _default_color.
     colors : array_like, optional
-        Array of int: packed RGB colors (0xff0000 is red, 0xff is blue) when attribute, color_map and color_range are empty. Default is [].
+        Array of int: packed RGB colors (0xff0000 is red, 0xff is blue) when attribute,
+        color_map and color_range are empty. Default is [].
     attribute : array_like, optional
         Array of float attribute for the color mapping, corresponding to each vertex. Default is [].
     color_map : list, optional
-        A list of float quadruplets (attribute value, R, G, B), sorted by attribute value. The first quadruplet should have value 0.0, the last 1.0; R, G, B are RGB color components in the range 0.0 to 1.0. Default is default_colormap.
+        A list of float quadruplets (attribute value, R, G, B), sorted by attribute value.
+        The first quadruplet should have value 0.0, the last 1.0; R, G, B are RGB color
+        components in the range 0.0 to 1.0. Default is default_colormap.
     color_range : list, optional
-        A pair [min_value, max_value], which determines the levels of color attribute mapped to 0 and 1 in the color map respectively. Default is [].
+        A pair [min_value, max_value], which determines the levels of color attribute
+        mapped to 0 and 1 in the color map respectively. Default is [].
     width : float, optional
         Thickness of the lines. Default is 0.01.
     shader : {'simple', 'thick', 'mesh'}, optional
         Display style (name of the shader used) of the lines. Default is 'thick'.
-    shininess : float, optional
-        Shininess of object material. Default is 50.0.
+    roughness : float, optional
+        Roughness of object material. Default is 0.4.
+    metalness : float, optional
+        Metalness of object material. Default is 0.0.
     radial_segments : int, optional
         Number of segmented faces around the circumference of the tube. Default is 8.
     opacity : float, optional
@@ -109,6 +117,8 @@ def lines(
             color=color,
             width=width,
             shader=shader,
+            roughness=roughness,
+            metalness=metalness,
             shininess=shininess,
             radial_segments=radial_segments,
             colors=colors,
@@ -135,7 +145,9 @@ def line(
         width: float = 0.01,
         opacity: float = 1.0,
         shader: str = "thick",
-        shininess: float = 50.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
+        shininess: float = None,
         radial_segments: int = 8,
         name: Optional[str] = None,
         group: Optional[str] = None,
@@ -157,15 +169,20 @@ def line(
     attribute : list, optional
         List of values used to apply `color_map`, by default [].
     color_map : list, optional
-        List of `float` quadruplets (attribute value, R, G, B) sorted by attribute value, by default None. The first quadruplet should have value 0.0, the last 1.0; R, G, B are RGB color components in the range 0.0 to 1.0.
+        List of `float` quadruplets (attribute value, R, G, B) sorted by attribute value,
+        by default None. The first quadruplet should have value 0.0, the last 1.0; R, G, B
+        are RGB color components in the range 0.0 to 1.0.
     color_range : list, optional
-        [min_value, max_value] pair determining the levels of color attribute mapped to 0 and 1 in the colormap, by default [].
+        [min_value, max_value] pair determining the levels of color attribute mapped to 0
+        and 1 in the colormap, by default [].
     width : float, optional
         Thickness of the lines, by default 0.01.
     shader : {'simple', 'thick', 'mesh'}, optional
         Display style of the lines, by default 'thick'.
-    shininess : float, optional
-        Shininess of object material, by default 50.0.
+    roughness : float, optional
+        Roughness of object material, by default 0.4.
+    metalness : float, optional
+        Metalness of object material, by default 0.0.
     radial_segments : int, optional
         Number of segmented faces around the circumference of the tube, by default 8.
     name : str, optional
@@ -213,6 +230,8 @@ def line(
             color_map=color_map,
             color_range=color_range,
             opacity=opacity,
+            roughness=roughness,
+            metalness=metalness,
             shininess=shininess,
             name=name,
             group=group,
@@ -235,7 +254,9 @@ def mesh(
         color_range: ColorRange = None,
         wireframe: bool = False,
         flat_shading: bool = True,
-        shininess: float = 50.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
+        shininess: float = None,
         opacity: float = 1.0,
         texture: Optional[bytes] = None,
         texture_file_format: Optional[str] = None,
@@ -280,8 +301,10 @@ def mesh(
         Display the mesh as wireframe, by default False.
     flat_shading : bool, optional
         Display the mesh with flat shading, by default True.
-    shininess: `float`.
-        Shininess of object material.
+    roughness: `float`.
+        Roughness of object material.
+    metalness: `float`.
+        Metalness of object material.
     opacity : float, optional
         Opacity of the mesh, by default 1.0.
     texture : bytes, optional
@@ -381,6 +404,8 @@ def mesh(
             color_range=color_range,
             wireframe=wireframe,
             flat_shading=flat_shading,
+            roughness=roughness,
+            metalness=metalness,
             shininess=shininess,
             opacity=opacity,
             volume=volume,
@@ -406,7 +431,9 @@ def stl(
         color: int = _default_color,
         wireframe: bool = False,
         flat_shading: bool = True,
-        shininess: float = 50.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
+        shininess: float = None,
         name: Optional[str] = None,
         group: Optional[str] = None,
         custom_data: Optional[TypingDict[str, Any]] = None,
@@ -425,8 +452,10 @@ def stl(
         Display the mesh as wireframe, by default False.
     flat_shading : bool, optional
         Display the mesh with flat shading, by default True.
-    shininess: `float`.
-        Shininess of object material.
+    roughness: `float`.
+        Roughness of object material.
+    metalness: `float`.
+        Metalness of object material.
     name : str, optional
         Object name, by default None.
     group : str, optional
@@ -452,6 +481,8 @@ def stl(
             color=color,
             wireframe=wireframe,
             flat_shading=flat_shading,
+            roughness=roughness,
+            metalness=metalness,
             shininess=shininess,
             name=name,
             group=group,
@@ -467,7 +498,9 @@ def surface(
         color: int = _default_color,
         wireframe: bool = False,
         flat_shading: bool = True,
-        shininess: float = 50.0,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
+        shininess: float = None,
         attribute: ArrayLike = None,
         color_map: Optional[ColorMap] = None,
         color_range: ColorRange = None,
@@ -498,8 +531,10 @@ def surface(
         Display the mesh as wireframe, by default False.
     flat_shading : bool, optional
         Display the mesh with flat shading, by default True.
-    shininess: `float`.
-        Shininess of object material.
+    roughness: `float`.
+        Roughness of object material.
+    metalness: `float`.
+        Metalness of object material.
     attribute: list, optional
         List of values used to apply `color_map`, by default [].
     opacity: `float`.
@@ -548,6 +583,8 @@ def surface(
             color=color,
             wireframe=wireframe,
             flat_shading=flat_shading,
+            roughness=roughness,
+            metalness=metalness,
             shininess=shininess,
             attribute=attribute,
             color_map=color_map,

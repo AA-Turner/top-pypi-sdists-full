@@ -44,7 +44,10 @@ class TestLabelDistributionResponse(unittest.TestCase):
                         percentage = 1.337, 
                         avg_confidence = 1.337, )
                     ],
-                total_labels = 56
+                total_labels = 56,
+                labels_returned = 56,
+                total_assignments = 56,
+                truncated = True
             )
         else:
             return LabelDistributionResponse(

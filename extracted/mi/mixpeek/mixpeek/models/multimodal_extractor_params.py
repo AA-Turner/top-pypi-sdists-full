@@ -37,7 +37,7 @@ class MultimodalExtractorParams(BaseModel):
     silence_db_threshold: Optional[StrictInt] = Field(default=None, description="Decibel threshold for silence detection. Recommended: -40.")
     scene_detection_threshold: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Scene detection threshold (0.0-1.0). Recommended: 0.5.")
     run_transcription: Optional[StrictBool] = Field(default=False, description="Run Whisper transcription on segments.")
-    transcription_language: Optional[StrictStr] = Field(default='en', description="Transcription language code.")
+    transcription_language: Optional[StrictStr] = Field(default=None, description="ISO-639-1 code that forces the transcription language, e.g. `ru`, `fa`, `zh`. Leave unset to detect the language per segment, which is the right choice for a mixed-language corpus.")
     run_video_description: Optional[StrictBool] = Field(default=False, description="Generate Gemini descriptions for segments.")
     run_transcription_embedding: Optional[StrictBool] = Field(default=False, description="Generate E5 embeddings for transcriptions (1024D).")
     run_ocr_embedding: Optional[StrictBool] = Field(default=False, description="Generate E5 embeddings for OCR text (1024D). Requires run_ocr.")
@@ -129,7 +129,7 @@ class MultimodalExtractorParams(BaseModel):
             "silence_db_threshold": obj.get("silence_db_threshold"),
             "scene_detection_threshold": obj.get("scene_detection_threshold"),
             "run_transcription": obj.get("run_transcription") if obj.get("run_transcription") is not None else False,
-            "transcription_language": obj.get("transcription_language") if obj.get("transcription_language") is not None else 'en',
+            "transcription_language": obj.get("transcription_language"),
             "run_video_description": obj.get("run_video_description") if obj.get("run_video_description") is not None else False,
             "run_transcription_embedding": obj.get("run_transcription_embedding") if obj.get("run_transcription_embedding") is not None else False,
             "run_ocr_embedding": obj.get("run_ocr_embedding") if obj.get("run_ocr_embedding") is not None else False,

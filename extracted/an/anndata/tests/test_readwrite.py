@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import warnings
+import zipfile
 from contextlib import contextmanager, nullcontext
 from functools import partial
 from importlib.util import find_spec
@@ -20,14 +21,7 @@ import anndata as ad
 from anndata._io.specs.registry import IORegistryError
 from anndata._io.zarr import open_write_group
 from anndata._types import AnnDataElem
-from anndata.compat import (
-    CSArray,
-    CSMatrix,
-    DaskArray,
-    ZarrArray,
-    ZarrGroup,
-    _read_attr,
-)
+from anndata.compat import CSArray, CSMatrix, DaskArray, _read_attr
 from anndata.tests.helpers import (
     GEN_ADATA_NO_XARRAY_ARGS,
     as_dense_dask_array,
@@ -41,6 +35,8 @@ from anndata.utils import get_literal_members
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
     from typing import Literal
+
+    from zarr.storage import StoreLike
 
 HERE = Path(__file__).parent
 ARRAY_TYPES = [
@@ -406,7 +402,7 @@ def test_read_full_io_error(tmp_path, name, read, write):
     path = tmp_path / name
     write(adata, path)
     with store_context(path) as store:
-        if isinstance(store, ZarrGroup):
+        if isinstance(store, zarr.Group):
             # see https://github.com/zarr-developers/zarr-python/issues/2716 for the issue
             # with re-opening without syncing attributes explicitly
             # TODO: Having to fully specify attributes to not override fixed in zarr v3.0.5
@@ -509,7 +505,7 @@ def test_zarr_compression(
     ad.io.write_zarr(pth, adata, compressor=compressor)
 
     def check_compressed(value, key):
-        if not isinstance(value, ZarrArray) or value.shape == ():
+        if not isinstance(value, zarr.Array) or value.shape == ():
             return None
         (read_compressor,) = value.compressors or [None]
         if zarr_write_format == 2:
@@ -789,8 +785,6 @@ def test_hdf5_attribute_conversion(tmp_path, teststring, encoding, length):
 
 @pytest.mark.zarr_io
 def test_zarr_chunk_X(tmp_path):
-    import zarr
-
     zarr_pth = Path(tmp_path) / "test.zarr"
     adata = gen_adata((100, 100), X_type=np.array, **GEN_ADATA_NO_XARRAY_ARGS)
     adata.write_zarr(zarr_pth, chunks=(10, 10))
@@ -910,7 +904,6 @@ def test_scanpy_krumsiek11(
 )
 def test_backwards_compat_zarr() -> None:
     import scanpy as sc
-    import zarr
 
     pbmc_orig = sc.datasets.pbmc68k_reduced()
     # Old zarr writer couldn’t do sparse arrays
@@ -926,6 +919,49 @@ def test_backwards_compat_zarr() -> None:
         pbmc_zarr = ad.read_zarr(z)
 
     assert_equal(pbmc_zarr, pbmc_orig)
+
+
+def test_read_zarr_zip_path_suggests_store(tmp_path: Path) -> None:
+    """Reading a zipped store by path suggests the store class to wrap it in."""
+    orig = gen_adata((3, 2), **GEN_ADATA_NO_XARRAY_ARGS)
+    dir_pth = tmp_path / "adata.zarr"
+    orig.write_zarr(dir_pth)
+    # zip the store’s contents; a ZipStore expects them at the archive root
+    pth = tmp_path / "adata.zarr.zip"
+    with zipfile.ZipFile(pth, mode="w") as zf:
+        for elem in filter(Path.is_file, dir_pth.rglob("*")):
+            zf.write(elem, elem.relative_to(dir_pth).as_posix())
+
+    with pytest.raises(zarr.errors.GroupNotFoundError) as exc_info:
+        ad.io.read_zarr(pth)
+    assert any("zarr.storage.ZipStore" in note for note in exc_info.value.__notes__)
+
+    # the suggested incantation works
+    with zarr.storage.ZipStore(pth, mode="r") as store:
+        assert_equal(ad.io.read_zarr(store), orig)
+
+
+def _empty_dir_store(tmp_path: Path) -> Path:
+    pth = tmp_path / "adata.zarr"
+    pth.mkdir()
+    return pth
+
+
+@pytest.mark.parametrize(
+    "make_store",
+    [
+        pytest.param(_empty_dir_store, id="dir"),
+        pytest.param(lambda _: zarr.storage.MemoryStore(), id="memory"),
+    ],
+)
+def test_read_zarr_suggests_nothing(
+    tmp_path: Path, make_store: Callable[[Path], StoreLike]
+) -> None:
+    """Stores that aren’t single-file paths get no (misleading) suggestion."""
+    with pytest.raises(zarr.errors.GroupNotFoundError) as exc_info:
+        ad.io.read_zarr(make_store(tmp_path))
+    notes = getattr(exc_info.value, "__notes__", [])
+    assert not any("Did you mean" in note for note in notes)
 
 
 def test_adata_in_uns(tmp_path, diskfmt, roundtrip):

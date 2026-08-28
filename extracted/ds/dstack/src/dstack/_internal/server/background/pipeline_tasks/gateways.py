@@ -16,6 +16,7 @@ from dstack._internal.core.models.gateways import (
     GatewayReplicaStatus,
     GatewayStatus,
 )
+from dstack._internal.core.services.gateways import get_effective_load_balancer
 from dstack._internal.server.background.pipeline_tasks.base import (
     NOW_PLACEHOLDER,
     Fetcher,
@@ -349,7 +350,7 @@ class _SubmittedResult:
 async def _process_submitted_gateway(gateway_model: GatewayModel) -> _SubmittedResult:
     configuration = gateways_services.get_gateway_configuration(gateway_model)
     update_map: _GatewayUpdateMap = {}
-    if configuration.certificate is not None and configuration.certificate.type == "acm":
+    if get_effective_load_balancer(configuration) is not None:
         try:
             (
                 _,
@@ -764,18 +765,14 @@ def _reconcile_gateway_replica_count(
             gateway_model
         ):
             return _ReplicaScalingResult(needs_more_replicas=True)
-        configuration = gateways_services.get_gateway_configuration(gateway_model)
         used_nums = {
             r.replica_num for r in gateway_replicas if r.status != GatewayReplicaStatus.TERMINATED
         }
         new_nums = itertools.islice(get_lowest_unused_nums(used_nums), diff)
         new_gateway_replica_models = [
             gateways_services.create_gateway_replica_model(
-                project_name=gateway_model.project.name,
-                configuration=configuration,
+                gateway_model=gateway_model,
                 replica_num=replica_num,
-                gateway_id=gateway_model.id,
-                backend_id=gateway_model.backend_id,
             )
             for replica_num in new_nums
         ]
@@ -865,6 +862,12 @@ async def _apply_replica_scaling(
 ) -> None:
     for gateway_replica_model in scale_result.new_gateway_replica_models:
         session.add(gateway_replica_model)
+        events.emit(
+            session,
+            f"Gateway replica created. Status: {gateway_replica_model.status.upper()}",
+            actor=events.SystemActor(),
+            targets=[events.Target.from_model(gateway_replica_model)],
+        )
     if scale_result.scale_in_replica_ids:
         # The gateway pipeline does not need to lock gateway replicas — it only mutates `scale_in`,
         # which can only ever be flipped from False to True, so no races are expected.

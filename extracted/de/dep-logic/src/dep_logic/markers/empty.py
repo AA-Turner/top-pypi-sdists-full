@@ -1,15 +1,26 @@
 from __future__ import annotations
 
+from typing import Any
+
 from dep_logic.markers.base import BaseMarker, EvaluationContext
 
 
 class EmptyMarker(BaseMarker):
-    def __and__(self, other: BaseMarker) -> BaseMarker:
+    def __invert__(self) -> BaseMarker:
+        from dep_logic.markers.any import AnyMarker
+
+        return AnyMarker()
+
+    def __and__(self, other: Any) -> BaseMarker:
+        if not isinstance(other, BaseMarker):
+            return NotImplemented
         return self
 
     __rand__ = __and__
 
-    def __or__(self, other: BaseMarker) -> BaseMarker:
+    def __or__(self, other: Any) -> BaseMarker:
+        if not isinstance(other, BaseMarker):
+            return NotImplemented
         return other
 
     __ror__ = __or__
@@ -46,4 +57,4 @@ class EmptyMarker(BaseMarker):
         if not isinstance(other, BaseMarker):
             return NotImplemented
 
-        return isinstance(other, EmptyMarker)
+        return other.is_empty()

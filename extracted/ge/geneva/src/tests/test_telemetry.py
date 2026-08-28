@@ -112,6 +112,32 @@ def test_worker_span_joins_trace_via_carrier() -> None:
     assert applier.parent.span_id == job.context.span_id
 
 
+def test_duration_histograms_bucket_long_tasks() -> None:
+    """A multi-minute duration lands in a finite bucket, not +Inf (GEN-940).
+
+    The SDK's default explicit buckets top out at 10 s; read tasks and UDF
+    runs routinely exceed that, so every observation fell into +Inf and
+    dashboard percentiles pegged at exactly 10 000 ms.
+    """
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+
+    reader = InMemoryMetricReader()
+    provider = MeterProvider(metric_readers=[reader])
+    telemetry._initialized = True
+    telemetry._meter = provider.get_meter("test")
+
+    telemetry.record_ms("read_task_total_time_ms", 120_500.0)  # a 2-minute task
+
+    data = reader.get_metrics_data()
+    point = data.resource_metrics[0].scope_metrics[0].metrics[0].data.data_points[0]
+    assert tuple(point.explicit_bounds) == telemetry.DURATION_BUCKET_BOUNDARIES_MS
+    assert point.bucket_counts[-1] == 0  # nothing in +Inf
+    bucket = list(point.bucket_counts).index(1)
+    assert point.explicit_bounds[bucket] == 300_000  # (120 s, 300 s]
+    provider.shutdown()
+
+
 # Subprocess: the flag is read at `import geneva`, already done in this process.
 _INIT_ON_IMPORT_SCRIPT = """
 import os, sys

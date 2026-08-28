@@ -20,23 +20,24 @@ import json
 
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
 class ModelPresignedURLResponse(BaseModel):
     """
-    Response containing presigned URL for model upload.  After receiving this response: 1. PUT the model archive to `presigned_url` with Content-Type: application/gzip 2. Call POST /models/uploads/{upload_id}/confirm to finalize
+    Response containing presigned URL for model upload.  After receiving this response: 1. PUT the model archive to `presigned_url` with the `required_content_type`    header (the value the URL is signed with) 2. Call POST /models/uploads/{upload_id}/confirm to finalize
     """ # noqa: E501
     upload_id: StrictStr = Field(description="Upload ID to use when confirming")
     presigned_url: StrictStr = Field(description="S3 presigned URL for PUT upload")
+    required_content_type: Optional[StrictStr] = Field(default='application/gzip', description="Content-Type the presigned PUT is signed with. Send this exact value as the Content-Type header on the upload PUT, or object storage rejects it with 403 SignatureDoesNotMatch. Parity with the extractor upload.")
     s3_key: StrictStr = Field(description="S3 object key where file will be stored")
     expires_at: datetime = Field(description="When the presigned URL expires")
     organization_id: StrictStr = Field(description="Organization ID")
     name: StrictStr = Field(description="Model name")
     version: StrictStr = Field(description="Model version")
     model_format: StrictStr = Field(description="Model format")
-    __properties: ClassVar[List[str]] = ["upload_id", "presigned_url", "s3_key", "expires_at", "organization_id", "name", "version", "model_format"]
+    __properties: ClassVar[List[str]] = ["upload_id", "presigned_url", "required_content_type", "s3_key", "expires_at", "organization_id", "name", "version", "model_format"]
 
     @field_validator('model_format')
     def model_format_validate_enum(cls, value):
@@ -98,6 +99,7 @@ class ModelPresignedURLResponse(BaseModel):
         _obj = cls.model_validate({
             "upload_id": obj.get("upload_id"),
             "presigned_url": obj.get("presigned_url"),
+            "required_content_type": obj.get("required_content_type") if obj.get("required_content_type") is not None else 'application/gzip',
             "s3_key": obj.get("s3_key"),
             "expires_at": obj.get("expires_at"),
             "organization_id": obj.get("organization_id"),

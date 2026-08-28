@@ -4,18 +4,19 @@ unit test for GAM
 Author: Josef Perktold
 
 """
+from statsmodels.compat.scipy import BASINHOPPING_RNG
 
-import os
+from pathlib import Path
 
 import numpy as np
-from numpy.testing import assert_, assert_allclose, assert_equal
+from numpy.testing import assert_allclose, assert_equal
 import pandas as pd
-import patsy
 import pytest
 
 from statsmodels.base._penalized import PenalizedMixin
 import statsmodels.base._penalties as smpen
 from statsmodels.discrete.discrete_model import Logit, Poisson, Probit
+from statsmodels.formula._manager import FormulaManager
 from statsmodels.gam.generalized_additive_model import (
     GLMGam,
     GLMGamResults,
@@ -46,12 +47,12 @@ class GLMPenalized(PenalizedMixin, GLM):
     pass
 
 
-cur_dir = os.path.dirname(os.path.abspath(__file__))
+cur_dir = Path(__file__).resolve().parent
 
-file_path = os.path.join(cur_dir, "results", "motorcycle.csv")
+file_path = Path(cur_dir).joinpath("results", "motorcycle.csv")
 data_mcycle = pd.read_csv(file_path)
 
-file_path = os.path.join(cur_dir, "results", "autos.csv")
+file_path = Path(cur_dir).joinpath("results", "autos.csv")
 df_autos_ = pd.read_csv(file_path)
 df_autos = df_autos_[["city_mpg", "fuel", "drive", "weight", "hp"]].dropna()
 
@@ -98,7 +99,7 @@ class CheckGAMMixin:
 
     @pytest.mark.smoke
     def test_null_smoke(self):
-        self.res1.llnull
+        assert isinstance(self.res1.llnull, float)
 
 
 class TestTheilPLS5(CheckGAMMixin):
@@ -506,7 +507,10 @@ class TestGAMMPG:
         s_scale = np.array([2.95973613706629e-07, 0.000126203730141359])
 
         x_spline = df_autos[["weight", "hp"]].values
-        exog = patsy.dmatrix("fuel + drive", data=df_autos)
+        mgr = FormulaManager()
+        exog = mgr.get_matrices(
+            "fuel + drive", data=df_autos, pandas=mgr.engine == "formulaic"
+        )
         cc = CyclicCubicSplines(x_spline, df=[6, 5], constraints="center")
         # TODO alpha needs to be list
         gam_cc = GLMGam(
@@ -525,7 +529,7 @@ class TestGAMMPG:
         cls.res1b = gam_cc.fit(method="newton")
 
     def test_exog(self):
-        file_path = os.path.join(cur_dir, "results", "autos_exog.csv")
+        file_path = Path(cur_dir).joinpath("results", "autos_exog.csv")
         df_exog = pd.read_csv(file_path)
         res2_exog = df_exog.values
         for res1 in [self.res1a, self.res1b]:
@@ -534,7 +538,7 @@ class TestGAMMPG:
             assert_allclose(exog, res2_exog, atol=1e-14)
 
     def test_fitted(self):
-        file_path = os.path.join(cur_dir, "results", "autos_predict.csv")
+        file_path = Path(cur_dir).joinpath("results", "autos_predict.csv")
         df_pred = pd.read_csv(file_path, index_col="Row.names")
         df_pred.index = df_pred.index - 1
         res2_fittedvalues = df_pred["fit"].values
@@ -564,11 +568,12 @@ class TestGAMMPGBS(CheckGAMMixin):
         cls.s_scale = s_scale = np.array([2.443955e-06, 0.007945455])
 
         x_spline = df_autos[["weight", "hp"]].values
-        # We need asarray to remove the design_info
-        # If design_info is attached,
+        # We need asarray to remove the formula's custom class
+        # If model_spec is attached,
         #     then exog_linear will also be transformed in predict.
-        cls.exog = np.asarray(patsy.dmatrix("fuel + drive", data=df_autos))
-        bs = BSplines(
+        mgr = FormulaManager()
+        cls.exog = np.asarray(mgr.get_matrices("fuel + drive", data=df_autos))
+        cls.bs = BSplines(
             x_spline,
             df=[12, 10],
             degree=[3, 3],
@@ -577,9 +582,12 @@ class TestGAMMPGBS(CheckGAMMixin):
             include_intercept=True,
         )
         # TODO alpha needs to be list
-        alpha0 = 1 / s_scale * sp / 2
+        cls.alpha0 = 1 / s_scale * sp / 2
         gam_bs = GLMGam(
-            df_autos["city_mpg"], exog=cls.exog, smoother=bs, alpha=(alpha0).tolist()
+            df_autos["city_mpg"],
+            exog=cls.exog,
+            smoother=cls.bs,
+            alpha=(cls.alpha0).tolist(),
         )
         cls.res1a = gam_bs.fit(use_t=True)
 
@@ -592,6 +600,14 @@ class TestGAMMPGBS(CheckGAMMixin):
 
         # for checking that alpha model attribute is unchanged, same as alpha0
         cls.alpha = [169947.78222669504, 26767.58046340008]
+
+    def setup_model(self):
+        return GLMGam(
+            df_autos["city_mpg"],
+            exog=self.exog,
+            smoother=self.bs,
+            alpha=(self.alpha0).tolist(),
+        ).fit(use_t=True)
 
     @classmethod
     def _init(cls):
@@ -620,11 +636,14 @@ class TestGAMMPGBS(CheckGAMMixin):
 
     def test_crossval(self):
         # includes some checks that penalization in the model is unchanged
+        rs = np.random.RandomState(9832311)
         mod = self.res1.model
         assert_equal(mod.alpha, self.alpha)  # assert unchanged
         assert_allclose(self.res1.scale, 4.7064821354391118, rtol=1e-13)
 
-        alpha_aic = mod.select_penweight()[0]
+        # Require a local model to avoid thread saftey issues
+        mod = self.setup_model().model
+        alpha_aic = mod.select_penweight(**{BASINHOPPING_RNG: rs})[0]
         # regression number, but in the right ball park
         assert_allclose(alpha_aic, [112487.81362014, 129.89155677], rtol=1e-3)
         assert_equal(mod.alpha, self.alpha)  # assert unchanged
@@ -634,8 +653,8 @@ class TestGAMMPGBS(CheckGAMMixin):
         assert_equal(pm[:4, :], 0)
         assert_allclose(self.res1.scale, 4.7064821354391118, rtol=1e-13)
 
-        np.random.seed(987125)
-        alpha_cv, _ = mod.select_penweight_kfold(k_folds=3, k_grid=6)
+        rs = np.random.RandomState(987125)
+        alpha_cv, _ = mod.select_penweight_kfold(k_folds=3, k_grid=6, rng=rs)
         # regression number, but in the right ball park
         assert_allclose(alpha_cv, [10000000.0, 630.957344480193], rtol=1e-5)
         assert_equal(mod.alpha, self.alpha)  # assert unchanged
@@ -657,7 +676,10 @@ class TestGAMMPGBSPoisson(CheckGAMMixin):
         cls.s_scale = s_scale = np.array([2.443955e-06, 0.007945455])
 
         x_spline = df_autos[["weight", "hp"]].values
-        cls.exog = patsy.dmatrix("fuel + drive", data=df_autos)
+        mgr = FormulaManager()
+        cls.exog = mgr.get_matrices(
+            "fuel + drive", data=df_autos, pandas=mgr.engine == "formulaic"
+        )
         bs = BSplines(
             x_spline,
             df=[12, 10],
@@ -676,7 +698,7 @@ class TestGAMMPGBSPoisson(CheckGAMMixin):
             alpha=alpha0,
         )
 
-        xnames = cls.exog.design_info.column_names + gam_bs.smoother.col_names
+        xnames = mgr.get_column_names(cls.exog) + gam_bs.smoother.col_names
         gam_bs.exog_names[:] = xnames
         cls.res1a = gam_bs.fit(use_t=False)
 
@@ -740,10 +762,12 @@ class TestGAMMPGBSPoisson(CheckGAMMixin):
         assert_allclose(wtt.pvalues[:2], res2.pTerms_pv, rtol=1e-6)
         assert_equal(wtt.df_constraints[:2], res2.pTerms_df)
 
+    @pytest.mark.thread_unsafe("Some results classes are mutable that affect run")
     def test_select_alpha(self):
         res1 = self.res1
         alpha_mgcv = res1.model.alpha
-        res_s = res1.model.select_penweight()
+        rs = np.random.RandomState(48932091)
+        res_s = res1.model.select_penweight(**{BASINHOPPING_RNG: rs})
         assert_allclose(res_s[0], alpha_mgcv, rtol=5e-5)
 
 
@@ -757,7 +781,10 @@ class TestGAMMPGBSPoissonFormula(TestGAMMPGBSPoisson):
         # s_scale is same as before
         cls.s_scale = s_scale = np.array([2.443955e-06, 0.007945455])
 
-        cls.exog = patsy.dmatrix("fuel + drive", data=df_autos)
+        mgr = FormulaManager()
+        cls.exog = mgr.get_matrices(
+            "fuel + drive", data=df_autos, pandas=mgr.engine == "formulaic"
+        )
 
         x_spline = df_autos[["weight", "hp"]].values
         bs = BSplines(
@@ -817,11 +844,11 @@ class TestGAMMPGBSPoissonFormula(TestGAMMPGBSPoisson):
         ]
 
         assert_equal(res1a.model.exog_names, xnames)
-        assert_equal(res1a.model.design_info_linear.column_names, xnames[:4])
+        assert_equal(res1a.model.model_spec_linear.column_names, xnames[:4])
 
         assert_equal(res1a.fittedvalues.iloc[2:4].index.values, [2, 3])
-        assert list(res1a.params.index) == xnames
-        assert_(isinstance(res1a.params, pd.Series))
+        assert_equal(np.asarray(res1a.params.index), xnames)
+        assert isinstance(res1a.params, pd.Series)
 
-        assert_(isinstance(res1a, GLMGamResultsWrapper))
-        assert_(isinstance(res1a._results, GLMGamResults))
+        assert isinstance(res1a, GLMGamResultsWrapper)
+        assert isinstance(res1a._results, GLMGamResults)

@@ -17,17 +17,17 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PYGI_ARGUMENT_H__
-#define __PYGI_ARGUMENT_H__
+#pragma once
 
 #include "pygi-invoke-state-struct.h"
 
-G_BEGIN_DECLS
 
 /* GIArgument is initialized based on the assumption that
  * it's the same size as a gint64 (long long).
  */
 G_STATIC_ASSERT (sizeof (GIArgument) == sizeof (gint64));
+
+G_BEGIN_DECLS
 
 #define PYGI_ARG_INIT { .v_int64 = 0 }
 
@@ -39,8 +39,8 @@ G_STATIC_ASSERT (sizeof (GIArgument) == sizeof (gint64));
 typedef struct {
     PyObject *object;
     gpointer cache;
-    gpointer cleanup_data;
     PyGIInvokeState state;
+    PyGIMarshalCleanupData cleanup_data;
 } PyGIArgumentFromPyCleanupData;
 
 GIArgument pygi_argument_from_py (GITypeInfo *type_info, PyObject *object,
@@ -69,5 +69,3 @@ gboolean pygi_argument_to_gsize (GIArgument arg, GITypeTag type_tag,
                                  gsize *gsize_out);
 
 G_END_DECLS
-
-#endif /* __PYGI_ARGUMENT_H__ */

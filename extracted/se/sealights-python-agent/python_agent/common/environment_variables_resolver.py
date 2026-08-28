@@ -22,6 +22,11 @@ ENV_ALIASES = {
     # because their internal field names differ.
     "FOOTPRINTSSENDINTERVALSECS": "intervalSeconds",
     "FOOTPRINTSCOLLECTINTERVALSECS": "_add_coverage_interval_seconds",
+    # SL_TEST_NAME_FORMAT is the documented spelling for --testNameFormat.
+    # Underscore-separated is the convention for new parameters; the camelCase
+    # SL_TESTNAMEFORMAT also resolves through the ordinary dir(ConfigData)
+    # lookup, but is neither documented nor tested.
+    "TEST_NAME_FORMAT": "testNameFormat",
 }
 
 

@@ -212,6 +212,20 @@ def _mem_available_bytes():
     return None
 
 
+def _total_ram_bytes_best_effort():
+    """This node's installed RAM (MemTotal) — the ceiling MMAP-eligible bytes
+    (MoE expert tensors) are priced against, since file-backed page cache is
+    reclaimable and never an OOM-able reservation. None when unmeasurable."""
+    try:
+        with open("/proc/meminfo") as fh:
+            for line in fh:
+                if line.startswith("MemTotal:"):
+                    return int(line.split()[1]) * 1024
+    except Exception:
+        pass
+    return None
+
+
 def _model_expected_bytes(model_key):
     """Rough 'total RAM required' for a model ~= its full GGUF size on disk (ALL
     shards summed). Denominator for the load-progress % AND the CPU preflight in
@@ -938,7 +952,14 @@ def _build_cmd(model_key, n_gpu_layers=None, ctx=None, threads=None, cpus=None,
         try:
             from ..spill import gguf_moe_detail, ram_reserve_bytes
             _exp = int(gguf_moe_detail(path).get("expert_bytes") or 0)
-            _avail = _mem_available_bytes()
+            # EXPERT BYTES ARE MMAP-ELIGIBLE (2026-08-28, worker analogue of
+            # the 0.1.237 central ruling): they are file-backed page cache the
+            # kernel reclaims at will, so the honest ceiling is the BOX (total
+            # RAM), not the momentary MemAvailable — which on ae was mostly
+            # page cache this very load would reclaim, refusing a split the
+            # box demonstrably serves. Momentary available stays the fallback
+            # when the total is unmeasurable.
+            _avail = _total_ram_bytes_best_effort() or _mem_available_bytes()
             if _avail:
                 _avail = max(0, _avail - ram_reserve_bytes())
             if _exp and _avail and _exp > _avail * 0.95:

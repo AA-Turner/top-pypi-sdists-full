@@ -1,5 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
+from chalk._gen.chalk.searchaggregates.v1 import aggregation_pb2 as _aggregation_pb2
+from chalk._gen.chalk.server.v1 import chart_pb2 as _chart_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -155,21 +157,24 @@ class ListKubeEventsResponse(_message.Message):
     ) -> None: ...
 
 class KubeEventFacet(_message.Message):
-    __slots__ = ("path", "name", "groupable", "facet_type")
+    __slots__ = ("path", "name", "groupable", "facet_type", "supported_aggregations")
     PATH_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     GROUPABLE_FIELD_NUMBER: _ClassVar[int]
     FACET_TYPE_FIELD_NUMBER: _ClassVar[int]
+    SUPPORTED_AGGREGATIONS_FIELD_NUMBER: _ClassVar[int]
     path: str
     name: str
     groupable: bool
     facet_type: KubeEventFacetType
+    supported_aggregations: _containers.RepeatedScalarFieldContainer[_aggregation_pb2.AggregationFunction]
     def __init__(
         self,
         path: _Optional[str] = ...,
         name: _Optional[str] = ...,
         groupable: bool = ...,
         facet_type: _Optional[_Union[KubeEventFacetType, str]] = ...,
+        supported_aggregations: _Optional[_Iterable[_Union[_aggregation_pb2.AggregationFunction, str]]] = ...,
     ) -> None: ...
 
 class GetKubeEventFacetsRequest(_message.Message):
@@ -227,20 +232,46 @@ class GetKubeEventFacetValuesResponse(_message.Message):
     values: _containers.RepeatedCompositeFieldContainer[KubeEventFacetValue]
     def __init__(self, values: _Optional[_Iterable[_Union[KubeEventFacetValue, _Mapping]]] = ...) -> None: ...
 
+class GetKubeEventAggregatesRequest(_message.Message):
+    __slots__ = ("start_time", "end_time", "query", "options")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    query: str
+    options: _aggregation_pb2.AggregateOptions
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query: _Optional[str] = ...,
+        options: _Optional[_Union[_aggregation_pb2.AggregateOptions, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetKubeEventAggregatesResponse(_message.Message):
+    __slots__ = ("table",)
+    TABLE_FIELD_NUMBER: _ClassVar[int]
+    table: _aggregation_pb2.AggregateTable
+    def __init__(self, table: _Optional[_Union[_aggregation_pb2.AggregateTable, _Mapping]] = ...) -> None: ...
+
 class ListKubeEventsAggregatedRequest(_message.Message):
-    __slots__ = ("query", "start_time", "end_time", "window_period", "facets", "limit")
+    __slots__ = ("query", "start_time", "end_time", "window_period", "facets", "limit", "options")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     FACETS_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     window_period: _duration_pb2.Duration
     facets: _containers.RepeatedScalarFieldContainer[str]
     limit: int
+    options: _aggregation_pb2.AggregateOptions
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -249,6 +280,7 @@ class ListKubeEventsAggregatedRequest(_message.Message):
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         facets: _Optional[_Iterable[str]] = ...,
         limit: _Optional[int] = ...,
+        options: _Optional[_Union[_aggregation_pb2.AggregateOptions, _Mapping]] = ...,
     ) -> None: ...
 
 class ListKubeEventsAggregatedResponse(_message.Message):
@@ -258,3 +290,30 @@ class ListKubeEventsAggregatedResponse(_message.Message):
     def __init__(
         self, chart: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...
     ) -> None: ...
+
+class GetKubeEventStatRequest(_message.Message):
+    __slots__ = ("query", "start_time", "end_time", "comparison_lookback_offset", "aggregation")
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    COMPARISON_LOOKBACK_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATION_FIELD_NUMBER: _ClassVar[int]
+    query: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    comparison_lookback_offset: _duration_pb2.Duration
+    aggregation: _aggregation_pb2.Aggregation
+    def __init__(
+        self,
+        query: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        comparison_lookback_offset: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        aggregation: _Optional[_Union[_aggregation_pb2.Aggregation, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetKubeEventStatResponse(_message.Message):
+    __slots__ = ("result",)
+    RESULT_FIELD_NUMBER: _ClassVar[int]
+    result: _chart_pb2.StatisticResult
+    def __init__(self, result: _Optional[_Union[_chart_pb2.StatisticResult, _Mapping]] = ...) -> None: ...

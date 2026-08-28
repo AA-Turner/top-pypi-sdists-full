@@ -1,0 +1,68 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+app:
+  id: footfall
+  name: "Footfall"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+# ──────────────────────────────────────────────
+categories:
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+# ──────────────────────────────────────────────
+entity_mapping:
+  person: person
+
+# ──────────────────────────────────────────────
+# Volume Module — Footfall (geometry-based)
+#
+# counter:
+#   Counting method configuration.
+#   method: abline | polygon
+#
+#   abline — Requires exactly 2 lines in the
+#     StreamInfo zone_config. A person travelling
+#     from line_a through the trap zone to line_b
+#     counts as "in" when in_direction = "A_to_B".
+#
+#   polygon — Requires 1-2 zones. First zone =
+#     outer polygon, second (optional) = inner
+#     polygon. When only one zone is supplied, the
+#     inner polygon is auto-computed by insetting
+#     20 px from the outer.
+#
+# Lines, zones, and resolution are camera-specific
+# and supplied at runtime via StreamInfo.zone_config.
+# Coordinates are normalized (0.0-1.0).
+# ──────────────────────────────────────────────
+volume:
+  metrics:
+    - key: entry_count
+      agg_type: sum
+    - key: exit_count
+      agg_type: sum
+    - key: current_occupancy
+      agg_type: last
+
+  counter:
+    method: abline             # "abline" or "polygon"
+    in_direction: A_to_B       # for abline: "A_to_B" or "B_to_A"
+    use_foot_center: false
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults:
+    - metric: current_occupancy
+      condition:
+        operator: ">"
+        value: 100
+      severity: HIGH
+
+  overrides: []

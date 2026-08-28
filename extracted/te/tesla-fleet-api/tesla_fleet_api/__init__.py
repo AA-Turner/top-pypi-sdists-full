@@ -1,7 +1,7 @@
 """Tesla Fleet API"""
 
 __author__ = "hello@teslemetry.com"
-__version__ = "1.11.0"
+__version__ = "1.12.0"
 
 from tesla_fleet_api.const import Region, is_valid_region
 from tesla_fleet_api.funnel import (
@@ -11,6 +11,7 @@ from tesla_fleet_api.funnel import (
     ObservationFunnel,
     ObservationSink,
     Publisher,
+    TeslemetryStreamPublisher,
     VehicleDataResultPublisher,
 )
 from tesla_fleet_api.tariff import (
@@ -23,6 +24,7 @@ from tesla_fleet_api.tariff import (
 from tesla_fleet_api.tesla.bluetooth import TeslaBluetooth
 from tesla_fleet_api.tesla.fleet import TeslaFleetApi
 from tesla_fleet_api.tesla.oauth import TeslaFleetOAuth
+from tesla_fleet_api.tesla.vehicle.stream_glue import BleBroadcastStreamGlue, StreamSink
 from tesla_fleet_api.teslemetry.teslemetry import (
     Teslemetry,
     TeslemetryClientRegistration,
@@ -33,12 +35,14 @@ from tesla_fleet_api.util import firmware_at_least, firmware_compare
 
 __all__ = [
     "BleBroadcastPublisher",
+    "BleBroadcastStreamGlue",
     "FieldPath",
     "Observation",
     "ObservationFunnel",
     "ObservationSink",
     "Publisher",
     "Region",
+    "StreamSink",
     "TariffPeriod",
     "TariffRate",
     "TariffResolution",
@@ -47,6 +51,7 @@ __all__ = [
     "TeslaFleetOAuth",
     "Teslemetry",
     "TeslemetryClientRegistration",
+    "TeslemetryStreamPublisher",
     "Tessie",
     "VehicleDataResultPublisher",
     "firmware_at_least",

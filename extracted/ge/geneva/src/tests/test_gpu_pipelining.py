@@ -948,7 +948,7 @@ def test_fragment_writer_session_defers_writer_start_until_seal() -> None:
         assert harness.queues == []
         assert harness.writer.options.call_count == 0
         assert sess.poll_ready() == []
-        assert list(sess.drain()) == []
+        assert sess.pending_poll_futures() == []
         wait_mock.assert_not_called()
 
         manager = make_fragment_writer_manager(sessions={sess.frag_id: sess})

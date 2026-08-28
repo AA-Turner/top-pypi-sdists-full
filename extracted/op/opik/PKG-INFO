@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opik
-Version: 2.2.41
+Version: 2.2.43
 Summary: Comet tool for logging and evaluating LLM traces
 Home-page: https://www.comet.com
 Author: Comet ML Inc.
@@ -451,7 +451,12 @@ Opik allows you to evaluate your LLM application during development through [Dat
 
 If you find Opik useful, please consider giving us a star! Your support helps us grow our community and continue improving the product.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=comet-ml/opik&type=Date)](https://github.com/comet-ml/opik)
+<a href="https://github.com/comet-ml/opik">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.comet.com/opik/star-history/star-history-dark.svg" />
+    <img alt="Star History Chart" src="https://cdn.comet.com/opik/star-history/star-history-light.svg" />
+  </picture>
+</a>
 
 <a id="-contributing"></a>
 ## 🤝 Contributing

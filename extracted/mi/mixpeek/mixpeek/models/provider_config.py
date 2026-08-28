@@ -20,9 +20,11 @@ import pprint
 import re  # noqa: F401
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, Dict, Optional
+from mixpeek.models.azure_blob_config import AzureBlobConfig
 from mixpeek.models.backblaze_config import BackblazeConfig
 from mixpeek.models.box_config import BoxConfig
 from mixpeek.models.bright_data_config import BrightDataConfig
+from mixpeek.models.gcs_config import GCSConfig
 from mixpeek.models.google_drive_config import GoogleDriveConfig
 from mixpeek.models.httpapi_config import HTTPAPIConfig
 from mixpeek.models.iconik_config import IconikConfig
@@ -40,7 +42,7 @@ from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-PROVIDERCONFIG_ANY_OF_SCHEMAS = ["BackblazeConfig", "BoxConfig", "BrightDataConfig", "Dict[str, object]", "GoogleDriveConfig", "HTTPAPIConfig", "IconikConfig", "InstagramConfig", "MuxConfig", "PostgreSQLConfig", "RSSConfig", "S3Config", "SharePointConfig", "SharedOrganizationsConnectionsProviderConfigsEmailConfig", "SnowflakeConfig", "TigrisConfig", "TikTokConfig"]
+PROVIDERCONFIG_ANY_OF_SCHEMAS = ["AzureBlobConfig", "BackblazeConfig", "BoxConfig", "BrightDataConfig", "Dict[str, object]", "GCSConfig", "GoogleDriveConfig", "HTTPAPIConfig", "IconikConfig", "InstagramConfig", "MuxConfig", "PostgreSQLConfig", "RSSConfig", "S3Config", "SharePointConfig", "SharedOrganizationsConnectionsProviderConfigsEmailConfig", "SnowflakeConfig", "TigrisConfig", "TikTokConfig"]
 
 class ProviderConfig(BaseModel):
     """
@@ -79,13 +81,17 @@ class ProviderConfig(BaseModel):
     anyof_schema_15_validator: Optional[IconikConfig] = None
     # data type: SharedOrganizationsConnectionsProviderConfigsEmailConfig
     anyof_schema_16_validator: Optional[SharedOrganizationsConnectionsProviderConfigsEmailConfig] = None
+    # data type: GCSConfig
+    anyof_schema_17_validator: Optional[GCSConfig] = None
+    # data type: AzureBlobConfig
+    anyof_schema_18_validator: Optional[AzureBlobConfig] = None
     # data type: Dict[str, object]
-    anyof_schema_17_validator: Optional[Dict[str, Any]] = None
+    anyof_schema_19_validator: Optional[Dict[str, Any]] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[BackblazeConfig, BoxConfig, BrightDataConfig, Dict[str, object], GoogleDriveConfig, HTTPAPIConfig, IconikConfig, InstagramConfig, MuxConfig, PostgreSQLConfig, RSSConfig, S3Config, SharePointConfig, SharedOrganizationsConnectionsProviderConfigsEmailConfig, SnowflakeConfig, TigrisConfig, TikTokConfig]] = None
+        actual_instance: Optional[Union[AzureBlobConfig, BackblazeConfig, BoxConfig, BrightDataConfig, Dict[str, object], GCSConfig, GoogleDriveConfig, HTTPAPIConfig, IconikConfig, InstagramConfig, MuxConfig, PostgreSQLConfig, RSSConfig, S3Config, SharePointConfig, SharedOrganizationsConnectionsProviderConfigsEmailConfig, SnowflakeConfig, TigrisConfig, TikTokConfig]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "BackblazeConfig", "BoxConfig", "BrightDataConfig", "Dict[str, object]", "GoogleDriveConfig", "HTTPAPIConfig", "IconikConfig", "InstagramConfig", "MuxConfig", "PostgreSQLConfig", "RSSConfig", "S3Config", "SharePointConfig", "SharedOrganizationsConnectionsProviderConfigsEmailConfig", "SnowflakeConfig", "TigrisConfig", "TikTokConfig" }
+    any_of_schemas: Set[str] = { "AzureBlobConfig", "BackblazeConfig", "BoxConfig", "BrightDataConfig", "Dict[str, object]", "GCSConfig", "GoogleDriveConfig", "HTTPAPIConfig", "IconikConfig", "InstagramConfig", "MuxConfig", "PostgreSQLConfig", "RSSConfig", "S3Config", "SharePointConfig", "SharedOrganizationsConnectionsProviderConfigsEmailConfig", "SnowflakeConfig", "TigrisConfig", "TikTokConfig" }
 
     model_config = {
         "validate_assignment": True,
@@ -202,15 +208,27 @@ class ProviderConfig(BaseModel):
         else:
             return v
 
+        # validate data type: GCSConfig
+        if not isinstance(v, GCSConfig):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `GCSConfig`")
+        else:
+            return v
+
+        # validate data type: AzureBlobConfig
+        if not isinstance(v, AzureBlobConfig):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `AzureBlobConfig`")
+        else:
+            return v
+
         # validate data type: Dict[str, object]
         try:
-            instance.anyof_schema_17_validator = v
+            instance.anyof_schema_19_validator = v
             return v
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in ProviderConfig with anyOf schemas: BackblazeConfig, BoxConfig, BrightDataConfig, Dict[str, object], GoogleDriveConfig, HTTPAPIConfig, IconikConfig, InstagramConfig, MuxConfig, PostgreSQLConfig, RSSConfig, S3Config, SharePointConfig, SharedOrganizationsConnectionsProviderConfigsEmailConfig, SnowflakeConfig, TigrisConfig, TikTokConfig. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in ProviderConfig with anyOf schemas: AzureBlobConfig, BackblazeConfig, BoxConfig, BrightDataConfig, Dict[str, object], GCSConfig, GoogleDriveConfig, HTTPAPIConfig, IconikConfig, InstagramConfig, MuxConfig, PostgreSQLConfig, RSSConfig, S3Config, SharePointConfig, SharedOrganizationsConnectionsProviderConfigsEmailConfig, SnowflakeConfig, TigrisConfig, TikTokConfig. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -319,19 +337,31 @@ class ProviderConfig(BaseModel):
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
+        # anyof_schema_17_validator: Optional[GCSConfig] = None
+        try:
+            instance.actual_instance = GCSConfig.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
+        # anyof_schema_18_validator: Optional[AzureBlobConfig] = None
+        try:
+            instance.actual_instance = AzureBlobConfig.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
         # deserialize data into Dict[str, object]
         try:
             # validation
-            instance.anyof_schema_17_validator = json.loads(json_str)
+            instance.anyof_schema_19_validator = json.loads(json_str)
             # assign value to actual_instance
-            instance.actual_instance = instance.anyof_schema_17_validator
+            instance.actual_instance = instance.anyof_schema_19_validator
             return instance
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into ProviderConfig with anyOf schemas: BackblazeConfig, BoxConfig, BrightDataConfig, Dict[str, object], GoogleDriveConfig, HTTPAPIConfig, IconikConfig, InstagramConfig, MuxConfig, PostgreSQLConfig, RSSConfig, S3Config, SharePointConfig, SharedOrganizationsConnectionsProviderConfigsEmailConfig, SnowflakeConfig, TigrisConfig, TikTokConfig. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into ProviderConfig with anyOf schemas: AzureBlobConfig, BackblazeConfig, BoxConfig, BrightDataConfig, Dict[str, object], GCSConfig, GoogleDriveConfig, HTTPAPIConfig, IconikConfig, InstagramConfig, MuxConfig, PostgreSQLConfig, RSSConfig, S3Config, SharePointConfig, SharedOrganizationsConnectionsProviderConfigsEmailConfig, SnowflakeConfig, TigrisConfig, TikTokConfig. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -345,7 +375,7 @@ class ProviderConfig(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], BackblazeConfig, BoxConfig, BrightDataConfig, Dict[str, object], GoogleDriveConfig, HTTPAPIConfig, IconikConfig, InstagramConfig, MuxConfig, PostgreSQLConfig, RSSConfig, S3Config, SharePointConfig, SharedOrganizationsConnectionsProviderConfigsEmailConfig, SnowflakeConfig, TigrisConfig, TikTokConfig]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], AzureBlobConfig, BackblazeConfig, BoxConfig, BrightDataConfig, Dict[str, object], GCSConfig, GoogleDriveConfig, HTTPAPIConfig, IconikConfig, InstagramConfig, MuxConfig, PostgreSQLConfig, RSSConfig, S3Config, SharePointConfig, SharedOrganizationsConnectionsProviderConfigsEmailConfig, SnowflakeConfig, TigrisConfig, TikTokConfig]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

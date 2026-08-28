@@ -102,6 +102,7 @@ from .logging_messages import (
     SEND_NOTIFICATION_FAILED,
 )
 from .rpc import create_remote_call, get_remote_action_definition
+from .s3.multipart_upload.multipart_upload_options import MultipartUploadOptions
 from .semantic_version import SemanticVersion
 from .streamer import FallbackStreamer, OnlineStreamer
 from .upload_callback.callback import UploadCallback
@@ -454,13 +455,9 @@ class Experiment(CometExperiment):
             message_batch_stdout_max_size=self.config.get_int(
                 None, "comet.message_batch.stdout_max_size"
             ),
-            s3_multipart_threshold=self.config.get_int(
-                None, "comet.s3_multipart.size_threshold"
+            s3_upload_options=MultipartUploadOptions.from_config(
+                self.config, direct_s3_upload_enabled=direct_s3_upload_enabled
             ),
-            s3_multipart_expires_in=self.config.get_int(
-                None, "comet.s3_multipart.expires_in"
-            ),
-            s3_multipart_upload_enabled=direct_s3_upload_enabled,
             artifact_remote_assets_batch_metric_interval=self.config.get_int(
                 None, "comet.message_batch.artifact_remote_assets_interval"
             ),

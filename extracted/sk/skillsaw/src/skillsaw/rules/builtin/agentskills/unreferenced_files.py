@@ -108,7 +108,8 @@ from skillsaw.markdown_doc import MarkdownDoc
 from skillsaw.blocks import ContentBlock
 from skillsaw.utils import read_text
 
-from skillsaw.paths import safe_resolve
+from skillsaw.discovery import exact_name_exists
+from skillsaw.paths import safe_is_dir, safe_is_file, safe_resolve
 
 from ._helpers import SKILL_REPO_TYPES, contained_skill_file
 
@@ -129,7 +130,11 @@ _DIR_AFTER = r"(?![A-Za-z0-9_.-])"
 # assets/fonts.
 _DIR_BARE_AFTER = r"(?![A-Za-z0-9_./-])"
 
-_EXTERNAL_LINK_PREFIXES = ("http://", "https://", "#", "mailto:")
+# Matched against a case-folded href: URI schemes are case-insensitive
+# (RFC 3986 §3.1), so `DATA:image/png;base64,...` and `HTTPS://host/x` are
+# every bit as external as their lowercase spellings.  Keep these entries
+# lowercase — the fold happens on the href, not on the prefixes.
+_EXTERNAL_LINK_PREFIXES = ("http://", "https://", "#", "mailto:", "data:")
 
 # Referenced files above this size never become traversal sources — a
 # multi-megabyte data blob mentioning a filename is not documentation.
@@ -196,11 +201,12 @@ class AgentSkillUnreferencedFilesRule(Rule):
         # Per-run regex cache: needles (paths/filenames) repeat across the
         # markdown sources of a skill and across skills sharing file names.
         self._pattern_cache: Dict[Tuple[str, str], re.Pattern] = {}
-        directory_covers = self.config.get(
-            "directory_mention_covers",
-            self.config_schema["directory_mention_covers"]["default"],
-        )
-        exclude_patterns = list(self.config.get("exclude", []) or [])
+        directory_covers = self.setting("directory_mention_covers")
+        exclude_patterns = self.setting("exclude")
+        if not isinstance(exclude_patterns, list) or not all(
+            isinstance(pattern, str) for pattern in exclude_patterns
+        ):
+            exclude_patterns = []
         exclude_variants = [
             variant for pattern in exclude_patterns for variant in context.pattern_variants(pattern)
         ]
@@ -264,12 +270,15 @@ class AgentSkillUnreferencedFilesRule(Rule):
         try:
             for dirpath, dirnames, filenames in os.walk(skill_path):
                 base = Path(dirpath)
+                # Same nested-skill predicate as discovery: a subdirectory
+                # with a mis-cased skill.md is not a nested skill, so its
+                # files stay in this skill's scan on every filesystem.
                 dirnames[:] = sorted(
                     d
                     for d in dirnames
                     if not d.startswith(".")
                     and not (base / d).is_symlink()
-                    and not (base / d / "SKILL.md").is_file()
+                    and not exact_name_exists(base / d, "SKILL.md")
                 )
                 for name in sorted(filenames):
                     if name.startswith("."):
@@ -432,7 +441,7 @@ class AgentSkillUnreferencedFilesRule(Rule):
         dirs: Set[str] = set()
         for link in doc.links():
             target = link.href.strip()
-            if not target or target.startswith(_EXTERNAL_LINK_PREFIXES):
+            if not target or target.casefold().startswith(_EXTERNAL_LINK_PREFIXES):
                 continue
             target = target.split("#")[0]
             if not target:
@@ -447,9 +456,17 @@ class AgentSkillUnreferencedFilesRule(Rule):
                 continue
             if not resolved.is_relative_to(skill_resolved) or resolved == skill_resolved:
                 continue
-            if resolved.is_dir():
+            # ``safe_is_dir`` / ``safe_is_file`` rather than the raw
+            # predicates: ``resolve()`` does not stat the final component, so
+            # a link href like a ``data:image/png;base64,...`` URI (which is
+            # not caught by _EXTERNAL_LINK_PREFIXES if a new scheme appears)
+            # resolves to a path whose final component is thousands of
+            # characters long, and ``is_dir()`` / ``is_file()`` then raise
+            # ``ENAMETOOLONG`` — a raw OSError that turns the rule into a
+            # rule-execution-error and discards every finding for the repo.
+            if safe_is_dir(resolved):
                 dirs.add(resolved.relative_to(skill_resolved).as_posix())
-            elif resolved.is_file():
+            elif safe_is_file(resolved):
                 files.add(resolved)
         return files, dirs
 

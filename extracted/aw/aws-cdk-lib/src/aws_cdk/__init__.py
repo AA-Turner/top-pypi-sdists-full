@@ -9682,6 +9682,9 @@ class CfnResource(
     def add_depends_on(self, target: "CfnResource") -> None:
         '''(deprecated) Indicates that this resource depends on another resource and cannot be provisioned unless the other resource has been successfully provisioned.
 
+        This can be used for resources across stacks (or nested stack) boundaries
+        and the dependency will automatically be transferred to the relevant scope.
+
         This method has been renamed to ``addResourceDependency``, which makes it
         more clear that this method operates at a different level from the
         construct-level ``construct.node.addDependency()`` mechanism.
@@ -9933,13 +9936,14 @@ class CfnResource(
         return typing.cast(typing.Any, jsii.invoke(self, "getMetadata", [key]))
 
     @jsii.member(jsii_name="obtainDependencies")
-    def obtain_dependencies(self) -> typing.List[typing.Union["CfnResource", "Stack"]]:
-        '''Retrieves an array of resources this resource depends on.
+    def obtain_dependencies(self) -> typing.List[typing.Union["Stack", "CfnResource"]]:
+        '''Retrieves an array of resources and stacks this resource depends on.
 
-        This assembles dependencies on resources across stacks (including nested stacks)
-        automatically.
+        For resources depended on directly, returns the ``CfnResource`` object. For
+        dependencies on other stacks, returns the ``Stack`` object. The order of the
+        array is not guaranteed.
         '''
-        return typing.cast(typing.List[typing.Union["CfnResource", "Stack"]], jsii.invoke(self, "obtainDependencies", []))
+        return typing.cast(typing.List[typing.Union["Stack", "CfnResource"]], jsii.invoke(self, "obtainDependencies", []))
 
     @jsii.member(jsii_name="removeDependency")
     def remove_dependency(self, target: "CfnResource") -> None:
@@ -25297,6 +25301,11 @@ class Size(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Size"):
 
         return typing.cast(jsii.Number, jsii.invoke(self, "toGibibytes", [opts]))
 
+    @jsii.member(jsii_name="toHumanString")
+    def to_human_string(self) -> builtins.str:
+        '''Convert this Size object to the most appropriate readable number.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toHumanString", []))
+
     @jsii.member(jsii_name="toKibibytes")
     def to_kibibytes(
         self,
@@ -25344,6 +25353,11 @@ class Size(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Size"):
         opts = SizeConversionOptions(rounding=rounding)
 
         return typing.cast(jsii.Number, jsii.invoke(self, "toPebibytes", [opts]))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Convert this Size object to its constructor form.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
 
     @jsii.member(jsii_name="toTebibytes")
     def to_tebibytes(

@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import argparse
 import asyncio
 import concurrent.futures
@@ -11,12 +12,29 @@ import logging
 import os
 import shutil
 import sys
-from typing import List, Optional, Set
+import warnings
+from typing import List, Optional, Set, Union
+
+# Suppress thrift-py-deprecated migration warnings from internal Meta libraries.
+# These are emitted by libfb.py.asyncio.scribe (used for scuba logging) and are
+# not actionable by idb users. The migration is tracked in the owning library.
+warnings.filterwarnings(
+    "ignore",
+    message="Uses thrift-py-deprecated",
+    module=r"libfb\.py\..*",
+)
+
+# Mute infrastructure loggers that would otherwise leak to stderr on every
+# idb invocation. Users only care about idb output, not scuba teardown noise.
+logging.getLogger("scuba_logger").setLevel(logging.CRITICAL)
 
 import idb.common.plugin as plugin
 from idb.cli.commands.accessibility import (
+    AccessibilityDescribeMarkerCommand,
     AccessibilityInfoAllCommand,
     AccessibilityInfoAtPointCommand,
+    AccessibilityScrollCommand,
+    AccessibilitySetValueCommand,
 )
 from idb.cli.commands.app import (
     AppInstallCommand,
@@ -25,13 +43,12 @@ from idb.cli.commands.app import (
     AppUninstallCommand,
 )
 from idb.cli.commands.approve import ApproveCommand
-from idb.cli.commands.contacts import ContactsUpdateCommand
+from idb.cli.commands.contacts import ContactsClearCommand, ContactsUpdateCommand
 from idb.cli.commands.crash import (
     CrashDeleteCommand,
     CrashListCommand,
     CrashShowCommand,
 )
-from idb.cli.commands.daemon import DaemonCommand
 from idb.cli.commands.dap import DapCommand
 from idb.cli.commands.debugserver import (
     DebugServerStartCommand,
@@ -41,24 +58,29 @@ from idb.cli.commands.debugserver import (
 from idb.cli.commands.dsym import DsymInstallCommand
 from idb.cli.commands.dylib import DylibInstallCommand
 from idb.cli.commands.file import (
+    FBSReadCommand,
     FSListCommand,
     FSMkdirCommand,
     FSMoveCommand,
     FSPullCommand,
     FSPushCommand,
-    FSWriteCommand,
     FSRemoveCommand,
     FSTailCommand,
-    FBSReadCommand,
+    FSWriteCommand,
 )
 from idb.cli.commands.focus import FocusCommand
 from idb.cli.commands.framework import FrameworkInstallCommand
+from idb.cli.commands.help import HelpCommand
 from idb.cli.commands.hid import (
     ButtonCommand,
     KeyCommand,
     KeySequenceCommand,
+    MultiTapCommand,
+    PinchCommand,
+    RemoteCommand,
+    RotateCommand,
+    ShakeCommand,
     SwipeCommand,
-    TapCommand,
     TextCommand,
 )
 from idb.cli.commands.instruments import InstrumentsCommand
@@ -70,13 +92,16 @@ from idb.cli.commands.log import CompanionLogCommand, LogCommand
 from idb.cli.commands.media import MediaAddCommand
 from idb.cli.commands.memory import SimulateMemoryWarningCommand
 from idb.cli.commands.notification import SendNotificationCommand
+from idb.cli.commands.photos import PhotosClearCommand
+from idb.cli.commands.revoke import RevokeCommand
 from idb.cli.commands.screenshot import ScreenshotCommand
 from idb.cli.commands.settings import (
-    SetPreferenceCommand,
     GetPreferenceCommand,
     ListCommand,
+    SetPreferenceCommand,
 )
 from idb.cli.commands.shell import ShellCommand
+from idb.cli.commands.tap import TapCommand
 from idb.cli.commands.target import (
     ConnectCommandException,
     TargetBootCommand,
@@ -101,7 +126,7 @@ from idb.cli.commands.xctest import (
 )
 from idb.cli.commands.xctrace import XctraceRecordCommand
 from idb.common.command import Command, CommandGroup
-from idb.common.types import IdbException, ExitWithCodeException, Compression
+from idb.common.types import Compression, IdbException
 
 
 COROUTINE_DRAIN_TIMEOUT = 2
@@ -114,13 +139,22 @@ logging.basicConfig(
 logger: logging.Logger = logging.getLogger()
 
 
-def get_default_companion_path() -> Optional[str]:
+def get_default_companion_path() -> str | None:
     if sys.platform != "darwin":
         return None
+    # Prefer the direct binary over the wrapper script at /usr/local/bin/idb_companion,
+    # which invokes a DotSlash stub that can fail due to environment differences
+    # (e.g., XAR/PAR modifying PATH to include an incompatible dotslash binary).
+    direct_path = "/opt/facebook/idb/bin/idb_companion"
+    if os.path.isfile(direct_path):
+        return direct_path
     return shutil.which("idb_companion") or "/usr/local/bin/idb_companion"
 
 
-async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
+SysExitArg = Union[int, str, None]
+
+
+async def gen_main(cmd_input: list[str] | None = None) -> SysExitArg:
     # Make sure all files are created with global rw permissions
     os.umask(0o000)
     # Setup parser
@@ -145,6 +179,7 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
         "Compressor should be available at this host. "
         "Decompressor should be available at the destination site (where IDB companion is hosted)",
     )
+
     parser.add_argument(
         "--companion",
         type=str,
@@ -173,7 +208,8 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
         help="If flagged will not modify local state when a companion is known to be unresponsive",
     )
     shell_command = ShellCommand(parser=parser)
-    commands: List[Command] = [
+    commands: list[Command] = [
+        HelpCommand(),
         AppInstallCommand(),
         AppUninstallCommand(),
         AppListCommand(),
@@ -207,7 +243,12 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
         CommandGroup(
             name="contacts",
             description="Contacts database operations on target",
-            commands=[ContactsUpdateCommand()],
+            commands=[ContactsUpdateCommand(), ContactsClearCommand()],
+        ),
+        CommandGroup(
+            name="photos",
+            description="Photos library operations on target",
+            commands=[PhotosClearCommand()],
         ),
         LogCommand(),
         CommandGroup(
@@ -223,6 +264,7 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
         SimulateMemoryWarningCommand(),
         SendNotificationCommand(),
         ApproveCommand(),
+        RevokeCommand(),
         TargetConnectCommand(),
         TargetDisconnectCommand(),
         TargetListCommand(),
@@ -234,7 +276,6 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
         TargetCloneCommand(),
         TargetDeleteCommand(),
         TargetDeleteAllCommand(),
-        DaemonCommand(),
         ScreenshotCommand(),
         CommandGroup(
             name="ui",
@@ -242,12 +283,20 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
             commands=[
                 AccessibilityInfoAllCommand(),
                 AccessibilityInfoAtPointCommand(),
+                AccessibilityDescribeMarkerCommand(),
+                AccessibilityScrollCommand(),
+                AccessibilitySetValueCommand(),
                 TapCommand(),
+                MultiTapCommand(),
+                PinchCommand(),
                 ButtonCommand(),
+                RemoteCommand(),
                 TextCommand(),
                 KeyCommand(),
                 KeySequenceCommand(),
                 SwipeCommand(),
+                RotateCommand(),
+                ShakeCommand(),
             ],
         ),
         CommandGroup(
@@ -295,6 +344,7 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
         ListCommand,
         shell_command,
     ]
+    plugin.load_cli_plugins()
     commands.extend(plugin.get_commands())
     root_command = CommandGroup(
         name="root_command",
@@ -309,7 +359,7 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
 
     try:
         args = parser.parse_args(cmd_input)
-        plugin.on_launch(logger)
+        plugin.on_launch(logger, subcommands=root_command.resolve_subcommand_path(args))
         await root_command.run(args)
         return 0
     except ConnectCommandException as e:
@@ -318,8 +368,6 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
     except IdbException as e:
         print(e.args[0], file=sys.stderr)
         return 1
-    except ExitWithCodeException as e:
-        return e.exit_code
     except SystemExit as e:
         return e.code
     except Exception:
@@ -334,7 +382,7 @@ async def gen_main(cmd_input: Optional[List[str]] = None) -> int:
         await drain_coroutines(pending)
 
 
-async def drain_coroutines(pending: Set[asyncio.Task]) -> None:
+async def drain_coroutines(pending: set[asyncio.Task]) -> None:
     if not pending:
         return
     logger.debug(f"Shutting down {len(pending)} coroutines")
@@ -349,13 +397,13 @@ async def drain_coroutines(pending: Set[asyncio.Task]) -> None:
         pass
 
 
-def main(cmd_input: Optional[List[str]] = None) -> int:
-    loop = asyncio.get_event_loop()
-    try:
-        return loop.run_until_complete(gen_main(cmd_input))
-    finally:
-        loop.close()
+def main(cmd_input: list[str] | None = None) -> SysExitArg:
+    return asyncio.run(gen_main(cmd_input))
+
+
+def main_2() -> None:
+    sys.exit(main())
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main_2()

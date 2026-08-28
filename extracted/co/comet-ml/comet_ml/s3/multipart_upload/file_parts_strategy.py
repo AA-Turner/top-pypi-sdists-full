@@ -10,11 +10,14 @@
 #  Copyright (C) 2015-2023 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
+import logging
 import math
 import os
-from typing import IO
+from typing import IO, Optional
 
 from .upload_error import S3UploadErrorFileIsEmpty, S3UploadErrorFileIsTooLarge
+
+LOGGER = logging.getLogger(__name__)
 
 # Constants defining existing AWS S3 limits (https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html)
 MAX_SUPPORTED_PARTS_NUMBER = 10000
@@ -43,6 +46,7 @@ class BaseFilePartsStrategy(object):
         if self.file_size == 0:
             raise S3UploadErrorFileIsEmpty(self.file, "Can not upload empty file")
 
+        requested_part_size = self.max_file_part_size
         parts_number = math.ceil(self.file_size / self.max_file_part_size)
 
         if parts_number > MAX_SUPPORTED_PARTS_NUMBER:
@@ -61,6 +65,21 @@ class BaseFilePartsStrategy(object):
         else:
             self.max_file_part_size = part_size
 
+        if self.max_file_part_size != requested_part_size:
+            # Worth saying out loud: peak resident part data is the part size times
+            # the upload concurrency, so an override here silently changes the
+            # memory an upload needs. Above roughly 50 GiB with the smallest parts,
+            # the 10,000 part maximum decides the part size, not the configuration.
+            LOGGER.debug(
+                "S3 file part size adjusted from %d to %d bytes for a %d byte file: "
+                "%d parts, S3 allows at most %d",
+                requested_part_size,
+                self.max_file_part_size,
+                self.file_size,
+                parts_number,
+                MAX_SUPPORTED_PARTS_NUMBER,
+            )
+
         return parts_number
 
 
@@ -68,7 +87,7 @@ class FilePartsStrategy(BaseFilePartsStrategy):
     def __init__(
         self,
         file_path: str,
-        file_size: int = None,
+        file_size: Optional[int] = None,
         max_file_part_size: int = MIN_FILE_PART_SIZE,
     ):
         if file_size is None:

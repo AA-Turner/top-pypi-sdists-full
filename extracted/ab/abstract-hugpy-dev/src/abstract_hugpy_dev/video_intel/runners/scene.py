@@ -12,11 +12,15 @@ whether the spec carries a START-FRAME image part (the FIRST image part):
     available on the fleet (the sd-turbo advertisement flip is HELD), returns a
     retryable `image_to_image_unavailable` JobError — an HONEST failure, never a
     silent fall back to text-to-image. When available:
-      - chain=True  (default): frame 0 conditions on the start frame; each later
-        frame conditions on the PREVIOUS frame's saved output (true sequential
-        chaining) with base + motion step i.
-      - chain=False: every frame conditions on the start frame (no drift) with
-        base + motion step i.
+      - chain=False (default): every frame conditions on the start frame (no
+        drift) with base + motion step i.
+      - chain=True: frame 0 conditions on the start frame; each later frame
+        conditions on the PREVIOUS frame's saved output (true sequential
+        chaining) with base + motion step i. This is the LEGACY pixel chain the
+        oracle directive prohibits: the runner forces chain=False unless the
+        operator opts in with HUGPY_LEGACY_CHAIN=1 (movie_schema.
+        legacy_chain_enabled), and declares it on project.json as
+        legacy_pixel_chain + label 'legacy (pixel-chained)' when it actually ran.
 
 Each frame is materialized to a padded frame_%05d.png under DEFAULT_ROOT and
 re-ingested. When spec.assemble, the frames are muxed into a browser-playable
@@ -46,7 +50,7 @@ import shutil
 import subprocess
 import threading
 import time
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 from abstract_hugpy_dev._platform.binaries import resolve_bin
 from abstract_hugpy_dev.imports.src.constants.constants import DEFAULT_ROOT
@@ -54,6 +58,7 @@ from abstract_hugpy_dev.imports.src.constants.constants import DEFAULT_ROOT
 from ..media_store import ingest
 from ..result_schema import JobError, JobResult
 from ..scene_schema import GenerateSceneSpec, FRAME_CAP
+from ..movie_schema import LEGACY_CHAIN_LABEL, effective_chain
 from ._gpu_guard import guard_gpu_worker
 from ._img2img import img2img_available, start_image_required
 
@@ -270,13 +275,23 @@ def _write_bundle(spec: GenerateSceneSpec, job_id: str, projectmeta: str,
 
     seeds = ([spec.seed + i for i in range(spec.n_frames)]
              if spec.seed is not None else "random")
+    # chaining only actually happens with a start frame AND the legacy opt-in;
+    # without a start frame the v1 seed+schedule path never conditions on frame i.
+    has_start = any(p.kind == "image" and p.media is not None for p in (spec.parts or ()))
+    chained = effective_chain(spec.chain) and has_start
     manifest = {
         "project_name": spec.project,
         "project_uuid": job_id,
         "model_key": spec.model_id,
         "prompt": base_prompt,
         "negative": spec.negative,
-        "chain": spec.chain,
+        "chain": chained,
+        "legacy_pixel_chain": chained,
+        "label": (LEGACY_CHAIN_LABEL if chained else "independent"),
+        "limitations": (["legacy pixel chain: frame i+1 conditions on frame i (runners/scene.py chain=True, "
+                         "opted in with HUGPY_LEGACY_CHAIN=1). The oracle directive prohibits chained "
+                         "generation; use the video.performance recipe for sibling segments, pass "
+                         "chain=false, or unset HUGPY_LEGACY_CHAIN."] if chained else []),
         "width": spec.width,
         "height": spec.height,
         "steps": spec.steps,
@@ -546,8 +561,16 @@ def run_generate_scene(spec: GenerateSceneSpec, job_id: str) -> JobResult:
     # This wrapper keeps only the scene-level prompt resolution, live progress,
     # assembly, and auto-archive bundle.
 
+    # Legacy pixel chain gate (board or-k2 / or-p1): chain is forced OFF unless
+    # the operator opted in with HUGPY_LEGACY_CHAIN=1 — shared with runners/movie.py.
+    if spec.chain and not effective_chain(spec.chain):
+        logger.info("scene %s: chain=true requested but HUGPY_LEGACY_CHAIN is off — "
+                    "rendering every frame off the start frame (chain=false)", job_id)
+        spec = replace(spec, chain=False)
+
     out_dir = os.path.join(DEFAULT_ROOT, "video_intel", "scenes", job_id)
     os.makedirs(out_dir, exist_ok=True)
+    _write_spec_sidecar(out_dir, job_id, "generate_scene", spec)
 
     refs = []
     done_frame_paths: "list[str]" = []   # frame PNG paths, in order (for the bundle)
@@ -555,6 +578,7 @@ def run_generate_scene(spec: GenerateSceneSpec, job_id: str) -> JobResult:
     total = spec.n_frames
     _frame_clock = [started_at]          # last-completion ts (mutable holder)
     _label_prompt = base_prompt if len(base_prompt) <= 80 else base_prompt[:79] + "…"
+    _chained = bool(spec.chain and start_frame is not None)
 
     def _emit(stage: str, done: int, label: str) -> None:
         """Build + persist the live progress blob (best-effort — never raises)."""
@@ -566,6 +590,8 @@ def run_generate_scene(spec: GenerateSceneSpec, job_id: str) -> JobResult:
             "stage": stage,
             "label": label,
             "model": spec.model_id,
+            "legacy_pixel_chain": _chained,
+            "mode": (LEGACY_CHAIN_LABEL if _chained else "independent"),
             # completed FRAMES only (kind=='image'); the mp4 is a terminal output,
             # never a gallery frame. Same MediaRef dict shape as result.outputs so
             # the UI's frame renderer works unchanged.
@@ -660,3 +686,30 @@ def run_generate_scene(spec: GenerateSceneSpec, job_id: str) -> JobResult:
         project={"name": spec.project, "uuid": job_id,
                  "dir": f"assets/{projectmeta}"},
     )
+
+
+def _write_spec_sidecar(out_dir: str, job_id: str, kind: str, spec_obj) -> None:
+    """Drop prompt.txt + manifest.json NEXT TO the render (2026-08-13, operator
+    ask: "the prompt info is not associated clearly with the directory in which
+    the media is saved" — until now the spec lived only in media_jobs.db and
+    every output dir shipped bare). Best-effort — a sidecar failure must never
+    fail a render."""
+    try:
+        import dataclasses as _dc
+        import json as _json
+        import time as _time
+        d = _dc.asdict(spec_obj) if _dc.is_dataclass(spec_obj) else (
+            spec_obj if isinstance(spec_obj, dict) else {"repr": repr(spec_obj)})
+        prompts = [p.get("text") for p in (d.get("parts") or [])
+                   if isinstance(p, dict) and p.get("kind") == "text" and p.get("text")]
+        prompts += [g.get("prompt") for g in (d.get("goals") or [])
+                    if isinstance(g, dict) and g.get("prompt")]
+        if d.get("prompt"):
+            prompts.append(d["prompt"])
+        with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
+            _json.dump({"job_id": job_id, "kind": kind, "created": _time.time(),
+                        "spec": d}, fh, indent=1, default=str)
+        with open(os.path.join(out_dir, "prompt.txt"), "w", encoding="utf-8") as fh:
+            fh.write("\n\n".join(p for p in prompts if p) + "\n")
+    except Exception:  # noqa: BLE001 — sidecars are documentation, never load-bearing
+        pass

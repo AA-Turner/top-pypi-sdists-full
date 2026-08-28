@@ -339,3 +339,22 @@ class GetWorkflowOrchestratorWorkflowHistoryResponse(_message.Message):
         spans: _Optional[_Iterable[_Union[WorkflowOrchestratorTraceSpan, _Mapping]]] = ...,
         truncated: bool = ...,
     ) -> None: ...
+
+class GetWorkflowOrchestratorConnectionDetailsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetWorkflowOrchestratorConnectionDetailsResponse(_message.Message):
+    __slots__ = ("endpoint", "temporal_namespace", "default_task_queue")
+    ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    TEMPORAL_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_TASK_QUEUE_FIELD_NUMBER: _ClassVar[int]
+    endpoint: str
+    temporal_namespace: str
+    default_task_queue: str
+    def __init__(
+        self,
+        endpoint: _Optional[str] = ...,
+        temporal_namespace: _Optional[str] = ...,
+        default_task_queue: _Optional[str] = ...,
+    ) -> None: ...

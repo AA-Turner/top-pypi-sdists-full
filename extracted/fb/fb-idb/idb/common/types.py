@@ -4,31 +4,21 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import asyncio
 import json
-from abc import ABC, abstractmethod, abstractproperty
-from asyncio import StreamWriter, StreamReader
+from abc import ABC, abstractmethod
+from asyncio import StreamReader, StreamWriter
+from collections.abc import AsyncGenerator, AsyncIterable, AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import timedelta
 from enum import Enum
 from io import StringIO
-from typing import (
-    IO,
-    AsyncContextManager,
-    AsyncGenerator,
-    AsyncIterable,
-    AsyncIterator,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import IO, List, Optional, Set, Tuple, Union
 
 
-LoggingMetadata = Dict[str, Optional[Union[str, List[str], int, float]]]
+LoggingMetadata = dict[str, Optional[Union[str, list[str], int, float]]]
 
 
 class IdbException(Exception):
@@ -39,11 +29,6 @@ class IdbConnectionException(Exception):
     pass
 
 
-@dataclass(frozen=True)
-class ExitWithCodeException(Exception):
-    exit_code: int
-
-
 class Permission(Enum):
     PHOTOS = 0
     CAMERA = 1
@@ -51,12 +36,19 @@ class Permission(Enum):
     URL = 3
     LOCATION = 4
     NOTIFICATION = 5
+    MICROPHONE = 6
 
 
 class TargetType(str, Enum):
     DEVICE = "device"
     SIMULATOR = "simulator"
     MAC = "mac"
+
+    # enum.StrEnum is python 3.11+, and the client is installed onto older
+    # interpreters. These are the two assignments StrEnum makes over a str
+    # mixin: stringify and format as the value, not as "TargetType.DEVICE".
+    __str__ = str.__str__
+    __format__ = str.__format__
 
 
 @dataclass(frozen=True)
@@ -65,6 +57,12 @@ class ECIDFilter:
 
 
 OnlyFilter = Union[TargetType, ECIDFilter]
+
+
+class Architecture(Enum):
+    ANY = "any"
+    X86 = "x86_64"
+    ARM64 = "arm64"
 
 
 class VideoFormat(Enum):
@@ -98,7 +96,7 @@ class AppProcessState(Enum):
 class InstalledAppInfo:
     bundle_id: str
     name: str
-    architectures: Set[str]
+    architectures: set[str]
     install_type: str
     process_state: AppProcessState
     debuggable: bool
@@ -107,10 +105,10 @@ class InstalledAppInfo:
 
 @dataclass(frozen=True)
 class InstrumentsTimings:
-    launch_error_timeout: Optional[float] = None
-    launch_retry_timeout: Optional[float] = None
-    terminate_timeout: Optional[float] = None
-    operation_duration: Optional[float] = None
+    launch_error_timeout: float | None = None
+    launch_retry_timeout: float | None = None
+    terminate_timeout: float | None = None
+    operation_duration: float | None = None
 
 
 class HIDButtonType(Enum):
@@ -128,7 +126,7 @@ ConnectionDestination = Union[str, Address]
 class CompanionInfo:
     udid: str
     is_local: bool
-    pid: Optional[int]
+    pid: int | None
     address: Address
     metadata: LoggingMetadata = field(default_factory=dict)
 
@@ -137,9 +135,163 @@ class CompanionInfo:
 class ScreenDimensions:
     width: int
     height: int
-    density: Optional[float]
-    width_points: Optional[int]
-    height_points: Optional[int]
+    density: float | None
+    width_points: int | None
+    height_points: int | None
+
+
+# The encoding of a screenshot. Values are the names the companion reports back
+# in the response, so they are the wire contract as well as the CLI's choices.
+class ScreenshotFormat(Enum):
+    PNG = "png"
+    JPEG = "jpeg"
+    TIFF = "tiff"
+
+
+# The unit a crop rect and a fit bound are expressed in. POINTS is the space
+# tap, swipe and describe already use; it is resolved to pixels on the
+# companion, which is the only side that knows the screen scale.
+class ScreenshotUnit(Enum):
+    PIXELS = "pixels"
+    POINTS = "points"
+
+
+# Top-left origin, matching the tap/swipe coordinate space. A rect that
+# partially overhangs the screen is clamped by the companion, which reports the
+# dimensions it actually captured.
+@dataclass(frozen=True)
+class ScreenshotCrop:
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+# Shapes the screenshot request. The defaults are the behaviour every caller got
+# before the request had fields: a full-screen, unscaled PNG.
+#
+# Only what the wire cannot express is rejected here. A scale factor in (0, 1]
+# and a crop that lies on the screen are the companion's to enforce, since a
+# crop can only be judged against the screen that was actually captured, and a
+# second copy of those rules would drift from the first. See __post_init__ for
+# the three that the wire cannot carry as sent.
+@dataclass(frozen=True)
+class ScreenshotOptions:
+    format: ScreenshotFormat = ScreenshotFormat.PNG
+    # Lossy formats only, in (0, 1]; None means the companion's default. The
+    # companion rejects one set on PNG or TIFF rather than ignoring it, so a
+    # caller who believes they are getting a smaller image finds out that they
+    # are not.
+    compression_quality: float | None = None
+    crop: ScreenshotCrop | None = None
+    # A scale factor and a fit bound are alternatives on the wire, so asking for
+    # both cannot be sent. One factor is applied to both axes and the image is
+    # never upscaled, so the aspect ratio is preserved to within the rounding of
+    # each side to a whole pixel; an unset bound is unbounded on that axis.
+    scale_factor: float | None = None
+    max_width: int | None = None
+    max_height: int | None = None
+    unit: ScreenshotUnit = ScreenshotUnit.PIXELS
+
+    # Only the rules the wire cannot carry are checked here; everything the
+    # companion can see for itself is left to it, so there is one copy of each
+    # rule rather than two that drift. A scale factor of 2 or a crop with a
+    # negative width travel intact and come back as INVALID_ARGUMENT. These
+    # three do not travel intact:
+    #
+    # - a factor and a bounding box are alternatives in a proto `oneof`, so
+    #   setting both silently drops one instead of being an error
+    # - 0 is a proto scalar's "unset", so a compression quality of 0 arrives
+    #   indistinguishable from asking for the default, and would come back a
+    #   JPEG at 0.8 reported as a success
+    # - the fit bounds are `uint32`, so a negative one raises out of protobuf
+    #   before any of this runs, and surfaces as a traceback
+    def __post_init__(self) -> None:
+        if self.scale_factor is not None and (
+            self.max_width is not None or self.max_height is not None
+        ):
+            raise ValueError(
+                "A screenshot can be scaled by a factor or fitted to a bounding "
+                "box, not both"
+            )
+        if self.compression_quality is not None and not (
+            0 < self.compression_quality <= 1
+        ):
+            raise ValueError(
+                f"Compression quality {self.compression_quality} is not in the "
+                "range (0, 1]"
+            )
+        for name, bound in (
+            ("max_width", self.max_width),
+            ("max_height", self.max_height),
+        ):
+            if bound is not None and bound < 1:
+                raise ValueError(
+                    f"{name} {bound} is not a positive number of "
+                    f"{self.unit.value}; leave it unset to bound only the other "
+                    "axis"
+                )
+
+
+# Asking for nothing in particular. Named so that it can be a default argument
+# without constructing one per call site, and so that "the caller configured
+# something" is a single comparison.
+DEFAULT_SCREENSHOT_OPTIONS: ScreenshotOptions = ScreenshotOptions()
+
+
+# The bytes of a screenshot, and what the companion says they are.
+#
+# This is a bytes subclass rather than a wrapper because screenshot() returned
+# bare bytes before it could be configured, and its callers write them to files,
+# base64 them and isinstance-check them. The measurements ride along for the
+# callers that want them without breaking any of that.
+#
+# Every measurement is None when the companion did not report one, which is the
+# case for a companion older than the fields on the request.
+class Screenshot(bytes):
+    format: ScreenshotFormat
+    width: int | None
+    height: int | None
+    source_width: int | None
+    source_height: int | None
+    # Pixels per point, so a caller can convert between the two units itself.
+    # None on a target that does not report one, which is also the target that
+    # refuses a request expressed in points.
+    screen_scale: float | None
+
+    def __new__(
+        cls,
+        data: bytes,
+        format: ScreenshotFormat = ScreenshotFormat.PNG,
+        width: int | None = None,
+        height: int | None = None,
+        source_width: int | None = None,
+        source_height: int | None = None,
+        screen_scale: float | None = None,
+    ) -> "Screenshot":
+        screenshot = super().__new__(cls, data)
+        screenshot.format = format
+        screenshot.width = width
+        screenshot.height = height
+        screenshot.source_width = source_width
+        screenshot.source_height = source_height
+        screenshot.screen_scale = screen_scale
+        return screenshot
+
+    def __repr__(self) -> str:
+        # bytes' own repr would print the whole image into a traceback.
+        def size(width: int | None, height: int | None) -> str:
+            # "NonexNone" reads as a measurement rather than the absence of one.
+            return (
+                "unreported" if width is None or height is None else f"{width}x{height}"
+            )
+
+        return (
+            f"Screenshot({len(self)} bytes, format={self.format.value}, "
+            f"size={size(self.width, self.height)}, "
+            f"source_size={size(self.source_width, self.source_height)}, "
+            f"screen_scale={self.screen_scale})"
+        )
 
 
 DeviceDetails = Mapping[str, Union[int, str]]
@@ -150,15 +302,15 @@ class TargetDescription:
     udid: str
     name: str
     target_type: TargetType
-    state: Optional[str]
-    os_version: Optional[str]
-    architecture: Optional[str]
-    companion_info: Optional[CompanionInfo]
-    screen_dimensions: Optional[ScreenDimensions]
-    model: Optional[str] = None
-    device: Optional[DeviceDetails] = None
-    extended: Optional[DeviceDetails] = None
-    diagnostics: Optional[DeviceDetails] = None
+    state: str | None
+    os_version: str | None
+    architecture: str | None
+    companion_info: CompanionInfo | None
+    screen_dimensions: ScreenDimensions | None
+    model: str | None = None
+    device: DeviceDetails | None = None
+    extended: DeviceDetails | None = None
+    diagnostics: DeviceDetails | None = None
     metadata: LoggingMetadata = field(default_factory=dict)
 
     @property
@@ -174,7 +326,7 @@ class FileEntryInfo:
 @dataclass(frozen=True)
 class FileListing:
     parent: str
-    entries: List[FileEntryInfo]
+    entries: list[FileEntryInfo]
 
 
 @dataclass(frozen=True)
@@ -182,29 +334,127 @@ class AccessibilityInfo:
     json: str
 
 
+class AccessibilitySearchableKey(Enum):
+    LABEL = 0
+    UNIQUE_ID = 1
+    VALUE = 2
+    TITLE = 3
+    ROLE = 4
+    ROLE_DESCRIPTION = 5
+    SUBROLE = 6
+    HELP = 7
+    PLACEHOLDER = 8
+
+
+@dataclass(frozen=True)
+class AccessibilityPoint:
+    x: int
+    y: int
+
+
+@dataclass(frozen=True)
+class AccessibilityMarker:
+    value: str
+    match_key: AccessibilitySearchableKey = AccessibilitySearchableKey.LABEL
+    depth: int = 10
+
+
+# Selects an accessibility element to act on: a point or a marker (or None = the
+# whole screen / frontmost app). This union grows as accessibility commands land.
+AccessibilityTarget = Union[AccessibilityPoint, AccessibilityMarker]
+
+
+# CLI names (matching the sime2e vocabulary) for the accessibility searchable
+# keys, so the same marker/expected-value flags work across both CLIs.
+ACCESSIBILITY_KEY_BY_NAME: dict[str, AccessibilitySearchableKey] = {
+    "AXLabel": AccessibilitySearchableKey.LABEL,
+    "AXUniqueId": AccessibilitySearchableKey.UNIQUE_ID,
+    "AXValue": AccessibilitySearchableKey.VALUE,
+    "title": AccessibilitySearchableKey.TITLE,
+    "role": AccessibilitySearchableKey.ROLE,
+    "role_description": AccessibilitySearchableKey.ROLE_DESCRIPTION,
+    "subrole": AccessibilitySearchableKey.SUBROLE,
+    "help": AccessibilitySearchableKey.HELP,
+    "placeholder": AccessibilitySearchableKey.PLACEHOLDER,
+}
+
+
+# Which backend serves an accessibility read. Values match the wire protocol;
+# None on the options means "unspecified" — the companion's historical default
+# backend, and the only value an older companion understands.
+class AccessibilityBackend(Enum):
+    AX = 1
+    AXBRIDGE = 2
+    AXBRIDGE_PERSISTENT = 3
+
+
+ACCESSIBILITY_BACKEND_BY_NAME: dict[str, AccessibilityBackend] = {
+    "ax": AccessibilityBackend.AX,
+    "axbridge": AccessibilityBackend.AXBRIDGE,
+    "axbridge-persistent": AccessibilityBackend.AXBRIDGE_PERSISTENT,
+}
+
+
+# The output format of an accessibility read. Values match the wire protocol;
+# None on the options defers to the deprecated `nested` flag, preserving the
+# historical request shape.
+class AccessibilityOutputFormat(Enum):
+    LEGACY = 0
+    NESTED = 1
+    COMPLETE = 2
+
+
+ACCESSIBILITY_FORMAT_BY_NAME: dict[str, AccessibilityOutputFormat] = {
+    "default": AccessibilityOutputFormat.LEGACY,
+    "nested": AccessibilityOutputFormat.NESTED,
+    "complete": AccessibilityOutputFormat.COMPLETE,
+}
+
+
+# Shapes the accessibility_info request: the format, which accessibility
+# keys are reported, and which backend serves the read. This grows as
+# describe-all gains enrichers.
+@dataclass(frozen=True)
+class AccessibilityInfoOptions:
+    nested: bool = False
+    keys: list[str] | None = None
+    backend: AccessibilityBackend | None = None
+    format: AccessibilityOutputFormat | None = None
+    profile: bool = False
+    collect_frame_coverage: bool = False
+
+
+class AccessibilityScrollDirection(Enum):
+    UP = 0
+    DOWN = 1
+    LEFT = 2
+    RIGHT = 3
+    VISIBLE = 4
+
+
 @dataclass(frozen=True)
 class CrashLogInfo:
-    name: Optional[str]
-    bundle_id: Optional[str]
-    process_name: Optional[str]
-    parent_process_name: Optional[str]
-    process_identifier: Optional[int]
-    parent_process_identifier: Optional[int]
-    timestamp: Optional[int]
+    name: str | None
+    bundle_id: str | None
+    process_name: str | None
+    parent_process_name: str | None
+    process_identifier: int | None
+    parent_process_identifier: int | None
+    timestamp: int | None
 
 
 @dataclass(frozen=True)
 class CrashLog:
-    info: Optional[CrashLogInfo]
-    contents: Optional[str]
+    info: CrashLogInfo | None
+    contents: str | None
 
 
 @dataclass(frozen=True)
 class CrashLogQuery:
-    since: Optional[int] = None
-    before: Optional[int] = None
-    bundle_id: Optional[str] = None
-    name: Optional[str] = None
+    since: int | None = None
+    before: int | None = None
+    bundle_id: str | None = None
+    name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -220,6 +470,7 @@ class TestAttachment:
     timestamp: float
     name: str
     uniform_type_identifier: str
+    user_info_json: bytes
 
 
 @dataclass(frozen=True)
@@ -231,8 +482,8 @@ class TestActivity:
     start: float
     finish: float
     name: str
-    attachments: List[TestAttachment]
-    sub_activities: List["TestActivity"]
+    attachments: list[TestAttachment]
+    sub_activities: list["TestActivity"]
 
 
 @dataclass(frozen=True)
@@ -240,11 +491,11 @@ class TestRunInfo:
     bundle_name: str
     class_name: str
     method_name: str
-    logs: List[str]
+    logs: list[str]
     duration: float
     passed: bool
-    failure_info: Optional[TestRunFailureInfo]
-    activityLogs: Optional[List[TestActivity]]
+    failure_info: TestRunFailureInfo | None
+    activityLogs: list[TestActivity] | None
     crashed: bool
 
     @property
@@ -255,8 +506,8 @@ class TestRunInfo:
 @dataclass(frozen=True)
 class InstalledTestInfo:
     bundle_id: str
-    name: Optional[str]
-    architectures: Optional[Set[str]]
+    name: str | None
+    architectures: set[str] | None
 
 
 @dataclass(frozen=True)
@@ -303,8 +554,8 @@ class HIDPress:
 class HIDSwipe:
     start: Point
     end: Point
-    delta: Optional[float]
-    duration: Optional[float]
+    delta: float | None
+    duration: float | None
 
 
 @dataclass(frozen=True)
@@ -312,14 +563,39 @@ class HIDDelay:
     duration: float
 
 
-HIDEvent = Union[HIDPress, HIDSwipe, HIDDelay]
+@dataclass(frozen=True)
+class HIDPinch:
+    center: Point
+    scale: float
+    duration: float
+    radius: float
+
+
+class HIDOrientationType(Enum):
+    PORTRAIT = 0
+    PORTRAIT_UPSIDE_DOWN = 1
+    LANDSCAPE_LEFT = 2
+    LANDSCAPE_RIGHT = 3
+
+
+@dataclass(frozen=True)
+class HIDOrientation:
+    orientation: HIDOrientationType
+
+
+@dataclass(frozen=True)
+class HIDShake:
+    pass
+
+
+HIDEvent = Union[HIDPress, HIDSwipe, HIDDelay, HIDPinch, HIDOrientation, HIDShake]
 
 
 @dataclass(frozen=True)
 class InstalledArtifact:
     name: str
-    uuid: Optional[str]
-    progress: Optional[float]
+    uuid: str | None
+    progress: float | None
 
 
 class FileContainerType(Enum):
@@ -357,74 +633,76 @@ class CodeCoverageFormat(Enum):
 class Companion(ABC):
     @abstractmethod
     async def create(
-        self, device_type: str, os_version: str, timeout: Optional[timedelta] = None
+        self, device_type: str, os_version: str, timeout: timedelta | None = None
     ) -> TargetDescription:
         pass
 
     @abstractmethod
     async def boot(
-        self, udid: str, verify: bool = True, timeout: Optional[timedelta] = None
+        self, udid: str, verify: bool = True, timeout: timedelta | None = None
     ) -> None:
         pass
 
     @abstractmethod
-    async def boot_headless(  # pyre-fixme
-        self, udid: str, verify: bool = True, timeout: Optional[timedelta] = None
-    ) -> AsyncContextManager[None]:
+    @asynccontextmanager
+    async def boot_headless(
+        self, udid: str, verify: bool = True, timeout: timedelta | None = None
+    ) -> AsyncGenerator[None, None]:
         yield
 
     @abstractmethod
-    async def shutdown(self, udid: str, timeout: Optional[timedelta] = None) -> None:
+    async def shutdown(self, udid: str, timeout: timedelta | None = None) -> None:
         pass
 
     @abstractmethod
-    async def erase(self, udid: str, timeout: Optional[timedelta] = None) -> None:
+    async def erase(self, udid: str, timeout: timedelta | None = None) -> None:
         pass
 
     @abstractmethod
     async def clone(
         self,
         udid: str,
-        destination_device_set: Optional[str] = None,
-        timeout: Optional[timedelta] = None,
+        destination_device_set: str | None = None,
+        timeout: timedelta | None = None,
     ) -> TargetDescription:
         pass
 
     @abstractmethod
-    async def delete(
-        self, udid: Optional[str], timeout: Optional[timedelta] = None
-    ) -> None:
+    async def delete(self, udid: str | None, timeout: timedelta | None = None) -> None:
         pass
 
     @abstractmethod
-    async def clean(self, udid: str, timeout: Optional[timedelta] = None) -> None:
+    async def clean(self, udid: str, timeout: timedelta | None = None) -> None:
         pass
 
     @abstractmethod
     async def list_targets(
-        self, only: Optional[OnlyFilter] = None, timeout: Optional[timedelta] = None
-    ) -> List[TargetDescription]:
+        self, only: OnlyFilter | None = None, timeout: timedelta | None = None
+    ) -> list[TargetDescription]:
         pass
 
     @abstractmethod
     async def tail_targets(
-        self, only: Optional[OnlyFilter] = None
-    ) -> AsyncGenerator[List[TargetDescription], None]:
+        self, only: OnlyFilter | None = None
+    ) -> AsyncGenerator[list[TargetDescription], None]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
     async def target_description(
         self,
-        udid: Optional[str] = None,
-        only: Optional[OnlyFilter] = None,
-        timeout: Optional[timedelta] = None,
+        udid: str | None = None,
+        only: OnlyFilter | None = None,
+        timeout: timedelta | None = None,
     ) -> TargetDescription:
         pass
 
     @abstractmethod
-    async def unix_domain_server(  # pyre-fixme
-        self, udid: str, path: str, only: Optional[OnlyFilter] = None
-    ) -> AsyncContextManager[str]:
+    @asynccontextmanager
+    async def unix_domain_server(
+        self, udid: str, path: str, only: OnlyFilter | None = None
+    ) -> AsyncGenerator[str, None]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
 
@@ -433,19 +711,20 @@ class Client(ABC):
     @abstractmethod
     async def list_apps(
         self, fetch_process_state: bool = True
-    ) -> List[InstalledAppInfo]:
+    ) -> list[InstalledAppInfo]:
         pass
 
     @abstractmethod
     async def launch(
         self,
         bundle_id: str,
-        env: Optional[Dict[str, str]] = None,
-        args: Optional[List[str]] = None,
+        env: dict[str, str] | None = None,
+        args: list[str] | None = None,
         foreground_if_running: bool = False,
         wait_for_debugger: bool = False,
-        stop: Optional[asyncio.Event] = None,
-        pid_file: Optional[str] = None,
+        stop: asyncio.Event | None = None,
+        pid_file: str | None = None,
+        enable_repl: bool = False,
     ) -> None:
         pass
 
@@ -454,61 +733,70 @@ class Client(ABC):
         self,
         test_bundle_id: str,
         app_bundle_id: str,
-        test_host_app_bundle_id: Optional[str] = None,
+        test_host_app_bundle_id: str | None = None,
         is_ui_test: bool = False,
         is_logic_test: bool = False,
-        tests_to_run: Optional[Set[str]] = None,
-        tests_to_skip: Optional[Set[str]] = None,
-        env: Optional[Dict[str, str]] = None,
-        args: Optional[List[str]] = None,
-        result_bundle_path: Optional[str] = None,
-        idb_log_buffer: Optional[StringIO] = None,
-        timeout: Optional[int] = None,
+        tests_to_run: set[str] | None = None,
+        tests_to_skip: set[str] | None = None,
+        env: dict[str, str] | None = None,
+        args: list[str] | None = None,
+        result_bundle_path: str | None = None,
+        idb_log_buffer: StringIO | None = None,
+        timeout: int | None = None,
         poll_interval_sec: float = 0.5,
         report_activities: bool = False,
         report_attachments: bool = False,
-        activities_output_path: Optional[str] = None,
-        coverage_output_path: Optional[str] = None,
+        activities_output_path: str | None = None,
+        coverage_output_path: str | None = None,
+        enable_continuous_coverage_collection: bool = False,
         coverage_format: CodeCoverageFormat = CodeCoverageFormat.EXPORTED,
-        log_directory_path: Optional[str] = None,
+        log_directory_path: str | None = None,
         wait_for_debugger: bool = False,
     ) -> AsyncIterator[TestRunInfo]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
     async def install(
         self,
-        bundle: Union[str, IO[bytes]],
-        compression: Optional[Compression] = None,
-        make_debuggable: Optional[bool] = None,
+        bundle: str | IO[bytes],
+        compression: Compression | None = None,
+        make_debuggable: bool | None = None,
+        override_modification_time: bool | None = None,
     ) -> AsyncIterator[InstalledArtifact]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
     async def install_dylib(
-        self, dylib: Union[str, IO[bytes]]
+        self, dylib: str | IO[bytes]
     ) -> AsyncIterator[InstalledArtifact]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
     async def install_dsym(
         self,
-        dsym: Union[str, IO[bytes]],
-        bundle_id: Optional[str],
-        compression: Optional[Compression],
+        dsym: str | IO[bytes],
+        bundle_id: str | None,
+        compression: Compression | None,
+        bundle_type: FileContainerType | None = None,
     ) -> AsyncIterator[InstalledArtifact]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
     async def install_xctest(
-        self, xctest: Union[str, IO[bytes]]
+        self, xctest: str | IO[bytes], skip_signing_bundles: bool | None = None
     ) -> AsyncIterator[InstalledArtifact]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
     async def install_framework(
-        self, framework_path: Union[str, IO[bytes]]
+        self, framework_path: str | IO[bytes]
     ) -> AsyncIterator[InstalledArtifact]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
@@ -516,7 +804,7 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    async def list_xctests(self) -> List[InstalledTestInfo]:
+    async def list_xctests(self) -> list[InstalledTestInfo]:
         pass
 
     @abstractmethod
@@ -524,17 +812,19 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    async def list_test_bundle(self, test_bundle_id: str, app_path: str) -> List[str]:
+    async def list_test_bundle(self, test_bundle_id: str, app_path: str) -> list[str]:
         pass
 
     @abstractmethod
     async def tail_logs(
-        self, stop: asyncio.Event, arguments: Optional[List[str]] = None
+        self, stop: asyncio.Event, arguments: list[str] | None = None
     ) -> AsyncIterator[str]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
     async def tail_companion_logs(self, stop: asyncio.Event) -> AsyncIterator[str]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
@@ -542,29 +832,17 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    async def set_hardware_keyboard(self, enabled: bool) -> None:
-        pass
-
-    @abstractmethod
-    async def set_locale(self, locale_identifier: str) -> None:
-        pass
-
-    @abstractmethod
     async def set_preference(
-        self, name: str, value: str, value_type: str, domain: Optional[str]
+        self, name: str, value: str, value_type: str, domain: str | None
     ) -> None:
         pass
 
     @abstractmethod
-    async def get_locale(self) -> str:
+    async def get_preference(self, name: str, domain: str | None) -> str:
         pass
 
     @abstractmethod
-    async def get_preference(self, name: str, domain: Optional[str]) -> str:
-        pass
-
-    @abstractmethod
-    async def list_locale_identifiers(self) -> List[str]:
+    async def list_locale_identifiers(self) -> list[str]:
         pass
 
     @abstractmethod
@@ -585,7 +863,13 @@ class Client(ABC):
 
     @abstractmethod
     async def approve(
-        self, bundle_id: str, permissions: Set[Permission], scheme: Optional[str] = None
+        self, bundle_id: str, permissions: set[Permission], scheme: str | None = None
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def revoke(
+        self, bundle_id: str, permissions: set[Permission], scheme: str | None = None
     ) -> None:
         pass
 
@@ -596,43 +880,65 @@ class Client(ABC):
     @abstractmethod
     async def stream_video(
         self,
-        output_file: Optional[str],
-        fps: Optional[int],
+        output_file: str | None,
+        fps: int | None,
         format: VideoFormat,
         compression_quality: float,
         scale_factor: float = 1,
     ) -> AsyncGenerator[bytes, None]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
     @abstractmethod
-    async def screenshot(self) -> bytes:
+    async def screenshot(
+        self, options: ScreenshotOptions = DEFAULT_SCREENSHOT_OPTIONS
+    ) -> Screenshot:
         pass
 
     @abstractmethod
-    async def tap(self, x: float, y: float, duration: Optional[float] = None) -> None:
+    async def tap(self, x: float, y: float, duration: float | None = None) -> None:
         pass
 
     @abstractmethod
-    async def button(
-        self, button_type: HIDButtonType, duration: Optional[float] = None
+    async def multi_tap(
+        self,
+        x: float,
+        y: float,
+        count: int = 2,
+        duration: float | None = None,
+        pause: float = 0.1,
     ) -> None:
         pass
 
     @abstractmethod
-    async def key(self, keycode: int, duration: Optional[float] = None) -> None:
+    async def button(
+        self, button_type: HIDButtonType, duration: float | None = None
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def rotate(self, orientation: HIDOrientationType) -> None:
+        pass
+
+    @abstractmethod
+    async def shake(self) -> None:
+        pass
+
+    @abstractmethod
+    async def key(self, keycode: int, duration: float | None = None) -> None:
         return
 
     @abstractmethod
-    async def key_sequence(self, key_sequence: List[int]) -> None:
+    async def key_sequence(self, key_sequence: list[int]) -> None:
         pass
 
     @abstractmethod
     async def swipe(
         self,
-        p_start: Tuple[int, int],
-        p_end: Tuple[int, int],
-        duration: Optional[float] = None,
-        delta: Optional[int] = None,
+        p_start: tuple[int, int],
+        p_end: tuple[int, int],
+        duration: float | None = None,
+        delta: int | None = None,
     ) -> None:
         pass
 
@@ -645,13 +951,48 @@ class Client(ABC):
         pass
 
     @abstractmethod
+    async def contacts_clear(self) -> None:
+        pass
+
+    @abstractmethod
+    async def photos_clear(self) -> None:
+        pass
+
+    @abstractmethod
     async def describe(self, fetch_diagnostics: bool = False) -> TargetDescription:
         pass
 
     @abstractmethod
     async def accessibility_info(
-        self, point: Optional[Tuple[int, int]], nested: bool
+        self,
+        target: AccessibilityTarget | None,
+        options: AccessibilityInfoOptions,
     ) -> AccessibilityInfo:
+        pass
+
+    @abstractmethod
+    async def accessibility_tap(
+        self,
+        target: AccessibilityTarget,
+        expected_value: str | None = None,
+        expected_key: AccessibilitySearchableKey = AccessibilitySearchableKey.LABEL,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def accessibility_scroll(
+        self,
+        target: AccessibilityTarget | None,
+        direction: AccessibilityScrollDirection,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def accessibility_set_value(
+        self,
+        target: AccessibilityTarget,
+        value: str,
+    ) -> None:
         pass
 
     @abstractmethod
@@ -661,13 +1002,13 @@ class Client(ABC):
         trace_basename: str,
         template_name: str,
         app_bundle_id: str,
-        app_environment: Optional[Dict[str, str]] = None,
-        app_arguments: Optional[List[str]] = None,
-        tool_arguments: Optional[List[str]] = None,
-        started: Optional[asyncio.Event] = None,
-        timings: Optional[InstrumentsTimings] = None,
-        post_process_arguments: Optional[List[str]] = None,
-    ) -> List[str]:
+        app_environment: dict[str, str] | None = None,
+        app_arguments: list[str] | None = None,
+        tool_arguments: list[str] | None = None,
+        started: asyncio.Event | None = None,
+        timings: InstrumentsTimings | None = None,
+        post_process_arguments: list[str] | None = None,
+    ) -> list[str]:
         pass
 
     @abstractmethod
@@ -677,30 +1018,30 @@ class Client(ABC):
         output: str,
         template_name: str,
         all_processes: bool = False,
-        time_limit: Optional[float] = None,
-        package: Optional[str] = None,
-        process_to_attach: Optional[str] = None,
-        process_to_launch: Optional[str] = None,
-        process_env: Optional[Dict[str, str]] = None,
-        launch_args: Optional[List[str]] = None,
-        target_stdin: Optional[str] = None,
-        target_stdout: Optional[str] = None,
-        post_args: Optional[List[str]] = None,
-        stop_timeout: Optional[float] = None,
-        started: Optional[asyncio.Event] = None,
-    ) -> List[str]:
+        time_limit: float | None = None,
+        package: str | None = None,
+        process_to_attach: str | None = None,
+        process_to_launch: str | None = None,
+        process_env: dict[str, str] | None = None,
+        launch_args: list[str] | None = None,
+        target_stdin: str | None = None,
+        target_stdout: str | None = None,
+        post_args: list[str] | None = None,
+        stop_timeout: float | None = None,
+        started: asyncio.Event | None = None,
+    ) -> list[str]:
         pass
 
     @abstractmethod
-    async def crash_list(self, query: CrashLogQuery) -> List[CrashLogInfo]:
+    async def crash_list(self, query: CrashLogQuery) -> list[CrashLogInfo]:
         pass
 
     @abstractmethod
-    async def crash_delete(self, query: CrashLogQuery) -> List[CrashLogInfo]:
+    async def crash_delete(self, query: CrashLogQuery) -> list[CrashLogInfo]:
         pass
 
     @abstractmethod
-    async def add_media(self, file_paths: List[str]) -> None:
+    async def add_media(self, file_paths: list[str]) -> None:
         pass
 
     @abstractmethod
@@ -713,12 +1054,12 @@ class Client(ABC):
         input_stream: StreamReader,
         output_stream: StreamWriter,
         stop: asyncio.Event,
-        compression: Optional[Compression],
+        compression: Compression | None,
     ) -> None:
         raise NotImplementedError("Dap command not implemented")
 
     @abstractmethod
-    async def debugserver_start(self, bundle_id: str) -> List[str]:
+    async def debugserver_start(self, bundle_id: str) -> list[str]:
         pass
 
     @abstractmethod
@@ -726,7 +1067,7 @@ class Client(ABC):
         pass
 
     @abstractmethod
-    async def debugserver_status(self) -> Optional[List[str]]:
+    async def debugserver_status(self) -> list[str] | None:
         pass
 
     @abstractmethod
@@ -738,23 +1079,33 @@ class Client(ABC):
         pass
 
     @abstractmethod
+    async def pinch(
+        self,
+        center_x: float,
+        center_y: float,
+        scale: float,
+        duration: float = 0.5,
+        radius: float = 100.0,
+    ) -> None: ...
+
+    @abstractmethod
     async def ls_single(
         self, container: FileContainer, path: str
-    ) -> List[FileEntryInfo]:
+    ) -> list[FileEntryInfo]:
         pass
 
     @abstractmethod
-    async def ls(self, container: FileContainer, paths: List[str]) -> List[FileListing]:
+    async def ls(self, container: FileContainer, paths: list[str]) -> list[FileListing]:
         pass
 
     @abstractmethod
     async def mv(
-        self, container: FileContainer, src_paths: List[str], dest_path: str
+        self, container: FileContainer, src_paths: list[str], dest_path: str
     ) -> None:
         pass
 
     @abstractmethod
-    async def rm(self, container: FileContainer, paths: List[str]) -> None:
+    async def rm(self, container: FileContainer, paths: list[str]) -> None:
         pass
 
     @abstractmethod
@@ -770,10 +1121,10 @@ class Client(ABC):
     @abstractmethod
     async def push(
         self,
-        src_paths: List[str],
+        src_paths: list[str],
         container: FileContainer,
         dest_path: str,
-        compression: Optional[Compression],
+        compression: Compression | None,
     ) -> None:
         pass
 
@@ -781,6 +1132,7 @@ class Client(ABC):
     async def tail(
         self, stop: asyncio.Event, container: FileContainer, path: str
     ) -> AsyncIterator[bytes]:
+        # pyrefly: ignore [invalid-yield]
         yield
 
 
@@ -789,18 +1141,17 @@ class ClientManager:
     async def connect(
         self,
         destination: ConnectionDestination,
-        metadata: Optional[Dict[str, str]] = None,
     ) -> CompanionInfo:
         pass
 
     @abstractmethod
-    async def disconnect(self, destination: Union[Address, str]) -> None:
+    async def disconnect(self, destination: Address | str) -> None:
         pass
 
     @abstractmethod
     async def list_targets(
-        self, only: Optional[OnlyFilter] = None
-    ) -> List[TargetDescription]:
+        self, only: OnlyFilter | None = None
+    ) -> list[TargetDescription]:
         pass
 
     @abstractmethod
@@ -817,6 +1168,7 @@ class Server(ABC):
     async def wait_closed(self) -> None:
         pass
 
-    @abstractproperty
-    def ports(self) -> Dict[str, str]:
+    @property
+    @abstractmethod
+    def ports(self) -> dict[str, str]:
         pass

@@ -28,6 +28,8 @@ from chalk._gen.chalk.server.v1.integrations_pb2 import (
     ListIntegrationsAndSecretsResponse,
     ListIntegrationsRequest,
     ListIntegrationsResponse,
+    ListSnowflakeNamedStagesRequest,
+    ListSnowflakeNamedStagesResponse,
     TestIntegrationRequest,
     TestIntegrationResponse,
     UpdateIntegrationRequest,
@@ -96,6 +98,14 @@ class IntegrationsServiceStub:
         TestIntegrationRequest,
         TestIntegrationResponse,
     ]
+    ListSnowflakeNamedStages: UnaryUnaryMultiCallable[
+        ListSnowflakeNamedStagesRequest,
+        ListSnowflakeNamedStagesResponse,
+    ]
+    """Introspects a Snowflake data source for the stages its credentials can see. Same
+    permission as TestIntegration: both connect to the source with the caller-supplied or
+    saved credentials and return only non-secret metadata.
+    """
 
 class IntegrationsServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -176,5 +186,15 @@ class IntegrationsServiceServicer(metaclass=ABCMeta):
         request: TestIntegrationRequest,
         context: ServicerContext,
     ) -> TestIntegrationResponse: ...
+    @abstractmethod
+    def ListSnowflakeNamedStages(
+        self,
+        request: ListSnowflakeNamedStagesRequest,
+        context: ServicerContext,
+    ) -> ListSnowflakeNamedStagesResponse:
+        """Introspects a Snowflake data source for the stages its credentials can see. Same
+        permission as TestIntegration: both connect to the source with the caller-supplied or
+        saved credentials and return only non-secret metadata.
+        """
 
 def add_IntegrationsServiceServicer_to_server(servicer: IntegrationsServiceServicer, server: Server) -> None: ...

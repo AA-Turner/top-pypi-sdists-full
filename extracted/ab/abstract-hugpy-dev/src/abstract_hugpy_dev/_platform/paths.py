@@ -117,6 +117,20 @@ def models_root() -> str:
     return _ensure(os.path.join(data_dir(), "llm_storage"))
 
 
+def demo_media_base() -> str:
+    """Base URL the video arm's canned demo loads its sample media from."""
+    return env_value("HUGPY_DEMO_MEDIA_BASE") or "https://hugpy.ai/demo-media"
+
+
+def demo_media_dir() -> str:
+    """Local demo-media tree to serve at ``/demo-media/`` (self-hosters).
+
+    Empty string means "not configured" — deliberately NO default and NO
+    directory creation; the ``/demo-media/`` route only exists when this is set.
+    """
+    return env_value("HUGPY_DEMO_MEDIA_DIR") or ""
+
+
 def _usable(path: str) -> bool:
     """True only if *path* exists (or can be created) AND is writable."""
     try:

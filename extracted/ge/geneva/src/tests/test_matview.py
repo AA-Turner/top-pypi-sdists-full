@@ -21,6 +21,38 @@ def db_and_table(tmp_path) -> (Connection, Table):
     return db, table
 
 
+def test_refresh_warns_when_column_udf_manifest_not_applied(
+    db_and_table, caplog
+) -> None:
+    """A query-backed view warns per column UDF whose manifest is inert."""
+    import logging
+
+    from geneva.manifest import GenevaManifest
+
+    (db, table) = db_and_table
+
+    @udf(
+        data_type=pa.binary(),
+        manifest=GenevaManifest.create_pip("mv-env").pip(["numpy"]).build(),
+    )
+    def load_video(video_uri: pa.Array) -> pa.Array:
+        return pa.array([str(i).encode("utf-8") for i in video_uri])
+
+    view_table = (
+        table.search(None)
+        .select({"video_uri": "video_uri", "video": load_video})
+        .create_materialized_view(db, "manifest_view")
+    )
+
+    metadata = view_table.schema.metadata or {}
+    with caplog.at_level(logging.WARNING):
+        view_table._warn_refresh_manifests(mv_version_str="1", metadata=metadata)
+
+    assert "is not applied to this refresh" in caplog.text
+    assert "load_video" in caplog.text
+    assert "'video'" in caplog.text
+
+
 def test_create_materialized_view(db_and_table) -> None:
     (db, table) = db_and_table
 

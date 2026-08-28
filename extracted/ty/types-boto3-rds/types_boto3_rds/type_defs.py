@@ -2289,6 +2289,7 @@ class DBSnapshotTypeDef(TypedDict):
     DedicatedLogVolume: NotRequired[bool]
     AdditionalStorageVolumes: NotRequired[list[AdditionalStorageVolumeTypeDef]]
     SnapshotAvailabilityZone: NotRequired[str]
+    FullSnapshotSizeInBytes: NotRequired[int]
 
 
 class PendingModifiedValuesTypeDef(TypedDict):

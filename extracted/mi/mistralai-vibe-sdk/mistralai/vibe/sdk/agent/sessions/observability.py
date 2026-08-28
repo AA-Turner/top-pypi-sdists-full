@@ -117,7 +117,7 @@ async def emit_callback_tool_call_finished(
                 tool_name=payload.name or None,
                 status=TOOL_STATUS_TELEMETRY_MAP.get(raw_status, f"unknown:{raw_status}"),
                 agent_profile_name=str(context["agent_name"]),
-                message_id=payload.id,
+                message_id=str(context["task_id"]) if "task_id" in context else None,
                 tool_duration_ms=tool_duration_ms,
                 tool_completion_source="client_tool_callback",
             ).model_dump(mode="json", exclude_none=True)
@@ -183,7 +183,7 @@ async def emit_history_tool_calls_finished(
                     tool_name=entry.payload.name or call.payload.name or None,
                     status=TOOL_STATUS_TELEMETRY_MAP.get(raw_status, f"unknown:{raw_status}"),
                     agent_profile_name=str(context["agent_name"]),
-                    message_id=entry.payload.id,
+                    message_id=str(context["task_id"]) if "task_id" in context else None,
                     tool_duration_ms=tool_duration_ms,
                     tool_completion_source=tool_completion_source,
                 ).model_dump(mode="json", exclude_none=True)

@@ -7,6 +7,7 @@ def whisper_transcribe(
     language: str | None = "english",
     task: str = "transcribe",
     whisper_model_path: str | None = None,
+    word_timestamps: bool = False,
 ) -> dict[str, Any]:
     if not os.path.isfile(audio_path):
         raise ValueError(f"Audio file does not exist: {audio_path}")
@@ -23,6 +24,12 @@ def whisper_transcribe(
 
     if language:
         options["language"] = language
+
+    # oracle k98 (audio.transcribe.word_timestamps): the last hop of the
+    # passthrough chain — openai-whisper's own transcribe() accepts this flag
+    # and, when set, returns per-word timing on each segment.
+    if word_timestamps:
+        options["word_timestamps"] = True
 
     # Single-flight: only one CPU inference runs at a time. With no swap on this
     # box, stacking concurrent transcribes would multiply anon RAM and saturate
@@ -99,6 +106,7 @@ def transcribe_file_with_workspace(
     capture_frames: bool = False,
     min_gap_seconds: float = 2.0,
     long_segment_seconds: float = 8.0,
+    word_timestamps: bool = False,
 ) -> dict[str, Any]:
     """
     Main media transcription pipeline.
@@ -143,6 +151,7 @@ def transcribe_file_with_workspace(
         language=language,
         task=task,
         whisper_model_path=whisper_model_path,
+        word_timestamps=word_timestamps,
     )
 
     save_transcript_outputs(

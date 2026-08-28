@@ -18,6 +18,7 @@ from lancedb.util import (
 
 from geneva.config import ConfigBase
 from geneva.jobs.jobs import GENEVA_JOBS_TABLE_NAME, JobStatus
+from geneva.runners.ray.naming import ray_name
 from geneva.table import TableReference
 from geneva.utils import dt_now_utc, escape_sql_string
 
@@ -829,7 +830,12 @@ class _JobTracker:
         return m
 
     def __str__(self) -> str:
-        return f"JobTracker(job_id={self.job_id})"
+        """Crash-safe label Ray shows in the dashboard and log-line prefixes."""
+        try:
+            table = getattr(self.table_ref, "table_name", None)
+        except Exception:
+            table = None
+        return ray_name("jobtracker", table=table, job_id=self.job_id)
 
     def __repr__(self) -> str:
         return str(self)

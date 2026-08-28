@@ -88,6 +88,9 @@ class _MinimalBudgetState:
             raw = os.environ.get("_HUGPY_CENTRAL_DISK_CACHE_GIB")
             if raw not in (None, ""):
                 self.limits = {"disk_cache_gib": float(raw)}
+            rr = os.environ.get("_HUGPY_CENTRAL_DISK_RESERVE_GIB")
+            if rr not in (None, ""):
+                self.limits["disk_reserve_gib"] = float(rr)
         except (TypeError, ValueError):
             self.limits = {}
 

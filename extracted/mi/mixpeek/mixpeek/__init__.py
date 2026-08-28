@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.477"
+__version__ = "1.3.488"
 
 # Define package exports
 __all__ = [
@@ -205,6 +205,9 @@ __all__ = [
     "AvailableOrgModelItem",
     "AvailableOrgModelsResponse",
     "AvailableStepsResponse",
+    "AzureBlobConfig",
+    "AzureManagedIdentityCredentials",
+    "AzureStorageAccountKeyCredentials",
     "BYODocument",
     "BYOUpsertRequest",
     "BYOUpsertResponse",
@@ -434,6 +437,7 @@ __all__ = [
     "Credentials2",
     "Credentials3",
     "Credentials4",
+    "Credentials5",
     "CreditBalanceResponse",
     "CurrentUsageResponse",
     "CursorPaginationParams",
@@ -584,6 +588,8 @@ __all__ = [
     "FloatIndexParams",
     "FolderItem",
     "FolderPathSource",
+    "GCSConfig",
+    "GCSServiceAccountKeyCredentials",
     "GaussianMixtureParams",
     "GeminiMultifileExtractorParams",
     "GenerateFromInteractionsRequest",
@@ -1586,6 +1592,9 @@ from mixpeek.models.auto_billing_toggle_response import AutoBillingToggleRespons
 from mixpeek.models.available_org_model_item import AvailableOrgModelItem as AvailableOrgModelItem
 from mixpeek.models.available_org_models_response import AvailableOrgModelsResponse as AvailableOrgModelsResponse
 from mixpeek.models.available_steps_response import AvailableStepsResponse as AvailableStepsResponse
+from mixpeek.models.azure_blob_config import AzureBlobConfig as AzureBlobConfig
+from mixpeek.models.azure_managed_identity_credentials import AzureManagedIdentityCredentials as AzureManagedIdentityCredentials
+from mixpeek.models.azure_storage_account_key_credentials import AzureStorageAccountKeyCredentials as AzureStorageAccountKeyCredentials
 from mixpeek.models.byo_document import BYODocument as BYODocument
 from mixpeek.models.byo_upsert_request import BYOUpsertRequest as BYOUpsertRequest
 from mixpeek.models.byo_upsert_response import BYOUpsertResponse as BYOUpsertResponse
@@ -1815,6 +1824,7 @@ from mixpeek.models.credentials1 import Credentials1 as Credentials1
 from mixpeek.models.credentials2 import Credentials2 as Credentials2
 from mixpeek.models.credentials3 import Credentials3 as Credentials3
 from mixpeek.models.credentials4 import Credentials4 as Credentials4
+from mixpeek.models.credentials5 import Credentials5 as Credentials5
 from mixpeek.models.credit_balance_response import CreditBalanceResponse as CreditBalanceResponse
 from mixpeek.models.current_usage_response import CurrentUsageResponse as CurrentUsageResponse
 from mixpeek.models.cursor_pagination_params import CursorPaginationParams as CursorPaginationParams
@@ -1965,6 +1975,8 @@ from mixpeek.models.flat_taxonomy_config_output import FlatTaxonomyConfigOutput 
 from mixpeek.models.float_index_params import FloatIndexParams as FloatIndexParams
 from mixpeek.models.folder_item import FolderItem as FolderItem
 from mixpeek.models.folder_path_source import FolderPathSource as FolderPathSource
+from mixpeek.models.gcs_config import GCSConfig as GCSConfig
+from mixpeek.models.gcs_service_account_key_credentials import GCSServiceAccountKeyCredentials as GCSServiceAccountKeyCredentials
 from mixpeek.models.gaussian_mixture_params import GaussianMixtureParams as GaussianMixtureParams
 from mixpeek.models.gemini_multifile_extractor_params import GeminiMultifileExtractorParams as GeminiMultifileExtractorParams
 from mixpeek.models.generate_from_interactions_request import GenerateFromInteractionsRequest as GenerateFromInteractionsRequest

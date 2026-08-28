@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast, overload
 
 import zmqtt
@@ -13,6 +13,8 @@ from typing_extensions import override
 from faststream._internal.constants import EMPTY
 from faststream._internal.context import ContextRepo
 from faststream._internal.fastapi.router import StreamRouter
+from faststream._internal.types import IdGenerator
+from faststream.message import gen_cor_id
 from faststream.middlewares import AckPolicy
 from faststream.mqtt.broker.broker import MQTTBroker
 
@@ -46,15 +48,20 @@ class MQTTRouter(StreamRouter[zmqtt.Message]):
 
     def __init__(
         self,
-        host: str = "localhost:1883",
+        url: str = "mqtt://localhost:1883",
         port: int = EMPTY,
         *,
+        host: str = EMPTY,
         client_id: str = "",
         keepalive: int = 60,
         clean_session: bool = True,
+        will: zmqtt.Will | None = None,
         version: Literal["3.1.1", "5.0"] = "5.0",
         reconnect: zmqtt.ReconnectConfig | None = None,
+        on_connection_recovery_failed: Callable[[], Awaitable[None]] | None = None,
         session_expiry_interval: int = 0,
+        session_replay_buffer_size: int = 1000,
+        session_replay_timeout: float = 30.0,
         # broker base args
         graceful_timeout: float | None = 15.0,
         decoder: Optional["CustomCallable"] = None,
@@ -62,6 +69,7 @@ class MQTTRouter(StreamRouter[zmqtt.Message]):
         codec: Optional["CodecProto"] = None,
         middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
         ack_policy: AckPolicy = EMPTY,
+        id_generator: IdGenerator = gen_cor_id,
         serializer: Optional["SerializerProto"] = EMPTY,
         # AsyncAPI args
         security: Optional["BaseSecurity"] = None,
@@ -100,20 +108,26 @@ class MQTTRouter(StreamRouter[zmqtt.Message]):
         ),
     ) -> None:
         super().__init__(
+            url=url,
             host=host,
             port=port,
             client_id=client_id,
             keepalive=keepalive,
             clean_session=clean_session,
+            will=will,
             version=version,
             reconnect=reconnect,
+            on_connection_recovery_failed=on_connection_recovery_failed,
             session_expiry_interval=session_expiry_interval,
+            session_replay_buffer_size=session_replay_buffer_size,
+            session_replay_timeout=session_replay_timeout,
             graceful_timeout=graceful_timeout,
             decoder=decoder,
             parser=parser,
             codec=codec,
             middlewares=middlewares,
             ack_policy=ack_policy,
+            id_generator=id_generator,
             serializer=serializer,
             schema_url=schema_url,
             setup_state=setup_state,

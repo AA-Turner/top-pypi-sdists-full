@@ -60,3 +60,8 @@ class JobResult:
     # reaches the client through GET /video/jobs/<id> -> result.groups. Absent (None) for
     # every non-review job — additive, backward-compatible.
     groups: Optional[Dict[str, Any]] = None
+    # identity FROM-VIDEO manifest (k94): what ONE chained ``identity_from_video`` job
+    # created — {"name": str, "n_characters": int, "profiles": [{"char","slug","name",
+    # "glb": bool, "n_views": int, "canonical": int, "error"?}]} — so the UI can jump to
+    # the minted profile(s). Plain dict (mirrors groups); None for every other job.
+    identities: Optional[Dict[str, Any]] = None

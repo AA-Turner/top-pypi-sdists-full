@@ -181,10 +181,17 @@ def _stage_error_to_job_error(stage_error) -> JobError:
     """BOUNDARY adapter: studio ``StageError`` -> bus ``JobError``. The ONE place the
     two error vocabularies meet; a translation, not a merge."""
     code = getattr(stage_error.code, "value", str(stage_error.code))
+    # A runner/router can DOWNGRADE retryability in the error's own context (the
+    # router's ``_NOT_RETRYABLE`` marker; the Wan runner's per-content_hash retry
+    # budget writes ("retryable", "false") once the same spec has failed with a
+    # "transient" code HUGPY_WAN_RETRY_BUDGET times). The context can never UPGRADE
+    # a deterministic code to retryable.
+    ctx = dict(getattr(stage_error, "context", ()) or ())
+    vetoed = str(ctx.get("retryable", "")).strip().lower() == "false"
     return JobError(
         code=code,
         message=str(stage_error),
-        retryable=code in _RETRYABLE_CODES,
+        retryable=(code in _RETRYABLE_CODES) and not vetoed,
     )
 
 

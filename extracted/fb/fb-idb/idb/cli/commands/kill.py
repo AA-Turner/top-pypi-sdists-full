@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 from argparse import Namespace
 
 from idb.cli import ManagementCommand
@@ -13,7 +14,7 @@ from idb.common.types import ClientManager
 class KillCommand(ManagementCommand):
     @property
     def description(self) -> str:
-        return "Kill the idb daemon"
+        return "Kill all idb companion processes"
 
     @property
     def name(self) -> str:

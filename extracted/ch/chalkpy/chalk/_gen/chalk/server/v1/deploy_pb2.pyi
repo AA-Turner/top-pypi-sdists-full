@@ -3,6 +3,8 @@ from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as _deployment_pb2
 from chalk._gen.chalk.server.v1 import deployment_revision_pb2 as _deployment_revision_pb2
 from google.protobuf import empty_pb2 as _empty_pb2

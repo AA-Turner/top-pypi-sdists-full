@@ -1100,6 +1100,16 @@ def _adopt_storage_inputs(state: "WorkerState", worker: dict | None) -> None:
                 os.environ["_HUGPY_CENTRAL_DISK_CACHE_GIB"] = str(float(dc))
         except (TypeError, ValueError):
             os.environ.pop("_HUGPY_CENTRAL_DISK_CACHE_GIB", None)
+        # Same projection for the per-worker reserve (carved OUT of the cap), so
+        # stateless/minimal-state callers resolve the same headroom via env.
+        try:
+            dr = limits.get("disk_reserve_gib")
+            if dr in (None, ""):
+                os.environ.pop("_HUGPY_CENTRAL_DISK_RESERVE_GIB", None)
+            else:
+                os.environ["_HUGPY_CENTRAL_DISK_RESERVE_GIB"] = str(float(dr))
+        except (TypeError, ValueError):
+            os.environ.pop("_HUGPY_CENTRAL_DISK_RESERVE_GIB", None)
     lp = worker.get("model_last_picked")
     if isinstance(lp, dict):
         state.model_last_picked = dict(lp)
@@ -3880,6 +3890,27 @@ def build_app(state: "WorkerState") -> Flask:
         return jsonify({"ok": True, "aggregate": doc,
                         "summary": agg.heartbeat_summary()})
 
+    @app.route("/ops/environment", methods=["GET"])
+    def ops_environment():
+        # k118: this box SELF-REPORTS its environment. Central cannot ssh to
+        # every worker (ae is the canonical example), so anything it cannot ask
+        # for over HTTP it cannot know — and an environment it cannot know is
+        # one it discovers at runtime, which is how a-brain lost ASR to a
+        # missing ffmpeg and computron lost 4-bit to a missing bitsandbytes.
+        #
+        # Read-only and TTL-cached (10 min) inside the report module, so this is
+        # cheap at page-load frequency; ``?refresh=1`` is the operator override.
+        # Same trust model as every other /ops/* route (central's relay).
+        from .environment_report import environment_report
+        refresh = str(request.args.get("refresh") or "").lower() in (
+            "1", "true", "yes")
+        try:
+            report = environment_report(refresh=refresh, worker_name=state.name)
+        except Exception as exc:  # noqa: BLE001 — a report never 500s the box
+            return jsonify({"ok": False, "error": {
+                "code": type(exc).__name__, "message": str(exc)}}), 502
+        return jsonify(report)
+
     @app.route("/ops/pip", methods=["POST"])
     def ops_pip():
         # UTIL-02: install into this worker's env. Argv-list (no shell), rc +
@@ -5957,8 +5988,20 @@ def _incoming_need_bytes(model_key: str) -> "int | None":
                 gguf = {}
             eff = gguf.get("effective_bytes")
             return int(eff * 1.15) if eff else None
-        detail = _dir_size_detail(path)
-        weight = detail.get("weight_bytes") or detail.get("model_bytes")
+        # Non-GGUF: the shared load-requirement computation (which excludes a
+        # duplicate torch serialization shadowed by a safetensors set — a
+        # both-formats repo was priced at the dir-sum, ~2x what loads). Falls
+        # back to the dispatch weight-sum, preserving the fail-open behavior.
+        weight = None
+        try:
+            from ..managers.serve.overrides import effective_load_requirement
+            weight = (effective_load_requirement(model_key, path, cfg) or {}
+                      ).get("weights_bytes")
+        except Exception:  # noqa: BLE001 — best-effort; fall back to the walk
+            weight = None
+        if not weight:
+            detail = _dir_size_detail(path)
+            weight = detail.get("weight_bytes") or detail.get("model_bytes")
         return int(weight * 1.15) if weight else None
     except Exception:  # noqa: BLE001 — best-effort; unknown size -> fail open
         return None
@@ -6433,6 +6476,59 @@ def _incoming_need_detail(model_key: str) -> dict:
             "sparsity": (plan.get("detail") or {}).get("sparsity"),
         }
     return out
+
+
+# ── "most amicable gguf" — fit-aware quant auto-pick ─────────────────────────
+def _quant_autofit_enabled() -> bool:
+    """Master switch for the fit-aware quant auto-pick. Default ON;
+    HUGPY_QUANT_AUTOFIT=0/off/false/no disables it (the plain q4_k_m-first
+    election then governs, exactly as before)."""
+    return (os.environ.get("HUGPY_QUANT_AUTOFIT") or "on").strip().lower() not in (
+        "0", "off", "false", "no", "")
+
+
+def _autofit_gguf_pick(model_key: str, model_dir: str, cfg=None) -> "str | None":
+    """The LARGEST complete quant that fits THIS box's current free VRAM —
+    ``bytes × headroom + KV estimate <= free_vram − admission reserve`` — or
+    None when nothing fits / VRAM is unmeasurable (the plain election then
+    stands and the worker loads-and-spills exactly as today).
+
+    Registered as overrides.set_gguf_autofit_hook, and only ever consulted via
+    ``autofit_gguf_prefer`` — i.e. NEVER when any designation exists (per-worker
+    pin, model-wide ``gguf_file``, ``cfg.filename``); an operator pin is never
+    silently upgraded. This is deliberately NOT in gguf_election.elect(): the
+    election stays pure and worker-agnostic; VRAM belongs to the box asking."""
+    if not _quant_autofit_enabled():
+        return None
+    fv = _free_vram_bytes()
+    if fv is None:
+        return None
+    try:
+        from ..managers.spill import total_vram_bytes
+        reserve = _vram_ceiling_reserve_bytes(total_vram_bytes())
+    except Exception:  # noqa: BLE001 — no total figure -> no reserve derating
+        reserve = 0
+    try:
+        kv, _det = _kv_need_bytes(model_key, cfg if isinstance(cfg, dict) else None)
+    except Exception:  # noqa: BLE001 — KV is additive; 0 when unresolvable
+        kv = 0
+    budget = int(fv) - int(reserve) - int(kv or 0)
+    try:
+        headroom = float(os.environ.get("HUGPY_VRAM_HEADROOM", "1.15"))
+    except ValueError:
+        headroom = 1.15
+    try:
+        from ..managers.serve.overrides import select_fitting_gguf
+        pick = select_fitting_gguf(model_key, model_dir, cfg,
+                                   budget_bytes=budget, headroom=headroom)
+    except Exception:  # noqa: BLE001 — an auto-pick miss must never break a load
+        return None
+    if pick:
+        logger.info("quant autofit: %s -> %s (budget %.1f GiB free %.1f GiB "
+                    "reserve %.1f GiB kv %.1f GiB)", model_key, pick,
+                    budget / 2**30, fv / 2**30, reserve / 2**30,
+                    int(kv or 0) / 2**30)
+    return pick
 
 
 # ── t28 load-and-learn — worker capture + learned-correction application ─────
@@ -8938,11 +9034,22 @@ def _vram_evict_to_fit(state: "WorkerState", model_key: str,
             # reserve), so the log line cannot claim "never fits" about a need
             # the gate would in fact admit on an empty card. Log-only.
             impossible_full = int(need) > _vram_empty_card_budget(total)
-            if fr_now is not None and exp_bytes > fr_now * 0.95:
+            # EXPERT BYTES ARE MMAP-ELIGIBLE (worker-side analogue of the
+            # 0.1.237 central ruling, coder-next/ae 2026-08-28): the expert
+            # tensors are FILE-BACKED page cache llama.cpp streams via mmap —
+            # reclaimable, never an OOM-able reservation — so the guard prices
+            # them against the BOX (total RAM), not the momentary free figure.
+            # ae live: 43.6 GiB experts vs 124.9 GiB installed was being
+            # refused because only ~34 GiB happened to be free at that instant
+            # (page cache the very load would reclaim), forcing full-need
+            # 51.8 GB admission and a guaranteed refusal. Momentary free stays
+            # the fallback when the total is unmeasurable (degrade-not-guess).
+            ram_ceiling = _ram_total_bytes() or fr_now
+            if ram_ceiling is not None and exp_bytes > ram_ceiling * 0.95:
                 logger.info(
                     "MoE split for %s skipped: expert tensors (~%s) exceed "
-                    "budgetable RAM (~%s) — keeping full-need admission",
-                    model_key, _human_bytes(exp_bytes), _human_bytes(fr_now))
+                    "host RAM (~%s) — keeping full-need admission",
+                    model_key, _human_bytes(exp_bytes), _human_bytes(ram_ceiling))
             elif ms.get("gpu_total"):
                 need = int(ms["gpu_total"])
                 moe_commit = dict(ms)
@@ -9311,6 +9418,51 @@ def _vram_evict_to_fit(state: "WorkerState", model_key: str,
             except (TypeError, ValueError):
                 pass
         intent, requested = _gguf_ngl_intent(model_key)
+        # MoE FIRST (0.1.241, coder-next/ae 2026-08-28): EVERY partial-offload
+        # entry on a detected-MoE GGUF defers to the dense-backbone-first
+        # split BEFORE any dense layer math. The live bust this closes: a
+        # cold load whose spill shape skipped _moe_plan_for reached
+        # plan_partial_offload, which priced a 3-layer DENSE floor (~3.2 GB,
+        # dense layer-bytes) against the MoE-derived 1.5 GiB budget
+        # (non-expert cap) — mixed bases in one verdict — and refused
+        # "degenerate" a model whose MoE plan (backbone ~1.7 GB, experts to
+        # RAM) admits fine. Guards: an operator-stated layer count and a cpu
+        # (ram-only) intent are always obeyed verbatim; the backbone must
+        # actually fit the budget (dense_fits — never admit-then-OOM); the
+        # experts must fit the BOX (total RAM, mmap doctrine). Anything else
+        # falls through to the dense planners unchanged.
+        if requested is None and (intent or "auto") != "cpu":
+            _det_moe = _moe_detail_for(model_key)
+            _mplan = None
+            _mbudget = None
+            if _det_moe:
+                try:
+                    from ..managers import spill as _spill
+                    _mbudget = _moe_auto_gpu_budget(model_key, ppath) or budget
+                    _mplan = _spill.moe_dense_first_plan(_det_moe, _mbudget)
+                except Exception:  # noqa: BLE001 — fall through to dense math
+                    _mplan = None
+            if _mplan and int(_mplan.get("cpu_bytes") or 0) \
+                    and _mplan.get("dense_fits"):
+                _exp_b = int(_det_moe.get("expert_bytes") or 0)
+                _ram_ceiling = _ram_total_bytes() or _free_ram_bytes()
+                if not _ram_ceiling or _exp_b <= _ram_ceiling * 0.95:
+                    _MOE_SPLIT[model_key] = {"path": ppath,
+                                             "n_cpu_moe": int(_mplan["n_cpu_moe"])}
+                    logger.info(
+                        "MoE-first partial admit for %s: -ngl -1 --n-cpu-moe %s "
+                        "(~%s dense+experts on GPU, ~%s experts to CPU; budget %s) "
+                        "— dense layer math skipped", model_key,
+                        _mplan["n_cpu_moe"], _human_bytes(_mplan.get("gpu_bytes")),
+                        _human_bytes(_mplan.get("cpu_bytes")), _human_bytes(_mbudget))
+                    return {"action": "partial", "evicted": evicted,
+                            "freed_bytes": freed, "reason": None,
+                            "n_gpu_layers": -1,
+                            "n_cpu_moe": int(_mplan["n_cpu_moe"]),
+                            "note": (f"MoE dense-first split (--n-cpu-moe "
+                                     f"{_mplan['n_cpu_moe']}): all layers on GPU, "
+                                     f"~{_human_bytes(_mplan.get('cpu_bytes'))} "
+                                     f"expert tensors on CPU")}
         # k37: max-ram / explicit route to the leniency-band engine — degrade
         # WITHIN the band toward the floor, bust past it with a refusal naming
         # mode + floor. The mode arrives as env (HUGPY_ALLOC_MODE etc., set by
@@ -9347,6 +9499,44 @@ def _vram_evict_to_fit(state: "WorkerState", model_key: str,
                 intent=intent, requested_layers=requested)
 
     if partial is not None and partial.admit:
+        # k37 + MoE (coder-next/ae 2026-08-28): a MODE-ENGINE admit on a
+        # detected-MoE GGUF must ride the DENSE-BACKBONE-FIRST split, not a raw
+        # layer count — the slot obeys a stated positive n_gpu_layers verbatim
+        # (the k14/k7 lever), which would disable the split and launch the
+        # dense layer hybrid the 2026-07-31 ruling forbids. Budget arithmetic
+        # is _moe_auto_gpu_budget (mirrors slot_agent._moe_gpu_budget) so
+        # admission and launch price ONE number. Operator-stated layer counts
+        # never reach this branch (the mode engine runs only when no legacy
+        # ngl wire is set), so the lever stays obeyed verbatim.
+        if _mode in ("max-ram", "explicit") and partial.n_gpu_layers > 0:
+            det_moe = _moe_detail_for(model_key)
+            mplan = None
+            if det_moe:
+                try:
+                    from ..managers import spill as _spill
+                    _mbudget = _moe_auto_gpu_budget(model_key, ppath)
+                    if not _mbudget:
+                        _mbudget = int(partial.vram_budget_bytes or 0)
+                    mplan = _spill.moe_dense_first_plan(det_moe, _mbudget)
+                except Exception:  # noqa: BLE001 — fall back to the layer count
+                    mplan = None
+            if mplan and int(mplan.get("cpu_bytes") or 0):
+                _MOE_SPLIT[model_key] = {"path": ppath,
+                                         "n_cpu_moe": int(mplan["n_cpu_moe"])}
+                logger.info(
+                    "%s admit for %s -> MoE dense-first split: -ngl -1 "
+                    "--n-cpu-moe %s (~%s dense+experts on GPU, ~%s experts to "
+                    "CPU; budget %s)", _mode, model_key, mplan["n_cpu_moe"],
+                    _human_bytes(mplan.get("gpu_bytes")),
+                    _human_bytes(mplan.get("cpu_bytes")), _human_bytes(_mbudget))
+                return {"action": "partial", "evicted": evicted,
+                        "freed_bytes": freed, "reason": None,
+                        "n_gpu_layers": -1, "n_cpu_moe": int(mplan["n_cpu_moe"]),
+                        "gpu_pct": partial.gpu_pct, "partial": partial.as_dict(),
+                        "note": (f"{_mode} MoE split (--n-cpu-moe "
+                                 f"{mplan['n_cpu_moe']}): dense backbone first, "
+                                 f"~{_human_bytes(mplan.get('cpu_bytes'))} "
+                                 f"expert tensors to CPU")}
         # Admit the hybrid. Pin the honest layer count for the in-process
         # llama_cpp load (overriding the shard-blind autofit that re-OOMs a
         # sharded model) AND carry it in the verdict so the slot path launches
@@ -9459,11 +9649,24 @@ def _vram_evict_to_fit(state: "WorkerState", model_key: str,
                 f"CUDA context) with 0 B measured unattributed — nothing foreign "
                 f"is squatting the card, there is simply nothing evictable left")
     _ext_floor = _external_vram_floor_bytes()
+    # BASIS-NAMING (worker-side analogue of 0.1.237's central rule): when an
+    # offload plan GOVERNED this load, the header's "needs" is the dense
+    # full-model figure, not what the plan actually asked of the GPU — say so
+    # and quote the plan's own floor, or the refusal reads 51.8 GB about a load
+    # whose plan wanted 1.5 GiB on the card (coder-next/ae 2026-08-28).
+    _plan_basis = ""
+    if partial is not None and not partial.admit and partial.total_layers:
+        _plan_whole = int(partial.vram_need_bytes) + int(partial.ram_need_bytes)
+        _plan_floor_b = (_plan_whole * int(partial.floor_layers)) // int(partial.total_layers)
+        _plan_basis = (
+            f" (full-model basis; the governing offload plan asked only "
+            f"~{_human_bytes(_plan_floor_b)} of GPU for its floor of "
+            f"{partial.floor_layers}/{partial.total_layers} layers)")
     reason = {
         "state": "refused",
         "model_key": model_key,
         "reason": (
-            f"won't fit on GPU: needs {_human_bytes(need)}{_need_split_str(_det)}, "
+            f"won't fit on GPU: needs {_human_bytes(need)}{_need_split_str(_det)}{_plan_basis}, "
             f"{_human_bytes(fv)} free of {_human_bytes(total)} "
             + (f"(+{_human_bytes(subject_held)} the subject itself already holds, "
                f"credited -> {_human_bytes(fv_eff)} available to it) "
@@ -10650,19 +10853,90 @@ def _whisper_importable() -> bool:
     return ok
 
 
+def _tts_seatable() -> bool:
+    """Can this worker actually SYNTHESIZE speech?
+
+    The second overlay, and for the mirror of whisper's reason. ``chatterbox-tts``
+    pins a torch that collides with the one this agent serves every other model
+    on, so a worker seats it in the fleet's per-model env-PROFILE venv
+    (``managers/serve/profiles.py``) and synthesis runs as a CHILD of that
+    interpreter. ``find_spec`` in THIS interpreter therefore answers "no" for a
+    seat that works perfectly — the opposite error to whisper's (importable yet
+    broken), and the same lesson: advertise what the box can DO, measured on the
+    interpreter that would do it.
+
+    ``managers.tts.seat`` is the single source of truth the RUNNER also uses, so
+    the advertisement and the execution can never disagree, and it caches (a
+    heartbeat must not spawn a probe every beat). Never raises: an unresolvable
+    seat advertises False, which central reads as "not yet" — the STRICT/
+    affirmative rule the oracle catalog applies to this brand-new capability."""
+    try:
+        from ..managers.tts import seat as _tts_seat
+        return bool(_tts_seat.available())
+    except Exception as exc:  # noqa: BLE001 — a probe never breaks the heartbeat
+        logger.info("text-to-speech seat probe failed (%s: %s); advertising "
+                    "text-to-speech UNAVAILABLE", type(exc).__name__, exc)
+        return False
+
+
 def _task_capabilities() -> dict:
     """``{task: bool}`` this worker can actually run, advertised to central.
 
     Built from the shared canonical task->dependency map (managers.task_deps) with
     the SAME find_spec probe central's /ml readiness uses — cheap, no heavy imports
-    — then overlaid with the whisper real-import special case. Central gates
-    routing on it (workers_for_model): a box missing an optional ML dep never gets
-    that task's requests, instead of failing them at request time.
+    — then overlaid with the whisper real-import special case and the TTS
+    env-profile seat. Central gates routing on it (workers_for_model): a box
+    missing an optional ML dep never gets that task's requests, instead of
+    failing them at request time.
     """
     from ..managers.task_deps import task_capabilities as _base_task_caps
     caps = _base_task_caps()
     caps["automatic-speech-recognition"] = _whisper_importable()
+    caps["text-to-speech"] = _tts_seatable()
     return caps
+
+
+def _environment_digest() -> "dict | None":
+    """The COMPACT environment fact that rides every beat (k118).
+
+    Not the report — a digest, the profile names, which declared binaries are
+    present and the driver/CUDA pair. Central pulls the full document from
+    /ops/environment ON READ, the same discipline the rolling aggregate follows
+    (operator ruling 2026-07-29: counts + a digest, never the document).
+
+    The report itself is TTL-cached for 10 minutes, so a ~15s beat costs one
+    dict copy nearly every time. Fully guarded: telemetry must never cost a
+    heartbeat, because a missed beat drops the box off the fleet.
+    """
+    try:
+        from .environment_report import compact_digest
+        return compact_digest()
+    except Exception as exc:  # noqa: BLE001 — never break the beat
+        logger.debug("environment digest failed: %s", exc)
+        return None
+
+
+def _doctrine_status() -> "dict | None":
+    """This box's SELF-ASSESSMENT against the fleet doctrine, if it has one.
+
+    The worker assesses itself so an ineligibility reason is available the
+    instant central sees the beat, without a second round trip. ``None`` when no
+    doctrine is resolvable here (a pip-installed worker has no repo above it) —
+    and None is honest: central's own copy of the doctrine is authoritative and
+    it can always re-assess from /ops/environment. What must NEVER happen is a
+    fabricated "ok" from a box that never checked.
+    """
+    try:
+        from ..fleet_doctrine import doctrine as _doctrine
+        current = _doctrine.latest()
+        if current is None:
+            return None
+        from ..fleet_doctrine.doctor import assess
+        from .environment_report import environment_report
+        return assess(environment_report(), current).heartbeat_status()
+    except Exception as exc:  # noqa: BLE001 — never break the beat
+        logger.debug("doctrine self-assessment failed: %s", exc)
+        return None
 
 
 def _selftest_call(model_key: str, system: str, user: str) -> dict:
@@ -10886,6 +11160,14 @@ def _heartbeat_loop(client: CentralClient, state: WorkerState, args) -> None:
                     # this box can actually run, so central won't route a task
                     # whose optional dep is missing here (workers_for_model gate).
                     "task_capabilities": _task_capabilities(),
+                    # k118 ENVIRONMENT DOCTRINE. Two additive fields, both
+                    # optional (extra='ignore' drops them for an older central):
+                    # a compact digest of what this box HAS, and its own verdict
+                    # against the fleet doctrine. The doctrine findings are what
+                    # turn "the job failed on the worker" into "this worker was
+                    # never eligible, and here is the pip line that fixes it".
+                    "environment_digest": _environment_digest(),
+                    "doctrine_status": _doctrine_status(),
                     # ROLLING AGGREGATE summary (operator ruling 2026-07-29):
                     # counts + a digest/mtime, NEVER the document. Central reads
                     # it to know what the worker holds and whether it changed;
@@ -11301,6 +11583,16 @@ def main(argv: list[str] | None = None) -> int:
         set_make_room(lambda mk: _vram_evict_to_fit(state, mk))
     except Exception as _exc:  # noqa: BLE001
         logger.warning("contention residency hooks not registered: %s", _exc)
+    # Fit-aware quant auto-pick ("most amicable gguf"): the worker owns the
+    # free-VRAM/KV/reserve numbers, so it registers the picker; the load paths
+    # consult it via overrides.autofit_gguf_prefer, which returns None whenever
+    # ANY designation exists (per-worker pin -> model-wide gguf_file ->
+    # cfg.filename all outrank it, and the plain election is the fallback).
+    try:
+        from ..managers.serve.overrides import set_gguf_autofit_hook
+        set_gguf_autofit_hook(_autofit_gguf_pick)
+    except Exception as _exc:  # noqa: BLE001
+        logger.warning("quant autofit hook not registered: %s", _exc)
 
     # Worker-local slot pool (SLOT_COUNT; settings > env > default).
     _supervise_slots()

@@ -5339,7 +5339,7 @@ pub enum AuthCommand {
     ///
     /// Credentials are only stored in this directory when the plaintext backend is used, as
     /// opposed to the native backend, which uses the system keyring.
-    Dir(AuthDirArgs),
+    Dir,
     /// Act as a credential helper for external tools.
     ///
     /// Implements the Bazel credential helper protocol to provide credentials
@@ -6653,13 +6653,6 @@ pub struct AuthTokenArgs {
 }
 
 #[derive(Args)]
-pub struct AuthDirArgs {
-    /// The domain or URL of the service to lookup.
-    #[arg(value_hint = ValueHint::Url)]
-    pub service: Option<Service>,
-}
-
-#[derive(Args)]
 pub struct AuthHelperArgs {
     #[command(subcommand)]
     pub command: AuthHelperCommand,
@@ -7715,8 +7708,7 @@ pub struct PublishArgs {
     /// again, to handle cases where the identical file was uploaded twice in parallel.
     ///
     /// The exact behavior will vary based on the index. When uploading to PyPI, uploading the same
-    /// file succeeds even without `--check-url`, while most other indexes error. When uploading to
-    /// pyx, the index URL can be inferred automatically from the publish URL.
+    /// file succeeds even without `--check-url`, while most other indexes error.
     ///
     /// The index must provide one of the supported hashes (SHA-256, SHA-384, or SHA-512).
     #[arg(long, env = EnvVars::UV_PUBLISH_CHECK_URL, hide_env_values = true)]
@@ -7727,8 +7719,8 @@ pub struct PublishArgs {
 
     /// Perform a dry run without uploading files.
     ///
-    /// When enabled, the command will check for existing files if `--check-url` is provided,
-    /// and will perform validation against the index if supported, but will not upload any files.
+    /// The command checks the distribution metadata locally, and checks for existing files if
+    /// `--check-url` or `--index` is provided, but will not upload any files.
     #[arg(long)]
     pub dry_run: bool,
 
@@ -7738,13 +7730,6 @@ pub struct PublishArgs {
     /// that is published.
     #[arg(long, env = EnvVars::UV_PUBLISH_NO_ATTESTATIONS)]
     pub no_attestations: bool,
-
-    /// Use direct upload to the registry.
-    ///
-    /// When enabled, the publish command will use a direct two-phase upload protocol
-    /// that uploads files directly to storage, bypassing the registry's upload endpoint.
-    #[arg(long, hide = true)]
-    pub direct: bool,
 }
 
 #[derive(Args)]

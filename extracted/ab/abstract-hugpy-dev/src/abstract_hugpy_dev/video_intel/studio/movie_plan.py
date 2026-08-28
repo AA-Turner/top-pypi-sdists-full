@@ -56,6 +56,7 @@ SOURCE_FALLBACK = "capability_fallback"  # the pin does NOT serve it -> studio r
 SOURCE_AUTO = "auto"                    # nothing pinned -> studio resolution
 
 # ``reason`` values on a preflight refusal (stable keys for a console).
+REASON_COORDINATION_MISMATCH = "coordination_mismatch"
 REASON_CAPABILITY_UNSERVABLE = "capability_unservable"
 REASON_PIN_UNKNOWN = "pinned_model_unknown"
 REASON_PIN_WRONG_CAPABILITY = "pinned_model_unavailable"
@@ -262,3 +263,51 @@ def preflight_movie(spec) -> "list[dict]":
                              "capable_models": [],
                              "available": available_menu()})
     return problems
+
+
+# --------------------------------------------------------------------------- #
+# COORDINATION PREFLIGHT (k121) — the OTHER thing that is knowable at submit
+#
+# ``preflight_movie`` above deletes the capability-class mid-render failure. This
+# deletes its cousin: a movie whose PROSE and whose KNOBS describe two different
+# films. The operator's cinema session shipped four segments whose text declared
+# continuous scenes, a scene drawn from the previous scene's render and a
+# recurring character, with every joint left at ``cut``, no parent links, no
+# lengthening and no identity — "not a single prompt was created with the proper
+# knobs turned". Nothing failed. It rendered, correctly, the wrong film, and the
+# GPU hours were spent before anyone could see it.
+#
+# Like the capability preflight this is a PURE function of the spec (the prose is
+# in ``goal.prompt``; the knobs are the goal's own fields), so it belongs at
+# submit and nowhere later. Unlike it, most findings are advisory: only a
+# ``mismatch`` at or above ``BLOCK_CONFIDENCE`` — the words and the knob in
+# outright contradiction, or a take-tree rule the factory will refuse anyway —
+# is returned here. Everything else rides the full report, which the caller
+# attaches so the operator sees what was set as well as what was refused.
+# --------------------------------------------------------------------------- #
+def preflight_coordination(spec, *, threshold: "float | None" = None) -> "list[dict]":
+    """Every SUBMIT-BLOCKING words-vs-knobs contradiction in the take-tree.
+
+    One dict per offending segment, in ``preflight_movie``'s own vocabulary
+    (``index`` / ``segment_id`` / ``reason`` / ``detail``) so a console that
+    already renders capability refusals renders these with no new code. An empty
+    list means nothing of this class is wrong — NOT that nothing was reviewed;
+    :func:`coordination_report` is where the full, never-silent review lives.
+    """
+    from ..prompt_coordination import BLOCK_CONFIDENCE, blocking_mismatches, review_goals
+
+    report = review_goals(spec)
+    limit = BLOCK_CONFIDENCE if threshold is None else float(threshold)
+    return blocking_mismatches(report, limit)
+
+
+def coordination_report(spec) -> dict:
+    """The FULL k121 review of a movie spec, as the wire dict.
+
+    Always populated, one row per segment, including the segments whose knobs
+    already matched their words — the operator's "explicitly reviewed" is a
+    positive statement, and a report that only spoke on failure would leave
+    "reviewed and fine" indistinguishable from "never reviewed"."""
+    from ..prompt_coordination import review_goals
+
+    return review_goals(spec).as_dict()

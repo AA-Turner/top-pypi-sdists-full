@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import inspect
+import json
 from enum import Enum
 from typing import Any, Callable, Literal, Mapping, Optional, Sequence, TypeVar, Union
 
@@ -2010,6 +2011,86 @@ def bedrock_embed(
     )
 
 
+def _openai_strict_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Recursively rewrite a JSON Schema (as produced by pydantic) to satisfy OpenAI's
+    Structured Outputs strict mode, which pydantic does not enforce on its own: every object
+    must set ``additionalProperties: false``, and every property must be listed in
+    ``required`` — including ones pydantic considers optional, which strict mode instead
+    expresses as a nullable type (pydantic already emits these as an ``anyOf`` with ``null``,
+    so listing them in ``required`` doesn't change what values are actually accepted).
+    """
+    schema = dict(schema)
+    if schema.get("type") == "object" and "properties" in schema:
+        schema["additionalProperties"] = False
+        schema["required"] = list(schema["properties"].keys())
+        schema["properties"] = {k: _openai_strict_json_schema(v) for k, v in schema["properties"].items()}
+    if "items" in schema:
+        schema["items"] = _openai_strict_json_schema(schema["items"])
+    if "anyOf" in schema:
+        schema["anyOf"] = [_openai_strict_json_schema(s) for s in schema["anyOf"]]
+    # pydantic v2 nests shared sub-model schemas under "$defs"; v1 used "definitions".
+    for defs_key in ("$defs", "definitions"):
+        if defs_key in schema:
+            schema[defs_key] = {k: _openai_strict_json_schema(v) for k, v in schema[defs_key].items()}
+    return schema
+
+
+def _pydantic_model_response_format(model_cls: type) -> dict[str, Any]:
+    """Build an OpenAI/vLLM `response_format` dict from a pydantic model class, supporting
+    both pydantic v2 (`model_json_schema`) and v1 (`schema`) — chalkpy's own dependency range
+    (`pydantic>=1.0.0,<3`) spans both, so this can't assume v2's newer method name exists.
+    """
+    if hasattr(model_cls, "model_json_schema"):  # pydantic v2
+        raw_schema = model_cls.model_json_schema()
+    elif hasattr(model_cls, "schema"):  # pydantic v1
+        raw_schema = model_cls.schema()
+    else:
+        raise TypeError(
+            f"response_format model {model_cls!r} has neither `model_json_schema` (pydantic v2) "
+            + "nor `schema` (pydantic v1) — is this actually a pydantic BaseModel subclass?"
+        )
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": model_cls.__name__,
+            "schema": _openai_strict_json_schema(raw_schema),
+            "strict": True,
+        },
+    }
+
+
+def _coerce_response_format(response_format: Any) -> Underscore | str | None:
+    """Accepts, in order of expected common use:
+    - a pydantic BaseModel *class* (not instance) — mirrors OpenAI's own Python SDK convention
+      of passing `response_format=SomeModel` directly; converted to a strict-mode JSON Schema.
+    - a plain dict already shaped like an OpenAI/vLLM `response_format` value (e.g.
+      `{"type": "json_object"}`), serialized as-is.
+    - a raw JSON string, for full manual control — passed through unchanged.
+    - an Underscore (a column reference), for a per-row value — passed through unchanged.
+    """
+    if response_format is None or isinstance(response_format, (Underscore, str)):
+        return response_format
+    if isinstance(response_format, Mapping):
+        return json.dumps(response_format)
+    if isinstance(response_format, type):
+        return json.dumps(_pydantic_model_response_format(response_format))
+    raise TypeError(
+        "response_format must be a pydantic BaseModel class, a dict, a JSON string, or an "
+        + f"Underscore column reference, got {type(response_format)!r}"
+    )
+
+
+def _coerce_json_arg(value: Any) -> Underscore | str | None:
+    """Accepts a dict (serialized as-is), a raw JSON string, or an Underscore column reference —
+    for arguments whose target is a plain JSON object (not a schema), unlike response_format.
+    """
+    if value is None or isinstance(value, (Underscore, str)):
+        return value
+    if isinstance(value, Mapping):
+        return json.dumps(value)
+    raise TypeError(f"expected a dict, a JSON string, or an Underscore column reference, got {type(value)!r}")
+
+
 def openai_complete(
     prompt: Underscore | str,
     model: Underscore | str | None = None,
@@ -2018,6 +2099,8 @@ def openai_complete(
     max_tokens: Underscore | int | None = None,
     temperature: Underscore | float | None = None,
     service_tier: Underscore | str | None = None,
+    response_format: Underscore | str | Mapping[str, Any] | type | None = None,
+    chat_template_kwargs: Underscore | str | Mapping[str, Any] | None = None,
 ):
     """
     Makes a completion request to OpenAI's chat API and returns the response.
@@ -2062,6 +2145,22 @@ def openai_complete(
         default ``gpt-3.5-turbo`` or the ``gpt-4*`` chat models. Passing ``"flex"`` with an
         unsupported model causes OpenAI to reject the request, which surfaces as a ``null``
         result. Set a flex-capable ``model`` when using this tier.
+    response_format
+        Constrains the completion to match a schema, using OpenAI's Structured Outputs (also
+        honored by vLLM's OpenAI-compatible server for grammar-constrained decoding) instead of
+        hoping a prompt instruction like "respond with only JSON" is followed. Accepts:
+
+        - a pydantic ``BaseModel`` *class* (not an instance) — mirrors OpenAI's own Python SDK
+          convention of passing ``response_format=SomeModel`` directly; converted to a
+          strict-mode JSON Schema automatically.
+        - a plain ``dict`` already shaped like a ``response_format`` value, e.g.
+          ``{"type": "json_object"}`` for legacy JSON mode.
+        - a raw JSON string, for full manual control over the schema OpenAI/vLLM receives.
+    chat_template_kwargs
+        Extra kwargs forwarded into the tokenizer's chat-template rendering — a vLLM-specific
+        extension (ignored by real OpenAI), most commonly used to disable a Qwen3-style
+        reasoning/"thinking" mode, e.g. ``{"enable_thinking": False}``. Accepts a dict or a raw
+        JSON string.
 
     Returns
     -------
@@ -2094,6 +2193,8 @@ def openai_complete(
     ...        temperature=0.7,
     ...    ).completion
     """
+    coerced_response_format = _coerce_response_format(response_format)
+    coerced_chat_template_kwargs = _coerce_json_arg(chat_template_kwargs)
     return UnderscoreFunction(
         "openai_complete",
         prompt,
@@ -2103,6 +2204,84 @@ def openai_complete(
         max_tokens if max_tokens is not None else pa.scalar(None, type=pa.int64()),
         temperature if temperature is not None else pa.scalar(None, type=pa.float64()),
         service_tier if service_tier is not None else pa.scalar(None, type=pa.large_string()),
+        coerced_response_format if coerced_response_format is not None else pa.scalar(None, type=pa.large_string()),
+        (
+            coerced_chat_template_kwargs
+            if coerced_chat_template_kwargs is not None
+            else pa.scalar(None, type=pa.large_string())
+        ),
+    )
+
+
+def openai_embed(
+    input: Underscore | str,
+    model: Underscore | str | None = None,
+    api_server: Underscore | str | None = None,
+    api_key: Underscore | str | None = None,
+    dimensions: Underscore | int | None = None,
+):
+    """
+    Makes an embedding request to OpenAI's embeddings API and returns the response.
+
+    This is a blocking expression that calls OpenAI's API during feature computation.
+    The response includes the embedding vector along with token usage statistics.
+
+    Parameters
+    ----------
+    input
+        The text to embed.
+    model
+        The OpenAI embedding model to use (e.g., ``"text-embedding-3-small"``).
+        Defaults to OpenAI's default embedding model when omitted.
+    api_server
+        Base URL of an OpenAI-compatible endpoint (e.g. ``https://api.openai.com/v1``);
+        ``/embeddings`` is appended. When omitted, falls back to the
+        ``OPENAI_BASE_URL`` environment variable on the execution host, then to the
+        default OpenAI endpoint.
+
+        To route requests through Chalk's AI router instead of calling OpenAI directly,
+        point this (or ``OPENAI_BASE_URL``) at your Chalk API server, e.g.
+        ``https://api.chalk.ai``. On a dedicated or self-hosted Chalk deployment, replace
+        ``api.chalk.ai`` with your own API server host — found in the ``apiServer`` field
+        of ``chalk config --format json``.
+    api_key
+        The OpenAI API key to use for authentication. When omitted, falls back to the
+        ``OPENAI_API_KEY`` environment variable on the execution host, so the secret
+        does not have to be threaded through feature data.
+    dimensions
+        Optional output dimensionality for models that support shortening embeddings
+        (e.g. ``text-embedding-3-small``/``-large``). When omitted, the model default
+        dimensionality is used.
+
+    Returns
+    -------
+    A struct containing:
+        - embedding: The embedding vector, as a list of floats
+        - prompt_tokens: Number of tokens in the input
+        - total_tokens: Total tokens used
+        - model: The model used for the embedding
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Document:
+    ...    id: str
+    ...    content: str
+    ...    # api_key/api_server resolved from OPENAI_API_KEY / OPENAI_BASE_URL env vars
+    ...    embedding: list[float] = F.openai_embed(
+    ...        input=_.content,
+    ...        model="text-embedding-3-small",
+    ...    ).embedding
+    """
+    return UnderscoreFunction(
+        "openai_embed",
+        input,
+        model if model is not None else pa.scalar(None, type=pa.large_string()),
+        api_server if api_server is not None else pa.scalar(None, type=pa.large_string()),
+        api_key if api_key is not None else pa.scalar(None, type=pa.large_string()),
+        dimensions if dimensions is not None else pa.scalar(None, type=pa.int64()),
     )
 
 
@@ -8684,6 +8863,7 @@ __all__ = (
     "nth_bucket_start",
     "onnx_run",
     "openai_complete",
+    "openai_embed",
     "over",
     "parse_datetime",
     "partial_ratio",

@@ -10,7 +10,7 @@ import threading
 import time
 from collections.abc import AsyncGenerator
 from unittest import TestCase
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import braintrust
 import exceptiongroup
@@ -65,6 +65,21 @@ def test_login_to_state_uses_env_braintrust_api_key(tmp_path, monkeypatch):
 
 
 class TestInit(TestCase):
+    @staticmethod
+    def _mock_api_client():
+        api_client = MagicMock()
+        api_client.projects.post_project.return_value = {
+            "id": "test-project-id",
+            "name": "test-project",
+        }
+        api_client.experiments.post_experiment.return_value = {
+            "id": "test-exp-id",
+            "name": "test-exp",
+            "project_id": "test-project-id",
+            "public": False,
+        }
+        return api_client
+
     def test_init_validation(self):
         with self.assertRaises(ValueError) as cm:
             braintrust.init()
@@ -123,18 +138,14 @@ class TestInit(TestCase):
         unconditionally later in compute_metadata().
         ref: https://github.com/braintrustdata/braintrust-sdk-python/issues/8
         """
-        mock_conn = MagicMock()
-        mock_conn.post_json.return_value = {
-            "project": {"id": "test-project-id", "name": "test-project"},
-            "experiment": {"id": "test-exp-id", "name": "test-exp"},
-        }
+        api_client = self._mock_api_client()
 
         from braintrust.git_fields import RepoInfo
 
         repo_info = RepoInfo(commit="abc123", branch="main", dirty=False)
 
         simulate_login()
-        with patch.object(logger._state, "app_conn", return_value=mock_conn):
+        with patch.object(logger._state, "api_client", return_value=api_client):
             exp = braintrust.init(project="test-project", repo_info=repo_info)
 
             # Force compute_metadata() to execute. This would raise
@@ -185,15 +196,11 @@ class TestInit(TestCase):
             GitMetadataSettings(collect="some", fields=["commit", "branch"]),
         ):
             with self.subTest(org_settings=org_settings):
-                mock_conn = MagicMock()
-                mock_conn.post_json.return_value = {
-                    "project": {"id": "test-project-id", "name": "test-project"},
-                    "experiment": {"id": "test-exp-id", "name": "test-exp"},
-                }
+                api_client = self._mock_api_client()
 
                 simulate_login()
                 logger._state.git_metadata_settings = org_settings
-                with patch.object(logger._state, "app_conn", return_value=mock_conn):
+                with patch.object(logger._state, "api_client", return_value=api_client):
                     with patch(
                         "braintrust.logger.get_repo_info", return_value=RepoInfo(commit="abc123")
                     ) as mock_get_repo_info:
@@ -204,15 +211,11 @@ class TestInit(TestCase):
                 assert actual_settings == org_settings
 
     def test_init_git_metadata_override_merges_with_org_policy(self):
-        mock_conn = MagicMock()
-        mock_conn.post_json.return_value = {
-            "project": {"id": "test-project-id", "name": "test-project"},
-            "experiment": {"id": "test-exp-id", "name": "test-exp"},
-        }
+        api_client = self._mock_api_client()
 
         simulate_login()
         logger._state.git_metadata_settings = GitMetadataSettings(collect="some", fields=["commit", "branch"])
-        with patch.object(logger._state, "app_conn", return_value=mock_conn):
+        with patch.object(logger._state, "api_client", return_value=api_client):
             with patch("braintrust.logger.get_repo_info", return_value=None) as mock_get_repo_info:
                 exp = braintrust.init(
                     project="test-project",
@@ -224,15 +227,11 @@ class TestInit(TestCase):
         assert actual_settings == GitMetadataSettings(collect="some", fields=["commit"])
 
     def test_init_without_git_metadata_policy_collects_none(self):
-        mock_conn = MagicMock()
-        mock_conn.post_json.return_value = {
-            "project": {"id": "test-project-id", "name": "test-project"},
-            "experiment": {"id": "test-exp-id", "name": "test-exp"},
-        }
+        api_client = self._mock_api_client()
 
         simulate_login()
         assert logger._state.git_metadata_settings is None
-        with patch.object(logger._state, "app_conn", return_value=mock_conn):
+        with patch.object(logger._state, "api_client", return_value=api_client):
             with patch("braintrust.logger.get_repo_info", return_value=None) as mock_get_repo_info:
                 exp = braintrust.init(project="test-project")
                 exp._lazy_metadata.get()
@@ -241,11 +240,7 @@ class TestInit(TestCase):
         assert actual_settings == GitMetadataSettings(collect="none")
 
     def test_init_with_saved_parameters_attaches_reference(self):
-        mock_conn = MagicMock()
-        mock_conn.post_json.return_value = {
-            "project": {"id": "test-project-id", "name": "test-project"},
-            "experiment": {"id": "test-exp-id", "name": "test-exp"},
-        }
+        api_client = self._mock_api_client()
 
         parameters = RemoteEvalParameters(
             id="params-123",
@@ -258,11 +253,11 @@ class TestInit(TestCase):
         )
 
         simulate_login()
-        with patch.object(logger._state, "app_conn", return_value=mock_conn):
+        with patch.object(logger._state, "api_client", return_value=api_client):
             exp = braintrust.init(project="test-project", parameters=parameters)
             exp._lazy_metadata.get()
 
-        _, payload = mock_conn.post_json.call_args.args
+        payload = api_client.experiments.post_experiment.call_args.kwargs["body"]
         assert payload["parameters_id"] == "params-123"
         assert payload["parameters_version"] == "v1"
 
@@ -3531,6 +3526,343 @@ class TestJSONAttachment(TestCase):
         self.assertEqual(event["input"]["data"], json_attachment.reference)
 
 
+class TestExperimentGeneratedAPI(TestCase):
+    def test_init_uses_generated_registration_and_resolves_named_base(self):
+        mock_state = MagicMock(spec=BraintrustState)
+        mock_state.org_id = "test-org-id"
+        mock_state.org_name = "test-org"
+        api_client = mock_state.api_client.return_value
+        api_client.projects.post_project.return_value = {
+            "id": "test-project-id",
+            "name": "test-project",
+        }
+        api_client.experiments.get_experiment.return_value = {
+            "objects": [
+                {
+                    "id": "base-experiment-id",
+                    "name": "base-experiment",
+                    "project_id": "test-project-id",
+                    "public": False,
+                }
+            ]
+        }
+        api_client.experiments.post_experiment.return_value = {
+            "id": "test-experiment-id",
+            "name": "test-experiment",
+            "project_id": "test-project-id",
+            "public": False,
+        }
+
+        experiment = braintrust.init(
+            project="test-project",
+            experiment="test-experiment",
+            description="test description",
+            base_experiment="base-experiment",
+            metadata={"source": "unit-test"},
+            tags=["generated"],
+            update=False,
+            set_current=False,
+            repo_info=RepoInfo(commit="abc123"),
+            state=mock_state,
+        )
+
+        assert experiment.id == "test-experiment-id"
+        assert experiment.project.id == "test-project-id"
+        api_client.projects.post_project.assert_called_once_with(body={"name": "test-project", "org_name": "test-org"})
+        api_client.experiments.get_experiment.assert_called_once_with(
+            experiment_name="base-experiment",
+            project_id="test-project-id",
+            org_name="test-org",
+        )
+        body = api_client.experiments.post_experiment.call_args.kwargs["body"]
+        assert body == {
+            "project_id": "test-project-id",
+            "name": "test-experiment",
+            "description": "test description",
+            "repo_info": RepoInfo(commit="abc123").as_dict(),
+            "base_exp_id": "base-experiment-id",
+            "public": False,
+            "metadata": {"source": "unit-test"},
+            "tags": ["generated"],
+            "ensure_new": True,
+        }
+        mock_state.app_conn.assert_not_called()
+
+    def test_open_uses_generated_experiment_lookup(self):
+        mock_state = MagicMock(spec=BraintrustState)
+        mock_state.org_name = "test-org"
+        api_client = mock_state.api_client.return_value
+        api_client.experiments.get_experiment.return_value = {
+            "objects": [
+                {
+                    "id": "test-experiment-id",
+                    "name": "test-experiment",
+                    "project_id": "test-project-id",
+                    "public": False,
+                }
+            ]
+        }
+
+        experiment = braintrust.init(
+            project="test-project",
+            experiment="test-experiment",
+            open=True,
+            set_current=False,
+            state=mock_state,
+        )
+
+        assert experiment.id == "test-experiment-id"
+        api_client.experiments.get_experiment.assert_called_once_with(
+            experiment_name="test-experiment",
+            project_name="test-project",
+            org_name="test-org",
+        )
+        mock_state.app_conn.assert_not_called()
+
+    def test_experiment_fetch_uses_generated_paginated_fetch(self):
+        from braintrust.logger import Experiment, ObjectMetadata, ProjectExperimentMetadata
+
+        mock_state = MagicMock(spec=BraintrustState)
+        api_client = mock_state.api_client.return_value
+        first_event = {
+            "id": "first-event",
+            "_xact_id": "1",
+            "project_id": "test-project-id",
+            "experiment_id": "test-experiment-id",
+            "created": "2026-01-01T00:00:00Z",
+            "span_id": "first-event",
+            "root_span_id": "first-event",
+        }
+        second_event = {**first_event, "id": "second-event", "_xact_id": "2"}
+        api_client.experiments.post_experiment_id_fetch.side_effect = [
+            {"events": [first_event], "cursor": "next-page"},
+            {"events": [second_event]},
+        ]
+        metadata = ProjectExperimentMetadata(
+            project=ObjectMetadata(id="test-project-id", name="test-project", full_info={}),
+            experiment=ObjectMetadata(id="test-experiment-id", name="test-experiment", full_info={}),
+        )
+        experiment = Experiment(LazyValue(lambda: metadata, use_mutex=False), state=mock_state)
+
+        events = list(experiment.fetch(batch_size=1))
+
+        assert [event["id"] for event in events] == ["first-event", "second-event"]
+        assert api_client.experiments.post_experiment_id_fetch.call_args_list == [
+            call("test-experiment-id", body={"limit": 1}),
+            call("test-experiment-id", body={"limit": 1, "cursor": "next-page"}),
+        ]
+        mock_state.api_conn.assert_not_called()
+
+
+class TestProjectGeneratedAPI(TestCase):
+    def test_lazy_project_uses_generated_registration_and_lookup(self):
+        mock_state = MagicMock()
+        mock_state.org_name = "test-org"
+        api_client = mock_state.api_client.return_value
+        api_client.projects.post_project.return_value = {
+            "id": "created-project-id",
+            "name": "created-project",
+        }
+        api_client.projects.get_project_id.return_value = {
+            "id": "looked-up-project-id",
+            "name": "looked-up-project",
+        }
+
+        with patch.object(logger, "_state", mock_state):
+            created = logger.Project(name="created-project")
+            looked_up = logger.Project(id="looked-up-project-id")
+            self.assertEqual(created.id, "created-project-id")
+            self.assertEqual(looked_up.name, "looked-up-project")
+
+        api_client.projects.post_project.assert_called_once_with(
+            body={"name": "created-project", "org_name": "test-org"}
+        )
+        api_client.projects.get_project_id.assert_called_once_with("looked-up-project-id")
+        mock_state.app_conn.assert_not_called()
+
+
+class TestDatasetGeneratedAPI(TestCase):
+    def test_init_dataset_uses_generated_project_and_dataset_resources(self):
+        mock_state = MagicMock()
+        mock_state.org_name = "test-org"
+        api_client = mock_state.api_client.return_value
+        api_client.projects.post_project.return_value = {
+            "id": "test-project-id",
+            "name": "test-project",
+        }
+        api_client.datasets.post_dataset.return_value = {
+            "id": "test-dataset-id",
+            "project_id": "test-project-id",
+            "name": "test-dataset",
+        }
+
+        dataset = braintrust.init_dataset(
+            project="test-project",
+            name="test-dataset",
+            description="description",
+            metadata={"purpose": "test"},
+            use_output=False,
+            state=mock_state,
+        )
+
+        self.assertEqual(dataset.id, "test-dataset-id")
+        api_client.projects.post_project.assert_called_once_with(body={"name": "test-project", "org_name": "test-org"})
+        api_client.datasets.post_dataset.assert_called_once_with(
+            body={
+                "project_id": "test-project-id",
+                "name": "test-dataset",
+                "description": "description",
+                "metadata": {"purpose": "test"},
+            }
+        )
+        mock_state.app_conn.assert_not_called()
+
+    def test_init_dataset_without_name_uses_logs_name_with_generated_resources(self):
+        mock_state = MagicMock()
+        mock_state.org_name = "test-org"
+        api_client = mock_state.api_client.return_value
+        api_client.projects.post_project.return_value = {
+            "id": "test-project-id",
+            "name": "test-project",
+        }
+        api_client.datasets.post_dataset.return_value = {
+            "id": "test-dataset-id",
+            "project_id": "test-project-id",
+            "name": "logs",
+        }
+
+        dataset = braintrust.init_dataset(
+            project="test-project",
+            description="description",
+            use_output=False,
+            state=mock_state,
+        )
+
+        self.assertEqual(dataset.name, "logs")
+        api_client.projects.post_project.assert_called_once_with(body={"name": "test-project", "org_name": "test-org"})
+        api_client.datasets.post_dataset.assert_called_once_with(
+            body={"project_id": "test-project-id", "name": "logs", "description": "description"}
+        )
+        mock_state.app_conn.assert_not_called()
+
+    def test_init_dataset_looks_up_explicit_dataset_id(self):
+        mock_state = MagicMock()
+        api_client = mock_state.api_client.return_value
+        api_client.datasets.get_dataset_id.return_value = {
+            "id": "test-dataset-id",
+            "project_id": "test-project-id",
+            "name": "test-dataset",
+        }
+        api_client.projects.get_project_id.return_value = {
+            "id": "test-project-id",
+            "name": "test-project",
+        }
+
+        dataset = braintrust.init_dataset(
+            dataset_id="test-dataset-id",
+            use_output=False,
+            state=mock_state,
+        )
+
+        self.assertEqual(dataset.id, "test-dataset-id")
+        self.assertEqual(dataset.name, "test-dataset")
+        self.assertEqual(dataset.project.name, "test-project")
+        api_client.datasets.get_dataset_id.assert_called_once_with("test-dataset-id")
+        api_client.projects.get_project_id.assert_called_once_with("test-project-id")
+        api_client.datasets.post_dataset.assert_not_called()
+        api_client.projects.post_project.assert_not_called()
+
+    def test_init_dataset_looks_up_explicit_project_id(self):
+        mock_state = MagicMock()
+        api_client = mock_state.api_client.return_value
+        api_client.projects.get_project_id.return_value = {
+            "id": "test-project-id",
+            "name": "test-project",
+        }
+        api_client.datasets.post_dataset.return_value = {
+            "id": "test-dataset-id",
+            "project_id": "test-project-id",
+            "name": "test-dataset",
+        }
+
+        dataset = braintrust.init_dataset(
+            project="ignored-project-name",
+            project_id="test-project-id",
+            name="test-dataset",
+            use_output=False,
+            state=mock_state,
+        )
+
+        self.assertEqual(dataset.project.name, "test-project")
+        api_client.projects.get_project_id.assert_called_once_with("test-project-id")
+        api_client.projects.post_project.assert_not_called()
+
+    def test_dataset_fetch_uses_generated_resource(self):
+        mock_state = MagicMock()
+        api_client = mock_state.api_client.return_value
+        api_client.datasets.post_dataset_id_fetch.side_effect = [
+            {"events": [{"id": "row-1", "expected": "first"}], "cursor": "next"},
+            {"events": [{"id": "row-2", "expected": "second"}]},
+        ]
+        metadata = logger.ProjectDatasetMetadata(
+            project=logger.ObjectMetadata(id="test-project-id", name="test-project", full_info={}),
+            dataset=logger.ObjectMetadata(id="test-dataset-id", name="test-dataset", full_info={}),
+        )
+        dataset = logger.Dataset(
+            lazy_metadata=LazyValue(lambda: metadata, use_mutex=False),
+            version=123,
+            legacy=False,
+            state=mock_state,
+        )
+
+        self.assertEqual([row["id"] for row in dataset.fetch(batch_size=2)], ["row-1", "row-2"])
+        self.assertEqual(
+            api_client.datasets.post_dataset_id_fetch.call_args_list,
+            [
+                call("test-dataset-id", body={"limit": 2, "version": "123"}),
+                call("test-dataset-id", body={"limit": 2, "cursor": "next", "version": "123"}),
+            ],
+        )
+        mock_state.api_conn.assert_not_called()
+
+    def test_dataset_summary_uses_generated_resource_and_configured_public_url(self):
+        mock_state = MagicMock()
+        mock_state.app_public_url = "https://public.example.com"
+        mock_state.org_name = "test org"
+        mock_state.api_client.return_value.datasets.get_dataset_id_summarize.return_value = {
+            "project_name": "backend-project",
+            "dataset_name": "backend-dataset",
+            "project_url": "https://backend.example.com/project",
+            "dataset_url": "https://backend.example.com/dataset",
+            "data_summary": {"total_records": 3},
+        }
+        metadata = logger.ProjectDatasetMetadata(
+            project=logger.ObjectMetadata(id="test-project-id", name="test project", full_info={}),
+            dataset=logger.ObjectMetadata(id="test-dataset-id", name="test dataset", full_info={}),
+        )
+        dataset = logger.Dataset(
+            lazy_metadata=LazyValue(lambda: metadata, use_mutex=False),
+            legacy=False,
+            state=mock_state,
+        )
+        dataset.new_records = 1
+
+        summary = dataset.summarize()
+
+        self.assertEqual(summary.project_name, "test project")
+        self.assertEqual(summary.dataset_name, "test dataset")
+        self.assertEqual(summary.project_url, "https://public.example.com/app/test%20org/p/test%20project")
+        self.assertEqual(
+            summary.dataset_url,
+            "https://public.example.com/app/test%20org/p/test%20project/datasets/test%20dataset",
+        )
+        self.assertEqual(summary.data_summary, logger.DataSummary(new_records=1, total_records=3))
+        mock_state.api_client.return_value.datasets.get_dataset_id_summarize.assert_called_once_with(
+            "test-dataset-id", summarize_data=True
+        )
+        mock_state.api_conn.assert_not_called()
+
+
 class TestDatasetInternalBtql(TestCase):
     """Test that _internal_btql parameters (especially limit) are properly passed through to BTQL queries."""
 
@@ -3718,9 +4050,8 @@ class TestDatasetInternalBtql(TestCase):
         compute_metadata.assert_not_called()
         mock_state.api_conn.assert_not_called()
 
-    @patch("braintrust.logger.BraintrustState")
-    def test_dataset_default_limit_when_not_specified(self, mock_state_class):
-        """Test that DEFAULT_FETCH_BATCH_SIZE is used when no custom limit is specified."""
+    def test_dataset_default_limit_when_not_specified(self):
+        """Default dataset fetches use the generated API's standard batch size."""
         from braintrust.logger import (
             DEFAULT_FETCH_BATCH_SIZE,
             Dataset,
@@ -3729,21 +4060,8 @@ class TestDatasetInternalBtql(TestCase):
             ProjectDatasetMetadata,
         )
 
-        # Set up mock state
         mock_state = MagicMock()
-        mock_state_class.return_value = mock_state
-
-        # Mock the API connection and response
-        mock_api_conn = MagicMock()
-        mock_state.api_conn.return_value = mock_api_conn
-
-        # Mock response object
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "data": [],
-            "cursor": None,
-        }
-        mock_api_conn.post.return_value = mock_response
+        mock_state.api_client.return_value.datasets.post_dataset_id_fetch.return_value = {"events": []}
 
         # Create dataset without custom limit
         project_metadata = ObjectMetadata(id="test-project", name="test-project", full_info={})
@@ -3759,39 +4077,20 @@ class TestDatasetInternalBtql(TestCase):
             state=mock_state,
         )
 
-        # Trigger a fetch which will make the BTQL query
         list(dataset.fetch())
 
-        # Verify the API was called
-        mock_api_conn.post.assert_called_once()
+        mock_state.api_client.return_value.datasets.post_dataset_id_fetch.assert_called_once_with(
+            "test-dataset", body={"limit": DEFAULT_FETCH_BATCH_SIZE}
+        )
 
-        # Get the actual call arguments
-        call_args = mock_api_conn.post.call_args
-        query_json = call_args[1]["json"]["query"]
-
-        # Verify that the default limit is used
-        self.assertEqual(query_json["limit"], DEFAULT_FETCH_BATCH_SIZE)
-
-    @patch("braintrust.logger.BraintrustState")
-    def test_dataset_custom_batch_size_in_fetch(self, mock_state_class):
-        """Test that custom batch_size in fetch() is properly passed to BTQL query."""
+    def test_dataset_custom_batch_size_in_fetch(self):
+        """Custom batch sizes are forwarded to the generated fetch operation."""
         from braintrust.logger import Dataset, LazyValue, ObjectMetadata, ProjectDatasetMetadata
 
-        # Set up mock state
         mock_state = MagicMock()
-        mock_state_class.return_value = mock_state
-
-        # Mock the API connection and response
-        mock_api_conn = MagicMock()
-        mock_state.api_conn.return_value = mock_api_conn
-
-        # Mock response object
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "data": [{"id": "1", "input": "test1", "expected": "output1"}],
-            "cursor": None,
+        mock_state.api_client.return_value.datasets.post_dataset_id_fetch.return_value = {
+            "events": [{"id": "1", "input": "test1", "expected": "output1"}]
         }
-        mock_api_conn.post.return_value = mock_response
 
         # Create dataset
         project_metadata = ObjectMetadata(id="test-project", name="test-project", full_info={})
@@ -3810,15 +4109,9 @@ class TestDatasetInternalBtql(TestCase):
         custom_batch_size = 250
         list(dataset.fetch(batch_size=custom_batch_size))
 
-        # Verify the API was called
-        mock_api_conn.post.assert_called_once()
-
-        # Get the actual call arguments
-        call_args = mock_api_conn.post.call_args
-        query_json = call_args[1]["json"]["query"]
-
-        # Verify that the custom batch_size is used
-        self.assertEqual(query_json["limit"], custom_batch_size)
+        mock_state.api_client.return_value.datasets.post_dataset_id_fetch.assert_called_once_with(
+            "test-dataset", body={"limit": custom_batch_size}
+        )
 
 
 @pytest.mark.vcr
@@ -3826,7 +4119,7 @@ def test_dataset_internal_btql_limit_caps_total_results():
     dataset = braintrust.init_dataset(
         project="python-sdk-vcr-tests",
         name="test-dataset-internal-btql-total-limit",
-        api_key="sk-dummy-for-vcr-replay",
+        api_key=os.environ.get("BRAINTRUST_API_KEY", "sk-dummy-for-vcr-replay"),
         use_output=False,
         _internal_btql={"limit": 1},
     )

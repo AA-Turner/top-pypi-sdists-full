@@ -42,7 +42,8 @@ KEY_ACTIVE = "active"
 _SELECTOR_RANK = {"all": 0, "group": 1, "name": 2, "id": 3}
 
 # limits knobs that map to the real set_limits route (workers.WorkerStore._LIMIT_KEYS).
-_LIMIT_KEYS = ("ram_max_gib", "gpu_mem_gib", "threads", "disk_cache_gib")
+_LIMIT_KEYS = ("ram_max_gib", "gpu_mem_gib", "threads", "disk_cache_gib",
+               "disk_reserve_gib")
 
 
 class TemplateError(ValueError):

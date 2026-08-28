@@ -1,35 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: readability-lxml
-Version: 0.8.4.1
+Version: 0.9
 Summary: fast html to text parser (article readability tool) with python 3 support
-Home-page: http://github.com/buriy/python-readability
+License: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE
 Author: Yuri Baburov
 Author-email: burchik@gmail.com
-License: Apache License 2.0
-Classifier: Environment :: Web Environment
-Classifier: Intended Audience :: Developers
-Classifier: Operating System :: OS Independent
-Classifier: Topic :: Text Processing :: Indexing
-Classifier: Topic :: Utilities
-Classifier: Topic :: Internet
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Programming Language :: Python
+Requires-Python: >=3.8.2,<3.15
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: chardet (>=5.2.0,<6.0.0)
+Requires-Dist: cssselect (>=1.2,<1.3) ; python_version < "3.9"
+Requires-Dist: cssselect (>=1.3,<1.4) ; python_version >= "3.9"
+Requires-Dist: lxml-html-clean (>=0.4.2,<0.5.0) ; python_version < "3.11"
+Requires-Dist: lxml[html-clean] (>=5.4,<7)
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: chardet
-Requires-Dist: lxml[html_clean]
-Requires-Dist: lxml-html-clean; python_version < "3.11"
-Requires-Dist: cssselect
-Provides-Extra: speed
-Requires-Dist: cchardet; extra == "speed"
 
 [![PyPI version](https://img.shields.io/pypi/v/readability-lxml.svg)](https://pypi.python.org/pypi/readability-lxml)
 
@@ -61,18 +53,66 @@ $ conda install -c conda-forge readability-lxml
 
 >>> response = requests.get('http://example.com')
 >>> doc = Document(response.content)
->>> doc.title()
-'Example Domain'
+>>> print(doc.title())
+Example Domain
 
->>> doc.summary()
-"""<html><body><div><body id="readabilityBody">\n<div>\n    <h1>Example Domain</h1>\n
+>>> print(doc.summary())
+<html><body><div><body id="readabilityBody">
+<div>
+    <h1>Example Domain</h1>
 <p>This domain is established to be used for illustrative examples in documents. You may
-use this\n    domain in examples without prior coordination or asking for permission.</p>
-\n    <p><a href="http://www.iana.org/domains/example">More information...</a></p>\n</div>
-\n</body>\n</div></body></html>"""
+use this domain in examples without prior coordination or asking for permission.</p>
+    <p><a href="http://www.iana.org/domains/example">More information...</a></p>
+</div>
+</body>
+</div></body></html>
 ```
 
+The command-line interface accepts a local HTML file or a URL:
+
+```bash
+python -m readability -u https://example.com
+```
+
+Run the real-page extraction benchmark with the default minimum F1 of 0.95:
+
+```bash
+make benchmark
+BENCHMARK_MIN_SCORE=0.97 make benchmark
+```
+
+The corpus methodology, version reports, and ten-engine comparison are
+documented in
+[`docs/quality/`](https://github.com/buriy/python-readability/blob/master/docs/quality/README.md).
+
+## Security
+
+`Document.summary()` removes common active content while extracting an article,
+but readability-lxml is not a security boundary or a general-purpose HTML
+sanitizer. Applications that render untrusted output must apply a dedicated
+allowlist sanitizer and an appropriate Content Security Policy.
+
 ## Change Log
+- 0.9
+  - Expanded the declared Python range through 3.14, added `lxml` 6 support, and updated packaging metadata for Markdown documentation and current `cssselect` releases.
+  - Added `python -m readability` execution for local files and URLs.
+  - Fixed bytes input and encoding detection.
+  - Fixed `get_clean_html()` before another API call has initialized the document.
+  - Fixed shortened-title selection and CJK title length handling.
+  - Fixed XPath annotations incorrectly affecting the ruthless-parser retry length.
+  - Preserved inline links and formatting elements when converting misused `<div>` elements into paragraphs.
+  - Removed inline `display: none`, `visibility: hidden`, HTML `hidden`, and `<noscript>` fallback content before scoring.
+  - Preserved content containers whose class or ID also contains an unlikely-candidate term such as `sidebar`.
+  - Preserved code blocks and semantic `<main>` or `<article>` containers during unlikely-candidate filtering.
+  - Recovered editorial leads, heading preambles, split article segments, and substantial list-based articles.
+  - Removed trailing linked calls to action without weakening general link-density filtering.
+  - Restricted retained video iframes to exact HTTP(S) YouTube and Vimeo hosts, preventing lookalike-host and userinfo URL bypasses, and removed active `srcdoc` content.
+  - Added 181 reproducible fixtures: 166 quality fixtures split into base, Dragnet, GitHub user-issue, and complete 130-page Mozilla Readability corpora, plus 15 manually curated real-page regression fixtures from `jcharum/lxml-readability`.
+  - Replaced the unmaintained nose test runner with pytest in local, tox, and GitHub Actions workflows.
+  - Updated development and release targets for portable module execution, PEP 517 builds, version synchronization, isolated artifact checks, and current-version uploads.
+  - Improved the 166-page benchmark from precision 0.971, recall 0.884, and F1 0.926 in 0.8.4.1 to precision 0.991, recall 0.956, and F1 0.973.
+  - Corrected the README usage examples.
+  - Fixes GitHub issues [#14](https://github.com/buriy/python-readability/issues/14), [#108](https://github.com/buriy/python-readability/issues/108), [#119](https://github.com/buriy/python-readability/issues/119), [#130](https://github.com/buriy/python-readability/issues/130), [#143](https://github.com/buriy/python-readability/issues/143), [#146](https://github.com/buriy/python-readability/issues/146), [#153](https://github.com/buriy/python-readability/issues/153), [#158](https://github.com/buriy/python-readability/issues/158), [#159](https://github.com/buriy/python-readability/issues/159), [#163](https://github.com/buriy/python-readability/issues/163), [#170](https://github.com/buriy/python-readability/issues/170), [#176](https://github.com/buriy/python-readability/issues/176), [#182](https://github.com/buriy/python-readability/issues/182), and [#194](https://github.com/buriy/python-readability/issues/194). Release tracking issue [#196](https://github.com/buriy/python-readability/issues/196) can be closed after 0.9 is published to PyPI.
 - 0.8.4 Better CJK support, thanks @cdhigh
 - 0.8.3.1 Support for python 3.8 - 3.13
 - 0.8.3 We can now save all images via keep_all_images=True (default is to save 1 main image), thanks @botlabsDev
@@ -98,3 +138,4 @@ This code is under [the Apache License 2.0](http://www.apache.org/licenses/LICEN
 - [Decruft effort](https://web.archive.org/web/20110214150709/https://www.minvolai.com/blog/decruft-arc90s-readability-in-python/) to move to lxml
 - "BR to P" fix from readability.js which improves quality for smaller texts
 - Github users contributions.
+

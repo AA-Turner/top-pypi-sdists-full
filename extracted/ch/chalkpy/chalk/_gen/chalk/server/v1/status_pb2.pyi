@@ -81,6 +81,12 @@ class HealthCheckName(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     HEALTH_CHECK_NAME_VICTORIA_METRICS: _ClassVar[HealthCheckName]
     HEALTH_CHECK_NAME_COMPUTE_CONTAINER_REGISTRY: _ClassVar[HealthCheckName]
     HEALTH_CHECK_NAME_CHALK_MACHINE_TYPE_NODEPOOLS: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_OFFLINE_NODEPOOL: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_LLM_ROUTER: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_MCP_GATEWAY: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_CLICKHOUSE_USAGE: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_DATAPLANE_API_SERVER: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_INFRASTRUCTURE_NODEPOOL: _ClassVar[HealthCheckName]
 
 HEALTH_CHECK_STATUS_UNSPECIFIED: HealthCheckStatus
 HEALTH_CHECK_STATUS_OK: HealthCheckStatus
@@ -143,6 +149,12 @@ HEALTH_CHECK_NAME_EBS_CSI_DRIVER: HealthCheckName
 HEALTH_CHECK_NAME_VICTORIA_METRICS: HealthCheckName
 HEALTH_CHECK_NAME_COMPUTE_CONTAINER_REGISTRY: HealthCheckName
 HEALTH_CHECK_NAME_CHALK_MACHINE_TYPE_NODEPOOLS: HealthCheckName
+HEALTH_CHECK_NAME_OFFLINE_NODEPOOL: HealthCheckName
+HEALTH_CHECK_NAME_LLM_ROUTER: HealthCheckName
+HEALTH_CHECK_NAME_MCP_GATEWAY: HealthCheckName
+HEALTH_CHECK_NAME_CLICKHOUSE_USAGE: HealthCheckName
+HEALTH_CHECK_NAME_DATAPLANE_API_SERVER: HealthCheckName
+HEALTH_CHECK_NAME_INFRASTRUCTURE_NODEPOOL: HealthCheckName
 
 class HealthCheck(_message.Message):
     __slots__ = ("name", "status", "message", "latency", "kube_data", "metadata")

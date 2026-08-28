@@ -1,0 +1,133 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+# NOTE: "_new" suffix is intentional — testing apps for the new
+# AnalyticsEngine flow are registered in the backend with distinct names
+# (e.g. "PPE Compliance New") so the ORIGINAL apps keep running the
+# legacy post_processing flow (ppe_compliance). Drop the suffix
+# only when the new flow replaces the legacy one for this app.
+app:
+  id: ppe_compliance_new
+  name: "PPE Compliance New"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+#   Single-stage PPE model (PPE_Detection.pt):
+#     Hardhat, Mask, NO-Hardhat, NO-Mask, NO-Safety Vest,
+#     Person, Safety Cone, Safety Vest, machinery, vehicle
+#
+#   SAFETY  — compliance (% of persons wearing required PPE)
+#   VOLUME  — unique person throughput, current occupancy
+# ──────────────────────────────────────────────
+categories:
+  - SAFETY
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+#   Model: PPE_Detection.pt (10 classes)
+#   Values match ppe_compliance.py index_to_category (Title Case).
+#   Left = analytics entity; right = label from post_processing config.
+# ──────────────────────────────────────────────
+entity_mapping:
+  person: Person
+  hardhat: Hardhat
+  safety_vest: Safety Vest
+  mask: Mask
+  no_hardhat: NO-Hardhat
+  no_mask: NO-Mask
+  no_safety_vest: NO-Safety Vest
+  safety_cone: Safety Cone
+  machinery: machinery
+  vehicle: vehicle
+
+# Fallback when deployment API omits index_to_category (PPE_Detection.pt / bc7cb4d0….pt).
+index_to_category:
+  0: Hardhat
+  1: Mask
+  2: NO-Hardhat
+  3: NO-Mask
+  4: NO-Safety Vest
+  5: Person
+  6: Safety Cone
+  7: Safety Vest
+  8: machinery
+  9: vehicle
+
+# ──────────────────────────────────────────────
+# Safety Module — PPE Compliance
+# ──────────────────────────────────────────────
+safety:
+  person_classes:
+    - person
+
+  ppe_classes:
+    - hardhat
+    - safety_vest
+    - mask
+
+  required_ppe:
+    - hardhat
+    - safety_vest
+
+  violation_classes:
+    - no_hardhat
+    - no_mask
+    - no_safety_vest
+
+  metrics:
+    - key: total_persons
+      agg_type: sum
+      category: SAFETY
+    - key: compliant_count
+      agg_type: sum
+      category: SAFETY
+    - key: violation_count
+      agg_type: sum
+      category: SAFETY
+    - key: compliance_pct
+      agg_type: mean
+      category: SAFETY
+    - key: hardhat_count
+      agg_type: sum
+      category: SAFETY
+    - key: safety_vest_count
+      agg_type: sum
+      category: SAFETY
+    - key: mask_count
+      agg_type: sum
+      category: SAFETY
+
+# ──────────────────────────────────────────────
+# Volume Module — Person Throughput
+# ──────────────────────────────────────────────
+volume:
+  target_categories:
+    - person
+
+  metrics:
+    - key: entry_count
+      agg_type: sum
+      category: VOLUME
+    - key: current_occupancy
+      agg_type: last
+      category: VOLUME
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults:
+    - metric: violation_count
+      condition:
+        operator: ">"
+        value: 0
+      severity: HIGH
+    - metric: compliance_pct
+      condition:
+        operator: "<"
+        value: 80
+      severity: MEDIUM
+
+  overrides: []

@@ -779,7 +779,7 @@ class TestMSEEDSpecialIssue():
         file = testdata['various_noise_records.mseed']
         st = read(file)
 
-        assert len(st), 4
+        assert len(st) == 4
         assert st[0].stats.station, "NV30"
         assert st[1].stats.station, "NV31"
         assert st[2].stats.station, "NV32"
@@ -1214,3 +1214,11 @@ class TestMSEEDSpecialIssue():
             "Failed to decode location code as ASCII.")
         assert len(st) == 1
         assert st[0].id == '.GECKO.A.CNZ'
+
+    def test_reading_empty_file(self, datapath):
+        """
+        ObsPyMSEEDFilesizeTooSmallError should be raised in case file is empty.
+        """
+        filename = datapath / "bizarre" / "emptyfile.mseed"
+        with pytest.raises(ObsPyMSEEDFilesizeTooSmallError):
+            _read_mseed(filename)

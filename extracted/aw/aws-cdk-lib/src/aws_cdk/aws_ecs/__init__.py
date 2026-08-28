@@ -1170,26 +1170,27 @@ Since AWS has changed the [ARN format for ECS](https://docs.aws.amazon.com/Amazo
 feature flag `@aws-cdk/aws-ecs:arnFormatIncludesClusterName` must be enabled to use the new ARN format.
 The feature flag changes behavior for the entire CDK project. Therefore it is not possible to mix the old and the new format in one CDK project.
 
-```tss
-declare const cluster: ecs.Cluster;
+```python
+# cluster: ecs.Cluster
 
-// Import service from EC2 service attributes
-const service = ecs.Ec2Service.fromEc2ServiceAttributes(this, 'EcsService', {
-  serviceArn: 'arn:aws:ecs:us-west-2:123456789012:service/my-http-service',
-  cluster,
-});
 
-// Import service from EC2 service ARN
-const service = ecs.Ec2Service.fromEc2ServiceArn(this, 'EcsService', 'arn:aws:ecs:us-west-2:123456789012:service/my-http-service');
+# Import service from EC2 service attributes
+ec2_service_from_attributes = ecs.Ec2Service.from_ec2_service_attributes(self, "Ec2ServiceFromAttributes",
+    service_arn="arn:aws:ecs:us-west-2:123456789012:service/my-http-service",
+    cluster=cluster
+)
 
-// Import service from Fargate service attributes
-const service = ecs.FargateService.fromFargateServiceAttributes(this, 'EcsService', {
-  serviceArn: 'arn:aws:ecs:us-west-2:123456789012:service/my-http-service',
-  cluster,
-});
+# Import service from EC2 service ARN
+ec2_service_from_arn = ecs.Ec2Service.from_ec2_service_arn(self, "Ec2ServiceFromArn", "arn:aws:ecs:us-west-2:123456789012:service/my-http-service")
 
-// Import service from Fargate service ARN
-const service = ecs.FargateService.fromFargateServiceArn(this, 'EcsService', 'arn:aws:ecs:us-west-2:123456789012:service/my-http-service');
+# Import service from Fargate service attributes
+fargate_service_from_attributes = ecs.FargateService.from_fargate_service_attributes(self, "FargateServiceFromAttributes",
+    service_arn="arn:aws:ecs:us-west-2:123456789012:service/my-http-service",
+    cluster=cluster
+)
+
+# Import service from Fargate service ARN
+fargate_service_from_arn = ecs.FargateService.from_fargate_service_arn(self, "FargateServiceFromArn", "arn:aws:ecs:us-west-2:123456789012:service/my-http-service")
 ```
 
 ### Availability Zone rebalancing
@@ -1281,6 +1282,8 @@ scaling.scale_on_request_count("RequestScaling",
 
 Task auto-scaling is powered by *Application Auto-Scaling*.
 See that section for details.
+
+To scale on SQS queue depth, see [Autoscaling consumers on queue depth](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_sqs-readme.html#autoscaling-consumers-on-queue-depth).
 
 ## Integration with CloudWatch Events
 
@@ -36342,23 +36345,30 @@ class Ec2ServiceAttributes:
         :param service_arn: The service ARN. Default: - either this, or ``serviceName``, is required
         :param service_name: The name of the service. Default: - either this, or ``serviceArn``, is required
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ecs as ecs
-            
             # cluster: ecs.Cluster
             
-            ec2_service_attributes = ecs.Ec2ServiceAttributes(
-                cluster=cluster,
             
-                # the properties below are optional
-                service_arn="serviceArn",
-                service_name="serviceName"
+            # Import service from EC2 service attributes
+            ec2_service_from_attributes = ecs.Ec2Service.from_ec2_service_attributes(self, "Ec2ServiceFromAttributes",
+                service_arn="arn:aws:ecs:us-west-2:123456789012:service/my-http-service",
+                cluster=cluster
             )
+            
+            # Import service from EC2 service ARN
+            ec2_service_from_arn = ecs.Ec2Service.from_ec2_service_arn(self, "Ec2ServiceFromArn", "arn:aws:ecs:us-west-2:123456789012:service/my-http-service")
+            
+            # Import service from Fargate service attributes
+            fargate_service_from_attributes = ecs.FargateService.from_fargate_service_attributes(self, "FargateServiceFromAttributes",
+                service_arn="arn:aws:ecs:us-west-2:123456789012:service/my-http-service",
+                cluster=cluster
+            )
+            
+            # Import service from Fargate service ARN
+            fargate_service_from_arn = ecs.FargateService.from_fargate_service_arn(self, "FargateServiceFromArn", "arn:aws:ecs:us-west-2:123456789012:service/my-http-service")
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec9bd820dae60c0be34ffc5a5dd28bccc87947dc35dff1502ce12b80a454477a)
@@ -39533,23 +39543,30 @@ class FargateServiceAttributes:
         :param service_arn: The service ARN. Default: - either this, or ``serviceName``, is required
         :param service_name: The name of the service. Default: - either this, or ``serviceArn``, is required
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ecs as ecs
-            
             # cluster: ecs.Cluster
             
-            fargate_service_attributes = ecs.FargateServiceAttributes(
-                cluster=cluster,
             
-                # the properties below are optional
-                service_arn="serviceArn",
-                service_name="serviceName"
+            # Import service from EC2 service attributes
+            ec2_service_from_attributes = ecs.Ec2Service.from_ec2_service_attributes(self, "Ec2ServiceFromAttributes",
+                service_arn="arn:aws:ecs:us-west-2:123456789012:service/my-http-service",
+                cluster=cluster
             )
+            
+            # Import service from EC2 service ARN
+            ec2_service_from_arn = ecs.Ec2Service.from_ec2_service_arn(self, "Ec2ServiceFromArn", "arn:aws:ecs:us-west-2:123456789012:service/my-http-service")
+            
+            # Import service from Fargate service attributes
+            fargate_service_from_attributes = ecs.FargateService.from_fargate_service_attributes(self, "FargateServiceFromAttributes",
+                service_arn="arn:aws:ecs:us-west-2:123456789012:service/my-http-service",
+                cluster=cluster
+            )
+            
+            # Import service from Fargate service ARN
+            fargate_service_from_arn = ecs.FargateService.from_fargate_service_arn(self, "FargateServiceFromArn", "arn:aws:ecs:us-west-2:123456789012:service/my-http-service")
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__85c0463354cc6d5a3da5daace0570a015f941bfeb87bb282346c1e2bed0c8176)

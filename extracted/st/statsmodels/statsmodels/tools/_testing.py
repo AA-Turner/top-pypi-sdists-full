@@ -1,4 +1,5 @@
-"""Testing helper functions
+"""
+Testing helper functions
 
 Warning: current status experimental, mostly copy paste
 
@@ -10,12 +11,24 @@ The first group of functions provide consistency checks
 """
 
 import numpy as np
-from numpy.testing import assert_allclose, assert_
-
+from numpy.testing import assert_, assert_allclose
 import pandas as pd
 
 
 def check_ttest_tvalues(results):
+    """
+    Check that `t_test` gives the same results as params, bse, tvalues, ...
+
+    Parameters
+    ----------
+    results : Results instance
+        Results object to check.
+
+    Raises
+    ------
+    AssertionError
+        If any of the checks fail.
+    """
     # test that t_test has same results a params, bse, tvalues, ...
     res = results
     mat = np.eye(len(res.params))
@@ -29,16 +42,17 @@ def check_ttest_tvalues(results):
     assert_allclose(tt.conf_int(), res.conf_int(), rtol=1e-10)
 
     # test params table frame returned by t_test
-    table_res = np.column_stack((res.params, res.bse, res.tvalues,
-                                 res.pvalues, res.conf_int()))
+    table_res = np.column_stack(
+        (res.params, res.bse, res.tvalues, res.pvalues, res.conf_int())
+    )
     table2 = tt.summary_frame().values
     assert_allclose(table2, table_res, rtol=1e-12)
 
     # TODO: move this to test_attributes ?
-    assert_(hasattr(res, 'use_t'))
+    assert_(hasattr(res, "use_t"))
 
     tt = res.t_test(mat[0])
-    tt.summary()   # smoke test for #1323
+    tt.summary()  # smoke test for #1323
     pvalues = np.asarray(res.pvalues)
     assert_allclose(tt.pvalue, pvalues[0], rtol=5e-10)
     # TODO: Adapt more of test_generic_methods.test_ttest_values here?
@@ -46,36 +60,43 @@ def check_ttest_tvalues(results):
 
 def check_ftest_pvalues(results):
     """
-    Check that the outputs of `res.wald_test` produces pvalues that
-    match res.pvalues.
+    Check that the outputs of `res.wald_test` match `res.pvalues`
 
-    Check that the string representations of `res.summary()` and (possibly)
-    `res.summary2()` correctly label either the t or z-statistic.
+    Also check that the string representations of `res.summary()` and
+    (possibly) `res.summary2()` correctly label either the t or
+    z-statistic.
 
     Parameters
     ----------
-    results : Results
+    results : Results instance
+        Results object to check.
 
     Raises
     ------
     AssertionError
+        If any of the checks fail.
+
     """
     res = results
     use_t = res.use_t
     k_vars = len(res.params)
     # check default use_t
-    pvals = [res.wald_test(np.eye(k_vars)[k], use_f=use_t, scalar=True).pvalue
-             for k in range(k_vars)]
+    pvals = [
+        res.wald_test(np.eye(k_vars)[k], use_f=use_t, scalar=True).pvalue
+        for k in range(k_vars)
+    ]
     assert_allclose(pvals, res.pvalues, rtol=5e-10, atol=1e-25)
 
     # automatic use_f based on results class use_t
-    pvals = [res.wald_test(np.eye(k_vars)[k], scalar=True).pvalue
-             for k in range(k_vars)]
+    pvals = [
+        res.wald_test(np.eye(k_vars)[k], scalar=True).pvalue
+        for k in range(k_vars)
+    ]
     assert_allclose(pvals, res.pvalues, rtol=5e-10, atol=1e-25)
 
     # TODO: Separate these out into summary/summary2 tests?
     # label for pvalues in summary
-    string_use_t = 'P>|z|' if use_t is False else 'P>|t|'
+    string_use_t = "P>|z|" if use_t is False else "P>|t|"
     summ = str(res.summary())
     assert_(string_use_t in summ)
 
@@ -89,17 +110,31 @@ def check_ftest_pvalues(results):
 
 
 def check_fitted(results):
+    """
+    Check that fitted values are consistent with resid and predict
+
+    Parameters
+    ----------
+    results : Results instance
+        Results object to check.
+
+    Raises
+    ------
+    AssertionError
+        If any of the checks fail.
+    """
     import pytest
+
+    from statsmodels.discrete.discrete_model import DiscreteResults
 
     # ignore wrapper for isinstance check
     from statsmodels.genmod.generalized_linear_model import GLMResults
-    from statsmodels.discrete.discrete_model import DiscreteResults
 
     # possibly unwrap -- GEE has no wrapper
-    results = getattr(results, '_results', results)
+    results = getattr(results, "_results", results)
 
     if isinstance(results, (GLMResults, DiscreteResults)):
-        pytest.skip(f'Not supported for {type(results)}')
+        pytest.skip(f"Not supported for {type(results)}")
 
     res = results
     fitted = res.fittedvalues
@@ -109,28 +144,34 @@ def check_fitted(results):
 
 def check_predict_types(results):
     """
-    Check that the `predict` method of the given results object produces the
-    correct output type.
+    Check the output type produced by a results object's predict method
 
     Parameters
     ----------
-    results : Results
+    results : Results instance
+        Results object to check.
 
     Raises
     ------
     AssertionError
+        If any prediction result has an unexpected type or value.
+
     """
     res = results
     # squeeze to make 1d for single regressor test case
     p_exog = np.squeeze(np.asarray(res.model.exog[:2]))
 
     # ignore wrapper for isinstance check
-    from statsmodels.genmod.generalized_linear_model import GLMResults
+    from statsmodels.compat.pandas import (
+        assert_frame_equal,
+        assert_series_equal,
+    )
+
     from statsmodels.discrete.discrete_model import DiscreteResults
-    from statsmodels.compat.pandas import assert_frame_equal, assert_series_equal
+    from statsmodels.genmod.generalized_linear_model import GLMResults
 
     # possibly unwrap -- GEE has no wrapper
-    results = getattr(results, '_results', results)
+    results = getattr(results, "_results", results)
 
     if isinstance(results, (GLMResults, DiscreteResults)):
         # SMOKE test only  TODO: mark this somehow
@@ -141,13 +182,14 @@ def check_predict_types(results):
         fitted = res.fittedvalues[:2]
         assert_allclose(fitted, res.predict(p_exog), rtol=1e-12)
         # this needs reshape to column-vector:
-        assert_allclose(fitted, res.predict(np.squeeze(p_exog).tolist()),
-                        rtol=1e-12)
+        assert_allclose(
+            fitted, res.predict(np.squeeze(p_exog).tolist()), rtol=1e-12
+        )
         # only one prediction:
-        assert_allclose(fitted[:1], res.predict(p_exog[0].tolist()),
-                        rtol=1e-12)
-        assert_allclose(fitted[:1], res.predict(p_exog[0]),
-                        rtol=1e-12)
+        assert_allclose(
+            fitted[:1], res.predict(p_exog[0].tolist()), rtol=1e-12
+        )
+        assert_allclose(fitted[:1], res.predict(p_exog[0]), rtol=1e-12)
 
         # Check that pandas wrapping works as expected
         exog_index = range(len(p_exog))

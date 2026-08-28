@@ -20,6 +20,23 @@ from chalk._gen.chalk.artifacts.v1 import (
 )
 from chalk._gen.chalk.artifacts.v1 import cron_query_pb2 as chalk_dot_artifacts_dot_v1_dot_cron__query__pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as chalk_dot_graph_dot_v1_dot_graph__pb2
+
+try:
+    chalk_dot_graph_dot_v1_dot_source__file__reference__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk_dot_graph_dot_v1_dot_source__file__reference__pb2
+    )
+except AttributeError:
+    chalk_dot_graph_dot_v1_dot_source__file__reference__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk.graph.v1.source_file_reference_pb2
+    )
+try:
+    chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2
+    )
+except AttributeError:
+    chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk.graph.v1.sql_resolver_retry_policy_pb2
+    )
 from chalk._gen.chalk.graph.v2 import sources_pb2 as chalk_dot_graph_dot_v2_dot_sources__pb2
 from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 

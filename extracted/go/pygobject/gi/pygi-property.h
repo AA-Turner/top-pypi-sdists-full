@@ -21,12 +21,12 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef __PYGI_PROPERTY_H__
-#define __PYGI_PROPERTY_H__
+#pragma once
 
-#include <girepository/girepository.h>
-#include <pythoncapi_compat.h>
 #include "pygi-argument.h"
+#include "pygobject-types.h"
+
+G_BEGIN_DECLS
 
 PyObject *pygi_get_property_value (PyGObject *instance, GParamSpec *pspec);
 
@@ -41,4 +41,4 @@ gint pygi_set_gvalue_for_pspec (GValue *value, GParamSpec *pspec,
                                 PyObject *py_value,
                                 PyGIArgumentFromPyCleanupData *cleanup_data);
 
-#endif /* __PYGI_PROPERTY_H__ */
+G_END_DECLS

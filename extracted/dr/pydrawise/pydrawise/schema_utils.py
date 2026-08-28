@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections import namedtuple
+from collections.abc import Iterator
 from dataclasses import fields, is_dataclass
-from functools import lru_cache
+from functools import cache
+from types import NoneType, UnionType
 from typing import (
     TYPE_CHECKING,
-    Iterator,
-    List,
+    Any,
     Union,
     get_args,
     get_origin,
@@ -26,11 +27,8 @@ from .schema import DSL_SCHEMA
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
 
-# For compatibility with < python 3.10.
-NoneType = type(None)
 
-
-def deserialize(*args, **kwargs):
+def deserialize(*args: Any, **kwargs: Any) -> Any:
     """Deserializes a GraphQL JSON blob.
 
     :meta private:
@@ -66,7 +64,11 @@ def _fields(
         field_type = hints[f.name]
         origin = get_origin(field_type)
 
-        if origin == Union:
+        # `X | Y` and `Union[X, Y]` do not report the same origin: before
+        # Python 3.14 the former is types.UnionType and only the latter is
+        # typing.Union. Both spellings appear in schema.py, and matching only
+        # typing.Union silently emitted union fields with no sub-selection.
+        if origin is Union or origin is UnionType:
             # Drop None from Optional fields.
             field_types = set(get_args(field_type)) - {NoneType}
 
@@ -80,7 +82,7 @@ def _fields(
             [field_type] = field_types
             origin = get_origin(field_type)
 
-        if origin in (List, list):
+        if origin is list:
             # Extract the contained type.
             # We assume all list types are uniform.
             [field_type] = get_args(field_type)
@@ -88,7 +90,7 @@ def _fields(
         yield _Field(f.name, [field_type])
 
 
-@lru_cache(maxsize=None)
+@cache
 def _get_selectors_cached(
     cls: type[DataclassInstance],
     skip_fields: tuple[str, ...],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wetext
-Version: 0.1.6
+Version: 0.1.7
 Summary: WeTextProcessing Runtime
 Author-email: Zhendong Peng <pzd17@tsinghua.org.cn>
 License-Expression: Apache-2.0
@@ -78,6 +78,32 @@ normalizer = Normalizer(lang="en", operator="itn")
 result = normalizer.normalize("twenty three dollars and fifty cents")
 print(result)  # $23.50
 ```
+
+#### Streaming TN and ITN
+
+`StreamNormalizer` keeps unfinished normalization context internally. Pass only the new
+text on each call; `feed()` returns the complete current output. Use one
+instance per utterance and call `flush()` when the utterance ends.
+
+```python
+from wetext import StreamNormalizer
+
+stream = StreamNormalizer(lang="zh", operator="itn")
+print(stream.feed("今天是二零"))  # 今天是二零
+print(stream.feed("二六年"))  # 今天是2026年
+print(stream.flush())  # 今天是2026年
+
+stream = StreamNormalizer(lang="zh", operator="tn")
+print(stream.feed("价格是12"))  # 价格是十二
+print(stream.feed(".5元"))  # 价格是十二点五元
+print(stream.flush())  # 价格是十二点五元
+```
+
+Streaming requires an explicit language and supports TN and ITN. Model
+bundles built before streaming prefix graphs were introduced remain compatible;
+they retain more internal context until `flush()`. For an unusually long
+unfinished expression, only its tail is normalized for the current display;
+`flush()` always returns the exact normalization of all remaining input.
 
 #### N-best and exact mappings
 

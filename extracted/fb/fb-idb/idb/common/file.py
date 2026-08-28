@@ -4,13 +4,14 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import AsyncIterator
+
+from collections.abc import AsyncIterator
 
 import aiofiles
 
 
 def get_last_n_lines(file_path: str, n: int) -> str:
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         return "\n".join(f.readlines()[-n:])
 
 

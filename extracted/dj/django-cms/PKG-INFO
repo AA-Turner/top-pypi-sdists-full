@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-cms
-Version: 5.1.1
+Version: 5.1.2
 Summary: Lean enterprise content management powered by Django.
 Author-email: Django CMS Association and contributors <info@django-cms.org>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>

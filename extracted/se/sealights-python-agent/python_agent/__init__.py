@@ -21,7 +21,7 @@ except ImportError:
 __legacy_mode__ = os.environ.get("SL_LEGACY_MODE", "false").lower() == "true"
 
 
-__version__ = "2.10.17"
+__version__ = "2.10.19"
 
 
 __package_name__ = "sealights_python_agent"

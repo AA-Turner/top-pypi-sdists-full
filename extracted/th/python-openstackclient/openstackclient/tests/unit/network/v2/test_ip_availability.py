@@ -29,6 +29,10 @@ class TestListIPAvailability(network_fakes.TestNetworkV2):
         'Network Name',
         'Total IPs',
         'Used IPs',
+        'Total IPs in Subnet',
+        'Total IPs in Allocation Pool',
+        'Used IPs in Subnet',
+        'Used IPs in Allocation Pool',
     )
     data = []
     for net in _ip_availability:
@@ -38,6 +42,10 @@ class TestListIPAvailability(network_fakes.TestNetworkV2):
                 net.network_name,
                 net.total_ips,
                 net.used_ips,
+                net.ip_availability_details['total_ips_in_subnet'],
+                net.ip_availability_details['total_ips_in_allocation_pool'],
+                net.ip_availability_details['used_ips_in_subnet'],
+                net.ip_availability_details['used_ips_in_allocation_pool'],
             )
         )
 
@@ -124,6 +132,37 @@ class TestListIPAvailability(network_fakes.TestNetworkV2):
         self.assertEqual(self.columns, columns)
         self.assertCountEqual(self.data, list(data))
 
+    def test_list_without_ip_availability_details(self):
+        # The 'network-ip-availability-details' extension may not be
+        # enabled, in which case the detail columns are left empty.
+        ip_availability = network_fakes.create_one_ip_availability(
+            attrs={'ip_availability_details': None}
+        )
+        self.network_client.network_ip_availabilities.return_value = [
+            ip_availability
+        ]
+
+        parsed_args = self.check_parser(self.cmd, [], [])
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.assertEqual(self.columns, columns)
+        self.assertEqual(
+            [
+                (
+                    ip_availability.network_id,
+                    ip_availability.network_name,
+                    ip_availability.total_ips,
+                    ip_availability.used_ips,
+                    '',
+                    '',
+                    '',
+                    '',
+                )
+            ],
+            list(data),
+        )
+
 
 class TestShowIPAvailability(network_fakes.TestNetworkV2):
     _network = network_fakes.create_one_network()
@@ -132,6 +171,7 @@ class TestShowIPAvailability(network_fakes.TestNetworkV2):
     )
 
     columns = (
+        'ip_availability_details',
         'network_id',
         'network_name',
         'project_id',
@@ -140,6 +180,7 @@ class TestShowIPAvailability(network_fakes.TestNetworkV2):
         'used_ips',
     )
     data = (
+        format_columns.DictColumn(_ip_availability.ip_availability_details),
         _ip_availability.network_id,
         _ip_availability.network_name,
         _ip_availability.project_id,

@@ -162,9 +162,10 @@ class _DummyWriterSession:
         self.failure_reason = failure_reason
         self.cached_tasks: list[tuple[int, str, int]] = []
         self.seal_calls = 0
-        self.drain_calls = 0
         self.check_seal_ack_calls = 0
         self.shutdown_force_values: list[bool] = []
+        # Futures the manager's teardown drain consumed from this session.
+        self.consumed: list[object] = []
 
     def seal(self) -> None:
         self.seal_calls += 1
@@ -173,9 +174,21 @@ class _DummyWriterSession:
     def check_seal_ack(self) -> None:
         self.check_seal_ack_calls += 1
 
-    def drain(self) -> Iterator[Any]:
-        self.drain_calls += 1
-        return iter(())
+    def pending_poll_futures(self) -> list[object]:
+        """Teardown waits on every session's futures at once, so it asks each
+        session what it is still waiting on rather than calling ``drain()``."""
+        return list(self.inflight)
+
+    def consume_ready_future(self, fut: object) -> None:
+        self.consumed.append(fut)
+        self.inflight.pop(fut, None)
+        return None
+
+    def poll_liveness(self) -> None:
+        return None
+
+    def begin_liveness_window(self) -> None:
+        return None
 
     def shutdown(self, *, force_queue: bool = False) -> None:
         self.shutdown_force_values.append(force_queue)
@@ -4813,7 +4826,7 @@ def test_fragment_writer_manager_cleanup_force_releases_sealed_idle_session() ->
 
     fwm.cleanup()
 
-    assert sess.drain_calls == 0
+    assert sess.consumed == [], "session was released, not drained"
     assert sess.shutdown_force_values == [True]
     assert 0 not in fwm.sessions
 
@@ -4830,25 +4843,46 @@ def test_fragment_writer_manager_cleanup_preserves_failed_session_path() -> None
     with pytest.raises(FragmentWriteFailedError, match="write failed"):
         fwm.cleanup()
 
-    assert sess.drain_calls == 0
+    assert sess.consumed == [], "session was released, not drained"
     assert sess.shutdown_force_values == [False]
     assert fwm.failed_fragments == {0: "write failed"}
 
 
-def test_fragment_writer_manager_cleanup_drains_sealed_inflight_session() -> None:
+def _all_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Report every awaited future as already complete.
+
+    Teardown drains the union of all sessions' futures through one
+    ``ray.wait``, so a unit test with plain ``object()`` futures has to stand in
+    for it.
+    """
+    monkeypatch.setattr(
+        pipeline_module.ray,
+        "wait",
+        lambda futures, num_returns=1, timeout=None: (list(futures)[:num_returns], []),
+    )
+
+
+def test_fragment_writer_manager_cleanup_drains_sealed_inflight_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _all_ready(monkeypatch)
     fwm = _make_fragment_writer_manager()
-    sess = _DummyWriterSession(sealed=True, inflight={object(): 0})
+    fut = object()
+    sess = _DummyWriterSession(sealed=True, inflight={fut: 0})
     fwm.sessions[0] = sess  # type: ignore[assignment]
 
     fwm.cleanup()
 
     assert sess.seal_calls == 0
-    assert sess.drain_calls == 1
+    assert sess.consumed == [fut], "the sealed session's write future was not drained"
     assert sess.shutdown_force_values == [False]
     assert 0 not in fwm.sessions
 
 
-def test_fragment_writer_manager_cleanup_seals_and_drains_unsealed_session() -> None:
+def test_fragment_writer_manager_cleanup_seals_and_drains_unsealed_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _all_ready(monkeypatch)
     fwm = _make_fragment_writer_manager()
     sess = _DummyWriterSession(sealed=False)
     fwm.sessions[0] = sess  # type: ignore[assignment]
@@ -4856,7 +4890,6 @@ def test_fragment_writer_manager_cleanup_seals_and_drains_unsealed_session() -> 
     fwm.cleanup()
 
     assert sess.seal_calls == 1
-    assert sess.drain_calls == 1
     assert sess.shutdown_force_values == [False]
     assert 0 not in fwm.sessions
 

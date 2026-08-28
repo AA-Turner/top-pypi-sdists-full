@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jupyter_server_mcp
-Version: 0.2.1
+Version: 0.2.2
 Author-email: Jupyter Developer <jupyter@example.com>
 License: BSD 3-Clause License
         
@@ -42,7 +42,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: fastmcp>=3
+Requires-Dist: fastmcp>=3.4.4
 Requires-Dist: jupyter-server<3,>=1.6
 Provides-Extra: dev
 Requires-Dist: ruff>=0.1.0; extra == 'dev'

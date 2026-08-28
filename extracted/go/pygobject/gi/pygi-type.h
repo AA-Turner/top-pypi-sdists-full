@@ -18,13 +18,14 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PYGI_TYPE_H__
-#define __PYGI_TYPE_H__
+#pragma once
 
 #include <girepository/girepository.h>
 #include <pythoncapi_compat.h>
 
 #include "pygobject-types.h"
+
+G_BEGIN_DECLS
 
 extern PyTypeObject PyGTypeWrapper_Type;
 
@@ -71,4 +72,4 @@ PyObject *pygi_type_get_from_g_type (GType g_type);
 
 PyGIInterfaceTypeTag pygi_interface_type_tag (GIBaseInfo *info);
 
-#endif /* __PYGI_TYPE_H__ */
+G_END_DECLS

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skillsaw"
-version = "0.18.0"
+version = "0.19.0"
 description = "A configurable linter for agent skills, plugins, and AI coding assistant context"
 readme = "README.md"
 authors = [
@@ -39,6 +39,11 @@ docs = [
     "mkdocs-material>=9.0",
     "mkdocs-redirects>=1.2,<1.2.4",
 ]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=7.0",
+    "coverage[toml]>=7.10",  # needed for [tool.coverage.run] patch = ["subprocess"]
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=7.0",
@@ -63,9 +68,17 @@ claudelint = "skillsaw.__main__:claudelint_shim"
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
-"skillsaw.marketplace.templates" = ["**/*"]
+"skillsaw.marketplace.templates" = [
+    "claude-code/*.md",
+    "claude-code/*.html",
+    "claude-code/*.yml",
+    "claude-code/*.json",
+    "claude-code/gitignore",
+    "claude-code/makefile",
+]
 "skillsaw.rules" = ["docs/*.md"]
 "skillsaw.schemas.agent_plugins.v1_0_0" = ["*.json", "SCHEMA-SOURCE.md"]
+"skillsaw.schemas.agent_plugins.v1_1_0" = ["*.json", "SCHEMA-SOURCE.md"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

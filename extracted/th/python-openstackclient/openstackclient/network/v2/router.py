@@ -88,7 +88,7 @@ def _get_columns(
     if item.is_distributed is None:
         hidden_columns.append('is_distributed')
         column_map.pop('is_distributed')
-    if not hasattr(item, 'evpn_vni'):
+    if not hasattr(item, 'evpn_vni') or item.evpn_vni is None:
         hidden_columns.append('evpn_vni')
     return utils.get_osc_show_columns_for_sdk_resource(
         item, column_map, hidden_columns
@@ -402,20 +402,11 @@ class AddSubnetToRouter(command.Command):
     def take_action(self, parsed_args: argparse.Namespace) -> None:
         client = self.app.client_manager.network
         subnet = client.find_subnet(parsed_args.subnet, ignore_missing=False)
-        if parsed_args.advertise_host:
-            # TODO(evpn): switch to client.add_interface_to_router() once
-            # openstacksdk supports the advertise_host parameter.
-            router = client.find_router(
-                parsed_args.router, ignore_missing=False
-            )
-            router.add_interface(
-                client, subnet_id=subnet.id, advertise_host=True
-            )
-        else:
-            client.add_interface_to_router(
-                client.find_router(parsed_args.router, ignore_missing=False),
-                subnet=subnet.id,
-            )
+        client.add_interface_to_router(
+            client.find_router(parsed_args.router, ignore_missing=False),
+            subnet=subnet.id,
+            advertise_host=parsed_args.advertise_host,
+        )
 
 
 class AddExtraRoutesToRouter(command.ShowOne):

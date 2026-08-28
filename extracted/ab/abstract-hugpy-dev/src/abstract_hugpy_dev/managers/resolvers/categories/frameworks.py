@@ -8,6 +8,15 @@ FRAMEWORK_RUNNERS: Dict[Tuple[str, str], Type[Runner]] = {
     # chat-completion path — no separate VisionRunner shape.
     ("gguf",         "image-text-to-text"):           LlamaCppChatRunner,
     ("transformers", "automatic-speech-recognition"): WhisperRunner,
+    # SPEECH OUT. Chatterbox is not a transformers pipeline — it is a checkpoint
+    # dir plus its own loader — but the fleet's Runner protocol is about SERVING,
+    # not about which library holds the weights, and the registry row's framework
+    # is "transformers" because that is where its bytes live in the store. The
+    # runner keeps the backend in a per-model env-PROFILE venv (its pins collide
+    # with the agent's torch) and speaks the same request/result shapes as every
+    # other row here. Before this row, EXTERNAL_TASK_RUNNERS could only DECLARE
+    # where the runner lived; now the task also resolves.
+    ("transformers", "text-to-speech"):               ChatterboxTtsRunner,
     ("transformers", "text-summarization"):                SummarizeRunner,
     ("transformers", "text2text-generation"):         SummarizeRunner,
     ("transformers", "feature-extraction"):           FeatureExtractionRunner,

@@ -115,6 +115,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     SecretStr,
     field_validator,
     model_validator,
@@ -129,6 +130,7 @@ from langchain_google_genai._common import (
     get_user_agent,
 )
 from langchain_google_genai._compat import (
+    _REASONING_BLOCK_TYPES,
     _classify_model_provider,
     _convert_from_v1_to_generativelanguage_v1beta,
     _is_file_uri_supported,
@@ -172,6 +174,75 @@ class ChatGoogleGenerativeAIError(GoogleGenerativeAIError):
 
 class GoogleContextOverflowError(ClientError, ContextOverflowError):
     """ClientError raised when input exceeds Google's context limit."""
+
+
+class _ClientCleanup:
+    """Close a client when the last model sharing it is collected."""
+
+    def __init__(self, client: Client) -> None:
+        self._client = client
+        self._async_loop: asyncio.AbstractEventLoop | None = None
+        self._closed = False
+
+    def __eq__(self, other: object) -> bool:
+        """Keep the internal cleanup token out of model equality semantics."""
+        return isinstance(other, _ClientCleanup)
+
+    @staticmethod
+    def _consume_task_exception(task: asyncio.Task[None]) -> None:
+        if not task.cancelled():
+            task.exception()
+
+    def register_async_loop(self) -> None:
+        """Record the event loop that owns any async transports created later."""
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        if self._async_loop is None:
+            self._async_loop = running_loop
+
+    async def aclose(self) -> None:
+        """Close all transports on the event loop that owns the async client."""
+        if self._closed:
+            return
+
+        running_loop = asyncio.get_running_loop()
+        if self._async_loop is not None and running_loop is not self._async_loop:
+            msg = "The async client must be closed on the event loop where it was used."
+            raise RuntimeError(msg)
+
+        self._async_loop = running_loop
+        self._client.close()
+        await self._client.aio.aclose()
+        self._closed = True
+
+    def __del__(self) -> None:
+        """Close sync and async transports without leaking cleanup exceptions."""
+        if self._closed:
+            return
+
+        try:
+            self._client.close()
+        except Exception:
+            pass
+
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        except Exception:
+            return
+
+        if running_loop is not self._async_loop:
+            return
+
+        try:
+            task = running_loop.create_task(self._client.aio.aclose())
+            task.add_done_callback(self._consume_task_exception)
+        except Exception:
+            pass
 
 
 # Inherit ChatGoogleGenerativeAIError for backward compatibility
@@ -961,28 +1032,17 @@ def _get_ai_message_tool_messages_parts(
     return parts
 
 
-# To generate the below thought signature:
+# Placeholder injected by `_parse_chat_history` when a function-call part for a
+# Gemini 3+ model lacks a thought signature (e.g. replayed history or a
+# cross-provider fallback). Carrying the documented bypass sentinel makes the
+# API skip thought-signature validation for that part; a real signature copied
+# from an unrelated response is rejected as invalid.
+#
+# https://cloud.google.com/vertex-ai/generative-ai/docs/thought-signatures
+SKIP_THOUGHT_SIGNATURE_VALIDATOR = "skip_thought_signature_validator"
 
-# from langchain_google_genai import ChatGoogleGenerativeAI
-#
-# def generate_placeholder_thoughts(value: int) -> str:
-#     """Placeholder tool."""
-#     pass
-#
-# model = ChatGoogleGenerativeAI(
-#     model="gemini-3.1-pro-preview"
-# ).bind_tools([generate_placeholder_thoughts])
-#
-# response = model.invoke("Generate a placeholder tool invocation.")
-
-DUMMY_THOUGHT_SIGNATURE = _base64_to_bytes(
-    "ErQCCrECAdHtim8MtxgeMCRCiNiyoyImxtYAEDzz4NXOr/HSL3rA7rPPvHWZCm+T9VSDYh/mt9lESoH4wQh"
-    "/ca1zDtWTN6XOL1+S3krYLQeqp47RV/b1eSq5jdZF28S4Lb7w4A3/EFdybc4SFb2/YhMm+CulYLmLA4Tr4V"
-    "Su0eMWgxM3HVt6u0jECf5BbXzj0qjJ32tEQYJvKvV8H1tCHvB6J+RZhsDr+TcyOCaqxDoR4WKxXYxNRZb3h"
-    "YTuCnBEDPhn1lROumVaghi9nEIgc17z002zLoyqIptlLfIVw70FXkCLsPUSL1SjPQYtGL8PVncVajeqGogR"
-    "D/eZSVZ1Zr5tshxh3DQ+JAYNcrHaRHWC4Hg0H6oftYx+JdJD9B/81NYV9jyGxP7zHKFHOELl0IUP5GEXP9I"
-    "="
-)
+# Kept for backwards compatibility with imports of the previous constant.
+DUMMY_THOUGHT_SIGNATURE = SKIP_THOUGHT_SIGNATURE_VALIDATOR.encode("ascii")
 
 
 def _convert_to_parts_lenient(
@@ -1171,9 +1231,8 @@ def _prepare_ai_message_content(
     Foreign messages use LangChain's standardized blocks. Native messages retain
     their raw blocks because core may wrap valid Gemini media as `non_standard`.
     """
-    provider_kind = _classify_model_provider(
-        message.response_metadata.get("model_provider")
-    )
+    model_provider = message.response_metadata.get("model_provider")
+    provider_kind = _classify_model_provider(model_provider)
     is_foreign = provider_kind == "foreign"
     # Core standardizes foreign blocks, but can wrap native Gemini blocks as
     # `non_standard`, so native and unstamped messages use their raw content.
@@ -1219,6 +1278,16 @@ def _prepare_ai_message_content(
             continue
         candidate: Mapping[str, Any] = block
         if is_foreign:
+            if block_type in _REASONING_BLOCK_TYPES:
+                # Mirrors the v1 conversion in `_compat.py`: stripping the foreign
+                # signature is not enough, because the reasoning text itself is
+                # another provider's chain-of-thought and is not a Gemini thought.
+                logger.warning(
+                    "Dropping reasoning block from provider %r; foreign reasoning "
+                    "is not replayed as a Gemini thought part.",
+                    model_provider,
+                )
+                continue
             if _is_unsupported_foreign_server_tool(block, code_interpreter_call_ids):
                 continue
             candidate = _strip_foreign_signature(block)
@@ -1465,8 +1534,8 @@ def _parse_chat_history(
 
         # 2. Patch Missing Signatures:
         # Iterate through the active loop. If a model message contains a function call
-        # but lacks a thought signature, inject a dummy value. This satisfies the
-        # API's schema validation without requiring the original internal thought data.
+        # but lacks a thought signature, inject the bypass sentinel. This satisfies
+        # the API's validation without requiring the original internal thought data.
         start_idx = active_loop_start_idx + 1 if active_loop_start_idx != -1 else 0
         for i in range(start_idx, len(formatted_messages)):
             content_msg = formatted_messages[i]
@@ -1476,7 +1545,24 @@ def _parse_chat_history(
                     if part.function_call:
                         if not first_fc_seen:
                             if not part.thought_signature:
-                                part.thought_signature = DUMMY_THOUGHT_SIGNATURE
+                                # Assign the str sentinel post-construction so
+                                # pydantic never coerces it to bytes: the SDK's
+                                # request encoder base64-encodes bytes values,
+                                # which would hide the bypass string from the
+                                # API. Part is not validate_assignment, so the
+                                # string survives serialization as-is.
+                                try:
+                                    part.thought_signature = cast(
+                                        "bytes",
+                                        SKIP_THOUGHT_SIGNATURE_VALIDATOR,
+                                    )
+                                except ValueError:
+                                    # A future SDK/pydantic version could turn
+                                    # on validate_assignment, which coerces the
+                                    # str to base64-decoded bytes. Send those
+                                    # bytes rather than dropping the signature
+                                    # entirely and failing schema validation.
+                                    part.thought_signature = DUMMY_THOUGHT_SIGNATURE
                             first_fc_seen = True
 
     return system_instruction, formatted_messages
@@ -1500,6 +1586,56 @@ def _append_to_content(
     # but it catches any unexpected types that might slip through.
     msg = f"Unexpected content type: {type(current_content)}"
     raise TypeError(msg)
+
+
+#: Block types that arrive as incremental deltas and must keep a stable index so
+#: successive chunks merge into one block. Every other block Gemini emits is
+#: complete on arrival and needs an index of its own.
+_MERGEABLE_BLOCK_TYPES = frozenset({"text", "thinking"})
+
+
+class _StreamBlockIndexer:
+    """Allocates streaming `index` values for content blocks."""
+
+    def __init__(self) -> None:
+        self._next_index = 0
+        self._open_type: str | None = None
+        self._open_index = -1
+
+    def _allocate(self, block_type: str | None) -> int:
+        index = self._next_index
+        self._next_index += 1
+        self._open_type = block_type
+        self._open_index = index
+        return index
+
+    def assign(self, message: AIMessageChunk) -> None:
+        """Populate any missing ``index`` fields on ``message``, in place.
+
+        Args:
+            message: The chunk whose content blocks and tool call chunks should
+                be indexed. Existing ``index`` values are left untouched.
+        """
+        if isinstance(message.content, list):
+            for block in message.content:
+                if not isinstance(block, dict) or "type" not in block:
+                    continue
+                block_type = block["type"]
+                if (
+                    block_type == self._open_type
+                    and block_type in _MERGEABLE_BLOCK_TYPES
+                ):
+                    index = self._open_index
+                else:
+                    index = self._allocate(block_type)
+                if "index" not in block:
+                    block["index"] = index
+
+        for tool_call_chunk_ in message.tool_call_chunks:
+            # Gemini emits each function call complete in a single part, so every
+            # chunk without a provider-supplied index is a distinct tool call.
+            if tool_call_chunk_.get("index") is None:
+                tool_call_chunk_["index"] = self._allocate(None)
 
 
 def _convert_integer_like_floats(obj: Any) -> Any:
@@ -1553,7 +1689,7 @@ def _parse_response_candidate(
         the content format. This is why `model_name` and `model_name_for_content` are
         separate parameters.
     """
-    content: None | str | list[str | dict] = None
+    content: str | list[str | dict] | None = None
     additional_kwargs: dict[str, Any] = {}
     response_metadata: dict[str, Any] = {"model_provider": "google_genai"}
     if model_name:
@@ -2855,6 +2991,8 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
     error.
     """
 
+    _client_cleanup: _ClientCleanup = PrivateAttr()
+
     stop: list[str] | None = Field(default=None, alias="stop_sequences")
     """Stop sequences for the model."""
 
@@ -3162,6 +3300,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
                 )
                 raise ValueError(msg)
             self.client = Client(api_key=google_api_key, http_options=http_options)
+        self._client_cleanup = _ClientCleanup(self.client)
         return self
 
     @model_validator(mode="after")
@@ -3171,48 +3310,6 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
             model_id = re.sub(r"-\d{3}$", "", self.model.replace("models/", ""))
             self.profile = _get_default_model_profile(model_id)
         return self
-
-    def __del__(self) -> None:
-        """Clean up the client on deletion."""
-        if not hasattr(self, "client") or self.client is None:
-            return
-
-        try:
-            # Close the sync client
-            self.client.close()
-
-            # Attempt to close the async client
-            # Note: The SDK's close() doesn't close the async client automatically
-            if hasattr(self.client, "aio") and self.client.aio is not None:
-                try:
-                    # Check if there's a running event loop
-                    loop = asyncio.get_running_loop()
-                    if not loop.is_closed():
-                        # Schedule the close
-                        # Wrap in ensure_future to avoid "coroutine never awaited"
-                        task = asyncio.ensure_future(
-                            self.client.aio.aclose(), loop=loop
-                        )
-                        # Add a done callback to suppress any exceptions
-                        task.add_done_callback(
-                            lambda t: t.exception() if not t.cancelled() else None
-                        )
-                except RuntimeError:
-                    # No running loop - create a new one for cleanup
-                    try:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        try:
-                            loop.run_until_complete(self.client.aio.aclose())
-                        finally:
-                            loop.close()
-                            asyncio.set_event_loop(None)
-                    except Exception:
-                        # Suppress errors during shutdown
-                        pass
-        except Exception:
-            # Suppress all errors during cleanup
-            pass
 
     @property
     def async_client(self) -> Any:
@@ -3228,7 +3325,19 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
         if self.client is None:
             msg = "Client not initialized. Initialize the model first."
             raise ValueError(msg)
+        self._client_cleanup.register_async_loop()
         return self.client.aio
+
+    async def aclose(self) -> None:
+        """Close the sync and async clients on the async client's event loop.
+
+        Call this method before the event loop used for async requests exits.
+
+        Raises:
+            RuntimeError: If called from a different event loop than the one used for
+                async requests.
+        """
+        await self._client_cleanup.aclose()
 
     @property
     def _identifying_params(self) -> dict[str, Any]:
@@ -3919,7 +4028,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
         )
         try:
             response: GenerateContentResponse = (
-                await self.client.aio.models.generate_content(
+                await self.async_client.models.generate_content(
                     **request,
                 )
             )
@@ -3968,8 +4077,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
         )
 
         prev_usage_metadata: UsageMetadata | None = None  # Cumulative usage
-        index = -1
-        index_type = ""
+        indexer = _StreamBlockIndexer()
         for chunk in _classified_stream(response, request):
             if chunk:
                 _chat_result = _response_to_result(
@@ -3979,14 +4087,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
                 message = cast("AIMessageChunk", gen.message)
 
             # Populate index if missing
-            if isinstance(message.content, list):
-                for block in message.content:
-                    if isinstance(block, dict) and "type" in block:
-                        if block["type"] != index_type:
-                            index_type = block["type"]
-                            index = index + 1
-                        if "index" not in block:
-                            block["index"] = index
+            indexer.assign(message)
 
             prev_usage_metadata = (
                 message.usage_metadata
@@ -4030,9 +4131,8 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
             **kwargs,
         )
         prev_usage_metadata: UsageMetadata | None = None  # Cumulative usage
-        index = -1
-        index_type = ""
-        stream = await self.client.aio.models.generate_content_stream(
+        indexer = _StreamBlockIndexer()
+        stream = await self.async_client.models.generate_content_stream(
             **request,
         )
 
@@ -4044,14 +4144,7 @@ class ChatGoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseChatModel):
             message = cast("AIMessageChunk", gen.message)
 
             # populate index if missing
-            if isinstance(message.content, list):
-                for block in message.content:
-                    if isinstance(block, dict) and "type" in block:
-                        if block["type"] != index_type:
-                            index_type = block["type"]
-                            index = index + 1
-                        if "index" not in block:
-                            block["index"] = index
+            indexer.assign(message)
 
             prev_usage_metadata = (
                 message.usage_metadata

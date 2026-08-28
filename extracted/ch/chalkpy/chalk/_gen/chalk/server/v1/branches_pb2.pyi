@@ -1,3 +1,4 @@
+from chalk._gen.chalk.artifacts.v1 import export_pb2 as _export_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as _deployment_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -92,12 +93,25 @@ class GetBranchWithLatestDeploymentResponse(_message.Message):
     ) -> None: ...
 
 class ListBranchWithLatestDeploymentsRequest(_message.Message):
-    __slots__ = ("cursor", "limit")
+    __slots__ = ("cursor", "limit", "status", "deployed_by", "sort_ascending")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYED_BY_FIELD_NUMBER: _ClassVar[int]
+    SORT_ASCENDING_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
-    def __init__(self, cursor: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
+    status: _containers.RepeatedScalarFieldContainer[_deployment_pb2.DeploymentStatus]
+    deployed_by: _containers.RepeatedScalarFieldContainer[str]
+    sort_ascending: bool
+    def __init__(
+        self,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        status: _Optional[_Iterable[_Union[_deployment_pb2.DeploymentStatus, str]]] = ...,
+        deployed_by: _Optional[_Iterable[str]] = ...,
+        sort_ascending: bool = ...,
+    ) -> None: ...
 
 class ListBranchWithLatestDeploymentsResponse(_message.Message):
     __slots__ = ("branch_with_latest_deployments", "cursor")
@@ -134,3 +148,46 @@ class GetBranchVenvInstalledPackagesResponse(_message.Message):
     VENV_PACKAGES_BY_NAME_FIELD_NUMBER: _ClassVar[int]
     venv_packages_by_name: _containers.MessageMap[str, VenvPackages]
     def __init__(self, venv_packages_by_name: _Optional[_Mapping[str, VenvPackages]] = ...) -> None: ...
+
+class StartBranchDeploymentRequest(_message.Message):
+    __slots__ = ("branch_name", "archive")
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVE_FIELD_NUMBER: _ClassVar[int]
+    branch_name: str
+    archive: bytes
+    def __init__(self, branch_name: _Optional[str] = ..., archive: _Optional[bytes] = ...) -> None: ...
+
+class StartBranchDeploymentResponse(_message.Message):
+    __slots__ = ("deployment", "deployment_warnings")
+    DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_WARNINGS_FIELD_NUMBER: _ClassVar[int]
+    deployment: _deployment_pb2.Deployment
+    deployment_warnings: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        deployment: _Optional[_Union[_deployment_pb2.Deployment, _Mapping]] = ...,
+        deployment_warnings: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class GetBranchDeploymentStateRequest(_message.Message):
+    __slots__ = ("branch_name", "deployment_id")
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    branch_name: str
+    deployment_id: str
+    def __init__(self, branch_name: _Optional[str] = ..., deployment_id: _Optional[str] = ...) -> None: ...
+
+class GetBranchDeploymentStateResponse(_message.Message):
+    __slots__ = ("deployment", "export", "deployment_stage")
+    DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    EXPORT_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_STAGE_FIELD_NUMBER: _ClassVar[int]
+    deployment: _deployment_pb2.Deployment
+    export: _export_pb2.Export
+    deployment_stage: str
+    def __init__(
+        self,
+        deployment: _Optional[_Union[_deployment_pb2.Deployment, _Mapping]] = ...,
+        export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
+        deployment_stage: _Optional[str] = ...,
+    ) -> None: ...

@@ -68,6 +68,9 @@ class MockedRayWriterHarness:
         actor = MagicMock()
         write_future = object()
         actor.write.remote.return_value = write_future
+        # Production names the write task for the Ray dashboard, so the
+        # ``write.options(...).remote()`` form must yield the same future.
+        actor.write.options.return_value.remote.return_value = write_future
         self.actors.append(actor)
         self.write_futures.append(write_future)
         return actor
@@ -174,6 +177,12 @@ def attach_started_writer_future(
     sess.queue = MagicMock()
     sess.actor = MagicMock()
     sess.inflight[future] = sess.frag_id
+    # A writer Ray has already scheduled, which is what "started" means to
+    # every caller here: it owns a slot and is running. The no-progress
+    # watchdog is armed only for placed actors, so a session left unplaced
+    # would never be watched -- see FragmentWriterSession._poll_placement.
+    # Tests that want a *queued* writer build one explicitly.
+    sess._placed = True
     return future
 
 

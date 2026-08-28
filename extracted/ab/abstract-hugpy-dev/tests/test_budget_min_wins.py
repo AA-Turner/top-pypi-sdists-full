@@ -40,6 +40,16 @@ GIB = 1 << 30
 import types as _types  # noqa: E402
 
 
+# The reserve is carved OUT of disk_cache_gib since 2026-08-22 (effective =
+# allocation - reserve). These tests reason in pure-allocation numbers, so pin
+# the reserve to 0 here; the carve-out itself is covered by
+# tests/test_budget_reserve_carveout.py.
+@pytest.fixture(autouse=True)
+def _zero_disk_reserve(monkeypatch):
+    monkeypatch.setenv("HUGPY_WORKER_DISK_RESERVE_GIB", "0")
+
+
+
 def _real_hc_budget():
     cur = _HC._budget_bytes
     if isinstance(cur, _types.FunctionType) and cur.__module__ == _HC.__name__:

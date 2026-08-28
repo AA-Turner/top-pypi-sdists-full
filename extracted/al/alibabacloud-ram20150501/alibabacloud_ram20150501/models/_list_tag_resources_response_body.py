@@ -75,8 +75,9 @@ class ListTagResourcesResponseBodyTagResources(DaraModel):
         # 
         # Enumerated values:
         # 
-        # *   role: RAM roles.
-        # *   policy: policies.
+        # - role: RAM roles.
+        # 
+        # - policy: policies.
         self.resource_type = resource_type
         # The key of the tag.
         self.tag_key = tag_key

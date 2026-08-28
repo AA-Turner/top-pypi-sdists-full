@@ -9,7 +9,7 @@ class DecodeDiagnosticMessageRequest(DaraModel):
         self,
         encoded_diagnostic_message: str = None,
     ):
-        # The encoded diagnostic information in the response that contains an access denied error. The error is caused by no RAM permissions.
+        # The encoded diagnostic message obtained from the `AccessDeniedDetail.EncodedDiagnosticMessage` field in the response body when an API request is denied due to insufficient permissions. Pass this parameter to decode the permission diagnostic information when calling this operation.
         self.encoded_diagnostic_message = encoded_diagnostic_message
 
     def validate(self):

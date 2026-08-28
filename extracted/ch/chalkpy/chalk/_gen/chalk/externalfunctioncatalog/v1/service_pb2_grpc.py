@@ -17,35 +17,30 @@ class ExternalFunctionCatalogServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.CreateExternalFunctionVersion = channel.unary_unary(
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CreateExternalFunctionVersion",
-            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionRequest.SerializeToString,
-            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionResponse.FromString,
+        self.CreateExternalFunction = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CreateExternalFunction",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionResponse.FromString,
         )
-        self.GetExternalFunctionVersion = channel.unary_unary(
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/GetExternalFunctionVersion",
-            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionRequest.SerializeToString,
-            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionResponse.FromString,
+        self.UpdateExternalFunction = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/UpdateExternalFunction",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.UpdateExternalFunctionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.UpdateExternalFunctionResponse.FromString,
         )
-        self.ListExternalFunctionVersions = channel.unary_unary(
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctionVersions",
-            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionVersionsRequest.SerializeToString,
-            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionVersionsResponse.FromString,
-        )
-        self.DeleteExternalFunctionVersion = channel.unary_unary(
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunctionVersion",
-            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionRequest.SerializeToString,
-            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionResponse.FromString,
-        )
-        self.DeleteExternalFunction = channel.unary_unary(
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunction",
-            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.SerializeToString,
-            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.FromString,
+        self.GetExternalFunction = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/GetExternalFunction",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionResponse.FromString,
         )
         self.ListExternalFunctions = channel.unary_unary(
             "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctions",
             request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsRequest.SerializeToString,
             response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsResponse.FromString,
+        )
+        self.DeleteExternalFunction = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunction",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.FromString,
         )
         self.ListExternalFunctionScheduledRuns = channel.unary_unary(
             "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctionScheduledRuns",
@@ -57,30 +52,55 @@ class ExternalFunctionCatalogServiceStub(object):
             request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionRequest.SerializeToString,
             response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionResponse.FromString,
         )
+        self.CreateExternalFunctionVersion = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CreateExternalFunctionVersion",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionResponse.FromString,
+        )
+        self.GetExternalFunctionVersion = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/GetExternalFunctionVersion",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionResponse.FromString,
+        )
+        self.GetExternalFunctionVersionSource = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/GetExternalFunctionVersionSource",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionSourceRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionSourceResponse.FromString,
+        )
+        self.ListExternalFunctionVersions = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctionVersions",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionVersionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionVersionsResponse.FromString,
+        )
+        self.DeleteExternalFunctionVersion = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunctionVersion",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionResponse.FromString,
+        )
 
 
 class ExternalFunctionCatalogServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def CreateExternalFunctionVersion(self, request, context):
+    def CreateExternalFunction(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def GetExternalFunctionVersion(self, request, context):
+    def UpdateExternalFunction(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def ListExternalFunctionVersions(self, request, context):
+    def GetExternalFunction(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def DeleteExternalFunctionVersion(self, request, context):
+    def ListExternalFunctions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -91,12 +111,6 @@ class ExternalFunctionCatalogServiceServicer(object):
         down and the function schedule is removed, then all version rows are
         soft-deleted for historical audit.
         """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def ListExternalFunctions(self, request, context):
-        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -113,38 +127,69 @@ class ExternalFunctionCatalogServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreateExternalFunctionVersion(self, request, context):
+        """Legacy compatibility RPC. New callers should use CreateExternalFunction
+        for the initial resource and UpdateExternalFunction with `spec` for every
+        later version. This remains intentionally available for shipped clients.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetExternalFunctionVersion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetExternalFunctionVersionSource(self, request, context):
+        """Resolves the source files for one immutable function version. The browser
+        calls this lazily and reads the selected file directly from the pinned
+        volume version; source is intentionally absent from list responses.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListExternalFunctionVersions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteExternalFunctionVersion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ExternalFunctionCatalogServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-        "CreateExternalFunctionVersion": grpc.unary_unary_rpc_method_handler(
-            servicer.CreateExternalFunctionVersion,
-            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionRequest.FromString,
-            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionResponse.SerializeToString,
+        "CreateExternalFunction": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateExternalFunction,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionResponse.SerializeToString,
         ),
-        "GetExternalFunctionVersion": grpc.unary_unary_rpc_method_handler(
-            servicer.GetExternalFunctionVersion,
-            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionRequest.FromString,
-            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionResponse.SerializeToString,
+        "UpdateExternalFunction": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateExternalFunction,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.UpdateExternalFunctionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.UpdateExternalFunctionResponse.SerializeToString,
         ),
-        "ListExternalFunctionVersions": grpc.unary_unary_rpc_method_handler(
-            servicer.ListExternalFunctionVersions,
-            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionVersionsRequest.FromString,
-            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionVersionsResponse.SerializeToString,
-        ),
-        "DeleteExternalFunctionVersion": grpc.unary_unary_rpc_method_handler(
-            servicer.DeleteExternalFunctionVersion,
-            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionRequest.FromString,
-            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionResponse.SerializeToString,
-        ),
-        "DeleteExternalFunction": grpc.unary_unary_rpc_method_handler(
-            servicer.DeleteExternalFunction,
-            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.FromString,
-            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.SerializeToString,
+        "GetExternalFunction": grpc.unary_unary_rpc_method_handler(
+            servicer.GetExternalFunction,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionResponse.SerializeToString,
         ),
         "ListExternalFunctions": grpc.unary_unary_rpc_method_handler(
             servicer.ListExternalFunctions,
             request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsRequest.FromString,
             response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsResponse.SerializeToString,
+        ),
+        "DeleteExternalFunction": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteExternalFunction,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.SerializeToString,
         ),
         "ListExternalFunctionScheduledRuns": grpc.unary_unary_rpc_method_handler(
             servicer.ListExternalFunctionScheduledRuns,
@@ -156,6 +201,31 @@ def add_ExternalFunctionCatalogServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionRequest.FromString,
             response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionResponse.SerializeToString,
         ),
+        "CreateExternalFunctionVersion": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateExternalFunctionVersion,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionVersionResponse.SerializeToString,
+        ),
+        "GetExternalFunctionVersion": grpc.unary_unary_rpc_method_handler(
+            servicer.GetExternalFunctionVersion,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionResponse.SerializeToString,
+        ),
+        "GetExternalFunctionVersionSource": grpc.unary_unary_rpc_method_handler(
+            servicer.GetExternalFunctionVersionSource,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionSourceRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionSourceResponse.SerializeToString,
+        ),
+        "ListExternalFunctionVersions": grpc.unary_unary_rpc_method_handler(
+            servicer.ListExternalFunctionVersions,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionVersionsRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionVersionsResponse.SerializeToString,
+        ),
+        "DeleteExternalFunctionVersion": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteExternalFunctionVersion,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionResponse.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
         "chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService", rpc_method_handlers
@@ -166,6 +236,209 @@ def add_ExternalFunctionCatalogServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class ExternalFunctionCatalogService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def CreateExternalFunction(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CreateExternalFunction",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CreateExternalFunctionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateExternalFunction(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/UpdateExternalFunction",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.UpdateExternalFunctionRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.UpdateExternalFunctionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetExternalFunction(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/GetExternalFunction",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListExternalFunctions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctions",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteExternalFunction(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunction",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListExternalFunctionScheduledRuns(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctionScheduledRuns",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionScheduledRunsRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionScheduledRunsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CallExternalFunction(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CallExternalFunction",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def CreateExternalFunctionVersion(
@@ -226,6 +499,35 @@ class ExternalFunctionCatalogService(object):
         )
 
     @staticmethod
+    def GetExternalFunctionVersionSource(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/GetExternalFunctionVersionSource",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionSourceRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.GetExternalFunctionVersionSourceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def ListExternalFunctionVersions(
         request,
         target,
@@ -273,122 +575,6 @@ class ExternalFunctionCatalogService(object):
             "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunctionVersion",
             chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionRequest.SerializeToString,
             chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
-
-    @staticmethod
-    def DeleteExternalFunction(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunction",
-            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.SerializeToString,
-            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
-
-    @staticmethod
-    def ListExternalFunctions(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctions",
-            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsRequest.SerializeToString,
-            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
-
-    @staticmethod
-    def ListExternalFunctionScheduledRuns(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctionScheduledRuns",
-            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionScheduledRunsRequest.SerializeToString,
-            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionScheduledRunsResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-        )
-
-    @staticmethod
-    def CallExternalFunction(
-        request,
-        target,
-        options=(),
-        channel_credentials=None,
-        call_credentials=None,
-        insecure=False,
-        compression=None,
-        wait_for_ready=None,
-        timeout=None,
-        metadata=None,
-    ):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/CallExternalFunction",
-            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionRequest.SerializeToString,
-            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.CallExternalFunctionResponse.FromString,
             options,
             channel_credentials,
             insecure,

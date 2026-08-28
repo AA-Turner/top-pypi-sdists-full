@@ -785,6 +785,12 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
 
     parsed_filters = clean_filters(joined_class, filters)
 
+    if isinstance(f.window_materialization, dict) and f.window_materialization.get("cached_values_only", False):
+        raise ChalkParseError(
+            f"The feature '{f.fqn}' sets `cached_values_only`, which applies only to windowed scalar "
+            + "aggregations, not to `group_by_windowed`."
+        )
+
     if bucket_start.tzinfo is None:
         bucket_start = bucket_start.replace(tzinfo=timezone.utc)
     bucket_start = bucket_start.astimezone(tz=timezone.utc)
@@ -852,6 +858,9 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
             if isinstance(f.window_materialization, dict)
             else False
         ),
+        # A group-by aggregation resolves to a DataFrame rather than a cached scalar, so there is
+        # no cached value for `cached_values_only` to restrict online queries to.
+        cached_values_only=False,
         allow_filter_migration=(
             f.window_materialization.get("allow_filter_migration", False)
             if isinstance(f.window_materialization, dict)
@@ -1132,6 +1141,22 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
                 f"No bucket duration was found for the window {timedelta_to_duration(window_duration)}"
             )
 
+    cache_aggregated_values = (
+        f.window_materialization.get("cache_aggregated_values", False)
+        if isinstance(f.window_materialization, dict)
+        else False
+    )
+    cached_values_only = (
+        f.window_materialization.get("cached_values_only", False)
+        if isinstance(f.window_materialization, dict)
+        else False
+    )
+    if cached_values_only and not cache_aggregated_values:
+        raise ChalkParseError(
+            f"The feature '{f.fqn}' sets `cached_values_only` without `cache_aggregated_values`. "
+            + "Without a cached value there is nothing left for an online query to read."
+        )
+
     if bucket_start.tzinfo is None:
         bucket_start = bucket_start.replace(tzinfo=timezone.utc)
     bucket_start = bucket_start.astimezone(tz=timezone.utc)
@@ -1196,11 +1221,8 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
             if isinstance(f.window_materialization, dict)
             else None
         ),
-        cache_aggregated_values=(
-            f.window_materialization.get("cache_aggregated_values", False)
-            if isinstance(f.window_materialization, dict)
-            else False
-        ),
+        cache_aggregated_values=cache_aggregated_values,
+        cached_values_only=cached_values_only,
         allow_filter_migration=(
             f.window_materialization.get("allow_filter_migration", False)
             if isinstance(f.window_materialization, dict)

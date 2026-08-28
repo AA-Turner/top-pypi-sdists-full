@@ -7,6 +7,7 @@ import threading
 import tomllib
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, suppress
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, ClassVar, cast
 from unittest.mock import MagicMock, patch
@@ -1231,8 +1232,8 @@ class TestSplitCredentialSource:
     def _isolate_openai_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Clear every OpenAI key/endpoint env var so each test sets its own.
 
-        `dotenv.load_dotenv()` runs during config bootstrap (first `Settings`
-        access) and may inject prefixed variants from a developer's
+        `dotenv.load_dotenv()` runs during the first credentials access and may
+        inject prefixed variants from a developer's
         `~/.deepagents/.env` that would otherwise leak into these assertions.
         """
         for var in (
@@ -6307,6 +6308,17 @@ recent = "researcher"
         assert 'recent = "coder"' in content
         assert "researcher" not in content
 
+    def test_save_same_value_preserves_file_identity(self, tmp_path):
+        config_path = tmp_path / "config.toml"
+        content = b'[agents]\nrecent = "coder"\n'
+        config_path.write_bytes(content)
+        inode = config_path.stat().st_ino
+
+        assert save_recent_agent("coder", config_path) is True
+
+        assert config_path.stat().st_ino == inode
+        assert config_path.read_bytes() == content
+
     def test_load_returns_recent(self, tmp_path):
         config_path = tmp_path / "config.toml"
         save_recent_agent("coder", config_path)
@@ -6718,16 +6730,21 @@ recent = "openai:gpt-5.2"
 
     def test_env_used_when_neither_set(self, tmp_path):
         """Falls back to env var auto-detection when neither default nor recent set."""
-        from deepagents_code.config import _get_default_model_spec, settings
+        from deepagents_code.config import _get_credentials, _get_default_model_spec
 
         config_path = tmp_path / "config.toml"
         config_path.write_text("")
 
+        owner = _get_credentials()
+        replacement = replace(
+            owner.active,
+            openai_api_key=None,
+            anthropic_api_key="test-key",
+        )
         with (
             patch.object(model_config, "DEFAULT_CONFIG_PATH", config_path),
             patch("deepagents_code.auth_store.get_stored_key", return_value=None),
-            patch.object(settings, "openai_api_key", None),
-            patch.object(settings, "anthropic_api_key", "test-key"),
+            patch.object(owner, "_active", replacement),
             patch.dict(
                 "os.environ",
                 {"ANTHROPIC_API_KEY": "test-key"},
@@ -6759,42 +6776,52 @@ recent = "openai:gpt-5.2"
 
     def test_vertex_project_does_not_drive_env_default(self, tmp_path):
         """Vertex project alone should not select an automatic default model."""
-        from deepagents_code.config import _get_default_model_spec, settings
+        from deepagents_code.config import _get_credentials, _get_default_model_spec
         from deepagents_code.model_config import ModelConfigError
 
         config_path = tmp_path / "config.toml"
         config_path.write_text("")
 
+        owner = _get_credentials()
+        replacement = replace(
+            owner.active,
+            openai_api_key=None,
+            anthropic_api_key=None,
+            google_api_key=None,
+            google_cloud_project="test-project",
+            nvidia_api_key=None,
+        )
         with (
             patch.object(model_config, "DEFAULT_CONFIG_PATH", config_path),
             patch("deepagents_code.auth_store.get_stored_key", return_value=None),
             patch.dict("os.environ", {}, clear=True),
-            patch.object(settings, "openai_api_key", None),
-            patch.object(settings, "anthropic_api_key", None),
-            patch.object(settings, "google_api_key", None),
-            patch.object(settings, "google_cloud_project", "test-project"),
-            patch.object(settings, "nvidia_api_key", None),
+            patch.object(owner, "_active", replacement),
             pytest.raises(ModelConfigError),
         ):
             _get_default_model_spec()
 
     def test_nvidia_key_does_not_drive_env_default(self, tmp_path):
         """NVIDIA key alone should not select an automatic default model."""
-        from deepagents_code.config import _get_default_model_spec, settings
+        from deepagents_code.config import _get_credentials, _get_default_model_spec
         from deepagents_code.model_config import ModelConfigError
 
         config_path = tmp_path / "config.toml"
         config_path.write_text("")
 
+        owner = _get_credentials()
+        replacement = replace(
+            owner.active,
+            openai_api_key=None,
+            anthropic_api_key=None,
+            google_api_key=None,
+            google_cloud_project=None,
+            nvidia_api_key="test-key",
+        )
         with (
             patch.object(model_config, "DEFAULT_CONFIG_PATH", config_path),
             patch("deepagents_code.auth_store.get_stored_key", return_value=None),
             patch.dict("os.environ", {}, clear=True),
-            patch.object(settings, "openai_api_key", None),
-            patch.object(settings, "anthropic_api_key", None),
-            patch.object(settings, "google_api_key", None),
-            patch.object(settings, "google_cloud_project", None),
-            patch.object(settings, "nvidia_api_key", "test-key"),
+            patch.object(owner, "_active", replacement),
             pytest.raises(ModelConfigError),
         ):
             _get_default_model_spec()
@@ -9472,6 +9499,35 @@ class TestWritesReachTheSharedResolver:
         assert save() is True
 
         assert get_config_resolver().get(option).value == expected
+
+    def test_noop_save_refreshes_externally_changed_config(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """An equal on-disk value still invalidates stale cached views."""
+        from deepagents_code.config_manifest import get_option
+        from deepagents_code.configuration.resolver import get_config_resolver
+
+        config_path = tmp_path / "config.toml"
+        monkeypatch.setattr(model_config, "DEFAULT_CONFIG_PATH", config_path)
+        config_path.write_text(
+            '[models]\nauto_classifier = "openai:old"\n', encoding="utf-8"
+        )
+        model_config.clear_caches()
+        option = get_option("models.auto_classifier")
+        assert option is not None
+        assert model_config.ModelConfig.load().auto_classifier_model == "openai:old"
+        assert get_config_resolver().get(option).value == "openai:old"
+
+        config_path.write_text(
+            '[models]\nauto_classifier = "openai:new"\n', encoding="utf-8"
+        )
+        inode = config_path.stat().st_ino
+
+        assert model_config.save_auto_classifier_model("openai:new") is True
+
+        assert config_path.stat().st_ino == inode
+        assert model_config.ModelConfig.load().auto_classifier_model == "openai:new"
+        assert get_config_resolver().get(option).value == "openai:new"
 
     def test_cleared_value_is_visible_to_the_next_resolver_read(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

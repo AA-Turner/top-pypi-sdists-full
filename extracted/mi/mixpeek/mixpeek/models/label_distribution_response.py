@@ -18,8 +18,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.label_metric import LabelMetric
 from typing import Optional, Set
 from typing_extensions import Self
@@ -30,8 +30,11 @@ class LabelDistributionResponse(BaseModel):
     """ # noqa: E501
     taxonomy_id: StrictStr
     labels: List[LabelMetric]
-    total_labels: StrictInt
-    __properties: ClassVar[List[str]] = ["taxonomy_id", "labels", "total_labels"]
+    total_labels: StrictInt = Field(description="Distinct labels that received at least one assignment in the window. This is the TRUE count and is not capped by `limit`; it used to be len(labels), i.e. the page size. Note it counts labels SEEN, so it is not the taxonomy's label vocabulary and cannot tell you which nodes are empty.")
+    labels_returned: Optional[StrictInt] = Field(default=0, description="How many labels this page actually carries. Lower than `total_labels` means the response is truncated by `limit`.")
+    total_assignments: Optional[StrictInt] = Field(default=0, description="Assignments across ALL labels in the window, uncapped. Each `LabelMetric.percentage` is computed against this, so the percentages are shares of the whole rather than of the page.")
+    truncated: Optional[StrictBool] = Field(default=False, description="True when labels were dropped by `limit`.")
+    __properties: ClassVar[List[str]] = ["taxonomy_id", "labels", "total_labels", "labels_returned", "total_assignments", "truncated"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,7 +96,10 @@ class LabelDistributionResponse(BaseModel):
         _obj = cls.model_validate({
             "taxonomy_id": obj.get("taxonomy_id"),
             "labels": [LabelMetric.from_dict(_item) for _item in obj["labels"]] if obj.get("labels") is not None else None,
-            "total_labels": obj.get("total_labels")
+            "total_labels": obj.get("total_labels"),
+            "labels_returned": obj.get("labels_returned") if obj.get("labels_returned") is not None else 0,
+            "total_assignments": obj.get("total_assignments") if obj.get("total_assignments") is not None else 0,
+            "truncated": obj.get("truncated") if obj.get("truncated") is not None else False
         })
         return _obj
 

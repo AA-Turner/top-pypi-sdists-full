@@ -587,4 +587,9 @@ def test_console_dist_requires_member(monkeypatch, agent_client):
     oa._clear_session_caches()
     r = agent_client.get("/agent/console/info")
     assert r.status_code == 200
-    assert set(r.get_json()) == {"deb", "agent_whl"}
+    body = r.get_json()
+    # `install` (2026-08-12) and `artifacts` (2026-08-21, the four packaging
+    # formats build-release.sh emits) were both added after this assertion was
+    # written as an exact set — hence a subset check plus the keys that matter.
+    assert {"deb", "agent_whl", "install", "artifacts"} <= set(body)
+    assert set(body["artifacts"]) == {"deb", "rpm", "pacman", "appimage"}

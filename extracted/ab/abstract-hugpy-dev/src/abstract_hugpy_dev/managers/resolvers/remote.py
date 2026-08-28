@@ -127,15 +127,100 @@ def set_serve_metrics_sink(sink_fn: Optional[Callable]) -> None:
                 getattr(sink_fn, "__name__", sink_fn))
 
 
+_CHARS_PER_TOKEN_ESTIMATE = 4.0
+
+
+def _query_meta(worker: dict, model_key: str, payload: Any, *,
+                req: Any = None, elapsed_s: Optional[float] = None,
+                ttft_s: Optional[float] = None, gen_s: Optional[float] = None,
+                text: Optional[str] = None, streaming: bool = False,
+                ok: bool = True) -> Tuple[Optional[float], Dict[str, Any]]:
+    """(tok_s, meta) for one completed relay — the per-query record.
+
+    tok/s source, in order of trust: the engine's own ``timings`` block
+    (``source="timings"``); else ``usage.completion_tokens`` over the
+    generation window (first->last token when streaming, else total elapsed;
+    ``source="usage"``); else a chars/4 estimate of the output text
+    (``source="estimate"``, ``estimated=True``). Also carries the request-side
+    state the allocation study needs: max_tokens, in-flight concurrency on the
+    (worker, model) at completion, streaming, ttft, warm/cold at pick time,
+    breaker state, outcome. Pure over its inputs; never raises to the caller.
+    """
+    from ..eviction import tok_s_from_timings
+    meta: Dict[str, Any] = {}
+    timings = payload.get("timings") if isinstance(payload, dict) else None
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    if not isinstance(usage, dict):
+        usage = None
+    prompt_tokens = completion_tokens = None
+    if isinstance(timings, dict):
+        prompt_tokens = timings.get("prompt_n")
+        completion_tokens = timings.get("predicted_n")
+    if usage:
+        prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
+        completion_tokens = usage.get("completion_tokens", completion_tokens)
+    window = gen_s if (gen_s and gen_s > 0) else elapsed_s
+    tok_s = tok_s_from_timings(payload)
+    source = "timings" if tok_s is not None else None
+    if tok_s is None and completion_tokens and window and window > 0:
+        try:
+            tok_s = float(completion_tokens) / float(window)
+            source = "usage"
+        except (TypeError, ValueError):
+            tok_s = None
+    if tok_s is None and text and window and window > 0:
+        completion_tokens = max(1, int(len(text) / _CHARS_PER_TOKEN_ESTIMATE))
+        tok_s = completion_tokens / float(window)
+        source = "estimate"
+        meta["estimated"] = True
+    if source:
+        meta["source"] = source
+    for k, v in (("prompt_tokens", prompt_tokens),
+                 ("completion_tokens", completion_tokens),
+                 ("elapsed_s", elapsed_s), ("ttft_s", ttft_s),
+                 ("gen_s", gen_s)):
+        if v is not None:
+            try:
+                meta[k] = round(float(v), 3) if isinstance(v, float) else v
+            except (TypeError, ValueError):
+                pass
+    meta["request_id"] = getattr(req, "request_id", None)
+    meta["streaming"] = bool(streaming)
+    meta["ok"] = bool(ok)
+    mt = getattr(req, "max_new_tokens", None) or getattr(req, "max_tokens", None)
+    if mt is not None:
+        meta["max_tokens"] = mt
+    try:
+        meta["inflight"] = _inflight_count(str(worker.get("id")), model_key)
+    except Exception:  # noqa: BLE001
+        pass
+    loaded = worker.get("loaded_models")
+    if isinstance(loaded, (list, tuple, set)):
+        meta["warm_at_pick"] = model_key in loaded
+    try:
+        from ...flask_app.app.functions.imports.utils import worker_http
+        snap = worker_http.breaker_snapshot().get(worker_http.breaker_key(worker))
+        if snap:
+            meta["breaker"] = "open" if snap.get("open") else (
+                f"fails={snap.get('fails')}" if snap.get("fails") else "closed")
+    except Exception:  # noqa: BLE001 — breaker is a web-side optional
+        pass
+    return tok_s, meta
+
+
 def _record_serve_metrics(worker: Optional[dict], model_key: str,
-                          payload: Any) -> None:
-    """Extract engine tok/s from a worker reply and stamp the ledger.
+                          payload: Any, **ctx: Any) -> None:
+    """Extract tok/s from a worker reply and stamp the ledger + query log.
 
     TOTALLY FAIL-OPEN, and that is the design constraint, not a nicety: this
     runs on the LIVE serving path, and a relay that raises because a `timings`
     key is missing is a far worse bug than not recording. Every failure mode —
-    no sink registered, no worker, no timings block, an old worker that never
+    no sink registered, no worker, no rate derivable, an old worker that never
     sends one, a store write that fails — returns quietly having done nothing.
+
+    ``ctx`` (req, elapsed_s, ttft_s, gen_s, text, streaming, ok) feeds
+    ``_query_meta``; an old-style call with only the payload still records the
+    engine rate exactly as before.
     """
     if _serve_metrics_sink is None or not worker:
         return
@@ -143,11 +228,10 @@ def _record_serve_metrics(worker: Optional[dict], model_key: str,
         wid = worker.get("id")
         if not wid:
             return
-        from ..eviction import tok_s_from_timings
-        tok_s = tok_s_from_timings(payload)
+        tok_s, meta = _query_meta(worker, model_key, payload, **ctx)
         if tok_s is None:
             return
-        _serve_metrics_sink(wid, model_key, tok_s)
+        _serve_metrics_sink(wid, model_key, tok_s, **meta)
     except Exception:  # noqa: BLE001 — recording must never fail a request
         logger.debug("serve-metrics recording skipped for %s", model_key,
                      exc_info=True)
@@ -2212,9 +2296,11 @@ def make_delegating_runner(framework: str, task: str):
                         break  # unbuildable (oversized inline) → local, as before
                     action = None                       # "local" | "retry" | None(=done)
                     try:
+                        _t_call = time.time()
                         _res = await _worker_run_once(
                             worker, payload, self.result_type,
                             request_id=req.request_id, model_key=self.model_key)
+                        _t_done = time.time()
                         # ONE-SHOT tok/s. The result schema (TaskResult) is
                         # extra="allow", so a worker's `timings` survives validation
                         # as an extra attribute and needs no wire version bump in
@@ -2224,7 +2310,13 @@ def make_delegating_runner(framework: str, task: str):
                         # was never achieved.
                         _record_serve_metrics(
                             worker, self.model_key,
-                            {"timings": getattr(_res, "timings", None)})
+                            {"timings": getattr(_res, "timings", None),
+                             "usage": getattr(_res, "usage", None)},
+                            req=req, elapsed_s=_t_done - _t_call,
+                            text=(getattr(_res, "text", None)
+                                  if isinstance(getattr(_res, "text", None), str)
+                                  else None),
+                            streaming=False, ok=bool(getattr(_res, "ok", True)))
                         _clear_load_verdict(worker.get("id"), self.model_key)
                         return _res
                     except Exception as exc:
@@ -2357,6 +2449,11 @@ def make_delegating_runner(framework: str, task: str):
                     raise _RelayUnbuildable()
                 wname = worker.get("name") or worker.get("id") or "worker"
                 produced_tokens = False
+                # tok/s log clocks: call start, first token, last token, and
+                # the streamed text (estimator fallback when no usage/timings).
+                _t_call = time.time()
+                _t_first = _t_last = None
+                _text_parts: list = []
                 try:
                     async for ev in _worker_stream(worker, payload, req.request_id):
                         etype = getattr(ev, "type", None)
@@ -2396,6 +2493,11 @@ def make_delegating_runner(framework: str, task: str):
                         yield ev
                         if etype == "token":
                             produced_tokens = True
+                            _t_last = time.time()
+                            if _t_first is None:
+                                _t_first = _t_last
+                            if len(_text_parts) < 4096:
+                                _text_parts.append(getattr(ev, "text", "") or "")
                         elif etype == "done":
                             # STREAMING tok/s, stamped on the terminal done —
                             # the streaming twin of run()'s post-relay stamp,
@@ -2406,9 +2508,19 @@ def make_delegating_runner(framework: str, task: str):
                             # NOT a blind spot here — it is measured exactly as
                             # well as the one-shot path. A worker too old to
                             # send it yields None and records nothing.
+                            _t_done = time.time()
                             _record_serve_metrics(
                                 worker, self.model_key,
-                                {"timings": getattr(ev, "timings", None)})
+                                {"timings": getattr(ev, "timings", None),
+                                 "usage": getattr(ev, "usage", None)},
+                                req=req, elapsed_s=_t_done - _t_call,
+                                ttft_s=((_t_first - _t_call)
+                                        if _t_first is not None else None),
+                                gen_s=((_t_last - _t_first)
+                                       if (_t_first is not None and _t_last is not None
+                                           and _t_last > _t_first) else None),
+                                text="".join(_text_parts) or None,
+                                streaming=True, ok=True)
                             return  # terminal (even if empty)
                     else:
                         # Stream ended with no done/error marker.

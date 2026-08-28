@@ -18,10 +18,10 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "pygi-type.h"
 #include "pygenum.h"
 #include "pygflags.h"
 #include "pygi-cache-private.h"
+#include "pygi-type.h"
 
 static gboolean
 gi_argument_from_c_long (GIArgument *arg_out, long c_long_in,
@@ -140,7 +140,7 @@ _pygi_marshal_from_py_interface_enum (PyGIInvokeState *state,
                                       PyGICallableCache *callable_cache,
                                       PyGIArgCache *arg_cache,
                                       PyObject *py_arg, GIArgument *arg,
-                                      gpointer *cleanup_data)
+                                      PyGIMarshalCleanupData *cleanup_data)
 {
     gint c_int;
     PyGIInterfaceCache *iface_cache = (PyGIInterfaceCache *)arg_cache;
@@ -201,7 +201,7 @@ _pygi_marshal_from_py_interface_flags (PyGIInvokeState *state,
                                        PyGICallableCache *callable_cache,
                                        PyGIArgCache *arg_cache,
                                        PyObject *py_arg, GIArgument *arg,
-                                       gpointer *cleanup_data)
+                                       PyGIMarshalCleanupData *cleanup_data)
 {
     guint c_uint;
     PyGIInterfaceCache *iface_cache = (PyGIInterfaceCache *)arg_cache;
@@ -231,7 +231,7 @@ static PyObject *
 _pygi_marshal_to_py_interface_enum (PyGIInvokeState *state,
                                     PyGICallableCache *callable_cache,
                                     PyGIArgCache *arg_cache, GIArgument *arg,
-                                    gpointer *cleanup_data)
+                                    PyGIMarshalCleanupData *cleanup_data)
 {
     PyGIInterfaceCache *iface_cache = (PyGIInterfaceCache *)arg_cache;
     GIBaseInfo *interface;
@@ -259,7 +259,7 @@ static PyObject *
 _pygi_marshal_to_py_interface_flags (PyGIInvokeState *state,
                                      PyGICallableCache *callable_cache,
                                      PyGIArgCache *arg_cache, GIArgument *arg,
-                                     gpointer *cleanup_data)
+                                     PyGIMarshalCleanupData *cleanup_data)
 {
     PyGIInterfaceCache *iface_cache = (PyGIInterfaceCache *)arg_cache;
     GIBaseInfo *interface;

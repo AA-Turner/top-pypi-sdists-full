@@ -15232,24 +15232,31 @@ class LogGroupProps:
         :param removal_policy: Determine the removal policy of this log group. Normally you want to retain the log group so you can diagnose issues from logs even after a deployment that no longer includes the log group. In that case, use the normal date-based retention policy to age out your logs. Default: RemovalPolicy.Retain
         :param retention: How long, in days, the log contents will be retained. To retain all logs, set this value to RetentionDays.INFINITE. Default: RetentionDays.TWO_YEARS
 
-        :exampleMetadata: infused
+        :exampleMetadata: fixture=default infused
 
         Example::
 
-            # my_role: iam.Role
+            repository = ecr.Repository(self, "TestRepository",
+                repository_name="test-agent-runtime"
+            )
             
-            cr.AwsCustomResource(self, "Customized",
-                role=my_role,  # must be assumable by the `lambda.amazonaws.com` service principal
-                timeout=Duration.minutes(10),  # defaults to 2 minutes
-                memory_size=1025,  # defaults to 512 if installLatestAwsSdk is true
-                log_group=logs.LogGroup(self, "AwsCustomResourceLogs",
-                    retention=logs.RetentionDays.ONE_DAY
-                ),
-                function_name="my-custom-name",  # defaults to a CloudFormation generated name
-                removal_policy=RemovalPolicy.RETAIN,  # defaults to `RemovalPolicy.DESTROY`
-                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                    resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
+            agent_runtime_artifact = agentcore.AgentRuntimeArtifact.from_ecr_repository(repository, "v1.0.0")
+            
+            # Use a /aws/vendedlogs/ log group for same-account delivery without explicit resource policy
+            log_group = logs.LogGroup(self, "RuntimeLogGroup",
+                log_group_name="/aws/vendedlogs/bedrock-agentcore/my-runtime"
+            )
+            
+            agentcore.Runtime(self, "test-runtime",
+                runtime_name="test_runtime",
+                agent_runtime_artifact=agent_runtime_artifact,
+                tracing_enabled=True,
+                logging_configs=[agentcore.LoggingConfig(
+                    log_type=agentcore.LogType.APPLICATION_LOGS,
+                    destination=agentcore.LoggingDestination.cloud_watch_logs(log_group)
                 )
+                ],
+                manage_delivery_resource_policy=False
             )
         '''
         if __debug__:

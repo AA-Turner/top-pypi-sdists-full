@@ -5,6 +5,10 @@ from ...vision.schemas import VisionRequest
 from ...llama import LlamaCppChatRunner
 from ...summarizers import SummarizeRunner
 from ...whisper_model import WhisperRunner, TranscribeRequest
+# TTS (chatterbox seat). ``managers.tts`` is lazy (PEP 562 __getattr__), so
+# these two names cost the runner import only where the tables are built —
+# never on the worker heartbeat path that reads managers.tts.seat.
+from ...tts import ChatterboxTtsRunner, TtsRequest
 
 from ...embed import FeatureExtractionRunner, EmbedRequest
 from ...imagegen import ImageGenRunner, Img2ImgRunner, ImageGenRequest

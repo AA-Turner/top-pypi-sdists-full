@@ -28,7 +28,17 @@ from openstackclient.identity import common as identity_common
 
 _formatters = {
     'subnet_ip_availability': format_columns.ListDictColumn,
+    'ip_availability_details': format_columns.DictColumn,
 }
+
+# Keys of the 'ip_availability_details' attribute, added by the
+# 'network-ip-availability-details' extension.
+_DETAIL_FIELDS = (
+    'total_ips_in_subnet',
+    'total_ips_in_allocation_pool',
+    'used_ips_in_subnet',
+    'used_ips_in_allocation_pool',
+)
 
 
 def _get_columns(
@@ -38,6 +48,18 @@ def _get_columns(
     return utils.get_osc_show_columns_for_sdk_resource(
         item, {}, hidden_columns
     )
+
+
+def _get_detail(
+    item: _ip_availability.NetworkIPAvailability, field: str
+) -> Any:
+    """Return a single key of the 'ip_availability_details' attribute.
+
+    The attribute is only present when the 'network-ip-availability-details'
+    extension is enabled, so fall back to an empty value.
+    """
+    details = getattr(item, 'ip_availability_details', None) or {}
+    return details.get(field, '')
 
 
 class ListIPAvailability(command.Lister):
@@ -85,6 +107,10 @@ class ListIPAvailability(command.Lister):
             'Network Name',
             'Total IPs',
             'Used IPs',
+            'Total IPs in Subnet',
+            'Total IPs in Allocation Pool',
+            'Used IPs in Subnet',
+            'Used IPs in Allocation Pool',
         )
 
         filters = {}
@@ -113,6 +139,7 @@ class ListIPAvailability(command.Lister):
                     s,
                     columns,
                 )
+                + tuple(_get_detail(s, field) for field in _DETAIL_FIELDS)
                 for s in data
             ),
         )

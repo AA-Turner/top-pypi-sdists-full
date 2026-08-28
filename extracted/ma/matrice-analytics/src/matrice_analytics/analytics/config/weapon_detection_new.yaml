@@ -1,0 +1,54 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+# NOTE: "_new" suffix is intentional — testing apps for the new
+# AnalyticsEngine flow are registered in the backend with distinct names
+# (e.g. "Weapon Detection New") so the ORIGINAL apps keep running the legacy
+# post_processing flow. Drop the suffix only when the new flow replaces
+# the legacy one for this app.
+app:
+  id: weapon_detection_new
+  name: "Weapon Detection New"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+# ──────────────────────────────────────────────
+categories:
+  - INCIDENT
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+# ──────────────────────────────────────────────
+# Only weapon detections feed incident quant; person boxes are ignored.
+entity_mapping:
+  weapon: weapon
+
+# ──────────────────────────────────────────────
+# Incident Module — Weapon Detection
+#
+# quant_strategy: max_confidence
+#   incident_quant = max(weapon confidence) * 100
+#   matching legacy weapon_detection.py severity cutoffs.
+# ──────────────────────────────────────────────
+incident:
+  quant_strategy: max_confidence
+
+  incidentTypes:
+    - key: weapon_detection
+      name: "Weapon Detection"
+      thresholds:
+        - level: low
+          percentage: 27
+        - level: medium
+          percentage: 40
+        - level: critical
+          percentage: 70
+      order: ascending
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults: []
+  overrides: []

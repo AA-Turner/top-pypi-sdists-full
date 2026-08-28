@@ -362,6 +362,37 @@ def _fetch_mmproj_sidecars(repo_id: str, destination: str) -> None:
         print(f"  mmproj sidecar check skipped ({type(exc).__name__}: {exc})")
 
 
+def requested_file_missing(model: dict[str, Any], path: str) -> bool:
+    """True when the caller named a SPECIFIC gguf file and THAT file is not in
+    *path*. (k119)
+
+    ``model_looks_downloaded`` asks "does this dir hold a usable gguf", and for
+    SERVING that is the right question — ``get_gguf_file`` deliberately ELECTS a
+    quant when the designated one is absent, so a load still works. For a
+    DOWNLOAD it is the wrong question, and it silently ate the operator's
+    requests: adding 26 quants of unsloth/Qwen3.8-27B-GGUF from the Add-models
+    tab produced 3 files on disk and 26 jobs reading `completed`, because once
+    any quant landed, every later request resolved the dir as "already present
+    (complete) — skipping".
+
+    Deliberately narrow: only an EXPLICIT ``filename`` on a gguf model. A
+    pattern/snapshot download has no single file to check for, and every
+    non-gguf framework keeps the existing behaviour exactly."""
+    if (model.get("framework") or "") != "gguf":
+        return False
+    fn = (model.get("filename") or "").strip()
+    if not fn:
+        return False
+    base = os.path.basename(fn).lower()
+    try:
+        for _root, _dirs, files in os.walk(path):
+            if any(f.lower() == base for f in files):
+                return False
+    except OSError:
+        return False        # unreadable: fall back to the old (permissive) rule
+    return True
+
+
 def download_one(model: dict[str, Any],root: str=None,model_key=None, dry_run: bool = False) -> None:
     
     hub_id = model.get("hub_id")
@@ -394,8 +425,15 @@ def download_one(model: dict[str, Any],root: str=None,model_key=None, dry_run: b
     if dry_run:
         return
     if existing:
-        print(f"  already present (complete) at {existing} — skipping")
-        return
+        if not requested_file_missing(model, existing):
+            print(f"  already present (complete) at {existing} — skipping")
+            return
+        # The dir is "complete" by the resolver's serving rule, but the exact
+        # quant the operator asked for is NOT in it. Fetch just that file, INTO
+        # the dir that already holds this repo — _promote_staged merges, so the
+        # repo stays in one place instead of being split across two layouts.
+        destination = existing
+        print(f"  present, but {filename} is missing — fetching it into {existing}")
 
     # ATOMIC: download into a per-pid staging sibling, promote on success only.
     # Before creating a fresh one, adopt the newest dead-pid orphan for this

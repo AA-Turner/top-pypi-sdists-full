@@ -61,6 +61,8 @@ from .movie_plan import (
     SegmentPlan,
     plan_segments,
     preflight_movie,
+    preflight_coordination,
+    coordination_report,
     resolve_segment_model,
     segment_capability,
 )
@@ -95,6 +97,7 @@ __all__ = [
     "runner_gate_reason", "unpinned_models", "validate_registry",
     "CapabilityRouter", "capable_model_ids",
     "SegmentModel", "SegmentPlan", "plan_segments", "preflight_movie",
+    "preflight_coordination", "coordination_report",
     "resolve_segment_model", "segment_capability",
     "make_render_manifest", "render_manifest_from_dict", "render_manifest_to_dict",
     "AdapterRef", "CapabilityRequest", "ControlRef", "Job", "LedgerEvent",

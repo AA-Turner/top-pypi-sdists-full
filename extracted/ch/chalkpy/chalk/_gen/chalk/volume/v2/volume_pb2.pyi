@@ -49,6 +49,12 @@ class UploadedObjectKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     UPLOADED_OBJECT_KIND_UNSPECIFIED: _ClassVar[UploadedObjectKind]
     UPLOADED_OBJECT_KIND_CHUNK: _ClassVar[UploadedObjectKind]
     UPLOADED_OBJECT_KIND_PACK: _ClassVar[UploadedObjectKind]
+    UPLOADED_OBJECT_KIND_INTENT: _ClassVar[UploadedObjectKind]
+
+class VolumeKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    VOLUME_KIND_UNSPECIFIED: _ClassVar[VolumeKind]
+    VOLUME_KIND_SOURCE_CODE: _ClassVar[VolumeKind]
 
 VOLUME_ACCESS_MODE_UNSPECIFIED: VolumeAccessMode
 VOLUME_ACCESS_MODE_READ_ONLY: VolumeAccessMode
@@ -69,6 +75,9 @@ COMMIT_RESULT_ABORTED: CommitResult
 UPLOADED_OBJECT_KIND_UNSPECIFIED: UploadedObjectKind
 UPLOADED_OBJECT_KIND_CHUNK: UploadedObjectKind
 UPLOADED_OBJECT_KIND_PACK: UploadedObjectKind
+UPLOADED_OBJECT_KIND_INTENT: UploadedObjectKind
+VOLUME_KIND_UNSPECIFIED: VolumeKind
+VOLUME_KIND_SOURCE_CODE: VolumeKind
 
 class VolumeInfo(_message.Message):
     __slots__ = ("volume_id", "name", "created_at", "access_mode", "ref", "object_store_uri")
@@ -101,6 +110,30 @@ class VolumeRef(_message.Message):
     volume_id: str
     name: str
     def __init__(self, volume_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class RefInfo(_message.Message):
+    __slots__ = ("name", "version_id", "sequence_number", "commit_id", "updated_at", "parent_version_id")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_ID_FIELD_NUMBER: _ClassVar[int]
+    SEQUENCE_NUMBER_FIELD_NUMBER: _ClassVar[int]
+    COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    PARENT_VERSION_ID_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    version_id: int
+    sequence_number: int
+    commit_id: str
+    updated_at: _timestamp_pb2.Timestamp
+    parent_version_id: int
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        version_id: _Optional[int] = ...,
+        sequence_number: _Optional[int] = ...,
+        commit_id: _Optional[str] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        parent_version_id: _Optional[int] = ...,
+    ) -> None: ...
 
 class VersionInfo(_message.Message):
     __slots__ = ("version_id", "sequence_number", "parent_id", "created_at", "ref", "primary_pack_id", "commit_id")
@@ -540,6 +573,18 @@ class UploadURLItem(_message.Message):
         expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
+class CommitDeltasObject(_message.Message):
+    __slots__ = ("path_deltas", "inode_deltas")
+    PATH_DELTAS_FIELD_NUMBER: _ClassVar[int]
+    INODE_DELTAS_FIELD_NUMBER: _ClassVar[int]
+    path_deltas: PathDeltaList
+    inode_deltas: InodeDeltaList
+    def __init__(
+        self,
+        path_deltas: _Optional[_Union[PathDeltaList, _Mapping]] = ...,
+        inode_deltas: _Optional[_Union[InodeDeltaList, _Mapping]] = ...,
+    ) -> None: ...
+
 class CommitIntent(_message.Message):
     __slots__ = (
         "volume",
@@ -551,6 +596,7 @@ class CommitIntent(_message.Message):
         "author",
         "path_deltas",
         "inode_deltas",
+        "uploaded_deltas",
     )
     VOLUME_FIELD_NUMBER: _ClassVar[int]
     COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -561,6 +607,7 @@ class CommitIntent(_message.Message):
     AUTHOR_FIELD_NUMBER: _ClassVar[int]
     PATH_DELTAS_FIELD_NUMBER: _ClassVar[int]
     INODE_DELTAS_FIELD_NUMBER: _ClassVar[int]
+    UPLOADED_DELTAS_FIELD_NUMBER: _ClassVar[int]
     volume: VolumeRef
     commit_id: str
     ref: str
@@ -570,6 +617,7 @@ class CommitIntent(_message.Message):
     author: str
     path_deltas: PathDeltaList
     inode_deltas: InodeDeltaList
+    uploaded_deltas: UploadedObjectReference
     def __init__(
         self,
         volume: _Optional[_Union[VolumeRef, _Mapping]] = ...,
@@ -581,6 +629,7 @@ class CommitIntent(_message.Message):
         author: _Optional[str] = ...,
         path_deltas: _Optional[_Union[PathDeltaList, _Mapping]] = ...,
         inode_deltas: _Optional[_Union[InodeDeltaList, _Mapping]] = ...,
+        uploaded_deltas: _Optional[_Union[UploadedObjectReference, _Mapping]] = ...,
     ) -> None: ...
 
 class CommitStatus(_message.Message):
@@ -611,10 +660,12 @@ class CommitStatus(_message.Message):
     ) -> None: ...
 
 class CreateVolumeRequest(_message.Message):
-    __slots__ = ("name",)
+    __slots__ = ("name", "volume_type")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_TYPE_FIELD_NUMBER: _ClassVar[int]
     name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
+    volume_type: VolumeKind
+    def __init__(self, name: _Optional[str] = ..., volume_type: _Optional[_Union[VolumeKind, str]] = ...) -> None: ...
 
 class CreateVolumeResponse(_message.Message):
     __slots__ = ("volume",)
@@ -647,12 +698,22 @@ class GetVolumeResponse(_message.Message):
     ) -> None: ...
 
 class ListVolumesRequest(_message.Message):
-    __slots__ = ("limit", "cursor")
+    __slots__ = ("limit", "cursor", "name_prefix", "volume_kind")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
+    NAME_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_KIND_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
-    def __init__(self, limit: _Optional[int] = ..., cursor: _Optional[str] = ...) -> None: ...
+    name_prefix: str
+    volume_kind: VolumeKind
+    def __init__(
+        self,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+        name_prefix: _Optional[str] = ...,
+        volume_kind: _Optional[_Union[VolumeKind, str]] = ...,
+    ) -> None: ...
 
 class ListedVolume(_message.Message):
     __slots__ = ("name", "created_at")
@@ -685,18 +746,21 @@ class DeleteVolumeResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class ListVolumeVersionsRequest(_message.Message):
-    __slots__ = ("volume", "limit", "cursor")
+    __slots__ = ("volume", "limit", "cursor", "ref")
     VOLUME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
+    REF_FIELD_NUMBER: _ClassVar[int]
     volume: VolumeRef
     limit: int
     cursor: str
+    ref: str
     def __init__(
         self,
         volume: _Optional[_Union[VolumeRef, _Mapping]] = ...,
         limit: _Optional[int] = ...,
         cursor: _Optional[str] = ...,
+        ref: _Optional[str] = ...,
     ) -> None: ...
 
 class ListVolumeVersionsResponse(_message.Message):
@@ -708,6 +772,51 @@ class ListVolumeVersionsResponse(_message.Message):
     def __init__(
         self, versions: _Optional[_Iterable[_Union[VersionInfo, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
     ) -> None: ...
+
+class CreateRefRequest(_message.Message):
+    __slots__ = ("volume", "name", "from_version_id")
+    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FROM_VERSION_ID_FIELD_NUMBER: _ClassVar[int]
+    volume: VolumeRef
+    name: str
+    from_version_id: int
+    def __init__(
+        self,
+        volume: _Optional[_Union[VolumeRef, _Mapping]] = ...,
+        name: _Optional[str] = ...,
+        from_version_id: _Optional[int] = ...,
+    ) -> None: ...
+
+class CreateRefResponse(_message.Message):
+    __slots__ = ("ref",)
+    REF_FIELD_NUMBER: _ClassVar[int]
+    ref: RefInfo
+    def __init__(self, ref: _Optional[_Union[RefInfo, _Mapping]] = ...) -> None: ...
+
+class ListRefsRequest(_message.Message):
+    __slots__ = ("volume",)
+    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    volume: VolumeRef
+    def __init__(self, volume: _Optional[_Union[VolumeRef, _Mapping]] = ...) -> None: ...
+
+class ListRefsResponse(_message.Message):
+    __slots__ = ("refs",)
+    REFS_FIELD_NUMBER: _ClassVar[int]
+    refs: _containers.RepeatedCompositeFieldContainer[RefInfo]
+    def __init__(self, refs: _Optional[_Iterable[_Union[RefInfo, _Mapping]]] = ...) -> None: ...
+
+class DeleteRefRequest(_message.Message):
+    __slots__ = ("volume", "name")
+    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    volume: VolumeRef
+    name: str
+    def __init__(self, volume: _Optional[_Union[VolumeRef, _Mapping]] = ..., name: _Optional[str] = ...) -> None: ...
+
+class DeleteRefResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class CommitVersionRequest(_message.Message):
     __slots__ = ("intent",)

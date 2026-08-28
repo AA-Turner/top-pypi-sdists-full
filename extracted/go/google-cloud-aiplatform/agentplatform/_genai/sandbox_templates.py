@@ -27,7 +27,7 @@ from google.genai._common import get_value_by_path as getv
 from google.genai._common import set_value_by_path as setv
 from google.genai.pagers import Pager
 
-from . import _agent_engines_utils
+from . import _runtimes_utils
 from . import types
 
 logger = logging.getLogger("agentplatform_genai.sandboxtemplates")
@@ -73,13 +73,13 @@ def _CreateSandboxEnvironmentTemplateRequestParameters_to_vertex(
     if getv(from_object, ["name"]) is not None:
         setv(to_object, ["_url", "name"], getv(from_object, ["name"]))
 
+    if getv(from_object, ["display_name"]) is not None:
+        setv(to_object, ["displayName"], getv(from_object, ["display_name"]))
+
     if getv(from_object, ["config"]) is not None:
         _CreateSandboxEnvironmentTemplateConfig_to_vertex(
             getv(from_object, ["config"]), to_object
         )
-
-    if getv(from_object, ["display_name"]) is not None:
-        setv(to_object, ["displayName"], getv(from_object, ["display_name"]))
 
     return to_object
 
@@ -160,15 +160,15 @@ class SandboxTemplates(_api_module.BaseModule):
         self,
         *,
         name: str,
-        config: Optional[types.CreateSandboxEnvironmentTemplateConfigOrDict] = None,
         display_name: str,
+        config: Optional[types.CreateSandboxEnvironmentTemplateConfigOrDict] = None,
     ) -> types.SandboxEnvironmentTemplateOperation:
         """
-        Creates a new sandbox template in the Agent Engine.
+        Creates a new sandbox template in the Agent Runtime.
 
             Args:
                 name (str):
-                    Required. The name of the agent engine to create the template under.
+                    Required. The name of the agent runtime to create the template under.
                     Format: projects/{project}/locations/{location}/reasoningEngines/{resource_id}
                 display_name (str):
                     Required. The display name of the sandbox template.
@@ -179,8 +179,8 @@ class SandboxTemplates(_api_module.BaseModule):
 
         parameter_model = types._CreateSandboxEnvironmentTemplateRequestParameters(
             name=name,
-            config=config,
             display_name=display_name,
+            config=config,
         )
 
         request_url_dict: Optional[dict[str, str]]
@@ -249,7 +249,7 @@ class SandboxTemplates(_api_module.BaseModule):
         config: Optional[types.DeleteSandboxEnvironmentTemplateConfigOrDict] = None,
     ) -> types.DeleteSandboxEnvironmentTemplateOperation:
         """
-        Delete an Agent Engine sandbox template.
+        Delete an Agent Runtime sandbox template.
 
             Args:
                 name (str):
@@ -331,7 +331,7 @@ class SandboxTemplates(_api_module.BaseModule):
         config: Optional[types.GetSandboxEnvironmentTemplateConfigOrDict] = None,
     ) -> types.SandboxEnvironmentTemplate:
         """
-        Gets an agent engine sandbox template.
+        Gets an agent runtime sandbox template.
 
         Args:
             name (str): The resource name of the SandboxEnvironmentTemplate.
@@ -417,10 +417,10 @@ class SandboxTemplates(_api_module.BaseModule):
         config: Optional[types.ListSandboxEnvironmentTemplatesConfigOrDict] = None,
     ) -> types.ListSandboxEnvironmentTemplatesResponse:
         """
-        Lists Agent Engine sandbox templates.
+        Lists Agent Runtime sandbox templates.
 
             Args:
-                name (str): Name of the agent engine. Format: projects/{project}/locations/{location}/reasoningEngines/{resource_id}
+                name (str): Name of the agent runtime. Format: projects/{project}/locations/{location}/reasoningEngines/{resource_id}
                 config (ListSandboxEnvironmentTemplatesConfig): Configuration for listing sandbox templates.
 
             Returns:
@@ -496,7 +496,7 @@ class SandboxTemplates(_api_module.BaseModule):
         self,
         *,
         operation_name: str,
-        config: Optional[types.GetAgentEngineOperationConfigOrDict] = None,
+        config: Optional[types.GetRuntimeOperationConfigOrDict] = None,
     ) -> types.SandboxEnvironmentTemplateOperation:
         parameter_model = types._GetSandboxEnvironmentTemplateOperationParameters(
             operation_name=operation_name,
@@ -570,11 +570,11 @@ class SandboxTemplates(_api_module.BaseModule):
         config: Optional[types.CreateSandboxEnvironmentTemplateConfigOrDict] = None,
         poll_interval_seconds: float = 0.1,
     ) -> types.SandboxEnvironmentTemplateOperation:
-        """Creates a new sandbox template in the Agent Engine.
+        """Creates a new sandbox template in the Agent Runtime.
 
         Args:
             name (str):
-                Required. The name of the agent engine to create sandbox template for.
+                Required. The name of the agent runtime to create sandbox template for.
                 projects/{project}/locations/{location}/reasoningEngines/{resource_id}
             display_name (str):
                 Required. The display name of the sandbox template.
@@ -597,7 +597,7 @@ class SandboxTemplates(_api_module.BaseModule):
             config = types.CreateSandboxEnvironmentTemplateConfig.model_validate(config)
         if config.wait_for_completion:
             if not operation.done:
-                operation = _agent_engines_utils._await_operation(
+                operation = _runtimes_utils._await_operation(
                     operation_name=operation.name,
                     get_operation_fn=self.get_sandbox_environment_template_operation,
                     poll_interval_seconds=poll_interval_seconds,
@@ -615,17 +615,17 @@ class SandboxTemplates(_api_module.BaseModule):
         name: str,
         config: Optional[types.ListSandboxEnvironmentTemplatesConfigOrDict] = None,
     ) -> Iterator[types.SandboxEnvironmentTemplate]:
-        """Lists Agent Engine sandbox templates.
+        """Lists Agent Runtime sandbox templates.
 
         Args:
             name (str):
-                Required. The name of the agent engine to list sandbox templates for.
+                Required. The name of the agent runtime to list sandbox templates for.
                 projects/{project}/locations/{location}/reasoningEngines/{resource_id}
             config (ListSandboxEnvironmentTemplatesConfig):
                 Optional. The configuration for the sandbox templates to list.
 
         Returns:
-            Iterable[SandboxEnvironmentTemplate]: An iterable of agent engine sandbox templates.
+            Iterable[SandboxEnvironmentTemplate]: An iterable of agent runtime sandbox templates.
         """
         return Pager(
             "sandbox_environment_templates",
@@ -640,7 +640,7 @@ class SandboxTemplates(_api_module.BaseModule):
         name: str,
         config: Optional[types.GetSandboxEnvironmentTemplateConfigOrDict] = None,
     ) -> types.SandboxEnvironmentTemplate:
-        """Gets a sandbox template in the Agent Engine.
+        """Gets a sandbox template in the Agent Runtime.
         Args:
           name (str):
               Required. A fully-qualified resource name or ID such as
@@ -657,7 +657,7 @@ class SandboxTemplates(_api_module.BaseModule):
         name: str,
         config: Optional[types.DeleteSandboxEnvironmentTemplateConfigOrDict] = None,
     ) -> types.DeleteSandboxEnvironmentTemplateOperation:
-        """Deletes a sandbox template in the Agent Engine.
+        """Deletes a sandbox template in the Agent Runtime.
         Args:
             name (str):
                 Required. The name of the sandbox template to delete.
@@ -675,15 +675,15 @@ class AsyncSandboxTemplates(_api_module.BaseModule):
         self,
         *,
         name: str,
-        config: Optional[types.CreateSandboxEnvironmentTemplateConfigOrDict] = None,
         display_name: str,
+        config: Optional[types.CreateSandboxEnvironmentTemplateConfigOrDict] = None,
     ) -> types.SandboxEnvironmentTemplateOperation:
         """
-        Creates a new sandbox template in the Agent Engine.
+        Creates a new sandbox template in the Agent Runtime.
 
             Args:
                 name (str):
-                    Required. The name of the agent engine to create the template under.
+                    Required. The name of the agent runtime to create the template under.
                     Format: projects/{project}/locations/{location}/reasoningEngines/{resource_id}
                 display_name (str):
                     Required. The display name of the sandbox template.
@@ -694,8 +694,8 @@ class AsyncSandboxTemplates(_api_module.BaseModule):
 
         parameter_model = types._CreateSandboxEnvironmentTemplateRequestParameters(
             name=name,
-            config=config,
             display_name=display_name,
+            config=config,
         )
 
         request_url_dict: Optional[dict[str, str]]
@@ -766,7 +766,7 @@ class AsyncSandboxTemplates(_api_module.BaseModule):
         config: Optional[types.DeleteSandboxEnvironmentTemplateConfigOrDict] = None,
     ) -> types.DeleteSandboxEnvironmentTemplateOperation:
         """
-        Delete an Agent Engine sandbox template.
+        Delete an Agent Runtime sandbox template.
 
             Args:
                 name (str):
@@ -850,7 +850,7 @@ class AsyncSandboxTemplates(_api_module.BaseModule):
         config: Optional[types.GetSandboxEnvironmentTemplateConfigOrDict] = None,
     ) -> types.SandboxEnvironmentTemplate:
         """
-        Gets an agent engine sandbox template.
+        Gets an agent runtime sandbox template.
 
         Args:
             name (str): The resource name of the SandboxEnvironmentTemplate.
@@ -938,10 +938,10 @@ class AsyncSandboxTemplates(_api_module.BaseModule):
         config: Optional[types.ListSandboxEnvironmentTemplatesConfigOrDict] = None,
     ) -> types.ListSandboxEnvironmentTemplatesResponse:
         """
-        Lists Agent Engine sandbox templates.
+        Lists Agent Runtime sandbox templates.
 
             Args:
-                name (str): Name of the agent engine. Format: projects/{project}/locations/{location}/reasoningEngines/{resource_id}
+                name (str): Name of the agent runtime. Format: projects/{project}/locations/{location}/reasoningEngines/{resource_id}
                 config (ListSandboxEnvironmentTemplatesConfig): Configuration for listing sandbox templates.
 
             Returns:
@@ -1019,7 +1019,7 @@ class AsyncSandboxTemplates(_api_module.BaseModule):
         self,
         *,
         operation_name: str,
-        config: Optional[types.GetAgentEngineOperationConfigOrDict] = None,
+        config: Optional[types.GetRuntimeOperationConfigOrDict] = None,
     ) -> types.SandboxEnvironmentTemplateOperation:
         parameter_model = types._GetSandboxEnvironmentTemplateOperationParameters(
             operation_name=operation_name,

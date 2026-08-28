@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lsst-daf-butler
-Version: 30.2026.3400
+Version: 30.2026.3500
 Summary: An abstraction layer for reading and writing astronomical data to datastores.
 Author-email: Rubin Observatory Data Management <dm-admin@lists.lsst.org>
 License-Expression: BSD-3-Clause OR GPL-3.0-or-later
@@ -38,7 +38,10 @@ Requires-Dist: httpx; extra == "remote"
 Requires-Dist: lsst-resources[https]; extra == "remote"
 Provides-Extra: server
 Requires-Dist: fastapi; extra == "server"
+Requires-Dist: lsst-resources[https,s3]; extra == "server"
 Requires-Dist: safir>=3.4.0; extra == "server"
+Requires-Dist: sentry-sdk[fastapi,sqlalchemy]>=2.68.0; extra == "server"
+Requires-Dist: uvicorn>=0.52.4; extra == "server"
 Provides-Extra: test
 Requires-Dist: pytest>=3.2; extra == "test"
 Requires-Dist: numpy>=1.17; extra == "test"
@@ -77,3 +80,43 @@ Recipients may choose which of these licenses to use; please see the files gpl-3
 From version 18 of arrow we have seen significant memory leaks when accessing parquet files using the default memory allocator.
 If you see such leaks the workaround is to set the `ARROW_DEFAULT_MEMORY_POOL` environment variable to `jemalloc` following the advice from [apache/arrow#45882](https://github.com/apache/arrow/issues/45882).
 For EUPS users this variable is automatically set.
+
+## Managing dependencies
+
+This package uses [uv](https://docs.astral.sh/uv/) to manage the versions of libraries used for CI, Docker builds, and local development.
+
+### Upgrading the versions of libraries
+
+Run the following command to refresh `uv.lock` with the latest available
+versions of all libraries:
+```
+uv lock --upgrade
+```
+
+### Temporarily pinning another LSST package to a development branch
+If you are working on a PR that requires unreleased changes from another LSST
+repository, you can temporarily pin the new version by opening `pyproject.toml`
+and finding the library in the `override-dependencies` declaration under
+`tool.uv`.  Replace `main` with the ticket branch, e.g.:
+```
+override-dependencies = [
+    "lsst-utils @ git+https://github.com/lsst/utils@tickets/DM-xxxxx",
+    ...
+]
+```
+
+Then run:
+```
+uv lock --upgrade-package <package name>
+```
+to pull in the updated version for testing, where `<package name>` is
+`lsst-utils` or whatever package you are overriding.
+ (You can also just do `uv lock --upgrade` if you don't mind upgrading all the
+ other libraries at the same time.)
+
+You will need to re-do this lock update any time you change the code, so that
+it resolves to the new version.
+
+After the other library's development branch has been merged, reset the
+branch to main in `pyproject.toml` and run the lock update again to pull in
+the released version.

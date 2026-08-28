@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.worksheets_pb2 import (
     ArchiveWorksheetNodeResponse,
     AutosaveWorksheetRequest,
     AutosaveWorksheetResponse,
+    CancelWorksheetRunRequest,
+    CancelWorksheetRunResponse,
     CreateWorksheetNodeRequest,
     CreateWorksheetNodeResponse,
     CreateWorksheetSpaceRequest,
@@ -20,10 +22,14 @@ from chalk._gen.chalk.server.v1.worksheets_pb2 import (
     GetWorksheetCommitResponse,
     GetWorksheetNodeRequest,
     GetWorksheetNodeResponse,
+    GetWorksheetRunRequest,
+    GetWorksheetRunResponse,
     ListWorksheetCommitsRequest,
     ListWorksheetCommitsResponse,
     ListWorksheetNodesRequest,
     ListWorksheetNodesResponse,
+    ListWorksheetRunsRequest,
+    ListWorksheetRunsResponse,
     ListWorksheetSpacesRequest,
     ListWorksheetSpacesResponse,
     MoveWorksheetNodeRequest,
@@ -32,6 +38,12 @@ from chalk._gen.chalk.server.v1.worksheets_pb2 import (
     RenameWorksheetNodeResponse,
     RestoreWorksheetNodeRequest,
     RestoreWorksheetNodeResponse,
+    RunOfflineWorksheetCommitRequest,
+    RunOfflineWorksheetCommitResponse,
+    RunOnlineWorksheetCommitRequest,
+    RunOnlineWorksheetCommitResponse,
+    RunSqlWorksheetCommitRequest,
+    RunSqlWorksheetCommitResponse,
     SaveWorksheetRequest,
     SaveWorksheetResponse,
 )
@@ -95,6 +107,30 @@ class WorksheetsServiceStub:
     ListWorksheetCommits: UnaryUnaryMultiCallable[
         ListWorksheetCommitsRequest,
         ListWorksheetCommitsResponse,
+    ]
+    RunOnlineWorksheetCommit: UnaryUnaryMultiCallable[
+        RunOnlineWorksheetCommitRequest,
+        RunOnlineWorksheetCommitResponse,
+    ]
+    RunOfflineWorksheetCommit: UnaryUnaryMultiCallable[
+        RunOfflineWorksheetCommitRequest,
+        RunOfflineWorksheetCommitResponse,
+    ]
+    RunSqlWorksheetCommit: UnaryUnaryMultiCallable[
+        RunSqlWorksheetCommitRequest,
+        RunSqlWorksheetCommitResponse,
+    ]
+    CancelWorksheetRun: UnaryUnaryMultiCallable[
+        CancelWorksheetRunRequest,
+        CancelWorksheetRunResponse,
+    ]
+    GetWorksheetRun: UnaryUnaryMultiCallable[
+        GetWorksheetRunRequest,
+        GetWorksheetRunResponse,
+    ]
+    ListWorksheetRuns: UnaryUnaryMultiCallable[
+        ListWorksheetRunsRequest,
+        ListWorksheetRunsResponse,
     ]
 
 class WorksheetsServiceServicer(metaclass=ABCMeta):
@@ -176,5 +212,41 @@ class WorksheetsServiceServicer(metaclass=ABCMeta):
         request: ListWorksheetCommitsRequest,
         context: ServicerContext,
     ) -> ListWorksheetCommitsResponse: ...
+    @abstractmethod
+    def RunOnlineWorksheetCommit(
+        self,
+        request: RunOnlineWorksheetCommitRequest,
+        context: ServicerContext,
+    ) -> RunOnlineWorksheetCommitResponse: ...
+    @abstractmethod
+    def RunOfflineWorksheetCommit(
+        self,
+        request: RunOfflineWorksheetCommitRequest,
+        context: ServicerContext,
+    ) -> RunOfflineWorksheetCommitResponse: ...
+    @abstractmethod
+    def RunSqlWorksheetCommit(
+        self,
+        request: RunSqlWorksheetCommitRequest,
+        context: ServicerContext,
+    ) -> RunSqlWorksheetCommitResponse: ...
+    @abstractmethod
+    def CancelWorksheetRun(
+        self,
+        request: CancelWorksheetRunRequest,
+        context: ServicerContext,
+    ) -> CancelWorksheetRunResponse: ...
+    @abstractmethod
+    def GetWorksheetRun(
+        self,
+        request: GetWorksheetRunRequest,
+        context: ServicerContext,
+    ) -> GetWorksheetRunResponse: ...
+    @abstractmethod
+    def ListWorksheetRuns(
+        self,
+        request: ListWorksheetRunsRequest,
+        context: ServicerContext,
+    ) -> ListWorksheetRunsResponse: ...
 
 def add_WorksheetsServiceServicer_to_server(servicer: WorksheetsServiceServicer, server: Server) -> None: ...

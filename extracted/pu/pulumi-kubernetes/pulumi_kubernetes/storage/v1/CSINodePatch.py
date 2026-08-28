@@ -7,7 +7,7 @@ import warnings
 import sys
 import pulumi
 import pulumi.runtime
-from typing import Any, Mapping, Optional, Sequence, Union, overload
+from typing import Any, Mapping, Optional, Sequence, Union, overload, Literal
 if sys.version_info >= (3, 11):
     from typing import NotRequired, TypedDict, TypeAlias
 else:
@@ -22,16 +22,16 @@ __all__ = ['CSINodePatchArgs', 'CSINodePatch']
 @pulumi.input_type
 class CSINodePatchArgs:
     def __init__(__self__, *,
-                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
-                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 api_version: pulumi.Input[Optional[Literal['storage.k8s.io/v1']]] = None,
+                 kind: pulumi.Input[Optional[Literal['CSINode']]] = None,
                  metadata: pulumi.Input[Optional['_meta.v1.ObjectMetaPatchArgs']] = None,
                  spec: pulumi.Input[Optional['CSINodeSpecPatchArgs']] = None):
         """
         The set of arguments for constructing a CSINodePatch resource.
 
-        :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param pulumi.Input['_meta.v1.ObjectMetaPatchArgs'] metadata: Standard object's metadata. metadata.name must be the Kubernetes node name.
+        :param pulumi.Input[Literal['storage.k8s.io/v1']] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param pulumi.Input[Literal['CSINode']] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param pulumi.Input['_meta.v1.ObjectMetaPatchArgs'] metadata: metadata is the standard object metadata. metadata.name must be the Kubernetes node name.
         :param pulumi.Input['CSINodeSpecPatchArgs'] spec: spec is the specification of CSINode
         """
         if api_version is not None:
@@ -45,33 +45,33 @@ class CSINodePatchArgs:
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def api_version(self) -> pulumi.Input[Optional[Literal['storage.k8s.io/v1']]]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
         return pulumi.get(self, "api_version")
 
     @api_version.setter
-    def api_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def api_version(self, value: pulumi.Input[Optional[Literal['storage.k8s.io/v1']]]):
         pulumi.set(self, "api_version", value)
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> pulumi.Input[Optional[_builtins.str]]:
+    def kind(self) -> pulumi.Input[Optional[Literal['CSINode']]]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
         return pulumi.get(self, "kind")
 
     @kind.setter
-    def kind(self, value: pulumi.Input[Optional[_builtins.str]]):
+    def kind(self, value: pulumi.Input[Optional[Literal['CSINode']]]):
         pulumi.set(self, "kind", value)
 
     @_builtins.property
     @pulumi.getter
     def metadata(self) -> pulumi.Input[Optional['_meta.v1.ObjectMetaPatchArgs']]:
         """
-        Standard object's metadata. metadata.name must be the Kubernetes node name.
+        metadata is the standard object metadata. metadata.name must be the Kubernetes node name.
         """
         return pulumi.get(self, "metadata")
 
@@ -98,8 +98,8 @@ class CSINodePatch(pulumi.CustomResource):
     def __init__(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
-                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 api_version: pulumi.Input[Optional[Literal['storage.k8s.io/v1']]] = None,
+                 kind: pulumi.Input[Optional[Literal['CSINode']]] = None,
                  metadata: pulumi.Input[Optional[Union['_meta.v1.ObjectMetaPatchArgs', '_meta.v1.ObjectMetaPatchArgsDict']]] = None,
                  spec: pulumi.Input[Optional[Union['CSINodeSpecPatchArgs', 'CSINodeSpecPatchArgsDict']]] = None,
                  __props__=None):
@@ -114,9 +114,9 @@ class CSINodePatch(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param pulumi.Input[Union['_meta.v1.ObjectMetaPatchArgs', '_meta.v1.ObjectMetaPatchArgsDict']] metadata: Standard object's metadata. metadata.name must be the Kubernetes node name.
+        :param pulumi.Input[Literal['storage.k8s.io/v1']] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param pulumi.Input[Literal['CSINode']] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param pulumi.Input[Union['_meta.v1.ObjectMetaPatchArgs', '_meta.v1.ObjectMetaPatchArgsDict']] metadata: metadata is the standard object metadata. metadata.name must be the Kubernetes node name.
         :param pulumi.Input[Union['CSINodeSpecPatchArgs', 'CSINodeSpecPatchArgsDict']] spec: spec is the specification of CSINode
         """
         ...
@@ -149,8 +149,8 @@ class CSINodePatch(pulumi.CustomResource):
     def _internal_init(__self__,
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
-                 api_version: pulumi.Input[Optional[_builtins.str]] = None,
-                 kind: pulumi.Input[Optional[_builtins.str]] = None,
+                 api_version: pulumi.Input[Optional[Literal['storage.k8s.io/v1']]] = None,
+                 kind: pulumi.Input[Optional[Literal['CSINode']]] = None,
                  metadata: pulumi.Input[Optional[Union['_meta.v1.ObjectMetaPatchArgs', '_meta.v1.ObjectMetaPatchArgsDict']]] = None,
                  spec: pulumi.Input[Optional[Union['CSINodeSpecPatchArgs', 'CSINodeSpecPatchArgsDict']]] = None,
                  __props__=None):
@@ -166,6 +166,7 @@ class CSINodePatch(pulumi.CustomResource):
             __props__.__dict__["kind"] = 'CSINode'
             __props__.__dict__["metadata"] = metadata
             __props__.__dict__["spec"] = spec
+            __props__.__dict__["status"] = None
         alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:storage.k8s.io/v1beta1:CSINodePatch")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(CSINodePatch, __self__).__init__(
@@ -194,11 +195,12 @@ class CSINodePatch(pulumi.CustomResource):
         __props__.__dict__["kind"] = None
         __props__.__dict__["metadata"] = None
         __props__.__dict__["spec"] = None
+        __props__.__dict__["status"] = None
         return CSINodePatch(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def api_version(self) -> pulumi.Output[Optional[Literal['storage.k8s.io/v1']]]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -206,7 +208,7 @@ class CSINodePatch(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def kind(self) -> pulumi.Output[Optional[Literal['CSINode']]]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -216,7 +218,7 @@ class CSINodePatch(pulumi.CustomResource):
     @pulumi.getter
     def metadata(self) -> pulumi.Output[Optional['_meta.v1.outputs.ObjectMetaPatch']]:
         """
-        Standard object's metadata. metadata.name must be the Kubernetes node name.
+        metadata is the standard object metadata. metadata.name must be the Kubernetes node name.
         """
         return pulumi.get(self, "metadata")
 
@@ -227,4 +229,12 @@ class CSINodePatch(pulumi.CustomResource):
         spec is the specification of CSINode
         """
         return pulumi.get(self, "spec")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> pulumi.Output[Optional['outputs.CSINodeStatusPatch']]:
+        """
+        status contains health and status information for the node's storage.
+        """
+        return pulumi.get(self, "status")
 

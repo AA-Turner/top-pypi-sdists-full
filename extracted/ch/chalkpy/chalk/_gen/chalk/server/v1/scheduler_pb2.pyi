@@ -27,10 +27,29 @@ class CronRunTriggerKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CRON_RUN_TRIGGER_KIND_API: _ClassVar[CronRunTriggerKind]
     CRON_RUN_TRIGGER_KIND_CRON: _ClassVar[CronRunTriggerKind]
 
+class CronRunStatusFilter(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CRON_RUN_STATUS_FILTER_UNSPECIFIED: _ClassVar[CronRunStatusFilter]
+    CRON_RUN_STATUS_FILTER_COMPLETED: _ClassVar[CronRunStatusFilter]
+    CRON_RUN_STATUS_FILTER_ERRORS: _ClassVar[CronRunStatusFilter]
+    CRON_RUN_STATUS_FILTER_FAILED: _ClassVar[CronRunStatusFilter]
+    CRON_RUN_STATUS_FILTER_WORKING: _ClassVar[CronRunStatusFilter]
+    CRON_RUN_STATUS_FILTER_CANCELED: _ClassVar[CronRunStatusFilter]
+    CRON_RUN_STATUS_FILTER_SKIPPED: _ClassVar[CronRunStatusFilter]
+    CRON_RUN_STATUS_FILTER_QUEUED: _ClassVar[CronRunStatusFilter]
+
 CRON_RUN_TRIGGER_KIND_UNSPECIFIED: CronRunTriggerKind
 CRON_RUN_TRIGGER_KIND_MANUAL: CronRunTriggerKind
 CRON_RUN_TRIGGER_KIND_API: CronRunTriggerKind
 CRON_RUN_TRIGGER_KIND_CRON: CronRunTriggerKind
+CRON_RUN_STATUS_FILTER_UNSPECIFIED: CronRunStatusFilter
+CRON_RUN_STATUS_FILTER_COMPLETED: CronRunStatusFilter
+CRON_RUN_STATUS_FILTER_ERRORS: CronRunStatusFilter
+CRON_RUN_STATUS_FILTER_FAILED: CronRunStatusFilter
+CRON_RUN_STATUS_FILTER_WORKING: CronRunStatusFilter
+CRON_RUN_STATUS_FILTER_CANCELED: CronRunStatusFilter
+CRON_RUN_STATUS_FILTER_SKIPPED: CronRunStatusFilter
+CRON_RUN_STATUS_FILTER_QUEUED: CronRunStatusFilter
 
 class CronResolverRun(_message.Message):
     __slots__ = (
@@ -287,7 +306,18 @@ class GetScheduledResolverRunResponse(_message.Message):
     def __init__(self, run: _Optional[_Union[CronResolverRun, _Mapping]] = ...) -> None: ...
 
 class ListScheduledResolverRunsRequest(_message.Message):
-    __slots__ = ("cursor", "limit", "page_token", "resolver_filter", "resolver_fqn", "status_filter", "start", "end")
+    __slots__ = (
+        "cursor",
+        "limit",
+        "page_token",
+        "resolver_filter",
+        "resolver_fqn",
+        "status_filter",
+        "start",
+        "end",
+        "status_filters",
+        "deployment_id",
+    )
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
@@ -296,6 +326,8 @@ class ListScheduledResolverRunsRequest(_message.Message):
     STATUS_FILTER_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
     END_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     cursor: _timestamp_pb2.Timestamp
     limit: int
     page_token: str
@@ -304,6 +336,8 @@ class ListScheduledResolverRunsRequest(_message.Message):
     status_filter: _batch_pb2.OperationStatus
     start: _timestamp_pb2.Timestamp
     end: _timestamp_pb2.Timestamp
+    status_filters: _containers.RepeatedScalarFieldContainer[CronRunStatusFilter]
+    deployment_id: str
     def __init__(
         self,
         cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -314,6 +348,8 @@ class ListScheduledResolverRunsRequest(_message.Message):
         status_filter: _Optional[_Union[_batch_pb2.OperationStatus, str]] = ...,
         start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status_filters: _Optional[_Iterable[_Union[CronRunStatusFilter, str]]] = ...,
+        deployment_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ListScheduledResolverRunsResponse(_message.Message):

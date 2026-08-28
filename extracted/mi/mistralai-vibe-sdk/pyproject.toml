@@ -1,6 +1,6 @@
 [project]
 name = "mistralai-vibe-sdk"
-version = "0.13.2"
+version = "0.13.3"
 description = "Vibe SDK"
 requires-python = ">=3.12"
 readme = "README.md"
@@ -84,7 +84,6 @@ exclude = [
     ".venv",
     "examples",
     "documentation/old_vibe_protocol",
-    "harness",
 ]
 
 [tool.mypy]
@@ -99,7 +98,6 @@ pythonpath = ["tests"]
 
 [dependency-groups]
 dev = [
-    "jsonpatch>=1.33",
     "pre-commit>=4.2.0",
     "python-dotenv>=1.1",
     "pyright>=1.1.408",

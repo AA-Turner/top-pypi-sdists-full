@@ -1,5 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor

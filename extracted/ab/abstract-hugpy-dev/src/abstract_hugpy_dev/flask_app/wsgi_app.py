@@ -1,6 +1,7 @@
+import json
 import os
 
-from flask import redirect, send_from_directory
+from flask import Response, redirect, send_from_directory
 
 from .app import *
 from .app import routes as routes
@@ -62,6 +63,60 @@ def _ui_dist_dir() -> str | None:
     return None
 
 
+# index.html marker the video arm ships for server-injected demo-media bases
+# (react/video_intelligence_ui/index.html). We rewrite its `null` in place.
+_MEDIA_BASE_MARKER = (
+    "window.__HUGPY_MEDIA_BASE__ = window.__HUGPY_MEDIA_BASE__ ?? null;"
+)
+# Rewritten index bytes, keyed by index.html path — computed once per process
+# (the dist is immutable for a process lifetime, same as the SPA serving style).
+_VIDEO_INDEX_CACHE: dict = {}
+
+
+def _demo_media_override() -> str | None:
+    """The demo-media base to inject into the video arm's index.html, or None.
+
+    HUGPY_DEMO_MEDIA_DIR set → we serve the tree ourselves at /demo-media.
+    Else HUGPY_DEMO_MEDIA_BASE set → point the SPA at that base.
+    Neither → None (the SPA falls back to its built-in default)."""
+    try:
+        from .._platform import env_value
+        from .._platform.paths import demo_media_base, demo_media_dir
+        if demo_media_dir():
+            return "/demo-media"
+        if env_value("HUGPY_DEMO_MEDIA_BASE"):
+            return demo_media_base()
+    except Exception:
+        pass
+    return None
+
+
+def _video_index_response(video_dir: str):
+    """Serve the video arm's index.html with the demo-media base injected.
+
+    Returns None (caller falls back to plain send_from_directory) when no
+    override is configured, the marker is absent, or anything goes wrong —
+    the rewrite must never break SPA serving."""
+    base = _demo_media_override()
+    if not base:
+        return None
+    index_path = os.path.join(video_dir, "index.html")
+    cached = _VIDEO_INDEX_CACHE.get(index_path)
+    if cached is None:
+        try:
+            with open(index_path, "rb") as fh:
+                raw = fh.read()
+        except OSError:
+            return None
+        needle = _MEDIA_BASE_MARKER.encode("utf-8")
+        if needle not in raw:
+            return None  # marker missing → serve unmodified via the normal path
+        repl = _MEDIA_BASE_MARKER.replace("null", json.dumps(base)).encode("utf-8")
+        cached = raw.replace(needle, repl, 1)
+        _VIDEO_INDEX_CACHE[index_path] = cached
+    return Response(cached, mimetype="text/html")
+
+
 def _mount_ui(app, dist_dir: str) -> None:
     """Serve the built SPA: real files from dist, everything else (deep links
     like /login) falls back to index.html. API rules are explicit routes, so
@@ -83,6 +138,12 @@ def _mount_ui(app, dist_dir: str) -> None:
     def _hugpy_ui(asset):
         target = os.path.join(dist_dir, asset)
         if asset and os.path.isfile(target):
+            # A direct hit on the video arm's index still gets the demo-media
+            # base injected (same bytes as the deep-link fallback below).
+            if asset == "video/index.html":
+                injected = _video_index_response(os.path.join(dist_dir, "video"))
+                if injected is not None:
+                    return injected
             return send_from_directory(dist_dir, asset)
         # Standalone arms (media-intelligence, video-intelligence) are separate
         # SPAs shipped at <arm>/ inside the same dist (console_dist/<arm>/*).
@@ -95,6 +156,10 @@ def _mount_ui(app, dist_dir: str) -> None:
             if (asset == arm or asset.startswith(arm + "/")) and os.path.isfile(
                 os.path.join(dist_dir, arm, "index.html")
             ):
+                if arm == "video":
+                    injected = _video_index_response(os.path.join(dist_dir, arm))
+                    if injected is not None:
+                        return injected
                 return send_from_directory(os.path.join(dist_dir, arm), "index.html")
         return send_from_directory(dist_dir, "index.html")
 
@@ -328,6 +393,19 @@ def get_hugpy_flask(name=None,allowed_origins=None,debug=False):
     dist_dir = _ui_dist_dir()
     if dist_dir:
         _mount_ui(app, dist_dir)
+    # Self-hosted demo media: only when HUGPY_DEMO_MEDIA_DIR is configured does
+    # /demo-media/* exist at all (send_from_directory path-jails relpath, so
+    # ../ traversal cannot escape the configured tree). The video arm's
+    # index.html is rewritten to point at it — see _video_index_response.
+    try:
+        from .._platform.paths import demo_media_dir as _demo_media_dir
+        _dm_dir = _demo_media_dir()
+    except Exception:
+        _dm_dir = ""
+    if _dm_dir:
+        @app.route("/demo-media/<path:relpath>")
+        def _hugpy_demo_media(relpath):
+            return send_from_directory(_dm_dir, relpath, conditional=True)
     # Abandon-on-disconnect (2026-07-27 outage): bind a probe for each request's
     # client socket so a WSGI thread blocked on model work can discover that its
     # caller left and give the request slot back — instead of holding one of the

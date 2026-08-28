@@ -579,9 +579,9 @@ origin = origins.LoadBalancerV2Origin(load_balancer,
 )
 ```
 
-Note that the `readTimeout` and `keepaliveTimeout` properties can extend their values over 60 seconds only if a limit increase request for CloudFront origin response timeout
-quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Consider that this value is
-still limited to a maximum value of 180 seconds, which is a hard limit for that quota.
+Note that `readTimeout` and `keepaliveTimeout` are governed by two separate CloudFront service quotas: `Response timeout per origin`, which defaults to
+1-120 seconds, and `Keep-alive timeout per origin`, which defaults to 1-300 seconds. Neither is a hard limit. A value above the default requires an
+approved quota increase in the target account, and without one CloudFront rejects it at deploy time.
 
 ## From an HTTP endpoint
 
@@ -1037,8 +1037,8 @@ class FunctionUrlOrigin(
         '''
         :param lambda_function_url: -
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: OriginIpAddressType.IPV4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param connection_attempts: The number of times that CloudFront attempts to connect to the origin; valid values are 1, 2, or 3 attempts. Default: 3
         :param connection_timeout: The number of seconds that CloudFront waits when trying to establish a connection to the origin. Valid values are 1-10 seconds, inclusive. Default: Duration.seconds(10)
@@ -1094,8 +1094,8 @@ class FunctionUrlOrigin(
         :param lambda_function_url: -
         :param origin_access_control: An optional Origin Access Control. Default: - an Origin Access Control will be created.
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: OriginIpAddressType.IPV4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param connection_attempts: The number of times that CloudFront attempts to connect to the origin; valid values are 1, 2, or 3 attempts. Default: 3
         :param connection_timeout: The number of seconds that CloudFront waits when trying to establish a connection to the origin. Valid values are 1-10 seconds, inclusive. Default: Duration.seconds(10)
@@ -1389,8 +1389,8 @@ class FunctionUrlOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
         :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: OriginIpAddressType.IPV4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
 
         :exampleMetadata: infused
 
@@ -1570,10 +1570,11 @@ class FunctionUrlOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
     def keepalive_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront persists its connection to the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota,
+        which is adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 300 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(5)
         '''
@@ -1584,10 +1585,11 @@ class FunctionUrlOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
     def read_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront waits for a response from the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is
+        adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 120 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(30)
         '''
@@ -1655,8 +1657,8 @@ class FunctionUrlOriginWithOACProps(FunctionUrlOriginProps):
         :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: OriginIpAddressType.IPV4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_access_control: An optional Origin Access Control. Default: - an Origin Access Control will be created.
 
         :exampleMetadata: infused
@@ -1847,10 +1849,11 @@ class FunctionUrlOriginWithOACProps(FunctionUrlOriginProps):
     def keepalive_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront persists its connection to the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota,
+        which is adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 300 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(5)
         '''
@@ -1861,10 +1864,11 @@ class FunctionUrlOriginWithOACProps(FunctionUrlOriginProps):
     def read_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront waits for a response from the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is
+        adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 120 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(30)
         '''
@@ -1944,10 +1948,10 @@ class HttpOrigin(
         :param http_port: The HTTP port that CloudFront uses to connect to the origin. Default: 80
         :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Default: 443
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: undefined - AWS Cloudfront default is IPv4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
         :param origin_ssl_protocols: The SSL versions to use when interacting with the origin. Default: OriginSslPolicy.TLS_V1_2
         :param protocol_policy: Specifies the protocol (HTTP or HTTPS) that CloudFront uses to connect to the origin. Default: OriginProtocolPolicy.HTTPS_ONLY
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param connection_attempts: The number of times that CloudFront attempts to connect to the origin; valid values are 1, 2, or 3 attempts. Default: 3
         :param connection_timeout: The number of seconds that CloudFront waits when trying to establish a connection to the origin. Valid values are 1-10 seconds, inclusive. Default: Duration.seconds(10)
@@ -2046,10 +2050,10 @@ class HttpOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
         :param http_port: The HTTP port that CloudFront uses to connect to the origin. Default: 80
         :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Default: 443
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: undefined - AWS Cloudfront default is IPv4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
         :param origin_ssl_protocols: The SSL versions to use when interacting with the origin. Default: OriginSslPolicy.TLS_V1_2
         :param protocol_policy: Specifies the protocol (HTTP or HTTPS) that CloudFront uses to connect to the origin. Default: OriginProtocolPolicy.HTTPS_ONLY
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
 
         :exampleMetadata: infused
 
@@ -2251,10 +2255,11 @@ class HttpOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
     def keepalive_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront persists its connection to the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota,
+        which is adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 300 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(5)
         '''
@@ -2287,10 +2292,11 @@ class HttpOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
     def read_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is
+        adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 120 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(30)
         '''
@@ -2360,10 +2366,10 @@ class LoadBalancerV2Origin(
         :param http_port: The HTTP port that CloudFront uses to connect to the origin. Default: 80
         :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Default: 443
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: undefined - AWS Cloudfront default is IPv4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
         :param origin_ssl_protocols: The SSL versions to use when interacting with the origin. Default: OriginSslPolicy.TLS_V1_2
         :param protocol_policy: Specifies the protocol (HTTP or HTTPS) that CloudFront uses to connect to the origin. Default: OriginProtocolPolicy.HTTPS_ONLY
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param connection_attempts: The number of times that CloudFront attempts to connect to the origin; valid values are 1, 2, or 3 attempts. Default: 3
         :param connection_timeout: The number of seconds that CloudFront waits when trying to establish a connection to the origin. Valid values are 1-10 seconds, inclusive. Default: Duration.seconds(10)
@@ -2456,10 +2462,10 @@ class LoadBalancerV2OriginProps(HttpOriginProps):
         :param http_port: The HTTP port that CloudFront uses to connect to the origin. Default: 80
         :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Default: 443
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: undefined - AWS Cloudfront default is IPv4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
         :param origin_ssl_protocols: The SSL versions to use when interacting with the origin. Default: OriginSslPolicy.TLS_V1_2
         :param protocol_policy: Specifies the protocol (HTTP or HTTPS) that CloudFront uses to connect to the origin. Default: OriginProtocolPolicy.HTTPS_ONLY
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
 
         :exampleMetadata: infused
 
@@ -2664,10 +2670,11 @@ class LoadBalancerV2OriginProps(HttpOriginProps):
     def keepalive_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront persists its connection to the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota,
+        which is adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 300 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(5)
         '''
@@ -2700,10 +2707,11 @@ class LoadBalancerV2OriginProps(HttpOriginProps):
     def read_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is
+        adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 120 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(30)
         '''
@@ -2937,8 +2945,8 @@ class RestApiOrigin(
     ) -> None:
         '''
         :param rest_api: -
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param connection_attempts: The number of times that CloudFront attempts to connect to the origin; valid values are 1, 2, or 3 attempts. Default: 3
         :param connection_timeout: The number of seconds that CloudFront waits when trying to establish a connection to the origin. Valid values are 1-10 seconds, inclusive. Default: Duration.seconds(10)
@@ -3019,8 +3027,8 @@ class RestApiOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
         :param origin_shield_region: When you enable Origin Shield in the AWS Region that has the lowest latency to your origin, you can get better network performance. Default: - origin shield not enabled
         :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
 
         :exampleMetadata: infused
 
@@ -3174,10 +3182,11 @@ class RestApiOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
     def keepalive_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront persists its connection to the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota,
+        which is adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 300 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(5)
         '''
@@ -3188,10 +3197,11 @@ class RestApiOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
     def read_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is
+        adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 120 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(30)
         '''
@@ -4489,10 +4499,10 @@ class S3StaticWebsiteOrigin(
         :param http_port: The HTTP port that CloudFront uses to connect to the origin. Default: 80
         :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Default: 443
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: undefined - AWS Cloudfront default is IPv4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
         :param origin_ssl_protocols: The SSL versions to use when interacting with the origin. Default: OriginSslPolicy.TLS_V1_2
         :param protocol_policy: Specifies the protocol (HTTP or HTTPS) that CloudFront uses to connect to the origin. Default: OriginProtocolPolicy.HTTPS_ONLY
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param connection_attempts: The number of times that CloudFront attempts to connect to the origin; valid values are 1, 2, or 3 attempts. Default: 3
         :param connection_timeout: The number of seconds that CloudFront waits when trying to establish a connection to the origin. Valid values are 1-10 seconds, inclusive. Default: Duration.seconds(10)
@@ -4585,10 +4595,10 @@ class S3StaticWebsiteOriginProps(HttpOriginProps):
         :param http_port: The HTTP port that CloudFront uses to connect to the origin. Default: 80
         :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Default: 443
         :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose dualstack to help optimize reliability. Default: undefined - AWS Cloudfront default is IPv4
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
         :param origin_ssl_protocols: The SSL versions to use when interacting with the origin. Default: OriginSslPolicy.TLS_V1_2
         :param protocol_policy: Specifies the protocol (HTTP or HTTPS) that CloudFront uses to connect to the origin. Default: OriginProtocolPolicy.HTTPS_ONLY
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
 
         :exampleMetadata: fixture=_generated
 
@@ -4809,10 +4819,11 @@ class S3StaticWebsiteOriginProps(HttpOriginProps):
     def keepalive_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront persists its connection to the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota,
+        which is adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 300 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(5)
         '''
@@ -4845,10 +4856,11 @@ class S3StaticWebsiteOriginProps(HttpOriginProps):
     def read_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is
+        adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 120 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(30)
         '''
@@ -4913,8 +4925,8 @@ class VpcOrigin(
         '''
         :param domain_name_: -
         :param domain_name: The domain name associated with your VPC origin. Default: - The default domain name of the endpoint.
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param connection_attempts: The number of times that CloudFront attempts to connect to the origin; valid values are 1, 2, or 3 attempts. Default: 3
         :param connection_timeout: The number of seconds that CloudFront waits when trying to establish a connection to the origin. Valid values are 1-10 seconds, inclusive. Default: Duration.seconds(10)
@@ -4973,8 +4985,8 @@ class VpcOrigin(
 
         :param alb: -
         :param domain_name: The domain name associated with your VPC origin. Default: - The default domain name of the endpoint.
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param http_port: The HTTP port for the CloudFront VPC origin endpoint configuration. Default: 80
         :param https_port: The HTTPS port of the CloudFront VPC origin endpoint configuration. Default: 443
         :param origin_ssl_protocols: A list that contains allowed SSL/TLS protocols for this distribution. Default: - TLSv1.2
@@ -5043,8 +5055,8 @@ class VpcOrigin(
 
         :param instance: -
         :param domain_name: The domain name associated with your VPC origin. Default: - The default domain name of the endpoint.
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param http_port: The HTTP port for the CloudFront VPC origin endpoint configuration. Default: 80
         :param https_port: The HTTPS port of the CloudFront VPC origin endpoint configuration. Default: 443
         :param origin_ssl_protocols: A list that contains allowed SSL/TLS protocols for this distribution. Default: - TLSv1.2
@@ -5113,8 +5125,8 @@ class VpcOrigin(
 
         :param nlb: -
         :param domain_name: The domain name associated with your VPC origin. Default: - The default domain name of the endpoint.
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param http_port: The HTTP port for the CloudFront VPC origin endpoint configuration. Default: 80
         :param https_port: The HTTPS port of the CloudFront VPC origin endpoint configuration. Default: 443
         :param origin_ssl_protocols: A list that contains allowed SSL/TLS protocols for this distribution. Default: - TLSv1.2
@@ -5178,8 +5190,8 @@ class VpcOrigin(
 
         :param origin: -
         :param domain_name: The domain name associated with your VPC origin. Default: - The default domain name of the endpoint.
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param connection_attempts: The number of times that CloudFront attempts to connect to the origin; valid values are 1, 2, or 3 attempts. Default: 3
         :param connection_timeout: The number of seconds that CloudFront waits when trying to establish a connection to the origin. Valid values are 1-10 seconds, inclusive. Default: Duration.seconds(10)
@@ -5294,8 +5306,8 @@ class VpcOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
         :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param domain_name: The domain name associated with your VPC origin. Default: - The default domain name of the endpoint.
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
 
         :exampleMetadata: fixture=_generated
 
@@ -5477,10 +5489,11 @@ class VpcOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
     def keepalive_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront persists its connection to the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota,
+        which is adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 300 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(5)
         '''
@@ -5491,10 +5504,11 @@ class VpcOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
     def read_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is
+        adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 120 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(30)
         '''
@@ -5573,8 +5587,8 @@ class VpcOriginWithEndpointProps(
         :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param domain_name: The domain name associated with your VPC origin. Default: - The default domain name of the endpoint.
-        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(5)
-        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The valid range is from 1 to 180 seconds, inclusive. Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time. Default: Duration.seconds(30)
+        :param keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 300 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(5)
+        :param read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout. The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is adjustable, so the effective maximum depends on the target account. The default quota allows up to 120 seconds; higher values require an approved limit increase in the target account, and otherwise produce an error at deploy time. Default: Duration.seconds(30)
         :param http_port: The HTTP port for the CloudFront VPC origin endpoint configuration. Default: 80
         :param https_port: The HTTPS port of the CloudFront VPC origin endpoint configuration. Default: 443
         :param origin_ssl_protocols: A list that contains allowed SSL/TLS protocols for this distribution. Default: - TLSv1.2
@@ -5782,10 +5796,11 @@ class VpcOriginWithEndpointProps(
     def keepalive_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront persists its connection to the origin.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the keep-alive timeout per origin quota,
+        which is adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 300 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(5)
         '''
@@ -5796,10 +5811,11 @@ class VpcOriginWithEndpointProps(
     def read_timeout(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
         '''Specifies how long, in seconds, CloudFront waits for a response from the origin, also known as the origin response timeout.
 
-        The valid range is from 1 to 180 seconds, inclusive.
+        The minimum is 1 second. The maximum is governed by the origin response timeout quota, which is
+        adjustable, so the effective maximum depends on the target account.
 
-        Note that values over 60 seconds are possible only after a limit increase request for the origin response timeout quota
-        has been approved in the target account; otherwise, values over 60 seconds will produce an error at deploy time.
+        The default quota allows up to 120 seconds; higher values require an approved limit increase
+        in the target account, and otherwise produce an error at deploy time.
 
         :default: Duration.seconds(30)
         '''

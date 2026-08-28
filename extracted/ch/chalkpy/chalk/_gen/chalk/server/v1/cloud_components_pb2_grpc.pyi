@@ -26,6 +26,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateBindingEnvironmentGatewayResponse,
     CreateBindingPrivateGatewayRequest,
     CreateBindingPrivateGatewayResponse,
+    CreateBindingServicesGatewayRequest,
+    CreateBindingServicesGatewayResponse,
     CreateCloudComponentClusterRequest,
     CreateCloudComponentClusterResponse,
     CreateCloudComponentContainerRegistryRequest,
@@ -52,6 +54,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     DeleteBindingEnvironmentGatewayResponse,
     DeleteBindingPrivateGatewayRequest,
     DeleteBindingPrivateGatewayResponse,
+    DeleteBindingServicesGatewayRequest,
+    DeleteBindingServicesGatewayResponse,
     DeleteCloudComponentClusterRequest,
     DeleteCloudComponentClusterResponse,
     DeleteCloudComponentContainerRegistryRequest,
@@ -78,6 +82,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     GetBindingEnvironmentGatewayResponse,
     GetBindingPrivateGatewayRequest,
     GetBindingPrivateGatewayResponse,
+    GetBindingServicesGatewayRequest,
+    GetBindingServicesGatewayResponse,
     GetCloudComponentClusterRequest,
     GetCloudComponentClusterResponse,
     GetCloudComponentContainerRegistryRequest,
@@ -104,6 +110,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     ListBindingEnvironmentGatewayResponse,
     ListBindingPrivateGatewayRequest,
     ListBindingPrivateGatewayResponse,
+    ListBindingServicesGatewayRequest,
+    ListBindingServicesGatewayResponse,
     ListCloudComponentClusterRequest,
     ListCloudComponentClusterResponse,
     ListCloudComponentContainerRegistryRequest,
@@ -120,6 +128,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     UpdateCloudComponentClusterResponse,
     UpdateCloudComponentContainerRegistryRequest,
     UpdateCloudComponentContainerRegistryResponse,
+    UpdateCloudComponentStorageRequest,
+    UpdateCloudComponentStorageResponse,
 )
 from grpc import (
     Channel,
@@ -185,6 +195,10 @@ class CloudComponentsServiceStub:
     ListCloudComponentStorage: UnaryUnaryMultiCallable[
         ListCloudComponentStorageRequest,
         ListCloudComponentStorageResponse,
+    ]
+    UpdateCloudComponentStorage: UnaryUnaryMultiCallable[
+        UpdateCloudComponentStorageRequest,
+        UpdateCloudComponentStorageResponse,
     ]
     DeleteCloudComponentStorage: UnaryUnaryMultiCallable[
         DeleteCloudComponentStorageRequest,
@@ -276,6 +290,22 @@ class CloudComponentsServiceStub:
     DeleteBindingClusterGateway: UnaryUnaryMultiCallable[
         DeleteBindingClusterGatewayRequest,
         DeleteBindingClusterGatewayResponse,
+    ]
+    CreateBindingServicesGateway: UnaryUnaryMultiCallable[
+        CreateBindingServicesGatewayRequest,
+        CreateBindingServicesGatewayResponse,
+    ]
+    GetBindingServicesGateway: UnaryUnaryMultiCallable[
+        GetBindingServicesGatewayRequest,
+        GetBindingServicesGatewayResponse,
+    ]
+    ListBindingServicesGateway: UnaryUnaryMultiCallable[
+        ListBindingServicesGatewayRequest,
+        ListBindingServicesGatewayResponse,
+    ]
+    DeleteBindingServicesGateway: UnaryUnaryMultiCallable[
+        DeleteBindingServicesGatewayRequest,
+        DeleteBindingServicesGatewayResponse,
     ]
     CreateBindingPrivateGateway: UnaryUnaryMultiCallable[
         CreateBindingPrivateGatewayRequest,
@@ -444,6 +474,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ListCloudComponentStorageResponse: ...
     @abstractmethod
+    def UpdateCloudComponentStorage(
+        self,
+        request: UpdateCloudComponentStorageRequest,
+        context: ServicerContext,
+    ) -> UpdateCloudComponentStorageResponse: ...
+    @abstractmethod
     def DeleteCloudComponentStorage(
         self,
         request: DeleteCloudComponentStorageRequest,
@@ -578,6 +614,30 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: DeleteBindingClusterGatewayRequest,
         context: ServicerContext,
     ) -> DeleteBindingClusterGatewayResponse: ...
+    @abstractmethod
+    def CreateBindingServicesGateway(
+        self,
+        request: CreateBindingServicesGatewayRequest,
+        context: ServicerContext,
+    ) -> CreateBindingServicesGatewayResponse: ...
+    @abstractmethod
+    def GetBindingServicesGateway(
+        self,
+        request: GetBindingServicesGatewayRequest,
+        context: ServicerContext,
+    ) -> GetBindingServicesGatewayResponse: ...
+    @abstractmethod
+    def ListBindingServicesGateway(
+        self,
+        request: ListBindingServicesGatewayRequest,
+        context: ServicerContext,
+    ) -> ListBindingServicesGatewayResponse: ...
+    @abstractmethod
+    def DeleteBindingServicesGateway(
+        self,
+        request: DeleteBindingServicesGatewayRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingServicesGatewayResponse: ...
     @abstractmethod
     def CreateBindingPrivateGateway(
         self,

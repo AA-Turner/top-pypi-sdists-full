@@ -44,6 +44,7 @@ from .identity_reconstruction_schema import (
     identity_mesh_from_dict,
 )
 from .identity_video_extract_schema import identity_video_extract_from_dict
+from .identity_from_video_schema import identity_from_video_from_dict
 from .mlt_render_schema import mlt_render_from_dict
 from .result_schema import JobResult
 from .runners import DISPATCH
@@ -237,6 +238,9 @@ SPEC_DESERIALIZERS: Dict[str, Callable[[dict], object]] = {
     # video to the remote GPU render service, then writes the per-character view-sets back
     # into identity profiles (central has no GPU + never runs char360).
     "identity_video_extract": identity_video_extract_from_dict,
+    # Identity FROM-VIDEO (k94) — ONE chained char360 + GLB relay; rehydrates through its
+    # own validate-at-construction factory (identity_from_video_from_dict).
+    "identity_from_video": identity_from_video_from_dict,
     # MLT/Kdenlive headless render (k22) — rehydrates through its own validate-at-construction
     # factory (mlt_render_from_dict). The runner path-maps the project + renders it with melt.
     "mlt_render": mlt_render_from_dict,
@@ -800,8 +804,25 @@ def _record_terminal_stage(job_id: str, status: str, result) -> None:
     prior = [e for e in _load_stage_log(row[0] if row else None)
              if e.get("stage") not in _TERMINAL_STATES]
     if prior:
-        extra["failed_at_stage"] = prior[-1].get("stage")
+        # k117 MISLABEL FIX: this key used to be written as `failed_at_stage` on
+        # EVERY terminal, so 261 live rows that finished perfectly carried
+        # "failed_at_stage": "archiving" — a DONE render reading as a failure in
+        # archiving. The neutral `at_stage` ("the live stage it was in when it
+        # ended") is now always written; `failed_at_stage` is written ONLY when
+        # the job actually failed, which is the only case build_failure_summary
+        # reads it in. Additive for every existing consumer.
+        extra["at_stage"] = prior[-1].get("stage")
+        if status != "done":
+            extra["failed_at_stage"] = prior[-1].get("stage")
     _append_stage_log(job_id, status, detail, terminal_extra=extra)
+    # k117: freeze the clock. terminal_at / queue_wait_s / run_s are computed
+    # ONCE, here, at the terminal transition — see video_intel/job_lifecycle.py.
+    try:
+        from .job_lifecycle import stamp_terminal
+        stamp_terminal(job_id, status, at_stage=extra.get("at_stage"))
+    except Exception:  # noqa: BLE001 — lifecycle stamping is never fatal
+        logger.debug("media_bus: lifecycle terminal stamp failed for %s", job_id,
+                     exc_info=True)
 
 
 def build_failure_summary(result, stage_log) -> Optional[dict]:
@@ -1082,6 +1103,15 @@ def run_claimed(job_id: str, worker_token: str) -> Optional[JobResult]:
     # split (k9). Best-effort.
     _bridge("on_running", job_id, name, worker=worker_token, principal=principal)
 
+    # k117 seam: stamp the run start (the queue/run split becomes a recorded
+    # fact) and RE-QUOTE a stale admission before the runner touches the card —
+    # the 25h-queued job that OOM'd into a different VRAM world than it was
+    # admitted in (CODE_GAPS 2026-08-21). False ⇒ the job was returned to the
+    # queue with a fresh quote, or failed typed; either way we do NOT run it.
+    from .job_lifecycle import on_run_start as _lc_on_run_start
+    if not _lc_on_run_start(job_id, name, worker_token):
+        return None
+
     # ---- run outside the DB connection; the runner is pure & may block ----
     # p6: a heavy GPU video task pre-claims the card here (make-room via the
     # eviction verbs) BEFORE its runner touches the GPU. A non-heavy task / infra
@@ -1135,13 +1165,29 @@ def run_claimed(job_id: str, worker_token: str) -> Optional[JobResult]:
     result_json = serialize_result(result)
     conn = _connect()
     try:
-        conn.execute(
+        cur = conn.execute(
             "UPDATE media_jobs SET status=?, result_json=?, progress_json=NULL, "
             "updated=? WHERE job_id=? AND claim_token=?",
             (status, result_json, time.time(), job_id, worker_token),
         )
     finally:
         conn.close()
+    if cur.rowcount != 1:
+        # k117 LATE RESULT. The claim_token guard above is what stops a late
+        # finisher from overwriting an honest terminal — a reaper (orphan sweep
+        # or stall watchdog) NULLs the token precisely so this write MISSES. That
+        # invariant is right, but silently dropping the worker's answer is not:
+        # the artifact usually exists. Keep it verbatim as an addendum and note
+        # the state conflict; the central terminal stands.
+        try:
+            from .job_lifecycle import record_late_result
+            record_late_result(job_id, status, result_json, worker_token)
+        except Exception:  # noqa: BLE001
+            logger.debug("media_bus: late-result record failed for %s", job_id,
+                         exc_info=True)
+        _bridge("on_terminal", job_id, name, status, result=result,
+                worker=worker_token, principal=principal)
+        return result
     # STAGE TIMELINE terminal entry — RETAINED (the progress_json blob above was
     # nulled; this is not). Carries the outcome: the exact code/message/retryable +
     # failed_at_stage on a failure. Best-effort — a timeline hiccup never masks the
@@ -1377,7 +1423,7 @@ def get(job_id: str) -> dict:
     try:
         row = conn.execute(
             "SELECT name, status, result_json, progress_json, stage_log_json, updated, "
-            "owner "
+            "owner, created "
             "FROM media_jobs WHERE job_id=?",
             (job_id,),
         ).fetchone()
@@ -1389,12 +1435,19 @@ def get(job_id: str) -> dict:
                 # Additive telemetry fields (empty for an unknown id) so a consumer
                 # can read them unconditionally without a shape check.
                 "stage_log": [], "failure": None,
-                "last_movement_ts": None, "current_stage": None}
-    name, status, result_json, progress_json, stage_log_json, updated, owner = row
+                "last_movement_ts": None, "current_stage": None,
+                # k117 lifecycle keys, null for an unknown id — same reason as
+                # the block above: a consumer reads them without a shape check.
+                "created": None, "updated": None, "terminal_at": None,
+                "terminal_stage": None, "at_stage": None, "started_at": None,
+                "queue_wait_s": None, "run_s": None, "total_s": None,
+                "elapsed_in_stage_s": None, "last_progress_at": None}
+    (name, status, result_json, progress_json, stage_log_json, updated, owner,
+     created) = row
     result = json.loads(result_json) if result_json else None
     progress = json.loads(progress_json) if progress_json else None
     stage_log = _load_stage_log(stage_log_json)
-    return {"job_id": job_id, "name": name, "status": status,
+    view = {"job_id": job_id, "name": name, "status": status,
             "result": result, "progress": progress,
             # The artifact OWNER (central username, NULL/None for legacy rows).
             # Additive; the /video routes read it to decide who may see this job.
@@ -1411,7 +1464,19 @@ def get(job_id: str) -> dict:
             # The numeric bar (k57) — 0..1 overall, plus the numbers behind it.
             # None when the runner reports nothing measurable (no fabricated bar).
             "progress_ratio": _progress_ratio(progress),
-            "progress_detail": _progress_detail(progress)}
+            "progress_detail": _progress_detail(progress),
+            # `created` + `updated` are what k117's lifecycle projection derives a
+            # pre-k117 row's frozen duration from; they were already selected here
+            # and simply never returned.
+            "created": created, "updated": updated}
+    # k117: same frozen/live clock split the listing serves — see list_jobs.
+    try:
+        from .job_lifecycle import project
+        project(view)
+    except Exception:  # noqa: BLE001 — the per-id view never fails on enrichment
+        logger.debug("media_bus: lifecycle projection failed for %s (non-fatal)",
+                     job_id, exc_info=True)
+    return view
 
 
 # --------------------------------------------------------------------------- #
@@ -1624,9 +1689,21 @@ def list_jobs(include_terminal: bool = False, limit: int = 50,
                      else (*_TERMINAL_STATES, limit))
             trows = conn.execute(tsql, targs).fetchall()
             out.extend(_project_job_row(r) for r in trows)
-        return out
     finally:
         conn.close()
+    # k117: the LIFECYCLE block — frozen terminal_at/run_s/queue_wait_s + the true
+    # terminal stage on terminal rows, elapsed_in_stage_s + last_progress_at on
+    # live ones. ONE sidecar query for the whole page (k57's rule: no per-row work
+    # on this 2s-polled feed). Read-only, additive, and fully derivable — a row
+    # with no sidecar record (everything predating k117) still gets honest frozen
+    # numbers from created/updated/stage_log.
+    try:
+        from .job_lifecycle import project_all
+        project_all(out, now=now)
+    except Exception:  # noqa: BLE001 — the listing never fails on enrichment
+        logger.debug("media_bus: lifecycle projection failed (non-fatal)",
+                     exc_info=True)
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -1867,6 +1944,16 @@ def _maybe_reap_orphans() -> None:
         _reap_orphans()
     except Exception:  # noqa: BLE001
         logger.debug("media_bus reaper: sweep raised (non-fatal)", exc_info=True)
+    # k117 STALL WATCHDOG — the second janitor, on its OWN throttle (it answers a
+    # different question: not "is the runner dead?" but "is this stage still
+    # making progress?"). Rides the same runner-thread hook so there is exactly
+    # one periodic-work pattern in this plane. Fully swallowed by maybe_sweep.
+    try:
+        from .job_lifecycle import maybe_sweep
+        maybe_sweep()
+    except Exception:  # noqa: BLE001
+        logger.debug("media_bus: stall watchdog hook raised (non-fatal)",
+                     exc_info=True)
 
 
 def _runner_loop(worker_token: str, idle_sleep_s: float,

@@ -7,7 +7,7 @@ import warnings
 import sys
 import pulumi
 import pulumi.runtime
-from typing import Any, Mapping, Optional, Sequence, Union, overload
+from typing import Any, Mapping, Optional, Sequence, Union, overload, Literal
 if sys.version_info >= (3, 11):
     from typing import NotRequired, TypedDict, TypeAlias
 else:
@@ -26,8 +26,14 @@ __all__ = [
     'CSINodeDriverPatch',
     'CSINodeSpec',
     'CSINodeSpecPatch',
+    'CSINodeStatus',
+    'CSINodeStatusPatch',
     'CSIStorageCapacity',
     'StorageClass',
+    'StorageHealth',
+    'StorageHealthCondition',
+    'StorageHealthConditionPatch',
+    'StorageHealthPatch',
     'TokenRequest',
     'TokenRequestPatch',
     'VolumeAttachment',
@@ -68,16 +74,16 @@ class CSIDriver(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.CSIDriverSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['storage.k8s.io/v1']] = None,
+                 kind: Optional[Literal['CSIDriver']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None):
         """
         CSIDriver captures information about a Container Storage Interface (CSI) volume driver deployed on the cluster. Kubernetes attach detach controller uses this object to determine whether attach is required. Kubelet uses this object to determine whether pod information needs to be passed on mount. CSIDriver objects are non-namespaced.
 
         :param 'CSIDriverSpecArgs' spec: spec represents the specification of the CSI Driver.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object metadata. metadata.Name indicates the name of the CSI driver that this object refers to; it MUST be the same name returned by the CSI GetPluginName() call for that driver. The driver name must be 63 characters or less, beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with dashes (-), dots (.), and alphanumerics between. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['storage.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['CSIDriver'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. metadata.Name indicates the name of the CSI driver that this object refers to; it MUST be the same name returned by the CSI GetPluginName() call for that driver. The driver name must be 63 characters or less, beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with dashes (-), dots (.), and alphanumerics between. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         pulumi.set(__self__, "spec", spec)
         if api_version is not None:
@@ -97,7 +103,7 @@ class CSIDriver(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['storage.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -105,7 +111,7 @@ class CSIDriver(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['CSIDriver']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -115,7 +121,7 @@ class CSIDriver(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object metadata. metadata.Name indicates the name of the CSI driver that this object refers to; it MUST be the same name returned by the CSI GetPluginName() call for that driver. The driver name must be 63 characters or less, beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with dashes (-), dots (.), and alphanumerics between. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. metadata.Name indicates the name of the CSI driver that this object refers to; it MUST be the same name returned by the CSI GetPluginName() call for that driver. The driver name must be 63 characters or less, beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with dashes (-), dots (.), and alphanumerics between. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -200,13 +206,13 @@ class CSIDriverSpec(dict):
                "csi.storage.k8s.io/ephemeral" is a new feature in Kubernetes 1.16. It is only required for drivers which support both the "Persistent" and "Ephemeral" VolumeLifecycleMode. Other drivers can leave pod info disabled and/or ignore this field. As Kubernetes 1.15 doesn't support this field, drivers can only support one mode when deployed on such a cluster and the deployment determines which mode that is, for example via a command line parameter of the driver.
                
                This field was immutable in Kubernetes < 1.29 and now is mutable.
-        :param _builtins.bool prevent_pod_scheduling_if_missing: PreventPodSchedulingIfMissing indicates that the CSI driver wants to prevent pod scheduling if the CSI driver on the node is missing.
+        :param _builtins.bool prevent_pod_scheduling_if_missing: preventPodSchedulingIfMissing indicates that the CSI driver wants to prevent pod scheduling if the CSI driver on the node is missing.
                
                Enabling this option will prevent the scheduler (or any other component which embeds default scheduler such as cluster-autoscaler) from scheduling pods to nodes where CSI driver is not installed.
                
                For components(such as cluster-autoscaler) that embed the scheduler and run pod placement simulations using scheduler plugins, they MUST be aware of CSI driver registration information via CSINode object. They must create simulated CSINode objects in addition to Node objects during scheduling simulation, otherwise if PreventPodSchedulingIfMissing is enabled globally for CSIDriver object, any newly created node may be rejected by the scheduler because of missing CSI driver information from the node.
                
-               This is an alpha feature and requires the VolumeLimitScaling feature gate to be enabled. Default is "false".
+               This is a beta feature and requires the VolumeLimitScaling feature gate to be enabled. Default is "false".
         :param _builtins.bool requires_republish: requiresRepublish indicates the CSI driver wants `NodePublishVolume` being periodically called to reflect any possible change in the mounted volume. This field defaults to false.
                
                Note: After a successful initial NodePublishVolume call, subsequent calls to NodePublishVolume should only update the contents of the volume. New mount points will not be seen by a running container.
@@ -328,13 +334,13 @@ class CSIDriverSpec(dict):
     @pulumi.getter(name="preventPodSchedulingIfMissing")
     def prevent_pod_scheduling_if_missing(self) -> Optional[_builtins.bool]:
         """
-        PreventPodSchedulingIfMissing indicates that the CSI driver wants to prevent pod scheduling if the CSI driver on the node is missing.
+        preventPodSchedulingIfMissing indicates that the CSI driver wants to prevent pod scheduling if the CSI driver on the node is missing.
 
         Enabling this option will prevent the scheduler (or any other component which embeds default scheduler such as cluster-autoscaler) from scheduling pods to nodes where CSI driver is not installed.
 
         For components(such as cluster-autoscaler) that embed the scheduler and run pod placement simulations using scheduler plugins, they MUST be aware of CSI driver registration information via CSINode object. They must create simulated CSINode objects in addition to Node objects during scheduling simulation, otherwise if PreventPodSchedulingIfMissing is enabled globally for CSIDriver object, any newly created node may be rejected by the scheduler because of missing CSI driver information from the node.
 
-        This is an alpha feature and requires the VolumeLimitScaling feature gate to be enabled. Default is "false".
+        This is a beta feature and requires the VolumeLimitScaling feature gate to be enabled. Default is "false".
         """
         return pulumi.get(self, "prevent_pod_scheduling_if_missing")
 
@@ -503,13 +509,13 @@ class CSIDriverSpecPatch(dict):
                "csi.storage.k8s.io/ephemeral" is a new feature in Kubernetes 1.16. It is only required for drivers which support both the "Persistent" and "Ephemeral" VolumeLifecycleMode. Other drivers can leave pod info disabled and/or ignore this field. As Kubernetes 1.15 doesn't support this field, drivers can only support one mode when deployed on such a cluster and the deployment determines which mode that is, for example via a command line parameter of the driver.
                
                This field was immutable in Kubernetes < 1.29 and now is mutable.
-        :param _builtins.bool prevent_pod_scheduling_if_missing: PreventPodSchedulingIfMissing indicates that the CSI driver wants to prevent pod scheduling if the CSI driver on the node is missing.
+        :param _builtins.bool prevent_pod_scheduling_if_missing: preventPodSchedulingIfMissing indicates that the CSI driver wants to prevent pod scheduling if the CSI driver on the node is missing.
                
                Enabling this option will prevent the scheduler (or any other component which embeds default scheduler such as cluster-autoscaler) from scheduling pods to nodes where CSI driver is not installed.
                
                For components(such as cluster-autoscaler) that embed the scheduler and run pod placement simulations using scheduler plugins, they MUST be aware of CSI driver registration information via CSINode object. They must create simulated CSINode objects in addition to Node objects during scheduling simulation, otherwise if PreventPodSchedulingIfMissing is enabled globally for CSIDriver object, any newly created node may be rejected by the scheduler because of missing CSI driver information from the node.
                
-               This is an alpha feature and requires the VolumeLimitScaling feature gate to be enabled. Default is "false".
+               This is a beta feature and requires the VolumeLimitScaling feature gate to be enabled. Default is "false".
         :param _builtins.bool requires_republish: requiresRepublish indicates the CSI driver wants `NodePublishVolume` being periodically called to reflect any possible change in the mounted volume. This field defaults to false.
                
                Note: After a successful initial NodePublishVolume call, subsequent calls to NodePublishVolume should only update the contents of the volume. New mount points will not be seen by a running container.
@@ -631,13 +637,13 @@ class CSIDriverSpecPatch(dict):
     @pulumi.getter(name="preventPodSchedulingIfMissing")
     def prevent_pod_scheduling_if_missing(self) -> Optional[_builtins.bool]:
         """
-        PreventPodSchedulingIfMissing indicates that the CSI driver wants to prevent pod scheduling if the CSI driver on the node is missing.
+        preventPodSchedulingIfMissing indicates that the CSI driver wants to prevent pod scheduling if the CSI driver on the node is missing.
 
         Enabling this option will prevent the scheduler (or any other component which embeds default scheduler such as cluster-autoscaler) from scheduling pods to nodes where CSI driver is not installed.
 
         For components(such as cluster-autoscaler) that embed the scheduler and run pod placement simulations using scheduler plugins, they MUST be aware of CSI driver registration information via CSINode object. They must create simulated CSINode objects in addition to Node objects during scheduling simulation, otherwise if PreventPodSchedulingIfMissing is enabled globally for CSIDriver object, any newly created node may be rejected by the scheduler because of missing CSI driver information from the node.
 
-        This is an alpha feature and requires the VolumeLimitScaling feature gate to be enabled. Default is "false".
+        This is a beta feature and requires the VolumeLimitScaling feature gate to be enabled. Default is "false".
         """
         return pulumi.get(self, "prevent_pod_scheduling_if_missing")
 
@@ -750,16 +756,18 @@ class CSINode(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.CSINodeSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
-                 metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None):
+                 api_version: Optional[Literal['storage.k8s.io/v1']] = None,
+                 kind: Optional[Literal['CSINode']] = None,
+                 metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
+                 status: Optional['outputs.CSINodeStatus'] = None):
         """
         CSINode holds information about all CSI drivers installed on a node. CSI drivers do not need to create the CSINode object directly. As long as they use the node-driver-registrar sidecar container, the kubelet will automatically populate the CSINode object for the CSI driver as part of kubelet plugin registration. CSINode has the same name as a node. If the object is missing, it means either there are no CSI Drivers available on the node, or the Kubelet version is low enough that it doesn't create this object. CSINode has an OwnerReference that points to the corresponding node object.
 
         :param 'CSINodeSpecArgs' spec: spec is the specification of CSINode
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. metadata.name must be the Kubernetes node name.
+        :param Literal['storage.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['CSINode'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. metadata.name must be the Kubernetes node name.
+        :param 'CSINodeStatusArgs' status: status contains health and status information for the node's storage.
         """
         pulumi.set(__self__, "spec", spec)
         if api_version is not None:
@@ -768,6 +776,8 @@ class CSINode(dict):
             pulumi.set(__self__, "kind", 'CSINode')
         if metadata is not None:
             pulumi.set(__self__, "metadata", metadata)
+        if status is not None:
+            pulumi.set(__self__, "status", status)
 
     @_builtins.property
     @pulumi.getter
@@ -779,7 +789,7 @@ class CSINode(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['storage.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -787,7 +797,7 @@ class CSINode(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['CSINode']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -797,9 +807,17 @@ class CSINode(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. metadata.name must be the Kubernetes node name.
+        metadata is the standard object metadata. metadata.name must be the Kubernetes node name.
         """
         return pulumi.get(self, "metadata")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> Optional['outputs.CSINodeStatus']:
+        """
+        status contains health and status information for the node's storage.
+        """
+        return pulumi.get(self, "status")
 
 
 @pulumi.output_type
@@ -1006,6 +1024,88 @@ class CSINodeSpecPatch(dict):
 
 
 @pulumi.output_type
+class CSINodeStatus(dict):
+    """
+    CSINodeStatus contains health and status information for storage on a node.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "storageHealth":
+            suggest = "storage_health"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CSINodeStatus. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CSINodeStatus.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CSINodeStatus.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 storage_health: Optional[Sequence['outputs.StorageHealth']] = None):
+        """
+        CSINodeStatus contains health and status information for storage on a node.
+
+        :param Sequence['StorageHealthArgs'] storage_health: storageHealth contains backend health reports for CSI drivers registered on the node.
+        """
+        if storage_health is not None:
+            pulumi.set(__self__, "storage_health", storage_health)
+
+    @_builtins.property
+    @pulumi.getter(name="storageHealth")
+    def storage_health(self) -> Optional[Sequence['outputs.StorageHealth']]:
+        """
+        storageHealth contains backend health reports for CSI drivers registered on the node.
+        """
+        return pulumi.get(self, "storage_health")
+
+
+@pulumi.output_type
+class CSINodeStatusPatch(dict):
+    """
+    CSINodeStatus contains health and status information for storage on a node.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "storageHealth":
+            suggest = "storage_health"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CSINodeStatusPatch. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CSINodeStatusPatch.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CSINodeStatusPatch.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 storage_health: Optional[Sequence['outputs.StorageHealthPatch']] = None):
+        """
+        CSINodeStatus contains health and status information for storage on a node.
+
+        :param Sequence['StorageHealthPatchArgs'] storage_health: storageHealth contains backend health reports for CSI drivers registered on the node.
+        """
+        if storage_health is not None:
+            pulumi.set(__self__, "storage_health", storage_health)
+
+    @_builtins.property
+    @pulumi.getter(name="storageHealth")
+    def storage_health(self) -> Optional[Sequence['outputs.StorageHealthPatch']]:
+        """
+        storageHealth contains backend health reports for CSI drivers registered on the node.
+        """
+        return pulumi.get(self, "storage_health")
+
+
+@pulumi.output_type
 class CSIStorageCapacity(dict):
     """
     CSIStorageCapacity stores the result of one CSI GetCapacity call. For a given StorageClass, this describes the available capacity in a particular topology segment.  This can be used when considering where to instantiate new PersistentVolumes.
@@ -1043,9 +1143,9 @@ class CSIStorageCapacity(dict):
 
     def __init__(__self__, *,
                  storage_class_name: _builtins.str,
-                 api_version: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['storage.k8s.io/v1']] = None,
                  capacity: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 kind: Optional[Literal['CSIStorageCapacity']] = None,
                  maximum_volume_size: Optional[_builtins.str] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  node_topology: Optional['_meta.v1.outputs.LabelSelector'] = None):
@@ -1061,15 +1161,15 @@ class CSIStorageCapacity(dict):
         They are consumed by the kube-scheduler when a CSI driver opts into capacity-aware scheduling with CSIDriverSpec.StorageCapacity. The scheduler compares the MaximumVolumeSize against the requested size of pending volumes to filter out unsuitable nodes. If MaximumVolumeSize is unset, it falls back to a comparison against the less precise Capacity. If that is also unset, the scheduler assumes that capacity is insufficient and tries some other node.
 
         :param _builtins.str storage_class_name: storageClassName represents the name of the StorageClass that the reported capacity applies to. It must meet the same requirements as the name of a StorageClass object (non-empty, DNS subdomain). If that object no longer exists, the CSIStorageCapacity object is obsolete and should be removed by its creator. This field is immutable.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['storage.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         :param _builtins.str capacity: capacity is the value reported by the CSI driver in its GetCapacityResponse for a GetCapacityRequest with topology and parameters that match the previous fields.
                
                The semantic is currently (CSI spec 1.2) defined as: The available capacity, in bytes, of the storage that can be used to provision volumes. If not set, that information is currently unavailable.
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param Literal['CSIStorageCapacity'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param _builtins.str maximum_volume_size: maximumVolumeSize is the value reported by the CSI driver in its GetCapacityResponse for a GetCapacityRequest with topology and parameters that match the previous fields.
                
                This is defined since CSI spec 1.4.0 as the largest size that may be used in a CreateVolumeRequest.capacity_range.required_bytes field to create a volume with the same parameters as those in GetCapacityRequest. The corresponding value in the Kubernetes API is ResourceRequirements.Requests in a volume claim.
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. The name has no particular meaning. It must be a DNS subdomain (dots allowed, 253 characters). To ensure that there are no conflicts with other CSI drivers on the cluster, the recommendation is to use csisc-<uuid>, a generated name, or a reverse-domain name which ends with the unique CSI driver name.
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. The name has no particular meaning. It must be a DNS subdomain (dots allowed, 253 characters). To ensure that there are no conflicts with other CSI drivers on the cluster, the recommendation is to use csisc-<uuid>, a generated name, or a reverse-domain name which ends with the unique CSI driver name.
                
                Objects are namespaced.
                
@@ -1100,7 +1200,7 @@ class CSIStorageCapacity(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['storage.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -1118,7 +1218,7 @@ class CSIStorageCapacity(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['CSIStorageCapacity']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -1138,7 +1238,7 @@ class CSIStorageCapacity(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. The name has no particular meaning. It must be a DNS subdomain (dots allowed, 253 characters). To ensure that there are no conflicts with other CSI drivers on the cluster, the recommendation is to use csisc-<uuid>, a generated name, or a reverse-domain name which ends with the unique CSI driver name.
+        metadata is the standard object metadata. The name has no particular meaning. It must be a DNS subdomain (dots allowed, 253 characters). To ensure that there are no conflicts with other CSI drivers on the cluster, the recommendation is to use csisc-<uuid>, a generated name, or a reverse-domain name which ends with the unique CSI driver name.
 
         Objects are namespaced.
 
@@ -1193,8 +1293,8 @@ class StorageClass(dict):
                  provisioner: _builtins.str,
                  allow_volume_expansion: Optional[_builtins.bool] = None,
                  allowed_topologies: Optional[Sequence['_core.v1.outputs.TopologySelectorTerm']] = None,
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['storage.k8s.io/v1']] = None,
+                 kind: Optional[Literal['StorageClass']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  mount_options: Optional[Sequence[_builtins.str]] = None,
                  parameters: Optional[Mapping[str, _builtins.str]] = None,
@@ -1208,9 +1308,9 @@ class StorageClass(dict):
         :param _builtins.str provisioner: provisioner indicates the type of the provisioner.
         :param _builtins.bool allow_volume_expansion: allowVolumeExpansion shows whether the storage class allow volume expand.
         :param Sequence['_core.v1.TopologySelectorTermArgs'] allowed_topologies: allowedTopologies restrict the node topologies where volumes can be dynamically provisioned. Each volume plugin defines its own supported topology specifications. An empty TopologySelectorTerm list means there is no topology restriction. This field is only honored by servers that enable the VolumeScheduling feature.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['storage.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['StorageClass'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param Sequence[_builtins.str] mount_options: mountOptions controls the mountOptions for dynamically provisioned PersistentVolumes of this storage class. e.g. ["ro", "soft"]. Not validated - mount of the PVs will simply fail if one is invalid.
         :param Mapping[str, _builtins.str] parameters: parameters holds the parameters for the provisioner that should create volumes of this storage class.
         :param _builtins.str reclaim_policy: reclaimPolicy controls the reclaimPolicy for dynamically provisioned PersistentVolumes of this storage class. Defaults to Delete.
@@ -1262,7 +1362,7 @@ class StorageClass(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['storage.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -1270,7 +1370,7 @@ class StorageClass(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['StorageClass']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -1280,7 +1380,7 @@ class StorageClass(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -1315,6 +1415,319 @@ class StorageClass(dict):
         volumeBindingMode indicates how PersistentVolumeClaims should be provisioned and bound.  When unset, VolumeBindingImmediate is used. This field is only honored by servers that enable the VolumeScheduling feature.
         """
         return pulumi.get(self, "volume_binding_mode")
+
+
+@pulumi.output_type
+class StorageHealth(dict):
+    """
+    StorageHealth contains storage backend health reported by a CSI driver on a node.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "healthConditions":
+            suggest = "health_conditions"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StorageHealth. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StorageHealth.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StorageHealth.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 health_conditions: Optional[Sequence['outputs.StorageHealthCondition']] = None):
+        """
+        StorageHealth contains storage backend health reported by a CSI driver on a node.
+
+        :param _builtins.str name: name is the CSI driver name, matching CSINodeDriver.name.
+        :param Sequence['StorageHealthConditionArgs'] health_conditions: healthConditions are the adverse storage backend conditions reported by the CSI driver. At most 16 conditions may be reported.
+        """
+        pulumi.set(__self__, "name", name)
+        if health_conditions is not None:
+            pulumi.set(__self__, "health_conditions", health_conditions)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        name is the CSI driver name, matching CSINodeDriver.name.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="healthConditions")
+    def health_conditions(self) -> Optional[Sequence['outputs.StorageHealthCondition']]:
+        """
+        healthConditions are the adverse storage backend conditions reported by the CSI driver. At most 16 conditions may be reported.
+        """
+        return pulumi.get(self, "health_conditions")
+
+
+@pulumi.output_type
+class StorageHealthCondition(dict):
+    """
+    StorageHealthCondition represents an adverse health condition reported by a CSI driver for its storage backend on a node.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accessMode":
+            suggest = "access_mode"
+        elif key == "lastTransitionTime":
+            suggest = "last_transition_time"
+        elif key == "volumeMode":
+            suggest = "volume_mode"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StorageHealthCondition. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StorageHealthCondition.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StorageHealthCondition.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 reason: _builtins.str,
+                 status: _builtins.str,
+                 access_mode: Optional[_builtins.str] = None,
+                 last_transition_time: Optional[_builtins.str] = None,
+                 message: Optional[_builtins.str] = None,
+                 volume_mode: Optional[_builtins.str] = None):
+        """
+        StorageHealthCondition represents an adverse health condition reported by a CSI driver for its storage backend on a node.
+
+        :param _builtins.str reason: reason is a brief CamelCase machine-parseable reason. Maximum permitted length of a reason is 256 characters.
+        :param _builtins.str status: status is the health status category. One of "StorageUnreachable", "StorageDegraded".
+        :param _builtins.str access_mode: accessMode is the access mode affected. Nil means all access modes are affected.
+        :param _builtins.str last_transition_time: lastTransitionTime is when this condition first appeared at its current state.
+        :param _builtins.str message: message is a human-readable description. Maximum permitted length of a message is 1024 characters.
+        :param _builtins.str volume_mode: volumeMode is the volume mode affected. Nil means both are affected.
+        """
+        pulumi.set(__self__, "reason", reason)
+        pulumi.set(__self__, "status", status)
+        if access_mode is not None:
+            pulumi.set(__self__, "access_mode", access_mode)
+        if last_transition_time is not None:
+            pulumi.set(__self__, "last_transition_time", last_transition_time)
+        if message is not None:
+            pulumi.set(__self__, "message", message)
+        if volume_mode is not None:
+            pulumi.set(__self__, "volume_mode", volume_mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def reason(self) -> _builtins.str:
+        """
+        reason is a brief CamelCase machine-parseable reason. Maximum permitted length of a reason is 256 characters.
+        """
+        return pulumi.get(self, "reason")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> _builtins.str:
+        """
+        status is the health status category. One of "StorageUnreachable", "StorageDegraded".
+        """
+        return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="accessMode")
+    def access_mode(self) -> Optional[_builtins.str]:
+        """
+        accessMode is the access mode affected. Nil means all access modes are affected.
+        """
+        return pulumi.get(self, "access_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="lastTransitionTime")
+    def last_transition_time(self) -> Optional[_builtins.str]:
+        """
+        lastTransitionTime is when this condition first appeared at its current state.
+        """
+        return pulumi.get(self, "last_transition_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> Optional[_builtins.str]:
+        """
+        message is a human-readable description. Maximum permitted length of a message is 1024 characters.
+        """
+        return pulumi.get(self, "message")
+
+    @_builtins.property
+    @pulumi.getter(name="volumeMode")
+    def volume_mode(self) -> Optional[_builtins.str]:
+        """
+        volumeMode is the volume mode affected. Nil means both are affected.
+        """
+        return pulumi.get(self, "volume_mode")
+
+
+@pulumi.output_type
+class StorageHealthConditionPatch(dict):
+    """
+    StorageHealthCondition represents an adverse health condition reported by a CSI driver for its storage backend on a node.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accessMode":
+            suggest = "access_mode"
+        elif key == "lastTransitionTime":
+            suggest = "last_transition_time"
+        elif key == "volumeMode":
+            suggest = "volume_mode"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StorageHealthConditionPatch. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StorageHealthConditionPatch.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StorageHealthConditionPatch.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 access_mode: Optional[_builtins.str] = None,
+                 last_transition_time: Optional[_builtins.str] = None,
+                 message: Optional[_builtins.str] = None,
+                 reason: Optional[_builtins.str] = None,
+                 status: Optional[_builtins.str] = None,
+                 volume_mode: Optional[_builtins.str] = None):
+        """
+        StorageHealthCondition represents an adverse health condition reported by a CSI driver for its storage backend on a node.
+
+        :param _builtins.str access_mode: accessMode is the access mode affected. Nil means all access modes are affected.
+        :param _builtins.str last_transition_time: lastTransitionTime is when this condition first appeared at its current state.
+        :param _builtins.str message: message is a human-readable description. Maximum permitted length of a message is 1024 characters.
+        :param _builtins.str reason: reason is a brief CamelCase machine-parseable reason. Maximum permitted length of a reason is 256 characters.
+        :param _builtins.str status: status is the health status category. One of "StorageUnreachable", "StorageDegraded".
+        :param _builtins.str volume_mode: volumeMode is the volume mode affected. Nil means both are affected.
+        """
+        if access_mode is not None:
+            pulumi.set(__self__, "access_mode", access_mode)
+        if last_transition_time is not None:
+            pulumi.set(__self__, "last_transition_time", last_transition_time)
+        if message is not None:
+            pulumi.set(__self__, "message", message)
+        if reason is not None:
+            pulumi.set(__self__, "reason", reason)
+        if status is not None:
+            pulumi.set(__self__, "status", status)
+        if volume_mode is not None:
+            pulumi.set(__self__, "volume_mode", volume_mode)
+
+    @_builtins.property
+    @pulumi.getter(name="accessMode")
+    def access_mode(self) -> Optional[_builtins.str]:
+        """
+        accessMode is the access mode affected. Nil means all access modes are affected.
+        """
+        return pulumi.get(self, "access_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="lastTransitionTime")
+    def last_transition_time(self) -> Optional[_builtins.str]:
+        """
+        lastTransitionTime is when this condition first appeared at its current state.
+        """
+        return pulumi.get(self, "last_transition_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> Optional[_builtins.str]:
+        """
+        message is a human-readable description. Maximum permitted length of a message is 1024 characters.
+        """
+        return pulumi.get(self, "message")
+
+    @_builtins.property
+    @pulumi.getter
+    def reason(self) -> Optional[_builtins.str]:
+        """
+        reason is a brief CamelCase machine-parseable reason. Maximum permitted length of a reason is 256 characters.
+        """
+        return pulumi.get(self, "reason")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> Optional[_builtins.str]:
+        """
+        status is the health status category. One of "StorageUnreachable", "StorageDegraded".
+        """
+        return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="volumeMode")
+    def volume_mode(self) -> Optional[_builtins.str]:
+        """
+        volumeMode is the volume mode affected. Nil means both are affected.
+        """
+        return pulumi.get(self, "volume_mode")
+
+
+@pulumi.output_type
+class StorageHealthPatch(dict):
+    """
+    StorageHealth contains storage backend health reported by a CSI driver on a node.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "healthConditions":
+            suggest = "health_conditions"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in StorageHealthPatch. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        StorageHealthPatch.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        StorageHealthPatch.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 health_conditions: Optional[Sequence['outputs.StorageHealthConditionPatch']] = None,
+                 name: Optional[_builtins.str] = None):
+        """
+        StorageHealth contains storage backend health reported by a CSI driver on a node.
+
+        :param Sequence['StorageHealthConditionPatchArgs'] health_conditions: healthConditions are the adverse storage backend conditions reported by the CSI driver. At most 16 conditions may be reported.
+        :param _builtins.str name: name is the CSI driver name, matching CSINodeDriver.name.
+        """
+        if health_conditions is not None:
+            pulumi.set(__self__, "health_conditions", health_conditions)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="healthConditions")
+    def health_conditions(self) -> Optional[Sequence['outputs.StorageHealthConditionPatch']]:
+        """
+        healthConditions are the adverse storage backend conditions reported by the CSI driver. At most 16 conditions may be reported.
+        """
+        return pulumi.get(self, "health_conditions")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        name is the CSI driver name, matching CSINodeDriver.name.
+        """
+        return pulumi.get(self, "name")
 
 
 @pulumi.output_type
@@ -1448,8 +1861,8 @@ class VolumeAttachment(dict):
 
     def __init__(__self__, *,
                  spec: 'outputs.VolumeAttachmentSpec',
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['storage.k8s.io/v1']] = None,
+                 kind: Optional[Literal['VolumeAttachment']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  status: Optional['outputs.VolumeAttachmentStatus'] = None):
         """
@@ -1458,9 +1871,9 @@ class VolumeAttachment(dict):
         VolumeAttachment objects are non-namespaced.
 
         :param 'VolumeAttachmentSpecArgs' spec: spec represents specification of the desired attach/detach volume behavior. Populated by the Kubernetes system.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param Literal['storage.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['VolumeAttachment'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param 'VolumeAttachmentStatusArgs' status: status represents status of the VolumeAttachment request. Populated by the entity completing the attach or detach operation, i.e. the external-attacher.
         """
         pulumi.set(__self__, "spec", spec)
@@ -1483,7 +1896,7 @@ class VolumeAttachment(dict):
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['storage.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -1491,7 +1904,7 @@ class VolumeAttachment(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['VolumeAttachment']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -1501,7 +1914,7 @@ class VolumeAttachment(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 
@@ -1938,17 +2351,17 @@ class VolumeAttributesClass(dict):
 
     def __init__(__self__, *,
                  driver_name: _builtins.str,
-                 api_version: Optional[_builtins.str] = None,
-                 kind: Optional[_builtins.str] = None,
+                 api_version: Optional[Literal['storage.k8s.io/v1']] = None,
+                 kind: Optional[Literal['VolumeAttributesClass']] = None,
                  metadata: Optional['_meta.v1.outputs.ObjectMeta'] = None,
                  parameters: Optional[Mapping[str, _builtins.str]] = None):
         """
         VolumeAttributesClass represents a specification of mutable volume attributes defined by the CSI driver. The class can be specified during dynamic provisioning of PersistentVolumeClaims, and changed in the PersistentVolumeClaim spec after provisioning.
 
-        :param _builtins.str driver_name: Name of the CSI driver This field is immutable.
-        :param _builtins.str api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        :param _builtins.str kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        :param '_meta.v1.ObjectMetaArgs' metadata: Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        :param _builtins.str driver_name: driverName is the name of the CSI driver This field is immutable.
+        :param Literal['storage.k8s.io/v1'] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+        :param Literal['VolumeAttributesClass'] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+        :param '_meta.v1.ObjectMetaArgs' metadata: metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param Mapping[str, _builtins.str] parameters: parameters hold volume attributes defined by the CSI driver. These values are opaque to the Kubernetes and are passed directly to the CSI driver. The underlying storage provider supports changing these attributes on an existing volume, however the parameters field itself is immutable. To invoke a volume update, a new VolumeAttributesClass should be created with new parameters, and the PersistentVolumeClaim should be updated to reference the new VolumeAttributesClass.
                
                This field is required and must contain at least one key/value pair. The keys cannot be empty, and the maximum number of parameters is 512, with a cumulative max size of 256K. If the CSI driver rejects invalid parameters, the target PersistentVolumeClaim will be set to an "Infeasible" state in the modifyVolumeStatus field.
@@ -1967,13 +2380,13 @@ class VolumeAttributesClass(dict):
     @pulumi.getter(name="driverName")
     def driver_name(self) -> _builtins.str:
         """
-        Name of the CSI driver This field is immutable.
+        driverName is the name of the CSI driver This field is immutable.
         """
         return pulumi.get(self, "driver_name")
 
     @_builtins.property
     @pulumi.getter(name="apiVersion")
-    def api_version(self) -> Optional[_builtins.str]:
+    def api_version(self) -> Optional[Literal['storage.k8s.io/v1']]:
         """
         APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         """
@@ -1981,7 +2394,7 @@ class VolumeAttributesClass(dict):
 
     @_builtins.property
     @pulumi.getter
-    def kind(self) -> Optional[_builtins.str]:
+    def kind(self) -> Optional[Literal['VolumeAttributesClass']]:
         """
         Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         """
@@ -1991,7 +2404,7 @@ class VolumeAttributesClass(dict):
     @pulumi.getter
     def metadata(self) -> Optional['_meta.v1.outputs.ObjectMeta']:
         """
-        Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+        metadata is the standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         """
         return pulumi.get(self, "metadata")
 

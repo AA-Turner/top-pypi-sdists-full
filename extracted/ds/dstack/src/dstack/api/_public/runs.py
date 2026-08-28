@@ -50,6 +50,7 @@ from dstack._internal.utils.common import get_or_error, make_proxy_url
 from dstack._internal.utils.files import create_file_archive
 from dstack._internal.utils.logging import get_logger
 from dstack._internal.utils.path import PathLike
+from dstack._internal.utils.ssh import resolve_ssh_key
 from dstack.api.server import APIClient
 
 logger = get_logger(__name__)
@@ -208,6 +209,9 @@ class Run(ABC):
         Args:
             start_time: Minimal log timestamp.
             diagnose: Return runner logs if `True`.
+            replica_num: The replica number or `None` to use any running replica,
+                falling back to the lowest-numbered replica if no replica is running.
+            job_num: The job number inside the replica.
 
         Yields:
             Log messages.
@@ -217,7 +221,7 @@ class Run(ABC):
         else:
             job = self._find_job(replica_num=replica_num, job_num=job_num)
             if job is None:
-                return []
+                return
             next_token = None
             while True:
                 resp = self._api_client.logs.poll(
@@ -270,7 +274,8 @@ class Run(ABC):
 
         Args:
             ssh_identity_file: SSH keypair to access instances.
-            replica_num: replica_num or None to attach to any running replica.
+            replica_num: replica_num or None to attach to any running replica, falling back to
+                the lowest-numbered replica if no replica is running.
 
         Raises:
             dstack.api.PortUsedError: If ports are in use or the run is attached by another process.
@@ -418,15 +423,13 @@ class Run(ABC):
             self._ssh_attach = None
 
     def _find_job(self, replica_num: Optional[int], job_num: int) -> Optional[Job]:
-        for j in self._run.jobs:
-            if (
-                replica_num is not None
-                and j.job_spec.replica_num == replica_num
-                or replica_num is None
-                and j.job_submissions[-1].status == JobStatus.RUNNING
-            ) and j.job_spec.job_num == job_num:
-                return j
-        return None
+        jobs = [j for j in self._run.jobs if j.job_spec.job_num == job_num]
+        if replica_num is not None:
+            return next((j for j in jobs if j.job_spec.replica_num == replica_num), None)
+        running = [j for j in jobs if j.job_submissions[-1].status == JobStatus.RUNNING]
+        # Prefer a running replica, as attaching requires one. Fall back to the lowest-numbered
+        # replica so that logs remain readable once the run is finished.
+        return min(running or jobs, key=lambda j: j.job_spec.replica_num, default=None)
 
     def __str__(self) -> str:
         return f"<Run '{self.name}'>"
@@ -475,6 +478,7 @@ class RunCollection:
         configuration_path: Optional[str] = None,
         repo_dir: Union[Deprecated, str, None] = Deprecated.PLACEHOLDER,
         ssh_identity_file: Optional[PathLike] = None,
+        ssh_key_pub: Optional[str] = None,
         max_offers: Optional[int] = None,
         full_offers: bool = False,
         unallocated_resources: bool = False,
@@ -491,10 +495,15 @@ class RunCollection:
             profile: The profile to use for the run.
             configuration_path: The path to the configuration file. Omit if the configuration
                 is not loaded from a file.
-            ssh_identity_file: Path to the private SSH key file. The corresponding public key
-                (`.pub` file) is read and included in the run plan, allowing SSH access to the instances.
-                If the `.pub` file does not exist, it is generated automatically.
-                If ssh_identity_file is not specified, the user key is used.
+            ssh_identity_file: Path to a private or public SSH key file. The public key is
+                included in the run plan, allowing SSH access to the instances. If a private key
+                is given, its public key is read from the corresponding `.pub` file or, if there
+                is no such file, generated from the private key.
+                Mutually exclusive with ssh_key_pub.
+            ssh_key_pub: The public SSH key to include in the run plan, allowing SSH access to
+                the instances. Use it instead of ssh_identity_file if the key is not stored
+                on disk. Mutually exclusive with ssh_identity_file.
+                If neither ssh_key_pub nor ssh_identity_file is specified, the user key is used.
             max_offers: Maximum number of offers returned in the run plan.
             full_offers: Return full offers not adjusted by requirements.
             unallocated_resources: Subtract allocated resources to return only unallocated
@@ -534,10 +543,20 @@ class RunCollection:
                 archive = self._api_client.files.upload_archive(hash=archive_hash, fp=fp)
             file_archives.append(FileArchiveMapping(id=archive.id, path=file_mapping.path))
 
+        if ssh_key_pub and ssh_identity_file:
+            raise ConfigurationError("ssh_key_pub and ssh_identity_file are mutually exclusive")
         if ssh_identity_file:
-            ssh_key_pub = Path(ssh_identity_file).with_suffix(".pub").read_text()
-        else:
-            ssh_key_pub = None  # using the server-managed user key
+            try:
+                ssh_key_pub, _, _, _ = resolve_ssh_key(ssh_identity_file)
+            except OSError as e:
+                raise ConfigurationError(
+                    f"Unable to read the SSH key at {ssh_identity_file}"
+                ) from e
+            except ValueError as e:
+                raise ConfigurationError(
+                    f"Unsupported or invalid SSH key at {ssh_identity_file}"
+                ) from e
+        # `ssh_key_pub` is None if neither is given: using the server-managed user key
         run_spec = RunSpec(
             run_name=configuration.name,
             repo_id=repo.repo_id,
@@ -607,6 +626,7 @@ class RunCollection:
         configuration_path: Optional[str] = None,
         reserve_ports: bool = True,
         ssh_identity_file: Optional[PathLike] = None,
+        ssh_key_pub: Optional[str] = None,
     ) -> Run:
         """
         Apply the run configuration.
@@ -619,10 +639,15 @@ class RunCollection:
             profile: The profile to use for the run.
             configuration_path: The path to the configuration file. Omit if the configuration is not loaded from a file.
             reserve_ports: Reserve local ports before applying. Use if you'll attach to the run.
-            ssh_identity_file: Path to the private SSH key file. The corresponding public key
-                (`.pub` file) is read and included in the run plan, allowing SSH access to the instances.
-                If the `.pub` file does not exist, it is generated automatically.
-                If ssh_identity_file is not specified, the user key is used.
+            ssh_identity_file: Path to a private or public SSH key file. The public key is
+                included in the run plan, allowing SSH access to the instances. If a private key
+                is given, its public key is read from the corresponding `.pub` file or, if there
+                is no such file, generated from the private key.
+                Mutually exclusive with ssh_key_pub.
+            ssh_key_pub: The public SSH key to include in the run plan, allowing SSH access to
+                the instances. Use it instead of ssh_identity_file if the key is not stored
+                on disk. Mutually exclusive with ssh_identity_file.
+                If neither ssh_key_pub nor ssh_identity_file is specified, the user key is used.
 
         Returns:
             Submitted run.
@@ -633,6 +658,7 @@ class RunCollection:
             profile=profile,
             configuration_path=configuration_path,
             ssh_identity_file=ssh_identity_file,
+            ssh_key_pub=ssh_key_pub,
         )
         run = self.apply_plan(
             run_plan=run_plan,

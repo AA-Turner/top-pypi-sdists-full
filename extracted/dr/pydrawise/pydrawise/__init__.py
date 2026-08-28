@@ -8,6 +8,8 @@ from .exceptions import (
     MutationError,
     NotAuthenticatedError,
     NotAuthorizedError,
+    NotInitializedError,
+    ThrottledError,
     UnknownError,
 )
 from .schema import Controller, Sensor, User, Zone
@@ -21,7 +23,9 @@ __all__ = (
     "MutationError",
     "NotAuthenticatedError",
     "NotAuthorizedError",
+    "NotInitializedError",
     "Sensor",
+    "ThrottledError",
     "UnknownError",
     "User",
     "Zone",

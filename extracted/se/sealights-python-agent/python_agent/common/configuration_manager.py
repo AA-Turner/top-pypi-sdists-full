@@ -71,6 +71,7 @@ class ConfigurationManager(object):
         footprints_send_interval_secs=None,
         footprints_collect_interval_secs=None,
         footprints_buffer_threshold_mb=None,
+        test_name_format=None,
     ):
         try:
             self.config_data.set_command_type(command_type)
@@ -91,6 +92,7 @@ class ConfigurationManager(object):
                 footprints_send_interval_secs=footprints_send_interval_secs,
                 footprints_collect_interval_secs=footprints_collect_interval_secs,
                 footprints_buffer_threshold_mb=footprints_buffer_threshold_mb,
+                test_name_format=test_name_format,
             )
             self.init_features()
             return self.config_data
@@ -127,6 +129,7 @@ class ConfigurationManager(object):
         footprints_send_interval_secs=None,
         footprints_collect_interval_secs=None,
         footprints_buffer_threshold_mb=None,
+        test_name_format=None,
     ):
         """
         Apply values passed directly on the command line to config_data.
@@ -155,6 +158,9 @@ class ConfigurationManager(object):
             self.config_data.footprintsBufferThresholdMB = (
                 footprints_buffer_threshold_mb
             )
+        if test_name_format is not None:
+            # Env may still override; remote may not (NON_REMOTE_FIELDS).
+            self.config_data.testNameFormat = test_name_format
 
     def try_load_configuration(
         self,
@@ -175,6 +181,7 @@ class ConfigurationManager(object):
         footprints_send_interval_secs=None,
         footprints_collect_interval_secs=None,
         footprints_buffer_threshold_mb=None,
+        test_name_format=None,
     ):
         self.config_data.proxy = proxy
         self.config_data.test_selection_enable = test_selection_enable
@@ -191,6 +198,7 @@ class ConfigurationManager(object):
             footprints_send_interval_secs=footprints_send_interval_secs,
             footprints_collect_interval_secs=footprints_collect_interval_secs,
             footprints_buffer_threshold_mb=footprints_buffer_threshold_mb,
+            test_name_format=test_name_format,
         )
         self._try_load_configuration_from_environment_variables()
         is_resolved_token = self.resolve_token_data(

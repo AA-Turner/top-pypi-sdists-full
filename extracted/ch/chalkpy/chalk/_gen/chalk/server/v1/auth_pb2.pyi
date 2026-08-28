@@ -1,3 +1,4 @@
+from chalk._gen.buf.validate import validate_pb2 as _validate_pb2
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import link_pb2 as _link_pb2
@@ -436,10 +437,12 @@ class GetTeamOnboardingStatusRequest(_message.Message):
     def __init__(self, team_id: _Optional[str] = ...) -> None: ...
 
 class GetTeamOnboardingStatusResponse(_message.Message):
-    __slots__ = ("has_environments",)
+    __slots__ = ("has_environments", "requires_environment_onboarding")
     HAS_ENVIRONMENTS_FIELD_NUMBER: _ClassVar[int]
+    REQUIRES_ENVIRONMENT_ONBOARDING_FIELD_NUMBER: _ClassVar[int]
     has_environments: bool
-    def __init__(self, has_environments: bool = ...) -> None: ...
+    requires_environment_onboarding: bool
+    def __init__(self, has_environments: bool = ..., requires_environment_onboarding: bool = ...) -> None: ...
 
 class GetTokenRequest(_message.Message):
     __slots__ = ("client_id", "client_secret", "grant_type", "scope", "expires_at")
@@ -621,3 +624,121 @@ class GetInternalWorkingTokenResponse(_message.Message):
         grpc_engines: _Optional[_Mapping[str, str]] = ...,
         environment_id_to_name: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
+
+class RenewInternalExchangeTokenRequest(_message.Message):
+    __slots__ = ("exchange_token",)
+    EXCHANGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    exchange_token: str
+    def __init__(self, exchange_token: _Optional[str] = ...) -> None: ...
+
+class RenewInternalExchangeTokenResponse(_message.Message):
+    __slots__ = ("exchange_token", "expires_at")
+    EXCHANGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    exchange_token: str
+    expires_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        exchange_token: _Optional[str] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetWorkloadIdentityTokenRequest(_message.Message):
+    __slots__ = ("audience",)
+    AUDIENCE_FIELD_NUMBER: _ClassVar[int]
+    audience: str
+    def __init__(self, audience: _Optional[str] = ...) -> None: ...
+
+class GetWorkloadIdentityTokenResponse(_message.Message):
+    __slots__ = ("token", "expires_at", "issuer", "subject")
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    ISSUER_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    token: str
+    expires_at: _timestamp_pb2.Timestamp
+    issuer: str
+    subject: str
+    def __init__(
+        self,
+        token: _Optional[str] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        issuer: _Optional[str] = ...,
+        subject: _Optional[str] = ...,
+    ) -> None: ...
+
+class SelfHostedLicenseKey(_message.Message):
+    __slots__ = ("id", "team_id", "name", "created_at", "expires_at", "revoked_at", "created_by")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    REVOKED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    team_id: str
+    name: str
+    created_at: _timestamp_pb2.Timestamp
+    expires_at: _timestamp_pb2.Timestamp
+    revoked_at: _timestamp_pb2.Timestamp
+    created_by: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        team_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        revoked_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        created_by: _Optional[str] = ...,
+    ) -> None: ...
+
+class CreateSelfHostedLicenseKeyRequest(_message.Message):
+    __slots__ = ("team_id", "name", "expires_at")
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    name: str
+    expires_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        team_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class CreateSelfHostedLicenseKeyResponse(_message.Message):
+    __slots__ = ("key", "token")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    key: SelfHostedLicenseKey
+    token: str
+    def __init__(
+        self, key: _Optional[_Union[SelfHostedLicenseKey, _Mapping]] = ..., token: _Optional[str] = ...
+    ) -> None: ...
+
+class RevokeSelfHostedLicenseKeyRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class RevokeSelfHostedLicenseKeyResponse(_message.Message):
+    __slots__ = ("key",)
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    key: SelfHostedLicenseKey
+    def __init__(self, key: _Optional[_Union[SelfHostedLicenseKey, _Mapping]] = ...) -> None: ...
+
+class ListSelfHostedLicenseKeysRequest(_message.Message):
+    __slots__ = ("team_id",)
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
+
+class ListSelfHostedLicenseKeysResponse(_message.Message):
+    __slots__ = ("keys",)
+    KEYS_FIELD_NUMBER: _ClassVar[int]
+    keys: _containers.RepeatedCompositeFieldContainer[SelfHostedLicenseKey]
+    def __init__(self, keys: _Optional[_Iterable[_Union[SelfHostedLicenseKey, _Mapping]]] = ...) -> None: ...

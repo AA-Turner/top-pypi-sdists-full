@@ -56,11 +56,32 @@ def build_from_source(*, cuda: bool = False, tag: Optional[str] = None,
         configure.append("-DGGML_CUDA=on")
     subprocess.run(configure, check=True)
 
-    build_cmd = [cmake, "--build", build, "--config", "Release",
-                 "--target", "llama-server", "rpc-server"]
-    if jobs:
-        build_cmd += ["-j", str(jobs)]
-    subprocess.run(build_cmd, check=True)
+    # Upstream renamed the RPC backend target ``rpc-server`` -> ``ggml-rpc-server``
+    # (llama.cpp tools/rpc, 2026-08). Build llama-server first, then whichever RPC
+    # target this tree knows; the resolver looks for ``rpc-server`` by name, so a
+    # ``ggml-rpc-server`` binary gets a same-dir ``rpc-server`` symlink.
+    # (keeper 2026-08-20: found live on a-brain — the old hardcoded pair failed
+    # every source build with "No rule to make target 'rpc-server'".)
+    jobs_args = ["-j", str(jobs)] if jobs else []
+    subprocess.run([cmake, "--build", build, "--config", "Release",
+                    "--target", "llama-server"] + jobs_args, check=True)
+    rpc_err = None
+    for target in ("rpc-server", "ggml-rpc-server"):
+        try:
+            subprocess.run([cmake, "--build", build, "--config", "Release",
+                            "--target", target] + jobs_args, check=True)
+        except subprocess.CalledProcessError as exc:
+            rpc_err = exc
+            continue
+        bin_dir = os.path.join(build, "bin")
+        built = os.path.join(bin_dir, target)
+        alias = os.path.join(bin_dir, "rpc-server")
+        if target != "rpc-server" and os.path.isfile(built) and not os.path.exists(alias):
+            os.symlink(target, alias)
+        rpc_err = None
+        break
+    if rpc_err is not None:
+        raise rpc_err
 
     server = resolve.server_bin()
     if not server:

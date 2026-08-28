@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dagster-cloud
-Version: 1.13.19
+Version: 1.13.20
 Project-URL: Homepage, https://dagster.io/cloud
 Project-URL: GitHub, https://github.com/dagster-io/dagster-cloud
 Project-URL: Changelog, https://github.com/dagster-io/dagster-cloud/blob/main/CHANGES.md
@@ -28,23 +28,23 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: System :: Monitoring
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster-cloud-cli==1.13.19
-Requires-Dist: dagster-shared==1.13.19
-Requires-Dist: dagster==1.13.19
+Requires-Dist: dagster-cloud-cli==1.13.20
+Requires-Dist: dagster-shared==1.13.20
+Requires-Dist: dagster==1.13.20
 Requires-Dist: pex<2.60.0,>=2.1.132
 Requires-Dist: questionary
 Requires-Dist: requests
 Requires-Dist: typer>=0.15.0
 Provides-Extra: docker
-Requires-Dist: dagster-docker==0.29.19; extra == 'docker'
+Requires-Dist: dagster-docker==0.29.20; extra == 'docker'
 Requires-Dist: docker; extra == 'docker'
 Provides-Extra: ecs
 Requires-Dist: boto3; extra == 'ecs'
-Requires-Dist: dagster-aws==0.29.19; extra == 'ecs'
+Requires-Dist: dagster-aws==0.29.20; extra == 'ecs'
 Provides-Extra: insights
 Requires-Dist: pyarrow; extra == 'insights'
 Provides-Extra: kubernetes
-Requires-Dist: dagster-k8s==0.29.19; extra == 'kubernetes'
+Requires-Dist: dagster-k8s==0.29.20; extra == 'kubernetes'
 Requires-Dist: kubernetes; extra == 'kubernetes'
 Provides-Extra: pex
 Requires-Dist: boto3; extra == 'pex'

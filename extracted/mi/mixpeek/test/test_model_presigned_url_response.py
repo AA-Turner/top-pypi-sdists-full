@@ -38,6 +38,7 @@ class TestModelPresignedURLResponse(unittest.TestCase):
             return ModelPresignedURLResponse(
                 upload_id = '',
                 presigned_url = '',
+                required_content_type = 'application/gzip',
                 s3_key = '',
                 expires_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 organization_id = '',

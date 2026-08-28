@@ -180,7 +180,8 @@ def _build_whisper_request(kwargs: Dict[str, Any], model_key: str) -> Transcribe
         "request_id": kwargs.get("request_id", make_request_id()),
     }
     for k in ("model_size", "language", "capture_frames",
-              "min_gap_seconds", "long_segment_seconds", "pool"):
+              "min_gap_seconds", "long_segment_seconds", "pool",
+              "word_timestamps"):
         if k in kwargs:
             out[k] = kwargs[k]
     # 'task' in prompt_kwargs is the dispatch task key, so whisper's own
@@ -191,6 +192,41 @@ def _build_whisper_request(kwargs: Dict[str, Any], model_key: str) -> Transcribe
     if whisper_task is not None:
         out["task"] = whisper_task
     return TranscribeRequest(**out)
+
+
+def _build_tts_request(kwargs: Dict[str, Any], model_key: str) -> TtsRequest:
+    """text-to-speech: the line to speak, plus an optional AUTHORIZED reference
+    voice.
+
+    ``authorized`` is forwarded but never DEFAULTED to True here: it means "k97's
+    VOICE gate demanded a grant for this request and got one", a fact only the
+    caller upstream of this builder can know. A reference voice that arrives
+    without it is refused by the adapter (``ReferenceVoiceUnauthorized``) rather
+    than silently downgraded to the default voice — doc invariant 12.
+    """
+    text = kwargs.get("text") or kwargs.get("prompt")
+    if text is None and kwargs.get("file"):
+        text = read_from_file(kwargs["file"])
+    if text is None or not str(text).strip():
+        raise ValueError(
+            "text-to-speech request needs 'text', 'prompt', or 'file'; "
+            f"got keys: {sorted(kwargs)}"
+        )
+
+    out: Dict[str, Any] = {
+        "model_key": model_key,
+        "text": str(text),
+        "request_id": kwargs.get("request_id", make_request_id()),
+    }
+    # ``reference_audio`` is the voice to clone; a worker rematerializes an
+    # inlined file under the key ``file``, so an audio ``file`` counts as the
+    # reference ONLY when the caller did not also send the line as text —
+    # otherwise the same key would mean two different things. Explicit key wins.
+    for k in ("reference_audio", "authorized", "voice_style", "seed",
+              "language", "device", "return_b64", "pool"):
+        if k in kwargs:
+            out[k] = kwargs[k]
+    return TtsRequest(**out)
 
 
 def _build_summarize_request(kwargs: Dict[str, Any], model_key: str) -> "SummarizeRequest":
@@ -517,6 +553,7 @@ MODEL_REQUEST_BUILDERS: Dict[Tuple[str, str], Callable[[Dict[str, Any], str], Ba
     # the runner attaches it as an image_url part for the multimodal handler.
     ("gguf",         "image-text-to-text"):           _build_vision_chat_request,
     ("transformers", "automatic-speech-recognition"): _build_whisper_request,
+    ("transformers", "text-to-speech"):               _build_tts_request,
     ("transformers", "text-summarization"):                _build_summarize_request,
     ("transformers", "text2text-generation"):         _build_summarize_request,
     ("transformers", "feature-extraction"):           _build_embed_request,

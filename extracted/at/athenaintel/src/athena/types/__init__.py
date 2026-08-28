@@ -41,6 +41,8 @@ if typing.TYPE_CHECKING:
     from .chunk_result import ChunkResult
     from .chunk_result_chunk_id import ChunkResultChunkId
     from .collab_agent_send_message_response_out import CollabAgentSendMessageResponseOut
+    from .collab_token_response import CollabTokenResponse
+    from .collab_token_response_access_type import CollabTokenResponseAccessType
     from .conversation_asset_info import ConversationAssetInfo
     from .conversation_message import ConversationMessage
     from .conversation_message_content import ConversationMessageContent
@@ -194,6 +196,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChunkResult": ".chunk_result",
     "ChunkResultChunkId": ".chunk_result_chunk_id",
     "CollabAgentSendMessageResponseOut": ".collab_agent_send_message_response_out",
+    "CollabTokenResponse": ".collab_token_response",
+    "CollabTokenResponseAccessType": ".collab_token_response_access_type",
     "ConversationAssetInfo": ".conversation_asset_info",
     "ConversationMessage": ".conversation_message",
     "ConversationMessageContent": ".conversation_message_content",
@@ -369,6 +373,8 @@ __all__ = [
     "ChunkResult",
     "ChunkResultChunkId",
     "CollabAgentSendMessageResponseOut",
+    "CollabTokenResponse",
+    "CollabTokenResponseAccessType",
     "ConversationAssetInfo",
     "ConversationMessage",
     "ConversationMessageContent",

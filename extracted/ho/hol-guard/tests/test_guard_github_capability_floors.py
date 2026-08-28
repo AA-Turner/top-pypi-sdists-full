@@ -49,16 +49,6 @@ _EXPECTED_FLOORS = {
                 "api",
                 "graphql",
                 "-f",
-                'query=mutation{resolveReviewThread(input:{threadId:"PRRT_kwDOQGomAs6T6b-G"}){thread{isResolved}}}',
-            ),
-            ("routine_review_thread_remote",),
-            False,
-        ),
-        (
-            (
-                "api",
-                "graphql",
-                "-f",
                 'query=mutation { resolveReviewThread(input: {threadId: "T"}) { thread { id } } }',
             ),
             ("maintain_remote",),
@@ -126,13 +116,7 @@ def test_every_capability_has_an_explicit_floor(capability: GitHubCommandCapabil
 
 @pytest.mark.parametrize(
     "capability",
-    (
-        "read_local",
-        "read_remote",
-        "propose_remote",
-        "routine_merge_remote",
-        "routine_review_thread_remote",
-    ),
+    ("read_local", "read_remote", "propose_remote", "routine_review_thread_remote"),
 )
 def test_prompt_free_capabilities_cannot_be_rendered_as_review_actions(capability: GitHubCommandCapability) -> None:
     assessment = github_assessment(capability, "test.read", "test read")
@@ -148,22 +132,16 @@ def test_admin_merge_action_class_is_preserved_with_branch_deletion() -> None:
     assert github_capability_action_class(assessment) == "GitHub administrator pull-request merge command"
 
 
-def test_routine_squash_merge_is_prompt_free() -> None:
-    match = extract_sensitive_tool_action_request(
-        "Bash",
-        {"command": "gh pr merge 4615 --squash"},
-    )
-
-    assert match is None
-
-
-def test_routine_squash_merge_with_static_repository_is_prompt_free() -> None:
-    match = extract_sensitive_tool_action_request(
-        "Bash",
-        {"command": ("gh pr merge 4751 --repo example/project --squash")},
-    )
-
-    assert match is None
+@pytest.mark.parametrize(
+    "command",
+    (
+        "gh pr merge 17 --squash",
+        "gh pr merge 4751 --repo example/project --squash",
+        "gh pr merge 4751 -R github.com/example/project --squash",
+    ),
+)
+def test_routine_squash_merge_is_prompt_free(command: str) -> None:
+    assert extract_sensitive_tool_action_request("Bash", {"command": command}) is None
 
 
 def test_routine_squash_merge_cleanup_followed_by_read_is_prompt_free() -> None:
@@ -247,6 +225,45 @@ def test_pipeline_boundary_preserves_following_github_capability(
 
     assert assessment is not None
     assert assessment.capabilities == capabilities
+
+
+@pytest.mark.parametrize(
+    ("command", "capabilities"),
+    (
+        ("false && true || gh repo delete o/r --yes", ("delete_remote",)),
+        ("true >/missing/path || false || gh repo delete o/r --yes", ("delete_remote",)),
+        ("true>/missing/path || gh repo delete o/r --yes", ("delete_remote",)),
+        ("true && false || gh repo delete o/r --yes", ("delete_remote",)),
+        ("false || gh repo delete o/r --yes", ("delete_remote",)),
+        ("make && gh repo delete o/r --yes", ("delete_remote",)),
+        ("true && gh repo delete o/r --yes", ("delete_remote",)),
+    ),
+)
+def test_left_associative_and_or_does_not_skip_reachable_github_deletes(
+    tmp_path: Path,
+    command: str,
+    capabilities: tuple[GitHubCommandCapability, ...],
+) -> None:
+    assessment = classify_github_shell_capabilities(command, home_dir=tmp_path)
+
+    assert assessment is not None
+    assert assessment.capabilities == capabilities
+    match = extract_sensitive_tool_action_request("Bash", {"command": command}, cwd=tmp_path)
+    assert match is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "false && gh repo delete o/r --yes",
+        "true || gh repo delete o/r --yes",
+        "false && true && gh repo delete o/r --yes",
+    ),
+)
+def test_statically_dead_and_or_skips_github_deletes(tmp_path: Path, command: str) -> None:
+    assessment = classify_github_shell_capabilities(command, home_dir=tmp_path)
+
+    assert assessment is None
 
 
 def test_local_write_cannot_mask_remote_secret_capability(tmp_path: Path) -> None:

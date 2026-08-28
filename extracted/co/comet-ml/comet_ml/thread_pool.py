@@ -18,7 +18,7 @@ import multiprocessing
 import time
 from concurrent.futures import CancelledError
 from multiprocessing.pool import AsyncResult
-from typing import Any, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 from .config import DEFAULT_POOL_RATIO, MAX_POOL_SIZE
 from .oscontainer import OSContainer
@@ -31,7 +31,9 @@ class Future(object):
     """Encapsulates the asynchronous execution of a callable."""
 
     def __init__(
-        self, future: concurrent.futures.Future = None, async_result: AsyncResult = None
+        self,
+        future: Optional[concurrent.futures.Future] = None,
+        async_result: Optional[AsyncResult] = None,
     ) -> None:
         if future is None and async_result is None:
             raise ValueError("You need to provide either future or async_result")
@@ -65,6 +67,35 @@ class Future(object):
             return self._async_result.successful()
         else:
             self._raise_inconsistent_state()
+
+    def add_done_callback(self, callback: Any) -> bool:
+        """Registers a callback invoked exactly once when the call finishes.
+
+        It runs whether the call returned, raised, or was cancelled without ever
+        running, which makes it the only hook that covers releasing a resource
+        held on behalf of a task that never started. Returns False when the
+        underlying implementation cannot offer that guarantee, so callers know
+        they are on their own.
+        """
+        if self._future is not None:
+            self._future.add_done_callback(callback)
+            return True
+
+        return False
+
+    def cancel(self) -> bool:
+        """Attempts to cancel the call, returning whether it was cancelled.
+
+        Only succeeds while the call is still queued: one that has started cannot be
+        taken back. Returns False when the underlying implementation cannot cancel at
+        all, following add_done_callback above, so a caller can tell "refused" from
+        "unsupported" only by knowing which pool it holds - and in both cases must
+        assume the call may still run.
+        """
+        if self._future is not None:
+            return self._future.cancel()
+
+        return False
 
     def result(self, timeout: Union[int, float] = None) -> Any:
         """Return the value returned by the call. If the call has not yet completed then this method will

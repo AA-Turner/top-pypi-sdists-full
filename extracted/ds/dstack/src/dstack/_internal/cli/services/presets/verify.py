@@ -9,10 +9,7 @@ from dstack._internal.cli.models.preset_agent import (
     AnyPresetAgentResult,
     PresetAgentSuccess,
 )
-from dstack._internal.cli.models.presets import (
-    PresetVerificationReplicaGroup,
-    VerifiedPreset,
-)
+from dstack._internal.cli.models.presets import VerifiedPreset
 from dstack._internal.cli.services.presets.agent import (
     PresetAgentProcessOutput,
 )
@@ -28,9 +25,13 @@ from dstack._internal.cli.services.presets.workspace import (
     PresetAgentWorkspace,
 )
 from dstack._internal.core.errors import CLIError
-from dstack._internal.core.models.configurations import ServiceConfiguration
+from dstack._internal.core.models.configurations import PresetConfiguration, ServiceConfiguration
 from dstack._internal.core.models.envs import EnvSentinel
-from dstack._internal.core.models.presets import PresetConfiguration
+from dstack._internal.core.models.presets import (
+    PresetBenchmark,
+    PresetVerificationReplicaGroup,
+    PresetWorkload,
+)
 from dstack._internal.core.models.runs import JobStatus, Run, RunStatus
 
 
@@ -87,7 +88,7 @@ def build_verified_preset(
     session_path: Path,
     preset_id: str,
     name: Optional[str],
-    submitted_at: datetime,
+    created_at: datetime,
 ) -> VerifiedPreset:
     """Cross-checks the agent's self-reported final report against the actual run
     and service state before trusting it to build a preset. The preset's service is
@@ -108,13 +109,16 @@ def build_verified_preset(
         ),
         verification_replica_groups=_get_verification_replica_groups(run, service),
         base_model=report.base,
-        model=report.model,
+        # The agent reports the served repo as `model`, the name the system
+        # prompt has always used; the preset document calls it `repo`, so that
+        # it cannot be confused with the service's client-facing model name.
+        repo=report.model,
         context_length=report.context_length,
-        benchmark=report.benchmark,
+        benchmark=_normalized_benchmark(report.benchmark, preset_configuration),
         best_trial=report.trial,
         configuration=preset_configuration,
         preset_id=preset_id,
-        submitted_at=submitted_at,
+        created_at=created_at,
     )
 
 
@@ -134,16 +138,61 @@ def _verified_run_service(run: Run, report: PresetAgentSuccess) -> ServiceConfig
 def _check_report_answers_request(
     report: PresetAgentSuccess, configuration: PresetConfiguration
 ) -> None:
-    """The report must answer what the configuration asked: the same dataset, and
-    the requested model — exactly when it was exact, any variant of the base
-    otherwise."""
-    if report.benchmark.workload.dataset != configuration.effective_dataset:
-        raise CLIError("Claude final benchmark dataset does not match the requested dataset")
+    """The report must answer what the configuration asked: the same benchmark
+    workload, and the requested model — exactly when it was exact, any variant of
+    the base otherwise."""
+    _check_workload_answers_request(report.benchmark.workload, configuration)
     if configuration.model.allows_variant_selection:
         if report.base != configuration.model.api_model_name:
             raise CLIError("Claude final report base does not match the requested model")
     elif report.model != configuration.model.exact_repo:
         raise CLIError("Claude changed an exact model request")
+
+
+def _check_workload_answers_request(
+    workload: PresetWorkload, configuration: PresetConfiguration
+) -> None:
+    """Only what the configuration specifies exactly is compared. A named dataset is
+    compared by name, because the request and the report both use the dataset's own
+    name. A synthetic workload has no such shared name — the report's `dataset`, if
+    any, is the benchmark tool's own name for the data it generated — so the shared
+    prefix it was run with is compared instead. `input_tokens` and `output_tokens`
+    are what the benchmark measured rather than an echo of the request, so they are
+    not compared."""
+    if configuration.dataset is not None:
+        if workload.dataset != configuration.dataset:
+            raise CLIError(
+                f"Claude final benchmark dataset {workload.dataset!r} does not match the"
+                f" requested dataset {configuration.dataset!r}"
+            )
+    else:
+        shared_prefix_tokens = configuration.shared_prefix_tokens or 0
+        if workload.shared_prefix_tokens != shared_prefix_tokens:
+            raise CLIError(
+                f"Claude final benchmark shared prefix of {workload.shared_prefix_tokens}"
+                f" tokens does not match the requested {shared_prefix_tokens}"
+            )
+    if configuration.concurrency is not None and workload.concurrency != configuration.concurrency:
+        raise CLIError(
+            f"Claude final benchmark concurrency of {workload.concurrency} does not match the"
+            f" requested concurrency of {configuration.concurrency}"
+        )
+
+
+def _normalized_benchmark(
+    benchmark: PresetBenchmark, configuration: PresetConfiguration
+) -> PresetBenchmark:
+    """The stored workload states the request, and the configuration is the
+    authority on what was requested: a synthetic run carries no dataset — whatever
+    the benchmark tool called its generated data is already on record in `command`
+    — and a dataset run carries no shared prefix. The agent's report may volunteer
+    either; neither is trusted into the record."""
+    workload = benchmark.workload.model_copy(
+        update=(
+            {"dataset": None} if configuration.dataset is None else {"shared_prefix_tokens": 0}
+        )
+    )
+    return benchmark.model_copy(update={"workload": workload})
 
 
 def _portable_service(

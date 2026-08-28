@@ -23,6 +23,7 @@ from ..types.activity_clock_range_in import ActivityClockRangeIn
 from ..types.archive_asset_response_out import ArchiveAssetResponseOut
 from ..types.asset_activity_delta_response_out import AssetActivityDeltaResponseOut
 from ..types.asset_activity_response_out import AssetActivityResponseOut
+from ..types.collab_token_response import CollabTokenResponse
 from ..types.convert_excel_to_sheet_response_out import ConvertExcelToSheetResponseOut
 from ..types.creatable_asset_type import CreatableAssetType
 from ..types.create_asset_response_out import CreateAssetResponseOut
@@ -36,6 +37,7 @@ from ..types.share_asset_response_out import ShareAssetResponseOut
 from ..types.share_recipient import ShareRecipient
 from ..types.workspace_access_response_out import WorkspaceAccessResponseOut
 from ..types.workspace_share_access import WorkspaceShareAccess
+from .types.collab_token_request_access import CollabTokenRequestAccess
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -250,7 +252,7 @@ class RawAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateAssetResponseOut]:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, or computer in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously.
 
         Parameters
         ----------
@@ -1131,6 +1133,69 @@ class RawAssetsClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def create_collab_token(
+        self,
+        asset_id: str,
+        *,
+        access: typing.Optional[CollabTokenRequestAccess] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[CollabTokenResponse]:
+        """
+        Admin only. Mint a short-lived Keryx capability token for a Generic Doc asset, enabling live collaborative reads (and, with edit permission, writes) over WebSocket and REST. Only generic_doc assets are eligible — Athena-managed asset types are never reachable through this endpoint. The requested access is a ceiling clamped by the caller's permission on the asset.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        access : typing.Optional[CollabTokenRequestAccess]
+            Requested access ceiling. This is a ceiling, not a grant: 'edit' is clamped to read-only unless the caller has edit permission on the asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[CollabTokenResponse]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/collab-token",
+            method="POST",
+            json={
+                "access": access,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    CollabTokenResponse,
+                    parse_obj_as(
+                        type_=CollabTokenResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     @contextlib.contextmanager
     def download(
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -1719,7 +1784,7 @@ class AsyncRawAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateAssetResponseOut]:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, or computer in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously.
 
         Parameters
         ----------
@@ -2584,6 +2649,69 @@ class AsyncRawAssetsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def create_collab_token(
+        self,
+        asset_id: str,
+        *,
+        access: typing.Optional[CollabTokenRequestAccess] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[CollabTokenResponse]:
+        """
+        Admin only. Mint a short-lived Keryx capability token for a Generic Doc asset, enabling live collaborative reads (and, with edit permission, writes) over WebSocket and REST. Only generic_doc assets are eligible — Athena-managed asset types are never reachable through this endpoint. The requested access is a ceiling clamped by the caller's permission on the asset.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        access : typing.Optional[CollabTokenRequestAccess]
+            Requested access ceiling. This is a ceiling, not a grant: 'edit' is clamped to read-only unless the caller has edit permission on the asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[CollabTokenResponse]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/collab-token",
+            method="POST",
+            json={
+                "access": access,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    CollabTokenResponse,
+                    parse_obj_as(
+                        type_=CollabTokenResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),

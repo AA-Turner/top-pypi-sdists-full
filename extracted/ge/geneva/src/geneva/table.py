@@ -82,6 +82,7 @@ from geneva.transformer import (
 )
 from geneva.utils import redact_dict_values, status_updates
 from geneva.utils.batch_size import resolve_batch_size
+from geneva.utils.lancedb_abc import implement_missing_abstracts
 from geneva.utils.remote_options import build_remote_request
 from geneva.utils.schema import canonical_field_paths, resolve_arrow_field_path
 
@@ -567,6 +568,8 @@ def _make_udtf_processor_actor() -> Any:
     import attrs
     import ray
 
+    from geneva.runners.ray.naming import ray_name
+
     @ray.remote  # type: ignore[misc]
     @attrs.define
     class UDTFProcessorActor:  # pyright: ignore[reportRedeclaration]
@@ -637,13 +640,16 @@ def _make_udtf_processor_actor() -> Any:
             self._initialized = True
 
         def __repr__(self) -> str:
+            """Crash-safe label Ray shows in the dashboard and log prefixes."""
             try:
-                return (
-                    f"UDTFProcessorActor(source={self.source_name!r}, "
-                    f"store={self.ckp_store_uri!r})"
+                return ray_name(
+                    "udtf.processor",
+                    table=self.dest_table_name or None,
+                    job_id=self.job_id or None,
+                    detail=f"src={self.source_name}",
                 )
             except Exception:
-                return "<UDTFProcessorActor (repr failed)>"
+                return "udtf.processor"
 
         def _build_source_query(self, partition_filter: str | None) -> Any:
             """Build the source query, optionally scoped to a partition."""
@@ -937,6 +943,38 @@ class _IndexPartitionInfo:
     partition_ordinal: int
     index_name: str
     column: str
+
+
+def _udtf_partition_detail(
+    work_item: tuple, *, partition_column: str | None = None
+) -> str | None:
+    """Best-effort partition label for a UDTF task's Ray name.
+
+    Identifies the partition without disclosing it. A column partition's SQL
+    predicate is built from a raw source value (``country = 'FR'``), and a Ray
+    name is displayed in the dashboard, served by the state API and stamped
+    onto worker log lines -- so the value is reduced to a short digest of the
+    predicate. Two tasks stay distinguishable and a partition keeps the same
+    label across retries and re-runs, while the value itself stays where it
+    already lives (the checkpoint prefix), out of the observability surface.
+
+    The digest identifies, it does not protect: for a low-cardinality column
+    anyone holding the distinct values can re-derive the mapping -- which is
+    also what makes it usable, since an operator hunting a known partition can
+    hash it and grep for the task.
+
+    Never raises: a work item that can't be described just loses the detail.
+    """
+    try:
+        partition_filter, _prefix, index_info = work_item
+        if index_info is not None:
+            return f"part={index_info.column}#{index_info.partition_ordinal}"
+        if partition_filter:
+            digest = hashlib.sha256(str(partition_filter).encode()).hexdigest()[:8]
+            return f"part={partition_column or ''}#{digest}"
+        return None
+    except Exception:
+        return None
 
 
 def _index_stats_for_partition_planning(
@@ -1606,6 +1644,7 @@ class TableReference:
         )
 
 
+@implement_missing_abstracts
 class Table(LanceTable):
     """Table in Geneva.
 
@@ -2250,6 +2289,15 @@ class Table(LanceTable):
             mv_version_bytes = metadata.get(MATVIEW_META_VERSION.encode(), b"1")
             mv_version_str = mv_version_bytes.decode()
 
+            try:
+                self._warn_refresh_manifests(
+                    mv_version_str=mv_version_str,
+                    metadata=metadata,
+                )
+            except Exception as e:
+                # A diagnostic must never fail the refresh it describes.
+                _LOG.debug("Could not check refresh manifests: %s", e)
+
             self._validate_refresh_admission(
                 mv_version_str=mv_version_str,
                 metadata=metadata,
@@ -2372,6 +2420,73 @@ class Table(LanceTable):
 
             self.checkout_latest()
             return self._build_refresh_result(job_id)
+
+    def _warn_refresh_manifests(
+        self,
+        *,
+        mv_version_str: str,
+        metadata: dict,
+    ) -> None:
+        """Warn for manifests that this refresh cannot apply.
+
+        Mirrors :meth:`_validate_refresh_admission`'s dispatch across the
+        three view kinds, pulling the UDTF / chunker / column UDFs off the
+        MV metadata. Local dispatch builds the worker environment at
+        cluster-context entry, so a manifest carried by any of them is
+        inert here. Never gated on admission config — the environment
+        mismatch is worth surfacing either way.
+        """
+        from geneva.manifest.mgr import warn_if_manifest_not_applied
+        from geneva.query import MATVIEW_META_QUERY, MATVIEW_META_UDTF, GenevaQuery
+
+        target = f"view {self._name!r}"
+
+        if mv_version_str == "udtf":
+            from geneva.packager import UDTFSpec, unmarshal_udtf
+
+            spec_json = metadata.get(MATVIEW_META_UDTF.encode())
+            if not spec_json:
+                return
+            udtf_obj = unmarshal_udtf(UDTFSpec.from_json(spec_json.decode()))
+            if udtf_obj is None:
+                return
+            warn_if_manifest_not_applied(
+                udtf_obj.manifest,
+                target=target,
+                udf_name=udtf_obj.name or self._name,
+                operation="refresh",
+            )
+            return
+
+        if _is_chunker_mv_version(mv_version_str):
+            from geneva.packager import ChunkerSpec, unmarshal_chunker
+
+            spec_json = _get_chunker_metadata(metadata)
+            if not spec_json:
+                return
+            chunker_obj = unmarshal_chunker(ChunkerSpec.from_json(spec_json.decode()))
+            if chunker_obj is None:
+                return
+            warn_if_manifest_not_applied(
+                chunker_obj.manifest,
+                target=target,
+                udf_name=chunker_obj.name or self._name,
+                operation="refresh",
+            )
+            return
+
+        # Plain query MV: one warning per column UDF carrying a manifest.
+        query_json = metadata.get(MATVIEW_META_QUERY.encode())
+        if not query_json:
+            return
+        query = GenevaQuery.model_validate_json(query_json.decode())
+        for column_udf in query.extract_column_udfs(self._conn._packager):
+            warn_if_manifest_not_applied(
+                column_udf.udf.manifest,
+                target=f"column {column_udf.output_name!r} of {target}",
+                udf_name=column_udf.udf.name or column_udf.output_name,
+                operation="refresh",
+            )
 
     def _validate_refresh_admission(
         self,
@@ -2838,6 +2953,7 @@ class Table(LanceTable):
             JobTracker,
             job_tracker_throttle_kwargs,
         )
+        from geneva.runners.ray.naming import job_tracker_name
         from geneva.runners.ray.pipeline import _emit_phase
 
         schema = open_read_dataset(self).schema
@@ -2956,7 +3072,7 @@ class Table(LanceTable):
         if job_tracker is None:
             rc = PipelineResourceConfig.get()
             job_tracker = JobTracker.options(
-                name=f"jobtracker-udtf-{job_id}",
+                name=job_tracker_name(job_id, prefix="jobtracker-udtf"),
                 num_cpus=rc.jobtracker_num_cpus,
                 memory=rc.jobtracker_memory,
                 max_restarts=-1,
@@ -3080,6 +3196,7 @@ class Table(LanceTable):
         )
         from geneva.runners.ray.actor_pool import ActorPool
         from geneva.runners.ray.jobtracker import report_plan_progress
+        from geneva.runners.ray.naming import ray_name
         from geneva.runners.ray.pipeline import _emit_otel_metrics
         from geneva.tqdm import Colors, fmt, tqdm
 
@@ -3163,7 +3280,17 @@ class Table(LanceTable):
             trace_carrier = telemetry.inject_context()
             try:
                 for result in pool.map_unordered(
-                    lambda actor, item: actor.process_partition.remote(
+                    lambda actor, item: actor.process_partition.options(
+                        name=ray_name(
+                            "udtf.process_partition",
+                            table=self.name,
+                            column=udtf_obj.name,
+                            job_id=job_id,
+                            detail=_udtf_partition_detail(
+                                item, partition_column=udtf_obj.partition_by
+                            ),
+                        )
+                    ).remote(
                         item[0],
                         item[1],
                         (
@@ -3569,11 +3696,25 @@ class Table(LanceTable):
         ):
             kwargs.setdefault("_skip_checkpoint_index_scan", True)
 
+        # Local dispatch builds the worker environment at cluster-context
+        # entry, so a manifest carried by the UDF cannot take effect here.
+        # Warn rather than fail: the column still backfills, just under the
+        # cluster's environment.
+        if current_udf is not None:
+            from geneva.manifest.mgr import warn_if_manifest_not_applied
+
+            warn_if_manifest_not_applied(
+                current_udf.manifest,
+                target=f"column {col_name!r}",
+                udf_name=current_udf.name or col_name,
+            )
+
         # Admission control: validate cluster has sufficient resources
         # Always call validate_admission when there's a UDF - it handles check=None
         # by reading from config (GENEVA_ADMISSION__CHECK env var, default True)
         from geneva.jobs.config import JobConfig
         from geneva.runners.ray.admission import validate_admission
+        from geneva.runners.ray.memory_budget import resolve_default_actor_memory
 
         if current_udf is not None:
             # Mirror setup_actor's CPU reservation so admission catches
@@ -3581,6 +3722,20 @@ class Table(LanceTable):
             # 1+pipelining_num_readers CPUs but admission saw 1) before
             # the actor wedges Ray's lease queue indefinitely.
             _job_cfg = JobConfig.get()
+            # The unset-memory floor for this backfill, priced once here on the
+            # client. The same figure goes to admission and, below, to the
+            # actor: the two run in different processes, whose JobConfigs a
+            # runtime-env override can separate, so resolving it twice can
+            # name two numbers.
+            #
+            # Zero for a sparse update. That mode routes to its own pipeline,
+            # whose actor requests no Ray resources at all, so pricing the
+            # floor here would warn about memory the job never asks for.
+            _default_memory_bytes = (
+                0
+                if kwargs.get("update_mode") is not None
+                else resolve_default_actor_memory()
+            )
             validate_admission(
                 current_udf,
                 concurrency=concurrency,
@@ -3589,7 +3744,11 @@ class Table(LanceTable):
                 pipelining_num_readers=_job_cfg.pipelining_num_readers,
                 check=_admission_check,
                 strict=_admission_strict,
+                default_memory_bytes=_default_memory_bytes,
             )
+            # ``_`` prefix keeps it off the remote (db://) path, like the
+            # other internal planner options -- see geneva.utils.remote_options.
+            kwargs["_default_actor_memory_bytes"] = _default_memory_bytes
 
         # Mint the job_id up front so the root span carries the real id.
         if job_id is None:

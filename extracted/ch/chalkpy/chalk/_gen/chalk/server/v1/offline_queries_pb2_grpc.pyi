@@ -28,6 +28,8 @@ from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     GetOfflineQueryShardsAggregatedResponse,
     GetOfflineQueryUtilizationSummariesRequest,
     GetOfflineQueryUtilizationSummariesResponse,
+    GetResourceGroupEfficiencyTimeseriesRequest,
+    GetResourceGroupEfficiencyTimeseriesResponse,
     GetResourceGroupJobTimeseriesRequest,
     GetResourceGroupJobTimeseriesResponse,
     GetResourceGroupUtilizationTimeseriesRequest,
@@ -95,6 +97,10 @@ class OfflineQueryMetadataServiceStub:
     GetResourceGroupJobTimeseries: UnaryUnaryMultiCallable[
         GetResourceGroupJobTimeseriesRequest,
         GetResourceGroupJobTimeseriesResponse,
+    ]
+    GetResourceGroupEfficiencyTimeseries: UnaryUnaryMultiCallable[
+        GetResourceGroupEfficiencyTimeseriesRequest,
+        GetResourceGroupEfficiencyTimeseriesResponse,
     ]
     ListOfflineQueryShardPerformanceSummaries: UnaryUnaryMultiCallable[
         ListOfflineQueryShardPerformanceSummariesRequest,
@@ -190,6 +196,12 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         request: GetResourceGroupJobTimeseriesRequest,
         context: ServicerContext,
     ) -> GetResourceGroupJobTimeseriesResponse: ...
+    @abstractmethod
+    def GetResourceGroupEfficiencyTimeseries(
+        self,
+        request: GetResourceGroupEfficiencyTimeseriesRequest,
+        context: ServicerContext,
+    ) -> GetResourceGroupEfficiencyTimeseriesResponse: ...
     @abstractmethod
     def ListOfflineQueryShardPerformanceSummaries(
         self,

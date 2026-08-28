@@ -79,7 +79,8 @@ def test_attribution_alone_never_reads_as_disk_pressure():
     # ATTRIBUTION must not flip the disk-pressure gauge on. Over-subscription is
     # surfaced structurally (attributed_over_budget_bytes), separately.
     w = _worker(
-        limits={"disk_cache_gib": 50},              # 50 GiB budget
+        # 100 allocated - 50 reserve (carved out, 2026-08-22) = 50 GiB budget
+        limits={"disk_cache_gib": 100},
         disk={"free_bytes": 400 * GiB, "total_bytes": 500 * GiB},
     )
     w["storage"]["cache_used_bytes"] = 2 * GiB      # almost nothing on disk

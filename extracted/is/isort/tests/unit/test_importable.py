@@ -2,7 +2,10 @@
 
 # ruff: noqa: PLC0415
 
+import subprocess
+import sys
 from contextlib import suppress
+from pathlib import Path
 
 
 def test_importable():
@@ -47,3 +50,16 @@ def test_importable():
     # in isort.__main__ when it tries to parse the pytest argv.
     with suppress(SystemExit):
         import isort.__main__  # noqa: F401
+
+
+def test_module_cli_invocation_works(tmp_path: Path) -> None:
+    file_path = tmp_path / "sample.py"
+    file_path.write_text("import os\nimport sys\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "isort", str(file_path), "--check-only"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

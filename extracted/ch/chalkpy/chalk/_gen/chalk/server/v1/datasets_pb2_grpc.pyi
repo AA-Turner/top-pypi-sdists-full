@@ -28,6 +28,8 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     GetDatasetResponse,
     GetDatasetRevisionDownloadLinksRequest,
     GetDatasetRevisionDownloadLinksResponse,
+    GetDatasetRevisionPerformanceLinksRequest,
+    GetDatasetRevisionPerformanceLinksResponse,
     GetDatasetRevisionPreviewRequest,
     GetDatasetRevisionPreviewResponse,
     GetDatasetRevisionRequest,
@@ -87,6 +89,10 @@ class DatasetMetadataServiceStub:
     GetDatasetRevisionDownloadLinks: UnaryUnaryMultiCallable[
         GetDatasetRevisionDownloadLinksRequest,
         GetDatasetRevisionDownloadLinksResponse,
+    ]
+    GetDatasetRevisionPerformanceLinks: UnaryUnaryMultiCallable[
+        GetDatasetRevisionPerformanceLinksRequest,
+        GetDatasetRevisionPerformanceLinksResponse,
     ]
     StreamDatasetRevisionDownloadLinks: UnaryStreamMultiCallable[
         StreamDatasetRevisionDownloadLinksRequest,
@@ -218,6 +224,12 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         request: GetDatasetRevisionDownloadLinksRequest,
         context: ServicerContext,
     ) -> GetDatasetRevisionDownloadLinksResponse: ...
+    @abstractmethod
+    def GetDatasetRevisionPerformanceLinks(
+        self,
+        request: GetDatasetRevisionPerformanceLinksRequest,
+        context: ServicerContext,
+    ) -> GetDatasetRevisionPerformanceLinksResponse: ...
     @abstractmethod
     def StreamDatasetRevisionDownloadLinks(
         self,

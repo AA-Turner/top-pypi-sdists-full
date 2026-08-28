@@ -14,6 +14,7 @@
 #    under the License.
 
 from openstackclient.tests.functional.image import base
+from tempest.lib import exceptions
 
 
 class InfoTests(base.BaseImageTests):
@@ -28,3 +29,22 @@ class InfoTests(base.BaseImageTests):
     def test_image_import_info(self):
         output = self.openstack('image import info', parse_output=True)
         self.assertIsNotNone(output['import-methods'])
+
+    def test_image_stores_list(self):
+        try:
+            output = self.openstack(
+                'image stores list',
+                parse_output=True,
+            )
+        except exceptions.CommandFailed as e:
+            msg = str(e.stdout or '') + str(e.stderr or '')
+            if "Multi Backend support not enabled" in msg:
+                self.skipTest("Multi Backend support not enabled")
+            raise
+
+        self.assertIsInstance(output, list)
+        if output:
+            self.assert_table_structure(
+                output,
+                ['ID', 'Description', 'Default'],
+            )

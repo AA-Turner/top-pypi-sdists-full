@@ -284,24 +284,29 @@ try:
          gpus=[{"name": "rtx", "memory_free": 8 * 2**30, "memory_total": 24 * 2**30}])
     mc.set_worker_wildcard("wild-box", True)
 
+    # REVISED 2026-08-28 (operator ruling, coder-next/computron): ALLOCATION
+    # IS HARD SCOPE. A model with designation rows lands ONLY on them — a
+    # wildcard box never catches an ALLOCATED model, so the old
+    # overflow-by-ordering onto wildcards is retired for allocated models
+    # (an unallocated model still wildcard-catches — section [4]).
     ids = [w["id"] for w in store.candidates_for_model(ASSIGNED)]
-    check("candidates_for_model ranks HOME above the (GPU-better) wildcard catch",
-          ids == ["home-box", "wild-box"])
+    check("allocated model: the (GPU-better) wildcard box is scoped OUT",
+          ids == ["home-box"])
     pick = store.pick_for_model(ASSIGNED)
     check("pick_for_model chooses the home worker while home is available",
           pick and pick["id"] == "home-box")
 
-    # Home workers all unavailable (engine affirmatively unusable) -> the same
-    # ranked walk lands on the wildcard box: overflow IS the ordering.
+    # Home workers all unavailable (engine affirmatively unusable) -> HARD
+    # scope: no candidate at all (an honest hold/busy upstream), NEVER a
+    # wildcard box the model was not allocated to.
     store.register(name="home-box", url="http://home-box:9100",
                    worker_id="home-box", models=[ASSIGNED],
                    engine={"installed": False})
     pick = store.pick_for_model(ASSIGNED)
-    check("overflow-by-ordering: home excluded -> wildcard worker is chosen",
-          pick and pick["id"] == "wild-box")
-    check("the overflow candidate is visibly a wildcard catch",
-          [w.get("_wildcard_catch") for w in store.workers_for_model(ASSIGNED)]
-          == [True])
+    check("hard scope: home excluded -> NO candidate (never the wildcard)",
+          pick is None)
+    check("hard scope: the candidate walk is empty too",
+          store.workers_for_model(ASSIGNED) == [])
 
     # ── [6] blocked-sibling guard ───────────────────────────────────────────
     print("\n[6] blocked-sibling guard (alias match never launders a block)")
@@ -374,8 +379,10 @@ try:
     mc.set_worker_wildcard("wild-star", True)              # …wildcard catch…
     mc.set_worker_boot_prewarm("wild-star", RANKED, True)  # …AND starred (+GPU)
     ids = [w["id"] for w in store.candidates_for_model(RANKED)]
-    check("HOME outranks STAR: plain home box beats a starred (GPU) wildcard catch",
-          ids == ["home-plain", "wild-star"])
+    # REVISED 2026-08-28 (allocation hard scope): the starred wildcard box is
+    # scoped out entirely for the ALLOCATED model — stronger than outranked.
+    check("HOME outranks STAR: the starred (GPU) wildcard catch is scoped out",
+          ids == ["home-plain"])
 
     # (d) ALIAS-TOLERANT: a star recorded under the ~-qualified key matches a
     # bare-key request (and the reverse), via _match_keys — same unification as

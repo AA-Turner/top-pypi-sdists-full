@@ -429,9 +429,46 @@ def test_the_tab_map_stays_bounded(tmp_path):
     marks = cursor.read_marks(path)
 
     assert len(marks) == cursor.MAX_TRACKED_TABS
-    # The least advanced went first; the most recent survive.
+    # The least recently written went first; the most recent survive. (Written
+    # in ascending seq order, so this case alone cannot tell recency from mark
+    # value — that is what the two tests below are for.)
     assert f"tab-{cursor.MAX_TRACKED_TABS + 4}" in marks
     assert "tab-0" not in marks
+
+
+def test_the_tab_being_inspected_is_not_evicted_for_being_quiet(tmp_path):
+    """A mark counts a tab's EVENTS, not when it was read.
+
+    Eviction ranked by mark value, so the quietest tab went first — and the tab
+    you just opened is the quietest one on file. It was dropped by the very
+    write that recorded it, its cursor never persisted, and every inspect
+    re-read the whole buffer while reporting new_events == next_seq.
+    """
+    path = str(tmp_path / "c.json")
+    for index in range(cursor.MAX_TRACKED_TABS):
+        cursor.write_mark(path, f"busy-{index}", 500 + index)
+    cursor.write_mark(path, "just-opened", 3)
+
+    marks = cursor.read_marks(path)
+
+    assert marks.get("just-opened") == 3, "the active tab must keep its mark"
+    assert len(marks) == cursor.MAX_TRACKED_TABS
+    assert "busy-0" not in marks, "the longest-idle tab is the one to drop"
+
+
+def test_rewriting_a_tab_refreshes_its_place_in_the_queue(tmp_path):
+    """Recency is insertion order, so a re-read has to move the tab to the end —
+    otherwise a tab inspected every call still ages out on its original slot."""
+    path = str(tmp_path / "c.json")
+    for index in range(cursor.MAX_TRACKED_TABS):
+        cursor.write_mark(path, f"tab-{index}", index + 1)
+    cursor.write_mark(path, "tab-0", 99)  # oldest slot, read again just now
+    cursor.write_mark(path, "newcomer", 7)
+
+    marks = cursor.read_marks(path)
+
+    assert marks.get("tab-0") == 99
+    assert "tab-1" not in marks, "tab-1 became the longest-idle once tab-0 moved"
 
 
 def test_the_drain_script_hands_the_page_the_whole_map():
@@ -4651,3 +4688,31 @@ def test_a_failed_adoption_is_never_fatal(tmp_path, monkeypatch):
 
     assert window.adopt_legacy_profile(auth) == ""
     assert legacy.exists()
+
+
+def test_a_screenshot_reply_states_what_reading_it_costs():
+    """Free to take, ~2k tokens to look at — and nothing said so.
+
+    The image never enters the response (only its path does), so the call looks
+    free at the point it is made. The expense lands later, when the file is
+    read, which is why text questions kept being answered with the visual
+    instrument. The reply that hands over the path now names the cost and the
+    cheaper call.
+    """
+    out = report.compact(
+        {"screenshot": "/tmp/shot-1.png", "tab_id": "tab-a", "events": []},
+        artifacts_dir="",
+    )
+
+    assert out["screenshot"] == "/tmp/shot-1.png"
+    note = out["screenshot_cost"]
+    assert "evaluate" in note and "styles" in note
+    assert "750 pixels" in note and "screenshot_note.pixels" in note
+    # The path is handed over regardless — this steers, it does not withhold.
+    assert "screenshot" in out
+
+
+def test_no_screenshot_means_no_cost_note():
+    """A note on every reply is a note nobody reads."""
+    out = report.compact({"tab_id": "tab-a", "events": []}, artifacts_dir="")
+    assert "screenshot_cost" not in out

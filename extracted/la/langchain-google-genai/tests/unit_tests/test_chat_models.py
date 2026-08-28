@@ -1,10 +1,12 @@
 """Test chat model integration."""
 
+import asyncio
 import base64
 import json
 import logging
 import os
 import warnings
+import weakref
 from collections.abc import AsyncIterator, Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Literal, cast
@@ -72,10 +74,12 @@ from langchain_google_genai._compat import (
     _convert_from_v1_to_generativelanguage_v1beta,
 )
 from langchain_google_genai.chat_models import (
+    _FUNCTION_CALL_THOUGHT_SIGNATURES_MAP_KEY,
     DUMMY_THOUGHT_SIGNATURE,
     ChatGoogleGenerativeAI,
     ChatGoogleGenerativeAIError,
     GoogleContextOverflowError,
+    _ClientCleanup,
     _convert_to_parts,
     _convert_tool_message_to_parts,
     _get_ai_message_tool_messages_parts,
@@ -2912,6 +2916,7 @@ def test_thought_signature_conversion() -> None:
     expected = [{"text": "foo"}]
     assert result == expected
 
+    # Foreign reasoning blocks are dropped entirely (text and signature)
     reasoning_other_provider = {
         "type": "reasoning",
         "reasoning": "thinking...",
@@ -2921,7 +2926,7 @@ def test_thought_signature_conversion() -> None:
         [reasoning_other_provider],  # type: ignore[list-item]
         "other_provider",
     )
-    assert result == [{"thought": True, "text": "thinking..."}]
+    assert result == []
 
 
 def test_compat_image_url_block() -> None:
@@ -3923,7 +3928,11 @@ def test_parse_chat_history_tool_calls_drops_foreign_non_standard_media() -> Non
 def test_parse_chat_history_tool_calls_foreign_reasoning_block(
     output_version: str | None,
 ) -> None:
-    """Replay OpenAI summary reasoning safely (regression for #1603)."""
+    """Drop foreign reasoning rather than replaying it as a thought (#1603).
+
+    Both the v1 and non-v1 conversions must drop it: `output_version` is stamped by
+    the producing integration, so it cannot decide whether foreign reasoning leaks.
+    """
     response_metadata = {"model_provider": "openai"}
     if output_version:
         response_metadata["output_version"] = output_version
@@ -3942,11 +3951,52 @@ def test_parse_chat_history_tool_calls_foreign_reasoning_block(
 
     parts = formatted_messages[0].parts
     assert parts is not None
-    assert len(parts) == 2
-    assert parts[0].thought is True
-    assert parts[0].text == "I should search."
-    assert parts[0].thought_signature is None
-    assert parts[1].function_call is not None
+    assert len(parts) == 1
+    assert parts[0].function_call is not None
+
+
+def test_parse_chat_history_drops_bedrock_v1_reasoning_block() -> None:
+    """Bedrock chain-of-thought must not leak into Gemini requests."""
+    bedrock_reply = AIMessage(
+        content=[
+            {
+                "type": "reasoning_content",
+                "reasoning_content": {
+                    "text": "Considering Paris.",
+                    "signature": "bedrock-sig",
+                },
+            },
+            {"type": "text", "text": "Paris."},
+        ],
+        response_metadata={"model_provider": "bedrock_converse"},
+    )
+    # Restamp as v1 content so replay goes through the v1 converter rather than
+    # the non-v1 path; both are covered, but this test pins the v1 one.
+    for_gemini = bedrock_reply.model_copy(
+        update={
+            "content": bedrock_reply.content_blocks,
+            "response_metadata": {
+                **bedrock_reply.response_metadata,
+                "output_version": "v1",
+            },
+        }
+    )
+
+    _, contents = _parse_chat_history(
+        [
+            HumanMessage(content="Capital of France?"),
+            for_gemini,
+            HumanMessage(content="Of Italy?"),
+        ]
+    )
+
+    model = next(c for c in contents if c.role == "model")
+    parts = model.parts
+    assert parts is not None
+    assert all(part.thought is not True for part in parts)
+    assert [(part.thought, part.thought_signature, part.text) for part in parts] == [
+        (None, None, "Paris.")
+    ]
 
 
 def test_convert_to_parts_openai_summary_reasoning_without_metadata() -> None:
@@ -4196,9 +4246,10 @@ def test_parse_chat_history_handles_empty_thought_blocks(
             id="text",
         ),
         pytest.param(
+            # Foreign reasoning is dropped outright, not merely de-signatured.
             {"type": "reasoning", "reasoning": "I should search."},
-            "I should search.",
-            True,
+            None,
+            None,
             id="reasoning",
         ),
         pytest.param(
@@ -7996,6 +8047,163 @@ def test_context_overflow_error_backwards_compatibility() -> None:
         assert isinstance(exc_info.value, GoogleContextOverflowError)
 
 
+def test_model_copy_does_not_close_shared_client() -> None:
+    """Collecting a copy must not close the transport the original still uses.
+
+    `model_copy` does not re-run the validator that builds the client, so a copy
+    shares the original's `Client`. This test guards against a change that would
+    make the copy close the transport when it is collected, which would break the
+    original.
+    """
+    model = ChatGoogleGenerativeAI(
+        model=MODEL_NAME, google_api_key=SecretStr(FAKE_API_KEY)
+    )
+    assert model.client is not None
+    httpx_client = model.client._api_client._httpx_client
+    assert httpx_client is not None
+    assert not httpx_client.is_closed
+
+    copy = model.model_copy(update={"callbacks": []})
+    assert copy is not model
+    assert copy.client is model.client
+
+    copy_ref = weakref.ref(copy)
+    del copy
+    # Guard against a vacuous pass: the assertion below only means something if the
+    # copy was really collected and so had its chance to run a finalizer.
+    assert copy_ref() is None
+
+    assert not httpx_client.is_closed
+
+
+def test_client_closed_when_last_model_reference_dropped() -> None:
+    """Dropping the last reference to a model closes its sync transport.
+
+    The model owns no finalizer itself; closing rides on the `_ClientCleanup` token
+    held as a private attribute, whose finalizer runs once no model shares the
+    `Client` any more. That indirection is invisible from the model's public surface,
+    so pin it here.
+    """
+    model = ChatGoogleGenerativeAI(
+        model=MODEL_NAME, google_api_key=SecretStr(FAKE_API_KEY)
+    )
+    assert model.client is not None
+    # Hold the transport only: a surviving reference to the `Client` would keep its
+    # finalizer from running, so the assertion below would fail for the wrong reason.
+    httpx_client = model.client._api_client._httpx_client
+    assert httpx_client is not None
+    assert not httpx_client.is_closed
+
+    del model
+
+    assert httpx_client.is_closed
+
+
+async def test_dropping_model_closes_async_transports_inside_running_loop() -> None:
+    """Dropping a model inside a running loop closes its async transports.
+
+    `_ClientCleanup` schedules `aio.aclose()` on the running loop rather than awaiting
+    it, so the close lands one loop cycle after the model is collected. The loop
+    exception handler is captured because that scheduled close is fire-and-forget: a
+    failure inside it would otherwise surface nowhere.
+    """
+    loop = asyncio.get_running_loop()
+    previous_handler = loop.get_exception_handler()
+    handler_contexts: list[dict[str, Any]] = []
+    loop.set_exception_handler(lambda _loop, context: handler_contexts.append(context))
+
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+
+            model = ChatGoogleGenerativeAI(
+                model=MODEL_NAME, google_api_key=SecretStr(FAKE_API_KEY)
+            )
+            assert model.client is not None
+            _ = model.async_client
+            api_client = model.client._api_client
+            # Materialize the cached aiohttp session; no request is sent.
+            # Annotated `Any`: these are private SDK internals whose declared union
+            # types do not narrow to the concrete transports being asserted on.
+            aiohttp_session: Any = await api_client._get_aiohttp_session()
+            async_httpx_client: Any = api_client._async_httpx_client
+            assert not aiohttp_session.closed
+            assert not async_httpx_client.is_closed
+
+            # Hold the transports only: a surviving reference to the model, its
+            # `Client`, or the `_ClientCleanup` token would keep the finalizer from
+            # running, and the assertions below would fail for the wrong reason.
+            del model, api_client
+            await asyncio.sleep(0)
+    finally:
+        loop.set_exception_handler(previous_handler)
+
+    assert aiohttp_session.closed
+    assert async_httpx_client.is_closed
+    # Assert the whole list rather than filtering for "Unclosed": the SDK strips its
+    # own unclosed-resource warnings, so a narrower filter would silently discard real
+    # errors, such as a failure raised inside the scheduled `aclose()` task.
+    assert handler_contexts == []
+    assert [w for w in caught if issubclass(w.category, ResourceWarning)] == []
+
+
+def test_cleanup_does_not_close_async_client_on_new_loop() -> None:
+    """Finalization after the owning loop exits must not create a cleanup loop."""
+    client = Mock()
+    client.aio.aclose = AsyncMock()
+    cleanup = _ClientCleanup(client)
+
+    async def register_owning_loop(cleanup_token: _ClientCleanup) -> None:
+        cleanup_token.register_async_loop()
+
+    asyncio.run(register_owning_loop(cleanup))
+
+    cleanup_ref = weakref.ref(cleanup)
+    del cleanup
+
+    assert cleanup_ref() is None
+    client.close.assert_called_once_with()
+    client.aio.aclose.assert_not_awaited()
+
+
+def test_aclose_rejects_different_event_loop() -> None:
+    """Explicit shutdown must not close async transports from another loop."""
+    client = Mock()
+    client.aio.aclose = AsyncMock()
+    cleanup = _ClientCleanup(client)
+
+    async def register_owning_loop(cleanup_token: _ClientCleanup) -> None:
+        cleanup_token.register_async_loop()
+
+    asyncio.run(register_owning_loop(cleanup))
+
+    with pytest.raises(RuntimeError, match="event loop where it was used"):
+        asyncio.run(cleanup.aclose())
+
+    client.aio.aclose.assert_not_awaited()
+
+
+async def test_aclose_closes_async_transports_on_owning_loop() -> None:
+    """Explicit shutdown closes both async transports before their loop exits."""
+    model = ChatGoogleGenerativeAI(
+        model=MODEL_NAME, google_api_key=SecretStr(FAKE_API_KEY)
+    )
+    assert model.client is not None
+    _ = model.async_client
+    api_client = model.client._api_client
+    sync_httpx_client = api_client._httpx_client
+    assert sync_httpx_client is not None
+    aiohttp_session: Any = await api_client._get_aiohttp_session()
+    async_httpx_client: Any = api_client._async_httpx_client
+    assert async_httpx_client is not None
+
+    await model.aclose()
+
+    assert sync_httpx_client.is_closed
+    assert aiohttp_session.closed
+    assert async_httpx_client.is_closed
+
+
 def test_parse_chat_history_tool_calls_native_strips_tool_call_blocks() -> None:
     message = AIMessage(
         content=[
@@ -8058,6 +8266,72 @@ def test_parse_chat_history_tool_calls_keeps_bare_string_content_blocks() -> Non
     assert parts[2].function_call is not None
 
 
+def test_dummy_thought_signature_survives_serialization_as_bypass_string() -> None:
+    """The injected fallback signature must reach the API as a literal string.
+
+    Reproduces https://github.com/langchain-ai/langchain-google/issues/1570:
+    for Gemini 3+ models, `_parse_chat_history` injects a placeholder thought
+    signature into function-call parts that lack one. The SDK's
+    `encode_unserializable_types` base64-encodes `bytes` values, so unless the
+    placeholder is restored after encoding, the API receives a base64 blob
+    instead of the documented `skip_thought_signature_validator` bypass string
+    and rejects the request.
+    """
+    from google.genai._common import convert_to_dict, encode_unserializable_types
+
+    messages: list[BaseMessage] = [
+        HumanMessage(content="What's the weather in SF?"),
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "get_weather",
+                    "args": {"city": "SF"},
+                    "id": "call_1",
+                    "type": "tool_call",
+                }
+            ],
+        ),
+        ToolMessage(content="sunny, 70F", tool_call_id="call_1"),
+    ]
+
+    mock_client = Mock()
+    mock_models = Mock()
+    mock_generate_content = Mock()
+    mock_generate_content.return_value = GenerateContentResponse(
+        candidates=[Candidate(content=Content(parts=[Part(text="Done.")]))]
+    )
+    mock_models.generate_content = mock_generate_content
+    mock_client.return_value.models = mock_models
+
+    with patch("langchain_google_genai.chat_models.Client", mock_client):
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-3.1-pro-preview", google_api_key=SecretStr(FAKE_API_KEY)
+        )
+        llm.invoke(messages)
+
+    contents = mock_generate_content.call_args.kwargs["contents"]
+    function_call_parts = [
+        part
+        for content in contents
+        for part in (content.parts or [])
+        if part.function_call is not None
+    ]
+    assert len(function_call_parts) == 1
+    # The fallback was injected by `_parse_chat_history`.
+    assert function_call_parts[0].thought_signature
+
+    # Run the same serialization the SDK applies before sending the request.
+    encoded = encode_unserializable_types(convert_to_dict({"contents": contents}))
+    encoded_contents = cast("list[dict[str, Any]]", encoded["contents"])
+    encoded_parts = cast("list[dict[str, Any]]", encoded_contents[1]["parts"])
+    encoded_signatures = [
+        part.get("thought_signature") or part.get("thoughtSignature")
+        for part in encoded_parts
+    ]
+    assert "skip_thought_signature_validator" in encoded_signatures
+
+
 def test_lenient_conversion_logs_the_underlying_cause(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -8078,3 +8352,130 @@ def test_lenient_conversion_logs_the_underlying_cause(
     assert "Dropping content block that cannot" in caplog.text
     assert "./secrets/local.png" in caplog.text
     assert "Media string must be one of" in caplog.text
+
+
+def _stream_llm(parts_per_chunk: list[list[Part]]) -> AIMessageChunk:
+    """Stream mocked candidate parts and return the aggregated chunk.
+
+    Args:
+        parts_per_chunk: Parts to emit, one inner list per streamed chunk.
+
+    Returns:
+        The result of merging every yielded chunk, as a caller of `.stream()`
+        would accumulate it.
+    """
+    llm = ChatGoogleGenerativeAI(
+        model=MODEL_NAME, google_api_key=SecretStr(FAKE_API_KEY)
+    )
+    assert llm.client is not None
+
+    def mock_stream(**_kwargs: Any) -> Iterator[GenerateContentResponse]:
+        for parts in parts_per_chunk:
+            yield GenerateContentResponse(
+                candidates=[Candidate(content=Content(parts=parts))]
+            )
+
+    with patch.object(
+        llm.client.models, "generate_content_stream", side_effect=mock_stream
+    ):
+        chunks = list(llm.stream([HumanMessage(content="hi")]))
+
+    aggregated = chunks[0]
+    for chunk in chunks[1:]:
+        aggregated = aggregated + chunk
+    return aggregated
+
+
+def _image_part(data: bytes) -> Part:
+    return Part(inline_data=Blob(data=data, mime_type="image/png"))
+
+
+def _dict_blocks(message: AIMessageChunk) -> list[dict[str, Any]]:
+    """Return the dict content blocks of `message`, narrowed for type checking."""
+    assert isinstance(message.content, list)
+    return [block for block in message.content if isinstance(block, dict)]
+
+
+@pytest.mark.parametrize("same_chunk", [True, False])
+def test_stream_multiple_images_stay_separate(same_chunk: bool) -> None:
+    """Consecutive images must get distinct indices instead of merging.
+
+    Sharing an index makes `merge_lists` concatenate the two data URLs into one
+    unusable string, which breaks multi-image (Nanobanana) responses.
+    """
+    parts = [_image_part(b"AAAA"), _image_part(b"BBBB")]
+    parts_per_chunk = [parts] if same_chunk else [[parts[0]], [parts[1]]]
+
+    aggregated = _stream_llm(parts_per_chunk)
+
+    blocks = _dict_blocks(aggregated)
+    assert [block["index"] for block in blocks] == [0, 1]
+    assert [block["image_url"]["url"] for block in blocks] == [
+        "data:image/png;base64,QUFBQQ==",
+        "data:image/png;base64,QkJCQg==",
+    ]
+
+
+def test_stream_parallel_tool_calls_get_distinct_indices() -> None:
+    """Parallel function calls must get distinct indices.
+
+    Gemini does not send an index, so without one assigned here consumers that
+    key blocks by index (the `v3` event stream) collapse both calls into one and
+    strand the thought signature of the dropped call.
+    """
+    aggregated = _stream_llm(
+        [
+            [
+                Part(
+                    function_call=FunctionCall(
+                        name="get_weather", args={"location": "SF"}, id="call_1"
+                    ),
+                    thought_signature=b"sig-1",
+                )
+            ],
+            [
+                Part(
+                    function_call=FunctionCall(
+                        name="get_weather", args={"location": "Boston"}, id="call_2"
+                    )
+                )
+            ],
+        ]
+    )
+
+    assert [chunk["index"] for chunk in aggregated.tool_call_chunks] == [0, 1]
+    assert [call["id"] for call in aggregated.tool_calls] == ["call_1", "call_2"]
+    assert [call["args"] for call in aggregated.tool_calls] == [
+        {"location": "SF"},
+        {"location": "Boston"},
+    ]
+    # The retained signature must still resolve to a surviving tool call.
+    signatures = aggregated.additional_kwargs[_FUNCTION_CALL_THOUGHT_SIGNATURES_MAP_KEY]
+    assert set(signatures) <= {call["id"] for call in aggregated.tool_calls}
+
+
+def test_stream_text_deltas_still_merge() -> None:
+    """Text arrives as deltas, so it must keep sharing one index."""
+    aggregated = _stream_llm([[Part(text="Hel")], [Part(text="lo")]])
+
+    assert aggregated.text == "Hello"
+    if isinstance(aggregated.content, list):
+        assert len(aggregated.content) == 1
+
+
+def test_stream_reasoning_and_tool_calls_share_one_index_space() -> None:
+    """Content blocks and tool call chunks must draw from the same counter.
+
+    `AIMessageChunk.content_blocks` flattens both into a single keyspace, so a
+    separately numbered tool call would collide with the reasoning block.
+    """
+    aggregated = _stream_llm(
+        [
+            [Part(text="thinking...", thought=True)],
+            [Part(function_call=FunctionCall(name="f1", args={"a": 1}, id="call_1"))],
+            [Part(function_call=FunctionCall(name="f2", args={"b": 2}, id="call_2"))],
+        ]
+    )
+
+    assert [block["index"] for block in _dict_blocks(aggregated)] == [0]
+    assert [chunk["index"] for chunk in aggregated.tool_call_chunks] == [1, 2]

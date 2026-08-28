@@ -8,6 +8,9 @@ Created on Sat Mar 09 08:44:49 2013
 
 Author: Josef Perktold
 """
+
+from statsmodels.compat.platform import PLATFORM_OSX, PLATFORM_WIN
+
 import copy
 import warnings
 
@@ -17,7 +20,6 @@ from numpy.testing import (
     assert_almost_equal,
     assert_array_equal,
     assert_equal,
-    assert_raises,
 )
 import pytest
 
@@ -26,7 +28,7 @@ from statsmodels.stats.tests.test_weightstats import Holder
 from statsmodels.tools.sm_exceptions import HypothesisTestWarning
 
 try:
-    import matplotlib.pyplot as plt  # noqa:F401
+    import matplotlib.pyplot as plt
 except ImportError:
     pass
 
@@ -75,20 +77,34 @@ class CheckPowerMixin:
     def test_roots(self):
         kwds = copy.copy(self.kwds)
         kwds.update(self.kwds_extra)
-
         # kwds_extra are used as argument, but not as target for root
         for key in self.kwds:
-            # keep print to check whether tests are really executed
-            # print 'testing roots', key
+            if key == "alpha":
+                if (PLATFORM_WIN and isinstance(self, TestTTPowerOneS1)) or (
+                    PLATFORM_OSX
+                    and isinstance(self, (TestTTPowerOneS1, TestTTPowerTwoS1))
+                ):
+                    pytest.xfail(
+                        f"alpha test failing test {self.__class__} for key {key} on "
+                        f"recent SciPy on Windows and Darwin"
+                    )
+
             value = kwds[key]
             kwds[key] = None
-
-            result = self.cls().solve_power(**kwds)
+            try:
+                result = self.cls().solve_power(**kwds)
+            except Exception as exc:
+                msg = (
+                    f"class: {self.__class__.__name__}, key: {key}, "
+                    f"value: {value}, kwds: {kwds}"
+                )
+                raise AssertionError(msg) from exc
             assert_allclose(result, value, rtol=0.001, err_msg=key + " failed")
             # yield can be used to investigate specific errors
             # yield assert_allclose, result, value, 0.001, 0, key+' failed'
             kwds[key] = value  # reset dict
 
+    @pytest.mark.thread_unsafe(reason="Uses matplotlib")
     @pytest.mark.matplotlib
     def test_power_plot(self, close_figures):
         if self.cls in [smp.FTestPower, smp.FTestPowerF2]:
@@ -102,7 +118,7 @@ class CheckPowerMixin:
             # alternative='larger',
             ax=ax,
             title="Power of t-Test",
-            **self.kwds_extra
+            **self.kwds_extra,
         )
         ax = fig.add_subplot(2, 1, 2)
         self.cls().plot_power(
@@ -112,11 +128,11 @@ class CheckPowerMixin:
             # alternative='larger',
             ax=ax,
             title="",
-            **self.kwds_extra
+            **self.kwds_extra,
         )
 
 
-#''' test cases
+# ''' test cases
 # one sample
 #               two-sided one-sided
 # large power     OneS1      OneS3
@@ -127,7 +143,7 @@ class CheckPowerMixin:
 # large power     TwoS1       TwoS3
 # small power     TwoS2       TwoS4
 # small p, ratio  TwoS4       TwoS5
-#'''
+# '''
 
 
 class TestTTPowerOneS1(CheckPowerMixin):
@@ -467,10 +483,8 @@ class TestTTPowerTwoS6(CheckPowerMixin):
 
 def test_normal_power_explicit():
     # a few initial test cases for NormalIndPower
-    sigma = 1
     d = 0.3
     nobs = 80
-    alpha = 0.05
     res1 = smp.normal_power(d, nobs / 2.0, 0.05)
     res2 = smp.NormalIndPower().power(d, nobs, 0.05)
     res3 = smp.NormalIndPower().solve_power(
@@ -539,8 +553,8 @@ class TestNormalIndPower2(CheckPowerMixin):
         res2.power = 0.0438089705093578
         res2.alternative = "less"
         res2.method = (
-            "Difference of proportion power calculation for"
-            + " binomial distribution (arcsine transformation)"
+            "Difference of proportion power calculation for binomial distribution "
+            "(arcsine transformation)"
         )
         res2.note = "same sample sizes"
 
@@ -798,7 +812,7 @@ class TestFtestPower(CheckPowerMixin):
 
     def test_kwargs(self):
 
-        with pytest.warns(UserWarning):
+        with pytest.warns(UserWarning, match="nobs is not use"):
             smp.FTestPower().solve_power(
                 effect_size=0.3, alpha=0.1, power=0.9, df_denom=2, nobs=None
             )
@@ -884,16 +898,15 @@ def test_power_solver():
     # I let this case fail, could be fixed for some statistical tests
     # (we should not get here in the first place)
     # effect size is negative, but last stage brentq uses [1e-8, 1-1e-8]
-    assert_raises(
-        ValueError,
-        nip.solve_power,
-        None,
-        nobs1=1600,
-        alpha=0.01,
-        power=0.005,
-        ratio=1,
-        alternative="larger",
-    )
+    with pytest.raises(ValueError):
+        nip.solve_power(
+            None,
+            nobs1=1600,
+            alpha=0.01,
+            power=0.005,
+            ratio=1,
+            alternative="larger",
+        )
 
     with pytest.warns(HypothesisTestWarning):
         with pytest.raises(ValueError):
@@ -905,6 +918,139 @@ def test_power_solver():
                 ratio=1,
                 alternative="larger",
             )
+
+
+def test_solve_power_no_solution_returns_nan():
+    # GH#9378: when the power equation has no solution the root finder
+    # cannot converge. Previously solve_power still returned the last value
+    # the solver evaluated -- a bracket bound such as 10 -- which
+    # masqueraded as a valid sample size. It should return nan instead,
+    # while still warning that it failed to converge.
+    from statsmodels.tools.sm_exceptions import ConvergenceWarning
+
+    tt = smp.TTestPower()
+
+    # 'smaller' alternative with a positive effect size and a target power
+    # below alpha is not intercepted by the up-front sign check, but the
+    # target exceeds the attainable maximum (about 0.018 at nobs=2), so
+    # the root finder fails.
+    with pytest.warns(
+        ConvergenceWarning,
+        match=r"last value evaluated by the root finder was \[?\d",
+    ):
+        val = tt.solve_power(
+            effect_size=0.5,
+            nobs=None,
+            alpha=0.05,
+            power=0.03,
+            alternative="smaller",
+        )
+    assert np.isnan(val)
+    assert_equal(tt.cache_fit_res[0], 0)
+
+    # a solvable case is unaffected and still returns a finite sample size
+    val = tt.solve_power(
+        effect_size=0.5,
+        nobs=None,
+        alpha=0.05,
+        power=0.8,
+        alternative="larger",
+    )
+    assert np.isfinite(val)
+
+
+def test_solve_power_impossible_one_sided_raises():
+    # GH#9378: a one-sided alternative with an effect size of the opposite
+    # sign keeps the attained power below alpha for any sample size, so
+    # solving for a sample size with power >= alpha is impossible. Such
+    # requests are intercepted up front with an informative error instead
+    # of a ConvergenceWarning and nan from the root finder.
+    tt = smp.TTestPower()
+    ttind = smp.TTestIndPower()
+    nip = smp.NormalIndPower()
+
+    match = "No solution exists"
+    with pytest.raises(ValueError, match=match):
+        tt.solve_power(
+            effect_size=0.5,
+            nobs=None,
+            alpha=0.05,
+            power=0.8,
+            alternative="smaller",
+        )
+    with pytest.raises(ValueError, match=match):
+        tt.solve_power(
+            effect_size=-0.5,
+            nobs=None,
+            alpha=0.05,
+            power=0.8,
+            alternative="larger",
+        )
+    with pytest.raises(ValueError, match=match):
+        ttind.solve_power(
+            effect_size=0.5,
+            nobs1=None,
+            alpha=0.05,
+            power=0.8,
+            ratio=1,
+            alternative="smaller",
+        )
+    with pytest.raises(ValueError, match=match):
+        nip.solve_power(
+            effect_size=0.5,
+            nobs1=None,
+            alpha=0.05,
+            power=0.8,
+            ratio=1,
+            alternative="smaller",
+        )
+    with pytest.raises(ValueError, match=match):
+        ttind.solve_power(
+            effect_size=0.5,
+            nobs1=10,
+            alpha=0.05,
+            power=0.8,
+            ratio=None,
+            alternative="smaller",
+        )
+
+    # matching signs still solve
+    res = tt.solve_power(
+        effect_size=0.5,
+        nobs=None,
+        alpha=0.05,
+        power=0.8,
+        alternative="larger",
+    )
+    assert_almost_equal(res, 26.1375, decimal=3)
+    res = tt.solve_power(
+        effect_size=-0.5, nobs=None, alpha=0.05, power=0.8,
+        alternative="smaller",
+    )
+    assert_almost_equal(res, 26.1375, decimal=3)
+
+    # a wrong-signed effect size with target power below alpha can have a
+    # valid solution and is not intercepted
+    res = tt.solve_power(
+        effect_size=0.5, nobs=None, alpha=0.05, power=0.01,
+        alternative="smaller",
+    )
+    roundtrip = tt.power(
+        effect_size=0.5, nobs=res, alpha=0.05, alternative="smaller"
+    )
+    assert_almost_equal(roundtrip, 0.01, decimal=6)
+
+    # solving for other parameters is not affected by the sign check
+    res = tt.solve_power(
+        effect_size=0.5, nobs=25, alpha=None, power=0.8,
+        alternative="smaller",
+    )
+    assert np.isfinite(res)
+    res = tt.solve_power(
+        effect_size=None, nobs=25, alpha=0.05, power=0.8,
+        alternative="smaller",
+    )
+    assert res < 0
 
 
 # TODO: can something useful be made from this?
@@ -941,7 +1087,7 @@ def test_power_solver_warn():
 
     with warnings.catch_warnings():  # python >= 2.6
         warnings.simplefilter("ignore")
-        val = nip.solve_power(
+        nip.solve_power(
             0.1, nobs1=None, alpha=0.01, power=pow_, ratio=1, alternative="larger"
         )
         assert_equal(nip.cache_fit_res[0], 0)
@@ -965,3 +1111,24 @@ def test_normal_sample_size_one_tail():
     nobs_with_zeros = smp.normal_sample_size_one_tail(5, powers, alphas, 2, 2)
     # check_nans = np.isnan(zero_mask) == np.isnan(nobs_with_nans)
     assert_array_equal(nobs_with_zeros[powers <= alphas], 0)
+
+
+@pytest.mark.parametrize(
+    "power_func",
+    [
+        lambda alternative: smp.ttest_power(0.5, 20, 0.05, alternative=alternative),
+        lambda alternative: smp.normal_power(0.5, 20, 0.05, alternative=alternative),
+        lambda alternative: smp.normal_power_het(0.5, 20, 0.05, alternative=alternative),
+    ],
+    ids=["ttest_power", "normal_power", "normal_power_het"],
+)
+def test_alternative_deprecated_alias(power_func):
+    # the undocumented "2s" short form still works but warns, and is
+    # equivalent to spelling out "two-sided"
+    with pytest.warns(FutureWarning, match="is a deprecated alias"):
+        power_alias = power_func("2s")
+    power_canonical = power_func("two-sided")
+    assert power_alias == power_canonical
+
+    with pytest.raises(ValueError, match="alternative must be one of"):
+        power_func("bogus")

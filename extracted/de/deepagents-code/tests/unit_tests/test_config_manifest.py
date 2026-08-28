@@ -56,7 +56,7 @@ pytestmark = pytest.mark.self_managed_update_check
 
 
 def _resolve_manifest_option(
-    option: ConfigOption,
+    option: ConfigOption[object],
     *,
     toml_data: dict[str, Any],
     managed_toml_data: dict[str, Any] | None = None,
@@ -968,7 +968,9 @@ def test_bool_mode_default_rejects_declared_default() -> None:
     assert option.default is None
 
     with pytest.raises(TypeError, match="must not declare a default"):
-        ConfigOption(
+        # The `__new__` overloads now reject this statically too; the
+        # runtime guard still matters for options built dynamically.
+        ConfigOption(  # ty: ignore[no-matching-overload]
             key="features.example",
             group="Tools",
             summary="Example.",
@@ -1667,39 +1669,27 @@ def test_charset_auto_display_value_includes_effective_glyph_mode() -> None:
 # --- Single-source defaults -------------------------------------------------
 
 
-def test_interpreter_defaults_match_settings() -> None:
-    """Manifest interpreter defaults are the same objects `Settings` uses.
+def test_interpreter_defaults_match_resolver_snapshot() -> None:
+    """The interpreter snapshot consumes the manifest-owned defaults."""
+    from deepagents_code.configuration.interpreter import InterpreterConfig
+    from deepagents_code.configuration.resolver import get_config_resolver
 
-    This is what makes the manifest the single source of truth: the dataclass
-    default and the manifest default cannot diverge because they are one value.
-    """
-    from deepagents_code.config import Settings
-
-    settings = Settings.from_environment()
-    for opt in get_config_options():
-        if opt.group != "Interpreter" or opt.settings_field is None:
-            continue
-        assert getattr(settings, opt.settings_field) == opt.default
-
-
-def test_every_settings_field_names_a_real_settings_attribute() -> None:
-    """Catch a typo'd `settings_field` on any option, not just interpreter ones.
-
-    `settings_field` is a free-form string with no compile-time link to the
-    `Settings` dataclass, so a misspelling would only surface at runtime
-    `getattr`. This locks the mapping across the whole catalog.
-    """
-    from dataclasses import fields
-
-    from deepagents_code.config import Settings
-
-    valid = {f.name for f in fields(Settings)}
-    bad = {
-        opt.key: opt.settings_field
-        for opt in get_config_options()
-        if opt.settings_field is not None and opt.settings_field not in valid
+    interpreter = InterpreterConfig.from_resolver()
+    values = {
+        "interpreter.timeout_seconds": interpreter.timeout_seconds,
+        "interpreter.memory_limit_mb": interpreter.memory_limit_mb,
+        "interpreter.max_ptc_calls": interpreter.max_ptc_calls,
+        "interpreter.max_result_chars": interpreter.max_result_chars,
+        "interpreter.ptc": interpreter.ptc,
+        "interpreter.ptc_acknowledge_unsafe": interpreter.ptc_acknowledge_unsafe,
     }
-    assert not bad, f"options reference unknown Settings fields: {bad}"
+    for key, value in values.items():
+        option = get_option(key)
+        assert option is not None
+        assert value == option.default
+    enabled = get_option("interpreter.enable_interpreter")
+    assert enabled is not None
+    assert get_config_resolver().get(enabled).value == enabled.default
 
 
 # --- Resolution -------------------------------------------------------------
@@ -2290,7 +2280,9 @@ def test_config_option_rejects_type_mismatched_default() -> None:
     import pytest
 
     with pytest.raises(TypeError, match="not valid for kind int"):
-        ConfigOption(key="x", group="g", summary="s", kind=OptionKind.INT, default="5")
+        # The `__new__` overloads now reject this statically too; the
+        # runtime guard still matters for options built dynamically.
+        ConfigOption(key="x", group="g", summary="s", kind=OptionKind.INT, default="5")  # ty: ignore[no-matching-overload]
 
 
 def test_config_option_rejects_bool_default_for_int() -> None:
@@ -2306,9 +2298,37 @@ def test_config_option_rejects_mutable_default() -> None:
     import pytest
 
     with pytest.raises(TypeError, match="mutable default"):
-        ConfigOption(
+        # The `__new__` overloads now reject this statically too; the
+        # runtime guard still matters for options built dynamically.
+        ConfigOption(  # ty: ignore[no-matching-overload]
             key="x", group="g", summary="s", kind=OptionKind.STR, default=["a"]
         )
+
+
+def test_config_option_rejects_ptc_list_default() -> None:
+    """A PTC list default is rejected as mutable.
+
+    The resolved value type keeps `list[str]`, but the declared-default overload
+    must not advertise it.
+    """
+    import pytest
+
+    with pytest.raises(TypeError, match="mutable default"):
+        ConfigOption(  # ty: ignore[no-matching-overload]
+            key="x",
+            group="g",
+            summary="s",
+            kind=OptionKind.PTC_DELEGATE,
+            default=["python"],
+        )
+
+
+def test_config_option_rejects_int_default_for_float() -> None:
+    """An int FLOAT default would resolve to int while the overloads promise float."""
+    import pytest
+
+    with pytest.raises(TypeError, match="not valid for kind float"):
+        ConfigOption(key="x", group="g", summary="s", kind=OptionKind.FLOAT, default=1)  # ty: ignore[no-matching-overload]
 
 
 def test_config_option_rejects_default_on_structured() -> None:
@@ -2316,7 +2336,9 @@ def test_config_option_rejects_default_on_structured() -> None:
     import pytest
 
     with pytest.raises(TypeError, match="must not declare a default"):
-        ConfigOption(
+        # The `__new__` overloads now reject this statically too; the
+        # runtime guard still matters for options built dynamically.
+        ConfigOption(  # ty: ignore[no-matching-overload]
             key="x", group="g", summary="s", kind=OptionKind.STRUCTURED, default="x"
         )
 
@@ -2734,6 +2756,53 @@ def test_run_get_exact_key_json_stays_single_object(capsys) -> None:
     assert "group" not in data
 
 
+def test_run_get_recursion_limit_reports_unset_default(monkeypatch, capsys) -> None:
+    """Text and JSON leave the upstream default unspecified."""
+    monkeypatch.delenv("LANGGRAPH_DEFAULT_RECURSION_LIMIT", raising=False)
+
+    data = _get_json_object("runtime.recursion_limit", capsys)
+    assert data["value"] is None
+    assert data["source"] == "default"
+    assert data["set"] is False
+
+    assert run_config_command(_get_args("runtime.recursion_limit")) == 0
+    rendered = " ".join(capsys.readouterr().out.split())
+    assert rendered == "runtime.recursion_limit = (unset) (default)"
+
+
+def test_run_get_recursion_limit_reports_upstream_env(monkeypatch, capsys) -> None:
+    """A trusted upstream override remains visible with its actual source."""
+    monkeypatch.setenv("LANGGRAPH_DEFAULT_RECURSION_LIMIT", "12000")
+
+    data = _get_json_object("runtime.recursion_limit", capsys)
+    assert data["value"] == 12_000
+    assert data["source"] == "env (LANGGRAPH_DEFAULT_RECURSION_LIMIT)"
+    assert data["set"] is True
+
+
+def test_run_get_recursion_limit_reports_malformed_upstream_env(
+    monkeypatch, capsys
+) -> None:
+    """A non-numeric upstream value surfaces as data, not a traceback.
+
+    The user sets the malformed variable and then runs `dcode config` to find
+    it, so the inspection path must not be the thing that crashes.
+    """
+    monkeypatch.setenv("LANGGRAPH_DEFAULT_RECURSION_LIMIT", "not-an-int")
+
+    data = _get_json_object("runtime.recursion_limit", capsys)
+    assert data["value"] == "not-an-int"
+    assert data["source"] == "env (LANGGRAPH_DEFAULT_RECURSION_LIMIT); invalid"
+    assert data["set"] is True
+
+    assert run_config_command(_get_args("runtime.recursion_limit")) == 0
+    rendered = " ".join(capsys.readouterr().out.split())
+    assert rendered == (
+        "runtime.recursion_limit = not-an-int "
+        "(env (LANGGRAPH_DEFAULT_RECURSION_LIMIT); invalid)"
+    )
+
+
 def test_run_get_credentials_section_lists_every_credential(
     capsys, monkeypatch
 ) -> None:
@@ -3069,7 +3138,7 @@ def test_environment_coercion_delegate_returns_invalid_not_raw() -> None:
 
     PTC/STRUCTURED options declare no env var, so this branch is unreachable in
     the live manifest. The guard exists so that if one ever gains an env var,
-    an uncoerced raw string cannot leak into a typed `Settings` field.
+    an uncoerced raw string cannot leak into a typed credentials field.
     """
     from deepagents_code.configuration.providers import coerce_environment_value
     from deepagents_code.configuration.types import Invalid
@@ -3905,17 +3974,27 @@ def test_recursion_limit_option_metadata() -> None:
     assert opt.env_var == _env_vars.RECURSION_LIMIT
     assert opt.toml_keys == ("runtime", "recursion_limit")
     assert opt.cli_flag == "--recursion-limit"
+    assert opt.default is None
     assert "runtime.recursion_limit" in option_keys()
 
 
-def test_resolve_recursion_limit_default() -> None:
-    """With no override, the resolver returns the manifest default."""
-    from deepagents_code.config_manifest import (
-        RECURSION_LIMIT_DEFAULT,
-        resolve_recursion_limit,
-    )
+def test_resolve_recursion_limit_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With no override, the resolver leaves the limit to LangGraph."""
+    from deepagents_code.config_manifest import resolve_recursion_limit
 
-    assert resolve_recursion_limit(toml_data={}) == RECURSION_LIMIT_DEFAULT
+    monkeypatch.delenv("LANGGRAPH_DEFAULT_RECURSION_LIMIT", raising=False)
+    assert resolve_recursion_limit(toml_data={}) is None
+
+
+def test_resolve_recursion_limit_inherits_langgraph_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The upstream environment default becomes the effective agent limit."""
+    from deepagents_code.config_manifest import resolve_recursion_limit
+
+    monkeypatch.delenv(_env_vars.RECURSION_LIMIT, raising=False)
+    monkeypatch.setenv("LANGGRAPH_DEFAULT_RECURSION_LIMIT", "12000")
+    assert resolve_recursion_limit(toml_data={}) == 12_000
 
 
 def test_resolve_recursion_limit_env_wins(monkeypatch) -> None:
@@ -3923,6 +4002,7 @@ def test_resolve_recursion_limit_env_wins(monkeypatch) -> None:
     from deepagents_code.config_manifest import resolve_recursion_limit
 
     monkeypatch.setenv(_env_vars.RECURSION_LIMIT, "3000")
+    monkeypatch.setenv("LANGGRAPH_DEFAULT_RECURSION_LIMIT", "12000")
     assert (
         resolve_recursion_limit(toml_data={"runtime": {"recursion_limit": 1500}})
         == 3000
@@ -3942,14 +4022,12 @@ def test_resolve_recursion_limit_toml_when_env_unset(monkeypatch) -> None:
 
 @pytest.mark.parametrize("raw", ["0", "-5", "10", "999999999", "notanint"])
 def test_resolve_recursion_limit_out_of_range_falls_back(monkeypatch, raw) -> None:
-    """Non-positive, sub-floor, above-ceiling, or malformed values fall back."""
-    from deepagents_code.config_manifest import (
-        RECURSION_LIMIT_DEFAULT,
-        resolve_recursion_limit,
-    )
+    """Invalid values fall through to LangGraph's default."""
+    from deepagents_code.config_manifest import resolve_recursion_limit
 
+    monkeypatch.delenv("LANGGRAPH_DEFAULT_RECURSION_LIMIT", raising=False)
     monkeypatch.setenv(_env_vars.RECURSION_LIMIT, raw)
-    assert resolve_recursion_limit(toml_data={}) == RECURSION_LIMIT_DEFAULT
+    assert resolve_recursion_limit(toml_data={}) is None
 
 
 def test_resolve_recursion_limit_invalid_env_falls_through_to_toml(

@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import os
 import plistlib
 from enum import Enum
@@ -12,13 +13,13 @@ from typing import Any, Dict, List, Optional, Set
 
 from idb.common.tar import untar
 from idb.common.types import (
+    CodeCoverageFormat,
     TestActivity,
     TestAttachment,
     TestRunFailureInfo,
     TestRunInfo,
-    CodeCoverageFormat,
 )
-from idb.grpc.idb_pb2 import XctestRunRequest, XctestRunResponse, Payload
+from idb.grpc.idb_pb2 import Payload, XctestRunRequest, XctestRunResponse
 from idb.grpc.xctest_log_parser import XCTestLogParser
 
 
@@ -27,7 +28,7 @@ Logic = XctestRunRequest.Logic
 Application = XctestRunRequest.Application
 UI = XctestRunRequest.UI
 
-CODE_COVERAGE_FORMAT_MAP: Dict[
+CODE_COVERAGE_FORMAT_MAP: dict[
     CodeCoverageFormat, "XctestRunRequest.CodeCoverage.Format"
 ] = {
     CodeCoverageFormat.EXPORTED: XctestRunRequest.CodeCoverage.EXPORTED,
@@ -52,9 +53,7 @@ def _get_xctest_type(path: str) -> _XCTestType:
     raise XCTestException(f"{path} is not a valid xctest target")
 
 
-def extract_paths_from_xctestrun(
-    path: str, logger: Optional[Logger] = None
-) -> List[str]:
+def extract_paths_from_xctestrun(path: str, logger: Logger | None = None) -> list[str]:
     """
     When using xctestrun we need to copy:
     - the xctestrun file
@@ -65,7 +64,7 @@ def extract_paths_from_xctestrun(
     result = [path]
     test_root = os.path.dirname(path)
     with open(path, "rb") as f:
-        xctestrun_dict: Dict[str, Any] = plistlib.load(f)
+        xctestrun_dict: dict[str, Any] = plistlib.load(f)
         for _test_id, test_dict in xctestrun_dict.items():
             if _test_id == "__xctestrun_metadata__":
                 continue
@@ -80,12 +79,12 @@ def extract_paths_from_xctestrun(
     return result
 
 
-def xctest_paths_to_tar(bundle_path: str, logger: Optional[Logger] = None) -> List[str]:
+def xctest_paths_to_tar(bundle_path: str, logger: Logger | None = None) -> list[str]:
     test_type = _get_xctest_type(bundle_path)
     if test_type is _XCTestType.XCTest:
         return [bundle_path]
     with open(bundle_path, "rb") as f:
-        plist: Dict[str, Any] = plistlib.load(f)
+        plist: dict[str, Any] = plistlib.load(f)
         use_artifacts = (
             v.get("UseDestinationArtifacts", False) is True for v in plist.values()
         )
@@ -99,21 +98,23 @@ def xctest_paths_to_tar(bundle_path: str, logger: Optional[Logger] = None) -> Li
 def make_request(
     test_bundle_id: str,
     app_bundle_id: str,
-    test_host_app_bundle_id: Optional[str],
+    test_host_app_bundle_id: str | None,
     is_ui_test: bool,
     is_logic_test: bool,
-    tests_to_run: Optional[Set[str]],
-    tests_to_skip: Optional[Set[str]],
-    env: Optional[Dict[str, str]],
-    args: Optional[List[str]],
-    result_bundle_path: Optional[str],
-    timeout: Optional[int],
+    tests_to_run: set[str] | None,
+    tests_to_skip: set[str] | None,
+    env: dict[str, str] | None,
+    args: list[str] | None,
+    result_bundle_path: str | None,
+    timeout: int | None,
     report_activities: bool,
     report_attachments: bool,
     collect_coverage: bool,
+    enable_continuous_coverage_collection: bool,
     coverage_format: CodeCoverageFormat,
     collect_logs: bool,
     wait_for_debugger: bool,
+    collect_result_bundle: bool,
 ) -> XctestRunRequest:
     if is_logic_test:
         mode = Mode(logic=Logic())
@@ -121,6 +122,7 @@ def make_request(
         mode = Mode(
             ui=UI(
                 app_bundle_id=app_bundle_id,
+                # pyre-ignore
                 test_host_app_bundle_id=test_host_app_bundle_id,
             )
         )
@@ -129,9 +131,9 @@ def make_request(
 
     coverage_object = None
     if collect_coverage:
-
         coverage_object = XctestRunRequest.CodeCoverage(
             collect=True,
+            enable_continuous_coverage_collection=enable_continuous_coverage_collection,
             format=CODE_COVERAGE_FORMAT_MAP[coverage_format],
         )
 
@@ -149,6 +151,7 @@ def make_request(
         collect_logs=collect_logs,
         wait_for_debugger=wait_for_debugger,
         code_coverage=coverage_object,
+        collect_result_bundle=collect_result_bundle,
     )
 
 
@@ -167,7 +170,7 @@ async def untar_into_path(
 
 def make_results(
     response: XctestRunResponse, log_parser: XCTestLogParser
-) -> List[TestRunInfo]:
+) -> list[TestRunInfo]:
     return [
         TestRunInfo(
             bundle_name=result.bundle_name,
@@ -179,15 +182,7 @@ def make_results(
             ),
             duration=result.duration,
             passed=result.status == XctestRunResponse.TestRunInfo.PASSED,
-            failure_info=(
-                TestRunFailureInfo(
-                    message=result.failure_info.failure_message,
-                    file=result.failure_info.file,
-                    line=result.failure_info.line,
-                )
-                if result.failure_info
-                else None
-            ),
+            failure_info=(make_failure_info(result) if result.failure_info else None),
             activityLogs=[
                 translate_activity(activity) for activity in result.activityLogs or []
             ],
@@ -195,6 +190,35 @@ def make_results(
         )
         for result in response.results or []
     ]
+
+
+def make_failure_info(result: XctestRunResponse.TestRunInfo) -> TestRunFailureInfo:
+    if result.other_failures is None or len(result.other_failures) == 0:
+        return TestRunFailureInfo(
+            message=result.failure_info.failure_message,
+            file=result.failure_info.file,
+            line=result.failure_info.line,
+        )
+    else:
+        message = (
+            "line:"
+            + str(result.failure_info.line)
+            + " "
+            + result.failure_info.failure_message
+        )
+        for other_failure in result.other_failures:
+            message = (
+                message
+                + ", line:"
+                + str(other_failure.line)
+                + " "
+                + other_failure.failure_message
+            )
+        return TestRunFailureInfo(
+            message=message,
+            file=result.failure_info.file,
+            line=result.failure_info.line,
+        )
 
 
 def translate_activity(
@@ -214,6 +238,7 @@ def translate_activity(
                 timestamp=attachment.timestamp,
                 name=attachment.name,
                 uniform_type_identifier=attachment.uniform_type_identifier,
+                user_info_json=attachment.user_info_json,
             )
             for attachment in activity.attachments or []
         ],

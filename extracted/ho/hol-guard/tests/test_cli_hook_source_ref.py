@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import io
-import json
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
-from codex_plugin_scanner.guard.cli.commands_hook import _try_source_ref_fast_path
+from codex_plugin_scanner.guard.cli.commands_hook_source_ref import _try_source_ref_fast_path
 from codex_plugin_scanner.guard.config import GuardConfig
 from codex_plugin_scanner.guard.runtime.hook_source_read import sha256_text
 from codex_plugin_scanner.guard.store import GuardStore
@@ -100,7 +97,6 @@ class TestCLISourceRefSafeFile:
             args,
             config=config,
             context=context,
-            guard_home=guard_home,
             payload=payload,
             runtime_workspace=workspace,
             store=store,
@@ -149,7 +145,6 @@ class TestCLISourceRefMismatch:
             args,
             config=config,
             context=context,
-            guard_home=guard_home,
             payload=payload,
             runtime_workspace=workspace,
             store=store,
@@ -194,7 +189,6 @@ class TestCLISourceRefSensitivePath:
             args,
             config=config,
             context=context,
-            guard_home=guard_home,
             payload=payload,
             runtime_workspace=workspace,
             store=store,
@@ -225,7 +219,6 @@ class TestCLISourceRefNoSourceRef:
             args,
             config=config,
             context=context,
-            guard_home=guard_home,
             payload=payload,
             runtime_workspace=workspace,
             store=store,

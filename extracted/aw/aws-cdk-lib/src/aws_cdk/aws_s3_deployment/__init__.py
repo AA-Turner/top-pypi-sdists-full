@@ -368,7 +368,7 @@ s3deploy.BucketDeployment(self, "DeployWithSignedPayloads",
 
 ## Size Limits
 
-The default memory limit for the deployment resource is 128MiB. If you need to
+The default memory limit for the deployment resource is 1024MiB. If you need to
 copy larger files, you can use the `memoryLimit` configuration to increase the
 size of the AWS Lambda resource handler.
 
@@ -782,7 +782,7 @@ class BucketDeployment(
         :param include: If this is set, matching files or objects will be included with the deployment's sync command. Since all files from the deployment package are included by default, this property is usually leveraged alongside an ``exclude`` filter. Default: - No include filters are used and all files are included with the sync command
         :param log_group: The Log Group used for logging of events emitted by the custom resource's lambda function. Providing a user-controlled log group was rolled out to commercial regions on 2023-11-16. If you are deploying to another type of region, please check regional availability first. Default: - a default log group created by AWS Lambda
         :param log_retention: The number of days that the lambda function's log events are kept in CloudWatch Logs. This is a legacy API and we strongly recommend you migrate to ``logGroup`` if you can. ``logGroup`` allows you to create a fully customizable log group and instruct the Lambda function to send logs to it. Default: logs.RetentionDays.INFINITE
-        :param memory_limit: The amount of memory (in MiB) to allocate to the AWS Lambda function which replicates the files from the CDK bucket to the destination bucket. If you are deploying large files, you will need to increase this number accordingly. Default: 128
+        :param memory_limit: The amount of memory (in MiB) to allocate to the AWS Lambda function which replicates the files from the CDK bucket to the destination bucket. If you are deploying large files, you will need to increase this number accordingly. Default: 1024
         :param metadata: User-defined object metadata to be set on all objects in the deployment. Default: - No user metadata is set
         :param output_object_keys: If set to false, the custom resource will not send back the SourceObjectKeys. This is useful when you are facing the error ``Response object is too long`` See https://github.com/aws/aws-cdk/issues/28579 Default: true
         :param prune: By default, files in the destination bucket that don't exist in the source will be deleted when the BucketDeployment resource is created or updated. If this is set to false, files in the destination bucket that do not exist in the asset, will NOT be deleted during deployment (create/update). Default: true
@@ -1011,7 +1011,7 @@ class BucketDeploymentProps:
         :param include: If this is set, matching files or objects will be included with the deployment's sync command. Since all files from the deployment package are included by default, this property is usually leveraged alongside an ``exclude`` filter. Default: - No include filters are used and all files are included with the sync command
         :param log_group: The Log Group used for logging of events emitted by the custom resource's lambda function. Providing a user-controlled log group was rolled out to commercial regions on 2023-11-16. If you are deploying to another type of region, please check regional availability first. Default: - a default log group created by AWS Lambda
         :param log_retention: The number of days that the lambda function's log events are kept in CloudWatch Logs. This is a legacy API and we strongly recommend you migrate to ``logGroup`` if you can. ``logGroup`` allows you to create a fully customizable log group and instruct the Lambda function to send logs to it. Default: logs.RetentionDays.INFINITE
-        :param memory_limit: The amount of memory (in MiB) to allocate to the AWS Lambda function which replicates the files from the CDK bucket to the destination bucket. If you are deploying large files, you will need to increase this number accordingly. Default: 128
+        :param memory_limit: The amount of memory (in MiB) to allocate to the AWS Lambda function which replicates the files from the CDK bucket to the destination bucket. If you are deploying large files, you will need to increase this number accordingly. Default: 1024
         :param metadata: User-defined object metadata to be set on all objects in the deployment. Default: - No user metadata is set
         :param output_object_keys: If set to false, the custom resource will not send back the SourceObjectKeys. This is useful when you are facing the error ``Response object is too long`` See https://github.com/aws/aws-cdk/issues/28579 Default: true
         :param prune: By default, files in the destination bucket that don't exist in the source will be deleted when the BucketDeployment resource is created or updated. If this is set to false, files in the destination bucket that do not exist in the asset, will NOT be deleted during deployment (create/update). Default: true
@@ -1368,7 +1368,7 @@ class BucketDeploymentProps:
         If you are deploying large files, you will need to increase this number
         accordingly.
 
-        :default: 128
+        :default: 1024
         '''
         result = self._values.get("memory_limit")
         return typing.cast(typing.Optional[jsii.Number], result)

@@ -18,18 +18,19 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
 
 class UsageData(BaseModel):
     """
-    The cost and quantity of inline data delivered in the response: the agent per-dataset surcharge, the search and answer include_contents charge, or the contents per-item cost. `datasets` is the count of billed data units. Absent when the surface did not or cannot emit inline data (for example, the answer agent).
+    The cost and quantity of data delivered in the response.  `datasets` counts billed datasets or content items. `data_points` counts billed quantitative values in generated answer output.
     """ # noqa: E501
     cost_usd: Union[StrictFloat, StrictInt] = Field(description="USD cost of the inline data delivered in the response.")
-    datasets: StrictInt = Field(description="Number of billed data units (datasets) included in the response.")
-    __properties: ClassVar[List[str]] = ["cost_usd", "datasets"]
+    datasets: StrictInt = Field(description="Number of billed datasets or content items included in the response.")
+    data_points: Optional[StrictInt] = Field(default=None, description="Number of billed quantitative data points included in the response.")
+    __properties: ClassVar[List[str]] = ["cost_usd", "datasets", "data_points"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -70,6 +71,11 @@ class UsageData(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if data_points (nullable) is None
+        # and model_fields_set contains the field
+        if self.data_points is None and "data_points" in self.model_fields_set:
+            _dict['data_points'] = None
+
         return _dict
 
     @classmethod
@@ -83,7 +89,8 @@ class UsageData(BaseModel):
 
         _obj = cls.model_validate({
             "cost_usd": obj.get("cost_usd"),
-            "datasets": obj.get("datasets")
+            "datasets": obj.get("datasets"),
+            "data_points": obj.get("data_points")
         })
         return _obj
 

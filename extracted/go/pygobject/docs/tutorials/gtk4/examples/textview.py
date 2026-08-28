@@ -6,7 +6,7 @@ from gi.repository import Gtk, Pango
 
 class SearchDialog(Gtk.Window):
     def __init__(self, parent):
-        super().__init__(title="Search", transient_for=parent)
+        super().__init__(title="Search", modal=True, transient_for=parent)
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         self.set_child(box)
@@ -35,10 +35,7 @@ class TextViewWindow(Gtk.ApplicationWindow):
         self.create_buttons()
 
     def create_toolbar(self):
-        toolbar = Gtk.Box(spacing=6)
-        toolbar.props.margin_top = 6
-        toolbar.props.margin_start = 6
-        toolbar.props.margin_end = 6
+        toolbar = Gtk.Box(spacing=6, margin_top=6, margin_start=6, margin_end=6)
         self.box.prepend(toolbar)
 
         button_bold = Gtk.Button(icon_name="format-text-bold-symbolic")
@@ -93,17 +90,15 @@ class TextViewWindow(Gtk.ApplicationWindow):
         toolbar.append(button_search)
 
     def create_textview(self):
-        scrolledwindow = Gtk.ScrolledWindow()
-        scrolledwindow.props.hexpand = True
-        scrolledwindow.props.vexpand = True
+        scrolledwindow = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
         self.box.append(scrolledwindow)
 
         self.textview = Gtk.TextView()
         self.textbuffer = self.textview.get_buffer()
         self.textbuffer.set_text(
             "This is some text inside of a Gtk.TextView. "
-            + 'Select text and click one of the buttons "bold", "italic", '
-            + 'or "underline" to modify the text accordingly.'
+            'Select text and click one of the buttons "bold", "italic", '
+            'or "underline" to modify the text accordingly.'
         )
         scrolledwindow.set_child(self.textview)
 
@@ -118,28 +113,25 @@ class TextViewWindow(Gtk.ApplicationWindow):
         grid = Gtk.Grid()
         self.box.append(grid)
 
-        check_editable = Gtk.CheckButton(label="Editable")
-        check_editable.props.active = True
-        check_editable.connect("toggled", self.on_editable_toggled)
+        check_editable = Gtk.CheckButton(label="Editable", active=True)
+        check_editable.bind_property("active", self.textview, "editable", 0)
         grid.attach(check_editable, 0, 0, 1, 1)
 
-        check_cursor = Gtk.CheckButton(label="Cursor Visible")
-        check_cursor.props.active = True
-        check_editable.connect("toggled", self.on_cursor_toggled)
+        check_cursor = Gtk.CheckButton(label="Cursor Visible", active=True)
+        check_cursor.bind_property("active", self.textview, "cursor_visible", 0)
         grid.attach_next_to(check_cursor, check_editable, Gtk.PositionType.RIGHT, 1, 1)
 
-        radio_wrapnone = Gtk.CheckButton(label="No Wrapping")
-        radio_wrapnone.props.active = True
+        radio_wrapnone = Gtk.CheckButton(label="No Wrapping", active=True)
         grid.attach(radio_wrapnone, 0, 1, 1, 1)
 
-        radio_wrapchar = Gtk.CheckButton(label="Character Wrapping")
-        radio_wrapchar.set_group(radio_wrapnone)
+        radio_wrapchar = Gtk.CheckButton(
+            label="Character Wrapping", group=radio_wrapnone
+        )
         grid.attach_next_to(
             radio_wrapchar, radio_wrapnone, Gtk.PositionType.RIGHT, 1, 1
         )
 
-        radio_wrapword = Gtk.CheckButton(label="Word Wrapping")
-        radio_wrapword.set_group(radio_wrapnone)
+        radio_wrapword = Gtk.CheckButton(label="Word Wrapping", group=radio_wrapnone)
         grid.attach_next_to(
             radio_wrapword, radio_wrapchar, Gtk.PositionType.RIGHT, 1, 1
         )
@@ -158,12 +150,6 @@ class TextViewWindow(Gtk.ApplicationWindow):
         start = self.textbuffer.get_start_iter()
         end = self.textbuffer.get_end_iter()
         self.textbuffer.remove_all_tags(start, end)
-
-    def on_editable_toggled(self, widget):
-        self.textview.props.editable = widget.props.active
-
-    def on_cursor_toggled(self, widget):
-        self.textview.props.cursor_visible = widget.props.active
 
     def on_wrap_toggled(self, _widget, mode):
         self.textview.props.wrap_mode = mode

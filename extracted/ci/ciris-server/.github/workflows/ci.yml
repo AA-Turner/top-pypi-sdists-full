@@ -174,7 +174,54 @@ jobs:
       # tpm are Linux-only (per-target). NOT --all-features: that drags
       # `extension-module` (libpython-no-link) into the test binary.
       - run: cargo clippy --all-targets -- -D warnings
+      # `cargo test` below runs `admin_ops` and `mesh_config_consumers`, which
+      # resolve the localization bundle through the INSTALLED `ciris-client`
+      # (CIRISServer#471 — the bundle is a package artifact now, not a path in
+      # this tree). Those suites fail HARD when the package is missing rather
+      # than skipping, which is the point: a localization gate that silently
+      # examines nothing reports clean. So the install is load-bearing for
+      # `cargo test`, not just for the dedicated localization job.
+      - name: Set up Python (the bundle resolver runs python3)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install ciris-client (two test suites read its locale bundle)
+        shell: bash
+        run: python3 tools/client_pin.py --install
       - run: cargo test
+      # ── The boundary gates, which `cargo test` does NOT run ─────────────────
+      #
+      # `tests/release_gates/boundary.rs` holds the ladder's whole non-hermetic
+      # surface, and every gate in it is `#[ignore]`d — correctly, because they
+      # reach the network and must not fail a developer's offline run. But
+      # `cargo test` skips ignored tests, so until these steps existed NOTHING
+      # ran them, and a gate nothing runs is a gate that cannot fail.
+      #
+      # That is precisely the defect this ladder was rebuilt to end — the
+      # previous suite's ignored gates "rotted because nothing watched them" —
+      # and `gate_pinned_client_offers_a_non_desktop_wheel` was added in this cut
+      # to prevent CIRISServer#493 while being unrunnable itself. Found by review
+      # (Codex on #496), not by a gate, because the gate that would have caught it
+      # was the one not running.
+      #
+      # TWO STEPS, NOT ONE. The first draft ran all of boundary under
+      # `continue-on-error`, which buries the only gate here that should normally
+      # be GREEN under two that are legitimately red:
+      #
+      #   gate_registry_surface_present         RED BY DESIGN on 0.5.x (the 0.6 boundary)
+      #   gate_peer_nodes_on_the_shipping_floor BLOCKED without CIRIS_GATE_NODE_A/_B
+      #   gate_pinned_client_offers_...         should PASS — a pinned client that
+      #                                         cannot be resolved off-desktop is a
+      #                                         release blocker, not a status line
+      #
+      # So the client-wheel gate BLOCKS and the other two are advisory. A single
+      # advisory step would have reported success on exactly the condition it was
+      # written to stop.
+      - name: Boundary — the pinned client must be resolvable off-desktop (BLOCKING)
+        run: 'cargo test --test release_gates -- --include-ignored gate_pinned_client_offers_a_non_desktop_wheel'
+      - name: Boundary — forward + external-fact gates (advisory; read before tagging)
+        continue-on-error: true
+        run: 'cargo test --test release_gates -- --include-ignored gate_registry_surface_present gate_peer_nodes_on_the_shipping_floor'
       # CIRISServer#373 — `cargo test` above tests the ROOT PACKAGE ONLY. With a
       # root package present and no `default-members`, the workspace member is
       # never built as a test target, so ciris-lens-core's 364 unit tests — the
@@ -215,7 +262,15 @@ jobs:
       # RAISING THIS NUMBER IS THE REVIEW. Do it in the same commit as the new
       # site, never after, and never by dropping the flag.
       - name: cohort_scope emit-site ratchet (CIRISServer#38)
-        run: python3 tools/audit_cohort_scope_callers.py --max-federation 43
+        # 43 -> 44 (0.5.189): `peer.rs` gained an explicit-signer branch for
+        # `consent:replication:v1`, the twin of the federation emit ten lines above
+        # it. Same grant, same envelope, same MANDATORY federation scope — the
+        # grant must be readable by the peer it names — authored with the NODE's
+        # key instead of the engine's (CC 3.4.7.3, CIRISServer#489). Not a
+        # widening: it is the same audience reached by a different pen, and the
+        # alternative was leaving a split node's topology unreadable by the
+        # identity that reads it (CIRISServer#312).
+        run: python3 tools/audit_cohort_scope_callers.py --max-federation 44
       # The NOISE FLOOR proof (CIRISServer#14, CEG §19.7 / §19.3 N5) — provable
       # individual-unrecoverability for erasure compliance, run explicitly so the
       # MEASURED residual-fidelity numbers land in the CI log (Linux only — one
@@ -311,7 +366,8 @@ jobs:
   #
   # ── THE PUBLISHED CONTRACT (the consumer is in ANOTHER REPO) ──────────────
   # Consumer: CIRISAgent `tools/update_substrate_libs.py` (its CIRISServer
-  # entry) + `client/iosApp/scripts/embed_native_frameworks.sh`. Tracking
+  # entry) + CIRISClient's `iosApp/scripts/embed_native_frameworks.sh` (that
+  # path moved out of this repo with CIRISServer#471). Tracking
   # issue for the client half: CIRISAI/CIRISAgent#1011. Everything below is
   # load-bearing on the OTHER side of that repo boundary — change one, change
   # both:

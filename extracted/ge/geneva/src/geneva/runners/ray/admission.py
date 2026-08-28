@@ -414,6 +414,7 @@ def calculate_job_resources(
     *,
     enable_gpu_pipelining: bool = False,
     pipelining_num_readers: int = 8,
+    default_memory_bytes: int = 0,
 ) -> JobResources:
     """
     Calculate total resources needed for a backfill job.
@@ -445,7 +446,16 @@ def calculate_job_resources(
     )
     udf_cpus = (udf.num_cpus or 1.0) * cpu_threads
     udf_gpus = udf.num_gpus or 0.0
-    udf_memory = (udf.memory or 0) * intra_applier_concurrency
+    # A backfill UDF that declares no memory reserves the floor on the actor,
+    # so admission prices the same floor -- otherwise it clears jobs Ray cannot
+    # place. Passed in rather than resolved here: the floor is a backfill
+    # policy, and callers on other paths leave it at 0 and get the declaration
+    # alone. ``is None`` rather than truthiness, matching the actor --
+    # ``@udf(memory=0)`` asks for unreserved scheduling and gets it.
+    declared = udf.memory
+    udf_memory = (
+        max(0, int(default_memory_bytes)) if declared is None else declared
+    ) * intra_applier_concurrency
 
     # Applier actors (main workload)
     applier_cpus = concurrency * udf_cpus
@@ -1075,6 +1085,7 @@ def validate_admission(
     pipelining_num_readers: int = 8,
     check: bool | None = None,
     strict: bool | None = None,
+    default_memory_bytes: int = 0,
     kuberay_namespace: str | None = None,
     kuberay_cluster_name: str | None = None,
 ) -> None:
@@ -1139,6 +1150,7 @@ def validate_admission(
         intra_applier_concurrency,
         enable_gpu_pipelining=enable_gpu_pipelining,
         pipelining_num_readers=pipelining_num_readers,
+        default_memory_bytes=default_memory_bytes,
     )
 
     kind = _detect_cluster_kind()

@@ -21,10 +21,14 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef __PYGI_SOURCE_H__
-#define __PYGI_SOURCE_H__
+#pragma once
+
+#include <glib.h>
+#include <pythoncapi_compat.h>
+
+G_BEGIN_DECLS
 
 PyObject *pygi_source_new (PyObject *self, PyObject *args);
-PyObject *pygi_source_set_callback (PyGObject *self, PyObject *args);
+PyObject *pygi_source_set_callback (PyObject *self, PyObject *args);
 
-#endif /* __PYGI_SOURCE_H__ */
+G_END_DECLS

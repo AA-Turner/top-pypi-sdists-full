@@ -80,6 +80,11 @@ class IntegrationsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.TestIntegrationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.TestIntegrationResponse.FromString,
         )
+        self.ListSnowflakeNamedStages = channel.unary_unary(
+            "/chalk.server.v1.IntegrationsService/ListSnowflakeNamedStages",
+            request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListSnowflakeNamedStagesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListSnowflakeNamedStagesResponse.FromString,
+        )
 
 
 class IntegrationsServiceServicer(object):
@@ -163,6 +168,15 @@ class IntegrationsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListSnowflakeNamedStages(self, request, context):
+        """Introspects a Snowflake data source for the stages its credentials can see. Same
+        permission as TestIntegration: both connect to the source with the caller-supplied or
+        saved credentials and return only non-secret metadata.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_IntegrationsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -230,6 +244,11 @@ def add_IntegrationsServiceServicer_to_server(servicer, server):
             servicer.TestIntegration,
             request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.TestIntegrationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.TestIntegrationResponse.SerializeToString,
+        ),
+        "ListSnowflakeNamedStages": grpc.unary_unary_rpc_method_handler(
+            servicer.ListSnowflakeNamedStages,
+            request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListSnowflakeNamedStagesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.ListSnowflakeNamedStagesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.IntegrationsService", rpc_method_handlers)
@@ -607,6 +626,35 @@ class IntegrationsService(object):
             "/chalk.server.v1.IntegrationsService/TestIntegration",
             chalk_dot_server_dot_v1_dot_integrations__pb2.TestIntegrationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_integrations__pb2.TestIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListSnowflakeNamedStages(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.IntegrationsService/ListSnowflakeNamedStages",
+            chalk_dot_server_dot_v1_dot_integrations__pb2.ListSnowflakeNamedStagesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_integrations__pb2.ListSnowflakeNamedStagesResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -75,39 +75,22 @@ import json
 import logging
 import os
 import secrets
-import time
 
 from ..result_schema import JobError, JobResult
+from . import identity_render_client as _client
 
 logger = logging.getLogger(__name__)
 
 # The manifest file the service writes at the job-dir root (in the done ``files`` list).
 _MANIFEST_NAME = "char360_result.json"
 
-# Per-request HTTP budget as a (connect, read) TUPLE — mirrors identity_render_relay: a
-# short connect side detects a down/firewalled service in seconds (ae's firewall DROPs
-# unknown ports — no RST — so a flat timeout eats the whole budget just discovering "nobody
-# home"), a generous read side tolerates a large manifest / view download.
-_HTTP_TIMEOUT_S = (10.0, 120.0)
-# Poll cadence + whole-job deadline. The bus registers identity_video_extract with a 14400s
-# timeout; poll a touch under it so the runner returns clean errors-as-data rather than
-# being killed mid-poll. Overridable via env (SHARED with the mesh relay's knobs — same
-# service, same cadence — so tuning/tests move them together).
-_POLL_INTERVAL_S = float(os.getenv("IDENTITY_RENDER_POLL_INTERVAL_S", "5") or "5")
-_POLL_DEADLINE_S = float(os.getenv("IDENTITY_RENDER_DEADLINE_S", "14100") or "14100")
-
-
-def _atomic_write_bytes(dest: str, data: bytes) -> None:
-    """Write *data* to *dest* atomically (unique temp in the dest dir + os.replace),
-    mirroring identity_render_relay / identity_profiles' copy idiom so a crashed download
-    never leaves a half-written artifact at the final name."""
-    parent = os.path.dirname(dest)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    tmp = f"{dest}.{os.getpid()}.{secrets.token_hex(4)}.tmp"
-    with open(tmp, "wb") as f:
-        f.write(data)
-    os.replace(tmp, dest)
+# HTTP budget / poll cadence / deadline + the atomic-write and download helpers live in
+# identity_render_client (k94 — factored out so the three identity relays share ONE
+# submit/poll/download/persist path). The old module-level names stay bound as aliases.
+_HTTP_TIMEOUT_S = _client.HTTP_TIMEOUT_S
+_POLL_INTERVAL_S = _client.POLL_INTERVAL_S
+_POLL_DEADLINE_S = _client.POLL_DEADLINE_S
+_atomic_write_bytes = _client.atomic_write_bytes
 
 
 def _short_token(job_id: str, char_id: str) -> str:
@@ -119,20 +102,7 @@ def _short_token(job_id: str, char_id: str) -> str:
     return f"{base}{secrets.token_hex(2)}" if base else secrets.token_hex(4)
 
 
-def _download_file(requests_mod, url: str, headers: dict, remote_id: str,
-                   rel_name: str) -> bytes | None:
-    """GET one job-relative file from the service; return its bytes, or None on any
-    non-200 / transport error (logged, never raised — a missing view is skipped, not fatal)."""
-    try:
-        fr = requests_mod.get(f"{url}/jobs/{remote_id}/files/{rel_name}",
-                              headers=headers, timeout=_HTTP_TIMEOUT_S)
-    except requests_mod.RequestException:
-        logger.warning("identity video-extract: failed to download %r", rel_name)
-        return None
-    if fr.status_code != 200:
-        logger.warning("identity video-extract: file %r -> HTTP %s", rel_name, fr.status_code)
-        return None
-    return fr.content
+_download_file = _client.download_file
 
 
 def run_identity_video_extract(spec, job_id: str) -> JobResult:
@@ -150,19 +120,14 @@ def run_identity_video_extract(spec, job_id: str) -> JobResult:
         return JobResult(job_id=job_id, ok=False,
                          error=JobError(code=code, message=message, retryable=retryable))
 
-    url = (os.getenv("IDENTITY_RENDER_URL", "") or "").strip().rstrip("/")
-    token = (os.getenv("IDENTITY_RENDER_TOKEN", "") or "").strip()
+    url, token = _client.service_config()
     if not url or not token:
-        return _fail(
-            "not_configured",
-            "the identity render service is not configured on this host — set "
-            "IDENTITY_RENDER_URL and IDENTITY_RENDER_TOKEN (central has no GPU; char360 "
-            "video-extracts are relayed to a remote GPU render service).",
-            retryable=False)
+        nc = _client.not_configured_error("char360 video-extracts")
+        return _fail(nc.code, nc.message, retryable=nc.retryable)
 
     import requests  # lazy — present (2.34.2); keeps the module boot-cheap
 
-    headers = {"X-Identity-Render-Token": token}
+    headers = _client.auth_headers(token)
 
     target = spec.target
     is_create = (target == "create")
@@ -210,93 +175,22 @@ def run_identity_video_extract(spec, job_id: str) -> JobResult:
         "char360_params": char360_params,
     }
 
-    # ---- POST the job (identical handling to the mesh relay) ----
-    try:
-        resp = requests.post(f"{url}/jobs", json=payload, headers=headers,
-                             timeout=_HTTP_TIMEOUT_S)
-    except requests.RequestException as exc:
-        return _fail("render_unreachable",
-                     f"could not reach the identity render service at {url}: {exc}",
-                     retryable=True)
-    if resp.status_code == 401:
-        return _fail("render_unauthorized",
-                     "the identity render service rejected the token (HTTP 401)",
-                     retryable=False)
-    if resp.status_code != 202:
-        body = (resp.text or "")[:300]
-        return _fail("render_rejected",
-                     f"the render service rejected the job (HTTP {resp.status_code}): {body}",
-                     retryable=True)
-    try:
-        remote_id = resp.json()["job_id"]
-    except (ValueError, KeyError, TypeError):
-        return _fail("render_bad_response",
-                     "the render service accepted the job but returned no job_id",
-                     retryable=True)
-    if not isinstance(remote_id, str) or not remote_id:
-        return _fail("render_bad_response",
-                     "the render service returned an empty job_id", retryable=True)
+    # ---- POST + poll (shared client — k94; identical handling to the mesh relay) ----
+    remote_id, err = _client.submit_job(requests, url, headers, payload)
+    if err is not None:
+        return _fail(err.code, err.message, retryable=err.retryable)
 
     def _delete_remote() -> None:
-        try:
-            requests.delete(f"{url}/jobs/{remote_id}", headers=headers, timeout=30.0)
-        except requests.RequestException:
-            pass  # best-effort cleanup; never fail the job on it
+        _client.delete_remote(requests, url, headers, remote_id)
 
-    # ---- poll until done / error / cancel / deadline (mirrors the mesh relay) ----
-    deadline = time.time() + _POLL_DEADLINE_S
-    files: list = []
-    while True:
-        if is_cancelling(job_id):
-            _delete_remote()
-            return JobResult(job_id=job_id, ok=False, error=JobError(
-                code="cancelled",
-                message=f"identity video-extract for {target!r} cancelled by user",
-                retryable=False))
-        if time.time() > deadline:
-            _delete_remote()
-            return _fail("render_timeout",
-                         f"identity video-extract for {target!r} did not finish within the "
-                         f"deadline ({int(_POLL_DEADLINE_S)}s)",
-                         retryable=True)
-        try:
-            pr = requests.get(f"{url}/jobs/{remote_id}", headers=headers,
-                              timeout=_HTTP_TIMEOUT_S)
-            if pr.status_code == 200:
-                pbody = pr.json()
-                # ---- live progress relay (additive; older services omit these) ----
-                # Mirror ae's per-stage progress + rolling log tail into the media bus (and
-                # thence GET /llm/jobs) so a long — or WEDGED — extract surfaces its stage +
-                # live log instead of reading progress 0. Best-effort + wrapped; a DB hiccup
-                # here NEVER fails the extract (the poll/done/error logic below is untouched).
-                if isinstance(pbody, dict) and any(
-                        k in pbody for k in ("stage", "progress", "log_tail")):
-                    try:
-                        blob = {"source": "identity_video_extract",
-                                "remote_updated": pbody.get("updated")}
-                        for k in ("stage", "progress", "log_tail"):
-                            if k in pbody:
-                                blob[k] = pbody.get(k)
-                        set_progress(job_id, blob)
-                    except Exception:  # noqa: BLE001 — progress mirror is best-effort only
-                        logger.debug("identity video-extract: progress stamp failed for %s",
-                                     job_id, exc_info=True)
-                status = pbody.get("status")
-                if status == "done":
-                    files = pbody.get("files") or []
-                    break
-                if status == "error":
-                    _delete_remote()
-                    msg = pbody.get("error") or "the render service reported an error"
-                    return _fail("render_failed",
-                                 f"identity video-extract failed for {target!r}: {msg}",
-                                 retryable=True)
-                # queued / running -> keep polling
-        except requests.RequestException:
-            pass  # transient poll hiccup — keep polling until the deadline
-        except ValueError:
-            pass  # non-JSON status body — treat as transient
-        time.sleep(_POLL_INTERVAL_S)
+    files, err = _client.poll_job(
+        requests, url, headers, remote_id, job_id,
+        label=f"identity video-extract for {target!r}",
+        is_cancelling=is_cancelling, set_progress=set_progress,
+        progress_source="identity_video_extract")
+    if err is not None:
+        return JobResult(job_id=job_id, ok=False, error=JobError(
+            code=err.code, message=err.message, retryable=err.retryable))
 
     # ---- download + parse the manifest (char360_result.json) ----
     if _MANIFEST_NAME not in files:
@@ -385,8 +279,7 @@ def run_identity_video_extract(spec, job_id: str) -> JobResult:
             # Defense-in-depth: basename every component so a hostile "../" in a
             # service-supplied name can never escape the staging dir (the service is
             # trusted, but the write-back path must be un-escapable).
-            safe_rel = "/".join(
-                os.path.basename(part) for part in rel.replace("\\", "/").split("/") if part)
+            safe_rel = _client.safe_rel(rel)
             if not safe_rel:
                 continue
             data = _download_file(requests, url, headers, remote_id, rel)

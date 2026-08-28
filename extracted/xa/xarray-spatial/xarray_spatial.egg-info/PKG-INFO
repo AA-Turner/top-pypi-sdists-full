@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-spatial
-Version: 0.10.17
+Version: 0.10.18
 Summary: xarray-based spatial analysis tools
 Home-page: https://github.com/xarray-contrib/xarray-spatial
 Author: Xarray-Spatial Developers
@@ -15,12 +15,12 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: numba
-Requires-Dist: scipy
-Requires-Dist: xarray
-Requires-Dist: numpy
-Requires-Dist: urllib3
-Requires-Dist: zstandard
+Requires-Dist: numba>=0.59
+Requires-Dist: scipy>=1.11.2
+Requires-Dist: xarray>=2025.11
+Requires-Dist: numpy<2.5,>=1.26
+Requires-Dist: pandas>=2.2
+Requires-Dist: urllib3>=2.7
 Provides-Extra: doc
 Requires-Dist: dask[dataframe]; extra == "doc"
 Requires-Dist: geopandas; extra == "doc"
@@ -53,12 +53,14 @@ Requires-Dist: pyproj; extra == "reproject"
 Provides-Extra: geotiff
 Requires-Dist: deflate; extra == "geotiff"
 Requires-Dist: pyproj; extra == "geotiff"
+Requires-Dist: zstandard>=0.22; extra == "geotiff"
 Provides-Extra: dask
 Requires-Dist: dask[array]; extra == "dask"
 Requires-Dist: dask-geopandas; extra == "dask"
 Provides-Extra: gpu
-Requires-Dist: cupy; extra == "gpu"
-Requires-Dist: cuspatial; extra == "gpu"
+Requires-Dist: cupy-cuda12x>=12.3; extra == "gpu"
+Provides-Extra: gpu-cuda13
+Requires-Dist: cupy-cuda13x>=13.6; extra == "gpu-cuda13"
 Provides-Extra: tests
 Requires-Dist: flake8; extra == "tests"
 Requires-Dist: geopandas; extra == "tests"
@@ -67,12 +69,14 @@ Requires-Dist: isort; extra == "tests"
 Requires-Dist: matplotlib; extra == "tests"
 Requires-Dist: noise>=1.2.2; extra == "tests"
 Requires-Dist: dask; extra == "tests"
+Requires-Dist: packaging; extra == "tests"
 Requires-Dist: pyarrow; extra == "tests"
 Requires-Dist: pyproj; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: scipy; extra == "tests"
 Requires-Dist: shapely>=2.0; extra == "tests"
+Requires-Dist: zstandard>=0.22; extra == "tests"
 Dynamic: license-file
 
 <!-- markdownlint-disable MD033 MD041 -->

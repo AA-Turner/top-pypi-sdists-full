@@ -45,6 +45,7 @@ from .type_defs import (
     AdminConfirmSignUpRequestTypeDef,
     AdminCreateUserRequestTypeDef,
     AdminCreateUserResponseTypeDef,
+    AdminDeleteSoftwareTokenRequestTypeDef,
     AdminDeleteUserAttributesRequestTypeDef,
     AdminDeleteUserRequestTypeDef,
     AdminDisableProviderForUserRequestTypeDef,
@@ -406,6 +407,17 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_create_user.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#admin_create_user)
+        """
+
+    def admin_delete_software_token(
+        self, **kwargs: Unpack[AdminDeleteSoftwareTokenRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a user's registered time-based one-time password (TOTP) multi-factor
+        authentication (MFA) factor, also known as a software token.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_delete_software_token.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#admin_delete_software_token)
         """
 
     def admin_delete_user(

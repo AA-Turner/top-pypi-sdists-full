@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import lru_cache
 from importlib.resources import files
+from pathlib import Path
 
+import kaldifst
 from kaldifst import TextNormalizer as normalizer
 
 
@@ -134,3 +137,22 @@ FST_PATHS = {
         },
     },
 }
+
+
+@lru_cache(maxsize=None)
+def get_prefix_fst(lang, operator, enable_0_to_9=False):
+    """Load the optional semantic prefix graph for streaming normalization.
+
+    Older model bundles do not contain these graphs.  Returning ``None`` lets
+    the streaming API degrade safely by buffering until ``flush()``.
+    """
+
+    use_digit_graph = operator == "itn" and enable_0_to_9 and lang != "en"
+    filename = "prefix_enable_0_to_9.fst" if use_digit_graph else "prefix.fst"
+    path = Path(fst_path(f"{lang}/{operator}/{filename}"))
+    if not path.is_file():
+        return None
+    graph = kaldifst.StdVectorFst.read(str(path))
+    for state in kaldifst.StateIterator(graph):
+        graph.set_final(state, 0.0)
+    return graph

@@ -52,6 +52,12 @@ dependencies = [
     # manually (hf-xet has no android wheel); existing phone workers are
     # unaffected (self-update is --no-deps).
     "huggingface_hub>=0.26",
+    # Identity pipeline (char360 + identity-render), split out of py/char360 +
+    # py/identity_render_service into one public-PyPI dist. Base install is
+    # thin (flask+pydantic only); its heavy stacks live in ITS [render] extra
+    # and are only installed on the GPU render box. Publish abstract_identity
+    # BEFORE publishing this version.
+    "abstract_identity>=0.1.0",
 
     "beautifulsoup4",        # base import chain (imports/init_imports) does `import bs4`
     "PyPDF2",                # pure-python

@@ -65,10 +65,23 @@ class BuildPyCommand(setuptools.command.build_py.build_py):
             file.write(filedata)
 
 
-version = os.environ.get("FB_IDB_VERSION")
+def pkg_info_version():
+    # An sdist records its version in the PKG-INFO file alongside setup.py, so
+    # installing a released sdist must not require out-of-band state. Building
+    # from a plain source checkout (no PKG-INFO) still requires the variable.
+    pkg_info = Path(os.path.realpath(__file__)).parent / "PKG-INFO"
+    if not pkg_info.exists():
+        return None
+    for line in pkg_info.read_text().splitlines():
+        if line.startswith("Version:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+version = os.environ.get("FB_IDB_VERSION") or pkg_info_version()
 if not version:
     raise Exception(
-        """Cannot build with without a version number. Set the environment variable FB_IDB_VERSION"""
+        """Cannot build without a version number. Set the environment variable FB_IDB_VERSION"""
     )
 
 setuptools.setup(
@@ -84,13 +97,19 @@ setuptools.setup(
     data_files=[("proto", ["proto/idb.proto"]), ("", ["protoc_compiler_template.py"])],
     license="MIT",
     classifiers=[
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    install_requires=["aiofiles", "grpclib >= 0.4.0", "protobuf", "treelib"],
+    install_requires=[
+        "aiofiles",
+        "grpclib >= 0.4.0",
+        # The lower bound must track the ValidateProtobufRuntimeVersion call
+        # baked into the pb2 modules generated at build time.
+        "protobuf >= 7.35.1",
+    ],
     setup_requires=["grpcio-tools >= 1.29.0", "grpclib >= 0.3.2"],
     entry_points={"console_scripts": ["idb = idb.cli.main:main"]},
-    python_requires=">=3.7",
+    python_requires=">=3.10",
     cmdclass={"build_py": BuildPyCommand},
 )

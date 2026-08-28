@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 from ..comms.jobs import Job, job_store, normalize_status, to_legacy
 from .engine import DOWNLOAD_KIND, invalidate_model_status_cache
-from .presence import downloader_alive
+from .presence import downloader_alive, last_beat
 
 # How long a job may sit unclaimed before the view says so out loud. Short
 # enough that an operator learns within one poll cycle that no daemon is
@@ -25,7 +25,41 @@ WAITING_GRACE_SECONDS = 30.0
 _NO_DAEMON_MESSAGE = (
     "Queued — waiting for the downloader service (hugpy-downloader-dev is not "
     "running).")
+_NO_QUEUE_MESSAGE = (
+    "Queued, but the shared download queue is unreachable — the downloader "
+    "cannot see this job yet. It retries itself; if this persists, check "
+    "HUGPY_COMMS_DB.")
 _WAITING_MESSAGE = "Queued — waiting for downloader…"
+
+
+def queue_depth() -> int:
+    """How many download jobs are queued and unclaimed, or -1 if the shared
+    queue is unreachable. -1 is NOT 0: "nothing waiting" and "I cannot see the
+    queue" were the same answer for eleven days, and that is what made the
+    outage invisible."""
+    mirror = job_store.mirror
+    if mirror is None:
+        return -1
+    try:
+        return mirror.claimable_count((DOWNLOAD_KIND,))
+    except Exception:  # noqa: BLE001 — a depth read must never break an enqueue
+        return -1
+
+
+def queue_healthy() -> bool:
+    """False ONLY when a shared queue exists but is currently unusable
+    (quarantined mirror). ``HUGPY_COMMS_DB=off`` is not a fault — it is a
+    deliberate per-process configuration in which no daemon runs at all, and
+    that case is reported by ``downloader_alive()`` / ``queue_depth() == -1``.
+    Keeping the two apart matters: "the daemon is stopped" and "the daemon
+    cannot see the queue" need different actions from the operator."""
+    mirror = job_store.mirror
+    if mirror is None:
+        return True
+    try:
+        return bool(mirror.health().get("ok"))
+    except Exception:  # noqa: BLE001
+        return True
 
 
 def enqueue_download(model_key: str, model: dict,
@@ -42,12 +76,20 @@ def enqueue_download(model_key: str, model: dict,
     payload: dict[str, Any] = {"model": model}
     if total_bytes:
         payload["total_bytes"] = int(total_bytes)
-    return job_store.enqueue(
+    job = job_store.enqueue(
         model_key, kind=DOWNLOAD_KIND, transport=transport,
         status="pending", message=_WAITING_MESSAGE,
         total_bytes=total_bytes, payload=payload,
         model_name=(model or {}).get("name") or model_key,
     )
+    # SAY SO WHEN THE ENQUEUE DID NOT LAND. The enqueue is best-effort against
+    # the mirror; if the mirror is quarantined the local row still exists and
+    # this used to return a happy job object that no daemon would ever see. The
+    # route turns this message into an operator-visible warning.
+    if not queue_healthy():
+        job_store.update(job.id, message=_NO_QUEUE_MESSAGE)
+        job = job_store.get(job.id) or job
+    return job
 
 
 def annotate_waiting(d: dict) -> dict:
@@ -66,8 +108,15 @@ def annotate_waiting(d: dict) -> dict:
         if age < WAITING_GRACE_SECONDS:
             return d
         d = dict(d)
-        d["message"] = (_WAITING_MESSAGE if downloader_alive()
-                        else _NO_DAEMON_MESSAGE)
+        if not queue_healthy():
+            # The most specific truth first: a daemon can be perfectly alive and
+            # still be unable to SEE this job. That was the whole 2026-08-10
+            # outage, and "waiting for downloader…" actively misdirected.
+            d["message"] = _NO_QUEUE_MESSAGE
+        elif downloader_alive():
+            d["message"] = _WAITING_MESSAGE
+        else:
+            d["message"] = _NO_DAEMON_MESSAGE
     except (TypeError, ValueError):
         pass
     return d
@@ -116,6 +165,72 @@ def cancel_download(job_id: str) -> dict:
             f"download cancelled: {d.get('model_key')}",
             model_key=d.get("model_key") or None)
     return {"cancelled": bool(res.get("cancelled")), "mode": res.get("mode")}
+
+
+def discard_download(job_id: str) -> dict:
+    """ADMIN DISCARD of a terminal failure record (k121). The ONLY way a
+    failed/expired row leaves the queue view — they are never auto-pruned. A
+    live job cannot be discarded (cancel is the verb for those); the honest
+    refusal names the current status."""
+    d = job_store.get_dict(job_id)
+    if d is None:
+        return {"discarded": False, "reason": "unknown job"}
+    if normalize_status(d.get("status")) not in ("done", "cancelled", "failed",
+                                                 "expired"):
+        return {"discarded": False,
+                "reason": f"job is {d.get('status')} — cancel it first"}
+    ok = job_store.discard(job_id)
+    return {"discarded": bool(ok), "id": job_id}
+
+
+# A claimed row is only reclaimed when the daemon's heartbeat has been silent
+# for MUCH longer than presence.STALE_SECONDS — a transiently busy daemon must
+# never have an actively-downloading row yanked out from under it. adopt_stale
+# on daemon startup remains the fast path; this is the backstop for the daemon
+# that dies and NEVER restarts (the "claimed by a ghost, queued forever" hole).
+REAP_DEAD_CLAIM_SECONDS = 180.0
+
+
+def reap_dead_claims() -> list[str]:
+    """Re-queue download rows claimed by a downloader that is provably gone.
+
+    Read-path safe (called from GET /jobs): does nothing unless the heartbeat
+    has been silent past REAP_DEAD_CLAIM_SECONDS. Re-queued rows carry an
+    honest message; partial files on disk are resumed by the next daemon."""
+    mirror = job_store.mirror
+    if mirror is None:
+        return []
+    beat = last_beat()
+    if beat is not None and (time.time() - beat) < REAP_DEAD_CLAIM_SECONDS:
+        return []
+    try:
+        return mirror.adopt_stale(
+            (DOWNLOAD_KIND,), "__jobs-view-reaper__",
+            message=("Re-queued — the downloader service went away while this "
+                     "job was claimed; it resumes when the service is back."))
+    except Exception:  # noqa: BLE001 — a reap must never break the /jobs view
+        return []
+
+
+def set_diagnosis(job_id: str, text: str) -> bool:
+    """Pin a keeper diagnosis to a job record (survives until the record is
+    discarded)."""
+    mirror = job_store.mirror
+    if mirror is None:
+        return False
+    return mirror.set_job_note(job_id, "diagnosis", text)
+
+
+def merge_notes(rows: list[dict]) -> list[dict]:
+    """Attach pinned notes (diagnosis) to /jobs view rows, in place."""
+    mirror = job_store.mirror
+    if mirror is None or not rows:
+        return rows
+    notes = mirror.job_notes_for([d.get("id") for d in rows])
+    for d in rows:
+        for key, value in (notes.get(d.get("id")) or {}).items():
+            d.setdefault(key, value)
+    return rows
 
 
 def retry_download(job_id: str) -> dict:

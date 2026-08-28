@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: anndata
-Version: 0.13.2
+Version: 0.13.3.post0
 Summary: Annotated data.
 Project-URL: Documentation, https://anndata.readthedocs.io/
 Project-URL: Source, https://github.com/scverse/anndata

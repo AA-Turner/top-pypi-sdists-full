@@ -1,0 +1,62 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+# NOTE: "_new" suffix is intentional — testing apps for the new
+# AnalyticsEngine flow are registered in the backend with distinct names
+# (e.g. "Fire Detection New") so the ORIGINAL apps keep running the legacy
+# post_processing flow. Drop the suffix only when the new flow replaces
+# the legacy one for this app.
+app:
+  id: fire_detection_new
+  name: "Fire Detection New"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+# ──────────────────────────────────────────────
+categories:
+  - INCIDENT
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+# ──────────────────────────────────────────────
+entity_mapping:
+  fire: fire
+  smoke: smoke
+
+# ──────────────────────────────────────────────
+# Incident Module — Fire/Smoke Detection
+#
+# quant_strategy: area_ratio
+#   Computes incident_quant as
+#   (total_bbox_area / threshold_area) * 100
+#   matching the existing fire_detection.py logic.
+#
+# threshold_area: 250200.0
+#   Reference area in px^2 for intensity calculation.
+# ──────────────────────────────────────────────
+incident:
+  quant_strategy: area_ratio
+  threshold_area: 250200.0
+
+  incidentTypes:
+    - key: fire_smoke_detection
+      name: "Fire/Smoke Detection"
+      thresholds:
+        - level: low
+          percentage: 0.0001
+        - level: medium
+          percentage: 3
+        - level: significant
+          percentage: 13
+        - level: critical
+          percentage: 30
+      order: ascending
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults: []
+  overrides: []

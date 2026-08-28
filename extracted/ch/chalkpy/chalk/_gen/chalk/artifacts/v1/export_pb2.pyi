@@ -4,7 +4,10 @@ from chalk._gen.chalk.artifacts.v1 import cron_aggregate_backfill_pb2 as _cron_a
 from chalk._gen.chalk.artifacts.v1 import cron_query_pb2 as _cron_query_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
+from chalk._gen.chalk.lsp.v1 import range_pb2 as _range_pb2
 from chalk._gen.chalk.python.v1 import types_pb2 as _types_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper

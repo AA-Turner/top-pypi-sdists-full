@@ -10,20 +10,28 @@ from abc import (
 from chalk._gen.chalk.externalfunctioncatalog.v1.service_pb2 import (
     CallExternalFunctionRequest,
     CallExternalFunctionResponse,
+    CreateExternalFunctionRequest,
+    CreateExternalFunctionResponse,
     CreateExternalFunctionVersionRequest,
     CreateExternalFunctionVersionResponse,
     DeleteExternalFunctionRequest,
     DeleteExternalFunctionResponse,
     DeleteExternalFunctionVersionRequest,
     DeleteExternalFunctionVersionResponse,
+    GetExternalFunctionRequest,
+    GetExternalFunctionResponse,
     GetExternalFunctionVersionRequest,
     GetExternalFunctionVersionResponse,
+    GetExternalFunctionVersionSourceRequest,
+    GetExternalFunctionVersionSourceResponse,
     ListExternalFunctionScheduledRunsRequest,
     ListExternalFunctionScheduledRunsResponse,
     ListExternalFunctionVersionsRequest,
     ListExternalFunctionVersionsResponse,
     ListExternalFunctionsRequest,
     ListExternalFunctionsResponse,
+    UpdateExternalFunctionRequest,
+    UpdateExternalFunctionResponse,
 )
 from grpc import (
     Channel,
@@ -34,21 +42,21 @@ from grpc import (
 
 class ExternalFunctionCatalogServiceStub:
     def __init__(self, channel: Channel) -> None: ...
-    CreateExternalFunctionVersion: UnaryUnaryMultiCallable[
-        CreateExternalFunctionVersionRequest,
-        CreateExternalFunctionVersionResponse,
+    CreateExternalFunction: UnaryUnaryMultiCallable[
+        CreateExternalFunctionRequest,
+        CreateExternalFunctionResponse,
     ]
-    GetExternalFunctionVersion: UnaryUnaryMultiCallable[
-        GetExternalFunctionVersionRequest,
-        GetExternalFunctionVersionResponse,
+    UpdateExternalFunction: UnaryUnaryMultiCallable[
+        UpdateExternalFunctionRequest,
+        UpdateExternalFunctionResponse,
     ]
-    ListExternalFunctionVersions: UnaryUnaryMultiCallable[
-        ListExternalFunctionVersionsRequest,
-        ListExternalFunctionVersionsResponse,
+    GetExternalFunction: UnaryUnaryMultiCallable[
+        GetExternalFunctionRequest,
+        GetExternalFunctionResponse,
     ]
-    DeleteExternalFunctionVersion: UnaryUnaryMultiCallable[
-        DeleteExternalFunctionVersionRequest,
-        DeleteExternalFunctionVersionResponse,
+    ListExternalFunctions: UnaryUnaryMultiCallable[
+        ListExternalFunctionsRequest,
+        ListExternalFunctionsResponse,
     ]
     DeleteExternalFunction: UnaryUnaryMultiCallable[
         DeleteExternalFunctionRequest,
@@ -58,10 +66,6 @@ class ExternalFunctionCatalogServiceStub:
     down and the function schedule is removed, then all version rows are
     soft-deleted for historical audit.
     """
-    ListExternalFunctions: UnaryUnaryMultiCallable[
-        ListExternalFunctionsRequest,
-        ListExternalFunctionsResponse,
-    ]
     ListExternalFunctionScheduledRuns: UnaryUnaryMultiCallable[
         ListExternalFunctionScheduledRunsRequest,
         ListExternalFunctionScheduledRunsResponse,
@@ -70,32 +74,60 @@ class ExternalFunctionCatalogServiceStub:
         CallExternalFunctionRequest,
         CallExternalFunctionResponse,
     ]
+    CreateExternalFunctionVersion: UnaryUnaryMultiCallable[
+        CreateExternalFunctionVersionRequest,
+        CreateExternalFunctionVersionResponse,
+    ]
+    """Legacy compatibility RPC. New callers should use CreateExternalFunction
+    for the initial resource and UpdateExternalFunction with `spec` for every
+    later version. This remains intentionally available for shipped clients.
+    """
+    GetExternalFunctionVersion: UnaryUnaryMultiCallable[
+        GetExternalFunctionVersionRequest,
+        GetExternalFunctionVersionResponse,
+    ]
+    GetExternalFunctionVersionSource: UnaryUnaryMultiCallable[
+        GetExternalFunctionVersionSourceRequest,
+        GetExternalFunctionVersionSourceResponse,
+    ]
+    """Resolves the source files for one immutable function version. The browser
+    calls this lazily and reads the selected file directly from the pinned
+    volume version; source is intentionally absent from list responses.
+    """
+    ListExternalFunctionVersions: UnaryUnaryMultiCallable[
+        ListExternalFunctionVersionsRequest,
+        ListExternalFunctionVersionsResponse,
+    ]
+    DeleteExternalFunctionVersion: UnaryUnaryMultiCallable[
+        DeleteExternalFunctionVersionRequest,
+        DeleteExternalFunctionVersionResponse,
+    ]
 
 class ExternalFunctionCatalogServiceServicer(metaclass=ABCMeta):
     @abstractmethod
-    def CreateExternalFunctionVersion(
+    def CreateExternalFunction(
         self,
-        request: CreateExternalFunctionVersionRequest,
+        request: CreateExternalFunctionRequest,
         context: ServicerContext,
-    ) -> CreateExternalFunctionVersionResponse: ...
+    ) -> CreateExternalFunctionResponse: ...
     @abstractmethod
-    def GetExternalFunctionVersion(
+    def UpdateExternalFunction(
         self,
-        request: GetExternalFunctionVersionRequest,
+        request: UpdateExternalFunctionRequest,
         context: ServicerContext,
-    ) -> GetExternalFunctionVersionResponse: ...
+    ) -> UpdateExternalFunctionResponse: ...
     @abstractmethod
-    def ListExternalFunctionVersions(
+    def GetExternalFunction(
         self,
-        request: ListExternalFunctionVersionsRequest,
+        request: GetExternalFunctionRequest,
         context: ServicerContext,
-    ) -> ListExternalFunctionVersionsResponse: ...
+    ) -> GetExternalFunctionResponse: ...
     @abstractmethod
-    def DeleteExternalFunctionVersion(
+    def ListExternalFunctions(
         self,
-        request: DeleteExternalFunctionVersionRequest,
+        request: ListExternalFunctionsRequest,
         context: ServicerContext,
-    ) -> DeleteExternalFunctionVersionResponse: ...
+    ) -> ListExternalFunctionsResponse: ...
     @abstractmethod
     def DeleteExternalFunction(
         self,
@@ -106,12 +138,6 @@ class ExternalFunctionCatalogServiceServicer(metaclass=ABCMeta):
         down and the function schedule is removed, then all version rows are
         soft-deleted for historical audit.
         """
-    @abstractmethod
-    def ListExternalFunctions(
-        self,
-        request: ListExternalFunctionsRequest,
-        context: ServicerContext,
-    ) -> ListExternalFunctionsResponse: ...
     @abstractmethod
     def ListExternalFunctionScheduledRuns(
         self,
@@ -124,6 +150,44 @@ class ExternalFunctionCatalogServiceServicer(metaclass=ABCMeta):
         request: CallExternalFunctionRequest,
         context: ServicerContext,
     ) -> CallExternalFunctionResponse: ...
+    @abstractmethod
+    def CreateExternalFunctionVersion(
+        self,
+        request: CreateExternalFunctionVersionRequest,
+        context: ServicerContext,
+    ) -> CreateExternalFunctionVersionResponse:
+        """Legacy compatibility RPC. New callers should use CreateExternalFunction
+        for the initial resource and UpdateExternalFunction with `spec` for every
+        later version. This remains intentionally available for shipped clients.
+        """
+    @abstractmethod
+    def GetExternalFunctionVersion(
+        self,
+        request: GetExternalFunctionVersionRequest,
+        context: ServicerContext,
+    ) -> GetExternalFunctionVersionResponse: ...
+    @abstractmethod
+    def GetExternalFunctionVersionSource(
+        self,
+        request: GetExternalFunctionVersionSourceRequest,
+        context: ServicerContext,
+    ) -> GetExternalFunctionVersionSourceResponse:
+        """Resolves the source files for one immutable function version. The browser
+        calls this lazily and reads the selected file directly from the pinned
+        volume version; source is intentionally absent from list responses.
+        """
+    @abstractmethod
+    def ListExternalFunctionVersions(
+        self,
+        request: ListExternalFunctionVersionsRequest,
+        context: ServicerContext,
+    ) -> ListExternalFunctionVersionsResponse: ...
+    @abstractmethod
+    def DeleteExternalFunctionVersion(
+        self,
+        request: DeleteExternalFunctionVersionRequest,
+        context: ServicerContext,
+    ) -> DeleteExternalFunctionVersionResponse: ...
 
 def add_ExternalFunctionCatalogServiceServicer_to_server(
     servicer: ExternalFunctionCatalogServiceServicer, server: Server

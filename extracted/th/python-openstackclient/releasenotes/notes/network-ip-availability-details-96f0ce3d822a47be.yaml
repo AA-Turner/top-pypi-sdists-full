@@ -1,0 +1,11 @@
+---
+features:
+  - |
+    The ``ip availability show`` command now reports the
+    ``ip_availability_details`` attribute and the ``ip availability list``
+    command now shows the ``Total IPs in Subnet``, ``Total IPs in Allocation
+    Pool``, ``Used IPs in Subnet`` and ``Used IPs in Allocation Pool``
+    columns. These report the total and used IP counts separately for the
+    subnet CIDRs and for the subnet allocation pools, and require the
+    ``network-ip-availability-details`` extension. The new columns are empty
+    when the extension is not enabled.

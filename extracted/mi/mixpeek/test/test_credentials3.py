@@ -36,18 +36,19 @@ class TestCredentials3(unittest.TestCase):
         model = Credentials3()
         if include_optional:
             return Credentials3(
-                type = 'client_credentials',
-                tenant_id = '',
-                client_id = '',
-                client_secret = '',
-                refresh_token = ''
+                type = 'access_key',
+                access_key_id = '0123456789101112131415',
+                secret_access_key = '0123456789101112131415161718192021222324252627282930313233343536373839',
+                session_token = '',
+                role_arn = 'arn:aws:iam::048072888001:role/5y0FjLWeLG@sipwl',
+                external_id = '01234567'
             )
         else:
             return Credentials3(
-                tenant_id = '',
-                client_id = '',
-                client_secret = '',
-                refresh_token = '',
+                access_key_id = '0123456789101112131415',
+                secret_access_key = '0123456789101112131415161718192021222324252627282930313233343536373839',
+                role_arn = 'arn:aws:iam::048072888001:role/5y0FjLWeLG@sipwl',
+                external_id = '01234567',
         )
         """
 

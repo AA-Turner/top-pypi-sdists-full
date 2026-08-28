@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 from typing import List, Tuple, TypeVar
 
 from idb.common.types import (
@@ -13,8 +14,12 @@ from idb.common.types import (
     HIDDirection,
     HIDEvent,
     HIDKey,
+    HIDOrientation,
+    HIDOrientationType,
+    HIDPinch,
     HIDPress,
     HIDPressAction,
+    HIDShake,
     HIDSwipe,
     HIDTouch,
     Point,
@@ -25,12 +30,16 @@ from idb.grpc.idb_pb2 import HIDEvent as GrpcHIDEvent, Point as GrpcPoint
 GrpcHIDButton = GrpcHIDEvent.HIDButton
 GrpcHIDDelay = GrpcHIDEvent.HIDDelay
 GrpcHIDKey = GrpcHIDEvent.HIDKey
+GrpcHIDPinch = GrpcHIDEvent.HIDPinch
 GrpcHIDPress = GrpcHIDEvent.HIDPress
 GrpcHIDPressAction = GrpcHIDEvent.HIDPressAction
 GrpcHIDSwipe = GrpcHIDEvent.HIDSwipe
 GrpcHIDTouch = GrpcHIDEvent.HIDTouch
 GrpcHIDButtonType = GrpcHIDEvent.HIDButtonType
 GrpcHIDDirection = GrpcHIDEvent.HIDDirection
+GrpcHIDOrientation = GrpcHIDEvent.HIDOrientation
+GrpcHIDShake = GrpcHIDEvent.HIDShake
+GrpcHIDOrientationType = GrpcHIDEvent.HIDOrientationType
 _A = TypeVar("_A")
 _B = TypeVar("_B")
 
@@ -48,18 +57,25 @@ DIRECTION_PAIRS: "List[Tuple[HIDDirection, GrpcHIDDirection]]" = [
     (HIDDirection.UP, GrpcHIDEvent.UP),
 ]
 
+ORIENTATION_TYPE_PAIRS: "List[Tuple[HIDOrientationType, GrpcHIDOrientationType]]" = [
+    (HIDOrientationType.PORTRAIT, GrpcHIDEvent.PORTRAIT),
+    (HIDOrientationType.PORTRAIT_UPSIDE_DOWN, GrpcHIDEvent.PORTRAIT_UPSIDE_DOWN),
+    (HIDOrientationType.LANDSCAPE_LEFT, GrpcHIDEvent.LANDSCAPE_LEFT),
+    (HIDOrientationType.LANDSCAPE_RIGHT, GrpcHIDEvent.LANDSCAPE_RIGHT),
+]
 
-def _tanslation_from_pairs(pairs: List[Tuple[_A, _B]], item: _A) -> _B:
+
+def _translation_from_pairs(pairs: list[tuple[_A, _B]], item: _A) -> _B:
     pair_map = {py: grpc for (py, grpc) in pairs}
     return pair_map[item]
 
 
 def button_type_to_grpc(button_type: HIDButtonType) -> GrpcHIDButtonType:
-    return _tanslation_from_pairs(BUTTON_TYPE_PAIRS, button_type)
+    return _translation_from_pairs(BUTTON_TYPE_PAIRS, button_type)
 
 
 def direction_to_grpc(direction: HIDDirection) -> GrpcHIDDirection:
-    return _tanslation_from_pairs(DIRECTION_PAIRS, direction)
+    return _translation_from_pairs(DIRECTION_PAIRS, direction)
 
 
 def point_to_grpc(point: Point) -> GrpcPoint:
@@ -100,13 +116,40 @@ def swipe_to_grpc(swipe: HIDSwipe) -> GrpcHIDSwipe:
     return GrpcHIDSwipe(
         start=point_to_grpc(swipe.start),
         end=point_to_grpc(swipe.end),
+        # pyre-ignore
         delta=swipe.delta,
+        # pyre-ignore
         duration=swipe.duration,
     )
 
 
 def delay_to_grpc(delay: HIDDelay) -> GrpcHIDDelay:
     return GrpcHIDDelay(duration=delay.duration)
+
+
+def pinch_to_grpc(pinch: HIDPinch) -> GrpcHIDPinch:
+    return GrpcHIDPinch(
+        center=point_to_grpc(pinch.center),
+        scale=pinch.scale,
+        duration=pinch.duration,
+        radius=pinch.radius,
+    )
+
+
+def orientation_type_to_grpc(
+    orientation_type: HIDOrientationType,
+) -> GrpcHIDOrientationType:
+    return _translation_from_pairs(ORIENTATION_TYPE_PAIRS, orientation_type)
+
+
+def orientation_to_grpc(orientation: HIDOrientation) -> GrpcHIDOrientation:
+    return GrpcHIDOrientation(
+        orientation=orientation_type_to_grpc(orientation.orientation)
+    )
+
+
+def shake_to_grpc(shake: HIDShake) -> GrpcHIDShake:
+    return GrpcHIDShake()
 
 
 def event_to_grpc(event: HIDEvent) -> GrpcHIDEvent:
@@ -116,5 +159,11 @@ def event_to_grpc(event: HIDEvent) -> GrpcHIDEvent:
         return GrpcHIDEvent(swipe=swipe_to_grpc(event))
     elif isinstance(event, HIDDelay):
         return GrpcHIDEvent(delay=delay_to_grpc(event))
+    elif isinstance(event, HIDPinch):
+        return GrpcHIDEvent(pinch=pinch_to_grpc(event))
+    elif isinstance(event, HIDOrientation):
+        return GrpcHIDEvent(orientation=orientation_to_grpc(event))
+    elif isinstance(event, HIDShake):
+        return GrpcHIDEvent(shake=shake_to_grpc(event))
     else:
         raise Exception(f"Invalid event {event}")

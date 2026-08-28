@@ -4,14 +4,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import functools
 import inspect
 import logging
 import time
+from collections.abc import Sequence
 from concurrent.futures import CancelledError
 from types import TracebackType
-from typing import Any, AsyncContextManager, Collection, Optional, Tuple, Type
-from uuid import uuid4
+from typing import Any, AsyncContextManager
 
 import idb.common.plugin as plugin
 from idb.common.types import LoggingMetadata
@@ -21,46 +22,44 @@ from idb.utils.typing import none_throws
 logger: logging.Logger = logging.getLogger("idb")
 
 
+def _monotonic() -> float:
+    return time.monotonic()
+
+
 def _initial_info(
-    args: Collection[Any], metadata: Optional[LoggingMetadata]  # pyre-ignore
-) -> Tuple[LoggingMetadata, int]:
-    _metadata: LoggingMetadata = metadata or {}
+    args: Sequence[object], metadata: LoggingMetadata | None
+) -> tuple[LoggingMetadata, float]:
+    _metadata: LoggingMetadata = dict(metadata or {})
     if len(args):
-        # pyre-fixme[16]: `Collection` has no attribute `__getitem__`.
-        self_meta: Optional[LoggingMetadata] = getattr(args[0], "metadata", None)
+        self_meta: LoggingMetadata | None = getattr(args[0], "metadata", None)
         if self_meta:
             _metadata.update(self_meta)
-    _metadata["event_uuid"] = str(uuid4())
-    start = int(time.time())
+    start = _monotonic()
     return (_metadata, start)
 
 
 class log_call(AsyncContextManager[None]):
     def __init__(
-        self, name: Optional[str] = None, metadata: Optional[LoggingMetadata] = None
+        self, name: str | None = None, metadata: LoggingMetadata | None = None
     ) -> None:
         self.name = name
         self.metadata: LoggingMetadata = metadata or {}
-        self.start: Optional[int] = None
+        self.start: float | None = None
 
     async def __aenter__(self) -> None:
         name = none_throws(self.name)
         logger.debug(f"{self.name} called")
-        self.start = int(time.time())
+        self.start = _monotonic()
         await plugin.before_invocation(name=name, metadata=self.metadata)
 
-    # pyre-fixme[14]: `__aexit__` overrides method defined in `AsyncContextManager`
-    #  inconsistently.
-    # pyre-fixme[14]: `__aexit__` overrides method defined in `AsyncContextManager`
-    #  inconsistently.
     async def __aexit__(
         self,
-        exc_type: Optional[Type[Exception]],
-        exception: Optional[Exception],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
     ) -> bool:
         name = none_throws(self.name)
-        duration = int((time.time() - none_throws(self.start)) * 1000)
+        duration = int((_monotonic() - none_throws(self.start)) * 1000)
         if exception:
             logger.debug(f"{name} failed")
             await plugin.failed_invocation(
@@ -80,16 +79,21 @@ class log_call(AsyncContextManager[None]):
         _name = self.name or function.__name__
 
         @functools.wraps(function)
-        async def _async_wrapper(*args: Any, **kwargs: Any) -> Any:  # pyre-ignore
+        async def _async_wrapper(*args: Any, **kwargs: Any) -> Any:
             logger.debug(f"{_name} called")
             (_metadata, start) = _initial_info(args, self.metadata)
             await plugin.before_invocation(name=_name, metadata=_metadata)
             try:
                 value = await function(*args, **kwargs)
                 logger.debug(f"{_name} succeeded")
+                result_metadata = plugin.on_invocation_result(
+                    name=_name, result=value, metadata=_metadata
+                )
+                if result_metadata:
+                    _metadata = {**_metadata, **result_metadata}
                 await plugin.after_invocation(
                     name=_name,
-                    duration=int((time.time() - start) * 1000),
+                    duration=int((_monotonic() - start) * 1000),
                     metadata=_metadata,
                 )
                 return value
@@ -98,7 +102,7 @@ class log_call(AsyncContextManager[None]):
                 _metadata["cancelled"] = True
                 await plugin.after_invocation(
                     name=_name,
-                    duration=int((time.time() - start) * 1000),
+                    duration=int((_monotonic() - start) * 1000),
                     metadata=_metadata,
                 )
                 raise ex
@@ -106,7 +110,7 @@ class log_call(AsyncContextManager[None]):
                 logger.debug(f"{_name} failed")
                 await plugin.failed_invocation(
                     name=_name,
-                    duration=int((time.time() - start) * 1000),
+                    duration=int((_monotonic() - start) * 1000),
                     exception=ex,
                     metadata=_metadata,
                 )
@@ -123,7 +127,7 @@ class log_call(AsyncContextManager[None]):
                 logger.debug(f"{_name} finished")
                 await plugin.after_invocation(
                     name=_name,
-                    duration=int((time.time() - start) * 1000),
+                    duration=int((_monotonic() - start) * 1000),
                     metadata=_metadata,
                 )
             except CancelledError as ex:
@@ -131,7 +135,7 @@ class log_call(AsyncContextManager[None]):
                 _metadata["cancelled"] = True
                 await plugin.after_invocation(
                     name=_name,
-                    duration=int((time.time() - start) * 1000),
+                    duration=int((_monotonic() - start) * 1000),
                     metadata=_metadata,
                 )
                 raise ex
@@ -139,7 +143,7 @@ class log_call(AsyncContextManager[None]):
                 logger.debug(f"{_name} failed")
                 await plugin.failed_invocation(
                     name=_name,
-                    duration=int((time.time() - start) * 1000),
+                    duration=int((_monotonic() - start) * 1000),
                     exception=ex,
                     metadata=_metadata,
                 )

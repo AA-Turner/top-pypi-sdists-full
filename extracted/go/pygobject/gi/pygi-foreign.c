@@ -22,9 +22,9 @@
  * IN THE SOFTWARE.
  */
 
-#include "pygobject-types.h"
-
 #include "pygi-foreign.h"
+
+#include "pygobject-types.h"
 
 typedef struct {
     const char *namespace;
@@ -50,8 +50,8 @@ do_lookup (const gchar *namespace, const gchar *name)
         PyGIForeignStruct *foreign_struct =
             g_ptr_array_index (foreign_structs, i);
 
-        if ((strcmp (namespace, foreign_struct->namespace) == 0)
-            && (strcmp (name, foreign_struct->name) == 0)) {
+        if ((g_strcmp0 (namespace, foreign_struct->namespace) == 0)
+            && (g_strcmp0 (name, foreign_struct->name) == 0)) {
             return foreign_struct;
         }
     }

@@ -150,21 +150,27 @@ class GetScheduledQueryRunResponse(_message.Message):
     ) -> None: ...
 
 class GetScheduledQueryRunsRequest(_message.Message):
-    __slots__ = ("cron_query_id", "cron_name", "cursor", "limit")
+    __slots__ = ("cron_query_id", "cron_name", "cursor", "limit", "start", "end")
     CRON_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     CRON_NAME_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
     cron_query_id: int
     cron_name: str
     cursor: str
     limit: int
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
     def __init__(
         self,
         cron_query_id: _Optional[int] = ...,
         cron_name: _Optional[str] = ...,
         cursor: _Optional[str] = ...,
         limit: _Optional[int] = ...,
+        start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class GetScheduledQueryRunsResponse(_message.Message):

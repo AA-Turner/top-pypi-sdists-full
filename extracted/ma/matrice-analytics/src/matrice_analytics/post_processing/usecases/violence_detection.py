@@ -1,0 +1,1539 @@
+"""
+Violence Detection Use Case for Post-Processing.
+
+Model classes:
+- 0: non_violence
+- 1: violence
+
+Only "violence" is used for incidents, alerts, analytics, and visualization outputs.
+"non_violence" is accepted from model output but filtered out before downstream processing.
+
+Incidents mirror weapon_detection: severity from max violence confidence
+  critical >= 70%, medium >= 40%, info >= 27%.
+"""
+
+import re
+import time
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
+
+from ..core.base import (
+    BaseProcessor,
+    ConfigProtocol,
+    ProcessingContext,
+    ProcessingResult,
+)
+from ..core.config import AlertConfig, BaseConfig
+from ..Trackers import ConfigDrivenTracker, TrackerProfile
+from ..utils import (
+    BBoxSmoothingConfig,
+    BBoxSmoothingTracker,
+    apply_category_mapping,
+    bbox_smoothing,
+    count_objects_in_zones,
+    filter_by_confidence,
+    match_results_structure,
+)
+from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon
+from ..utils.incident_manager_utils import INCIDENT_MANAGER, IncidentManagerFactory
+
+_SEVERITY_CUTOFFS: Tuple[Tuple[str, float], ...] = (
+    ("critical", 70.0),
+    ("medium", 40.0),
+    ("info", 27.0),
+)
+_LEVEL_SETTINGS = {"info": 27, "medium": 40, "critical": 70}
+_TREND_LOOKBACK = 23
+_TREND_PRIOR = 14
+_HIT_CONFIRM_FRAMES = 7
+_EMPTY_RESET_FRAMES = 130
+_ALERT_HISTORY_CAP = 5000
+_DEFAULT_CAMERA_ID = "camera"
+_DEFAULT_ALERT_CONFIG_KWARGS = dict(
+    count_thresholds={"violence": 0},
+    alert_type=["email"],
+    alert_value=["JSON"],
+    alert_incident_category=["VIOLENCE-ALERT"],
+)
+
+
+def _resolve_manager_camera_id(stream_info: Optional[Dict[str, Any]]) -> str:
+    if not stream_info:
+        return _DEFAULT_CAMERA_ID
+    inp = stream_info.get("input_settings")
+    if not isinstance(inp, dict):
+        inp = {}
+    camera_info = stream_info.get("camera_info")
+    if not isinstance(camera_info, dict):
+        camera_info = {}
+    camera_id = (
+        stream_info.get("camera_id")
+        or inp.get("camera_id")
+        or camera_info.get("camera_id")
+        or stream_info.get("stream_key")
+    )
+    return str(camera_id) if camera_id else _DEFAULT_CAMERA_ID
+
+
+def _level_from_confidence_pct(confidence_pct: float) -> str:
+    for level, cutoff in _SEVERITY_CUTOFFS:
+        if confidence_pct >= cutoff:
+            return level
+    return "info"
+
+
+def _max_violence_confidence_pct(detections: List[Dict]) -> float:
+    if not detections:
+        return 0.0
+    max_conf = max(float(d.get("confidence", 0.0) or 0.0) for d in detections)
+    return min(100.0, max_conf * 100.0)
+
+
+def _trend_windows(history: List[str]) -> Optional[Tuple[str, str]]:
+    if len(history) < _TREND_LOOKBACK:
+        return None
+    post = _TREND_LOOKBACK - _TREND_PRIOR - 1
+    older = history[-_TREND_LOOKBACK:][:-_TREND_PRIOR]
+    newer = history[-post:]
+    older_dom = Counter(older).most_common(1)[0][0]
+    newer_dom = Counter(newer).most_common(1)[0][0]
+    return older_dom, newer_dom
+
+
+def _is_trend_ascending(history: List[str]) -> bool:
+    pair = _trend_windows(history)
+    if pair is None:
+        return True
+    ring = ["info", "medium", "critical", "info"]
+    older_dom, newer_dom = pair
+    return ring.index(older_dom) <= ring.index(newer_dom)
+
+
+def _alert_settings_dict(alert_config: Optional[AlertConfig]) -> Dict[str, str]:
+    if not alert_config:
+        return {}
+    types = alert_config.alert_type or ["Default"]
+    values = alert_config.alert_value or ["JSON"]
+    return {t: v for t, v in zip(types, values)}
+
+
+class ViolenceIncidentIdTracker:
+    _HIT_CYCLE = ["info", "medium", "critical", "info"]
+
+    def __init__(self):
+        self.id_hit_list: List[str] = list(self._HIT_CYCLE)
+        self.id_hit_counter: int = 0
+        self.latest_stack: Optional[str] = None
+        self.id_timing_list: List[str] = []
+        self.return_id_counter: int = 1
+
+    def advance(self, sev_level: str, current_ts: str) -> Tuple[int, int]:
+        if sev_level != "":
+            if sev_level == self.id_hit_list[0] and len(self.id_hit_list) >= 2:
+                self.id_hit_counter += 1
+                if self.id_hit_counter > _HIT_CONFIRM_FRAMES:
+                    self.latest_stack = self.id_hit_list[0]
+                    self.id_hit_list.pop(0)
+                    self.id_hit_counter = 0
+                    self.id_timing_list.append(current_ts)
+                    return (5 - len(self.id_hit_list), self.return_id_counter)
+            elif self.id_hit_counter > 0:
+                self.id_hit_counter -= 1
+            elif self.id_hit_counter < 0:
+                self.id_hit_counter = 0
+
+            if len(self.id_hit_list) > 1:
+                if sev_level == self.latest_stack:
+                    return (5 - len(self.id_hit_list), self.return_id_counter)
+                return (0, 0)
+        else:
+            if len(self.id_hit_list) == 1:
+                self.id_hit_counter += 1
+                if self.id_hit_counter > _EMPTY_RESET_FRAMES:
+                    self.id_hit_list = list(self._HIT_CYCLE)
+                    pre_return_id = self.return_id_counter
+                    self.return_id_counter += 1
+                    self.id_hit_counter = 0
+                    self.latest_stack = None
+                    self.id_timing_list.append(current_ts)
+                    return (5, pre_return_id)
+                if sev_level == self.latest_stack:
+                    return (5 - len(self.id_hit_list), self.return_id_counter)
+                return (0, 0)
+            elif self.id_hit_counter > 0:
+                self.id_hit_counter -= 1
+            elif self.id_hit_counter < 0:
+                self.id_hit_counter = 0
+
+        return (1, 1)
+
+
+@dataclass
+class ViolenceDetectionConfig(BaseConfig):
+    """Configuration for violence detection post-processing."""
+
+    enable_smoothing: bool = True
+    smoothing_algorithm: str = "observability"
+    smoothing_window_size: int = 20
+    smoothing_cooldown_frames: int = 5
+    smoothing_confidence_range_factor: float = 0.5
+
+    confidence_threshold: float = 0.28
+    enable_class_aggregation: bool = False
+    class_aggregation_window_size: int = 30
+
+    zone_config: Optional[Dict[str, List[List[float]]]] = None
+
+    usecase_categories: List[str] = field(default_factory=lambda: ["violence", "non_violence"])
+    # Downstream outputs should only include violence detections.
+    target_categories: List[str] = field(default_factory=lambda: ["violence"])
+
+    alert_config: Optional[AlertConfig] = field(default_factory=lambda: AlertConfig(**_DEFAULT_ALERT_CONFIG_KWARGS))
+
+    min_confirmation_frames: int = 5
+    session: Optional[Any] = None
+    server_id: Optional[str] = None
+
+    index_to_category: Optional[Dict[int, str]] = field(
+        default_factory=lambda: {
+            0: "non_violence",
+            1: "violence",
+        }
+    )
+
+
+class ViolenceDetectionUseCase(BaseProcessor):
+    CATEGORY_DISPLAY = {"violence": "Violence", "non_violence": "Non-Violence"}
+    _INCIDENT_LOG = "[INCIDENT_MANAGER]"
+
+    def __init__(self):
+        super().__init__("violence_detection")
+        self.category = "security"
+        self.CASE_TYPE: Optional[str] = "violence_detection"
+        self.CASE_VERSION: Optional[str] = "1.1"
+
+        # Only violence is tracked in post-processing outputs.
+        self.target_categories = ["violence"]
+
+        self.smoothing_tracker = None
+        self.tracker = None
+        self._tracker_seam = ConfigDrivenTracker()
+        self._total_frame_counter = 0
+        self._global_frame_offset = 0
+        self._tracking_start_time = None
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        self._track_merge_iou_threshold: float = 0.8
+        self._track_merge_time_window: float = 7.0
+        self._ascending_alert_list: List[str] = []
+        self._consecutive_violence_frames: int = 0
+        self.current_incident_end_timestamp: str = "N/A"
+        self.start_timer = None
+        self._id_tracker = ViolenceIncidentIdTracker()
+        self._incident_manager_factory: Optional[IncidentManagerFactory] = None
+        self._incident_manager: Optional[INCIDENT_MANAGER] = None
+        self._incident_manager_initialized: bool = False
+        self._legacy_redis_publisher: Any = None
+
+        # Track ID storage for total count calculation
+        self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
+        self._tracked_in_zones = set()  # New: Unique track IDs that have entered any zone
+        self._total_count = 0  # Cached total count
+        self._last_update_time = time.time()  # Track when last updated
+        self._total_count_list = []
+
+        # Zone-based tracking storage
+        self._zone_current_track_ids = {}  # zone_name -> set of current track IDs in zone
+        self._zone_total_track_ids = {}  # zone_name -> set of all track IDs that have been in zone
+        self._zone_current_counts = {}  # zone_name -> current count in zone
+        self._zone_total_counts = {}  # zone_name -> total count that have been in zone
+
+    def _get_legacy_redis_publisher(self) -> Any:
+        if self._legacy_redis_publisher is None:
+            from ...analytics.redis_publisher import AnalyticsRedisPublisher
+
+            self._legacy_redis_publisher = AnalyticsRedisPublisher()
+        return self._legacy_redis_publisher
+
+    def _initialize_incident_manager_once(self, config: ViolenceDetectionConfig) -> None:
+        if self._incident_manager_initialized:
+            return
+        try:
+            self.logger.info(f"{self._INCIDENT_LOG} Initializing incident manager for violence detection...")
+            if self._incident_manager_factory is None:
+                self._incident_manager_factory = IncidentManagerFactory(logger=self.logger)
+            self._incident_manager = self._incident_manager_factory.initialize(config)
+            if self._incident_manager:
+                self.logger.info(f"{self._INCIDENT_LOG} Incident manager ready")
+            else:
+                self.logger.warning(
+                    f"{self._INCIDENT_LOG} Incident manager unavailable; incidents will not be published"
+                )
+        except Exception as e:
+            self.logger.error(
+                f"{self._INCIDENT_LOG} Failed to initialize incident manager: {e}",
+                exc_info=True,
+            )
+        finally:
+            self._incident_manager_initialized = True
+
+    def _send_incident_to_manager(
+        self,
+        incident: Dict,
+        stream_info: Optional[Dict[str, Any]] = None,
+        context: Optional[ProcessingContext] = None,
+    ) -> bool:
+        """Feed the incident manager every frame (fire-style).
+
+        Always pass ``incident or {}`` so the manager can count idle frames and
+        publish the closing ``info`` transition. Do not early-return on ``{}``.
+        """
+        published = False
+        camera_id = _resolve_manager_camera_id(stream_info)
+        if self._incident_manager:
+            try:
+                published = bool(
+                    self._incident_manager.process_incident(
+                        camera_id=camera_id,
+                        incident_data=incident or {},
+                        stream_info=stream_info,
+                    )
+                )
+                if published:
+                    self.logger.info(f"{self._INCIDENT_LOG} Incident published for camera: {camera_id}")
+            except Exception as e:
+                self.logger.error(
+                    f"{self._INCIDENT_LOG} Error publishing incident: {e}",
+                    exc_info=True,
+                )
+        elif incident:
+            try:
+                from ..utils.legacy_analytics_bridge import get_legacy_session
+
+                stream_key = str((stream_info or {}).get("stream_key") or "default_stream")
+                session = get_legacy_session(stream_key)
+                published = session.maybe_publish_incident(
+                    incident,
+                    stream_info,
+                    usecase=self.name,
+                    app_name=None,
+                    publisher=self._get_legacy_redis_publisher(),
+                    camera_id=camera_id,
+                )
+                if published:
+                    self.logger.info(
+                        f"{self._INCIDENT_LOG} Incident published via legacy Redis bridge "
+                        f"for camera: {camera_id}"
+                    )
+            except Exception as e:
+                self.logger.error(
+                    f"{self._INCIDENT_LOG} Legacy Redis incident publish failed: {e}",
+                    exc_info=True,
+                )
+
+        if context is not None:
+            context.metadata["incident_published_via_manager"] = bool(self._incident_manager)
+        return published
+
+    def process(
+        self,
+        data: Any,
+        config: ConfigProtocol,
+        context: Optional[ProcessingContext] = None,
+        stream_info: Optional[Dict[str, Any]] = None,
+    ) -> ProcessingResult:
+        processing_start = time.time()
+        is_valid_config = isinstance(config, ViolenceDetectionConfig) or (
+            hasattr(config, "usecase")
+            and config.usecase == "violence_detection"
+            and hasattr(config, "category")
+            and config.category == "security"
+        )
+        if not is_valid_config:
+            self.logger.error(
+                f"Config validation failed in violence_detection. "
+                f"Got type={type(config).__name__}, module={type(config).__module__}, "
+                f"usecase={getattr(config, 'usecase', 'N/A')}, category={getattr(config, 'category', 'N/A')}"
+            )
+            return self.create_error_result(
+                f"Invalid config type: expected ViolenceDetectionConfig or config with usecase='violence_detection' "
+                f"got {type(config).__name__} with usecase={getattr(config, 'usecase', 'N/A')}",
+                usecase=self.name,
+                category=self.category,
+                context=context,
+            )
+        if context is None:
+            context = ProcessingContext()
+        if not self._incident_manager_initialized:
+            self._initialize_incident_manager_once(config)
+        has_zones = bool(config.zone_config and config.zone_config.get("zones"))
+        # Normalize common YOLO payloads (cls/conf/xyxy/xywh) to internal schema.
+        data = self._normalize_yolo_results(data, getattr(config, "index_to_category", None))
+        self.logger.debug(f"[violence_detection] normalized_input={data}")
+        input_format = match_results_structure(data)
+        context.input_format = input_format
+        context.confidence_threshold = config.confidence_threshold
+
+        if config.confidence_threshold is not None:
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+        else:
+            processed_data = data
+            self.logger.debug("Did not apply confidence filtering since no threshold provided")
+
+        # Map model indices to category names.
+        if config.index_to_category:
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
+
+        processed_data = self._canonicalize_categories(processed_data)
+
+        # Keep only violence for all downstream use.
+        if config.target_categories:
+            processed_data = [d for d in processed_data if d.get("category") in config.target_categories]
+            self.logger.debug("Applied category mapping")
+
+        processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
+        if config.target_categories:
+            processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
+            self.logger.debug("Applied category filtering")
+
+        for det in processed_data:
+            if not isinstance(det, dict):
+                continue
+            if det.get("track_id") is not None:
+                continue
+            for key in (
+                "tracker_id",
+                "tracking_id",
+                "trackId",
+                "trackID",
+                "id",
+                "object_id",
+            ):
+                candidate = det.get(key)
+                if candidate is not None:
+                    det["track_id"] = candidate
+                    break
+        if config.enable_smoothing:
+            if self.smoothing_tracker is None:
+                smoothing_config = BBoxSmoothingConfig(
+                    smoothing_algorithm=config.smoothing_algorithm,
+                    window_size=config.smoothing_window_size,
+                    cooldown_frames=config.smoothing_cooldown_frames,
+                    confidence_threshold=config.confidence_threshold,
+                    confidence_range_factor=config.smoothing_confidence_range_factor,
+                    enable_smoothing=True,
+                )
+                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+
+        # Track detections for stable IDs and cumulative unique counting.
+        try:
+            if self.tracker is None:
+                self.tracker = self._tracker_seam.get_shared_tracker(
+                    stream_info=stream_info,
+                    profile=TrackerProfile.LEGACY_40,
+                    namespace=True,
+                    restore=True,
+                    max_time_lost=int(1200),
+                    frame_rate=25,
+                    enable_class_aggregation=config.enable_class_aggregation,
+                    class_aggregation_window_size=config.class_aggregation_window_size,
+                )
+            processed_data = self.tracker.update(processed_data)
+        except Exception as exc:
+            self.logger.warning(f"AdvancedTracker failed: {exc}")
+
+        self._update_tracking_state(processed_data, _has_zones=has_zones)
+        self._total_frame_counter += 1
+
+        frame_number = None
+        if stream_info:
+            input_settings = stream_info.get("input_settings", {})
+            start_frame = input_settings.get("start_frame")
+            end_frame = input_settings.get("end_frame")
+            if start_frame is not None and end_frame is not None and start_frame == end_frame:
+                frame_number = start_frame
+
+        counting_summary = self._count_categories(processed_data, config)
+        total_counts = self.get_total_counts()
+        counting_summary["total_counts"] = total_counts
+        counting_summary["categories"] = {}
+        for detection in processed_data:
+            category = detection.get("category", "unknown")
+            counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
+
+        zone_analysis = {}
+        if has_zones:
+            # Convert single frame to format expected by count_objects_in_zones
+            frame_data = processed_data  # [frame_detections]
+            zone_analysis = count_objects_in_zones(frame_data, config.zone_config["zones"], stream_info)
+
+            if zone_analysis:
+                enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, processed_data, config)
+                # Merge enhanced zone analysis with original zone analysis
+                for zone_name, enhanced_data in enhanced_zone_analysis.items():
+                    zone_analysis[zone_name] = enhanced_data
+
+                # Adjust counting_summary for zones (current counts based on union across zones)
+                per_category_count = {
+                    cat: len(self._current_frame_track_ids.get(cat, set())) for cat in self.target_categories
+                }
+                counting_summary["per_category_count"] = {k: v for k, v in per_category_count.items() if v > 0}
+                counting_summary["total_count"] = sum(per_category_count.values())
+
+        alerts = self._check_alerts(counting_summary, config, stream_info)
+        self._extract_predictions(processed_data)
+        incidents_list = self._generate_incidents(counting_summary, alerts, config, stream_info)
+        incident = incidents_list[0] if incidents_list else {}
+        self._send_incident_to_manager(incident, stream_info, context=context)
+        tracking_stats_list = self._generate_tracking_stats(
+            counting_summary, zone_analysis, alerts, config, frame_number, stream_info
+        )
+
+        business_analytics_list = self._generate_business_analytics(
+            counting_summary, zone_analysis, alerts, config, stream_info, is_empty=True
+        )
+        summary_list = self._generate_summary(
+            counting_summary,
+            zone_analysis,
+            incidents_list,
+            tracking_stats_list,
+            business_analytics_list,
+            alerts,
+        )
+
+        incidents = incidents_list[0] if incidents_list else {}
+        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+        business_analytics = business_analytics_list[0] if business_analytics_list else {}
+        summary = summary_list[0] if summary_list else {}
+        agg_summary = {
+            str(frame_number): {
+                "incidents": incidents,
+                "tracking_stats": tracking_stats,
+                "business_analytics": business_analytics,
+                "alerts": alerts,
+                "zone_analysis": zone_analysis,
+                "human_text": summary,
+            }
+        }
+
+        context.mark_completed()
+        result = self.create_result(
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context,
+        )
+        proc_time = time.time() - processing_start
+        processing_latency_ms = proc_time * 1000.0
+        processing_fps = (1.0 / proc_time) if proc_time > 0 else None
+        # Log the performance metrics using the module-level logger
+        print(
+            "latency in ms:",
+            processing_latency_ms,
+            "| Throughput fps:",
+            processing_fps,
+            "| Frame_Number:",
+            self._total_frame_counter,
+        )
+        return result
+
+    def _update_zone_tracking(
+        self,
+        zone_analysis: Dict[str, Dict[str, int]],
+        detections: List[Dict],
+        config: ViolenceDetectionConfig,
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Update zone tracking with current frame data.
+
+        Args:
+            zone_analysis: Current zone analysis results
+            detections: List of detections with track IDs
+
+        Returns:
+            Enhanced zone analysis with tracking information
+        """
+        if not zone_analysis or not config.zone_config or not config.zone_config["zones"]:
+            return {}
+
+        enhanced_zone_analysis = {}
+        zones = config.zone_config["zones"]
+
+        # Get track to category mapping
+        track_to_cat = {
+            det.get("track_id"): det.get("category") for det in detections if det.get("track_id") is not None
+        }
+
+        # Get current frame track IDs in each zone
+        current_frame_zone_tracks = {}
+
+        # Initialize zone tracking for all zones
+        for zone_name in zones.keys():
+            current_frame_zone_tracks[zone_name] = set()
+            if zone_name not in self._zone_current_track_ids:
+                self._zone_current_track_ids[zone_name] = set()
+            if zone_name not in self._zone_total_track_ids:
+                self._zone_total_track_ids[zone_name] = set()
+
+        # Check each detection against each zone
+        for detection in detections:
+            track_id = detection.get("track_id")
+            if track_id is None:
+                continue
+
+            # Get detection bbox
+            bbox = detection.get("bounding_box", detection.get("bbox"))
+            if not bbox:
+                continue
+
+            # Get detection center point
+            center_point = get_bbox_bottom25_center(bbox)  # get_bbox_center(bbox)
+
+            # Flag to check if this track is in any zone this frame
+            in_any_zone = False
+
+            # Check which zone this detection is in using actual zone polygons
+            for zone_name, zone_polygon in zones.items():
+                # Convert polygon points to tuples for point_in_polygon function
+                # zone_polygon format: [[x1, y1], [x2, y2], [x3, y3], ...]
+                polygon_points = [(point[0], point[1]) for point in zone_polygon]
+
+                # Check if detection center is inside the zone polygon using ray casting algorithm
+                if point_in_polygon(center_point, polygon_points):
+                    current_frame_zone_tracks[zone_name].add(track_id)
+                    in_any_zone = True
+                    if track_id not in self._total_count_list:
+                        self._total_count_list.append(track_id)
+
+            # If in any zone, update global current and total (cumulative only if new)
+            if in_any_zone:
+                cat = track_to_cat.get(track_id)
+                if cat:
+                    # Update current frame global (union across zones)
+                    self._current_frame_track_ids.setdefault(cat, set()).add(track_id)
+
+                    # Track if this is the first time in any zone (zone-entry tracking only)
+                    # NOTE: Global _per_category_total_track_ids is updated in _update_tracking_state()
+                    # to avoid double-updates and ensure consistent timing of new vs total computation
+                    if track_id not in self._tracked_in_zones:
+                        self._tracked_in_zones.add(track_id)
+
+        # Update zone tracking for each zone
+        for zone_name, zone_counts in zone_analysis.items():
+            # Get current frame tracks for this zone
+            current_tracks = current_frame_zone_tracks.get(zone_name, set())
+
+            # Update current zone tracks
+            self._zone_current_track_ids[zone_name] = current_tracks
+
+            # Update total zone tracks (accumulate all track IDs that have been in zone)
+            self._zone_total_track_ids[zone_name].update(current_tracks)
+
+            # Update counts
+            self._zone_current_counts[zone_name] = len(current_tracks)
+            self._zone_total_counts[zone_name] = len(self._zone_total_track_ids[zone_name])
+
+            # Create enhanced zone analysis
+            enhanced_zone_analysis[zone_name] = {
+                "current_count": self._zone_current_counts[zone_name],
+                "total_count": self._zone_total_counts[zone_name],
+                "current_track_ids": list(current_tracks),
+                "total_track_ids": list(self._zone_total_track_ids[zone_name]),
+                "original_counts": zone_counts,  # Preserve original zone counts
+            }
+
+        return enhanced_zone_analysis
+
+    @staticmethod
+    def _canonicalize_categories(data: Any) -> Any:
+        """Map Roboflow / YOLO label variants to canonical non_violence | violence."""
+
+        def canon(name: Any) -> str:
+            key = str(name).strip().lower().replace(" ", "").replace("-", "").replace("_", "")
+            if key == "violence":
+                return "violence"
+            if key in {"nonviolence", "noviolence"}:
+                return "non_violence"
+            return str(name).strip().lower()
+
+        if isinstance(data, list):
+            for det in data:
+                if isinstance(det, dict) and det.get("category") is not None:
+                    det["category"] = canon(det["category"])
+            return data
+        if isinstance(data, dict):
+            for _frame, dets in data.items():
+                if isinstance(dets, list):
+                    for det in dets:
+                        if isinstance(det, dict) and det.get("category") is not None:
+                            det["category"] = canon(det["category"])
+            return data
+        return data
+
+    def _normalize_yolo_results(self, data: Any, index_to_category: Optional[Dict[int, str]] = None) -> Any:
+        """
+        Normalize YOLO-style outputs to internal detection schema:
+        - category/category_id: prefer string label using COCO mapping if available
+        - confidence: map from 'conf'/'score' to 'confidence'
+        - bounding_box: ensure dict with keys (x1,y1,x2,y2) or (xmin,ymin,xmax,ymax)
+        - supports list of detections and frame_id -> detections dict
+        """
+
+        def to_bbox_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+            if "bounding_box" in d and isinstance(d["bounding_box"], dict):
+                return d["bounding_box"]
+            if "bbox" in d:
+                bbox = d["bbox"]
+                if isinstance(bbox, dict):
+                    return bbox
+                if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+                    x1, y1, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
+                    return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+            if "xyxy" in d and isinstance(d["xyxy"], (list, tuple)) and len(d["xyxy"]) >= 4:
+                x1, y1, x2, y2 = d["xyxy"][0], d["xyxy"][1], d["xyxy"][2], d["xyxy"][3]
+                return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+            if "xywh" in d and isinstance(d["xywh"], (list, tuple)) and len(d["xywh"]) >= 4:
+                cx, cy, w, h = d["xywh"][0], d["xywh"][1], d["xywh"][2], d["xywh"][3]
+                x1, y1, x2, y2 = cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2
+                return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+            return {}
+
+        def resolve_category(d: Dict[str, Any]) -> Tuple[str, Optional[int]]:
+            raw_cls = d.get("category", d.get("category_id", d.get("class", d.get("cls"))))
+            label_name = d.get("name")
+            if isinstance(raw_cls, int):
+                if index_to_category and raw_cls in index_to_category:
+                    return index_to_category[raw_cls], raw_cls
+                return str(raw_cls), raw_cls
+            if isinstance(raw_cls, str):
+                # Some YOLO exports provide string labels directly
+                return raw_cls, None
+            if label_name:
+                return str(label_name), None
+            return "unknown", None
+
+        def normalize_det(det: Dict[str, Any]) -> Dict[str, Any]:
+            category_name, category_id = resolve_category(det)
+            confidence = det.get("confidence", det.get("conf", det.get("score", 0.0)))
+            bbox = to_bbox_dict(det)
+            normalized = {
+                "category": category_name,
+                "confidence": confidence,
+                "bounding_box": bbox,
+            }
+            if category_id is not None:
+                normalized["category_id"] = category_id
+            # Preserve optional fields
+            for key in ("track_id", "frame_id", "masks", "segmentation"):
+                if key in det:
+                    normalized[key] = det[key]
+            return normalized
+
+        if isinstance(data, list):
+            return [normalize_det(d) if isinstance(d, dict) else d for d in data]
+        if isinstance(data, dict):
+            # Detect tracking style dict: frame_id -> list of detections
+            normalized_dict: Dict[str, Any] = {}
+            for k, v in data.items():
+                if isinstance(v, list):
+                    normalized_dict[k] = [normalize_det(d) if isinstance(d, dict) else d for d in v]
+                elif isinstance(v, dict):
+                    normalized_dict[k] = normalize_det(v)
+                else:
+                    normalized_dict[k] = v
+            return normalized_dict
+        return data
+
+    def _check_alerts(
+        self,
+        summary: Dict,
+        config: ViolenceDetectionConfig,
+        stream_info: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict]:
+        total = summary.get("total_count", 0)
+        if total == 0 or not config.alert_config:
+            return []
+
+        thresholds = getattr(config.alert_config, "count_thresholds", None) or {}
+        if not thresholds:
+            return []
+
+        last_level = self._ascending_alert_list[-1] if self._ascending_alert_list else "info"
+        current_ts = self._get_current_timestamp_str(stream_info)
+        rank_ids, alert_id = self._id_tracker.advance(last_level, current_ts)
+        if rank_ids not in (1, 2, 3, 4, 5):
+            alert_id = 1
+
+        trend = _is_trend_ascending(self._ascending_alert_list)
+        per_cat = summary.get("per_category_count", {})
+        alerts: List[Dict] = []
+        for category, threshold in thresholds.items():
+            if isinstance(threshold, str):
+                threshold = int(threshold)
+            if category == "all":
+                if total > threshold:
+                    alerts.append(self._build_alert(category, alert_id, threshold, trend, config))
+            elif category in per_cat and per_cat[category] > threshold:
+                alerts.append(self._build_alert(category, alert_id, threshold, trend, config))
+        return alerts
+
+    def _build_alert(
+        self,
+        category: str,
+        alert_id: int,
+        threshold: int,
+        ascending: bool,
+        config: ViolenceDetectionConfig,
+    ) -> Dict:
+        ac = config.alert_config
+        alert_type = (ac.alert_type if ac else ["Default"]) or ["Default"]
+        return {
+            "alert_type": alert_type,
+            "alert_id": f"alert_{category}_{alert_type[0]}_{alert_id}",
+            "incident_category": self.CASE_TYPE,
+            "threshold_level": threshold,
+            "ascending": ascending,
+            "settings": _alert_settings_dict(ac),
+        }
+
+    def _generate_incidents(
+        self,
+        counting_summary: Dict,
+        alerts: List[Dict],
+        config: ViolenceDetectionConfig,
+        stream_info: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict]:
+        total = counting_summary.get("total_count", 0)
+        current_ts = self._get_current_timestamp_str(stream_info)
+        camera_info = self.get_camera_info_from_stream(stream_info)
+
+        if len(self._ascending_alert_list) > _ALERT_HISTORY_CAP:
+            self._ascending_alert_list = self._ascending_alert_list[-_ALERT_HISTORY_CAP:]
+
+        if total == 0:
+            self._consecutive_violence_frames = 0
+            return [{}]
+
+        self._consecutive_violence_frames += 1
+        if self._consecutive_violence_frames < config.min_confirmation_frames:
+            self.logger.debug(
+                f"Violence detected but awaiting confirmation: "
+                f"{self._consecutive_violence_frames}/{config.min_confirmation_frames} frames"
+            )
+            return [{}]
+
+        thresholds = getattr(config.alert_config, "count_thresholds", None) or {}
+        per_cat = counting_summary.get("per_category_count", {})
+        if not thresholds and per_cat:
+            thresholds = {cat: 0 for cat in per_cat.keys()}
+
+        detections = counting_summary.get("detections", [])
+        incidents: List[Dict] = []
+        for category in thresholds:
+            if category == "all" or category in per_cat:
+                incidents.append(
+                    self._build_incident(
+                        detections,
+                        config,
+                        alerts,
+                        camera_info,
+                        current_ts,
+                        stream_info,
+                        is_fallback=False,
+                    )
+                )
+                break
+
+        if not incidents:
+            incidents.append(
+                self._build_incident(
+                    detections,
+                    config,
+                    alerts,
+                    camera_info,
+                    current_ts,
+                    stream_info,
+                    is_fallback=True,
+                )
+            )
+        return incidents
+
+    def _build_incident(
+        self,
+        detections: List[Dict],
+        config: ViolenceDetectionConfig,
+        alerts: List[Dict],
+        camera_info: Dict,
+        current_ts: str,
+        stream_info: Optional[Dict[str, Any]],
+        is_fallback: bool,
+    ) -> Dict:
+        start_ts = self._get_start_timestamp_str(stream_info)
+        self._debug_stream_timing("start_timestamp", start_ts)
+
+        if not is_fallback:
+            self._update_incident_end_timestamp(start_ts)
+        else:
+            self.current_incident_end_timestamp = "Incident still active"
+
+        confidence_pct = _max_violence_confidence_pct(detections)
+        level = _level_from_confidence_pct(confidence_pct)
+        self._ascending_alert_list.append(level)
+
+        rank_ids, incident_id = self._id_tracker.advance(level, current_ts)
+        if rank_ids not in (1, 2, 3, 4, 5):
+            incident_id = 1
+        timing = self._id_tracker.id_timing_list
+        if timing:
+            if len(timing) == rank_ids:
+                start_ts = timing[-1]
+            if len(timing) > 3 and level == "critical":
+                start_ts = timing[-1]
+
+        human_text = f"INCIDENT DETECTED: {self.CASE_TYPE} severity={level}"
+        alert_settings = self._alert_settings_block(config) if not is_fallback else []
+        end_time = self.current_incident_end_timestamp if not is_fallback else "Incident still active"
+        incident_suffix = "fallback" if is_fallback else str(incident_id)
+
+        event = self.create_incident(
+            incident_id=f"incident_{self.CASE_TYPE}_{incident_suffix}",
+            incident_type=self.CASE_TYPE,
+            severity_level=level,
+            human_text=human_text,
+            camera_info=camera_info,
+            alerts=alerts,
+            alert_settings=alert_settings,
+            start_time=start_ts,
+            end_time=end_time,
+            level_settings=_LEVEL_SETTINGS,
+        )
+        if not is_fallback:
+            event["duration"] = self.get_duration_seconds(start_ts, self.current_incident_end_timestamp)
+        event["incident_quant"] = confidence_pct
+        return event
+
+    def _update_incident_end_timestamp(self, start_ts: str) -> None:
+        if start_ts and self.current_incident_end_timestamp == "N/A":
+            self.current_incident_end_timestamp = "Incident still active"
+        elif start_ts and self.current_incident_end_timestamp == "Incident still active":
+            pair = _trend_windows(self._ascending_alert_list)
+            if pair is not None and pair[0] != pair[1]:
+                self.current_incident_end_timestamp = "Incident active"
+        elif self.current_incident_end_timestamp not in (
+            "Incident still active",
+            "N/A",
+        ):
+            self.current_incident_end_timestamp = "N/A"
+
+    def _alert_settings_block(self, config: ViolenceDetectionConfig) -> List[Dict]:
+        ac = config.alert_config
+        if not ac:
+            return []
+        return [
+            {
+                "alert_type": ac.alert_type or ["Default"],
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": ac.count_thresholds or {},
+                "ascending": True,
+                "settings": _alert_settings_dict(ac),
+            }
+        ]
+
+    def _generate_tracking_stats(
+        self,
+        counting_summary: Dict,
+        zone_analysis: Dict,
+        alerts: List,
+        config: ViolenceDetectionConfig,
+        frame_number: Optional[int] = None,
+        stream_info: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict]:
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        tracking_stats = []
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts_dict = counting_summary.get("total_counts", {})
+        per_category_count = counting_summary.get("per_category_count", {})
+        current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
+        start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
+        self._debug_stream_timing("start_timestamp", start_timestamp)
+        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+
+        # Get new track IDs count (violence events that appeared for FIRST TIME - requires tracker to be enabled)
+        new_counts_dict = self.get_new_counts_this_frame()
+
+        # DIRECT COUNT from detections list - most reliable source of truth
+        raw_detections = counting_summary.get("detections", [])
+        detection_count_by_category = {}
+        for det in raw_detections:
+            cat = det.get("category", "violence")
+            detection_count_by_category[cat] = detection_count_by_category.get(cat, 0) + 1
+
+        total_counts = [{"category": cat, "count": count} for cat, count in total_counts_dict.items() if count > 0]
+        # current_counts: ALL violence detections in frame - computed directly from detections
+        current_counts = [{"category": cat, "count": count} for cat, count in detection_count_by_category.items()]
+        # Fallback: if detection_count_by_category is empty but we have total_detections, use per_category_count
+        if not current_counts and total_detections > 0:
+            current_counts = [{"category": cat, "count": count} for cat, count in per_category_count.items()]
+        # current_new_counts: Only NEW violence events (first time seen; requires tracker enabled)
+        current_new_counts = [{"category": cat, "count": count} for cat, count in new_counts_dict.items()]
+
+        # ONE concise stats summary line
+        curr_total = sum(c.get("count", 0) for c in current_counts)
+        new_total = sum(c.get("count", 0) for c in current_new_counts)
+        total_total = sum(c.get("count", 0) for c in total_counts)
+        print(f"[STATS] F{frame_number} | current={curr_total} new={new_total} total={total_total}")
+
+        detections = []
+        for detection in counting_summary.get("detections", []):
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "violence")
+            if detection.get("masks"):
+                segmentation = detection.get("masks", [])
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("segmentation"):
+                segmentation = detection.get("segmentation")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            elif detection.get("mask"):
+                segmentation = detection.get("mask")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            else:
+                detection_obj = self.create_detection_object(category, bbox)
+            detections.append(detection_obj)
+
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, "alert_type"):
+            alert_settings.append(
+                {
+                    "alert_type": getattr(config.alert_config, "alert_type", ["Default"]),
+                    "incident_category": self.CASE_TYPE,
+                    "threshold_level": (
+                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
+                    ),
+                    "ascending": True,
+                    "settings": {
+                        t: v
+                        for t, v in zip(
+                            getattr(config.alert_config, "alert_type", ["Default"]),
+                            getattr(config.alert_config, "alert_value", ["JSON"]),
+                        )
+                    },
+                }
+            )
+
+        # Generate human text similar to people_counting format
+        human_text_lines = []
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+
+        # Display current counts - zone-wise or category-wise
+        if zone_analysis:
+            human_text_lines.append("\t- Violence Detected by Zone:")
+            for zone_name, zone_data in zone_analysis.items():
+                current_count = 0
+                if isinstance(zone_data, dict):
+                    if "current_count" in zone_data:
+                        current_count = zone_data.get("current_count", 0)
+                    else:
+                        counts_dict = (
+                            zone_data.get("original_counts")
+                            if isinstance(zone_data.get("original_counts"), dict)
+                            else zone_data
+                        )
+                        current_count = counts_dict.get(
+                            "total",
+                            sum(v for v in counts_dict.values() if isinstance(v, (int, float))),
+                        )
+                human_text_lines.append(f"\t\t- {zone_name}: {int(current_count)}")
+        else:
+            for cat, count in detection_count_by_category.items():
+                new_count = new_counts_dict.get(cat, 0)
+                human_text_lines.append(f"\t- Total Violences in Frame ({cat}): {count}")
+                human_text_lines.append(f"\t- New Violences (just entered) ({cat}): {new_count}")
+
+        human_text_lines.append("")
+        human_text = "\n".join(human_text_lines)
+
+        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+        tracking_stat = self.create_tracking_stats(
+            total_counts=total_counts,
+            current_counts=current_counts,
+            detections=detections,
+            human_text=human_text,
+            camera_info=camera_info,
+            alerts=alerts,
+            alert_settings=alert_settings,
+            reset_settings=reset_settings,
+            start_time=high_precision_start_timestamp,
+            reset_time=high_precision_reset_timestamp,
+        )
+        tracking_stat["target_categories"] = self.target_categories
+        # current_new_counts: NEW track IDs that appeared for first time in this frame/aggregation
+        tracking_stat["current_new_counts"] = current_new_counts
+        tracking_stats.append(tracking_stat)
+        return tracking_stats
+
+    def _generate_business_analytics(
+        self,
+        _counting_summary: Dict,
+        _zone_analysis: Dict,
+        _alerts: Any,
+        _config: ViolenceDetectionConfig,
+        _stream_info: Optional[Dict[str, Any]] = None,
+        is_empty=False,
+    ) -> List[Dict]:
+        _ = (_alerts, _config, _counting_summary, _stream_info, _zone_analysis)
+        if is_empty:
+            return []
+
+        return None
+
+    def _generate_summary(
+        self,
+        _summary: dict,
+        _zone_analysis: Dict,
+        incidents: List,
+        tracking_stats: List,
+        business_analytics: List,
+        _alerts: List,
+    ) -> List[str]:
+        """
+        Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
+        """
+        _ = (_alerts, _summary, _zone_analysis)
+        lines = []
+        lines.append("Application Name: " + self.CASE_TYPE)
+        lines.append("Application Version: " + self.CASE_VERSION)
+        if len(incidents) > 0:
+            lines.append("Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
+        if len(tracking_stats) > 0:
+            lines.append(
+                "Tracking Statistics: " + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
+            )
+        if len(business_analytics) > 0:
+            lines.append(
+                "Business Analytics: "
+                + f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}"
+            )
+
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
+            lines.append("Summary: " + "No Summary Data")
+
+        return ["\n".join(lines)]
+
+    def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
+        frame_track_ids = set()
+        for det in detections:
+            tid = det.get("track_id")
+            if tid is not None:
+                frame_track_ids.add(tid)
+        total_track_ids = set()
+        for s in getattr(self, "_per_category_total_track_ids", {}).values():
+            total_track_ids.update(s)
+        return {
+            "total_count": len(total_track_ids),
+            "current_frame_count": len(frame_track_ids),
+            "total_unique_track_ids": len(total_track_ids),
+            "current_frame_track_ids": list(frame_track_ids),
+            "last_update_time": time.time(),
+            "total_frames_processed": getattr(self, "_total_frame_counter", 0),
+        }
+
+    def _update_tracking_state(self, detections: list, _has_zones: bool = False):
+        _ = (_has_zones,)
+        if not hasattr(self, "_per_category_total_track_ids"):
+            self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        if not hasattr(self, "_previous_frame_track_ids"):
+            self._previous_frame_track_ids = {cat: set() for cat in self.target_categories}
+
+        # Step 1: Build current frame track IDs (DON'T update total yet!)
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
+
+        for det in detections:
+            cat = det.get("category")
+            raw_track_id = det.get("track_id")
+            if cat not in self.target_categories or raw_track_id is None:
+                continue
+            bbox = det.get("bounding_box", det.get("bbox"))
+            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
+            det["track_id"] = canonical_id
+            # DON'T update total here - must compute "new" first!
+            self._current_frame_track_ids.setdefault(cat, set()).add(canonical_id)
+
+        # Step 2: Compute NEW = current - total (BEFORE updating total!)
+        # This ensures re-entries are NOT counted as "new" again
+        self._new_track_ids_this_frame = {
+            cat: (self._current_frame_track_ids.get(cat, set()) - self._per_category_total_track_ids.get(cat, set()))
+            for cat in self.target_categories
+        }
+
+        # ONE concise log line per frame (using first target category for display)
+        first_cat = self.target_categories[0] if self.target_categories else "violence"
+        current_ids = sorted(list(self._current_frame_track_ids.get(first_cat, set())))
+        new_ids = sorted(list(self._new_track_ids_this_frame.get(first_cat, set())))
+        total_seen = len(self._per_category_total_track_ids.get(first_cat, set()))
+        print(
+            f"[TRACK] F{self._total_frame_counter} | det={len(detections)} ids={current_ids[:10]}{'...' if len(current_ids) > 10 else ''} new={new_ids} total_seen={total_seen}"
+        )
+
+        # Only log when NEW track IDs created (helpful for debugging)
+        if any(len(ids) > 0 for ids in self._new_track_ids_this_frame.values()):
+            print(
+                f"[NEW_TRACK] F{self._total_frame_counter} | new_ids={new_ids} total_unique={total_seen + len(new_ids)}"
+            )
+
+        # Step 3: NOW update total with current IDs (ALWAYS, regardless of zones!)
+        # Zone-specific tracking is handled separately in _update_zone_tracking
+        for cat, ids in self._current_frame_track_ids.items():
+            self._per_category_total_track_ids.setdefault(cat, set()).update(ids)
+
+        # DIAGNOSTIC: Warn if total_seen grows too large relative to detections
+        total_seen_after = len(self._per_category_total_track_ids.get(first_cat, set()))
+        if total_seen_after > 100 and len(detections) > 0:
+            ratio = total_seen_after / max(len(detections), 1)
+            if ratio > 20:
+                print(
+                    f"[WARN] F{self._total_frame_counter} | total_seen={total_seen_after} vs det={len(detections)} "
+                    f"(ratio={ratio:.1f}x) - possible tracker instability or use case recreation"
+                )
+
+        # Snapshot current -> previous for next call
+        self._previous_frame_track_ids = {cat: set(ids) for cat, ids in self._current_frame_track_ids.items()}
+
+    def get_total_counts(self):
+        return {cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()}
+
+    def get_new_counts_this_frame(self) -> Dict[str, int]:
+        """Get count of NEW track IDs that appeared in this frame/aggregation vs the previous one."""
+        return {cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()}
+
+    def get_current_frame_counts(self) -> Dict[str, int]:
+        """Get count of ALL track IDs currently in this frame (existing + new)."""
+        return {cat: len(ids) for cat, ids in getattr(self, "_current_frame_track_ids", {}).items()}
+
+    def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.strftime("%Y:%m:%d %H:%M:%S")
+
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = round(float(timestamp % 60), 2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
+
+    def _format_timestamp(self, timestamp: Any) -> str:
+        """Format a timestamp to match the current timestamp format: YYYY:MM:DD HH:MM:SS.
+
+        The input can be either:
+        1. A numeric Unix timestamp (``float`` / ``int``) – it will be converted to datetime.
+        2. A string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
+
+        The returned value will be in the format: YYYY:MM:DD HH:MM:SS (no milliseconds, no UTC suffix).
+
+        Example
+        -------
+        >>> self._format_timestamp("2025-10-27-19:31:20.187574 UTC")
+        '2025:10:27 19:31:20'
+        """
+
+        # Convert numeric timestamps to datetime first
+        if isinstance(timestamp, (int, float)):
+            dt = datetime.fromtimestamp(timestamp, timezone.utc)
+            return dt.strftime("%Y:%m:%d %H:%M:%S")
+
+        # Ensure we are working with a string from here on
+        if not isinstance(timestamp, str):
+            return str(timestamp)
+
+        # Remove ' UTC' suffix if present
+        timestamp_non_violence = timestamp.replace(" UTC", "").strip()
+
+        # Remove milliseconds if present (everything after the last dot)
+        if "." in timestamp_non_violence:
+            timestamp_non_violence = timestamp_non_violence.split(".")[0]
+
+        # Parse the timestamp string and convert to desired format
+        try:
+            # Handle format: YYYY-MM-DD-HH:MM:SS
+            if timestamp_non_violence.count("-") >= 2:
+                # Replace first two dashes with colons for date part, third with space
+                parts = timestamp_non_violence.split("-")
+                if len(parts) >= 4:
+                    # parts = ['2025', '10', '27', '19:31:20']
+                    formatted = f"{parts[0]}:{parts[1]}:{parts[2]} {'-'.join(parts[3:])}"
+                    return formatted
+        except Exception:
+            # Non-fatal: exception ignored here; execution continues per surrounding logic.
+            pass
+
+        # If parsing fails, return the non_violenceed string as-is
+        return timestamp_non_violence
+
+    def _get_current_timestamp_str(
+        self,
+        stream_info: Optional[Dict[str, Any]],
+        precision=False,
+        frame_id: Optional[str] = None,
+    ) -> str:
+        """Get formatted current timestamp based on stream type."""
+
+        if not stream_info:
+            return "00:00:00.00"
+        if precision:
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
+                        "input_settings", {}
+                    ).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                self._debug_stream_timing("stream_time_str", stream_time_str)
+                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+            if frame_id:
+                start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+            else:
+                start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
+                    "input_settings", {}
+                ).get("original_fps", 30)
+
+            stream_time_str = self._format_timestamp_for_video(start_time)
+
+            self._debug_stream_timing("stream_time_str", stream_time_str)
+            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+        else:
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            if stream_time_str:
+                try:
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except Exception:
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
+
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
+
+        if precision:
+            if self.start_timer is None:
+                candidate = stream_info.get("input_settings", {}).get("stream_time")
+                if not candidate or candidate == "NA":
+                    candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                self.start_timer = candidate
+                return self._format_timestamp(self.start_timer)
+            elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+                candidate = stream_info.get("input_settings", {}).get("stream_time")
+                if not candidate or candidate == "NA":
+                    candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                self.start_timer = candidate
+                return self._format_timestamp(self.start_timer)
+            else:
+                return self._format_timestamp(self.start_timer)
+
+        if self.start_timer is None:
+            # Prefer direct input_settings.stream_time if available and not NA
+            candidate = stream_info.get("input_settings", {}).get("stream_time")
+            if not candidate or candidate == "NA":
+                # Fallback to nested stream_info.stream_time used by current timestamp path
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                        candidate = datetime.fromtimestamp(self._tracking_start_time, timezone.utc).strftime(
+                            "%Y-%m-%d-%H:%M:%S.%f UTC"
+                        )
+                    except Exception:
+                        candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                else:
+                    candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+            self.start_timer = candidate
+            return self._format_timestamp(self.start_timer)
+        elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+            candidate = stream_info.get("input_settings", {}).get("stream_time")
+            if not candidate or candidate == "NA":
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        ts = dt.replace(tzinfo=timezone.utc).timestamp()
+                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                    except Exception:
+                        candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                else:
+                    candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+            self.start_timer = candidate
+            return self._format_timestamp(self.start_timer)
+
+        else:
+            if self.start_timer is not None and self.start_timer != "NA":
+                return self._format_timestamp(self.start_timer)
+
+            if self._tracking_start_time is None:
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except Exception:
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime("%Y:%m:%d %H:%M:%S")
+
+    def _count_categories(self, detections: list, _config: ViolenceDetectionConfig) -> dict:
+        _ = (_config,)
+        counts = {}
+        for det in detections:
+            cat = det.get("category", "unknown")
+            counts[cat] = counts.get(cat, 0) + 1
+        return {
+            "total_count": sum(counts.values()),
+            "per_category_count": counts,
+            "detections": [
+                {
+                    "bounding_box": det.get("bounding_box"),
+                    "category": det.get("category"),
+                    "confidence": det.get("confidence"),
+                    "track_id": det.get("track_id"),
+                    "frame_id": det.get("frame_id"),
+                }
+                for det in detections
+            ],
+        }
+
+    def _extract_predictions(self, detections: list) -> List[Dict[str, Any]]:
+        return [
+            {
+                "category": det.get("category", "unknown"),
+                "confidence": det.get("confidence", 0.0),
+                "bounding_box": det.get("bounding_box", {}),
+            }
+            for det in detections
+        ]
+
+    def _compute_iou(self, box1: Any, box2: Any) -> float:
+        def _bbox_to_list(bbox):
+            if bbox is None:
+                return []
+            if isinstance(bbox, list):
+                return bbox[:4] if len(bbox) >= 4 else []
+            if isinstance(bbox, dict):
+                if "xmin" in bbox:
+                    return [bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]]
+                if "x1" in bbox:
+                    return [bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]]
+                values = [v for v in bbox.values() if isinstance(v, (int, float))]
+                return values[:4] if len(values) >= 4 else []
+            return []
+
+        l1 = _bbox_to_list(box1)
+        l2 = _bbox_to_list(box2)
+        if len(l1) < 4 or len(l2) < 4:
+            return 0.0
+        x1_min, y1_min, x1_max, y1_max = l1
+        x2_min, y2_min, x2_max, y2_max = l2
+        x1_min, x1_max = min(x1_min, x1_max), max(x1_min, x1_max)
+        y1_min, y1_max = min(y1_min, y1_max), max(y1_min, y1_max)
+        x2_min, x2_max = min(x2_min, x2_max), max(x2_min, x2_max)
+        y2_min, y2_max = min(y2_min, y2_max), max(y2_min, y2_max)
+        inter_x_min = max(x1_min, x2_min)
+        inter_y_min = max(y1_min, y2_min)
+        inter_x_max = min(x1_max, x2_max)
+        inter_y_max = min(y1_max, y2_max)
+        inter_w = max(0.0, inter_x_max - inter_x_min)
+        inter_h = max(0.0, inter_y_max - inter_y_min)
+        inter_area = inter_w * inter_h
+        area1 = (x1_max - x1_min) * (y1_max - y1_min)
+        area2 = (x2_max - x2_min) * (y2_max - y2_min)
+        union_area = area1 + area2 - inter_area
+        return (inter_area / union_area) if union_area > 0 else 0.0
+
+    def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
+        if raw_id is None or bbox is None:
+            return raw_id
+        now = time.time()
+        if raw_id in self._track_aliases:
+            canonical_id = self._track_aliases[raw_id]
+            track_info = self._canonical_tracks.get(canonical_id)
+            if track_info is not None:
+                track_info["last_bbox"] = bbox
+                track_info["last_update"] = now
+                track_info["raw_ids"].add(raw_id)
+            return canonical_id
+        for canonical_id, info in self._canonical_tracks.items():
+            if now - info["last_update"] > self._track_merge_time_window:
+                continue
+            iou = self._compute_iou(bbox, info["last_bbox"])
+            if iou >= self._track_merge_iou_threshold:
+                self._track_aliases[raw_id] = canonical_id
+                info["last_bbox"] = bbox
+                info["last_update"] = now
+                info["raw_ids"].add(raw_id)
+                return canonical_id
+        canonical_id = raw_id
+        self._track_aliases[raw_id] = canonical_id
+        self._canonical_tracks[canonical_id] = {
+            "last_bbox": bbox,
+            "last_update": now,
+            "raw_ids": {raw_id},
+        }
+        return canonical_id
+
+    def _get_tracking_start_time(self) -> str:
+        if self._tracking_start_time is None:
+            return "N/A"
+        return self._format_timestamp(self._tracking_start_time)
+
+    def _set_tracking_start_time(self) -> None:
+        self._tracking_start_time = time.time()
+
+    def get_duration_seconds(self, start_time, end_time):
+        def parse_relative_time(t):
+            try:
+                parts = t.strip().split(":")
+                if len(parts) != 3:
+                    return None
+                return timedelta(hours=int(parts[0]), minutes=int(parts[1]), seconds=float(parts[2]))
+            except Exception:
+                return None
+
+        def parse_time(t):
+            if re.match(r"^\d{1,2}:\d{2}:\d{1,2}(\.\d+)?$", t):
+                return parse_relative_time(t)
+            if "UTC" in t:
+                try:
+                    return datetime.strptime(t, "%Y-%m-%d-%H:%M:%S.%f UTC")
+                except ValueError:
+                    return None
+            return None
+
+        start_dt = parse_time(start_time)
+        end_dt = parse_time(end_time)
+
+        if start_dt is None or end_dt is None:
+            return "N/A"
+        if isinstance(start_dt, timedelta) and isinstance(end_dt, timedelta):
+            return (end_dt - start_dt).total_seconds()
+        if isinstance(start_dt, datetime) and isinstance(end_dt, datetime):
+            return (end_dt - start_dt).total_seconds()
+        return None

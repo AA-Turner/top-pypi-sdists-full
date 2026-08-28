@@ -1,3 +1,4 @@
+import json
 import threading
 import time as _time
 
@@ -8,6 +9,11 @@ from ....imports.config.models.models_config import (
     prune_model, set_model_media, media_state, media_states,
     media_default_state, set_media_default, refresh_registry,
 )
+# The enqueue must be able to tell the operator whether the job LANDED — see
+# _enqueued_response. Explicit, not via the star-export, so a refactor of
+# functions/__init__ can never silently drop the honesty back out of the reply.
+from ....downloader.queue import queue_depth, queue_healthy
+from ....downloader.presence import downloader_alive
 
 llm_bp, logger = get_bp("llm_bp", __name__)
 
@@ -354,6 +360,34 @@ def get_model(model_key):
 # back would quietly resurrect the exact bug. The job stays visibly queued and
 # says so (queue.annotate_waiting).
 # ──────────────────────────────────────────────────────────────────────────
+def _enqueued_response(job, **extra):
+    """The enqueue reply, with the two facts a caller needs to know it WORKED:
+    the job id (already there) and whether the job is actually ON the daemon's
+    queue. Before k119 a POST returned a cheerful `queued` row even when the
+    shared mirror was quarantined and no daemon could ever see it — the console
+    showed "queued" forever and the request was silently expired 30 minutes
+    later. ``queued`` is False + ``queue_error`` is set when that happens, so the
+    UI can shout instead of spinning."""
+    d = job.to_legacy_dict()
+    depth = queue_depth()
+    healthy = depth >= 0 and queue_healthy()
+    d.update(extra)
+    d["queued"] = bool(healthy)
+    # Position is 1-based and includes this job (it was just enqueued), so "1"
+    # means "next up" — what an operator expects a queue position to mean.
+    d["queue_position"] = depth if depth >= 0 else None
+    d["downloader_running"] = bool(downloader_alive())
+    if not healthy:
+        d["queue_error"] = (
+            "The shared download queue is unreachable — this job was recorded "
+            "but the downloader cannot claim it yet.")
+    elif not d["downloader_running"]:
+        d["queue_error"] = (
+            "Queued, but the downloader service is not running "
+            "(hugpy-downloader-dev). Start it and this job will be claimed.")
+    return jsonify(d)
+
+
 @llm_bp.route("/models/<model_key>/download", methods=["POST"])
 def start_download(model_key):
     model = get_model_config(model_key,dict_return=True)
@@ -363,7 +397,8 @@ def start_download(model_key):
     body = request.get_json(silent=True) or {}
     job = enqueue_download(model_key, model,
                            total_bytes=body.get("total_bytes"))
-    return jsonify(job.to_legacy_dict())
+    logger.info("enqueued download job %s for %s", job.id, model_key)
+    return _enqueued_response(job)
 
 
 @llm_bp.route("/jobs", methods=["GET"])
@@ -373,7 +408,24 @@ def list_jobs():
     # that vanished at 100% instead of reading "completed" would be worse than
     # before). Legacy wire shape preserved: queued/running/completed, error as a
     # string — the console's ModelTable reads exactly this.
-    return jsonify(list_downloads())
+    #
+    # k121 honesty pass BEFORE the read (operator ruling 2026-08-20): a stalled
+    # queue must never render as a cheerful "queued".
+    #   * expire_pending_orphans — never-claimed rows go terminal `expired`
+    #     with the reason in `message` (parity with /llm/jobs, which already
+    #     did this; this view didn't).
+    #   * reap_dead_claims — a row claimed by a downloader that died and never
+    #     restarted was IMMORTAL (claim skips it, expiry skips it); it now
+    #     re-queues with an honest message once the heartbeat is long-dead.
+    # Failure records (failed/expired) persist here until POST /jobs/<id>/discard.
+    from ....comms.jobs import job_store
+    from ....downloader.queue import merge_notes, reap_dead_claims
+    try:
+        job_store.expire_pending_orphans()
+    except Exception:
+        pass
+    reap_dead_claims()
+    return jsonify(merge_notes(list_downloads()))
 
 
 @llm_bp.route("/jobs/<job_id>", methods=["GET"])
@@ -405,6 +457,43 @@ def retry_job(job_id):
     return jsonify(res)
 
 
+@llm_bp.route("/jobs/<job_id>/discard", methods=["POST"])
+def discard_job(job_id):
+    """ADMIN DISCARD (k121): the only way a persistent failure record
+    (failed/expired) leaves the queue. Gated in operator_auth's mutation
+    allowlist alongside cancel/retry."""
+    from ....downloader.queue import discard_download
+    res = discard_download(job_id)
+    if res.get("reason") == "unknown job":
+        abort(404, description="Unknown job ID.")
+    return jsonify(res)
+
+
+@llm_bp.route("/jobs/<job_id>/diagnose", methods=["POST"])
+def diagnose_job(job_id):
+    """THE INFERENCE TRIGGER for a failed/stalled download (k121): asks the
+    hugpy VM's keeper (the same B seat as the help widget's direct line) to
+    diagnose this specific record, grounded in the row itself + live queue/
+    fleet facts. The diagnosis is PINNED to the record (job_notes) and rides
+    every subsequent /jobs read until the record is discarded."""
+    from ....downloader.queue import get_download, set_diagnosis
+    from ..keeper_line import fleet_grounding, keeper_ask
+    d = get_download(job_id)
+    if d is None:
+        abort(404, description="Unknown job ID.")
+    prompt = (
+        "You are the hugpy fleet keeper. Diagnose this model-download problem "
+        "for the operator: name the root cause and the ONE concrete action "
+        "that fixes it. Be specific and short (a few sentences).\n\n"
+        f"JOB RECORD:\n{json.dumps(d, default=str)[:4000]}\n\n"
+        f"FLEET FACTS:\n{fleet_grounding(include_queue=False)}")
+    res = keeper_ask(prompt)
+    reply = res.get("reply") or ""
+    stored = bool(reply) and set_diagnosis(job_id, reply)
+    return jsonify({"ok": bool(reply), "diagnosis": reply,
+                    "offline": bool(res.get("offline")), "stored": stored})
+
+
 @llm_bp.route("/llm/repos/download", methods=["POST"])
 def download_repo():
     """Acquire any Hugging Face repo by hub_id without a pre-registered manifest entry.
@@ -429,7 +518,9 @@ def download_repo():
         model_key = key_for_hub_id(body.hub_id)
 
     job = enqueue_download(model_key, model, total_bytes=body.total_bytes)
-    return jsonify({**job.to_legacy_dict(), "model_key": model_key})
+    logger.info("enqueued download job %s for %s (hub_id=%s)",
+                job.id, model_key, body.hub_id)
+    return _enqueued_response(job, model_key=model_key)
 
 
 @llm_bp.route("/models/<model_key>", methods=["DELETE"])

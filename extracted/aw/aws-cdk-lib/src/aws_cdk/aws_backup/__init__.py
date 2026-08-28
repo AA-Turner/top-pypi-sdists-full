@@ -144,6 +144,20 @@ plan.add_rule(backup.BackupPlanRule(
 ))
 ```
 
+You can enable Backup indexes for specific resource types in the rule by using `indexActions`.
+Each rule can have at most one index action, and its `resourceTypes` must list at least one
+resource type to index.
+
+```python
+# plan: backup.BackupPlan
+
+plan.add_rule(backup.BackupPlanRule(
+    index_actions=[backup.BackupPlanIndexActionProps(
+        resource_types=[backup.IndexActionResourceType.S3]
+    )]
+))
+```
+
 Ready-made rules are also available:
 
 ```python
@@ -418,6 +432,65 @@ class BackupPlanCopyActionProps:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_backup.BackupPlanIndexActionProps",
+    jsii_struct_bases=[],
+    name_mapping={"resource_types": "resourceTypes"},
+)
+class BackupPlanIndexActionProps:
+    def __init__(
+        self,
+        *,
+        resource_types: typing.Sequence["IndexActionResourceType"],
+    ) -> None:
+        '''Properties for a BackupPlanIndexAction.
+
+        :param resource_types: Specifies the resource types to include in the index action. A backup index is only created when this is set, so at least one resource type must be provided.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_backup as backup
+            
+            # index_action_resource_type: backup.IndexActionResourceType
+            
+            backup_plan_index_action_props = backup.BackupPlanIndexActionProps(
+                resource_types=[index_action_resource_type]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1ece3aae3068a4166741856d5dcb02b70adaa83f9ac6168b431dd85689d365cb)
+            check_type(argname="argument resource_types", value=resource_types, expected_type=type_hints["resource_types"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_types": resource_types,
+        }
+
+    @builtins.property
+    def resource_types(self) -> typing.List["IndexActionResourceType"]:
+        '''Specifies the resource types to include in the index action.
+
+        A backup index is only created when this is set, so at least one resource
+        type must be provided.
+        '''
+        result = self._values.get("resource_types")
+        assert result is not None, "Required property 'resource_types' is missing"
+        return typing.cast(typing.List["IndexActionResourceType"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BackupPlanIndexActionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_backup.BackupPlanProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -549,6 +622,7 @@ class BackupPlanRule(
         copy_actions: typing.Optional[typing.Sequence[typing.Union["BackupPlanCopyActionProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         delete_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         enable_continuous_backup: typing.Optional[builtins.bool] = None,
+        index_actions: typing.Optional[typing.Sequence[typing.Union["BackupPlanIndexActionProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         move_to_cold_storage_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rule_name: typing.Optional[builtins.str] = None,
@@ -562,6 +636,7 @@ class BackupPlanRule(
         :param copy_actions: Copy operations to perform on recovery points created by this rule. Default: - no copy actions
         :param delete_after: Specifies the duration after creation that a recovery point is deleted. Must be greater than ``moveToColdStorageAfter``. Default: - recovery point is never deleted
         :param enable_continuous_backup: Enables continuous backup and point-in-time restores (PITR). Property ``deleteAfter`` defines the retention period for the backup. It is mandatory if PITR is enabled. If no value is specified, the retention period is set to 35 days which is the maximum retention period supported by PITR. Property ``moveToColdStorageAfter`` must not be specified because PITR does not support this option. Default: false
+        :param index_actions: To help search your backups, you can enable Backup indexes by assigning index actions. Currently, you can only have up to a single index action per BackupRule. Default: - no index actions.
         :param move_to_cold_storage_after: Specifies the duration after creation that a recovery point is moved to cold storage. Default: - recovery point is never moved to cold storage
         :param recovery_point_tags: To help organize your resources, you can assign your own metadata to the resources that you create. Each tag is a key-value pair. Default: - no recovery point tags.
         :param rule_name: A display name for the backup rule. Default: - a CDK generated name
@@ -575,6 +650,7 @@ class BackupPlanRule(
             copy_actions=copy_actions,
             delete_after=delete_after,
             enable_continuous_backup=enable_continuous_backup,
+            index_actions=index_actions,
             move_to_cold_storage_after=move_to_cold_storage_after,
             recovery_point_tags=recovery_point_tags,
             rule_name=rule_name,
@@ -676,6 +752,7 @@ class BackupPlanRule(
         "copy_actions": "copyActions",
         "delete_after": "deleteAfter",
         "enable_continuous_backup": "enableContinuousBackup",
+        "index_actions": "indexActions",
         "move_to_cold_storage_after": "moveToColdStorageAfter",
         "recovery_point_tags": "recoveryPointTags",
         "rule_name": "ruleName",
@@ -693,6 +770,7 @@ class BackupPlanRuleProps:
         copy_actions: typing.Optional[typing.Sequence[typing.Union["BackupPlanCopyActionProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         delete_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         enable_continuous_backup: typing.Optional[builtins.bool] = None,
+        index_actions: typing.Optional[typing.Sequence[typing.Union["BackupPlanIndexActionProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         move_to_cold_storage_after: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
         recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rule_name: typing.Optional[builtins.str] = None,
@@ -707,6 +785,7 @@ class BackupPlanRuleProps:
         :param copy_actions: Copy operations to perform on recovery points created by this rule. Default: - no copy actions
         :param delete_after: Specifies the duration after creation that a recovery point is deleted. Must be greater than ``moveToColdStorageAfter``. Default: - recovery point is never deleted
         :param enable_continuous_backup: Enables continuous backup and point-in-time restores (PITR). Property ``deleteAfter`` defines the retention period for the backup. It is mandatory if PITR is enabled. If no value is specified, the retention period is set to 35 days which is the maximum retention period supported by PITR. Property ``moveToColdStorageAfter`` must not be specified because PITR does not support this option. Default: false
+        :param index_actions: To help search your backups, you can enable Backup indexes by assigning index actions. Currently, you can only have up to a single index action per BackupRule. Default: - no index actions.
         :param move_to_cold_storage_after: Specifies the duration after creation that a recovery point is moved to cold storage. Default: - recovery point is never moved to cold storage
         :param recovery_point_tags: To help organize your resources, you can assign your own metadata to the resources that you create. Each tag is a key-value pair. Default: - no recovery point tags.
         :param rule_name: A display name for the backup rule. Default: - a CDK generated name
@@ -719,13 +798,10 @@ class BackupPlanRuleProps:
         Example::
 
             # plan: backup.BackupPlan
-            # secondary_vault: backup.BackupVault
             
             plan.add_rule(backup.BackupPlanRule(
-                copy_actions=[backup.BackupPlanCopyActionProps(
-                    destination_backup_vault=secondary_vault,
-                    move_to_cold_storage_after=Duration.days(30),
-                    delete_after=Duration.days(120)
+                index_actions=[backup.BackupPlanIndexActionProps(
+                    resource_types=[backup.IndexActionResourceType.S3]
                 )]
             ))
         '''
@@ -736,6 +812,7 @@ class BackupPlanRuleProps:
             check_type(argname="argument copy_actions", value=copy_actions, expected_type=type_hints["copy_actions"])
             check_type(argname="argument delete_after", value=delete_after, expected_type=type_hints["delete_after"])
             check_type(argname="argument enable_continuous_backup", value=enable_continuous_backup, expected_type=type_hints["enable_continuous_backup"])
+            check_type(argname="argument index_actions", value=index_actions, expected_type=type_hints["index_actions"])
             check_type(argname="argument move_to_cold_storage_after", value=move_to_cold_storage_after, expected_type=type_hints["move_to_cold_storage_after"])
             check_type(argname="argument recovery_point_tags", value=recovery_point_tags, expected_type=type_hints["recovery_point_tags"])
             check_type(argname="argument rule_name", value=rule_name, expected_type=type_hints["rule_name"])
@@ -753,6 +830,8 @@ class BackupPlanRuleProps:
             self._values["delete_after"] = delete_after
         if enable_continuous_backup is not None:
             self._values["enable_continuous_backup"] = enable_continuous_backup
+        if index_actions is not None:
+            self._values["index_actions"] = index_actions
         if move_to_cold_storage_after is not None:
             self._values["move_to_cold_storage_after"] = move_to_cold_storage_after
         if recovery_point_tags is not None:
@@ -820,6 +899,19 @@ class BackupPlanRuleProps:
         '''
         result = self._values.get("enable_continuous_backup")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def index_actions(
+        self,
+    ) -> typing.Optional[typing.List["BackupPlanIndexActionProps"]]:
+        '''To help search your backups, you can enable Backup indexes by assigning index actions.
+
+        Currently, you can only have up to a single index action per BackupRule.
+
+        :default: - no index actions.
+        '''
+        result = self._values.get("index_actions")
+        return typing.cast(typing.Optional[typing.List["BackupPlanIndexActionProps"]], result)
 
     @builtins.property
     def move_to_cold_storage_after(
@@ -8795,6 +8887,64 @@ class _IBackupVaultProxy(
 typing.cast(typing.Any, IBackupVault).__jsii_proxy_class__ = lambda : _IBackupVaultProxy
 
 
+class IndexActionResourceType(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_backup.IndexActionResourceType",
+):
+    '''The resource type to index.
+
+    This is implemented as an enum-like class so that resource types the AWS Backup
+    service adds in the future can be used before they are added to the CDK, e.g.
+    ``new IndexActionResourceType('EFS')``.
+
+    :see: https://docs.aws.amazon.com/aws-backup/latest/devguide/API_IndexAction.html
+    :exampleMetadata: infused
+
+    Example::
+
+        # plan: backup.BackupPlan
+        
+        plan.add_rule(backup.BackupPlanRule(
+            index_actions=[backup.BackupPlanIndexActionProps(
+                resource_types=[backup.IndexActionResourceType.S3]
+            )]
+        ))
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''A custom resource type not yet supported as a static member of this class.
+
+        :param value: the resource type string value, e.g. ``S3`` or ``EBS``.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__771965cb2fdb74b2964d2d368f8e917454f537d584be5c094d596b7393542794)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Returns the string representation of this resource type.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="EBS")
+    def EBS(cls) -> "IndexActionResourceType":
+        '''Amazon Elastic Block Store (Amazon EBS).'''
+        return typing.cast("IndexActionResourceType", jsii.sget(cls, "EBS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="S3")
+    def S3(cls) -> "IndexActionResourceType":
+        '''Amazon Simple Storage Service (Amazon S3).'''
+        return typing.cast("IndexActionResourceType", jsii.sget(cls, "S3"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''the resource type string value, e.g. ``S3`` or ``EBS``.'''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_backup.LockConfiguration",
     jsii_struct_bases=[],
@@ -9412,6 +9562,7 @@ class BackupVault(
 __all__ = [
     "BackupPlan",
     "BackupPlanCopyActionProps",
+    "BackupPlanIndexActionProps",
     "BackupPlanProps",
     "BackupPlanRule",
     "BackupPlanRuleProps",
@@ -9444,6 +9595,7 @@ __all__ = [
     "CfnTieringConfigurationProps",
     "IBackupPlan",
     "IBackupVault",
+    "IndexActionResourceType",
     "LockConfiguration",
     "TagCondition",
     "TagOperation",
@@ -9456,6 +9608,13 @@ def _typecheckingstub__502c247f5c1b9824033ca24f5efe3e1d20ee8980208ae5382890f6168
     destination_backup_vault: _aws_backup_bc4c1c6b.IBackupVaultRef,
     delete_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     move_to_cold_storage_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ece3aae3068a4166741856d5dcb02b70adaa83f9ac6168b431dd85689d365cb(
+    *,
+    resource_types: typing.Sequence[IndexActionResourceType],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9507,6 +9666,7 @@ def _typecheckingstub__521e43eca71db1c8347b5dbf1e88135cbc1fd43f07248784b33b55d83
     copy_actions: typing.Optional[typing.Sequence[typing.Union[BackupPlanCopyActionProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     delete_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     enable_continuous_backup: typing.Optional[builtins.bool] = None,
+    index_actions: typing.Optional[typing.Sequence[typing.Union[BackupPlanIndexActionProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     move_to_cold_storage_after: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
     recovery_point_tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     rule_name: typing.Optional[builtins.str] = None,
@@ -10684,6 +10844,12 @@ def _typecheckingstub__a4429cff13e428c64f5c230a65e62ba2d645b76e2fd6b2b72f5aad4b7
 def _typecheckingstub__f046e29be9f6222e2ff343629e5ca635543c7abc067c609446b86467be6c5b68(
     grantee: _aws_iam_1f54b5e8.IGrantable,
     *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__771965cb2fdb74b2964d2d368f8e917454f537d584be5c094d596b7393542794(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

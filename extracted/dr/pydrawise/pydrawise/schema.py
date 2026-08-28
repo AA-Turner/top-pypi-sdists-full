@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, time, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta
 from enum import Enum, auto
 from importlib import resources
-from typing import Optional, Union
+from typing import Any
 
 from apischema import type_name
 from apischema.conversions import Conversion
@@ -22,7 +22,7 @@ SCHEMA_TEXT = resources.files(__package__).joinpath("hydrawise.graphql").read_te
 DSL_SCHEMA = DSLSchema(build_ast_schema(parse(SCHEMA_TEXT)))
 
 
-def _optional_field(*args, **kwargs):
+def _optional_field(*args: Any, **kwargs: Any) -> Any:
     if "metadata" in kwargs:
         kwargs["metadata"] |= fall_back_on_default
     else:
@@ -73,7 +73,10 @@ def _time_conversion() -> conversion:
     )
 
 
-def _list_conversion(element_conversion) -> conversion:
+# apischema types `conversion` loosely enough that the .deserialization /
+# .serialization attributes read below aren't visible to mypy, so the
+# parameter stays Any.
+def _list_conversion(element_conversion: Any) -> conversion:
     return conversion(
         Conversion(
             lambda _list: list(
@@ -92,7 +95,9 @@ def _list_conversion(element_conversion) -> conversion:
 
 class _AutoEnum(Enum):
     @staticmethod
-    def _generate_next_value_(name, start, count, last_values):
+    def _generate_next_value_(
+        name: str, start: int, count: int, last_values: list[Any]
+    ) -> str:
         """Determines the value for an auto() call."""
         return name
 
@@ -150,9 +155,9 @@ class DateTime:
         local = dt
         if local.tzinfo is None:
             # Make sure we have a timezone set so strftime outputs a valid string.
-            local = local.replace(tzinfo=datetime.now(timezone.utc).astimezone().tzinfo)
+            local = local.replace(tzinfo=datetime.now(UTC).astimezone().tzinfo)
         return DateTime(
-            value=local.strftime("%a, %d %b %y %H:%I:%S %z"),
+            value=local.strftime("%a, %d %b %y %H:%M:%S %z"),
             timestamp=int(dt.timestamp()),
         )
 
@@ -279,14 +284,14 @@ class WateringSettings:
     """Generic settings for a watering program."""
 
     fixed_watering_adjustment: int = 0
-    cycle_and_soak_settings: Optional[CycleAndSoakSettings] = None
+    cycle_and_soak_settings: CycleAndSoakSettings | None = None
 
 
 @dataclass
 class AdvancedWateringSettings(WateringSettings):
     """Advanced watering program settings."""
 
-    advanced_program: Optional[AdvancedProgram] = None
+    advanced_program: AdvancedProgram | None = None
 
 
 @dataclass
@@ -382,16 +387,16 @@ class ScheduledZoneRuns:
     """Scheduled runs for a zone."""
 
     summary: str = ""
-    current_run: Optional[ScheduledZoneRun] = None
-    next_run: Optional[ScheduledZoneRun] = None
-    status: Optional[str] = None
+    current_run: ScheduledZoneRun | None = None
+    next_run: ScheduledZoneRun | None = None
+    status: str | None = None
 
 
 @dataclass
 class PastZoneRuns:
     """Previous zone runs."""
 
-    last_run: Optional[ScheduledZoneRun] = None
+    last_run: ScheduledZoneRun | None = None
     runs: list[ScheduledZoneRun] = _optional_field(default_factory=list)
 
 
@@ -400,7 +405,7 @@ class ZoneStatus:
     """A zone's status."""
 
     relative_water_balance: int = 0
-    suspended_until: Optional[datetime] = field(
+    suspended_until: datetime | None = field(
         metadata=DateTime.conversion(), default=None
     )
 
@@ -422,8 +427,8 @@ class ZoneSuspension:
 class Zone(BaseZone):
     """A watering zone."""
 
-    watering_settings: Union[AdvancedWateringSettings, StandardWateringSettings] = (
-        field(default_factory=StandardWateringSettings)
+    watering_settings: AdvancedWateringSettings | StandardWateringSettings = field(
+        default_factory=StandardWateringSettings
     )
     scheduled_runs: ScheduledZoneRuns = field(default_factory=ScheduledZoneRuns)
     past_runs: PastZoneRuns = field(default_factory=PastZoneRuns)
@@ -432,9 +437,18 @@ class Zone(BaseZone):
 
     @classmethod
     def from_json(cls, zone_json: dict) -> Zone:
+        """Builds a new Zone from a REST API "relay" JSON object.
+
+        :param zone_json: A single relay entry, as returned by the REST
+            API's statusschedule.php endpoint.
+        :rtype: Zone
+        """
         zone = Zone(
             id=zone_json["relay_id"],
-            number=zone_json["relay"],
+            # The REST API sends a bare integer where the GraphQL API sends a
+            # SelectedOption. Wrap it so a Zone has the same shape regardless of
+            # which API produced it -- HybridClient merges the two.
+            number=SelectedOption(value=zone_json["relay"]),
             name=zone_json["name"],
         )
         zone.update_with_json(zone_json)
@@ -443,6 +457,17 @@ class Zone(BaseZone):
     def update_with_json(
         self, zone_json: dict, *, trust_suspension_sentinel: bool = True
     ) -> None:
+        """Updates this Zone's schedule and status from a REST API "relay" JSON object.
+
+        :param zone_json: A single relay entry, as returned by the REST
+            API's statusschedule.php endpoint.
+        :param trust_suspension_sentinel: Whether the REST API's ambiguous
+            "suspended" sentinel value should be treated as authoritative for
+            this zone. Callers with a more reliable source of truth (e.g.
+            HybridClient, once it already knows this zone's real suspension
+            state from the GraphQL API) should pass False so the sentinel can
+            only corroborate a suspension already known, never originate one.
+        """
         current_run = None
         next_run = None
         if zone_json["time"] == 1:
@@ -558,14 +583,14 @@ class SensorModel:
     )
     divisor: float = _optional_field(default=0.0)
     flow_rate: float = _optional_field(default=0.0)
-    sensor_type: Optional[CustomSensorTypeEnum] = None
+    sensor_type: CustomSensorTypeEnum | None = None
 
 
 @dataclass
 class SensorStatus:
     """Current status of a sensor."""
 
-    water_flow: Optional[LocalizedValueType] = None
+    water_flow: LocalizedValueType | None = None
     active: bool = _optional_field(default=False)
 
 
@@ -593,7 +618,7 @@ class Sensor:
 class SensorWithFlowSummary(Sensor):
     """A Sensor, as returned by its `flowSummary` method."""
 
-    flow_summary: Optional[SensorFlowSummary] = _optional_field(
+    flow_summary: SensorFlowSummary | None = _optional_field(
         default_factory=SensorFlowSummary
     )
 
@@ -629,17 +654,21 @@ class ControllerStatus:
     normal_water_time: NormalWaterTime = _optional_field(
         default_factory=NormalWaterTime
     )
-    last_contact: Optional[DateTime] = None
+    last_contact: DateTime | None = None
 
 
 @dataclass
 class RunStatusType:
+    """The status of a reported zone run."""
+
     value: int = 0
     label: str = ""
 
 
 @dataclass
 class RunStopReasonType:
+    """Why a reported zone run stopped."""
+
     finished_normally: bool = False
     description: list[str] = field(default_factory=list)
 
@@ -657,10 +686,10 @@ class RunEvent:
     advanced_program: AdvancedProgramRef = _optional_field(
         default_factory=AdvancedProgramRef
     )
-    reported_start_time: Optional[datetime] = field(
+    reported_start_time: datetime | None = field(
         metadata=DateTime.conversion(), default=None
     )
-    reported_end_time: Optional[datetime] = field(
+    reported_end_time: datetime | None = field(
         metadata=DateTime.conversion(), default=None
     )
     reported_duration: timedelta = _optional_field(
@@ -691,9 +720,9 @@ class WateringReportEntry:
 class MasterValve:
     """A master valve setting for a controller."""
 
-    zone_number: Optional[SelectedOption] = None
-    delay: Optional[int] = None
-    post_timer: Optional[int] = None
+    zone_number: SelectedOption | None = None
+    delay: int | None = None
+    post_timer: int | None = None
 
 
 @dataclass
@@ -713,14 +742,20 @@ class Controller:
     online: bool = _optional_field(default=False)
     sensors: list[Sensor] = _optional_field(default_factory=list)
     zones: list[Zone] = _optional_field(default_factory=list)
-    master_zone: Optional[MasterValve] = None
+    master_zone: MasterValve | None = None
     permitted_program_start_times: list[ProgramStartTime] = _optional_field(
         default_factory=list
     )
-    status: Optional[ControllerStatus] = None
+    status: ControllerStatus | None = None
 
     @classmethod
     def from_json(cls, controller_json: dict) -> Controller:
+        """Builds a new Controller from a REST API "controller" JSON object.
+
+        :param controller_json: A single controller entry, as returned by
+            the REST API's customerdetails.php endpoint.
+        :rtype: Controller
+        """
         controller = Controller(
             id=controller_json["controller_id"],
             name=controller_json["name"],
@@ -732,6 +767,11 @@ class Controller:
         return controller
 
     def update_with_json(self, controller_json: dict) -> None:
+        """Updates this Controller's last contact time from a REST API "controller" JSON object.
+
+        :param controller_json: A single controller entry, as returned by
+            the REST API's customerdetails.php endpoint.
+        """
         self.last_contact_time = datetime.fromtimestamp(controller_json["last_contact"])
         self.online = True
 
@@ -784,8 +824,8 @@ class ControllerWaterUseSummary:
         metadata=_duration_conversion("seconds"), default=timedelta()
     )
     active_time_by_zone_id: dict[int, timedelta] = field(default_factory=dict)
-    total_use: Optional[float] = None
-    total_active_use: Optional[float] = None
-    total_inactive_use: Optional[float] = None
+    total_use: float | None = None
+    total_active_use: float | None = None
+    total_inactive_use: float | None = None
     active_use_by_zone_id: dict[int, float] = field(default_factory=dict)
-    unit: Optional[str] = None
+    unit: str | None = None

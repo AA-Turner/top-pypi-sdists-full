@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
+from chalk._gen.chalk.common.v1 import query_status_pb2 as _query_status_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -351,6 +352,9 @@ class MetaQueryRun(_message.Message):
         "resource_group",
         "query_name_version",
         "query_name",
+        "num_input_rows",
+        "multi_query_id",
+        "status",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -368,6 +372,9 @@ class MetaQueryRun(_message.Message):
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    NUM_INPUT_ROWS_FIELD_NUMBER: _ClassVar[int]
+    MULTI_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
     id: str
     meta_query_id: str
     external_id: str
@@ -384,6 +391,9 @@ class MetaQueryRun(_message.Message):
     resource_group: str
     query_name_version: str
     query_name: str
+    num_input_rows: int
+    multi_query_id: str
+    status: _query_status_pb2.QueryStatus
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -402,6 +412,9 @@ class MetaQueryRun(_message.Message):
         resource_group: _Optional[str] = ...,
         query_name_version: _Optional[str] = ...,
         query_name: _Optional[str] = ...,
+        num_input_rows: _Optional[int] = ...,
+        multi_query_id: _Optional[str] = ...,
+        status: _Optional[_Union[_query_status_pb2.QueryStatus, str]] = ...,
     ) -> None: ...
 
 class MetaQueryRunWithMeta(_message.Message):
@@ -447,6 +460,7 @@ class ListMetaQueryRunsRequest(_message.Message):
         "branch_filters",
         "agent_ids",
         "resource_groups",
+        "statuses",
     )
     INCLUDE_LATENCY_FIELD_NUMBER: _ClassVar[int]
     MIN_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
@@ -474,6 +488,7 @@ class ListMetaQueryRunsRequest(_message.Message):
     BRANCH_FILTERS_FIELD_NUMBER: _ClassVar[int]
     AGENT_IDS_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    STATUSES_FIELD_NUMBER: _ClassVar[int]
     include_latency: bool
     min_latency_ms: float
     query_plan_id: str
@@ -500,6 +515,7 @@ class ListMetaQueryRunsRequest(_message.Message):
     branch_filters: _containers.RepeatedScalarFieldContainer[str]
     agent_ids: _containers.RepeatedScalarFieldContainer[str]
     resource_groups: _containers.RepeatedScalarFieldContainer[str]
+    statuses: _containers.RepeatedScalarFieldContainer[_query_status_pb2.QueryStatus]
     def __init__(
         self,
         include_latency: bool = ...,
@@ -528,6 +544,7 @@ class ListMetaQueryRunsRequest(_message.Message):
         branch_filters: _Optional[_Iterable[str]] = ...,
         agent_ids: _Optional[_Iterable[str]] = ...,
         resource_groups: _Optional[_Iterable[str]] = ...,
+        statuses: _Optional[_Iterable[_Union[_query_status_pb2.QueryStatus, str]]] = ...,
     ) -> None: ...
 
 class ListMetaQueryRunsPageToken(_message.Message):
@@ -687,10 +704,12 @@ class GetMetaQueryResponse(_message.Message):
     def __init__(self, meta_query: _Optional[_Union[MetaQuery, _Mapping]] = ...) -> None: ...
 
 class GetMetaQueryByNameRequest(_message.Message):
-    __slots__ = ("meta_query_name",)
+    __slots__ = ("meta_query_name", "query_version")
     META_QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VERSION_FIELD_NUMBER: _ClassVar[int]
     meta_query_name: str
-    def __init__(self, meta_query_name: _Optional[str] = ...) -> None: ...
+    query_version: str
+    def __init__(self, meta_query_name: _Optional[str] = ..., query_version: _Optional[str] = ...) -> None: ...
 
 class GetMetaQueryByNameResponse(_message.Message):
     __slots__ = ("meta_query",)
@@ -792,6 +811,7 @@ class QueryRun(_message.Message):
         "resource_group",
         "num_input_rows",
         "multi_query_id",
+        "status",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -809,6 +829,7 @@ class QueryRun(_message.Message):
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     NUM_INPUT_ROWS_FIELD_NUMBER: _ClassVar[int]
     MULTI_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
     id: str
     meta_query_id: str
     external_id: str
@@ -825,6 +846,7 @@ class QueryRun(_message.Message):
     resource_group: str
     num_input_rows: int
     multi_query_id: str
+    status: _query_status_pb2.QueryStatus
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -843,6 +865,7 @@ class QueryRun(_message.Message):
         resource_group: _Optional[str] = ...,
         num_input_rows: _Optional[int] = ...,
         multi_query_id: _Optional[str] = ...,
+        status: _Optional[_Union[_query_status_pb2.QueryStatus, str]] = ...,
     ) -> None: ...
 
 class GetQueryRunRequest(_message.Message):

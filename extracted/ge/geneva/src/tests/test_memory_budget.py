@@ -3,14 +3,21 @@
 
 """Unit tests for the backfill memory budget estimator."""
 
+import sys
+from collections.abc import Iterator
+
 import pyarrow as pa
 import pytest
 
+from geneva import udf
+from geneva.apply.task import BackfillUDFTask, ReadTask
+from geneva.debug.logger import NoOpErrorLogger
 from geneva.runners.ray.memory_budget import (
     DEFAULT_SLACK_BYTES,
     ApplierMemoryModel,
     MemoryBudget,
     choose_output_avg_row_bytes,
+    concurrent_slots,
     estimate_applier_memory,
     estimate_fixed_width_output_row_bytes,
     estimate_writer_task_resources,
@@ -19,6 +26,7 @@ from geneva.runners.ray.memory_budget import (
 )
 
 GIB = 1 << 30
+MIB = 1 << 20
 KIB = 1 << 10
 
 
@@ -243,17 +251,35 @@ def test_writer_resources_scale_memory_with_working_set() -> None:
     assert mem == GIB + int(1.5 * 1_000_000 * 25 * KIB)
 
 
-def test_writer_resources_cpu_proportional_to_working_set() -> None:
-    _, cpus = estimate_writer_task_resources(
+def test_writer_resources_declare_memory_only() -> None:
+    """A writer's size is a memory statement; CPU stays at the floor.
+
+    CPU used to scale with the working set as a second co-location lever, but
+    the failure modes are not comparable: too little memory is an OOM kill,
+    too little CPU is a slower job. Ray schedules the two together, so a large
+    CPU ask can make the bundle unsatisfiable on a memory-rich node and the
+    writer is then never placed at all -- a hard failure bought for a soft
+    benefit. The declared figure never described real usage anyway; the Lance
+    encoder bursts to all cores regardless.
+    """
+    mem, cpus = estimate_writer_task_resources(
         num_rows=1_000_000,
         avg_row_bytes=25 * KIB,
         base_memory_bytes=GIB,
         floor_num_cpus=0.1,
-        bytes_per_cpu=4 * GIB,
     )
-    # 1M x 25KiB ~= 23.8 GiB / 4 GiB-per-cpu ~= 6 cpus
-    assert cpus == (1_000_000 * 25 * KIB) / (4 * GIB)
-    assert cpus > 0.1
+    # A 23.8 GiB working set: memory tracks it, CPU does not.
+    assert mem == GIB + int(1.5 * 1_000_000 * 25 * KIB)
+    assert cpus == 0.1
+
+    # And the floor is honored when a caller raises it.
+    _, raised = estimate_writer_task_resources(
+        num_rows=1_000_000,
+        avg_row_bytes=25 * KIB,
+        base_memory_bytes=GIB,
+        floor_num_cpus=2.0,
+    )
+    assert raised == 2.0
 
 
 def test_writer_resources_floor_for_tiny_fragments() -> None:
@@ -327,8 +353,10 @@ def _applier(**over: object) -> int:
 
 def test_applier_memory_matches_explicit_formula() -> None:
     read = 128 * (1 << 20)
-    # fixed once-per-actor buffers: io + checkpoint_write + blob + native
-    fixed = 2 * GIB + GIB + 128 * (1 << 20) + 512 * (1 << 20)
+    # fixed once-per-actor buffers: io + checkpoint_write + blob + native, plus
+    # the batch the multiprocess parent has queued past its worker slots --
+    # twice, for the raw batch and its serialized copy.
+    fixed = 2 * GIB + GIB + 128 * (1 << 20) + 512 * (1 << 20) + 2 * read
     # each inflight thread holds the raw scan plus its expanded copy (read x 4)
     per_thread = read + int(read * 4.0)
     per_process = GIB  # baseline, no gpu; 1 worker copy
@@ -401,7 +429,7 @@ def test_applier_memory_user_expansion_factor_floored_at_one() -> None:
     # A sub-1.0 user_expansion_factor cannot shrink the resident batch below itself.
     read = 64 * (1 << 20)
     est = _applier(scan_batch_bytes=read, user_expansion_factor=0.5)
-    fixed = 2 * GIB + GIB + 128 * (1 << 20) + 512 * (1 << 20)
+    fixed = 2 * GIB + GIB + 128 * (1 << 20) + 512 * (1 << 20) + 2 * read
     per_thread = read + read  # raw scan + expanded (factor clamped up to 1.0)
     assert est == fixed + per_thread + GIB
 
@@ -415,7 +443,7 @@ def test_applier_memory_expansion_constant_added_before_factor() -> None:
         user_expansion_constant_bytes=const,
         user_expansion_factor=4.0,
     )
-    fixed = 2 * GIB + GIB + 128 * (1 << 20) + 512 * (1 << 20)
+    fixed = 2 * GIB + GIB + 128 * (1 << 20) + 512 * (1 << 20) + 2 * read
     per_thread = read + (read + const) * 4  # raw scan + expanded copy
     assert est == fixed + per_thread + GIB
 
@@ -473,6 +501,8 @@ class TestApplierMemoryModel:
             scan_batch_bytes=self.IMAGE_BYTES * rows,
             user_expansion_constant_bytes=1024 * rows,
             max_inflight_batches=1,  # one batch covers the whole task
+            # The read buffers are capped by what the task can actually read.
+            task_bytes=self.IMAGE_BYTES * rows,
             **model.fixed,
         )
 
@@ -488,6 +518,7 @@ class TestApplierMemoryModel:
             scan_batch_bytes=self.IMAGE_BYTES * 256,
             user_expansion_constant_bytes=0,
             max_inflight_batches=4,
+            task_bytes=self.IMAGE_BYTES * 1024,
             **model.fixed,
         )
 
@@ -505,6 +536,7 @@ class TestApplierMemoryModel:
             scan_batch_bytes=self.IMAGE_BYTES,
             user_expansion_constant_bytes=0,
             max_inflight_batches=1,
+            task_bytes=self.IMAGE_BYTES,
             **model.fixed,
         )
         # The four worker processes are still alive and baselined; what the
@@ -576,12 +608,132 @@ class TestApplierMemoryModel:
         # reservation has to follow it or the actor under-reserves.
         from geneva.jobs.config import JobConfig
 
-        default = self._model(bytes_per_row=self.IMAGE_BYTES).memory_for_rows(1024)
+        # Enough rows that the task can fill a 1 GiB buffer; otherwise the
+        # read-buffer cap binds first and this measures the cap, not the knob.
+        rows = 16384
+        default = self._model(bytes_per_row=self.IMAGE_BYTES).memory_for_rows(rows)
         overridden = self._model(
             bytes_per_row=self.IMAGE_BYTES, blob_buffer_bytes=GIB
-        ).memory_for_rows(1024)
+        ).memory_for_rows(rows)
 
         assert overridden - default == GIB - JobConfig().applier_blob_buffer_bytes
+
+    def test_the_io_readahead_cannot_exceed_the_bytes_the_task_holds(self) -> None:
+        """The IO readahead is a ceiling on buffering, not an up-front alloc.
+
+        A task with fewer bytes than the ceiling can never fill it, so charging
+        the full buffer reserves memory the actor will never touch. Measured
+        before this cap: a 20k-row, 8 B/row table reserved 4.63 GiB per actor
+        and peaked at 0.34 GiB, and at concurrency 8 admission demanded 37 GiB.
+
+        Only the readahead collapses. The blob buffer is bounded by the
+        reader's slicing budget rather than by the task's logical bytes --
+        see ``TestBlobBufferIsChargedByPresenceNotLogicalBytes``.
+        """
+        tiny = self._model(bytes_per_row=8, batch_rows=1024)
+        # 1024 rows x 8 B = 8 KiB: far below the 2 GiB IO readahead default.
+        reserved = tiny.memory_for_rows(1024)
+
+        uncapped = estimate_applier_memory(
+            scan_batch_bytes=8 * 1024,
+            user_expansion_constant_bytes=tiny.user_row_overhead_bytes * 1024,
+            max_inflight_batches=1,
+            **tiny.fixed,
+        )
+        saved = uncapped - reserved
+        assert saved == pytest.approx(
+            tiny.fixed["lance_io_buffer_bytes"] - 8 * 1024, rel=1e-9
+        )
+
+    def test_an_unknown_row_width_leaves_the_buffers_uncapped(self) -> None:
+        """A failed sample must not read as "no data".
+
+        Capping to zero there would turn an unsampleable table into an
+        effectively unreserved actor -- the OOM this floor exists to prevent.
+        """
+        unknown = self._model(bytes_per_row=0, batch_rows=1024)
+
+        assert unknown.memory_for_rows(1024) == estimate_applier_memory(
+            scan_batch_bytes=0,
+            user_expansion_constant_bytes=unknown.user_row_overhead_bytes * 1024,
+            max_inflight_batches=1,
+            **unknown.fixed,
+        )
+
+    @pytest.mark.parametrize("bytes_per_row", [0.1, 0.5, 0.9, 1.5])
+    def test_a_sub_byte_width_still_prices_monotonically(
+        self, bytes_per_row: float
+    ) -> None:
+        """A fractional width must not make one row cost more than two.
+
+        The task's byte total rounds *up*: truncating a sub-byte width to 0
+        would read as "width unknown" and restore the full buffers, so row one
+        priced above row two. ``max_rows_for_budget`` binary-searches on the
+        assumption that this is monotonic, and answered ``None`` for a budget
+        that fits.
+        """
+        model = self._model(bytes_per_row=bytes_per_row, batch_rows=1024)
+
+        reservations = [model.memory_for_rows(rows) for rows in range(1, 64)]
+
+        assert reservations == sorted(reservations)
+
+    def test_a_sub_byte_width_is_not_mistaken_for_an_unknown_one(self) -> None:
+        """One row of a 0.5 B/row table is narrow, not unsampled -- it must be
+        capped like any other known width rather than reserving in full."""
+        known = self._model(bytes_per_row=0.5, batch_rows=1024)
+        unknown = self._model(bytes_per_row=0, batch_rows=1024)
+
+        assert known.memory_for_rows(1) < unknown.memory_for_rows(1)
+
+    def test_max_rows_for_budget_finds_rows_a_sub_byte_width_fits(self) -> None:
+        """The search must not reject at row one and conclude nothing fits."""
+        model = self._model(bytes_per_row=0.5, batch_rows=1024)
+        budget = 3 * GIB
+        assert model.memory_for_rows(2) <= budget
+
+        assert model.max_rows_for_budget(budget, max_rows=100) == 100
+
+    def test_a_boolean_column_is_the_width_that_reaches_this(self) -> None:
+        """The realistic trigger, not a synthetic fraction.
+
+        Arrow bit-packs booleans, so a scan of one ``bool`` column samples at
+        0.125 B/row -- every task under 8 rows floored to zero. Nothing else
+        common gets under a byte: an all-null ``int64`` is still 8.125 B/row,
+        an all-null ``string`` 4.125.
+
+        And the task size did not rescue it. ``max_rows_for_budget`` prices row
+        one before searching, and row one always truncated, so the probe saw
+        the uncapped ceiling however large the real task was: a budget that
+        fits the whole table was told even one row does not.
+        """
+        bool_bytes_per_row = pa.array([True] * 8192).nbytes / 8192
+        assert bool_bytes_per_row < 1
+
+        model = self._model(bytes_per_row=bool_bytes_per_row, batch_rows=1024)
+        budget = 3 * GIB
+        assert model.memory_for_rows(100) <= budget
+
+        assert model.max_rows_for_budget(budget, max_rows=100) == 100
+        # Rows 1-16 now differ only by their scan batch (bytes). Before, rows
+        # 1-7 sat at the uncapped ceiling and row 8 dropped ~2 GiB.
+        rows_1_to_16 = [model.memory_for_rows(r) for r in range(1, 17)]
+        assert rows_1_to_16 == sorted(rows_1_to_16)
+        assert max(rows_1_to_16) - min(rows_1_to_16) < KIB, "the cliff at row 8 is back"
+
+    def test_concurrent_slots_matches_what_the_estimate_charges(self) -> None:
+        """The slot count is shared so residency reasoning cannot drift from
+        the formula -- pricing one of something the actor holds several of has
+        been the recurring error here."""
+        pipelined = {
+            "enable_gpu_pipelining": True,
+            "pipelining_prefetch_depth": 16,
+            "intra_applier_concurrency": 4,
+        }
+        multiprocess = {**pipelined, "enable_gpu_pipelining": False}
+
+        assert concurrent_slots(**pipelined) == 16
+        assert concurrent_slots(**multiprocess) == 4
 
     def test_max_rows_for_budget_is_the_exact_boundary(self) -> None:
         model = self._model(bytes_per_row=self.IMAGE_BYTES)
@@ -649,3 +801,288 @@ class TestByteSizeEnvDefaults:
         cfg = self._cfg(monkeypatch, "GENEVA_RANGE_BLOB_READ_BUFFER_SIZE", raw)
 
         assert cfg.applier_blob_buffer_bytes == 128 * 1024 * 1024
+
+
+class TestBlobBufferIsChargedByPresenceNotLogicalBytes:
+    """The blob buffer's size is not a function of the task's logical bytes.
+
+    Capping it by ``task_bytes`` -- the sampled Arrow width times rows -- reads
+    as conservative and is not. ``_coalesce_file_ranges`` merges non-adjacent
+    ranges whenever the merged span fits the read budget, so the reader fetches
+    the gaps too: two 1 KiB blobs 100 MiB apart are 2 KiB of payload and one
+    ~100 MiB read. What actually bounds the buffer is the reader's own slicing
+    budget -- ``_iter_row_budget_slices`` cuts a slice once the *coalesced* size
+    exceeds it -- so that configured value is the physical bound and is charged
+    whole. A job that reads no blob columns never enters the path at all, and
+    that, not a byte cap, is what excuses it from the charge.
+    """
+
+    @staticmethod
+    def _model(**over: object) -> ApplierMemoryModel:
+        from geneva.jobs.config import JobConfig
+
+        args: dict[str, object] = {
+            "checkpoint_write_buffer_bytes": GIB,
+            "intra_applier_concurrency": 1,
+            "enable_gpu_pipelining": False,
+            "pipelining_prefetch_depth": 16,
+            "num_gpus": 0.0,
+            "batch_rows": 1 << 20,
+            "bytes_per_row": 8,
+        }
+        args.update(over)
+        return ApplierMemoryModel.build(JobConfig(), **args)  # type: ignore[arg-type]
+
+    def test_a_narrow_task_still_reserves_the_whole_blob_buffer(self) -> None:
+        """1024 rows x 8 B = 8 KiB logical, against a 128 MiB coalescing budget.
+
+        The old cap priced this at 8 KiB. The reader can still issue reads up
+        to its slicing budget, so the actor must hold the budget.
+        """
+        blob = self._model(blob_buffer_bytes=128 * 1024 * 1024)
+        no_blob = self._model(
+            blob_buffer_bytes=128 * 1024 * 1024, reads_blob_columns=False
+        )
+
+        assert blob.memory_for_rows(1024) - no_blob.memory_for_rows(1024) == (
+            128 * 1024 * 1024
+        )
+
+    def test_the_charge_does_not_shrink_with_the_task(self) -> None:
+        """Independent of row count, unlike a logical-byte cap."""
+        blob = self._model(blob_buffer_bytes=128 * 1024 * 1024)
+        no_blob = self._model(
+            blob_buffer_bytes=128 * 1024 * 1024, reads_blob_columns=False
+        )
+
+        for rows in (1, 1024, 1 << 20):
+            assert blob.memory_for_rows(rows) - no_blob.memory_for_rows(rows) == (
+                128 * 1024 * 1024
+            )
+
+    def test_a_job_without_blob_columns_is_charged_nothing(self) -> None:
+        """The coalescing path only runs when there are blob column plans."""
+        no_blob = self._model(reads_blob_columns=False)
+
+        assert no_blob.fixed["blob_buffer_bytes"] == 0
+
+    def test_the_default_over_reserves_rather_than_under(self) -> None:
+        """A caller that has not answered the presence question must not be
+        quietly excused the charge."""
+        assert self._model().fixed["blob_buffer_bytes"] > 0
+
+    def test_coalescing_really_does_exceed_the_logical_payload(self) -> None:
+        """The premise, pinned against the reader rather than asserted.
+
+        If coalescing ever stops spanning gaps, the cap this replaces would
+        become defensible again and this test is where that shows up.
+        """
+        from geneva.apply.blob_range import (
+            _coalesce_blob_ranges,
+            _iter_row_budget_slices,
+        )
+
+        mib = 1 << 20
+        budget = 128 * mib
+        rows = [
+            [("blobs.bin", 0, 1024)],
+            [("blobs.bin", 100 * mib, 100 * mib + 1024)],
+        ]
+        # The slicer keeps both rows together: coalesced size is under budget.
+        assert [(s.start, s.stop) for s in _iter_row_budget_slices(rows, budget)] == [
+            (0, 2)
+        ]
+
+        spans = _coalesce_blob_ranges([r for row in rows for r in row], budget)
+        payload = sum(end - start for row in rows for _, start, end in row)
+        fetched = sum(end - start for values in spans.values() for start, end in values)
+
+        assert payload == 2048
+        assert fetched > payload * 10_000
+        # ...and the slicing budget is what bounds it.
+        assert fetched <= budget
+
+
+class TestParentQueuedBatch:
+    """The multiprocess parent holds one batch beyond the worker slots, twice.
+
+    ``MultiProcessBatchApplier.run`` appends a future and only then checks
+    ``len(futs) >= num_processes + 1`` before draining the head, so at peak the
+    parent retains a batch no worker has taken yet -- as both ``batch``, the
+    raw Arrow one, and ``data``, the IPC buffer serialized from it. Charging
+    ``concurrent_slots()`` alone leaves both unreserved; charging one leaves
+    the other. See ``test_multiprocess_parent_holds_both_copies``, which pins
+    the liveness this pricing is derived from.
+    """
+
+    def test_multiprocess_charges_both_copies_beyond_its_slots(self) -> None:
+        batch = 128 * MIB
+        charged = _applier(intra_applier_concurrency=2, scan_batch_bytes=batch)
+        slots_only = _applier(
+            intra_applier_concurrency=2,
+            scan_batch_bytes=batch,
+            max_inflight_batches=1,
+        )
+        # The only difference is the queued batch: one slot means the loop
+        # never primes a second future. Both copies of it are charged.
+        assert charged - slots_only == 2 * batch + _per_thread_bytes(batch)
+
+    def test_a_single_batch_task_never_primes_a_second_future(self) -> None:
+        batch = 64 * MIB
+        one = _applier(max_inflight_batches=1, scan_batch_bytes=batch)
+        assert one == _applier(
+            max_inflight_batches=1, scan_batch_bytes=batch, blob_buffer_bytes=128 * MIB
+        )
+        # Two batches, one worker: the parent still holds the queued one,
+        # raw and serialized.
+        two = _applier(max_inflight_batches=2, scan_batch_bytes=batch)
+        assert two - one == 2 * batch
+
+    def test_a_task_with_no_more_batches_than_slots_does_not_pay_it(self) -> None:
+        """Four workers, two batches: the loop never reaches five futures.
+
+        ``inflight_threads`` is already capped at the batch count, so both
+        batches hold a full slot each and the queued copy is not extra.
+        """
+        batch = 64 * MIB
+        bare: dict[str, object] = {
+            "checkpoint_write_buffer_bytes": 0,
+            "lance_io_buffer_bytes": 0,
+            "native_overhead_bytes": 0,
+            "blob_buffer_bytes": 0,
+            "worker_baseline_bytes": 0,
+            "gpu_overhead_bytes": 0,
+            "user_expansion_factor": 1.0,
+        }
+        est = _applier(
+            scan_batch_bytes=batch,
+            intra_applier_concurrency=4,
+            max_inflight_batches=2,
+            task_bytes=2 * batch,
+            **bare,
+        )
+        assert est == 2 * (batch + batch)
+
+        # One batch past the slot count and the priming does happen.
+        primed = _applier(
+            scan_batch_bytes=batch,
+            intra_applier_concurrency=4,
+            max_inflight_batches=5,
+            task_bytes=5 * batch,
+            **bare,
+        )
+        assert primed == 4 * (batch + batch) + 2 * batch
+
+    def test_pipelining_does_not_pay_it(self) -> None:
+        """The prefetch path is in-actor; there is no parent-side queue."""
+        batch = 64 * MIB
+        piped = _applier(
+            enable_gpu_pipelining=True,
+            pipelining_prefetch_depth=1,
+            scan_batch_bytes=batch,
+            max_inflight_batches=4,
+        )
+        piped_one_batch = _applier(
+            enable_gpu_pipelining=True,
+            pipelining_prefetch_depth=1,
+            scan_batch_bytes=batch,
+            max_inflight_batches=1,
+        )
+        assert piped == piped_one_batch
+
+
+class _TwoCopyProbeReadTask(ReadTask):
+    """Minimal ReadTask that replays a fixed list of batches."""
+
+    def __init__(self, batches: list[pa.RecordBatch]) -> None:
+        self._batches = batches
+
+    def to_batches(self, *, batch_size: int = 0) -> Iterator[pa.RecordBatch]:
+        yield from self._batches
+
+    def checkpoint_key(self) -> str:
+        return "two-copy-probe"
+
+    def dest_frag_id(self) -> int:
+        return 0
+
+    def dest_offset(self) -> int:
+        return 0
+
+    def num_rows(self) -> int:
+        return sum(b.num_rows for b in self._batches)
+
+    def table_uri(self) -> str:
+        return "memory://two-copy-probe"
+
+
+def test_multiprocess_parent_holds_both_copies(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The liveness the ``2 * scan_batch_bytes`` charge is derived from.
+
+    At the ``num_processes + 1`` wait, ``MultiProcessBatchApplier.run`` still
+    has both ``batch`` (raw Arrow) and ``data`` (its IPC buffer) bound in the
+    frame, so the parent holds two batch-sized objects past its worker slots.
+    Asserted on object liveness rather than RSS, which is not deterministic.
+    """
+    from geneva.apply.multiprocess import MultiProcessBatchApplier
+
+    observed: list[tuple[int, int, int]] = []
+    original = MultiProcessBatchApplier._await_head_ready
+
+    def spy(self, futs, last_progress, stall_timeout_s) -> None:  # noqa: ANN001
+        frame = sys._getframe(1)
+        assert frame.f_code.co_name == "_run_with_backpressure"
+        batch = frame.f_locals.get("batch")
+        data = frame.f_locals.get("data")
+        observed.append(
+            (
+                len(futs),
+                batch.nbytes if isinstance(batch, pa.RecordBatch) else 0,
+                len(data) if isinstance(data, bytes) else 0,
+            )
+        )
+        return original(self, futs, last_progress, stall_timeout_s)
+
+    monkeypatch.setattr(MultiProcessBatchApplier, "_await_head_ready", spy)
+
+    @udf(data_type=pa.int64(), input_columns=["value"])
+    def double_value(value: int) -> int:
+        return value * 2
+
+    rows, num_processes = 5_000, 2
+    batches = [
+        pa.record_batch(
+            {
+                "_rowaddr": pa.array(range(i * rows, (i + 1) * rows), type=pa.uint64()),
+                "value": pa.array(range(rows), type=pa.int64()),
+            }
+        )
+        for i in range(4)
+    ]
+    applier = MultiProcessBatchApplier(num_processes=num_processes, job_id="probe")
+    list(
+        applier.run(
+            _TwoCopyProbeReadTask(batches),
+            BackfillUDFTask(udfs={"result": double_value}),
+            NoOpErrorLogger(),
+        )
+    )
+
+    assert observed, "the applier never reached the priming wait"
+    n_futs, batch_bytes, data_bytes = observed[0]
+    # Primed one past the slots, and both copies of that batch are still live.
+    assert n_futs == num_processes + 1
+    assert batch_bytes == batches[0].nbytes
+    assert data_bytes >= batches[0].nbytes
+    # Which is what the estimator charges: one raw plus one serialized.
+    charged = _applier(scan_batch_bytes=batch_bytes, max_inflight_batches=None)
+    slots_only = _applier(scan_batch_bytes=batch_bytes, max_inflight_batches=1)
+    # Same slot count either way, so the whole delta is the queued batch.
+    assert charged - slots_only == 2 * batch_bytes
+
+
+def _per_thread_bytes(scan_batch_bytes: int, *, factor: float = 4.0) -> int:
+    """Raw scan batch plus the expanded working copy, matching the estimator."""
+    return scan_batch_bytes + int(scan_batch_bytes * factor)

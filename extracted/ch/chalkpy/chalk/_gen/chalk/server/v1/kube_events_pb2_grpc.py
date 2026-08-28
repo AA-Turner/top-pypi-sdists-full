@@ -35,6 +35,16 @@ class KubeEventsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsAggregatedRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsAggregatedResponse.FromString,
         )
+        self.GetKubeEventAggregates = channel.unary_unary(
+            "/chalk.server.v1.KubeEventsService/GetKubeEventAggregates",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventAggregatesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventAggregatesResponse.FromString,
+        )
+        self.GetKubeEventStat = channel.unary_unary(
+            "/chalk.server.v1.KubeEventsService/GetKubeEventStat",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventStatRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventStatResponse.FromString,
+        )
 
 
 class KubeEventsServiceServicer(object):
@@ -64,6 +74,20 @@ class KubeEventsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetKubeEventAggregates(self, request, context):
+        """GetKubeEventAggregates computes arbitrary aggregations (count distinct, dedup-aware sum/avg of
+        the occurrence Count, ...) grouped by 0-3 kube-event facets.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetKubeEventStat(self, request, context):
+        """GetKubeEventStat reduces the matched events to one scalar for a dashboard statistic tile."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_KubeEventsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -86,6 +110,16 @@ def add_KubeEventsServiceServicer_to_server(servicer, server):
             servicer.ListKubeEventsAggregated,
             request_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsAggregatedRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsAggregatedResponse.SerializeToString,
+        ),
+        "GetKubeEventAggregates": grpc.unary_unary_rpc_method_handler(
+            servicer.GetKubeEventAggregates,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventAggregatesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventAggregatesResponse.SerializeToString,
+        ),
+        "GetKubeEventStat": grpc.unary_unary_rpc_method_handler(
+            servicer.GetKubeEventStat,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventStatRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventStatResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.KubeEventsService", rpc_method_handlers)
@@ -202,6 +236,64 @@ class KubeEventsService(object):
             "/chalk.server.v1.KubeEventsService/ListKubeEventsAggregated",
             chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsAggregatedRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_kube__events__pb2.ListKubeEventsAggregatedResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetKubeEventAggregates(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeEventsService/GetKubeEventAggregates",
+            chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventAggregatesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventAggregatesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetKubeEventStat(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeEventsService/GetKubeEventStat",
+            chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventStatRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__events__pb2.GetKubeEventStatResponse.FromString,
             options,
             channel_credentials,
             insecure,

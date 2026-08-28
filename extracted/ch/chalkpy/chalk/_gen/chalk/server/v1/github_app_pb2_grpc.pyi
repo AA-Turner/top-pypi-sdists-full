@@ -10,6 +10,10 @@ from abc import (
 from chalk._gen.chalk.server.v1.github_app_pb2 import (
     CompleteGitHubAppInstallationRequest,
     CompleteGitHubAppInstallationResponse,
+    CreatePullRequestFromChangesRequest,
+    CreatePullRequestFromChangesResponse,
+    CreateVolumeFromGitHubRepoRequest,
+    CreateVolumeFromGitHubRepoResponse,
     DeleteGitHubAppConfigRequest,
     DeleteGitHubAppConfigResponse,
     DeleteGitHubAppInstallationRequest,
@@ -107,6 +111,20 @@ class GitHubAppServiceStub:
         GetGitHubRepositoryArchiveResponse,
     ]
     """Streams the repository's zip archive (GitHub zipball) at the requested ref."""
+    CreatePullRequestFromChanges: UnaryUnaryMultiCallable[
+        CreatePullRequestFromChangesRequest,
+        CreatePullRequestFromChangesResponse,
+    ]
+    """Pushes the given file changes as a single commit on a new branch and
+    opens a pull request against base_branch.
+    """
+    CreateVolumeFromGitHubRepo: UnaryUnaryMultiCallable[
+        CreateVolumeFromGitHubRepoRequest,
+        CreateVolumeFromGitHubRepoResponse,
+    ]
+    """Downloads the repository archive at ref and commits its contents into a
+    new volume, server-side -- no archive bytes cross the caller.
+    """
     LinkProjectToGitHubRepository: UnaryUnaryMultiCallable[
         LinkProjectToGitHubRepositoryRequest,
         LinkProjectToGitHubRepositoryResponse,
@@ -203,6 +221,24 @@ class GitHubAppServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> Iterator[GetGitHubRepositoryArchiveResponse]:
         """Streams the repository's zip archive (GitHub zipball) at the requested ref."""
+    @abstractmethod
+    def CreatePullRequestFromChanges(
+        self,
+        request: CreatePullRequestFromChangesRequest,
+        context: ServicerContext,
+    ) -> CreatePullRequestFromChangesResponse:
+        """Pushes the given file changes as a single commit on a new branch and
+        opens a pull request against base_branch.
+        """
+    @abstractmethod
+    def CreateVolumeFromGitHubRepo(
+        self,
+        request: CreateVolumeFromGitHubRepoRequest,
+        context: ServicerContext,
+    ) -> CreateVolumeFromGitHubRepoResponse:
+        """Downloads the repository archive at ref and commits its contents into a
+        new volume, server-side -- no archive bytes cross the caller.
+        """
     @abstractmethod
     def LinkProjectToGitHubRepository(
         self,

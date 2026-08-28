@@ -81,17 +81,36 @@ def _is_blocked(model_key: Any) -> bool:
 
 def _boxes_for(model_key: str, pool: Optional[str], task: Optional[str]) -> list:
     """The workers that would serve ``model_key`` — the EXISTING selector's
-    answer, verbatim. Priority groups do not re-implement worker eligibility:
-    admission, pool, engine, designation/wildcard, liveness, tier, task
-    capability and the block gate are all decided where they are decided today.
-    A group only chooses WHICH KEY to hand that machinery."""
+    answer, narrowed by the SAME placement fence the picker applies. Priority
+    groups do not re-implement worker eligibility: admission, pool, engine,
+    designation/wildcard, liveness, tier, task capability and the block gate
+    are all decided where they are decided today. A group only chooses WHICH
+    KEY to hand that machinery.
+
+    The ``_prefs_scope`` narrowing (2026-08-25) keeps the walk HONEST: a model
+    carrying an ordered worker preference (its own, or its group's ``workers``
+    allocation) is only pickable on listed workers — so a member whose fence
+    excludes every eligible box must read ``no-worker`` HERE and let the walk
+    fall to the next member, instead of being chosen and then refused by the
+    picker (a failure the next member could have served)."""
     try:
         from .workers import worker_store
-        return worker_store.workers_for_model(model_key, pool=pool, task=task)
+        boxes = worker_store.workers_for_model(model_key, pool=pool, task=task)
     except Exception as exc:  # noqa: BLE001
         logger.warning("priority groups: worker lookup failed for %s (%s)",
                        model_key, exc)
         return []
+    try:
+        from ......managers.serve.overrides import placement_policy
+        prefs, _polite, _by = placement_policy(model_key)
+    except Exception:  # noqa: BLE001 — no policy read, no narrowing
+        return boxes
+    if not prefs:
+        return boxes
+    want = {str(p).strip().lower() for p in prefs if str(p).strip()}
+    return [w for w in boxes
+            if {str(w.get("id") or "").strip().lower(),
+                str(w.get("name") or "").strip().lower()} & want]
 
 
 def canonical_key(name: Any, catalog: Optional[dict] = None) -> Optional[str]:
@@ -172,14 +191,21 @@ def resolve(model_key: str, pool: Optional[str] = None,
     catalog = _catalog()
     chosen: Optional[str] = None
     rows: List[dict] = []
-    for pos, name in enumerate(group.get("members") or [], start=1):
+    # Nested groups expand IN PLACE (comms.expand_members): a "group:<id>"
+    # member contributes its own ordered members at that position, and each
+    # expanded row carries ``via`` so the preview says which module it came
+    # through instead of silently flattening the operator's structure.
+    from ......comms.priority_groups import expand_members
+    walk = expand_members(group)
+    for pos, (name, via) in enumerate(walk, start=1):
         if chosen is not None and not full:
             rows.append({"model_key": name, "catalog_key": None, "position": pos,
-                         "usable": None, "status": ST_LOWER,
+                         "usable": None, "status": ST_LOWER, "via": via,
                          "reason": f"not tried — {chosen} is higher priority"})
             continue
         row = _evaluate(name, pool, task, catalog)
         row["position"] = pos
+        row["via"] = via
         if row["usable"] and chosen is None:
             chosen = row["catalog_key"] or name
         elif row["usable"]:

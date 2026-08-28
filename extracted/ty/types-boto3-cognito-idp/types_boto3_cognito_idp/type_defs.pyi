@@ -100,6 +100,7 @@ __all__ = (
     "AdminCreateUserConfigTypeTypeDef",
     "AdminCreateUserRequestTypeDef",
     "AdminCreateUserResponseTypeDef",
+    "AdminDeleteSoftwareTokenRequestTypeDef",
     "AdminDeleteUserAttributesRequestTypeDef",
     "AdminDeleteUserRequestTypeDef",
     "AdminDisableProviderForUserRequestTypeDef",
@@ -465,6 +466,10 @@ class MessageTemplateTypeTypeDef(TypedDict):
 class AttributeTypeTypeDef(TypedDict):
     Name: str
     Value: NotRequired[str]
+
+class AdminDeleteSoftwareTokenRequestTypeDef(TypedDict):
+    UserPoolId: str
+    Username: str
 
 class AdminDeleteUserAttributesRequestTypeDef(TypedDict):
     UserPoolId: str

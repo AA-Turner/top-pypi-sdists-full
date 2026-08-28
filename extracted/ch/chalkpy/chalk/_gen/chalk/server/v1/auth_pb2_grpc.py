@@ -126,6 +126,31 @@ class AuthServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetInternalWorkingTokenRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetInternalWorkingTokenResponse.FromString,
         )
+        self.RenewInternalExchangeToken = channel.unary_unary(
+            "/chalk.server.v1.AuthService/RenewInternalExchangeToken",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.RenewInternalExchangeTokenRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.RenewInternalExchangeTokenResponse.FromString,
+        )
+        self.GetWorkloadIdentityToken = channel.unary_unary(
+            "/chalk.server.v1.AuthService/GetWorkloadIdentityToken",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetWorkloadIdentityTokenRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetWorkloadIdentityTokenResponse.FromString,
+        )
+        self.CreateSelfHostedLicenseKey = channel.unary_unary(
+            "/chalk.server.v1.AuthService/CreateSelfHostedLicenseKey",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateSelfHostedLicenseKeyRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateSelfHostedLicenseKeyResponse.FromString,
+        )
+        self.RevokeSelfHostedLicenseKey = channel.unary_unary(
+            "/chalk.server.v1.AuthService/RevokeSelfHostedLicenseKey",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.RevokeSelfHostedLicenseKeyRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.RevokeSelfHostedLicenseKeyResponse.FromString,
+        )
+        self.ListSelfHostedLicenseKeys = channel.unary_unary(
+            "/chalk.server.v1.AuthService/ListSelfHostedLicenseKeys",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.ListSelfHostedLicenseKeysRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.ListSelfHostedLicenseKeysResponse.FromString,
+        )
 
 
 class AuthServiceServicer(object):
@@ -263,6 +288,38 @@ class AuthServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def RenewInternalExchangeToken(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetWorkloadIdentityToken(self, request, context):
+        """Issues a short-lived OIDC ID token that third parties supporting workload
+        identity federation can validate against the JWKS published at <issuer>/.well-known/jwks.json.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateSelfHostedLicenseKey(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def RevokeSelfHostedLicenseKey(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListSelfHostedLicenseKeys(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_AuthServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -375,6 +432,31 @@ def add_AuthServiceServicer_to_server(servicer, server):
             servicer.GetInternalWorkingToken,
             request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetInternalWorkingTokenRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetInternalWorkingTokenResponse.SerializeToString,
+        ),
+        "RenewInternalExchangeToken": grpc.unary_unary_rpc_method_handler(
+            servicer.RenewInternalExchangeToken,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.RenewInternalExchangeTokenRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.RenewInternalExchangeTokenResponse.SerializeToString,
+        ),
+        "GetWorkloadIdentityToken": grpc.unary_unary_rpc_method_handler(
+            servicer.GetWorkloadIdentityToken,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetWorkloadIdentityTokenRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetWorkloadIdentityTokenResponse.SerializeToString,
+        ),
+        "CreateSelfHostedLicenseKey": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateSelfHostedLicenseKey,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateSelfHostedLicenseKeyRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateSelfHostedLicenseKeyResponse.SerializeToString,
+        ),
+        "RevokeSelfHostedLicenseKey": grpc.unary_unary_rpc_method_handler(
+            servicer.RevokeSelfHostedLicenseKey,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.RevokeSelfHostedLicenseKeyRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.RevokeSelfHostedLicenseKeyResponse.SerializeToString,
+        ),
+        "ListSelfHostedLicenseKeys": grpc.unary_unary_rpc_method_handler(
+            servicer.ListSelfHostedLicenseKeys,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.ListSelfHostedLicenseKeysRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.ListSelfHostedLicenseKeysResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.AuthService", rpc_method_handlers)
@@ -1013,6 +1095,151 @@ class AuthService(object):
             "/chalk.server.v1.AuthService/GetInternalWorkingToken",
             chalk_dot_server_dot_v1_dot_auth__pb2.GetInternalWorkingTokenRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_auth__pb2.GetInternalWorkingTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RenewInternalExchangeToken(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/RenewInternalExchangeToken",
+            chalk_dot_server_dot_v1_dot_auth__pb2.RenewInternalExchangeTokenRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.RenewInternalExchangeTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetWorkloadIdentityToken(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/GetWorkloadIdentityToken",
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetWorkloadIdentityTokenRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetWorkloadIdentityTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateSelfHostedLicenseKey(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/CreateSelfHostedLicenseKey",
+            chalk_dot_server_dot_v1_dot_auth__pb2.CreateSelfHostedLicenseKeyRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.CreateSelfHostedLicenseKeyResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RevokeSelfHostedLicenseKey(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/RevokeSelfHostedLicenseKey",
+            chalk_dot_server_dot_v1_dot_auth__pb2.RevokeSelfHostedLicenseKeyRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.RevokeSelfHostedLicenseKeyResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListSelfHostedLicenseKeys(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/ListSelfHostedLicenseKeys",
+            chalk_dot_server_dot_v1_dot_auth__pb2.ListSelfHostedLicenseKeysRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.ListSelfHostedLicenseKeysResponse.FromString,
             options,
             channel_credentials,
             insecure,

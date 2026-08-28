@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="xpander-sdk",
-    version="2.0.496",
+    version="2.0.501",
     author="xpanderAI",
     author_email="dev@xpander.ai",
     description="xpander.ai Backend-as-a-service for AI Agents - SDK",
@@ -66,7 +66,7 @@ setup(
             "openai",
             "fireworks-ai",
             "aioboto3==15.5.0",
-            "google-genai",
+            "google-genai>=1.52.0",
             "azure-ai-inference",
             "aiohttp",
         ],

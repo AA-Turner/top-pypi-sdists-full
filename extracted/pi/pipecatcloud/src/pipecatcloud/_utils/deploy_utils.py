@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: BSD 2-Clause License
 #
 
+import asyncio
 import functools
 import os
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import Enum
@@ -301,6 +303,120 @@ class KrispVivaConfig:
         return {"audio_filter": self.audio_filter}
 
 
+# Mirrors the server-side k8s quantity validation (positive decimal + optional
+# suffix). Kept client-side so a typo fails before any network round-trip.
+K8S_QUANTITY_PATTERN = r"^[0-9]+(\.[0-9]+)?(m|k|M|G|T|P|E|Ki|Mi|Gi|Ti|Pi|Ei)?$"
+
+
+@dataclass
+class ResourcesConfig:
+    """Explicit sizing for agents in enterprise (self-hosted) regions.
+
+    Mutually exclusive with agent_profile: a deploy either references a named
+    profile or states cpu/memory directly. Only accepted by the API for
+    services in self-hosted regions.
+    """
+
+    cpu: str | None = None
+    memory: str | None = None
+
+    def __attrs_post_init__(self):
+        import re
+
+        if (self.cpu is None) != (self.memory is None):
+            raise ValueError("resources requires both 'cpu' and 'memory'")
+        for name, value in (("cpu", self.cpu), ("memory", self.memory)):
+            if value is not None and not re.match(K8S_QUANTITY_PATTERN, str(value)):
+                raise ValueError(
+                    f"Invalid {name} quantity '{value}' (expected e.g. '500m', '2', '4Gi')"
+                )
+
+    def is_set(self) -> bool:
+        return self.cpu is not None
+
+    def to_dict(self):
+        return {"cpu": self.cpu, "memory": self.memory}
+
+
+def parse_resources_option(value: str) -> "ResourcesConfig":
+    """Parse the --resources CLI value ("cpu=2,memory=4Gi") into a ResourcesConfig.
+
+    Raises ValueError with a specific message on malformed input (unknown keys,
+    missing cpu/memory, bad quantities) so the caller can surface exactly what
+    was wrong rather than a generic usage error.
+    """
+    parts: dict[str, str] = {}
+    for chunk in value.split(","):
+        key, sep, val = chunk.partition("=")
+        if not sep or not val.strip():
+            raise ValueError(
+                f"Malformed --resources segment '{chunk.strip()}'. "
+                "Expected key=value pairs, e.g. cpu=2,memory=4Gi"
+            )
+        parts[key.strip()] = val.strip()
+    if set(parts.keys()) != {"cpu", "memory"}:
+        raise ValueError(
+            "--resources requires exactly 'cpu' and 'memory', "
+            f"got: {', '.join(sorted(parts.keys())) or 'nothing'}"
+        )
+    # ResourcesConfig raises its own specific ValueError for bad quantities.
+    return ResourcesConfig(cpu=parts["cpu"], memory=parts["memory"])
+
+
+@dataclass
+class GitSourceConfig:
+    """A GitHub repo/branch to build the agent from, instead of an image.
+
+    Only valid when creating an agent: the API accepts `git` on create and
+    ignores it on update, so a binding change on an existing agent goes
+    through `agent link` rather than silently doing nothing here.
+    """
+
+    repo: str | None = None
+    branch: str | None = None
+    dockerfile_path: str | None = None
+    subdirectory: str | None = None
+
+    def __attrs_post_init__(self):
+        # Same rules the API applies, so a typo fails before the round-trip.
+        from pipecatcloud._utils.github_utils import (
+            is_valid_branch_name,
+            is_valid_repo_full_name,
+        )
+
+        if self.repo is not None and not is_valid_repo_full_name(self.repo):
+            raise ValueError(f"Invalid repo '{self.repo}'. Expected the form 'owner/repo'.")
+        if self.branch is not None and not is_valid_branch_name(self.branch):
+            raise ValueError(
+                f"Invalid branch '{self.branch}'. A branch must be a valid git ref with no "
+                "empty or dot-only segments."
+            )
+        # A half-specified source would otherwise reach the API as a plain
+        # image deploy, which is a confusing way to learn the branch is missing.
+        if (self.repo is None) != (self.branch is None):
+            raise ValueError("A GitHub source requires both 'repo' and 'branch'")
+
+    def is_set(self) -> bool:
+        return self.repo is not None
+
+    def to_payload(self) -> dict:
+        """The `git` object for the create-service request."""
+        payload = {"repoFullName": self.repo, "branch": self.branch}
+        if self.dockerfile_path:
+            payload["dockerfilePath"] = self.dockerfile_path
+        if self.subdirectory:
+            payload["subdirectory"] = self.subdirectory
+        return payload
+
+    def to_dict(self):
+        return {
+            "repo": self.repo,
+            "branch": self.branch,
+            "dockerfile_path": self.dockerfile_path,
+            "subdirectory": self.subdirectory,
+        }
+
+
 @dataclass
 class BuildConfig:
     """Configuration for cloud builds."""
@@ -329,10 +445,15 @@ class DeployConfigParams:
     docker_config: dict = field(factory=dict)
     build_config: BuildConfig = field(factory=BuildConfig)  # Cloud build configuration
     agent_profile: str | None = None
+    resources: ResourcesConfig = field(factory=ResourcesConfig)
     krisp_viva: KrispVivaConfig = field(factory=KrispVivaConfig)
+    git: GitSourceConfig = field(factory=GitSourceConfig)
     force_redeploy: bool = False
     websocket_auth: str | None = None
     max_session_duration: int | None = None
+    # CPU architecture the agent image requires (PCC-1105). Exactly the
+    # kubernetes.io/arch vocabulary; omitted = the region's default.
+    architecture: str | None = None
 
     def __attrs_post_init__(self):
         if self.image is not None and ":" not in self.image:
@@ -340,8 +461,19 @@ class DeployConfigParams:
         # Cannot specify both image and build_id
         if self.image is not None and self.build_id is not None:
             raise ValueError("Cannot specify both 'image' and 'build_id'")
+        # A git-sourced agent's image is produced by the build its first deploy
+        # triggers, so there is nothing to supply up front. The API rejects the
+        # combination too; failing here just does it sooner.
+        if self.git.is_set() and (self.image is not None or self.build_id is not None):
+            raise ValueError("Cannot specify a GitHub source together with 'image' or 'build_id'")
         if self.max_session_duration is not None and not 60 <= self.max_session_duration <= 14400:
             raise ValueError("max_session_duration must be between 60 and 14400 seconds")
+        # Sizing is one of: a named profile, or explicit resources (enterprise
+        # regions). The API enforces this too; failing here is just faster.
+        if self.agent_profile is not None and self.resources.is_set():
+            raise ValueError("Cannot specify both 'agent_profile' and 'resources'")
+        if self.architecture is not None and self.architecture not in ("amd64", "arm64"):
+            raise ValueError("architecture must be 'amd64' or 'arm64'")
 
     def to_dict(self):
         return {
@@ -355,10 +487,38 @@ class DeployConfigParams:
             "docker_config": self.docker_config,
             "build_config": self.build_config.to_dict() if self.build_config else None,
             "agent_profile": self.agent_profile,
+            "resources": self.resources.to_dict() if self.resources.is_set() else None,
             "krisp_viva": self.krisp_viva.to_dict() if self.krisp_viva else None,
+            "git": self.git.to_dict() if self.git.is_set() else None,
             "websocket_auth": self.websocket_auth,
             "max_session_duration": self.max_session_duration,
+            "architecture": self.architecture,
         }
+
+
+def validate_git_source_combination(config: DeployConfigParams) -> str | None:
+    """What a GitHub source cannot be combined with, or None when it is fine.
+
+    A separate check from DeployConfigParams' own validation because the deploy
+    command mutates the config field by field after constructing it, so
+    __attrs_post_init__ never sees the merged result.
+    """
+    if not config.git.is_set():
+        return None
+    if config.image or config.build_id:
+        return (
+            "Cannot deploy from a GitHub repository and an image or build at the same "
+            "time. Drop --image/--build-id, or drop --repo."
+        )
+    # A git agent's first-deploy config is stashed on its binding, and explicit
+    # resources are not plumbed through that path yet, so the API refuses the
+    # pair. Saying so here saves the round-trip.
+    if config.resources.is_set():
+        return (
+            "Explicit resources are not yet supported for GitHub-sourced agents. "
+            "Use [bold]--profile[/bold] instead."
+        )
+    return None
 
 
 def load_deploy_config_file() -> DeployConfigParams | None:
@@ -385,6 +545,14 @@ def load_deploy_config_file() -> DeployConfigParams | None:
         krisp_viva_data = config_data.pop("krisp_viva", {})
         krisp_viva_config = KrispVivaConfig(**krisp_viva_data)
 
+        # Extract explicit resources if present (enterprise regions)
+        resources_data = config_data.pop("resources", {})
+        resources_config = ResourcesConfig(**resources_data)
+
+        # Extract GitHub source if present (PCC-933)
+        git_data = config_data.pop("git", {})
+        git_config = GitSourceConfig(**git_data)
+
         # Extract build configuration if present
         build_data = config_data.pop("build", {})
         exclude_data = build_data.pop("exclude", {})
@@ -408,8 +576,11 @@ def load_deploy_config_file() -> DeployConfigParams | None:
             "build",
             "agent_profile",
             "krisp_viva",
+            "git",
             "websocket_auth",
             "max_session_duration",
+            "resources",
+            "architecture",
         }
 
         # TODO: Remove this enable_krisp migration hint in the 2.0.0 release.
@@ -429,6 +600,8 @@ def load_deploy_config_file() -> DeployConfigParams | None:
             docker_config=docker_data,
             build_config=build_config,
             krisp_viva=krisp_viva_config,
+            resources=resources_config,
+            git=git_config,
         )
 
         return validated_config
@@ -477,3 +650,156 @@ def with_deploy_config(func: Callable) -> Callable:
         return func(*args, **kwargs)
 
     return wrapper
+
+
+# How long `--wait` follows a GitHub deploy before handing it back. A GitHub
+# deploy builds an image first, so it is legitimately slower than an image
+# deploy; the cap exists so a wedged build can't hang a CI job forever, not to
+# express an expected duration.
+GIT_DEPLOY_WAIT_SECONDS = 20 * 60
+GIT_DEPLOY_POLL_SECONDS = 5
+
+
+class GitDeployWait(Enum):
+    """How a `--wait` ended. Four outcomes, because three of them are not
+    "succeeded" and collapsing them loses the distinction that matters."""
+
+    # A status we actually observed reach a terminal state.
+    TERMINAL = "terminal"
+    # Observed, still moving when the budget ran out. Says nothing bad about
+    # the deploy.
+    IN_FLIGHT = "in_flight"
+    # A newer attempt became the agent's latest, so ours is no longer
+    # observable (and, unless it had already reached `deploying`, was
+    # cancelled by the supersede).
+    SUPERSEDED = "superseded"
+    # Never saw our attempt at all: every poll failed, or no attempt was ever
+    # enqueued. We know nothing, which is different from knowing it is fine.
+    UNOBSERVED = "unobserved"
+
+
+@dataclass
+class GitDeployResult:
+    outcome: GitDeployWait
+    deploy: dict | None = None
+    superseded_by: str | None = None
+
+
+async def follow_git_deploy(agent_name: str, org: str | None, commit_sha: str) -> GitDeployResult:
+    """Poll an agent's latest deploy attempt until it resolves.
+
+    Polls the service read endpoint rather than a deploy-intent endpoint: the
+    API surfaces the attempt as `latestDeploy` (PCC-978), which is also what
+    `agent status` reads, so both agree on what a deploy is doing.
+
+    `commit_sha` is the attempt we are entitled to report on. Empty means
+    "whatever attempt exists", which is only correct for an agent's first
+    deploy, where there is nothing that could have superseded it.
+    """
+    # Imported at call time: api.py imports this module for DeployConfigParams,
+    # so a module-level import of the API client would close that cycle.
+    from pipecatcloud._utils.console_utils import console
+    from pipecatcloud._utils.github_utils import is_deploy_in_flight
+    from pipecatcloud.cli.api import API
+
+    deadline = time.monotonic() + GIT_DEPLOY_WAIT_SECONDS
+    latest: dict | None = None
+    last_status: str | None = None
+
+    with console.status("[dim]Waiting for the deploy...[/dim]", spinner="bouncingBar") as live:
+        while time.monotonic() < deadline:
+            # A blip mid-deploy should not abort a wait that is otherwise
+            # healthy; keep polling and let the deadline decide.
+            data, error = await API.bubble_error().agent(agent_name=agent_name, org=org)
+            if not error and data:
+                candidate = data.get("latestDeploy")
+                if candidate:
+                    found_sha = candidate.get("commitSha")
+                    # A different commit is positive evidence, not an absence
+                    # of it. The API reads this from the primary ordered by
+                    # created_at DESC, and our own intent was already
+                    # committed when the trigger answered 202 — so anything
+                    # else holding "latest" is strictly newer, and ours can
+                    # never reclaim the spot. Waiting out the budget here
+                    # would report a stale snapshot twenty minutes later.
+                    if commit_sha and found_sha != commit_sha:
+                        return GitDeployResult(
+                            GitDeployWait.SUPERSEDED,
+                            deploy=latest,
+                            superseded_by=found_sha,
+                        )
+                    latest = candidate
+                    status_value = candidate.get("status")
+                    if status_value != last_status:
+                        last_status = status_value
+                        live.update(f"[dim]Deploy {status_value}...[/dim]")
+                    if not is_deploy_in_flight(candidate):
+                        return GitDeployResult(GitDeployWait.TERMINAL, deploy=latest)
+            await asyncio.sleep(GIT_DEPLOY_POLL_SECONDS)
+
+    if latest is None:
+        return GitDeployResult(GitDeployWait.UNOBSERVED)
+    return GitDeployResult(GitDeployWait.IN_FLIGHT, deploy=latest)
+
+
+def report_git_deploy_result(
+    result: GitDeployResult, agent_name: str, *, first_deploy: bool = False
+) -> None:
+    """Render a finished `--wait` and set the exit code.
+
+    Shared by both wait call sites so the four outcomes can't be interpreted
+    differently in two places.
+
+    On exit codes: only an observed failure and a never-observed deploy exit
+    non-zero. A deploy still building when the budget runs out has not failed,
+    and neither has one that a newer push took over. But a wait that never saw
+    anything cannot tell a healthy build from an API that was down the whole
+    time, and reporting that as success is what would make `--wait` unsafe as
+    a deploy gate.
+    """
+    from pipecatcloud._utils.console_utils import console
+    from pipecatcloud._utils.github_utils import short_sha
+    from pipecatcloud.cli import PIPECAT_CLI_NAME
+
+    check_hint = (
+        f"[dim]Check it with [bold]{PIPECAT_CLI_NAME} agent status {agent_name}[/bold].[/dim]"
+    )
+    label = "First deploy" if first_deploy else "Deploy"
+
+    if result.outcome is GitDeployWait.TERMINAL:
+        deploy = result.deploy or {}
+        status_value = deploy.get("status")
+        commit = deploy.get("commitSha")
+        if status_value == "succeeded":
+            console.success(
+                f"Deployed '{agent_name}'" + (f" from commit {short_sha(commit)}" if commit else "")
+            )
+            return
+        reason = deploy.get("reason") or "No reason reported."
+        console.error(f"{label} of '{agent_name}' {status_value}.\n{reason}")
+        raise typer.Exit(1)
+
+    if result.outcome is GitDeployWait.SUPERSEDED:
+        newer = short_sha(result.superseded_by) if result.superseded_by else "a newer commit"
+        console.print(
+            f"[yellow]Superseded: a newer deploy ({newer}) is now the latest attempt for "
+            f"'{agent_name}', so this one's result is no longer reported.[/yellow]\n" + check_hint
+        )
+        return
+
+    if result.outcome is GitDeployWait.IN_FLIGHT:
+        status_value = (result.deploy or {}).get("status") or "in progress"
+        console.print(
+            f"[yellow]Still {status_value} after waiting. The deploy continues "
+            f"server-side.[/yellow]\n" + check_hint
+        )
+        return
+
+    # UNOBSERVED. Never assert progress we did not see.
+    console.error(
+        f"Could not confirm the deploy of '{agent_name}': no deploy attempt was visible "
+        "while waiting.\n"
+        "[dim]The API may have been unreachable, or the attempt may never have been "
+        f"queued.[/dim]\n" + check_hint
+    )
+    raise typer.Exit(1)

@@ -81,6 +81,19 @@ class ConfigData(object):
         self.prID = None
         self.auto_execution = False
         self.drop_init_footprints = False
+        # Suppresses FootprintsManager construction in AgentManager: no
+        # BuildMapper scan, no coverage.py tracer, no footprints scheduler
+        # jobs. Set by runners that collect no in-process Python coverage
+        # (SLDEV-29313 robot/pabot). Must ride on config_data rather than an
+        # AgentManager argument, because the singleton keys on
+        # (class, os.getpid()) and a pabot worker rebuilds its own instance
+        # from whatever sl_configuration handed it.
+        self.skipFootprintsPipeline = False
+        # Robot test identity: "full" (suite-qualified) or "short" (bare test
+        # name). Deliberately excluded from remote configuration, see
+        # NON_REMOTE_FIELDS in common/http/remote_config_merge.py: flipping it
+        # retrains TIA, so it must require a visible change to the CI command.
+        self.testNameFormat = constants.TEST_NAME_FORMAT_FULL
         self.command_type = None
         self.command_name = None
         self.resolved_bsid_from_labid = False

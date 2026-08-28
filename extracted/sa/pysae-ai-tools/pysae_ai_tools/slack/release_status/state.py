@@ -5,6 +5,11 @@ call reads the state from the message it finds, applies one transition, and
 writes it back. The rendering (``render.py``) and transport (``cli.py``) layers
 are built on top of this — the model itself has no Slack dependency.
 
+One field takes a different route: the release notes (``content``) travel in the
+message *blocks*, not in the metadata, because a payload over
+:data:`METADATA_PAYLOAD_SAFE_BYTES` is silently discarded by Slack along with the
+message's whole identity. ``render.content_from_blocks`` reads them back.
+
 Independent status tracks, each shown only once a status was sent for it
 (so a web app shows just ``web``; a mobile app adds ``apple`` / ``android``):
 
@@ -90,6 +95,16 @@ FAILED = "failed"
 
 METADATA_EVENT_TYPE = "release_status"
 
+METADATA_PAYLOAD_SAFE_BYTES = 3000
+"""Ceiling the serialised ``event_payload`` must stay under.
+
+Past roughly this size Slack answers ``ok: true`` but **silently drops the message
+metadata**, which orphans the message: it can no longer be found by its ``(app,
+version)`` identity, so the next call creates a duplicate. Measured on 120 days of
+#mep history — every message that kept its metadata was under 3.2 KB, every one that
+lost them carried a body over 3 KB. This is why the release notes are *not* part of
+the payload: only the identity and the small bookkeeping dicts are."""
+
 
 def valid_state(track: str, state_key: str) -> bool:
     """True when ``state_key`` is a known state of ``track`` (or the generic FAILED)."""
@@ -110,13 +125,19 @@ class ReleaseState:
     files: dict[str, str] = field(default_factory=dict)  # file kind (apk-prod|…) -> uploaded Slack file id
 
     def to_metadata(self) -> dict[str, object]:
+        """Serialise the identity + bookkeeping — never ``content``.
+
+        The notes are already rendered in the message blocks, which is where a reader
+        picks them back up (``render.content_from_blocks``). Duplicating them here
+        would push the payload past :data:`METADATA_PAYLOAD_SAFE_BYTES` and cost the
+        message its whole metadata, hence its identity.
+        """
         return {
             "event_type": METADATA_EVENT_TYPE,
             "event_payload": {
                 "app": self.app,
                 "version": self.version,
                 "tracks": self.tracks,
-                "content": self.content,
                 "replies": self.replies,
                 "files": self.files,
             },
@@ -124,6 +145,8 @@ class ReleaseState:
 
     @classmethod
     def from_payload(cls, payload: dict[str, object]) -> Self:
+        """Read the state back. ``content`` is only read for messages written before it
+        moved out of the payload; the caller overrides it from the message blocks."""
         raw_tracks = payload.get("tracks")
         tracks = {str(k): str(v) for k, v in raw_tracks.items()} if isinstance(raw_tracks, dict) else {}
         raw_replies = payload.get("replies")

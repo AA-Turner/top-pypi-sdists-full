@@ -80,27 +80,48 @@ class Workstep(Item):
         workstep._pull(session, workstep_tuple, status)
         return workstep
 
-    def _pull(self, session: Session, workstep_tuple, status: Status):
+    def _pull(self, session: Session, workstep_tuple, status: Status, none_if_not_owned: bool = False) -> bool:
         workbook_id, worksheet_id, workstep_id = workstep_tuple
         workbooks_api = WorkbooksApi(session.client)
 
         @request_safely(action_description=f'get Workstep details at {workbook_id}/{worksheet_id}/{workstep_id}',
-                        status=status)
+                        status=status, default_value=True)
         def _request_workstep():
-            workstep_output = workbooks_api.get_workstep(workbook_id=workbook_id,
-                                                         worksheet_id=worksheet_id,
-                                                         workstep_id=workstep_id)  # type: WorkstepOutputV1
-
             try:
-                self._definition['Data'] = json.loads(workstep_output.data)
-            except json.JSONDecodeError as e:
-                message = (f'Failed to decode workstep data for {workbook_id}/{worksheet_id}/{workstep_id}\n\nJSON:\n'
-                           f'{workstep_output.data}\n\nError:\n{e}')
-                status.raise_or_callback(message)
+                workstep_output = workbooks_api.get_workstep(workbook_id=workbook_id,
+                                                             worksheet_id=worksheet_id,
+                                                             workstep_id=workstep_id)  # type: WorkstepOutputV1
+            except ApiException as e:
+                if none_if_not_owned and e.status == 404:
+                    # get_workstep() is worksheet-scoped, so a 404 always means the given worksheet doesn't
+                    # actually own this workstep. pull() itself never passes none_if_not_owned=True. Callers
+                    # of the public pull() always get a Workstep, never None, matching every caller outside this
+                    # module (e.g. genai). Only _worksheet.py's ownership-fallback logic calls _pull() directly
+                    # with none_if_not_owned=True, to react to a 404 distinctly (e.g. falling back to a private
+                    # copy elsewhere) regardless of status.errors, rather than folding it into the generic
+                    # catalog-mode warning below.
+                    return False
+                raise
+
+            data = Workstep.parse_data(workstep_output.data, f'{workbook_id}/{worksheet_id}/{workstep_id}', status)
+            if data is not None:
+                self._definition['Data'] = data
 
             self.previous_workstep_id = workstep_output.previous
+            return True
 
-        _request_workstep()
+        return _request_workstep()
+
+    @staticmethod
+    def parse_data(json_str: str, identifier: str, status: Status):
+        # Centralizes the JSON-decode-failure handling for a Workstep's Data property so every caller reports the
+        # same message and respects status.errors instead of raising an uncaught json.JSONDecodeError.
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            message = f'Failed to decode workstep data for {identifier}\n\nJSON:\n{json_str}\n\nError:\n{e}'
+            status.raise_or_callback(message)
+            return None
 
     def _validate_before_push(self):
         pass

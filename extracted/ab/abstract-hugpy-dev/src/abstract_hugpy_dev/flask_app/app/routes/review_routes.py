@@ -256,6 +256,62 @@ def review_ingest():
                     "accepted": accepted, "rejected": rejected})
 
 
+# ── k120: dossiers ────────────────────────────────────────────────────────
+# The review row carries a compact SUMMARY (discovery_dossier/store.summary);
+# the full dossier — card digest, every quant, every mention, every sample — is
+# a file. These two routes are the split: /dossiers lists what the console
+# renders in the leaderboard, /dossier serves ONE expanded, which is how an
+# operator actually reads them.
+
+
+@review_bp.route("/llm/review/dossiers", methods=["GET"])
+def review_dossiers():
+    """Every dossier for one card, newest first, as compact summaries."""
+    criteria = request.args.get("criteria")
+    if not criteria:
+        abort(400, description="criteria is required")
+    limit = request.args.get("limit", 20, type=int)
+    from abstract_hugpy_dev.discovery_dossier import store as dstore
+    out = []
+    for path in dstore.list_for(criteria)[:max(1, limit)]:
+        dossier = dstore.load_path(path)
+        if dossier is not None:
+            out.append(dstore.summary(dossier, path))
+    return jsonify({"criteria": criteria, "dossiers": out})
+
+
+@review_bp.route("/llm/review/dossier", methods=["GET"])
+def review_dossier():
+    """One full dossier. 404 with the reason rather than an empty object — a
+    console showing a blank panel cannot tell "never reviewed" from "the file
+    is gone"."""
+    criteria = request.args.get("criteria")
+    hub_id = request.args.get("hub_id")
+    if not criteria or not hub_id:
+        abort(400, description="criteria and hub_id are required")
+    from abstract_hugpy_dev.discovery_dossier import store as dstore
+    dossier = dstore.load(criteria, hub_id)
+    if dossier is None:
+        return jsonify({"error": f"no dossier on this box for {hub_id} under "
+                                 f"criteria {criteria!r}",
+                        "path": dstore.path_for(criteria, hub_id)}), 404
+    return jsonify(dossier.to_dict())
+
+
+@review_bp.route("/llm/review/radar", methods=["GET"])
+def review_radar():
+    """The gem radar's last output for one card — models the cards are not
+    asking about that the cached community pulls kept naming."""
+    criteria = request.args.get("criteria")
+    if not criteria:
+        abort(400, description="criteria is required")
+    from abstract_hugpy_dev.discovery_dossier import store as dstore
+    return jsonify(dstore.load_radar(criteria) or
+                   {"criteria": criteria, "hits": [],
+                    "detail": "no radar pass has run for this card "
+                              "(set radar: true to enable it)"})
+
+
 @review_bp.route("/llm/review/results", methods=["GET"])
 def review_results():
     from abstract_hugpy_dev.review import store

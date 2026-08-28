@@ -357,6 +357,40 @@ def resolve(prompt_kwargs: Dict[str, Any]) -> Resolution:
     )
 
 # ---------------------------------------------------------------------------
+# EXTERNAL runners — declared, not registered (k98).
+#
+# FRAMEWORK_RUNNERS answers "which in-process Runner class serves (framework,
+# task)". Some tasks have no such answer and never will: 'text-to-speech' is
+# served by Chatterbox, which is not a transformers pipeline and does not fit
+# the Runner protocol — it is a media-bus runner that needs the `chatterbox`
+# package and a GPU, i.e. a WORKER. Before this table, the only thing the tree
+# could say about such a row was "no runner registered" (see the 2026-07-03
+# incident in validate_registry's docstring below, which is exactly this row).
+#
+# So: task -> (runner module, probe attribute). The module exposes a zero-arg
+# probe returning {"importable": bool, "reason": str}. This is a DECLARATION
+# (where the runner lives + how to ask whether this box can run it), never a
+# registration — nothing here changes resolve()'s behavior, and a task in this
+# table still refuses locally with "No runner for (framework, task)". The
+# oracle catalog reads it (oracle.catalog._tts_runner_module_name) so
+# GET /oracle/capabilities can say WHERE a capability's runner is and WHY this
+# box cannot seat it, instead of only that something is missing.
+# ---------------------------------------------------------------------------
+
+EXTERNAL_TASK_RUNNERS: dict[str, tuple[str, str]] = {
+    "text-to-speech": (
+        "abstract_hugpy_dev.video_intel.runners.tts_chatterbox", "probe"),
+}
+
+
+def external_runner_for(task: str) -> tuple[str, str] | None:
+    """(module, probe attribute) for ``task``, or None when no external runner
+    is declared for it. Pure dict read — no import, no probe call; the caller
+    decides whether paying for the import is worth it."""
+    return EXTERNAL_TASK_RUNNERS.get(task)
+
+
+# ---------------------------------------------------------------------------
 # validate_registry — fail at import time, not on first request.
 # ---------------------------------------------------------------------------
 
@@ -373,7 +407,10 @@ def validate_registry() -> None:
     in model_discovery.json) must never brick package import — a data file
     is not allowed to take the whole service down (2026-07-03: a discovered
     'chatterbox' row declaring text-to-speech with no runner made every
-    import — and thus any service restart — fail). Unservable discovered
+    import — and thus any service restart — fail; k98: that row's runner is
+    now DECLARED in EXTERNAL_TASK_RUNNERS above — it lives on a worker, not
+    in this process, so "no runner registered" here is correct AND now says
+    where it is). Unservable discovered
     entries are logged loudly and KEPT (2026-07-29 — they used to be popped
     from MODEL_REGISTRY only, which desynced it from MODEL_REGISTRY_DICT and
     made the model listable but undesignatable; see the comment at the log

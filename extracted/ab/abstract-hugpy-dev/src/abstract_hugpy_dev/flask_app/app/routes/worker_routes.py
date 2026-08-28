@@ -693,6 +693,20 @@ class HeartbeatRequest(BaseModel):
     # exist, so central's route returns an honest 501-shaped payload against a
     # pre-aggregate worker rather than a bare 502 (see workers_aggregate).
     aggregate: dict | None = None
+    # k118 ENVIRONMENT DOCTRINE. Both additive + optional, both `| None = None`
+    # so a NEW central against an OLD worker just sees None (the worker sends
+    # neither key) rather than a validation error.
+    #   environment_digest — compact: {digest, python, pkg_version, profiles,
+    #     package_count, binaries:{name:bool}, nvidia:{driver,cuda}}. The full
+    #     document is NEVER on the beat; it is pulled on read from the worker's
+    #     GET /ops/environment, same as the rolling aggregate.
+    #   doctrine_status   — the worker's OWN verdict against the fleet doctrine:
+    #     {doctrine_version, verdict, blockers, warnings, blocked_tasks,
+    #      repairs:{task: shell line}}. GET /fleet/doctrine/status serves it and
+    #     the k101 probe reads it, so "missing dep" becomes honest
+    #     ineligibility before dispatch instead of a runtime failure.
+    environment_digest: dict | None = None
+    doctrine_status: dict | None = None
 
 
 class AssignRequest(BaseModel):
@@ -989,6 +1003,62 @@ def workers_get(worker_id):
     except Exception:  # noqa: BLE001 — never 5xx a worker read over the flag store
         worker["wildcard"] = False
     return jsonify(worker)
+
+
+@worker_bp.route("/llm/workers/<worker_id>/toks", methods=["GET"])
+def workers_toks(worker_id):
+    """Recent tok/s log entries for one worker (most recent first), bounded.
+
+    ``?limit=N`` (default 50, max 500), ``?model=<key>`` filters to one model.
+    Rollups (``tok_stats`` / ``model_tok_stats`` / per-row ``tok_s_last``,
+    ``tok_s_avg`` on ``storage.models``) ride the plain worker GET; this is
+    the per-query history behind them (toks_log.jsonl beside workers.json)."""
+    from ..functions.imports.utils.workers import read_toks_log
+    worker = get_worker(worker_id)
+    if worker is None:
+        abort(404, description="Unknown worker id.")
+    limit = request.args.get("limit", 50)
+    entries = read_toks_log(worker_id, limit=limit,
+                            model_key=request.args.get("model") or None)
+    return jsonify({"worker_id": worker_id, "count": len(entries),
+                    "tok_stats": worker.get("tok_stats"),
+                    "model_tok_stats": worker.get("model_tok_stats") or {},
+                    "entries": entries})
+
+
+@worker_bp.route("/llm/toks/recent", methods=["GET"])
+def toks_recent():
+    """FLEET-WIDE tail of the per-query tok/s ledger, newest first.
+
+    ``?limit=N`` (default 100, capped 1000) → the last N completed relays across
+    ALL workers, each line carrying its ``state`` snapshot (worker/vram/alloc/
+    model/request/outcome + ``config_key``). Bounded: read_toks_log tails the
+    JSONL, never loading it whole."""
+    from ..functions.imports.utils.workers import read_toks_log
+    try:
+        limit = min(max(1, int(request.args.get("limit", 100))), 1000)
+    except (TypeError, ValueError):
+        limit = 100
+    entries = read_toks_log(limit=limit, max_limit=1000)
+    return jsonify({"count": len(entries), "limit": limit, "entries": entries})
+
+
+@worker_bp.route("/llm/toks/report", methods=["GET"])
+def toks_report():
+    """Serves grouped by ``(worker, model, config_key)`` with n + mean/p50/p95
+    tok/s, best-mean first — the allocation study's "which config is fastest".
+
+    ``?worker=`` and ``?model=`` filter. Bounded: groups over the last ~2000
+    ledger lines (the tailed window), never the whole log."""
+    from ..functions.imports.utils.workers import read_toks_log
+    from ....managers.toks_report import group_entries
+    worker = request.args.get("worker") or None
+    model = request.args.get("model") or None
+    entries = read_toks_log(worker_id=worker, model_key=model,
+                            limit=2000, max_limit=2000)
+    groups = group_entries(entries, worker=worker, model=model)
+    return jsonify({"count": len(groups), "samples": len(entries),
+                    "worker": worker, "model": model, "groups": groups})
 
 
 @worker_bp.route("/llm/workers/boot-prewarm", methods=["GET"])
@@ -1321,6 +1391,8 @@ def workers_heartbeat(worker_id):
         vram_evictions=body.vram_evictions,
         vram_holders=body.vram_holders,
         aggregate=body.aggregate,
+        environment_digest=body.environment_digest,
+        doctrine_status=body.doctrine_status,
     )
     if worker is None:
         # The agent thinks it's registered but central forgot it (restart,
@@ -3535,6 +3607,24 @@ def _model_gguf_bytes(model_key):
         return None
 
 
+def _model_moe_fit(model_key):
+    """``(gpu_bytes, expert_bytes)`` for a detected-MoE GGUF under the expert
+    split — GPU-side = non_expert + mmproj (central's cached
+    ``_model_moe_gpu_bytes``, which rides gguf_variants_detail exactly like
+    effective_bytes) — or None for dense/non-GGUF/unresolvable. Module-level so
+    tests can patch it like ``_model_gguf_bytes``."""
+    try:
+        from ..functions.imports.utils.workers import (_model_moe_gpu_bytes,
+                                                       _model_moe_detail)
+        gpu = _model_moe_gpu_bytes(model_key)
+        if not gpu:
+            return None
+        det = _model_moe_detail(model_key) or {}
+        return int(gpu), int(det.get("expert_bytes") or 0)
+    except Exception:  # noqa: BLE001 — MoE sizing is additive; unknown is fine
+        return None
+
+
 def _worker_fit(model_key, worker):
     """Capacity preflight for placing a model on a worker — the GPU analog of the
     local RAM preflight, but DUAL. A GPU worker holds weights in VRAM and can
@@ -3554,7 +3644,18 @@ def _worker_fit(model_key, worker):
     if need_raw is None:
         return {"fit": None, "gpu_resident": None, "need": None, "need_raw": None,
                 "vram_free": vram, "ram_free": ram, "reason": "model size unknown — not preflighted"}
-    need = int(need_raw * VRAM_HEADROOM)
+    # MoE-aware pricing (the shared effective_load_requirement split, cached
+    # central-side as the model's persisted ``moe`` field): the GPU-resident
+    # term is the non-expert backbone + mmproj, NOT the whole file — the expert
+    # share is file-backed page cache (mmap-streamable), so it is never
+    # hard-required against free RAM. Dense models: byte-identical to before.
+    moe = _model_moe_fit(model_key)
+    moe_gpu_bytes = expert_bytes = None
+    gpu_need_raw = need_raw
+    if moe:
+        moe_gpu_bytes, expert_bytes = moe
+        gpu_need_raw = moe_gpu_bytes
+    need = int(gpu_need_raw * VRAM_HEADROOM)
     # t28 load-and-learn: refine the VRAM-residency estimate with the learned,
     # per-model correction (median measured/predicted from real loads), clamped +
     # gated central-side. Applied to `need` (drives gpu_resident + the human hint)
@@ -3571,7 +3672,10 @@ def _worker_fit(model_key, worker):
     except Exception:  # noqa: BLE001 — learned pricing is additive; never break fit
         calibration_correction = None
     capacity = (vram or 0) + (ram or 0)
-    fit = (need_raw <= capacity) if capacity else None
+    # The hard block: for a MoE only the GPU-resident share must land somewhere
+    # in VRAM+RAM — refusing on the expert bytes would refuse exactly the model
+    # the split makes serveable (45 GiB MoE, 1.5 GiB backbone).
+    fit = (gpu_need_raw <= capacity) if capacity else None
     gpu_resident = (vram is not None) and (need <= vram)
     where = worker.get("gpu") or "this worker"
     # ── t21 central mirror: a model carrying an explicit VRAM tolerance band may,
@@ -3603,7 +3707,15 @@ def _worker_fit(model_key, worker):
     # verdict (the human `reason` for this case already reads "would partially
     # offload to CPU"). The worker makes the real, geometry-aware call at load.
     partial_offload_admissible = bool(fit and not gpu_resident)
-    if fit is False:
+    if fit is False and moe:
+        # Honest MoE refusal: name the basis (the feasibility_context precedent)
+        # — what was priced is the GPU-resident share, with the experts named
+        # as mmap-streamed, never as a RAM requirement.
+        reason = (f"MoE: needs {gpu_need_raw/gib:.1f} GiB GPU-resident (experts "
+                  f"{(expert_bytes or 0)/gib:.1f} GiB via mmap) but only "
+                  f"{(vram or 0)/gib:.1f} GiB VRAM + {(ram or 0)/gib:.1f} GiB RAM free "
+                  f"({capacity/gib:.1f} GiB total)")
+    elif fit is False:
         reason = (f"won't fit {where}: model is {need_raw/gib:.1f} GiB but only "
                   f"{(vram or 0)/gib:.1f} GiB VRAM + {(ram or 0)/gib:.1f} GiB RAM free "
                   f"({capacity/gib:.1f} GiB total)")
@@ -3622,7 +3734,11 @@ def _worker_fit(model_key, worker):
             "calibration_correction": calibration_correction,
             "band_floor_bytes": band_floor_bytes,
             "band_floor_admissible": band_floor_admissible,
-            "partial_offload_admissible": partial_offload_admissible}
+            "partial_offload_admissible": partial_offload_admissible,
+            # MoE basis (None/absent-meaning for dense): what the GPU term
+            # priced, so a consumer can see WHICH size drove the verdict.
+            "moe_split_gpu_bytes": moe_gpu_bytes,
+            "moe_expert_bytes": expert_bytes}
 
 
 # k56: hand the store THE fit function (not a copy of its arithmetic) so a
@@ -4967,6 +5083,9 @@ def _attach_alloc_feasibility(row, model_key):
 def _with_gguf(row, model_key):
     """Attach the variant choices + sizes to a serving row (shared by GET/POST)."""
     row["available_gguf"], row["gguf_file"] = _gguf_choices(model_key)
+    # Per-worker quant pins ({worker: basename_or_quant_token}); {} when unset.
+    row["gguf_file_by_worker"] = (get_override(model_key) or {}
+                                  ).get("gguf_file_by_worker") or {}
     d = _gguf_detail(model_key)
     row["available_gguf_detail"] = d.get("variants") or []
     row["effective_gguf"] = d.get("effective_gguf")

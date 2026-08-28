@@ -49,6 +49,7 @@ from dstack._internal.core.models.fleets import (
 from dstack._internal.core.models.gateways import (
     GATEWAY_REPLICAS_DEFAULT,
     AnyGatewayCertificate,
+    AnyGatewayLoadBalancer,
     GatewayConfiguration,
     GatewayReplicaConfiguration,
     GatewayReplicaStatus,
@@ -669,6 +670,7 @@ async def create_gateway(
     forbid_new_services: bool = False,
     populate_configuration: bool = True,
     certificate: Optional[AnyGatewayCertificate] = LetsEncryptGatewayCertificate(),
+    load_balancer: Optional[AnyGatewayLoadBalancer] = None,
     hostname: Optional[str] = None,
     backend_data: Optional[str] = None,
 ) -> GatewayModel:
@@ -689,6 +691,7 @@ async def create_gateway(
             domain=wildcard_domain,
             replicas=replicas,
             certificate=certificate,
+            load_balancer=load_balancer,
         ).model_dump_json()
     gateway = GatewayModel(
         project_id=project_id,
@@ -711,8 +714,8 @@ async def create_gateway(
 
 async def create_gateway_replica(
     session: AsyncSession,
+    backend: BackendModel,
     gateway_id: Optional[UUID] = None,
-    backend_id: Optional[UUID] = None,
     ip_address: Optional[str] = "1.1.1.1",
     region: Optional[str] = "us",
     instance_id: Optional[str] = "i-1234567890",
@@ -733,25 +736,22 @@ async def create_gateway_replica(
             True - 0.18.2+ gateways, False - legacy pre-0.18.2 gateways. Prefer
             testing against both in major test cases.
     """
+    name = f"test-gateway-{replica_num}"
     if configuration is None and populate_configuration:
-        backend_type = BackendType.AWS
-        if backend_id is not None:
-            backend = await session.get(BackendModel, backend_id)
-            assert backend is not None
-            backend_type = backend.type
         assert region is not None
         configuration = GatewayReplicaConfiguration(
             project_name="test-project",
-            instance_name=instance_id or "test-instance",
-            backend=backend_type,
+            instance_name=name,
+            backend=backend.type,
             region=region,
             public_ip=True,
             ssh_key_pub=ssh_public_key,
             certificate=None,
         ).model_dump_json()
     gateway_replica = GatewayReplicaModel(
+        name=name,
         gateway_id=gateway_id,
-        backend_id=backend_id,
+        backend_id=backend.id,
         ip_address=ip_address,
         region=region,
         instance_id=instance_id,

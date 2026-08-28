@@ -1037,6 +1037,7 @@ class ToProtoConverter:
                         aggregation_kwargs.get("counters") if mat.aggregation == "approx_top_k" else None
                     ),
                     cache_aggregated_values=mat.cache_aggregated_values,
+                    cached_values_only=mat.cached_values_only,
                     allow_filter_migration=mat.allow_filter_migration,
                 ),
                 tags=f.tags,
@@ -1177,6 +1178,7 @@ class ToProtoConverter:
                                     aggregation_kwargs.get("counters") if wmp.aggregation == "approx_top_k" else None
                                 ),
                                 cache_aggregated_values=wmp.cache_aggregated_values,
+                                cached_values_only=wmp.cached_values_only,
                                 allow_filter_migration=wmp.allow_filter_migration,
                             )
                             if wmp is not None

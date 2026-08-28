@@ -1,10 +1,15 @@
-#ifndef __PYGI_INVOKE_STATE_STRUCT_H__
-#define __PYGI_INVOKE_STATE_STRUCT_H__
+#pragma once
 
 #include <girepository/girepository.h>
 #include <pythoncapi_compat.h>
 
 G_BEGIN_DECLS
+
+typedef struct {
+    gpointer data;
+    GDestroyNotify destroy;
+    GDestroyNotify destroy_failed;
+} PyGIMarshalCleanupData;
 
 typedef struct _PyGIInvokeArgState {
     /* Holds memory for the C value of arguments marshaled "to" or "from" Python. */
@@ -16,10 +21,10 @@ typedef struct _PyGIInvokeArgState {
     GIArgument arg_pointer;
 
     /* Holds from_py marshaler cleanup data. */
-    gpointer arg_cleanup_data;
+    PyGIMarshalCleanupData from_py_arg_cleanup_data;
 
     /* Holds to_py marshaler cleanup data. */
-    gpointer to_py_arg_cleanup_data;
+    PyGIMarshalCleanupData to_py_arg_cleanup_data;
 } PyGIInvokeArgState;
 
 
@@ -44,14 +49,13 @@ typedef struct _PyGIInvokeState {
 
     /* Memory to receive the result of the C ffi function call. */
     GIArgument return_arg;
-    gpointer to_py_return_arg_cleanup_data;
+    PyGIMarshalCleanupData to_py_return_arg_cleanup_data;
+    PyGIMarshalCleanupData from_py_return_arg_cleanup_data;
 
     /* A GError exception which is indirectly bound into the last position of
      * the "args" array if the callable caches "throws" member is set.
      */
     GError *error;
-
-    gboolean failed;
 
     /* An awaitable to return for an async function that was called with
      * default arguments.
@@ -66,5 +70,3 @@ typedef struct _PyGIInvokeState {
 } PyGIInvokeState;
 
 G_END_DECLS
-
-#endif

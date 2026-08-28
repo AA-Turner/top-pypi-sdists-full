@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seam
-Version: 3.12.0
+Version: 3.13.1
 Summary: SDK for the Seam API written in Python.
 Author: Seam Labs, Inc.
 Author-email: Seam Labs, Inc. <engineering@getseam.com>
@@ -236,6 +236,28 @@ When the ``wait_for_action_attempt`` option is enabled, the SDK:
 - Raises a ``SeamActionAttemptFailedError`` if the action attempt is unsuccessful.
 - Raises a ``SeamActionAttemptTimeoutError`` if the action attempt is still pending when the ``timeout`` is reached.
 - Both errors expose an ``action_attempt`` property.
+
+Each action attempt parses to a class for its ``action_type`` and ``status`` pair,
+e.g., ``LockDoorSuccessActionAttempt``.
+The ``error`` and ``result`` attributes are ``None``
+except for the status that populates them,
+so narrow on the ``status`` before reading them:
+
+.. code-block:: python
+
+  action_attempt = seam.locks.unlock_door(
+      device_id=device_id,
+      wait_for_action_attempt=False,
+  )
+
+  if action_attempt.status == "success":
+      print(action_attempt.result)  # The result is not None here.
+
+  if action_attempt.status == "error":
+      print(action_attempt.error.message)  # The error is not None here.
+
+Waiting for an action attempt returns a ``SuccessActionAttempt``,
+so the ``result`` is immediately usable.
 
 If you already have an action attempt ID
 and want to wait for it to resolve, simply use
@@ -508,6 +530,18 @@ The ``AsyncSeamWithoutWorkspace`` client is the equivalent async variant of
 
 Error Handling
 ~~~~~~~~~~~~~~
+
+Errors raised by the SDK subclass ``SeamError``, so one except block
+covers everything the SDK raises:
+
+.. code-block:: python
+
+  from seam import SeamError
+
+  try:
+      seam.locks.unlock_door(device_id=device_id)
+  except SeamError as error:
+      print(error)
 
 Requests rejected by the Seam API raise a ``SeamHttpApiError`` subclass
 carrying the HTTP ``status_code``, API error ``code``, and ``request_id``.

@@ -15,11 +15,17 @@ FATAL_SQLITE_ERROR_MARKERS = (
 )
 SQLITE_IO_ERROR_MARKER = "disk i/o error"
 SQLiteStoreProbe = Literal["fatal", "healthy", "io", "unknown"]
+SQLiteFileIdentity = tuple[int, int, int, int, int]
+SQLiteStoreIdentity = tuple[SQLiteFileIdentity | None, SQLiteFileIdentity | None, SQLiteFileIdentity | None]
+
+
+def _sqlite_readonly_uri(path: Path) -> str:
+    return f"{path.resolve().as_uri()}?mode=ro"
 
 
 def _probe_sqlite_store(path: Path) -> SQLiteStoreProbe:
     try:
-        with sqlite3.connect(path, timeout=0.1) as connection:
+        with sqlite3.connect(_sqlite_readonly_uri(path), uri=True, timeout=1.0) as connection:
             result = connection.execute("pragma quick_check").fetchone()
     except sqlite3.DatabaseError as error:
         message = str(error).lower()
@@ -45,6 +51,20 @@ def _guard_home_accepts_sqlite_write(guard_home: Path) -> bool:
             probe_path.unlink()
 
 
+def _sqlite_store_identity(path: Path) -> SQLiteStoreIdentity:
+    identities: list[SQLiteFileIdentity | None] = []
+    for candidate in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
+        try:
+            metadata = candidate.stat()
+        except OSError:
+            identities.append(None)
+            continue
+        identities.append(
+            (metadata.st_dev, metadata.st_ino, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns)
+        )
+    return identities[0], identities[1], identities[2]
+
+
 def sqlite_store_is_proven_unusable(
     *,
     path: Path,
@@ -57,11 +77,44 @@ def sqlite_store_is_proven_unusable(
     io_error = SQLITE_IO_ERROR_MARKER in str(error).lower()
     if not fatal_error and not io_error:
         return False
-    state = _probe_sqlite_store(path)
-    if state == "healthy":
+    initial_identity = _sqlite_store_identity(path)
+    first_state = _probe_sqlite_store(path)
+    confirmed_identity = _sqlite_store_identity(path)
+    if initial_identity != confirmed_identity or first_state == "healthy":
         return False
-    if state == "fatal":
+    if first_state != "fatal" or not _guard_home_accepts_sqlite_write(guard_home):
+        return False
+    second_state = _probe_sqlite_store(path)
+    final_identity = _sqlite_store_identity(path)
+    return second_state == "fatal" and confirmed_identity == final_identity
+
+
+def restore_readable_sqlite_store(*, destination: Path, quarantined: Path) -> bool:
+    """Move a quarantined store back when it still opens and passes integrity."""
+
+    if destination.exists() or destination.is_symlink():
+        return False
+    if _probe_sqlite_store(quarantined) != "healthy":
+        return False
+    extras = [
+        (Path(f"{quarantined}{suffix}"), Path(f"{destination}{suffix}"))
+        for suffix in ("-wal", "-shm")
+        if Path(f"{quarantined}{suffix}").exists() and not Path(f"{quarantined}{suffix}").is_symlink()
+    ]
+    try:
+        quarantined.replace(destination)
+    except OSError:
+        return False
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for source, target in extras:
+            source.replace(target)
+            moved.append((source, target))
         return True
-    if state != "io" or not _guard_home_accepts_sqlite_write(guard_home):
+    except OSError:
+        for source, target in reversed(moved):
+            with suppress(OSError):
+                target.replace(source)
+        with suppress(OSError):
+            destination.replace(quarantined)
         return False
-    return _probe_sqlite_store(path) in {"fatal", "io"}

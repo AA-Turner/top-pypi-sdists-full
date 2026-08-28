@@ -808,7 +808,7 @@ def sandbox_snapshot(
 
     Examples:
         plato sandbox snapshot                    # Uses mode from state.json
-        plato sandbox snapshot --mode config      # Override to pass local plato-config.yml and flows to artifact
+        plato sandbox snapshot --mode config      # Override to pass local plato-config.yml, flows and login credentials to artifact
         plato sandbox snapshot --job              # Snapshot one env in a multi-env (unified) session
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
@@ -1011,6 +1011,34 @@ def sandbox_connect_network(
         out.console.print("Connecting to network...")
         result = client.connect_network(session_id=require(session_id, "session_id"))
         out.success(result, "Network connected")
+
+
+@sandbox_app.command(name="artifact")
+def sandbox_artifact(
+    working_dir: WorkingDirArg,
+    name: NameArg,
+    artifact_id: Annotated[
+        str | None,
+        typer.Argument(help="Artifact id. Defaults to the artifact this slot last snapshotted."),
+    ] = None,
+    json_output: JsonArg = False,
+    verbose: VerboseArg = False,
+):
+    """Show an artifact record: status, parent, dataset and the login credentials stored on it.
+
+    Config-mode snapshots derive the credentials from plato-config.yml
+    (``metadata.credentials`` or the login ``variables``); this is how to check
+    what an artifact actually carries.
+
+    Examples:
+        plato sandbox artifact                       # The slot's last snapshot
+        plato sandbox artifact <uuid> --json
+    """
+    with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        target = artifact_id or state_field("artifact_id")
+        if not target:
+            raise SandboxStateError("artifact_id")
+        out.success(client.artifact_info(str(target)), "Artifact")
 
 
 # CHECKED

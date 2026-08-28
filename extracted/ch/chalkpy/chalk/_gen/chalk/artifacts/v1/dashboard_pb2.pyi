@@ -1,4 +1,5 @@
 from chalk._gen.chalk.artifacts.v1 import chart_pb2 as _chart_pb2
+from chalk._gen.chalk.searchaggregates.v1 import aggregation_pb2 as _aggregation_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -87,17 +88,19 @@ class DashboardNotebookCellWidget(_message.Message):
     ) -> None: ...
 
 class DashboardDataWidget(_message.Message):
-    __slots__ = ("name", "metric_query", "source_query", "timeseries", "table")
+    __slots__ = ("name", "metric_query", "source_query", "timeseries", "table", "statistic")
     NAME_FIELD_NUMBER: _ClassVar[int]
     METRIC_QUERY_FIELD_NUMBER: _ClassVar[int]
     SOURCE_QUERY_FIELD_NUMBER: _ClassVar[int]
     TIMESERIES_FIELD_NUMBER: _ClassVar[int]
     TABLE_FIELD_NUMBER: _ClassVar[int]
+    STATISTIC_FIELD_NUMBER: _ClassVar[int]
     name: str
     metric_query: DashboardMetricQuery
     source_query: DashboardSourceQuery
     timeseries: DashboardTimeseriesViz
     table: DashboardTableViz
+    statistic: DashboardStatisticViz
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -105,6 +108,7 @@ class DashboardDataWidget(_message.Message):
         source_query: _Optional[_Union[DashboardSourceQuery, _Mapping]] = ...,
         timeseries: _Optional[_Union[DashboardTimeseriesViz, _Mapping]] = ...,
         table: _Optional[_Union[DashboardTableViz, _Mapping]] = ...,
+        statistic: _Optional[_Union[DashboardStatisticViz, _Mapping]] = ...,
     ) -> None: ...
 
 class DashboardMetricQuery(_message.Message):
@@ -126,12 +130,19 @@ class DashboardMetricQuery(_message.Message):
     ) -> None: ...
 
 class DashboardSourceQuery(_message.Message):
-    __slots__ = ("data_source", "query")
+    __slots__ = ("data_source", "query", "aggregate_options")
     DATA_SOURCE_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     data_source: str
     query: str
-    def __init__(self, data_source: _Optional[str] = ..., query: _Optional[str] = ...) -> None: ...
+    aggregate_options: _aggregation_pb2.AggregateOptions
+    def __init__(
+        self,
+        data_source: _Optional[str] = ...,
+        query: _Optional[str] = ...,
+        aggregate_options: _Optional[_Union[_aggregation_pb2.AggregateOptions, _Mapping]] = ...,
+    ) -> None: ...
 
 class DashboardTimeseriesViz(_message.Message):
     __slots__ = ("plot_style",)
@@ -139,9 +150,39 @@ class DashboardTimeseriesViz(_message.Message):
     plot_style: str
     def __init__(self, plot_style: _Optional[str] = ...) -> None: ...
 
+class DashboardTableColumn(_message.Message):
+    __slots__ = ("key", "width_px", "visible")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    WIDTH_PX_FIELD_NUMBER: _ClassVar[int]
+    VISIBLE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    width_px: int
+    visible: bool
+    def __init__(self, key: _Optional[str] = ..., width_px: _Optional[int] = ..., visible: bool = ...) -> None: ...
+
 class DashboardTableViz(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("columns", "column_order")
+    COLUMNS_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_ORDER_FIELD_NUMBER: _ClassVar[int]
+    columns: _containers.RepeatedCompositeFieldContainer[DashboardTableColumn]
+    column_order: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        columns: _Optional[_Iterable[_Union[DashboardTableColumn, _Mapping]]] = ...,
+        column_order: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class DashboardStatisticViz(_message.Message):
+    __slots__ = ("compare_to_previous", "number_format", "unit_label")
+    COMPARE_TO_PREVIOUS_FIELD_NUMBER: _ClassVar[int]
+    NUMBER_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    UNIT_LABEL_FIELD_NUMBER: _ClassVar[int]
+    compare_to_previous: bool
+    number_format: str
+    unit_label: str
+    def __init__(
+        self, compare_to_previous: bool = ..., number_format: _Optional[str] = ..., unit_label: _Optional[str] = ...
+    ) -> None: ...
 
 class DashboardMarkdownWidget(_message.Message):
     __slots__ = ("content",)

@@ -20,12 +20,13 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "pygi-invoke.h"
+
 #include "pygi-argument.h"
 #include "pygi-async.h"
 #include "pygi-boxed.h"
 #include "pygi-error.h"
 #include "pygi-foreign.h"
-#include "pygi-invoke.h"
 #include "pygi-marshal-cleanup.h"
 #include "pygi-resulttuple.h"
 
@@ -353,7 +354,7 @@ _caller_alloc (PyGIArgCache *arg_cache, GIArgument *arg)
             if (gi_type_info_get_array_fixed_size (arg_cache->type_info,
                                                    &fixed_size)) {
                 arg->v_pointer =
-                    g_malloc0 (array_cache->item_size * fixed_size);
+                    g_malloc0_n (fixed_size, array_cache->item_size);
                 break;
             }
             return FALSE;
@@ -469,12 +470,6 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
                               full_name, cache->n_py_args,
                               state->n_py_in_args);
                 g_free (full_name);
-
-                /* clean up all of the args we have already marshalled,
-                 * since invoke will not be called.
-                 */
-                pygi_marshal_cleanup_args_from_py_parameter_fail (state, cache,
-                                                                  i);
                 return FALSE;
             }
 
@@ -492,8 +487,6 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
                         "%s() takes exactly %zd argument(s) (%zd given)",
                         full_name, cache->n_py_args, state->n_py_in_args);
                     g_free (full_name);
-                    pygi_marshal_cleanup_args_from_py_parameter_fail (
-                        state, cache, i);
                     return FALSE;
                 }
 
@@ -528,8 +521,6 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
                                   "callable %s",
                                   i, full_name);
                     g_free (full_name);
-                    pygi_marshal_cleanup_args_from_py_parameter_fail (
-                        state, cache, i);
                     return FALSE;
                 }
             } else {
@@ -566,24 +557,20 @@ _invoke_marshal_in_args (PyGIInvokeState *state,
         if (marshal && arg_cache->from_py_marshaller != NULL
             && arg_cache->meta_type != PYGI_META_ARG_TYPE_CHILD) {
             gboolean success;
-            gpointer cleanup_data = NULL;
+            PyGIMarshalCleanupData cleanup_data = { NULL, NULL };
 
             if (!pygi_arg_cache_allow_none (arg_cache) && Py_IsNone (py_arg)) {
                 PyErr_Format (PyExc_TypeError,
                               "Argument %zd does not allow None as a value",
                               i);
 
-                pygi_marshal_cleanup_args_from_py_parameter_fail (state, cache,
-                                                                  i);
                 return FALSE;
             }
             success = arg_cache->from_py_marshaller (
                 state, cache, arg_cache, py_arg, c_arg, &cleanup_data);
-            state->args[i].arg_cleanup_data = cleanup_data;
+            state->args[i].from_py_arg_cleanup_data = cleanup_data;
 
             if (!success) {
-                pygi_marshal_cleanup_args_from_py_parameter_fail (state, cache,
-                                                                  i);
                 return FALSE;
             }
         }
@@ -601,26 +588,12 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
     PyObject *py_return = NULL;
     gssize n_out_args = cache->n_to_py_args - cache->n_to_py_child_args;
 
-    if (cache->return_cache) {
-        if (!pygi_callable_cache_skip_return (cache)) {
-            gpointer cleanup_data = NULL;
-            py_return = cache->return_cache->to_py_marshaller (
-                state, cache, cache->return_cache, &state->return_arg,
-                &cleanup_data);
-            state->to_py_return_arg_cleanup_data = cleanup_data;
-            if (py_return == NULL) {
-                pygi_marshal_cleanup_args_return_fail (state, cache);
-                return NULL;
-            }
-        } else {
-            if (cache->return_cache->transfer == GI_TRANSFER_EVERYTHING) {
-                PyGIMarshalToPyCleanupFunc to_py_cleanup =
-                    cache->return_cache->to_py_cleanup;
-
-                if (to_py_cleanup != NULL)
-                    to_py_cleanup (state, cache->return_cache, NULL,
-                                   &state->return_arg, FALSE);
-            }
+    if (cache->return_cache && !pygi_callable_cache_skip_return (cache)) {
+        py_return = cache->return_cache->to_py_marshaller (
+            state, cache, cache->return_cache, &state->return_arg,
+            &state->to_py_return_arg_cleanup_data);
+        if (py_return == NULL) {
+            return NULL;
         }
     }
 
@@ -649,7 +622,7 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
     } else if (!cache->has_return && n_out_args == 1) {
         /* if we get here there is one out arg an no return */
         PyGIArgCache *arg_cache = (PyGIArgCache *)cache->to_py_args->data;
-        gpointer cleanup_data = NULL;
+        PyGIMarshalCleanupData cleanup_data = { NULL, NULL };
         py_out = arg_cache->to_py_marshaller (
             state, cache, arg_cache,
             state->args[arg_cache->c_arg_index].arg_pointer.v_pointer,
@@ -657,7 +630,6 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
         state->args[arg_cache->c_arg_index].to_py_arg_cleanup_data =
             cleanup_data;
         if (py_out == NULL) {
-            pygi_marshal_cleanup_args_to_py_parameter_fail (state, cache, 0);
             return NULL;
         }
 
@@ -670,8 +642,6 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
         py_out = pygi_resulttuple_new (cache->resulttuple_type, tuple_len);
 
         if (py_out == NULL) {
-            pygi_marshal_cleanup_args_to_py_parameter_fail (state, cache,
-                                                            py_arg_index);
             return NULL;
         }
 
@@ -682,7 +652,7 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
 
         for (; py_arg_index < tuple_len; py_arg_index++) {
             PyGIArgCache *arg_cache = (PyGIArgCache *)cache_item->data;
-            gpointer cleanup_data = NULL;
+            PyGIMarshalCleanupData cleanup_data = { NULL, NULL };
             PyObject *py_obj = arg_cache->to_py_marshaller (
                 state, cache, arg_cache,
                 state->args[arg_cache->c_arg_index].arg_pointer.v_pointer,
@@ -692,9 +662,6 @@ _invoke_marshal_out_args (PyGIInvokeState *state,
 
             if (py_obj == NULL) {
                 if (cache->has_return) py_arg_index--;
-
-                pygi_marshal_cleanup_args_to_py_parameter_fail (state, cache,
-                                                                py_arg_index);
                 Py_DECREF (py_out);
                 return NULL;
             }
@@ -722,8 +689,10 @@ pygi_invoke_c_callable (PyGIFunctionCache *function_cache,
                                         py_nargsf, py_kwnames))
         goto err;
 
-    if (!_invoke_marshal_in_args (state, function_cache)) goto err;
-
+    if (!_invoke_marshal_in_args (state, function_cache)) {
+        pygi_marshal_cleanup_args_from_py (state, cache, /*success=*/FALSE);
+        goto err;
+    }
     Py_BEGIN_ALLOW_THREADS;
 
     ffi_call (&function_cache->invoker.cif, state->function_ptr,
@@ -740,7 +709,7 @@ pygi_invoke_c_callable (PyGIFunctionCache *function_cache,
         if (pygi_error_check (&state->error)) {
             /* even though we errored out, the call itself was successful,
                so we assume the call processed all of the parameters */
-            pygi_marshal_cleanup_args_from_py_marshal_success (state, cache);
+            pygi_marshal_cleanup_args_from_py (state, cache, /*success=*/TRUE);
             goto err;
         }
     }
@@ -752,10 +721,8 @@ pygi_invoke_c_callable (PyGIFunctionCache *function_cache,
     }
 
     ret = _invoke_marshal_out_args (state, function_cache);
-    pygi_marshal_cleanup_args_from_py_marshal_success (state, cache);
-
-    if (ret != NULL)
-        pygi_marshal_cleanup_args_to_py_marshal_success (state, cache);
+    pygi_marshal_cleanup_args_from_py (state, cache, /*success=*/TRUE);
+    pygi_marshal_cleanup_args_to_py (state, cache, /*success=*/ret != NULL);
 
 err:
     _invoke_state_clear (state, function_cache);

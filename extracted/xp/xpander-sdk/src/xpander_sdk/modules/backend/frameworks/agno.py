@@ -23,8 +23,10 @@ from xpander_sdk.core.context_optimizer.action_ledger import (
 from xpander_sdk.core.context_optimizer.constants import (
     COMPACTION_MODEL_ANTHROPIC,
     COMPACTION_MODEL_BEDROCK,
+    COMPACTION_MODEL_GEMINI,
     COMPACTION_MODEL_OPENAI,
     COMPACTION_MODEL_OVERRIDE_ENABLED,
+    compaction_provider_override,
     ERROR_STREAK_FINALIZE_AT,
     FINALIZE_MODE_ENABLED,
     FINALIZE_SAFE_READS_CAP,
@@ -1501,12 +1503,17 @@ _NO_PROGRESS_MARKERS = (
     # vault-binding person-only credential in an unattended run (same module, byte-matched)
     "This credential is set to run as the person asking",
     "Org-wide sharing is turned off for this agent",
+    # live-surface audience refusal when the agent's sharing flag is off (controller live_surfaces)
+    "Sharing is switched off for this agent",
     # always-on communication builtins' validation refusals (controller builtin_methods)
     "Provide at least one recipient address in `to`",
     "Provide the search terms in `query`",
     # inline live-surface manifest rejections (controller live_surfaces)
     "Fix the manifest and call",
     "manifest_too_large",
+    # file-path + write-time manifest rejections (same module, byte-matched)
+    "Fix the blocks named above in",
+    "invalid_manifest_not_written",
     # gateway support-ticket tool refusals (agent-controller agent_gateway/tools.py)
     "Add the issue details in `description`",
     "Support tickets are filed under a signed-in xpander user",
@@ -1894,6 +1901,13 @@ PLAN_COMPLETE_COUNTDOWN = (
     "PLAN COMPLETE: the plan finished {n} tool calls ago (budget {grace}). Stop gathering - "
     "answer the user in your next message."
 )
+# A no-work call must not spend this budget; bounded so a failure cannot spend the run.
+PLAN_COMPLETE_MAX_REPAIRS = 2
+PLAN_COMPLETE_REPAIR_NOTE = (
+    "That call did not go through, so the step it belonged to is not done. Fix what the error above "
+    "names and make the same call once more - a repair does not spend the wrap-up budget. If it "
+    "cannot be fixed, say so plainly in your final answer instead of trying other tools."
+)
 PLAN_COMPLETE_STOP = (
     "Done - the plan is fully complete and the post-plan call budget is spent. No further tool "
     "calls will run. Your next message MUST be plain text with your final answer to the "
@@ -1970,6 +1984,9 @@ def _track_plan_complete(
             _clear_plan_complete(task)
         return ""
     if getattr(task, "_xp_plan_complete_total", None):
+        # a refusal is a SUCCESSFUL result that did no work: error alone is too narrow
+        if result_is_error or _looks_like_no_progress(result):
+            _refund_plan_complete_call(task)
         return ""
     total = _detect_plan_complete(effective_name, result)
     if total is None:
@@ -1982,9 +1999,39 @@ def _track_plan_complete(
     return PLAN_COMPLETE_NOTE.format(total=total, grace=PLAN_COMPLETE_GRACE_CALLS)
 
 
+def _post_plan_warning_for(result: Any, countdown: str) -> str:
+    """The countdown, or a repair path when the call did no work."""
+    try:
+        if _result_is_error(result) or _looks_like_no_progress(result):
+            return PLAN_COMPLETE_REPAIR_NOTE
+    except Exception:
+        pass
+    return countdown
+
+
+def _refund_plan_complete_call(task: Any) -> bool:
+    """Give back the budget slot a FAILED post-plan call spent, for a bounded number of repairs."""
+    if task is None or not getattr(task, "_xp_plan_complete_total", None):
+        return False
+    repairs = getattr(task, "_xp_plan_repairs", 0) or 0
+    calls = getattr(task, "_xp_plan_complete_calls", 0) or 0
+    if repairs >= PLAN_COMPLETE_MAX_REPAIRS or calls <= 0:
+        return False
+    try:
+        object.__setattr__(task, "_xp_plan_complete_calls", calls - 1)
+        object.__setattr__(task, "_xp_plan_repairs", repairs + 1)
+    except Exception:
+        return False
+    return True
+
+
 def _clear_plan_complete(task: Any) -> None:
     """Drop the plan-complete state (plan reopened or run reset)."""
-    for attr in ("_xp_plan_complete_total", "_xp_plan_complete_calls"):
+    for attr in (
+        "_xp_plan_complete_total",
+        "_xp_plan_complete_calls",
+        "_xp_plan_repairs",
+    ):
         try:
             object.__setattr__(task, attr, None)
         except Exception:
@@ -3346,6 +3393,8 @@ async def build_agent_args(
 
         # Stuck detection: check for repeated calls
         stuck_warning = None
+        # the countdown is chosen pre-call; an errored result needs a repair path instead
+        pc_countdown = False
         try:
             # Plan bookkeeping and the sleep+poll pair legitimately repeat; everything
             # else is checked. Keyed on the effective inner tool so dynamic/MCP loops
@@ -3527,6 +3576,7 @@ async def build_agent_args(
                     stuck_warning = PLAN_COMPLETE_COUNTDOWN.format(
                         n=pc_calls, grace=PLAN_COMPLETE_GRACE_CALLS
                     )
+                    pc_countdown = True
         except Exception:
             pass
 
@@ -3942,6 +3992,8 @@ async def build_agent_args(
                 # Effective name: five raises through xp_execute_tool must streak the
                 # INNER tool, never phantom-disable the meta-tool.
                 _record_tool_outcome(eff_name, True)
+                # re-raised below, so the post-call refund never runs for this call
+                _refund_plan_complete_call(task)
                 if guidance_added:
                     raise ToolSchemaValidationError(error) from e
                 raise
@@ -4200,6 +4252,9 @@ async def build_agent_args(
                         result.content = compacted
             except Exception:
                 pass
+
+        if pc_countdown and stuck_warning:
+            stuck_warning = _post_plan_warning_for(result, stuck_warning)
 
         # Append stuck warning to tool result so the LLM sees it
         if stuck_warning:
@@ -5263,13 +5318,29 @@ def _load_llm_model(
     )
 
 
+# Accepted spellings for XP_COMPACTION_PROVIDER → canonical provider ids.
+_COMPACTION_PROVIDER_ALIASES = {
+    "bedrock": "amazon_bedrock",
+    "google": "google_ai_studio",
+    "gemini": "google_ai_studio",
+}
+
+
 def _select_compaction_provider(
     agent: Agent,
 ) -> Optional[Tuple[str, str, str]]:
     """Decide which provider + model the compaction override should use, purely
     from available credentials. Returns ``(provider, model_id, api_key)`` in
-    priority order (bedrock → anthropic → openai), or ``None`` when the override
-    is disabled or no preferred provider has credentials.
+    priority order (bedrock → anthropic → openai → gemini), or ``None`` when the
+    override is disabled or no preferred provider has credentials.
+
+    ``XP_COMPACTION_PROVIDER`` pins a provider per deployment: its candidate is
+    tried first, and a pin whose credential is missing falls back to the chain
+    (mirrors the gateway's fallback-on-what-exists behavior) rather than dead-
+    ending on stale config. ``none`` disables the override entirely. Selection
+    is credential-based only: a selected provider whose client later fails to
+    construct still falls back to the agent's own model, never to a different
+    provider (see ``_load_compaction_model``).
 
     This is the *selection* contract and contains no model construction, so it
     never raises — the chosen provider depends only on which credentials resolve,
@@ -5315,10 +5386,32 @@ def _select_compaction_provider(
             COMPACTION_MODEL_OPENAI,
             ["AGENTS_OPENAI_API_KEY", "OPENAI_API_KEY"],
         ),
+        ("google_ai_studio", COMPACTION_MODEL_GEMINI, ["GOOGLE_API_KEY"]),
     ]
+
+    pin = compaction_provider_override()
+    if pin in ("none", "agent", "off"):
+        return None
+    pin = _COMPACTION_PROVIDER_ALIASES.get(pin, pin)
+    pinned = next((c for c in candidates if c[0] == pin), None)
+    if pin and pinned is None:
+        logger.warning(
+            f"[context-optimizer] unknown XP_COMPACTION_PROVIDER '{pin}'; "
+            "using the credential-priority chain"
+        )
+    elif pinned is not None:
+        # Pin tries first but keeps the chain behind it: a stale pin whose
+        # credential is gone degrades to whatever provider exists.
+        candidates = [pinned] + [c for c in candidates if c[0] != pin]
+
     for provider, model_id, env_names in candidates:
         key = _avail(provider, env_names)
         if key:
+            if pinned is not None and provider != pinned[0]:
+                logger.warning(
+                    f"[context-optimizer] pinned compaction provider "
+                    f"'{pinned[0]}' has no credential; falling back to {provider}"
+                )
             return provider, model_id, key
     return None
 
@@ -5340,10 +5433,16 @@ def _load_compaction_model(agent: Agent, task: Optional[Task] = None) -> Optiona
     """
     selection = _select_compaction_provider(agent)
     if selection is None:
-        logger.info(
-            "[context-optimizer] no preferred compaction provider available; "
-            "using the agent's own model"
-        )
+        if compaction_provider_override() in ("none", "agent", "off"):
+            logger.info(
+                "[context-optimizer] compaction override disabled via "
+                "XP_COMPACTION_PROVIDER; using the agent's own model"
+            )
+        else:
+            logger.info(
+                "[context-optimizer] no preferred compaction provider available; "
+                "using the agent's own model"
+            )
         return None
 
     provider, model_id, api_key = selection
@@ -5379,6 +5478,21 @@ def _load_compaction_model(agent: Agent, task: Optional[Task] = None) -> Optiona
                 client_params={"timeout": LLM_REQUEST_TIMEOUT_SECONDS},
             )
             model._supports_structured_outputs = lambda: True  # override agno filter
+        elif provider == "google_ai_studio":
+            from agno.models.google import Gemini
+
+            # No caching wrapper - Gemini caches implicitly (see _load_llm_model).
+            model = Gemini(
+                id=model_id,
+                api_key=api_key,
+                temperature=0.0,
+                # compaction is mechanical work; don't pay for dynamic thinking
+                thinking_budget=0,
+                retries=3,
+                exponential_backoff=True,
+                # agno converts this to genai http_options timeout (ms)
+                timeout=LLM_REQUEST_TIMEOUT_SECONDS,
+            )
         else:  # openai
             from agno.models.openai import OpenAIChat
 
@@ -7002,7 +7116,7 @@ _MODEL_CONTEXT_WINDOWS_EXACT: Dict[str, int] = {
     "deepseek-ai/DeepSeek-R1-0528": 128_000,
     "deepseek-ai/DeepSeek-R1-0528-fast": 128_000,
     # OpenAI gpt-oss
-    "gpt-oss-120b": 128_000,  # Cerebras model id
+    "gpt-oss-120b": 131_072,  # Cerebras model id
     "openai.gpt-oss-120b-1:0": 128_000,
     "openai.gpt-oss-20b-1:0": 128_000,
     "fireworks/gpt-oss-120b": 128_000,
@@ -7014,6 +7128,9 @@ _MODEL_CONTEXT_WINDOWS_EXACT: Dict[str, int] = {
     "openai/gpt-oss-safeguard-20b": 128_000,
     "gpt-oss-120b-250805": 131_072,
     "deepseek-v3-2-251201": 131_072,
+    # Gemma 4 on Cerebras (their hosted window; other hosts declare 256K)
+    "gemma-4-31b": 131_072,
+    "google/gemma-4-31b-it": 131_072,
     # Amazon Nova Micro
     "amazon.nova-micro-v1:0": 128_000,
     "amazon/nova-micro-v1": 128_000,

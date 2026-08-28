@@ -1486,7 +1486,7 @@ https://docs.aws.amazon.com/lambda/latest/dg/invocation-recursion.html
 
 ## Lambda with SnapStart
 
-SnapStart is currently supported on Python 3.12, Python 3.13, .NET 8, and Java 11 and later [Java managed runtimes](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html). SnapStart does not support provisioned concurrency, Amazon Elastic File System (Amazon EFS), or ephemeral storage greater than 512 MB. After you enable Lambda SnapStart for a particular Lambda function, publishing a new version of the function will trigger an optimization process.
+SnapStart is currently supported on Python 3.12, Python 3.13, .NET 8, and Java 11 and later [Java managed runtimes](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html), as well as container image (OCI) deployments. SnapStart does not support provisioned concurrency, Amazon Elastic File System (Amazon EFS), or ephemeral storage greater than 512 MB. After you enable Lambda SnapStart for a particular Lambda function, publishing a new version of the function will trigger an optimization process.
 
 See [the AWS documentation](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html) to learn more about AWS Lambda SnapStart
 
@@ -1495,6 +1495,17 @@ fn = lambda_.Function(self, "MyFunction",
     code=lambda_.Code.from_asset(path.join(__dirname, "handler.zip")),
     runtime=lambda_.Runtime.JAVA_11,
     handler="example.Handler::handleRequest",
+    snap_start=lambda_.SnapStartConf.ON_PUBLISHED_VERSIONS
+)
+
+version = fn.current_version
+```
+
+SnapStart can also be used with container image functions:
+
+```python
+fn = lambda_.DockerImageFunction(self, "MyFunction",
+    code=lambda_.DockerImageCode.from_image_asset(path.join(__dirname, "docker-handler")),
     snap_start=lambda_.SnapStartConf.ON_PUBLISHED_VERSIONS
 )
 
@@ -15618,7 +15629,7 @@ class CfnPermission(
         invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         principal_org_id: typing.Optional[builtins.str] = None,
         source_account: typing.Optional[builtins.str] = None,
-        source_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef", "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
+        source_arn: typing.Optional[typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iam_632e20f6.IRoleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::Lambda::Permission``.
 
@@ -15868,7 +15879,7 @@ class CfnPermissionProps:
         invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         principal_org_id: typing.Optional[builtins.str] = None,
         source_account: typing.Optional[builtins.str] = None,
-        source_arn: typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef", "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
+        source_arn: typing.Optional[typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iam_632e20f6.IRoleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPermission``.
 
@@ -16035,7 +16046,7 @@ class CfnPermissionProps:
     @builtins.property
     def source_arn(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef", "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]]:
+    ) -> typing.Optional[typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iam_632e20f6.IRoleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]]:
         '''For AWS services , the ARN of the AWS resource that invokes the function.
 
         For example, an Amazon S3 bucket or Amazon SNS topic.
@@ -16045,7 +16056,7 @@ class CfnPermissionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-permission.html#cfn-lambda-permission-sourcearn
         '''
         result = self._values.get("source_arn")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_iam_632e20f6.IRoleRef", "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_aws_cognito_aa210b15.IUserPoolRef", "_aws_events_49a540ff.IRuleRef", "_aws_iam_632e20f6.IRoleRef", "_aws_iot_df2fec1f.ITopicRuleRef", "_aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef", "_aws_lambda_aaab8031.IFunctionRef", "_aws_logs_8e99d4be.ILogGroupRef", "_aws_s3_03fe213b.IBucketRef", "_aws_sns_c06cc191.ITopicRef", "_aws_sqs_5e3fc237.IQueueRef"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18735,7 +18746,8 @@ class DockerImageCode(
     Example::
 
         lambda_.DockerImageFunction(self, "AssetFunction",
-            code=lambda_.DockerImageCode.from_image_asset(path.join(__dirname, "docker-handler"))
+            code=lambda_.DockerImageCode.from_image_asset(path.join(__dirname, "docker-arm64-handler")),
+            architecture=lambda_.Architecture.ARM_64
         )
     '''
 
@@ -21549,7 +21561,7 @@ class FunctionOptions(EventInvokeConfigOptions):
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -22412,7 +22424,8 @@ class FunctionOptions(EventInvokeConfigOptions):
     def snap_start(self) -> typing.Optional["SnapStartConf"]:
         '''Enable SnapStart for Lambda Function.
 
-        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime
+        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime,
+        as well as container image (OCI) deployments.
 
         :default: - No snapstart
         '''
@@ -22676,7 +22689,7 @@ class FunctionProps(FunctionOptions):
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -23445,7 +23458,8 @@ class FunctionProps(FunctionOptions):
     def snap_start(self) -> typing.Optional["SnapStartConf"]:
         '''Enable SnapStart for Lambda Function.
 
-        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime
+        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime,
+        as well as container image (OCI) deployments.
 
         :default: - No snapstart
         '''
@@ -29782,7 +29796,7 @@ class SingletonFunctionProps(FunctionProps):
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -30543,7 +30557,8 @@ class SingletonFunctionProps(FunctionProps):
     def snap_start(self) -> typing.Optional["SnapStartConf"]:
         '''Enable SnapStart for Lambda Function.
 
-        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime
+        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime,
+        as well as container image (OCI) deployments.
 
         :default: - No snapstart
         '''
@@ -33250,7 +33265,7 @@ class DockerImageFunctionProps(FunctionOptions):
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -33265,7 +33280,8 @@ class DockerImageFunctionProps(FunctionOptions):
         Example::
 
             lambda_.DockerImageFunction(self, "AssetFunction",
-                code=lambda_.DockerImageCode.from_image_asset(path.join(__dirname, "docker-handler"))
+                code=lambda_.DockerImageCode.from_image_asset(path.join(__dirname, "docker-arm64-handler")),
+                architecture=lambda_.Architecture.ARM_64
             )
         '''
         if isinstance(adot_instrumentation, dict):
@@ -33996,7 +34012,8 @@ class DockerImageFunctionProps(FunctionOptions):
     def snap_start(self) -> typing.Optional["SnapStartConf"]:
         '''Enable SnapStart for Lambda Function.
 
-        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime
+        SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime,
+        as well as container image (OCI) deployments.
 
         :default: - No snapstart
         '''
@@ -35581,7 +35598,7 @@ class SingletonFunction(
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -36657,7 +36674,7 @@ class Function(
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -37454,7 +37471,8 @@ class DockerImageFunction(
     Example::
 
         lambda_.DockerImageFunction(self, "AssetFunction",
-            code=lambda_.DockerImageCode.from_image_asset(path.join(__dirname, "docker-handler"))
+            code=lambda_.DockerImageCode.from_image_asset(path.join(__dirname, "docker-arm64-handler")),
+            architecture=lambda_.Architecture.ARM_64
         )
     '''
 
@@ -37561,7 +37579,7 @@ class DockerImageFunction(
         :param role: Lambda execution role. This is the role that will be assumed by the function upon execution. It controls the permissions that the function will have. The Role must be assumable by the 'lambda.amazonaws.com' service principal. The default Role automatically has permissions granted for Lambda execution. If you provide a Role, you must add the relevant AWS managed policies yourself. The relevant managed policies are "service-role/AWSLambdaBasicExecutionRole" and "service-role/AWSLambdaVPCAccessExecutionRole". Default: - A unique role will be generated for this lambda function. Both supplied and generated roles can always be changed by calling ``addToRolePolicy``.
         :param runtime_management_mode: Sets the runtime management configuration for a function's version. Default: Auto
         :param security_groups: The list of security groups to associate with the Lambda's network interfaces. Only used if 'vpc' is supplied. Default: - If the function is placed within a VPC and a security group is not specified, either by this or securityGroup prop, a dedicated security group will be created for this function.
-        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime Default: - No snapstart
+        :param snap_start: Enable SnapStart for Lambda Function. SnapStart is currently supported for Java 11, Java 17, Python 3.12, Python 3.13, and .NET 8 runtime, as well as container image (OCI) deployments. Default: - No snapstart
         :param system_log_level: (deprecated) Sets the system log level for the function. Default: "INFO"
         :param system_log_level_v2: Sets the system log level for the function. Default: SystemLogLevel.INFO
         :param tenancy_config: The tenancy configuration for the function. Default: - Tenant isolation is not enabled
@@ -39777,7 +39795,7 @@ def _typecheckingstub__c457a277b84dbba5bd94a2c0135335b8d7dbb3d409b1fa988b4f5a219
     invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     principal_org_id: typing.Optional[builtins.str] = None,
     source_account: typing.Optional[builtins.str] = None,
-    source_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+    source_arn: typing.Optional[typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iam_632e20f6.IRoleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39864,7 +39882,7 @@ def _typecheckingstub__b0c90e5a512dc08c54978bc1f6bf13992ad2d1d5c793f2b05fc82eef3
     invoked_via_function_url: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     principal_org_id: typing.Optional[builtins.str] = None,
     source_account: typing.Optional[builtins.str] = None,
-    source_arn: typing.Optional[typing.Union[builtins.str, _aws_iam_632e20f6.IRoleRef, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
+    source_arn: typing.Optional[typing.Union[builtins.str, _aws_cognito_aa210b15.IUserPoolRef, _aws_events_49a540ff.IRuleRef, _aws_iam_632e20f6.IRoleRef, _aws_iot_df2fec1f.ITopicRuleRef, _aws_kinesisfirehose_0487cfc9.IDeliveryStreamRef, _aws_lambda_aaab8031.IFunctionRef, _aws_logs_8e99d4be.ILogGroupRef, _aws_s3_03fe213b.IBucketRef, _aws_sns_c06cc191.ITopicRef, _aws_sqs_5e3fc237.IQueueRef]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

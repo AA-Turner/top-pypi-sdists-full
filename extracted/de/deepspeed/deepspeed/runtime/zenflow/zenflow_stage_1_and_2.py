@@ -44,6 +44,12 @@ SELECTIVE_OPTIMIZER_TIMERS = [
 ]
 
 
+def _num_selected_columns(num_columns, topk_ratio):
+    if num_columns == 0:
+        return 0
+    return max(1, int(num_columns * topk_ratio))
+
+
 class ZenFlowZeroOptimizer(DeepSpeedZeroOptimizer):
 
     def __init__(
@@ -84,6 +90,23 @@ class ZenFlowZeroOptimizer(DeepSpeedZeroOptimizer):
             return ZenFlowZeroOptimizerParallel
         else:
             return ZenFlowZeroOptimizerSequential
+
+    def _unpin_offload_buffers(self):
+        super()._unpin_offload_buffers()
+        if not (self.cpu_offload and self.cpu_offload_pin_memory):
+            return
+        # ZenFlow additionally pins per-parameter selective-optimizer state and, for the
+        # parallel variant, per-partition overlap-grad buffers on the host.
+        accelerator = get_accelerator()
+        for group in self.bit16_groups:
+            for param in group:
+                for attr in ('exp_avg_cpu_data', 'exp_avg_sq_cpu_data'):
+                    buffer = getattr(param, attr, None)
+                    if buffer is not None:
+                        accelerator.unpin_memory(buffer)
+        for fp32_partition in self.single_partition_of_fp32_groups:
+            for buffer in getattr(fp32_partition, 'overlap_grad', None) or []:
+                accelerator.unpin_memory(buffer)
 
     def _configure_zenflow(self, zenflow_config):
         """
@@ -194,7 +217,7 @@ class ZenFlowZeroOptimizer(DeepSpeedZeroOptimizer):
                 num_row, num_col = param.shape if len(param.shape) == 2 else (1, param.shape[0])
                 start_column = 0 if not offset else int((offset - 1) / num_row) + 1
                 end_column = int((offset + numel) / num_row)
-                num_select = int(self.topk_ratio * (end_column - start_column))
+                num_select = _num_selected_columns(end_column - start_column, self.topk_ratio)
 
                 if partition_id == rank:
 
@@ -255,9 +278,6 @@ class ZenFlowZeroOptimizer(DeepSpeedZeroOptimizer):
         """
         Process gradients for selected columns in FP32 groups
 
-        Args:
-            param: The parameter to process
-            param_id: ID of the parameter
         """
 
         curr_size = 0
@@ -306,7 +326,10 @@ class ZenFlowZeroOptimizer(DeepSpeedZeroOptimizer):
                 num_row, num_col = param.shape if len(param.shape) == 2 else (1, param.shape[0])
                 start_column = 0 if not offset else int((offset - 1) / num_row) + 1
                 end_column = int((offset + numel) / num_row)
-                num_select = int(self.topk_ratio * (end_column - start_column)) if len(param.shape) == 2 else numel
+                if len(param.shape) == 2:
+                    num_select = _num_selected_columns(end_column - start_column, self.topk_ratio)
+                else:
+                    num_select = numel
                 grad_size = num_select * num_row
 
                 if partition_id == rank:
@@ -468,8 +491,7 @@ class ZenFlowZeroOptimizer(DeepSpeedZeroOptimizer):
                     partition_ids_w_offsets.append((partition_id, offset))
                 partition_ids_w_offsets.sort(key=lambda t: t[1])
 
-                num_row, num_col = param.shape if len(param.shape) == 2 else (1, param.shape[0])
-                curr_column_size += int(num_col * self.topk_ratio) if num_row != 1 else 0
+                num_row, _ = param.shape if len(param.shape) == 2 else (1, param.shape[0])
 
                 # Calculate rank and offsets for grad slices
                 for idx in range(len(partition_ids_w_offsets)):
@@ -483,6 +505,15 @@ class ZenFlowZeroOptimizer(DeepSpeedZeroOptimizer):
                         # Set numel to next partition's offset
                         numel = partition_ids_w_offsets[idx + 1][1] - offset
 
+                    if len(param.shape) == 2:
+                        start_column = 0 if not offset else int((offset - 1) / num_row) + 1
+                        end_column = int((offset + numel) / num_row)
+                        num_select = _num_selected_columns(end_column - start_column, self.topk_ratio)
+                        curr_column_size += num_select
+                        curr_selected_reduce_size += num_select * num_row
+                    else:
+                        curr_selected_reduce_size += numel
+
                     # Merge bucket ranges if they belong to the same rank
                     if partition_id == prev_id and process_group == prev_process_group:
                         prev_pid, prev_size, prev_numel = rank_and_offsets[-1]
@@ -491,7 +522,6 @@ class ZenFlowZeroOptimizer(DeepSpeedZeroOptimizer):
                         rank_and_offsets.append((partition_id, curr_size, numel))
                         real_dp_process_group.append(process_group)
                     curr_size += numel
-                    curr_selected_reduce_size += int(numel * self.topk_ratio) if num_row != 1 else numel
 
                     prev_id, prev_process_group = partition_id, process_group
 

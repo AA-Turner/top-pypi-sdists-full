@@ -544,6 +544,15 @@ class Geocif:
         self.monthly_plus_fullseason_features = self.parser.getboolean(
             self.model_name, "monthly_plus_fullseason_features", fallback=False,
         )
+        # Per-model flag: include Region as a penalized factor term (pygam
+        # f()) in the GAM — per-region intercepts inside one pooled model
+        # (the "factor GAM"). Only meaningful under pooled cluster
+        # strategies where Region varies within a training frame; in
+        # per-region training Region is single-level and the factor is
+        # skipped. Off by default: the plain GAM stays region-blind.
+        self.gam_region_factor = self.parser.getboolean(
+            self.model_name, "gam_region_factor", fallback=False,
+        )
         # curated_<algo> wrappers train on a hand-picked CID list — the
         # whole point is to bypass gOMP / Boruta selection and use every
         # surviving column. Force feature_selection = none for them,
@@ -4198,7 +4207,20 @@ class Geocif:
         """
         if not isinstance(stages_features, list):
             raise TypeError("stages_features should be a list")
-        
+
+        # Normalize selected_features: the CID loop below indexes it as a
+        # DataFrame (selected_features["CID"]), but the linear top-3 branch
+        # hands over a plain list of CID names. That mismatch raised
+        # TypeError("list indices must be integers...") PER CANDIDATE COLUMN
+        # (~212k log lines in one run), was swallowed by the per-feature
+        # try/except, and silently produced a CID-less model (lags + lat/lon
+        # only). Accept list-likes by wrapping them in the expected shape.
+        if isinstance(selected_features, (list, tuple, set)) or (
+            hasattr(selected_features, "ndim")
+            and getattr(selected_features, "ndim", 0) == 1
+        ):
+            selected_features = pd.DataFrame({"CID": list(selected_features)})
+
         self.feature_names = []
 
         if not stages_features or self.is_pre_season:
@@ -4806,6 +4828,11 @@ class Geocif:
             X_test = X_test.drop(
                 columns=[item for item in self.cat_features if item != "Harvest Year"]
             )
+            # Same train-median fill as _scale_if_needed: LassoCV/GPR refuse
+            # NaN, and test rows must be filled with TRAIN statistics.
+            _fill = getattr(self, "_scaled_model_fill", None)
+            if _fill is not None:
+                X_test = X_test.fillna(_fill)
             return scaler.transform(X_test)
 
         if self.dispatch_name == "gam":
@@ -4813,6 +4840,14 @@ class Geocif:
             # Region_ID / Region dropped).  No rescaling — pygam splines
             # handle raw numeric ranges. dispatch_name keeps curated_gam
             # routed through the same path as plain gam.
+            # When the model was fit with a Region factor term, rebuild the
+            # integer-coded column with the SAME fit-time level ordering.
+            # Unseen regions code to NaN and fall through to the median
+            # fill below — a seen level, degrading gracefully instead of
+            # tripping pygam's f() domain check.
+            _levels = getattr(self, "_gam_region_levels", None)
+            if _levels:
+                X_test = GAMFitter.encode_region_factor(X_test, _levels)
             fit_cols = getattr(self, "_gam_fit_cols", None)
             if fit_cols is not None:
                 X_aligned = X_test.reindex(columns=fit_cols)
@@ -4829,6 +4864,13 @@ class Geocif:
             if medians is not None:
                 X_aligned = X_aligned.fillna(medians)
             X_aligned = X_aligned.replace([np.inf, -np.inf], np.nan).fillna(0)
+            # Factor codes must be exact fit-time levels: a median fill over
+            # an even level count yields x.5, which is not a level pygam's
+            # f() term ever saw. Round-and-clip restores a valid code.
+            if _levels and GAMFitter._REGION_COL in X_aligned.columns:
+                X_aligned[GAMFitter._REGION_COL] = (
+                    X_aligned[GAMFitter._REGION_COL].round().clip(0, len(_levels) - 1)
+                )
             return X_aligned
 
         if self.model_name == "cubist":
@@ -5521,8 +5563,25 @@ class Geocif:
         dict_best_cid: Dict
     ):
         """Create feature names based on model type and region."""
-        if self.model_name == "linear":
+        # dispatch_name, not model_name: last<N>m_linear / curated_linear must
+        # take the same top-3-CID path as plain linear. Every other
+        # linear-specific site (scaler, fitter map, NaN fill, test preprocess)
+        # already keys on dispatch_name.
+        #
+        # The top-3 dict comes from _generate_correlation_plots, which returns
+        # ({}, {}) whenever correlation_plots = False — so this branch used to
+        # crash with KeyError on a PLOTTING flag. Fall back to the standard
+        # selection path instead, loudly.
+        if self.dispatch_name == "linear" and region_id in dict_best_cid                 and len(dict_best_cid[region_id]):
             selected = dict_best_cid[region_id][0:3].tolist()
+            self.create_feature_names(stages, selected)
+        elif self.dispatch_name == "linear":
+            self.logger.warning(
+                f"  linear top-3-CID selection needs correlation_plots = True "
+                f"(dict_best_cid empty for region {region_id}); falling back "
+                f"to standard feature selection"
+            )
+            selected = dict_selected_features.get(region_id)
             self.create_feature_names(stages, selected)
         elif self.model_name.startswith("cumulative_"):
             self.create_feature_names(stages, {})
@@ -6044,14 +6103,27 @@ class ModelTrainer:
         df_save.to_csv(dir_output / f"X_train_{region_id}.csv", index=False)
     
     def _scale_if_needed(self, X_train: pd.DataFrame, scaler):
-        """Scale features if scaler is provided."""
+        """Scale features if scaler is provided.
+
+        Median-imputes BEFORE fitting the scaler. The per-split
+        ``_fill_missing_values`` only mutates ``self.X_train``, while this
+        matrix is re-sliced fresh from ``df_region`` — so its fill never
+        reaches the fit. Lag features (``t -1/-2/-3 Yield``) are NaN for the
+        earliest training years by construction, StandardScaler passes NaN
+        through, and LassoCV refuses it — which killed all 44 folds of the
+        first ``last9m_linear`` run with "Input X contains NaN". The train
+        medians are stored on the Geocif object so predict-time test rows are
+        filled with TRAIN statistics, never their own.
+        """
         if not scaler:
             return X_train
-        
+
         X_train_nocat = X_train.drop(
             columns=[item for item in self.obj.cat_features 
                     if item != "Harvest Year"]
         )
+        self.obj._scaled_model_fill = X_train_nocat.median(numeric_only=True)
+        X_train_nocat = X_train_nocat.fillna(self.obj._scaled_model_fill)
         return scaler.fit_transform(X_train_nocat)
     
     def _train_base_model(self, df_region: pd.DataFrame, X_train_scaled):
@@ -6438,13 +6510,44 @@ class GAMFitter(BaseFitter):
     # (Region_ID is an arbitrary integer ID), zero-variance per region
     # (Region is constant in per-region training), or inextrapolable
     # (Harvest Year would cause domain errors at forecast time).
+    # Region CAN come back in as a factor term via gam_region_factor —
+    # unlike Harvest Year, every Region level seen at forecast time also
+    # exists in training under pooled strategies, so f() is safe there.
     _DROP_COLS = ("Harvest Year", "Region_ID", "Region")
 
+    # Name of the synthetic integer-coded column the factor term uses.
+    _REGION_COL = "Region_factor"
+
+    @staticmethod
+    def encode_region_factor(X: pd.DataFrame, levels) -> pd.DataFrame:
+        """Return a copy of ``X`` with ``Region_factor`` = the integer code
+        of ``Region`` under the fit-time ``levels`` ordering. Regions not in
+        ``levels`` map to NaN — downstream median-fill turns them into a
+        seen level rather than crashing pygam's f() domain check."""
+        codes = {r: float(i) for i, r in enumerate(levels)}
+        out = X.copy()
+        out[GAMFitter._REGION_COL] = (
+            out["Region"].astype(str).map(codes) if "Region" in out.columns else np.nan
+        )
+        return out
+
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
-        from pygam import LinearGAM, LogisticGAM, s
+        from pygam import LinearGAM, LogisticGAM, s, f
 
         # Fit-time layout must match what _preprocess_test_data produces.
         X_fit = X_train.drop(columns=list(self._DROP_COLS), errors="ignore")
+
+        # Optional per-region intercepts: encode Region to integer codes and
+        # add a penalized factor term. Skipped when Region is absent or
+        # single-level (per-region training), where it carries no signal.
+        self.obj._gam_region_levels = None
+        if getattr(self.obj, "gam_region_factor", False) and "Region" in X_train.columns:
+            levels = sorted(pd.Series(X_train["Region"]).astype(str).unique())
+            if len(levels) >= 2:
+                self.obj._gam_region_levels = levels
+                X_fit = self.encode_region_factor(
+                    X_fit.assign(Region=X_train["Region"]), levels
+                ).drop(columns=["Region"])
 
         # Adaptive spline count.  Cap low so we don't overfit small regions
         # (a country/crop often has < 100 training rows); splines are cubic
@@ -6453,8 +6556,11 @@ class GAMFitter(BaseFitter):
         n_splines = max(4, min(10, len(X_fit) // 20))
 
         terms = None
-        for i, _ in enumerate(X_fit.columns):
-            term = s(i, n_splines=n_splines, spline_order=3)
+        for i, col in enumerate(X_fit.columns):
+            term = (
+                f(i) if col == self._REGION_COL
+                else s(i, n_splines=n_splines, spline_order=3)
+            )
             terms = term if terms is None else terms + term
 
         gam_cls = LogisticGAM if self.obj.model_type == "CLASSIFICATION" else LinearGAM

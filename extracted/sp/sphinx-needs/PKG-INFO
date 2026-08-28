@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-needs
-Version: 8.3.1
+Version: 8.4.0
 Summary: Sphinx needs extension for managing needs/requirements and specifications
 Author-email: team useblocks <info@useblocks.com>
 Requires-Python: >=3.10,<4
@@ -50,6 +50,7 @@ Requires-Dist: responses~=0.22.0 ; extra == "test"
 Requires-Dist: pydantic~=2.12 ; extra == "test"
 Requires-Dist: pytest-xprocess~=1.0 ; extra == "test"
 Requires-Dist: pyyaml ~= 6.0 ; extra == "test"
+Requires-Dist: myst-parser>=4,<6 ; extra == "test"
 Requires-Dist: pytest-xdist ; extra == "test-parallel"
 Requires-Dist: furo~=2024.8.6 ; extra == "theme-furo"
 Requires-Dist: sphinx-immaterial~=0.11.11 ; extra == "theme-im"
@@ -97,7 +98,7 @@ Layout and style of needs can be highly customized, so that a need can also look
 .. image:: https://raw.githubusercontent.com/useblocks/sphinxcontrib-needs/master/docs/_images/need_2.png
    :align: center
 
-Take a look into our `Examples <https://sphinxcontrib-needs.readthedocs.io/en/latest/examples/index.html>`_ for more
+Take a look into our tutorial for more
 pictures and ideas how to use ``Sphinx-Needs``.
 
 For filtering and analyzing needs, ``Sphinx-Needs`` provides different, powerful possibilities:

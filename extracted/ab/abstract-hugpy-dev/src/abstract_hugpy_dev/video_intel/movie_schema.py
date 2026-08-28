@@ -21,11 +21,35 @@ IS a scene render); the movie TOTAL is unbounded by design (movies are long).
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from .media_schema import MediaRef
 from .scene_schema import FRAME_CAP
+
+# --------------------------------------------------------------------------- #
+# legacy pixel chain gate (board or-k2 / proposal or-p1)
+# --------------------------------------------------------------------------- #
+# Chaining (frame i+1 conditioning on frame i; segment N+1 starting from segment
+# N's last frame) is the LEGACY behaviour the oracle directive prohibits. It is
+# OFF by default and only available when the operator opts in fleet-wide with
+# HUGPY_LEGACY_CHAIN=1. Every runner reads the switch through ONE helper so the
+# movie and scene paths can never disagree.
+LEGACY_CHAIN_ENV = "HUGPY_LEGACY_CHAIN"
+LEGACY_CHAIN_LABEL = "legacy (pixel-chained)"
+_TRUTHY = ("1", "true", "yes", "on")
+
+
+def legacy_chain_enabled() -> bool:
+    """True only when HUGPY_LEGACY_CHAIN is set to 1/true/yes/on. Unset -> False."""
+    return os.environ.get(LEGACY_CHAIN_ENV, "0").strip().lower() in _TRUTHY
+
+
+def effective_chain(requested: bool) -> bool:
+    """The chain value a runner may actually USE: the requested flag, forced to
+    False unless the legacy switch is opted in."""
+    return bool(requested) and legacy_chain_enabled()
 
 
 @dataclass(frozen=True)
@@ -93,7 +117,7 @@ class MovieSpec:
     seed: Optional[int] = None
     negative: Optional[str] = None
     strength: Optional[float] = None
-    chain: bool = True
+    chain: bool = False
     project: Optional[str] = None
     # --- director knobs ---
     vision_enabled: bool = False
@@ -115,7 +139,7 @@ def make_movie(
     seed: Optional[int] = None,
     negative: Optional[str] = None,
     strength: Optional[float] = None,
-    chain: bool = True,
+    chain: bool = False,
     project: Optional[str] = None,
     vision_enabled: bool = False,
     score_threshold: int = 60,

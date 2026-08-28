@@ -4,12 +4,12 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import json
+
 import logging
 import os
 from abc import ABCMeta, abstractmethod
 from argparse import ArgumentParser, Namespace
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
 from idb.common import plugin
 from idb.common.command import Command
@@ -86,6 +86,12 @@ class BaseCommand(Command, metaclass=ABCMeta):
             default=False,
             help="Create json structured output",
         )
+        parser.add_argument(
+            "--reason",
+            type=str,
+            default=None,
+            help="Plain-language reason this command is being run. (Intended for use by automation. 200 chars max.)",
+        )
 
     async def run(self, args: Namespace) -> None:
         # In order to keep the argparse compatible with old invocations
@@ -93,16 +99,24 @@ class BaseCommand(Command, metaclass=ABCMeta):
         logging.getLogger().setLevel(args.log_level_deprecated or args.log_level)
         name = self.__class__.__name__
         self.logger.debug(f"{name} command run with: {args}")
+        if args.reason:
+            self.logger.info(f"Invocation reason: {args.reason}")
         if args.log_level_deprecated is not None:
             self.logger.warning(
                 "Setting --log after the command is deprecated, please place it at the start of the invocation"
             )
-        metadata: LoggingMetadata = plugin.resolve_metadata(logger=self.logger)
-        metadata["arguments"] = json.dumps(args.__dict__, default=lambda v: str(v))
+        metadata: LoggingMetadata = plugin.resolve_metadata(
+            logger=self.logger, command=self, args=args
+        )
+        if args.reason:
+            metadata["reason"] = args.reason[:200]
         async with log_call(
             name=name,
             metadata=metadata,
         ):
+            # Runs inside log_call so a plugin rejection is recorded as a
+            # failed invocation rather than escaping before logging starts.
+            plugin.on_command_parsed(logger=self.logger, command=self, args=args)
             await self._run_impl(args)
 
     @abstractmethod
@@ -121,7 +135,7 @@ class ClientCommand(BaseCommand):
         super().add_parser_arguments(parser)
 
     async def _run_impl(self, args: Namespace) -> None:
-        address: Optional[Address] = None
+        address: Address | None = None
         try:
             async with _get_client(args=args, logger=self.logger) as client:
                 address = client.address

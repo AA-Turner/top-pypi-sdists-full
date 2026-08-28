@@ -430,17 +430,25 @@ def plan_explicit_offload(*, weights_bytes: Optional[int], kv_bytes: Optional[in
     def _layers_ceil(x: float) -> int:
         return max(0, min(int(-((-int(x) * total_layers) // whole)), total_layers))
 
+    # Layer count on the priority device: as many layers as the device budget's
+    # BYTES actually hold (never over-admit the budget), stretched up to the
+    # CEIL of the achieved share when the budget has room past the target.
+    # ceil(achievable) alone would over-admit an exact-fit budget by a partial
+    # layer; floor(achievable) alone loses a layer the budget can pay for.
+    def _layers_within(achieved: int, dev_budget: int) -> int:
+        return min(_layers_ceil(achieved), _layers_for(dev_budget))
+
     if dev == "gpu":
         ideal = min(whole, int(gpu_target_bytes)) if gpu_target_bytes else whole
         floor = band_floor(ideal, leniency_pct, whole)
         achievable = min(ideal, vram_budget)
-        n_gpu = _layers_for(achievable)
+        n_gpu = _layers_within(achievable, vram_budget)
         floor_layers = _layers_ceil(floor)
     else:
         ideal = min(whole, int(ram_target_bytes)) if ram_target_bytes else whole
         floor = band_floor(ideal, leniency_pct, whole)
         achievable = min(ideal, ram_budget)
-        in_ram = _layers_for(achievable)
+        in_ram = _layers_within(achievable, ram_budget)
         n_gpu = total_layers - in_ram          # ONLY the overflow rides the GPU
         floor_layers = _layers_ceil(floor)
     floor_pct = int(round(100.0 * floor / whole)) if whole else 0
@@ -466,9 +474,16 @@ def plan_explicit_offload(*, weights_bytes: Optional[int], kv_bytes: Optional[in
               f"({gpu_pct}%), floor {floor_pct}% on {dev}"))
 
     # Bust past the floor: the priority device could not be given even the
-    # LOOSEST allowed share (target − leniency). Name mode + floor honestly.
-    placed_layers = (n_gpu if dev == "gpu" else total_layers - n_gpu)
-    if placed_layers < floor_layers:
+    # LOOSEST allowed share (target − leniency). Compared BYTES-to-BYTES, not
+    # layers-to-layers: n_gpu rounds the achieved share DOWN to whole layers
+    # while floor_layers rounds the floor UP, so a layer comparison busts an
+    # EXACT-fit budget (budget == floor, 0% leniency) against its own target —
+    # the coder-next/ae 2026-08-28 refusal. If the budget's bytes cover the
+    # floor's bytes, layer quantization must never turn that into a bust.
+    # Integer bytes (ceil the float floor by whole bytes) — same 1-ulp doctrine
+    # as the layer helpers above. Name mode + floor honestly when it DOES bust.
+    floor_bytes = int(-(-floor // 1))          # ceil to a whole byte
+    if int(achievable) < floor_bytes:
         plan.admit = False
         lo = float(leniency_pct or 0.0)
         plan.reject_reason = (

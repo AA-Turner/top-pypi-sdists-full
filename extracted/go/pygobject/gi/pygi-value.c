@@ -835,7 +835,11 @@ PyObject *
 pyg_value_to_pyobject (const GValue *value, gboolean copy_boxed)
 {
     PyObject *pyobj;
-    GType fundamental = G_TYPE_FUNDAMENTAL (G_VALUE_TYPE (value));
+    GType fundamental;
+
+    if (value == NULL) Py_RETURN_NONE;
+
+    fundamental = G_TYPE_FUNDAMENTAL (G_VALUE_TYPE (value));
 
     /* HACK: special case char and uchar to return PyBytes intstead of integers
      * in the general case. Property access will skip this by calling

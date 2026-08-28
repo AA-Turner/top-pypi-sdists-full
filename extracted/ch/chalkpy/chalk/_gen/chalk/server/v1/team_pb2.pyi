@@ -177,6 +177,7 @@ class Project(_message.Message):
         "internal_metadata",
         "customer_metadata",
         "default_environment_id",
+        "description",
     )
     class InternalMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -206,6 +207,7 @@ class Project(_message.Message):
     INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     id: str
     team_id: str
     name: str
@@ -214,6 +216,7 @@ class Project(_message.Message):
     internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     default_environment_id: str
+    description: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -224,6 +227,7 @@ class Project(_message.Message):
         internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         default_environment_id: _Optional[str] = ...,
+        description: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateTeamRequest(_message.Message):
@@ -255,12 +259,16 @@ class CreateProjectResponse(_message.Message):
     def __init__(self, project: _Optional[_Union[Project, _Mapping]] = ...) -> None: ...
 
 class UpdateProjectOperation(_message.Message):
-    __slots__ = ("name", "git_repo")
+    __slots__ = ("name", "git_repo", "description")
     NAME_FIELD_NUMBER: _ClassVar[int]
     GIT_REPO_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     name: str
     git_repo: str
-    def __init__(self, name: _Optional[str] = ..., git_repo: _Optional[str] = ...) -> None: ...
+    description: str
+    def __init__(
+        self, name: _Optional[str] = ..., git_repo: _Optional[str] = ..., description: _Optional[str] = ...
+    ) -> None: ...
 
 class UpdateProjectRequest(_message.Message):
     __slots__ = ("id", "update", "update_mask")
@@ -355,6 +363,8 @@ class UpdateEnvironmentOperation(_message.Message):
         "environment_buckets",
         "default_build_profile",
         "pinned_base_image",
+        "description",
+        "default_engine_base_image",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -379,6 +389,8 @@ class UpdateEnvironmentOperation(_message.Message):
     ENVIRONMENT_BUCKETS_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
     PINNED_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ENGINE_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
     is_default: bool
     specs_config_json: str
     additional_env_vars: _containers.ScalarMap[str, str]
@@ -394,6 +406,8 @@ class UpdateEnvironmentOperation(_message.Message):
     environment_buckets: _environment_pb2.EnvironmentObjectStorageConfig
     default_build_profile: _environment_pb2.DeploymentBuildProfile
     pinned_base_image: str
+    description: str
+    default_engine_base_image: str
     def __init__(
         self,
         is_default: bool = ...,
@@ -411,6 +425,8 @@ class UpdateEnvironmentOperation(_message.Message):
         environment_buckets: _Optional[_Union[_environment_pb2.EnvironmentObjectStorageConfig, _Mapping]] = ...,
         default_build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
         pinned_base_image: _Optional[str] = ...,
+        description: _Optional[str] = ...,
+        default_engine_base_image: _Optional[str] = ...,
     ) -> None: ...
 
 class UpdateEnvironmentRequest(_message.Message):
@@ -1035,6 +1051,35 @@ class ArchiveEnvironmentRequest(_message.Message):
 class ArchiveEnvironmentResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class DeleteSelfSignupTeamRequest(_message.Message):
+    __slots__ = ("team_id",)
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
+
+class DeleteSelfSignupTeamResponse(_message.Message):
+    __slots__ = (
+        "archived_environment_ids",
+        "archived_project_ids",
+        "deleted_user_count",
+        "deleted_role_assignment_count",
+    )
+    ARCHIVED_ENVIRONMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_PROJECT_IDS_FIELD_NUMBER: _ClassVar[int]
+    DELETED_USER_COUNT_FIELD_NUMBER: _ClassVar[int]
+    DELETED_ROLE_ASSIGNMENT_COUNT_FIELD_NUMBER: _ClassVar[int]
+    archived_environment_ids: _containers.RepeatedScalarFieldContainer[str]
+    archived_project_ids: _containers.RepeatedScalarFieldContainer[str]
+    deleted_user_count: int
+    deleted_role_assignment_count: int
+    def __init__(
+        self,
+        archived_environment_ids: _Optional[_Iterable[str]] = ...,
+        archived_project_ids: _Optional[_Iterable[str]] = ...,
+        deleted_user_count: _Optional[int] = ...,
+        deleted_role_assignment_count: _Optional[int] = ...,
+    ) -> None: ...
 
 class DeactivateUserRequest(_message.Message):
     __slots__ = ("user_id",)

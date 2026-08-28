@@ -146,7 +146,13 @@ ParseCacheValue = list[Match] | MatchSet | _CachedParseError
 # 29.9ns vs 34.6ns), and it isolates asyncio tasks as well as threads.  Only
 # `Rule.parse` ever writes it -- never a generator, whose `set` would leak into
 # the caller's context between yields.
-_ParseMemo = tuple[Source, dict[tuple[int, int], ParseCacheValue]]
+#: Keyed on ``(parser, start)``.  The parser is the object itself rather than
+#: its ``id``: an id is unique only among live objects, so a parser freed
+#: mid-parse could have its address reused and inherit the dead one's entries
+#: (issue #262).  Holding it keeps it alive for exactly the life of the memo,
+#: which is one ``Rule.parse`` call.
+_ParseMemoKey = tuple[object, int]
+_ParseMemo = tuple[Source, dict[_ParseMemoKey, ParseCacheValue]]
 _parse_memo: contextvars.ContextVar[_ParseMemo | None] = contextvars.ContextVar(
     "abnf_parse_memo", default=None
 )
@@ -413,7 +419,12 @@ class Repetition:
         ctx = _parse_memo.get()
         memo = ctx[1] if ctx is not None and ctx[0] is source else {}
 
-        cache_key = (id(self), start)
+        # Key on the object, not `id(self)`: an id is unique only among live
+        # objects, so a `Repetition` freed mid-parse could have its address
+        # reused and hand its cached matches to a different parser.  Holding
+        # the object keeps it alive for exactly as long as the memo, which is
+        # this one parse.  See https://github.com/declaresub/abnf/issues/262 .
+        cache_key = (self, start)
         cached_matchset = memo.get(cache_key)
         if cached_matchset is not None:
             if isinstance(cached_matchset, _CachedParseError):
@@ -574,20 +585,27 @@ class Literal:
 
     def _lparse_value(self, source: str, start: int) -> Matches:
         """Parse source when self.value represents a literal."""
-        # we check position to ensure that the case pattern = '' and start >= len(source)
-        # is handled correctly.
-        if start < len(source):
-            src = source[start : start + len(self.value)]
-            match = src if self.case_sensitive else _ascii_fold(src)
-            if match == self.pattern:
-                yield Match(
-                    [typing.cast(Node, LiteralNode(src, start, len(src)))],
-                    start + len(src),
-                )
-            else:
-                raise ParseError(self, start)
-        else:
+        # Enough source must remain for the whole literal.  Slicing would not
+        # say so on its own: `source[start:start + n]` silently returns a short
+        # string past the end, and for a zero-length literal it returns `''`
+        # at *any* start, however far out of range.
+        #
+        # The guard used to be `start < len(source)`, which also refused a
+        # zero-length literal at end of input -- so `""` matched at every
+        # offset except `len(source)`, and `"a" ""` could not match `"a"`
+        # while `"" "a"` could.  RFC 5234's char-val admits zero characters,
+        # and a zero-length match cannot depend on what follows it.
+        # See https://github.com/declaresub/abnf/issues/260 .
+        if start + len(self.value) > len(source):
             raise ParseError(self, start)
+        src = source[start : start + len(self.value)]
+        match = src if self.case_sensitive else _ascii_fold(src)
+        if match != self.pattern:
+            raise ParseError(self, start)
+        yield Match(
+            [typing.cast(Node, LiteralNode(src, start, len(src)))],
+            start + len(src),
+        )
 
     def __str__(self):
         # str(self.value) handles the case value == tuple.
@@ -631,7 +649,42 @@ class _FirstMatchAlternation:
         instance._set_first_match_alternation(value)
 
 
-class Rule:
+class _RuleMeta(type):
+    """Metaclass for :class:`Rule`, guarding one attribute.
+
+    ``first_match_alternation`` is a descriptor.  Assigning to it *on a class
+    object* -- ``MyGrammar.first_match_alternation = True``, rather than in the
+    class body -- is an ordinary ``type.__setattr__``, which drops a plain
+    ``bool`` into the class dict and shadows the descriptor.  Nothing then
+    reads that bool: alternations are built from ``_first_match_default``,
+    which is untouched.  So the attribute reported a setting the parser was not
+    using, and, worse, the documented per-rule spelling
+    (``rule.first_match_alternation = True``) stopped working for that class
+    from then on, silently, because it too went to a plain dict rather than
+    through the descriptor.
+
+    Refusing the assignment leaves the descriptor in place, so both supported
+    spellings keep working and neither can be quietly disabled.
+    See https://github.com/declaresub/abnf/issues/258 .
+    """
+
+    def __setattr__(cls, name: str, value: typing.Any) -> None:
+        if name == "first_match_alternation":
+            msg = (
+                "first_match_alternation cannot be assigned on a grammar class. "
+                "Set it in the class body, before the grammar is loaded:\n\n"
+                "    class MyGrammar(Rule):\n"
+                "        first_match_alternation = True\n\n"
+                "or on one rule: MyGrammar('rulename').first_match_alternation = "
+                "True.  Assigning it here would replace the descriptor that "
+                "implements both, leaving the flag reading back True while the "
+                "parser went on using longest match."
+            )
+            raise AttributeError(msg)
+        super().__setattr__(name, value)
+
+
+class Rule(metaclass=_RuleMeta):
     """A parser generated from an ABNF rule.
 
     To create a Rule object, use Rule.create.
@@ -642,6 +695,15 @@ class Rule:
     grammar: typing.ClassVar[list[str] | str] = []
 
     _obj_map: typing.ClassVar[dict[tuple[type[Rule], str], Rule]] = {}
+
+    #: The import list the grammar loader applied, recorded so that a
+    #: module's *effective* grammar can be reconstructed as text.  Neither
+    #: half says on its own what a module parses: `grammar` is missing the
+    #: substitutions, and the loaded rules have the substitutions but no
+    #: text.  Empty for a class built any other way.  See
+    #: `abnf.grammars.misc._apply_imports` and
+    #: `tests/fuzz/effective_grammar.py`.
+    _imported_rules: typing.ClassVar[tuple[tuple[str, Rule], ...]] = ()
 
     def __new__(cls, name: str, definition: Parser | None = None):
         """Overrides super().__new__ to implement a symbol table via object caching."""
@@ -748,6 +810,14 @@ class Rule:
     def __init_subclass__(cls, **kwargs: typing.Any) -> None:
         super().__init_subclass__(**kwargs)
         raw = cls.__dict__.get("first_match_alternation")
+        if raw is not None and not isinstance(raw, bool):
+            msg = (
+                "first_match_alternation must be True or False, not "
+                f"{type(raw).__name__}.  A value of any other type is left "
+                "shadowing the descriptor that implements the setting, which "
+                "would disable it for this grammar without saying so."
+            )
+            raise TypeError(msg)
         if isinstance(raw, bool):
             cls._first_match_default = raw
             # Restore the inherited property: a plain bool left in the
@@ -1193,8 +1263,17 @@ class NodeVisitor:
         cached = cls.__dict__.get("_visit_attr_names_cache")
         if cached is not None and cached[0] == signature:
             return cached[1]
+        # Casefold the key: `visit` looks up the node name casefolded, so a
+        # method named for the rule as the grammar spells it -- `visit_URI`,
+        # `visit_IPv4address`, `visit_ATOM_CHAR` -- would otherwise be filed
+        # under a key nothing ever asks for, and never run.  Nothing reported
+        # it because the miss returns `_skip_visit`, so the node is quietly
+        # skipped.  See https://github.com/declaresub/abnf/issues/259 .
+        #
+        # `dir()` is sorted, so where both spellings exist the lowercase one
+        # is assigned last and keeps winning, as it did before.
         table = {
-            attr[_VISIT_NAME_START:]: attr
+            attr[_VISIT_NAME_START:].casefold(): attr
             for attr in dir(cls)
             if attr.startswith(_VISIT_PREFIX)
         }
@@ -1211,9 +1290,9 @@ class NodeVisitor:
         # picks them up.  `dir(self)` used to cover that; scanning the
         # instance dict covers it for a fraction of the cost, since the
         # dict holds a handful of entries rather than the full MRO.
-        for attr in vars(self):
+        for attr in sorted(vars(self)):
             if attr.startswith(_VISIT_PREFIX):
-                cache[attr[_VISIT_NAME_START:]] = getattr(self, attr)
+                cache[attr[_VISIT_NAME_START:].casefold()] = getattr(self, attr)
         self._node_method_cache = cache
 
     def __call__(self, node: Node):
@@ -1235,7 +1314,21 @@ class NodeVisitor:
 
 
 class ParseError(Exception):
-    """Raised in response to errors during parsing."""
+    """Raised in response to errors during parsing.
+
+    ``start`` is the code-point offset at which the parse failed, and
+    means the same thing on both backends.
+
+    ``parser`` describes what failed, and is the one attribute whose
+    *type* depends on the backend: here it is the parser object, while
+    the Rust backend supplies a description string (``"Concatenation"``,
+    ``"Literal('a')"``).  An error is constructed on every failed
+    alternative, so that backend carries a description prepared once at
+    construction rather than a reference to the parser -- which is what
+    keeps backtracking cheap.  Treat it as diagnostic output rather than
+    something to reach into; ``str(exc)`` and ``exc.start`` behave
+    identically either way.
+    """
 
     def __init__(self, parser: Parser, start: int, *args: typing.Any):
         # it turns out that calling super().__init__(*args) is quite slow.  Because
@@ -1306,6 +1399,16 @@ for core_rule_def in typing.cast(
     ],
 ):
     Rule(core_rule_def[0], core_rule_def[1])
+
+#: The RFC 5234 appendix B core rules, which live on the base ``Rule`` class so
+#: that every grammar can reference them.  ``Rule.get`` falls back to that
+#: registry, so a name here resolves to one object shared by all grammars --
+#: which is right for a reference and wrong as somewhere to write.  See
+#: ``ABNFGrammarNodeVisitor.visit_rule``, which refuses to define these from a
+#: subclass, and https://github.com/declaresub/abnf/issues/256 .
+#: Frozen here, immediately after the bootstrap, so it is exactly the core
+#: rules and not whatever anyone later adds to the base registry.
+CORE_RULE_NAMES = frozenset(rule.name.casefold() for rule in Rule.rules())
 
 
 class ABNFGrammarRule(Rule):
@@ -1663,7 +1766,19 @@ class NumValVisitor(NodeVisitor):
     @staticmethod
     def _decode_bytes(data: str, base: int) -> str:
         """Decodes num-val byte data. Intended to be private."""
-        return chr(int(data, base=base))
+        value = int(data, base=base)
+        # `chr` raises ValueError past U+10FFFF, which reaches the caller as a
+        # builtin error naming neither the rule nor the grammar.  A num-val
+        # outside the code-point space is a grammar error like any other.
+        # See https://github.com/declaresub/abnf/issues/261 .
+        if value > 0x10FFFF:
+            prefix = {2: "%b", 10: "%d", 16: "%x"}.get(base, "%")
+            msg = (
+                f"{prefix}{data} is not a Unicode code point: values run to "
+                "%x10FFFF."
+            )
+            raise GrammarError(msg)
+        return chr(value)
 
 
 class ABNFGrammarNodeVisitor(NodeVisitor):
@@ -1706,8 +1821,24 @@ class ABNFGrammarNodeVisitor(NodeVisitor):
 
     @staticmethod
     def visit_defined_as(node: Node):
-        """Returns defined-as operator."""
-        return node.value.strip()
+        """Returns the defined-as operator, ``"="`` or ``"=/"``.
+
+        RFC 5234 section 4 has ``defined-as = *c-wsp ("=" / "=/") *c-wsp``,
+        and ``c-wsp`` reaches ``comment`` by way of ``c-nl`` -- so a comment
+        may sit on either side of the operator and is part of this node's
+        span.  Stripping the span only removes whitespace, which left the
+        comment text attached and made the result compare unequal to both
+        operators.
+
+        Scanning the span for ``"=/"`` would be no better, since a comment may
+        contain that text: ``foo ;see =/ below`` is a plain ``=`` rule.  The
+        operator is the one literal among the children, so take it from there.
+        """
+
+        return next(
+            (child.value for child in node.children if child.name == "literal"),
+            node.value.strip(),
+        )
 
     def visit_element(self, node: Node):
         """Creates a parser object from element node."""
@@ -1790,14 +1921,36 @@ class ABNFGrammarNodeVisitor(NodeVisitor):
         # this assertion tells mypy that rule should actually be an object. Without, mypy
         # returns 'error: <nothing> has no attribute "definition"'
         assert rule
+        rule_name = next(
+            (c.value for c in node.children if c.name == "rulename"), rule.name
+        )
+        # A core rule lives on the base `Rule` class so that every grammar can
+        # reference it, and `Rule.get` falls back there -- so `Rule("DIGIT")`
+        # and `MyGrammar("DIGIT")` are one object.  Defining through it would
+        # replace the rule for every grammar in the process, including ones
+        # this caller never wrote: a grammar defining `DIGIT = %x30-39 / "_"`
+        # used to make `rfc3339` accept `2_26` as a year.  Refuse, rather than
+        # silently shadow, so the two readings of `DIGIT` can never diverge.
+        #
+        # Defining one *on the base class itself* is still allowed: it is
+        # explicit about its scope, and the redefinition warning below reports
+        # it.  See https://github.com/declaresub/abnf/issues/256 .
+        if self.rule_cls is not Rule and rule_name.casefold() in CORE_RULE_NAMES:
+            msg = (
+                f"{rule_name!r} is a core rule from RFC 5234 appendix B, shared by "
+                "every grammar, so a grammar cannot define it: the definition would "
+                "replace the rule everywhere, not just here.  Core rules are always "
+                f"available -- delete this line to use the standard {rule_name}.  To "
+                "change it for every grammar deliberately, define it on "
+                "abnf.parser.Rule itself."
+            )
+            raise GrammarError(msg)
         # A plain '=' redefinition silently discards the rule's existing definition
         # (RFC 5234, Section 3.3, allows incremental definition only via '=/').  Because
         # ABNF rule names are case-insensitive, names differing only in case -- e.g.
         # 'Origin' and 'origin' -- resolve to the same rule and collide this way too.
         if defined_as == "=" and getattr(rule, "_definition", None) is not None:
-            new_name = next(
-                (c.value for c in node.children if c.name == "rulename"), rule.name
-            )
+            new_name = rule_name
             existing_name = rule.name
             # This branch is reached only when the names already match under
             # casefold, so an inexact spelling match means they differ only in case.
@@ -1819,6 +1972,19 @@ class ABNFGrammarNodeVisitor(NodeVisitor):
             rule.definition = elements
             rule._alternations = tuple(self._alternations)
         else:
+            # '=/' adds to a definition, so there must be one.  Reading it
+            # unguarded surfaced as `AttributeError: no attribute
+            # '_definition'`, which reads as a library fault rather than as
+            # "this grammar is wrong".  RFC 5234 section 3.3 allows
+            # incremental alternatives only for an already-defined rule.
+            # See https://github.com/declaresub/abnf/issues/261 .
+            if getattr(rule, "_definition", None) is None:
+                msg = (
+                    f"rule {rule_name!r} has no definition to add to: '=/' adds "
+                    "an alternative to an existing rule (RFC 5234 section 3.3). "
+                    "Use '=' to define it."
+                )
+                raise GrammarError(msg)
             # '=/' keeps the earlier definition as one arm, so its
             # alternations stay live and stay configurable.
             previous = rule._alternation_parsers()

@@ -187,3 +187,81 @@ def auto_block(model_key: str, note: str) -> Optional[dict]:
                      model_key, rec.get("by"))
         return None
     return block(model_key, by="auto", note=note)
+
+
+# ── per-(model × worker) PAIR blocks (operator ruling 2026-08-28) ────────────
+# "wouldn't it be best if these groups instead 'blocked' from the individual
+# workers those that do not fit?" — a POSITIVE permanent-no fit verdict
+# (worker_fit_verdict False: the box's combined VRAM+RAM can never hold the
+# model, e.g. coder-next × computron) is recorded HERE as a durable, visible
+# pair block, so the dispatch candidate filter excludes the pair statically
+# instead of re-pricing (and re-refusing) it on every request. Doctrine
+# mirrors auto_block: only a positive verdict ever records (missing data is
+# never evidence), and the block CLEARS the moment the verdict flips to True
+# (e.g. a quant pin shrinks the model, or the box gains RAM). Same F4
+# settings store; keys are supplied by the caller (workers.py normalizes the
+# model form so bare/qualified spellings land on one record).
+NS_PAIR = "models.blocked_workers"
+
+
+def pair_block_map(model_key: Optional[str]) -> dict:
+    """``{worker_id: {blocked, why, ts, by}}`` for ``model_key`` (``{}`` when
+    none). Console-readable — the visibility half of the ruling."""
+    if not model_key:
+        return {}
+    try:
+        v = settings_store.get(NS_PAIR, str(model_key))
+    except Exception as exc:  # noqa: BLE001 — a read must never break routing
+        logger.warning("pair-block read failed for %s: %s", model_key, exc)
+        return {}
+    return v if isinstance(v, dict) else {}
+
+
+def pair_blocked(model_key: Optional[str], worker_id: Optional[str]) -> bool:
+    """True iff (model, worker) carries a durable pair block."""
+    if not model_key or not worker_id:
+        return False
+    rec = pair_block_map(model_key).get(str(worker_id))
+    return bool(rec and rec.get("blocked"))
+
+
+def auto_block_pair(model_key: str, worker_id: str, *, why: str = "",
+                    worker_name: Optional[str] = None) -> bool:
+    """Record a machine-derived pair block (idempotent; refreshes the why).
+    Returns True when a NEW block was recorded (for one honest log line)."""
+    try:
+        cur = pair_block_map(model_key)
+        fresh = not (cur.get(str(worker_id)) or {}).get("blocked")
+        cur = dict(cur)
+        cur[str(worker_id)] = {"blocked": True, "by": "auto", "ts": time.time(),
+                               "why": why, "worker_name": worker_name}
+        settings_store.set(NS_PAIR, str(model_key), cur)
+        if fresh:
+            logger.warning("pair-BLOCKED %s on %s: %s", model_key,
+                           worker_name or worker_id, why or "permanent no-fit")
+        return fresh
+    except Exception as exc:  # noqa: BLE001 — recording must never break routing
+        logger.warning("pair-block write failed for %s/%s: %s",
+                       model_key, worker_id, exc)
+        return False
+
+
+def clear_pair_block(model_key: str, worker_id: str) -> bool:
+    """Drop the pair block (the verdict changed). Returns True when one was
+    actually cleared."""
+    try:
+        cur = pair_block_map(model_key)
+        if str(worker_id) not in cur:
+            return False
+        cur = dict(cur)
+        rec = cur.pop(str(worker_id))
+        settings_store.set(NS_PAIR, str(model_key), cur)
+        if rec.get("blocked"):
+            logger.info("pair block CLEARED for %s on %s (fit verdict changed)",
+                        model_key, rec.get("worker_name") or worker_id)
+            return True
+        return False
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("pair-block clear failed for %s/%s: %s",
+                       model_key, worker_id, exc)
+        return False

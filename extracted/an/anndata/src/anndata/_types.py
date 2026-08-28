@@ -6,8 +6,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal, Protocol
 
+import h5py
+import zarr
+
 from . import typing
-from .compat import H5Array, H5Group, ZarrArray, ZarrGroup
 from .utils import set_module
 
 if TYPE_CHECKING:
@@ -51,8 +53,8 @@ __all__ = [
 ]
 
 # These two are not public, so we don’t make them `type`s
-_ArrayStorageType: TypeAlias = ZarrArray | H5Array  # noqa: UP040
-_GroupStorageType: TypeAlias = ZarrGroup | H5Group  # noqa: UP040
+_ArrayStorageType: TypeAlias = zarr.Array | h5py.Dataset  # noqa: UP040
+_GroupStorageType: TypeAlias = zarr.Group | h5py.Group  # noqa: UP040
 
 type StorageType = _ArrayStorageType | _GroupStorageType
 
@@ -251,8 +253,9 @@ class ReduceFunc[T](Protocol):
             The current element.
         accumulate
             The value being accumulated.
-        ref_acc
-            A reference to help uses distinguish where they are in the `AnnData` object.
+        attr_name
+            The name of the attribute being visited, to help distinguish where
+            you are in the `AnnData` object.
 
         Returns
         -------

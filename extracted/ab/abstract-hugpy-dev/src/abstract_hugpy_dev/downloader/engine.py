@@ -57,6 +57,13 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────────────
 STALL_SECONDS = int(os.environ.get("HUGPY_DOWNLOAD_STALL_SECONDS", "180"))
 MAX_ATTEMPTS = int(os.environ.get("HUGPY_DOWNLOAD_MAX_ATTEMPTS", "4"))
+# How long a child may take to produce its FIRST byte before the stall killer
+# treats it as wedged (k119). Distinct from STALL_SECONDS on purpose: a spawn
+# child re-imports the package (registry walk included) before it ever opens a
+# socket, and that boot has been measured past 180s on a loaded virtiofs box —
+# the killer was ending transfers that had not yet had a chance to start.
+STARTUP_GRACE_SECONDS = int(
+    os.environ.get("HUGPY_DOWNLOAD_STARTUP_GRACE_SECONDS", "600"))
 
 # How long the (network) size estimate may take before the download proceeds
 # with an indeterminate progress bar. Deliberately short: the estimate is a
@@ -97,6 +104,59 @@ def _clear_error(job_id: str) -> None:
         os.remove(_error_path(job_id))
     except OSError:
         pass
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# TERMINAL vs RETRYABLE failures (k119)
+# ──────────────────────────────────────────────────────────────────────────
+# The resume loop below retries MAX_ATTEMPTS times with backoff. That is right
+# for a dropped connection and WRONG for a gated repo, a bad token or a repo
+# that does not exist: those fail identically four times, take ~1 minute of
+# backoff to say so, and then surface the raw exception text
+# ("GatedRepoError: 401 Client Error…"), which tells an operator nothing about
+# what to DO. Classify them once, fail fast, and answer in an imperative.
+#
+# Matched on the exception's rendered "Type: message" string because the child
+# process hands its failure across the boundary as text (see _write_error) —
+# there is no exception object left to isinstance() by the time we decide.
+_GATED_MARKERS = ("gatedrepoerror", "is a gated repo", "access to model",
+                  "you must be authenticated", "awaiting a review",
+                  "accept the conditions")
+_AUTH_MARKERS = ("401 client error", "unauthorized", "invalid credentials",
+                 "invalid user token", "repository not found")
+_MISSING_MARKERS = ("repositorynotfounderror", "entrynotfounderror",
+                    "revisionnotfounderror", "404 client error")
+_DISK_MARKERS = ("no space left on device", "oserror: [errno 28]", "errno 28")
+
+
+def classify_download_error(detail: str) -> Optional[tuple[str, str]]:
+    """(reason_code, operator-facing message) for a TERMINAL failure, or None
+    when the failure is the retryable kind the resume loop should keep at.
+
+    reason codes: ``gated_repo`` | ``auth`` | ``not_found`` | ``no_space``."""
+    d = (detail or "").lower()
+    if not d:
+        return None
+    if any(m in d for m in _GATED_MARKERS):
+        return ("gated_repo",
+                "Gated repo: this model requires accepting its license on "
+                "huggingface.co AND an HF token with access. Accept the terms on "
+                "the model page, then save a token in the console (Settings → HF "
+                "token) and retry — no restart needed.")
+    if any(m in d for m in _AUTH_MARKERS):
+        return ("auth",
+                "Hugging Face rejected the credentials (401/404-as-private). Save "
+                "a valid HF token in the console (Settings → HF token) and retry; "
+                "a private or gated repo is invisible without one.")
+    if any(m in d for m in _MISSING_MARKERS):
+        return ("not_found",
+                "Hugging Face has no such repo/file at that revision — check the "
+                "hub id and the selected quant/filename.")
+    if any(m in d for m in _DISK_MARKERS):
+        return ("no_space",
+                "Out of disk space on the model store — free space or evict a "
+                "model, then retry.")
+    return None
 
 
 def invalidate_model_status_cache(reason: str = "", model_key: str = None) -> None:
@@ -213,13 +273,40 @@ def _estimate_total_bytes_bounded(model: dict) -> Optional[int]:
 # failure reason (HF errors propagate out of download_one) into the error file,
 # then re-raises so the process exits non-zero and the monitor sees the failure.
 # ──────────────────────────────────────────────────────────────────────────
+def hf_token_present() -> bool:
+    """Is an HF token in force for THIS process? Boolean only — the value is
+    never returned, logged, or put on the wire.
+
+    The console-saved token (0600 file at ``HF_TOKEN_PATH``) is seeded into the
+    env by ``imports.src.constants.constants`` at import, and the transfer child
+    is SPAWNED, so it re-imports and re-reads that file — a token saved in the
+    console reaches the very next transfer with no daemon restart. This function
+    exists so the daemon can SAY which of the two worlds it is in when a gated
+    repo fails."""
+    try:
+        from ..imports.src.constants.constants import read_stored_hf_token
+        if read_stored_hf_token():
+            return True
+    except Exception:  # noqa: BLE001 — a diagnostic must never break a download
+        pass
+    return bool((os.environ.get("HF_TOKEN")
+                 or os.environ.get("HUGGING_FACE_HUB_TOKEN") or "").strip())
+
+
 def _download_worker(job_id: str, model_key: str, model: dict) -> None:
     os.setpgrp()
     try:
         download_one(model=model, model_key=model_key)   # writes hugpy.json via _stamp
         _clear_error(job_id)
     except Exception as exc:
-        _write_error(job_id, f"{type(exc).__name__}: {exc}")
+        # Tag an auth-shaped failure with whether we were even AUTHENTICATED.
+        # "GatedRepoError" with no token and "GatedRepoError" with a token are
+        # different operator actions (save a token vs accept the license), and
+        # the raw HF text does not distinguish them.
+        detail = f"{type(exc).__name__}: {exc}"
+        if classify_download_error(detail) and not hf_token_present():
+            detail += " [no HF token configured on this host]"
+        _write_error(job_id, detail)
         raise
 
 
@@ -260,12 +347,21 @@ def _is_cancelled(job_id: str) -> bool:
     return bool(cur.cancel_requested) or cur.status == "cancelled"
 
 
-def _watch(proc, job_id: str, dest: str, total_bytes: Optional[int]) -> bool:
+def _watch(proc, job_id: str, dest: str, total_bytes: Optional[int],
+           baseline: int = 0) -> bool:
     """Sample progress every second while ``proc`` runs.
 
     Reports bytes/sec and percentage. Returns True if the transfer STALLED
     (no new bytes for STALL_SECONDS) — in which case the process group is
     killed so it can be resumed — or False if the process exited on its own.
+
+    ``baseline`` is what was ALREADY on the destination when this job started
+    (k119). Fetching one missing quant into a repo dir that already holds 26GB
+    of other quants otherwise rendered as "99.9% — 26.1GB/6.3GB", because
+    _progress_bytes measures the whole dir. The new file lands in the STAGING
+    sibling and is only merged at promote time, so subtracting the starting dir
+    size is exactly the bytes THIS transfer is responsible for. A resume's own
+    partials live in staging, above the baseline, and stay counted.
     """
     last_bytes = _progress_bytes(dest)
     last_change = time.time()
@@ -281,11 +377,24 @@ def _watch(proc, job_id: str, dest: str, total_bytes: Optional[int]) -> bool:
         prev_bytes, prev_t = got, now
         if got > last_bytes:
             last_bytes, last_change = got, now
-        pct = (got / total_bytes) if total_bytes else 0.0
+        # THIS transfer's bytes, not the directory's (see `baseline`).
+        mine = max(got - baseline, 0)
+        pct = (mine / total_bytes) if total_bytes else 0.0
         job_store.update(job_id, progress=min(pct, 0.999),
-                         downloaded_bytes=got, bytes_per_second=bps, stalled=False)
+                         downloaded_bytes=mine, bytes_per_second=bps,
+                         stalled=False)
 
-        if (now - last_change) >= STALL_SECONDS:
+        # STARTUP GRACE (k119). The stall clock used to start the instant the
+        # child was spawned — but a `spawn` child re-imports the whole package
+        # (including the model-registry walk) before it opens a socket, which on
+        # a loaded virtiofs box has been measured past three minutes. The killer
+        # then fired before a single byte could exist, killed a child that was
+        # merely booting, and did it again on every attempt: a download that
+        # "constantly does not download" while looking busy. Until the FIRST
+        # bytes of this transfer land, allow a longer window; once bytes are
+        # flowing, STALL_SECONDS is the honest no-progress rule it always was.
+        idle_budget = STALL_SECONDS if mine > 0 else STARTUP_GRACE_SECONDS
+        if (now - last_change) >= idle_budget:
             job_store.update(job_id, stalled=True)
             terminate_tree(proc)
             return True
@@ -306,7 +415,12 @@ def run_download_job(job_id: str, model_key: str, model: dict,
     Returns the terminal status: "completed" | "failed" | "cancelled".
     """
     dest = route_destination(model=model)
-    logger.info("download %s -> %s", model_key, dest)
+    # What is ALREADY there before this job starts. Subtracted from every
+    # progress sample so a one-file fetch into a populated repo dir reports its
+    # own bytes (k119) instead of the directory's.
+    baseline = _dir_bytes(dest) if os.path.isdir(dest) else 0
+    logger.info("download %s -> %s (baseline on disk: %d bytes)",
+                model_key, dest, baseline)
 
     job_store.update(
         job_id, status="running", message="Downloading…",
@@ -354,7 +468,7 @@ def run_download_job(job_id: str, model_key: str, model: dict,
                 message=f"Resuming (attempt {attempt}/{MAX_ATTEMPTS})…",
             )
         proc = _spawn()
-        stalled = _watch(proc, job_id, dest, total_bytes)
+        stalled = _watch(proc, job_id, dest, total_bytes, baseline)
         if _cancelled_now(proc):
             proc.join()
             return _finish_cancelled(job_id, model_key)
@@ -366,7 +480,8 @@ def run_download_job(job_id: str, model_key: str, model: dict,
         if not stalled and proc.exitcode == 0:
             job_store.update(
                 job_id, status="completed", progress=1.0, stalled=False,
-                downloaded_bytes=_progress_bytes(dest), error=None,
+                downloaded_bytes=max(_progress_bytes(dest) - baseline, 0),
+                error=None,
                 bytes_per_second=None, message=f"Installed at {dest}",
             )
             try:
@@ -388,6 +503,25 @@ def run_download_job(job_id: str, model_key: str, model: dict,
             f"stalled: no new data for {STALL_SECONDS}s"
             if stalled else f"worker exited with code {proc.exitcode}"
         )
+
+        # TERMINAL failures short-circuit the resume loop. Retrying a gated repo
+        # or a bad token four times just delays the same answer by a minute of
+        # backoff and then prints raw HF exception text; the operator needs the
+        # ACTION, immediately. `error_reason` is the typed code the console can
+        # branch on; `error` stays the raw detail so nothing is hidden.
+        verdict = classify_download_error(detail)
+        if verdict is not None:
+            reason, guidance = verdict
+            logger.warning("download %s (%s) is terminal [%s]: %s",
+                           job_id, model_key, reason, detail)
+            job_store.update(
+                job_id, status="failed", stalled=False, bytes_per_second=None,
+                message=guidance, error=detail, error_reason=reason,
+            )
+            invalidate_model_status_cache(
+                f"download failed ({reason}): {model_key}", model_key=model_key)
+            return "failed"
+
         if attempt >= MAX_ATTEMPTS:
             job_store.update(
                 job_id, status="failed", stalled=stalled, bytes_per_second=None,

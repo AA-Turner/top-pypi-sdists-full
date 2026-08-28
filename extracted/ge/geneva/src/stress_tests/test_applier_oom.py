@@ -177,6 +177,12 @@ def _query_all_errors(db, job_id: str) -> list:  # noqa: ANN001
 def _configure_ray_for_cgroup_oom(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RAY_memory_monitor_refresh_ms", "0")
     monkeypatch.setenv("RAY_task_oom_retries", "0")
+    # No unset-memory floor here. This test's whole point is a container
+    # deliberately too small to hold the workload, and Ray publishes a node's
+    # memory after taking its object store -- the 4 GiB cap advertises about
+    # 2.55 GiB. A default floor would exceed that, leaving the actor
+    # unschedulable and the test measuring placement instead of OOM handling.
+    monkeypatch.setenv("JOB__APPLIER_DEFAULT_MEMORY_BYTES", "0")
     # An OOM-killed pool subprocess orphans its future (bpo-22393), and the
     # stall bound is what surfaces that. The 600s default is this test's own
     # timeout, so shorten it -- healthy batches here are seconds at most.

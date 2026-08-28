@@ -1,0 +1,147 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+app:
+  id: ppe_detection
+  name: "PPE Detection"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+#   Two-stage detection pipeline upstream:
+#     1. COCO people detector (YOLO11m)       → class "person"
+#     2. PPE detector (ppe-monitoring-2.pt)   → per-person crop output
+#
+#   SAFETY  — compliance (% of persons wearing required PPE)
+#   VOLUME  — unique person throughput, current occupancy
+# ──────────────────────────────────────────────
+categories:
+  - SAFETY
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+#   Keys are semantic entity names used by processors.
+#   Values are raw model class labels as they arrive
+#   from the upstream harness (matches PPE model's
+#   native class map in ppe_test.py).
+# ──────────────────────────────────────────────
+entity_mapping:
+  person: person
+  hardhat: Hardhat
+  safety_vest: Safety Vest
+  gloves: Gloves
+  goggles: Goggles
+  mask: Mask
+  no_hardhat: NO-Hardhat
+  no_goggles: NO-Goggles
+  no_gloves: NO-Gloves
+  no_boots: NO-Boots
+
+# ──────────────────────────────────────────────
+# Safety Module — PPE Compliance
+#
+# person_classes:
+#   Entity names that represent persons subject
+#   to compliance checks.
+#
+# ppe_classes:
+#   Entity names that count as PPE items worn
+#   by a person (used for per-item counts).
+#
+# required_ppe:
+#   Subset of ppe_classes that every person MUST
+#   be wearing to count as "compliant".  v1 uses
+#   hardhat + vest; revisit before expanding.
+#
+# violation_classes:
+#   Direct violation-class detections emitted by
+#   the PPE model (NO-Hardhat, NO-Gloves, etc.).
+#   A person with any of these on their track_id
+#   is counted as a violator regardless of
+#   required_ppe coverage.
+#
+# metrics:
+#   Each entry is emitted both per-frame and in the
+#   1-minute aggregation.
+#     compliance_pct  → agg_type=mean  (design §3.7)
+#     *_count         → agg_type=sum   (window uniques)
+# ──────────────────────────────────────────────
+safety:
+  person_classes:
+    - person
+
+  ppe_classes:
+    - hardhat
+    - safety_vest
+    - gloves
+    - goggles
+    - mask
+
+  required_ppe:
+    - hardhat
+    - safety_vest
+
+  violation_classes:
+    - no_hardhat
+    - no_goggles
+    - no_gloves
+    - no_boots
+
+  metrics:
+    - key: total_persons
+      agg_type: sum
+    - key: compliant_count
+      agg_type: sum
+    - key: violation_count
+      agg_type: sum
+    - key: compliance_pct
+      agg_type: mean
+    - key: hardhat_count
+      agg_type: sum
+    - key: safety_vest_count
+      agg_type: sum
+    - key: gloves_count
+      agg_type: sum
+    - key: goggles_count
+      agg_type: sum
+    - key: mask_count
+      agg_type: sum
+
+# ──────────────────────────────────────────────
+# Volume Module — Person Throughput
+#
+# Tracks unique persons entering the scene using
+# simple track-ID counting:
+#     new track_id  = entry
+#     current_occupancy = persons in frame at end of window
+#
+# PPE items are not counted as volume — only persons.
+# ──────────────────────────────────────────────
+volume:
+  target_categories:
+    - person
+
+  metrics:
+    - key: entry_count
+      agg_type: sum
+    - key: current_occupancy
+      agg_type: last
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults:
+    - metric: violation_count
+      condition:
+        operator: ">"
+        value: 0
+      severity: HIGH
+    - metric: compliance_pct
+      condition:
+        operator: "<"
+        value: 80
+      severity: MEDIUM
+
+  overrides: []

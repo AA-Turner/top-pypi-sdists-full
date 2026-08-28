@@ -6,6 +6,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from braintrust.api import BraintrustClient
 from braintrust.devserver.dataset import get_dataset
 from braintrust.logger import BraintrustState
 
@@ -29,8 +30,13 @@ class _DatasetAPIHandler(http.server.BaseHTTPRequestHandler):
         self.requests.append(("GET", parsed_url.path, parse_qs(parsed_url.query), None))
 
         if parsed_url.path == "/v1/dataset/dataset-reference":
-            self._send_json({"project_id": "project-id", "name": "dataset-name"})
-        elif parsed_url.path == "/environment-object/dataset/dataset-id/prod%2Fstable":
+            self._send_json({"id": "dataset-reference", "project_id": "project-id", "name": "dataset-name"})
+        elif parsed_url.path == "/v1/project/project-id":
+            self._send_json({"id": "project-id", "name": "project-name"})
+        elif parsed_url.path in {
+            "/environment-object/dataset/dataset-id/prod%2Fstable",
+            "/environment-object/dataset/dataset-reference/prod%2Fstable",
+        }:
             self._send_json({"object_version": "2"})
         else:
             self._send_json({"error": "not found"}, status=404)
@@ -41,13 +47,15 @@ class _DatasetAPIHandler(http.server.BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(content_length))
         self.requests.append(("POST", parsed_url.path, parse_qs(parsed_url.query), body))
 
-        if parsed_url.path == "/api/dataset/register":
-            self._send_json(
-                {
-                    "project": {"id": "project-id", "name": "project-name"},
-                    "dataset": {"id": "dataset-id", "name": "dataset-name"},
-                }
-            )
+        if parsed_url.path == "/v1/project":
+            self._send_json({"id": "project-id", "name": "project-name"})
+        elif parsed_url.path == "/v1/dataset":
+            self._send_json({"id": "dataset-id", "project_id": "project-id", "name": "dataset-name"})
+        elif parsed_url.path in {
+            "/v1/dataset/dataset-id/fetch",
+            "/v1/dataset/dataset-reference/fetch",
+        }:
+            self._send_json({"events": []})
         elif parsed_url.path == "/btql":
             self._send_json({"data": []})
         else:
@@ -77,12 +85,15 @@ def _logged_in_state(base_url: str, *, org_name: str | None = "test org") -> Bra
     state.api_url = base_url
     state.org_id = "org-id"
     state.org_name = org_name
+    state._client = BraintrustClient(api_key="test-key", app_url=base_url, api_url=base_url)
     return state
 
 
-def _btql_request_body() -> dict[str, Any]:
+def _request_body(path: str) -> dict[str, Any]:
     return next(
-        body for method, path, _query, body in _DatasetAPIHandler.requests if method == "POST" and path == "/btql"
+        body
+        for method, request_path, _query, body in _DatasetAPIHandler.requests
+        if method == "POST" and request_path == path
     )
 
 
@@ -117,14 +128,19 @@ async def test_get_dataset_resolves_environment_to_pinned_version(
     )
 
     assert list(dataset) == []
+    expected_dataset_id = reference.get("dataset_id", "dataset-id")
     assert (
         "GET",
-        "/environment-object/dataset/dataset-id/prod%2Fstable",
+        f"/environment-object/dataset/{expected_dataset_id}/prod%2Fstable",
         expected_query,
         None,
     ) in _DatasetAPIHandler.requests
-    assert _btql_request_body()["version"] == "2"
-    assert _btql_request_body()["query"]["limit"] == 10
+    assert _request_body("/btql")["version"] == "2"
+    assert _request_body("/btql")["query"]["limit"] == 10
+    if "dataset_id" in reference:
+        assert not any(
+            method == "POST" and path == "/v1/dataset" for method, path, _query, _body in _DatasetAPIHandler.requests
+        )
 
 
 @pytest.mark.asyncio
@@ -151,7 +167,8 @@ async def test_get_dataset_prefers_explicit_version_over_environment(
     assert not any(
         path.startswith("/environment-object/") for _method, path, _query, _body in _DatasetAPIHandler.requests
     )
-    assert _btql_request_body()["version"] == "1"
+    expected_dataset_id = reference.get("dataset_id", "dataset-id")
+    assert _request_body(f"/v1/dataset/{expected_dataset_id}/fetch")["version"] == "1"
 
 
 @pytest.mark.asyncio

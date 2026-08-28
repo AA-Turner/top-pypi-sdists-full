@@ -65,6 +65,11 @@ class GraphServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexResponse.FromString,
         )
+        self.GetScheduledQueryLineageIndex = channel.unary_unary(
+            "/chalk.server.v1.GraphService/GetScheduledQueryLineageIndex",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetScheduledQueryLineageIndexRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetScheduledQueryLineageIndexResponse.FromString,
+        )
         self.GetOfflineStoreTable = channel.unary_unary(
             "/chalk.server.v1.GraphService/GetOfflineStoreTable",
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.SerializeToString,
@@ -161,6 +166,17 @@ class GraphServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetScheduledQueryLineageIndex(self, request, context):
+        """GetScheduledQueryLineageIndex returns, for each scheduled query active on
+        the environment's active deployment, the resolvers and features its latest
+        query plan ran. Companion to GetDataLineageIndex: the resolver names line
+        up, so the lineage graph can hang scheduled queries off the features they
+        compute.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetOfflineStoreTable(self, request, context):
         """GetOfflineStoreTable returns the offline store table names for a feature"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -248,6 +264,11 @@ def add_GraphServiceServicer_to_server(servicer, server):
             servicer.GetDataLineageIndex,
             request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexResponse.SerializeToString,
+        ),
+        "GetScheduledQueryLineageIndex": grpc.unary_unary_rpc_method_handler(
+            servicer.GetScheduledQueryLineageIndex,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetScheduledQueryLineageIndexRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetScheduledQueryLineageIndexResponse.SerializeToString,
         ),
         "GetOfflineStoreTable": grpc.unary_unary_rpc_method_handler(
             servicer.GetOfflineStoreTable,
@@ -563,6 +584,35 @@ class GraphService(object):
             "/chalk.server.v1.GraphService/GetDataLineageIndex",
             chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetScheduledQueryLineageIndex(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/GetScheduledQueryLineageIndex",
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetScheduledQueryLineageIndexRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetScheduledQueryLineageIndexResponse.FromString,
             options,
             channel_credentials,
             insecure,

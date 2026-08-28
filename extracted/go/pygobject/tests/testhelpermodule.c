@@ -1,7 +1,7 @@
 #include <string.h>
 
-#include <pythoncapi_compat.h>
 #include <pygobject.h>
+#include <pythoncapi_compat.h>
 
 #include "test-floating.h"
 #include "test-thread.h"
@@ -117,7 +117,7 @@ static PyObject *
 _wrap_TestInterface__do_iface_method (PyObject *cls, PyObject *args,
                                       PyObject *kwargs)
 {
-    TestInterfaceIface *iface;
+    TestInterfaceInterface *iface;
     static char *kwlist[] = { "self", NULL };
     PyGObject *self;
 
@@ -194,10 +194,11 @@ _wrap_TestInterface__proxy_do_iface_method (TestInterface *self)
 }
 
 static void
-__TestInterface__interface_init (TestInterfaceIface *iface,
+__TestInterface__interface_init (TestInterfaceInterface *iface,
                                  PyTypeObject *pytype)
 {
-    TestInterfaceIface *parent_iface = g_type_interface_peek_parent (iface);
+    TestInterfaceInterface *parent_iface =
+        g_type_interface_peek_parent (iface);
     PyObject *py_method;
 
     py_method =
@@ -260,21 +261,21 @@ static void
 test1_callback (GObject *object, char *data)
 {
     g_return_if_fail (G_IS_OBJECT (object));
-    g_return_if_fail (!strcmp (data, "user-data"));
+    g_return_if_fail (g_strcmp0 (data, "user-data") == 0);
 }
 
 static void
 test1_callback_swapped (char *data, GObject *object)
 {
     g_return_if_fail (G_IS_OBJECT (object));
-    g_return_if_fail (!strcmp (data, "user-data"));
+    g_return_if_fail (g_strcmp0 (data, "user-data") == 0);
 }
 
 static void
 test2_callback (GObject *object, char *string)
 {
     g_return_if_fail (G_IS_OBJECT (object));
-    g_return_if_fail (!strcmp (string, "string"));
+    g_return_if_fail (g_strcmp0 (string, "string") == 0);
 }
 
 static int
@@ -329,7 +330,7 @@ static char *
 test_string_callback (GObject *object, char *s)
 {
     g_return_val_if_fail (G_IS_OBJECT (object), NULL);
-    g_return_val_if_fail (!strcmp (s, "str"), NULL);
+    g_return_val_if_fail (g_strcmp0 (s, "str") == 0, NULL);
 
     return g_strdup (s);
 }
@@ -348,7 +349,7 @@ test_paramspec_callback (GObject *object)
     g_return_val_if_fail (G_IS_OBJECT (object), NULL);
 
     return g_param_spec_boolean ("test-param", "test", "test boolean", TRUE,
-                                 G_PARAM_READABLE);
+                                 G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 }
 
 static GValue *
@@ -359,7 +360,7 @@ test_gvalue_callback (GObject *object, const GValue *v)
     g_return_val_if_fail (G_IS_OBJECT (object), NULL);
     g_return_val_if_fail (G_IS_VALUE (v), NULL);
 
-    ret = g_malloc0 (sizeof (GValue));
+    ret = g_new0 (GValue, 1);
     g_value_init (ret, G_VALUE_TYPE (v));
     g_value_copy (v, ret);
     return ret;
@@ -372,7 +373,7 @@ test_gvalue_ret_callback (GObject *object, GType type)
 
     g_return_val_if_fail (G_IS_OBJECT (object), NULL);
 
-    ret = g_malloc0 (sizeof (GValue));
+    ret = g_new0 (GValue, 1);
     g_value_init (ret, type);
 
     switch (type) {
@@ -389,7 +390,7 @@ test_gvalue_ret_callback (GObject *object, GType type)
         g_value_set_uint64 (ret, G_MAXUINT64);
         break;
     case G_TYPE_STRING:
-        g_value_set_string (ret, "hello");
+        g_value_set_static_string (ret, "hello");
         break;
     default:
         g_critical ("test_gvalue_ret_callback() does not support type %s",
@@ -423,23 +424,23 @@ connectcallbacks (GObject *object)
                       NULL);
     g_signal_connect (G_OBJECT (object), "test4", G_CALLBACK (test4_callback),
                       NULL);
-    g_signal_connect (G_OBJECT (object), "test_float",
+    g_signal_connect (G_OBJECT (object), "test-float",
                       G_CALLBACK (test_float_callback), NULL);
-    g_signal_connect (G_OBJECT (object), "test_double",
+    g_signal_connect (G_OBJECT (object), "test-double",
                       G_CALLBACK (test_double_callback), NULL);
-    g_signal_connect (G_OBJECT (object), "test_int64",
+    g_signal_connect (G_OBJECT (object), "test-int64",
                       G_CALLBACK (test_int64_callback), NULL);
-    g_signal_connect (G_OBJECT (object), "test_string",
+    g_signal_connect (G_OBJECT (object), "test-string",
                       G_CALLBACK (test_string_callback), NULL);
-    g_signal_connect (G_OBJECT (object), "test_object",
+    g_signal_connect (G_OBJECT (object), "test-object",
                       G_CALLBACK (test_object_callback), NULL);
-    g_signal_connect (G_OBJECT (object), "test_paramspec",
+    g_signal_connect (G_OBJECT (object), "test-paramspec",
                       G_CALLBACK (test_paramspec_callback), NULL);
-    g_signal_connect (G_OBJECT (object), "test_gvalue",
+    g_signal_connect (G_OBJECT (object), "test-gvalue",
                       G_CALLBACK (test_gvalue_callback), NULL);
-    g_signal_connect (G_OBJECT (object), "test_gvalue_ret",
+    g_signal_connect (G_OBJECT (object), "test-gvalue-ret",
                       G_CALLBACK (test_gvalue_ret_callback), NULL);
-    g_signal_connect (G_OBJECT (object), "test_paramspec_in",
+    g_signal_connect (G_OBJECT (object), "test-paramspec-in",
                       G_CALLBACK (test_paramspec_in_callback), NULL);
 }
 
@@ -565,7 +566,7 @@ _wrap_test_gerror_exception (PyObject *self, PyObject *args)
     py_args = PyTuple_New (0);
     py_ret = PyObject_CallObject (py_method, py_args);
     if (pyg_gerror_exception_check (&err)) {
-        pyg_error_check (&err);
+        pyg_error_check (&err); /* also clears the error. */
         return NULL;
     }
 

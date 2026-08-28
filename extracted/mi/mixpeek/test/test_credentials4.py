@@ -36,17 +36,18 @@ class TestCredentials4(unittest.TestCase):
         model = Credentials4()
         if include_optional:
             return Credentials4(
-                type = 'key_pair',
-                username = '',
-                private_key = '',
-                private_key_passphrase = '',
-                password = ''
+                type = 'client_credentials',
+                tenant_id = '',
+                client_id = '',
+                client_secret = '',
+                refresh_token = ''
             )
         else:
             return Credentials4(
-                username = '',
-                private_key = '',
-                password = '',
+                tenant_id = '',
+                client_id = '',
+                client_secret = '',
+                refresh_token = '',
         )
         """
 

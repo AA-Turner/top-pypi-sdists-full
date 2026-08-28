@@ -35,6 +35,19 @@ REMOTE_FIELD_ALIASES: Dict[str, str] = {
 }
 
 
+# ConfigData attributes that remote config must never write, even though they
+# exist on ConfigData and would otherwise be applied by name. Lookup below is
+# deny-by-unknown-name, so every new attribute is remotely settable by default;
+# these two must not be.
+#
+# testNameFormat: identity must not change without a visible change to the CI
+# command, because flipping it retrains TIA (contract C1, AC51).
+# skipFootprintsPipeline: a remote `false` would rebuild the footprints
+# pipeline inside a Robot process, reinstating the BuildMapper scan and the
+# tracer that contract C11 exists to remove (Rule 5).
+NON_REMOTE_FIELDS: frozenset = frozenset({"testNameFormat", "skipFootprintsPipeline"})
+
+
 # Internal ConfigData attribute -> expected Python type for v3 coercion.
 # Add entries here whenever a new remote-tunable int/bool field is introduced.
 TYPED_FIELDS: Dict[str, type] = {
@@ -98,6 +111,15 @@ def build_typed_update(
 
         # Resolve alias -> internal attribute
         attr = REMOTE_FIELD_ALIASES.get(raw_key, raw_key)
+
+        if attr in NON_REMOTE_FIELDS:
+            log.warning(
+                "Remote-config key %s is not remotely configurable — ignored "
+                "(value=%r)",
+                raw_key,
+                raw_value,
+            )
+            continue
 
         if attr not in target_attrs:
             log.warning(

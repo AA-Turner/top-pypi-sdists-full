@@ -4,9 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import os
+from collections.abc import AsyncIterator
 from logging import Logger
-from typing import IO, AsyncIterator, List, Union, Optional
+from typing import IO, List, Optional, Union
 
 import aiofiles
 import idb.common.gzip as gzip
@@ -18,7 +20,9 @@ from idb.grpc.idb_pb2 import InstallRequest, Payload
 from idb.grpc.xctest import xctest_paths_to_tar
 
 
-CHUNK_SIZE = 16384
+CHUNK_SIZE = (
+    1024 * 1024 * 4
+)  # 4Mb, matching tar.py/gzip.py and well under the companion's 16Mb max receive size
 Destination = InstallRequest.Destination
 Bundle = Union[str, IO[bytes]]
 
@@ -83,7 +87,7 @@ async def _generate_framework_chunks(
 
 
 async def generate_requests(
-    requests: List[InstallRequest],
+    requests: list[InstallRequest],
 ) -> AsyncIterator[InstallRequest]:
     for request in requests:
         yield request
@@ -105,7 +109,7 @@ async def generate_io_chunks(
 def generate_binary_chunks(
     path: str,
     destination: Destination,
-    compression: Optional[Compression],
+    compression: Compression | None,
     logger: Logger,
 ) -> AsyncIterator[InstallRequest]:
     if destination == InstallRequest.APP:

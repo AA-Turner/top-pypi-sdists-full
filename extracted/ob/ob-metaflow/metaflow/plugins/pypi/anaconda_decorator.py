@@ -25,6 +25,10 @@ class AnacondaStepDecorator(CondaStepDecorator):
         If set to True, disables @anaconda.
     channels : List[str], default ["https://repo.anaconda.com/pkgs/main"]
         Conda channels to use for package resolution.
+    extra_configs : Dict[str, str], default {}
+        Additional key-value configuration passed through to the environment
+        solver/builder. Merged with any ``extra_configs`` set in
+        ``@anaconda_base``, with step-level values taking precedence.
     """
 
     name = "anaconda"
@@ -33,6 +37,7 @@ class AnacondaStepDecorator(CondaStepDecorator):
         "python": None,
         "disabled": None,
         "channels": ["https://repo.anaconda.com/pkgs/main"],
+        "extra_configs": {},
     }
 
     _flow_decorator_name = "anaconda_base"
@@ -60,6 +65,10 @@ class AnacondaFlowDecorator(CondaFlowDecorator):
         If set to True, disables Anaconda.
     channels : List[str], default ["anaconda"]
         Conda channels to use for package resolution.
+    extra_configs : Dict[str, str], default {}
+        Additional key-value configuration passed through to the environment
+        solver/builder for all steps. Step-level ``@anaconda(extra_configs=...)``
+        values take precedence on key conflicts.
     """
 
     name = "anaconda_base"
@@ -68,6 +77,7 @@ class AnacondaFlowDecorator(CondaFlowDecorator):
         "python": None,
         "disabled": None,
         "channels": ["https://repo.anaconda.com/pkgs/main"],
+        "extra_configs": {},
     }
 
     _step_decorator_name = "anaconda"

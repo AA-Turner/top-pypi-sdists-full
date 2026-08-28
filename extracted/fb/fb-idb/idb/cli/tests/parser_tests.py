@@ -4,38 +4,65 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import asyncio
+
+import json
+import logging
 import os
-import sys
-from argparse import Namespace
-from typing import Any, Optional, Tuple, TypeVar
+import tempfile
+from argparse import ArgumentParser, Namespace
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, redirect_stdout
+from io import StringIO
+from types import ModuleType
+from typing import Any, TypeVar
 from unittest.mock import ANY, MagicMock, patch
 
-from idb.cli.main import gen_main as cli_main
+from idb.cli.commands.xctest import NO_SPECIFIED_PATH
+from idb.cli.main import gen_main as cli_main, get_default_companion_path
+from idb.common import plugin
+from idb.common.command import Command, CommandGroup
 from idb.common.types import (
+    AccessibilityBackend,
+    AccessibilityInfo,
+    AccessibilityInfoOptions,
+    AccessibilityMarker,
+    AccessibilityOutputFormat,
+    AccessibilityPoint,
+    AccessibilityScrollDirection,
+    AccessibilitySearchableKey,
     Compression,
     CrashLogQuery,
     DomainSocketAddress,
     HIDButtonType,
+    HIDDelay,
+    HIDDirection,
+    HIDOrientationType,
+    IdbException,
     InstrumentsTimings,
+    LoggingMetadata,
     Permission,
+    Screenshot,
+    ScreenshotCrop,
+    ScreenshotFormat,
+    ScreenshotOptions,
+    ScreenshotUnit,
     TCPAddress,
 )
+from idb.grpc.idb_pb2 import AccessibilityInfoRequest
 from idb.utils.testing import AsyncContextManagerMock, AsyncMock, TestCase
 
 
 T = TypeVar("T")
-COMPANION_PATH: Optional[str] = (
-    "/usr/local/bin/idb_companion" if sys.platform == "darwin" else None
-)
+COMPANION_PATH: str | None = get_default_companion_path()
 
 
 class AsyncGeneratorMock(AsyncMock):
     def __call__(self) -> None:
         super()
 
-    def __init__(self, iter_list: Tuple[T, ...] = ()) -> None:
+    def __init__(self, iter_list: tuple[T, ...] = ()) -> None:
         super().__init__()
+        # pyrefly: ignore [invalid-type-var]
         self.iter_list = iter_list
         self.iter_pos: int = -1
 
@@ -53,7 +80,7 @@ class AsyncGeneratorMock(AsyncMock):
 
 class TestParser(TestCase):
     def __init__(self, *args: Any, **kws: Any) -> None:
-        super().__init__(*args, loop=asyncio.get_event_loop(), **kws)
+        super().__init__(*args, **kws)
 
     def setUp(self) -> None:
         self.client_mock = MagicMock(name="client_mock")
@@ -92,6 +119,7 @@ class TestParser(TestCase):
             wait_for_debugger=False,
             stop=None,
             pid_file=None,
+            enable_repl=False,
         )
 
     async def test_launch_with_pid_file(self) -> None:
@@ -110,6 +138,23 @@ class TestParser(TestCase):
             wait_for_debugger=False,
             stop=None,
             pid_file=pid_file,
+            enable_repl=False,
+        )
+
+    async def test_launch_with_enable_repl(self) -> None:
+        bundle_id = "com.foo.app"
+        udid = "my udid"
+        self.client_mock.launch = AsyncMock(return_value=bundle_id)
+        await cli_main(cmd_input=["launch", "--enable-repl", "--udid", udid, bundle_id])
+        self.client_mock.launch.assert_called_once_with(
+            bundle_id=bundle_id,
+            env={},
+            args=[],
+            foreground_if_running=False,
+            wait_for_debugger=False,
+            stop=None,
+            pid_file=None,
+            enable_repl=True,
         )
 
     async def test_create(self) -> None:
@@ -170,7 +215,22 @@ class TestParser(TestCase):
         compression = None
         await cli_main(cmd_input=["install", app_path])
         self.client_mock.install.assert_called_once_with(
-            bundle=app_path, make_debuggable=None, compression=compression
+            bundle=app_path,
+            make_debuggable=None,
+            compression=compression,
+            override_modification_time=None,
+        )
+
+    async def test_install_with_mtime_override(self) -> None:
+        self.client_mock.install = MagicMock(return_value=AsyncGeneratorMock())
+        app_path = "testApp.ipa"
+        compression = None
+        await cli_main(cmd_input=["install", "--override-mtime", app_path])
+        self.client_mock.install.assert_called_once_with(
+            bundle=app_path,
+            make_debuggable=None,
+            compression=compression,
+            override_modification_time=True,
         )
 
     async def test_install_with_bad_compression(self) -> None:
@@ -187,7 +247,10 @@ class TestParser(TestCase):
         app_path = "testApp.app"
         await cli_main(cmd_input=["--compression", "ZSTD", "install", app_path])
         self.client_mock.install.assert_called_once_with(
-            bundle=app_path, make_debuggable=None, compression=Compression.ZSTD
+            bundle=app_path,
+            make_debuggable=None,
+            compression=Compression.ZSTD,
+            override_modification_time=None,
         )
 
     async def test_uninstall(self) -> None:
@@ -229,7 +292,7 @@ class TestParser(TestCase):
         port = 1234
         await cli_main(cmd_input=["connect", host, str(port)])
         self.client_manager_mock().connect.assert_called_once_with(
-            destination=TCPAddress(host=host, port=port), metadata=ANY
+            destination=TCPAddress(host=host, port=port),
         )
 
     async def test_connect_with_udid(self) -> None:
@@ -237,7 +300,7 @@ class TestParser(TestCase):
         udid = "0B3311FA-234C-4665-950F-37544F690B61"
         await cli_main(cmd_input=["connect", udid])
         self.client_manager_mock().connect.assert_called_once_with(
-            destination=udid, metadata=ANY
+            destination=udid,
         )
 
     async def test_disconnect_with_host_and_port(self) -> None:
@@ -442,7 +505,7 @@ class TestParser(TestCase):
         self.client_mock.install_xctest = MagicMock(return_value=AsyncGeneratorMock())
         test_bundle_path = "testBundle.xctest"
         await cli_main(cmd_input=["xctest", "install", test_bundle_path])
-        self.client_mock.install_xctest.assert_called_once_with(test_bundle_path)
+        self.client_mock.install_xctest.assert_called_once_with(test_bundle_path, None)
 
     def xctest_run_namespace(self, command: str, test_bundle_id: str) -> Namespace:
         namespace = Namespace()
@@ -456,6 +519,7 @@ class TestParser(TestCase):
         namespace.xctest = "run"
         namespace.udid = None
         namespace.json = False
+        namespace.reason = None
         if command in ["app", "ui"]:
             namespace.tests_to_run = None
             namespace.tests_to_skip = None
@@ -470,11 +534,14 @@ class TestParser(TestCase):
         namespace.report_attachments = False
         namespace.activities_output_path = None
         namespace.coverage_output_path = None
+        namespace.enable_continuous_coverage_collection = False
         namespace.coverage_format = "EXPORTED"
         namespace.log_directory_path = None
         namespace.wait_for_debugger = False
         namespace.install = False
         namespace.companion_tls = False
+        namespace.install_dsym_test_bundle = None
+        namespace.skip_signing_bundles = None
         return namespace
 
     async def test_xctest_run_app(self) -> None:
@@ -543,29 +610,67 @@ class TestParser(TestCase):
             test_bundle_id=bundle_id, app_path=None
         )
 
-    async def test_daemon(self) -> None:
+    async def test_xctest_run_logic_with_install(self) -> None:
         mock = AsyncMock()
+        mock.return_value = []
         with patch(
-            "idb.cli.commands.daemon.DaemonCommand._run_impl", new=mock, create=True
+            "idb.cli.commands.xctest.CommonRunXcTestCommand.run", new=mock, create=True
         ):
-            port = 9888
-            grpc_port = 1235
-            await cli_main(cmd_input=["daemon", "--daemon-grpc-port", str(grpc_port)])
-            namespace = Namespace()
-            namespace.companion_path = COMPANION_PATH
-            namespace.companion = None
-            namespace.compression = None
-            namespace.prune_dead_companion = True
-            namespace.daemon_port = port
-            namespace.daemon_grpc_port = grpc_port
-            namespace.log_level = "WARNING"
-            namespace.log_level_deprecated = None
-            namespace.root_command = "daemon"
-            namespace.json = False
-            namespace.reply_fd = None
-            namespace.prefer_ipv6 = False
-            namespace.notifier_path = None
-            namespace.companion_tls = False
+            test_bundle_path = "/bundle/path"
+            await cli_main(
+                cmd_input=["xctest", "run", "logic", "--install", test_bundle_path]
+            )
+            namespace = self.xctest_run_namespace("logic", test_bundle_path)
+            namespace.install = True
+            namespace.timeout = None
+            mock.assert_called_once_with(namespace)
+
+    async def test_xctest_run_logic_with_install_dsym_test_bundle(self) -> None:
+        mock = AsyncMock()
+        mock.return_value = []
+        with patch(
+            "idb.cli.commands.xctest.CommonRunXcTestCommand.run", new=mock, create=True
+        ):
+            test_bundle_path = "/bundle/path"
+            test_dsym_path = "/dsym/path"
+            await cli_main(
+                cmd_input=[
+                    "xctest",
+                    "run",
+                    "logic",
+                    "--install-dsym",
+                    test_dsym_path,
+                    "--install",
+                    test_bundle_path,
+                ]
+            )
+            namespace = self.xctest_run_namespace("logic", test_bundle_path)
+            namespace.install_dsym_test_bundle = test_dsym_path
+            namespace.install = True
+            namespace.timeout = None
+            mock.assert_called_once_with(namespace)
+
+    async def test_xctest_run_logic_with_install_dsym_no_path(self) -> None:
+        mock = AsyncMock()
+        mock.return_value = []
+        with patch(
+            "idb.cli.commands.xctest.CommonRunXcTestCommand.run", new=mock, create=True
+        ):
+            test_bundle_path = "/bundle/path"
+            await cli_main(
+                cmd_input=[
+                    "xctest",
+                    "run",
+                    "logic",
+                    "--install-dsym",
+                    "--install",
+                    test_bundle_path,
+                ]
+            )
+            namespace = self.xctest_run_namespace("logic", test_bundle_path)
+            namespace.install_dsym_test_bundle = NO_SPECIFIED_PATH
+            namespace.install = True
+            namespace.timeout = None
             mock.assert_called_once_with(namespace)
 
     async def test_terminate(self) -> None:
@@ -589,6 +694,7 @@ class TestParser(TestCase):
             namespace.root_command = "log"
             namespace.udid = "1234"
             namespace.json = False
+            namespace.reason = None
             namespace.log_arguments = []
             namespace.companion_tls = False
             mock.assert_called_once_with(namespace)
@@ -607,9 +713,64 @@ class TestParser(TestCase):
             namespace.root_command = "log"
             namespace.udid = None
             namespace.json = False
+            namespace.reason = None
             namespace.log_arguments = ["--", "--style", "json"]
             namespace.companion_tls = False
             mock.assert_called_once_with(namespace)
+
+    async def test_reason(self) -> None:
+        mock = AsyncMock()
+        with patch("idb.cli.commands.log.LogCommand._run_impl", new=mock, create=True):
+            await cli_main(cmd_input=["log", "--reason", "investigating a test flake"])
+            mock.assert_called_once()
+            namespace = mock.call_args.args[0]
+            self.assertEqual(namespace.reason, "investigating a test flake")
+
+    async def test_reason_added_to_telemetry_metadata(self) -> None:
+        reason = "investigating a test flake"
+        self.client_mock.list_apps = AsyncMock(return_value=[])
+        log_call_mock = MagicMock(
+            return_value=AsyncContextManagerMock(return_value=None)
+        )
+        with patch("idb.cli.log_call", log_call_mock):
+            await cli_main(cmd_input=["list-apps", "--reason", reason])
+        log_call_mock.assert_called_once()
+        metadata = log_call_mock.call_args.kwargs["metadata"]
+        self.assertEqual(metadata["reason"], reason)
+
+    async def test_reason_omitted_from_telemetry_metadata_when_absent(self) -> None:
+        self.client_mock.list_apps = AsyncMock(return_value=[])
+        log_call_mock = MagicMock(
+            return_value=AsyncContextManagerMock(return_value=None)
+        )
+        with patch("idb.cli.log_call", log_call_mock):
+            await cli_main(cmd_input=["list-apps"])
+        log_call_mock.assert_called_once()
+        metadata = log_call_mock.call_args.kwargs["metadata"]
+        self.assertNotIn("reason", metadata)
+
+    async def test_reason_logged_to_stderr(self) -> None:
+        reason = "investigating a test flake"
+        self.client_mock.list_apps = AsyncMock(return_value=[])
+        with self.assertLogs(level="INFO") as log_context:
+            await cli_main(cmd_input=["--log", "INFO", "list-apps", "--reason", reason])
+        self.assertTrue(
+            any(reason in message for message in log_context.output),
+            f"Expected invocation reason in logs, got: {log_context.output}",
+        )
+
+    async def test_reason_truncated_to_200(self) -> None:
+        reason = "x" * 250
+        self.client_mock.list_apps = AsyncMock(return_value=[])
+        log_call_mock = MagicMock(
+            return_value=AsyncContextManagerMock(return_value=None)
+        )
+        with patch("idb.cli.log_call", log_call_mock):
+            await cli_main(cmd_input=["list-apps", "--reason", reason])
+        log_call_mock.assert_called_once()
+        metadata = log_call_mock.call_args.kwargs["metadata"]
+        self.assertEqual(metadata["reason"], "x" * 200)
+        self.assertEqual(len(metadata["reason"]), 200)
 
     async def test_clear_keychain(self) -> None:
         self.client_mock.clear_keychain = AsyncMock(return_value=[])
@@ -629,6 +790,52 @@ class TestParser(TestCase):
         await cli_main(cmd_input=["set-location", str(latitude), str(longitude)])
         self.client_mock.set_location.assert_called_once_with(latitude, longitude)
 
+    async def test_set_preference_forwards_name(self) -> None:
+        self.client_mock.set_preference = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["set", "appearance", "dark"])
+        self.client_mock.set_preference.assert_called_once_with(
+            name="appearance", value="dark", value_type="string", domain=None
+        )
+
+    async def test_set_preference_with_domain(self) -> None:
+        self.client_mock.set_preference = AsyncMock(return_value=[])
+        await cli_main(
+            cmd_input=["set", "MyKey", "1", "--type", "int", "--domain", "com.example"]
+        )
+        self.client_mock.set_preference.assert_called_once_with(
+            name="MyKey", value="1", value_type="int", domain="com.example"
+        )
+
+    async def test_set_autofill_passwords(self) -> None:
+        self.client_mock.set_preference = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["set", "autofill-passwords", "disable"])
+        self.client_mock.set_preference.assert_called_once_with(
+            name="autofill-passwords", value="disable", value_type="string", domain=None
+        )
+
+    async def test_set_hardware_keyboard_routes_through_generic_preference(
+        self,
+    ) -> None:
+        self.client_mock.set_preference = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["set", "hardware-keyboard", "enable"])
+        self.client_mock.set_preference.assert_called_once_with(
+            name="hardware-keyboard", value="enable", value_type="string", domain=None
+        )
+
+    async def test_set_locale_routes_through_generic_preference(self) -> None:
+        self.client_mock.set_preference = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["set", "locale", "en_US"])
+        self.client_mock.set_preference.assert_called_once_with(
+            name="locale", value="en_US", value_type="string", domain=None
+        )
+
+    async def test_get_locale_routes_through_generic_preference(self) -> None:
+        self.client_mock.get_preference = AsyncMock(return_value="en_US")
+        await cli_main(cmd_input=["get", "locale"])
+        self.client_mock.get_preference.assert_called_once_with(
+            name="locale", domain=None
+        )
+
     async def test_approve(self) -> None:
         self.client_mock.approve = AsyncMock(return_value=[])
         bundle_id = "com.fb.myApp"
@@ -642,6 +849,22 @@ class TestParser(TestCase):
         bundle_id = "com.fb.myApp"
         await cli_main(cmd_input=["approve", bundle_id, "url", "--scheme", "fb"])
         self.client_mock.approve.assert_called_once_with(
+            bundle_id=bundle_id, permissions={Permission.URL}, scheme="fb"
+        )
+
+    async def test_revoke(self) -> None:
+        self.client_mock.revoke = AsyncMock(return_value=[])
+        bundle_id = "com.fb.myApp"
+        await cli_main(cmd_input=["revoke", bundle_id, "photos"])
+        self.client_mock.revoke.assert_called_once_with(
+            bundle_id=bundle_id, permissions={Permission.PHOTOS}, scheme=None
+        )
+
+    async def test_revoke_url(self) -> None:
+        self.client_mock.revoke = AsyncMock(return_value=[])
+        bundle_id = "com.fb.myApp"
+        await cli_main(cmd_input=["revoke", bundle_id, "url", "--scheme", "fb"])
+        self.client_mock.revoke.assert_called_once_with(
             bundle_id=bundle_id, permissions={Permission.URL}, scheme="fb"
         )
 
@@ -662,6 +885,7 @@ class TestParser(TestCase):
             namespace.root_command = "record-video"
             namespace.udid = None
             namespace.json = False
+            namespace.reason = None
             namespace.output_file = output_file
             namespace.companion_tls = False
             mock.assert_called_once_with(namespace)
@@ -688,6 +912,7 @@ class TestParser(TestCase):
                     root_command="video-stream",
                     udid=None,
                     json=False,
+                    reason=None,
                     output_file=output_file,
                     companion_tls=False,
                 )
@@ -703,6 +928,202 @@ class TestParser(TestCase):
         await cli_main(cmd_input=["ui", "tap", "10", "20"])
         self.client_mock.tap.assert_called_once_with(x=10, y=20, duration=None)
 
+    async def test_tap_with_duration(self) -> None:
+        self.client_mock.tap = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "tap", "10", "20", "--duration", "0.5"])
+        self.client_mock.tap.assert_called_once_with(x=10, y=20, duration=0.5)
+
+    async def test_tap_with_expected_value(self) -> None:
+        self.client_mock.accessibility_tap = AsyncMock(return_value=[])
+        await cli_main(
+            cmd_input=[
+                "ui",
+                "tap",
+                "10",
+                "20",
+                "--expected-value",
+                "Ready",
+                "--expected-key",
+                "AXValue",
+            ]
+        )
+        self.client_mock.accessibility_tap.assert_called_once_with(
+            target=AccessibilityPoint(x=10, y=20),
+            expected_value="Ready",
+            expected_key=AccessibilitySearchableKey.VALUE,
+        )
+
+    async def test_tap_ax_point(self) -> None:
+        self.client_mock.accessibility_tap = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "tap", "10", "20", "--api", "ax"])
+        self.client_mock.accessibility_tap.assert_called_once_with(
+            target=AccessibilityPoint(x=10, y=20),
+            expected_value=None,
+            expected_key=AccessibilitySearchableKey.LABEL,
+        )
+
+    async def test_tap_marker(self) -> None:
+        self.client_mock.accessibility_tap = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "tap", "Login", "--match-key", "AXUniqueId"])
+        self.client_mock.accessibility_tap.assert_called_once_with(
+            target=AccessibilityMarker(
+                value="Login",
+                match_key=AccessibilitySearchableKey.UNIQUE_ID,
+                depth=10,
+            ),
+            expected_value=None,
+            expected_key=AccessibilitySearchableKey.LABEL,
+        )
+
+    async def test_tap_marker_expected_value(self) -> None:
+        self.client_mock.accessibility_tap = AsyncMock(return_value=[])
+        await cli_main(
+            cmd_input=[
+                "ui",
+                "tap",
+                "Login",
+                "--expected-value",
+                "Ready",
+                "--expected-key",
+                "AXValue",
+            ]
+        )
+        self.client_mock.accessibility_tap.assert_called_once_with(
+            target=AccessibilityMarker(
+                value="Login",
+                match_key=AccessibilitySearchableKey.LABEL,
+                depth=10,
+            ),
+            expected_value="Ready",
+            expected_key=AccessibilitySearchableKey.VALUE,
+        )
+
+    async def test_tap_marker_rejects_api_hid(self) -> None:
+        self.client_mock.tap = AsyncMock(return_value=[])
+        self.client_mock.accessibility_tap = AsyncMock(return_value=[])
+        exit_code = await cli_main(cmd_input=["ui", "tap", "Login", "--api", "hid"])
+        self.assertEqual(exit_code, 1)
+        self.client_mock.tap.assert_not_called()
+        self.client_mock.accessibility_tap.assert_not_called()
+
+    async def test_describe_marker(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock(
+            return_value=AccessibilityInfo(json="[]")
+        )
+        await cli_main(
+            cmd_input=["ui", "describe", "Login", "--match-key", "AXUniqueId"]
+        )
+        self.client_mock.accessibility_info.assert_called_once_with(
+            target=AccessibilityMarker(
+                value="Login",
+                match_key=AccessibilitySearchableKey.UNIQUE_ID,
+                depth=10,
+            ),
+            options=AccessibilityInfoOptions(nested=False),
+        )
+
+    async def test_scroll_frontmost(self) -> None:
+        self.client_mock.accessibility_scroll = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "scroll", "down"])
+        self.client_mock.accessibility_scroll.assert_called_once_with(
+            target=None,
+            direction=AccessibilityScrollDirection.DOWN,
+        )
+
+    async def test_scroll_marker(self) -> None:
+        self.client_mock.accessibility_scroll = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "scroll", "up", "List"])
+        self.client_mock.accessibility_scroll.assert_called_once_with(
+            target=AccessibilityMarker(
+                value="List",
+                match_key=AccessibilitySearchableKey.LABEL,
+                depth=10,
+            ),
+            direction=AccessibilityScrollDirection.UP,
+        )
+
+    async def test_scroll_point(self) -> None:
+        self.client_mock.accessibility_scroll = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "scroll", "down", "100", "200"])
+        self.client_mock.accessibility_scroll.assert_called_once_with(
+            target=AccessibilityPoint(x=100, y=200),
+            direction=AccessibilityScrollDirection.DOWN,
+        )
+
+    async def test_scroll_too_many_tokens(self) -> None:
+        self.client_mock.accessibility_scroll = AsyncMock(return_value=[])
+        exit_code = await cli_main(
+            cmd_input=["ui", "scroll", "down", "100", "200", "300"]
+        )
+        self.assertEqual(exit_code, 1)
+        self.client_mock.accessibility_scroll.assert_not_called()
+
+    async def test_set_value_marker(self) -> None:
+        self.client_mock.accessibility_set_value = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "set-value", "Field", "--value", "hello"])
+        self.client_mock.accessibility_set_value.assert_called_once_with(
+            target=AccessibilityMarker(
+                value="Field",
+                match_key=AccessibilitySearchableKey.LABEL,
+                depth=10,
+            ),
+            value="hello",
+        )
+
+    async def test_multi_tap_default(self) -> None:
+        self.client_mock.multi_tap = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "multi-tap", "10", "20"])
+        self.client_mock.multi_tap.assert_called_once_with(
+            x=10, y=20, count=2, duration=None, pause=0.1
+        )
+
+    async def test_multi_tap_triple(self) -> None:
+        self.client_mock.multi_tap = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "multi-tap", "10", "20", "--count", "3"])
+        self.client_mock.multi_tap.assert_called_once_with(
+            x=10, y=20, count=3, duration=None, pause=0.1
+        )
+
+    async def test_multi_tap_with_pause(self) -> None:
+        self.client_mock.multi_tap = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "multi-tap", "10", "20", "--pause", "0.2"])
+        self.client_mock.multi_tap.assert_called_once_with(
+            x=10, y=20, count=2, duration=None, pause=0.2
+        )
+
+    async def test_pinch_default(self) -> None:
+        self.client_mock.pinch = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "pinch", "200", "400", "2.0"])
+        self.client_mock.pinch.assert_called_once_with(
+            center_x=200.0, center_y=400.0, scale=2.0, duration=0.5, radius=100.0
+        )
+
+    async def test_pinch_zoom_out(self) -> None:
+        self.client_mock.pinch = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "pinch", "200", "400", "0.5"])
+        self.client_mock.pinch.assert_called_once_with(
+            center_x=200.0, center_y=400.0, scale=0.5, duration=0.5, radius=100.0
+        )
+
+    async def test_pinch_with_options(self) -> None:
+        self.client_mock.pinch = AsyncMock(return_value=[])
+        await cli_main(
+            cmd_input=[
+                "ui",
+                "pinch",
+                "100",
+                "300",
+                "3.0",
+                "--duration",
+                "1.0",
+                "--radius",
+                "50",
+            ]
+        )
+        self.client_mock.pinch.assert_called_once_with(
+            center_x=100.0, center_y=300.0, scale=3.0, duration=1.0, radius=50.0
+        )
+
     async def test_button(self) -> None:
         self.client_mock.button = AsyncMock(return_value=[])
         await cli_main(cmd_input=["ui", "button", "SIRI"])
@@ -710,10 +1131,136 @@ class TestParser(TestCase):
             button_type=HIDButtonType.SIRI, duration=None
         )
 
+    async def test_rotate(self) -> None:
+        self.client_mock.rotate = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "rotate", "LANDSCAPE_LEFT"])
+        self.client_mock.rotate.assert_called_once_with(
+            orientation=HIDOrientationType.LANDSCAPE_LEFT
+        )
+
+    async def test_shake(self) -> None:
+        self.client_mock.shake = AsyncMock(return_value=[])
+        await cli_main(cmd_input=["ui", "shake"])
+        self.client_mock.shake.assert_called_once_with()
+
     async def test_key(self) -> None:
         self.client_mock.key = AsyncMock(return_value=[])
         await cli_main(cmd_input=["ui", "key", "12"])
         self.client_mock.key.assert_called_once_with(keycode=12, duration=None)
+
+    async def test_remote(self) -> None:
+        self.client_mock.key = AsyncMock(return_value=[])
+        # SELECT maps to the Return USB HID keyboard usage (0x28) the tvOS focus engine consumes.
+        await cli_main(cmd_input=["ui", "remote", "select"])
+        self.client_mock.key.assert_called_once_with(keycode=0x28, duration=None)
+
+    async def test_key_with_shift_modifier(self) -> None:
+        self.client_mock.hid = AsyncMock(return_value=[])
+
+        # Shift+P
+        await cli_main(cmd_input=["ui", "key", "19", "--shift"])
+        self.client_mock.hid.assert_called_once()
+
+        async_iter = self.client_mock.hid.call_args.args[0]
+        events = [event async for event in async_iter]
+        self.assertEqual(len(events), 4)
+        self.assertEqual(events[0].action.keycode, 225)  # Shift down
+        self.assertEqual(events[0].direction, HIDDirection.DOWN)
+        self.assertEqual(events[1].action.keycode, 19)  # P down
+        self.assertEqual(events[1].direction, HIDDirection.DOWN)
+        self.assertEqual(events[2].action.keycode, 19)  # P up
+        self.assertEqual(events[2].direction, HIDDirection.UP)
+        self.assertEqual(events[3].action.keycode, 225)  # Shift up
+        self.assertEqual(events[3].direction, HIDDirection.UP)
+
+    async def test_key_with_multiple_modifiers(self) -> None:
+        self.client_mock.hid = AsyncMock(return_value=[])
+
+        # Control+Option+Shift+Command+R
+        await cli_main(
+            cmd_input=[
+                "ui",
+                "key",
+                "19",
+                "--control",
+                "--option",
+                "--shift",
+                "--command",
+            ]
+        )
+        self.client_mock.hid.assert_called_once()
+
+        async_iter = self.client_mock.hid.call_args.args[0]
+        events = [event async for event in async_iter]
+
+        self.assertEqual(len(events), 10)
+        # Modifiers down (in order: control, option, shift, command)
+        self.assertEqual(events[0].action.keycode, 224)  # Control down
+        self.assertEqual(events[0].direction, HIDDirection.DOWN)
+        self.assertEqual(events[1].action.keycode, 226)  # Option down
+        self.assertEqual(events[1].direction, HIDDirection.DOWN)
+        self.assertEqual(events[2].action.keycode, 225)  # Shift down
+        self.assertEqual(events[2].direction, HIDDirection.DOWN)
+        self.assertEqual(events[3].action.keycode, 227)  # Command down
+        self.assertEqual(events[3].direction, HIDDirection.DOWN)
+        # Key press
+        self.assertEqual(events[4].action.keycode, 19)  # P down
+        self.assertEqual(events[4].direction, HIDDirection.DOWN)
+        self.assertEqual(events[5].action.keycode, 19)  # P up
+        self.assertEqual(events[5].direction, HIDDirection.UP)
+        # Modifiers up (reversed: command, shift, option, control)
+        self.assertEqual(events[6].action.keycode, 227)  # Command up
+        self.assertEqual(events[6].direction, HIDDirection.UP)
+        self.assertEqual(events[7].action.keycode, 225)  # Shift up
+        self.assertEqual(events[7].direction, HIDDirection.UP)
+        self.assertEqual(events[8].action.keycode, 226)  # Option up
+        self.assertEqual(events[8].direction, HIDDirection.UP)
+        self.assertEqual(events[9].action.keycode, 224)  # Control up
+        self.assertEqual(events[9].direction, HIDDirection.UP)
+
+    async def test_key_with_tab_modifier(self) -> None:
+        self.client_mock.hid = AsyncMock(return_value=[])
+
+        # Tab+H
+        await cli_main(cmd_input=["ui", "key", "11", "--tab"])
+        self.client_mock.hid.assert_called_once()
+
+        async_iter = self.client_mock.hid.call_args.args[0]
+        events = [event async for event in async_iter]
+
+        self.assertEqual(len(events), 4)
+        self.assertEqual(events[0].action.keycode, 43)  # Tab down
+        self.assertEqual(events[0].direction, HIDDirection.DOWN)
+        self.assertEqual(events[1].action.keycode, 11)  # H down
+        self.assertEqual(events[1].direction, HIDDirection.DOWN)
+        self.assertEqual(events[2].action.keycode, 11)  # H up
+        self.assertEqual(events[2].direction, HIDDirection.UP)
+        self.assertEqual(events[3].action.keycode, 43)  # Tab up
+        self.assertEqual(events[3].direction, HIDDirection.UP)
+
+    async def test_key_with_duration_and_modifiers(self) -> None:
+        self.client_mock.hid = AsyncMock(return_value=[])
+
+        # Shift+P with duration=0.5
+        await cli_main(cmd_input=["ui", "key", "19", "--shift", "--duration", "0.5"])
+        self.client_mock.hid.assert_called_once()
+
+        async_iter = self.client_mock.hid.call_args.args[0]
+        events = [event async for event in async_iter]
+
+        # Expected: Shift down, P down, HIDDelay(0.5), P up, Shift up
+        self.assertEqual(len(events), 5)
+        self.assertEqual(events[0].action.keycode, 225)  # Shift down
+        self.assertEqual(events[0].direction, HIDDirection.DOWN)
+        self.assertEqual(events[1].action.keycode, 19)  # P down
+        self.assertEqual(events[1].direction, HIDDirection.DOWN)
+        # Verify HIDDelay is inserted between key press and release
+        self.assertIsInstance(events[2], HIDDelay)
+        self.assertEqual(events[2].duration, 0.5)
+        self.assertEqual(events[3].action.keycode, 19)  # P up
+        self.assertEqual(events[3].direction, HIDDirection.UP)
+        self.assertEqual(events[4].action.keycode, 225)  # Shift up
+        self.assertEqual(events[4].direction, HIDDirection.UP)
 
     async def test_text_input(self) -> None:
         self.client_mock.text = AsyncMock(return_value=[])
@@ -751,32 +1298,356 @@ class TestParser(TestCase):
             contacts_path="/dev/null"
         )
 
+    async def test_contacts_clear(self) -> None:
+        target_description = MagicMock()
+        target_description.target_type = 0
+        self.client_mock.describe = AsyncMock(return_value=target_description)
+        self.client_mock.contacts_clear = AsyncMock(return_value=None)
+        await cli_main(cmd_input=["contacts", "clear"])
+        self.client_mock.contacts_clear.assert_called_once()
+
+    async def test_photos_clear(self) -> None:
+        target_description = MagicMock()
+        target_description.target_type = 0
+        self.client_mock.describe = AsyncMock(return_value=target_description)
+        self.client_mock.photos_clear = AsyncMock(return_value=None)
+        await cli_main(cmd_input=["photos", "clear"])
+        self.client_mock.photos_clear.assert_called_once()
+
+    async def test_screenshot_defaults_to_the_historical_capture(self) -> None:
+        # No flags has to keep meaning what it meant before the command had
+        # any: a full-screen, unscaled PNG written to the destination.
+        self.client_mock.screenshot = AsyncMock(return_value=Screenshot(b"png bytes"))
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "out.png")
+            self.assertEqual(await cli_main(cmd_input=["screenshot", path]), 0)
+            with open(path, "rb") as f:
+                self.assertEqual(f.read(), b"png bytes")
+        self.client_mock.screenshot.assert_called_once_with(options=ScreenshotOptions())
+
+    async def test_screenshot_every_flag_reaches_the_options(self) -> None:
+        self.client_mock.screenshot = AsyncMock(return_value=Screenshot(b"jpeg"))
+        with tempfile.TemporaryDirectory() as directory:
+            await cli_main(
+                cmd_input=[
+                    "screenshot",
+                    os.path.join(directory, "out.jpeg"),
+                    "--format",
+                    "jpeg",
+                    "--compression-quality",
+                    "0.35",
+                    "--crop",
+                    "10,20,30,40",
+                    "--max-width",
+                    "100",
+                    "--max-height",
+                    "200",
+                    "--units",
+                    "points",
+                ]
+            )
+        self.client_mock.screenshot.assert_called_once_with(
+            options=ScreenshotOptions(
+                format=ScreenshotFormat.JPEG,
+                compression_quality=0.35,
+                crop=ScreenshotCrop(x=10, y=20, width=30, height=40),
+                max_width=100,
+                max_height=200,
+                unit=ScreenshotUnit.POINTS,
+            )
+        )
+
+    async def test_screenshot_scale_factor_reaches_the_options(self) -> None:
+        self.client_mock.screenshot = AsyncMock(return_value=Screenshot(b"png"))
+        with tempfile.TemporaryDirectory() as directory:
+            await cli_main(
+                cmd_input=[
+                    "screenshot",
+                    os.path.join(directory, "out.png"),
+                    "--scale-factor",
+                    "0.5",
+                ]
+            )
+        self.client_mock.screenshot.assert_called_once_with(
+            options=ScreenshotOptions(scale_factor=0.5)
+        )
+
+    async def test_screenshot_rejects_a_factor_and_a_bounding_box(self) -> None:
+        # argparse cannot express "a factor, or one or both bounds", so the
+        # options type refuses it and the command reports that as an error
+        # rather than a traceback.
+        self.client_mock.screenshot = AsyncMock(return_value=Screenshot(b"png"))
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(
+                await cli_main(
+                    cmd_input=[
+                        "screenshot",
+                        os.path.join(directory, "out.png"),
+                        "--scale-factor",
+                        "0.5",
+                        "--max-width",
+                        "100",
+                    ]
+                ),
+                1,
+            )
+        self.client_mock.screenshot.assert_not_called()
+
+    async def test_screenshot_rejects_a_malformed_crop(self) -> None:
+        self.client_mock.screenshot = AsyncMock(return_value=Screenshot(b"png"))
+        with tempfile.TemporaryDirectory() as directory:
+            for crop in ["10,20", "10,20,30,40,50", "10,20,30,wide"]:
+                with self.subTest(crop=crop):
+                    self.assertEqual(
+                        await cli_main(
+                            cmd_input=[
+                                "screenshot",
+                                os.path.join(directory, "out.png"),
+                                "--crop",
+                                crop,
+                            ]
+                        ),
+                        2,
+                    )
+        self.client_mock.screenshot.assert_not_called()
+
+    async def test_screenshot_reports_a_value_the_wire_cannot_carry(self) -> None:
+        # These three never reach the companion: 0 is a proto scalar's "unset",
+        # so a quality of 0 would come back as a default-quality JPEG reported
+        # as a success, and a negative fit bound raises out of protobuf as a
+        # traceback. They have to be an error message from here instead.
+        for flags in [
+            ["--compression-quality", "0"],
+            ["--format", "png", "--compression-quality", "0"],
+            ["--compression-quality", "1.5"],
+            ["--max-width", "-1"],
+            ["--max-height", "0"],
+        ]:
+            with self.subTest(flags=flags):
+                self.client_mock.screenshot = AsyncMock(return_value=Screenshot(b"png"))
+                with tempfile.TemporaryDirectory() as directory:
+                    self.assertEqual(
+                        await cli_main(
+                            cmd_input=[
+                                "screenshot",
+                                os.path.join(directory, "out.png"),
+                                *flags,
+                            ]
+                        ),
+                        1,
+                    )
+                self.client_mock.screenshot.assert_not_called()
+
+    async def test_screenshot_json_reports_every_measurement(self) -> None:
+        self.client_mock.screenshot = AsyncMock(
+            return_value=Screenshot(
+                b"jpeg",
+                format=ScreenshotFormat.JPEG,
+                width=200,
+                height=100,
+                source_width=828,
+                source_height=1792,
+                screen_scale=3,
+            )
+        )
+        output = StringIO()
+        with tempfile.TemporaryDirectory() as directory:
+            with redirect_stdout(output):
+                await cli_main(
+                    cmd_input=[
+                        "screenshot",
+                        os.path.join(directory, "out.jpeg"),
+                        "--format",
+                        "jpeg",
+                        "--json",
+                    ]
+                )
+        self.assertEqual(
+            json.loads(output.getvalue()),
+            {
+                "format": "jpeg",
+                "byte_count": 4,
+                "width": 200,
+                "height": 100,
+                "source_width": 828,
+                "source_height": 1792,
+                "screen_scale": 3,
+            },
+        )
+
+    async def test_screenshot_will_not_put_json_and_an_image_on_stdout(self) -> None:
+        self.client_mock.screenshot = AsyncMock(return_value=Screenshot(b"png"))
+        self.assertEqual(
+            await cli_main(cmd_input=["screenshot", "-", "--json"]),
+            1,
+        )
+        self.client_mock.screenshot.assert_not_called()
+
     async def test_accessibility_info_all(self) -> None:
         self.client_mock.accessibility_info = AsyncMock()
         await cli_main(cmd_input=["ui", "describe-all"])
         self.client_mock.accessibility_info.assert_called_once_with(
-            point=None, nested=False
+            target=None,
+            options=AccessibilityInfoOptions(nested=False),
         )
 
     async def test_accessibility_info_all_nested(self) -> None:
         self.client_mock.accessibility_info = AsyncMock()
         await cli_main(cmd_input=["ui", "describe-all", "--nested"])
         self.client_mock.accessibility_info.assert_called_once_with(
-            point=None, nested=True
+            target=None,
+            options=AccessibilityInfoOptions(nested=True),
         )
 
     async def test_accessibility_info_at_point(self) -> None:
         self.client_mock.accessibility_info = AsyncMock()
         await cli_main(cmd_input=["ui", "describe-point", "10", "20"])
         self.client_mock.accessibility_info.assert_called_once_with(
-            point=(10, 20), nested=False
+            target=AccessibilityPoint(x=10, y=20),
+            options=AccessibilityInfoOptions(nested=False),
         )
 
-    async def test_accessibility_info_at_point(self) -> None:
+    async def test_accessibility_info_at_point_nested(self) -> None:
         self.client_mock.accessibility_info = AsyncMock()
         await cli_main(cmd_input=["ui", "describe-point", "--nested", "10", "20"])
         self.client_mock.accessibility_info.assert_called_once_with(
-            point=(10, 20), nested=True
+            target=AccessibilityPoint(x=10, y=20),
+            options=AccessibilityInfoOptions(nested=True),
+        )
+
+    async def test_accessibility_info_all_api(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock()
+        await cli_main(cmd_input=["ui", "describe-all", "--api", "axbridge-persistent"])
+        self.client_mock.accessibility_info.assert_called_once_with(
+            target=None,
+            options=AccessibilityInfoOptions(
+                nested=False, backend=AccessibilityBackend.AXBRIDGE_PERSISTENT
+            ),
+        )
+
+    async def test_accessibility_info_at_point_api(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock()
+        await cli_main(
+            cmd_input=["ui", "describe-point", "10", "20", "--api", "axbridge"]
+        )
+        self.client_mock.accessibility_info.assert_called_once_with(
+            target=AccessibilityPoint(x=10, y=20),
+            options=AccessibilityInfoOptions(
+                nested=False, backend=AccessibilityBackend.AXBRIDGE
+            ),
+        )
+
+    async def test_accessibility_info_all_format_complete(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock(
+            return_value=AccessibilityInfo(json='{"backend": "ax", "elements": []}')
+        )
+        await cli_main(cmd_input=["ui", "describe-all", "--format", "complete"])
+        self.client_mock.accessibility_info.assert_called_once_with(
+            target=None,
+            options=AccessibilityInfoOptions(
+                nested=False, format=AccessibilityOutputFormat.COMPLETE
+            ),
+        )
+
+    async def test_accessibility_info_at_point_format_nested(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock(
+            return_value=AccessibilityInfo(json="[]")
+        )
+        await cli_main(
+            cmd_input=["ui", "describe-point", "10", "20", "--format", "nested"]
+        )
+        self.client_mock.accessibility_info.assert_called_once_with(
+            target=AccessibilityPoint(x=10, y=20),
+            options=AccessibilityInfoOptions(
+                nested=False, format=AccessibilityOutputFormat.NESTED
+            ),
+        )
+
+    async def test_accessibility_info_rejects_nested_with_format(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock()
+        exit_code = await cli_main(
+            cmd_input=["ui", "describe-all", "--nested", "--format", "complete"]
+        )
+        self.assertEqual(exit_code, 1)
+        self.client_mock.accessibility_info.assert_not_called()
+
+    async def test_accessibility_info_all_enrichers(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock(
+            return_value=AccessibilityInfo(json='{"backend": "ax", "elements": []}')
+        )
+        await cli_main(
+            cmd_input=[
+                "ui",
+                "describe-all",
+                "--profile",
+                "--collect-frame-coverage",
+                "--format",
+                "complete",
+            ]
+        )
+        self.client_mock.accessibility_info.assert_called_once_with(
+            target=None,
+            options=AccessibilityInfoOptions(
+                nested=False,
+                format=AccessibilityOutputFormat.COMPLETE,
+                profile=True,
+                collect_frame_coverage=True,
+            ),
+        )
+
+    async def test_format_enum_matches_wire_values(self) -> None:
+        # --format nested must put the exact value on the wire that the
+        # deprecated --nested boolean always has, so an older companion —
+        # which knows nothing of this enum — serves both identically.
+        for fmt in AccessibilityOutputFormat:
+            self.assertEqual(
+                fmt.value,
+                getattr(AccessibilityInfoRequest, fmt.name),
+            )
+
+    async def test_describe_marker_api(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock(
+            return_value=AccessibilityInfo(json="[]")
+        )
+        await cli_main(cmd_input=["ui", "describe", "Login", "--api", "ax"])
+        self.client_mock.accessibility_info.assert_called_once_with(
+            target=AccessibilityMarker(
+                value="Login",
+                match_key=AccessibilitySearchableKey.LABEL,
+                depth=10,
+            ),
+            options=AccessibilityInfoOptions(
+                nested=False, backend=AccessibilityBackend.AX
+            ),
+        )
+
+    async def test_backend_enum_matches_wire_values(self) -> None:
+        # The typed backend must emit the exact values the proto declares, by
+        # name and by number — an unset backend is BACKEND_UNSPECIFIED, the
+        # only thing an older companion understands.
+        self.assertEqual(AccessibilityInfoRequest.BACKEND_UNSPECIFIED, 0)
+        for backend in AccessibilityBackend:
+            self.assertEqual(
+                backend.value,
+                getattr(AccessibilityInfoRequest, backend.name),
+            )
+
+    async def test_accessibility_info_all_keys(self) -> None:
+        self.client_mock.accessibility_info = AsyncMock()
+        await cli_main(
+            cmd_input=[
+                "ui",
+                "describe-all",
+                "--nested",
+                "--key",
+                "AXLabel",
+                "--key",
+                "type",
+            ]
+        )
+        self.client_mock.accessibility_info.assert_called_once_with(
+            target=None,
+            options=AccessibilityInfoOptions(nested=True, keys=["AXLabel", "type"]),
         )
 
     async def test_crash_list_all(self) -> None:
@@ -1393,3 +2264,126 @@ class TestParser(TestCase):
             ),
             2,  # error code when mutually exclusive arguments are provided
         )
+
+    async def test_subcommands_logged_for_top_level_command(self) -> None:
+        self.client_mock.list_apps = AsyncMock(return_value=[])
+        on_launch_mock = MagicMock()
+        with patch("idb.cli.main.plugin.on_launch", on_launch_mock):
+            await cli_main(cmd_input=["list-apps"])
+        on_launch_mock.assert_called_once_with(ANY, subcommands=["list-apps"])
+
+    async def test_subcommands_logged_for_nested_command(self) -> None:
+        self.client_mock.tap = AsyncMock(return_value=[])
+        on_launch_mock = MagicMock()
+        with patch("idb.cli.main.plugin.on_launch", on_launch_mock):
+            await cli_main(cmd_input=["ui", "tap", "10", "20"])
+        on_launch_mock.assert_called_once_with(ANY, subcommands=["ui", "tap"])
+
+    async def test_cli_plugins_loaded_before_contributed_commands(self) -> None:
+        self.client_mock.list_apps = AsyncMock(return_value=[])
+        events: list[str] = []
+
+        def load_cli_plugins() -> None:
+            events.append("load")
+
+        def get_commands() -> list[Command]:
+            self.assertEqual(events, ["load"])
+            events.append("get_commands")
+            return []
+
+        with (
+            patch("idb.cli.main.plugin.load_cli_plugins", load_cli_plugins),
+            patch("idb.cli.main.plugin.get_commands", get_commands),
+        ):
+            await cli_main(cmd_input=["list-apps"])
+        self.assertEqual(events, ["load", "get_commands"])
+
+
+class _StubCommand(Command):
+    def __init__(self, name: str, aliases: list[str] | None = None) -> None:
+        self._name = name
+        self._aliases = aliases or []
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def description(self) -> str:
+        return ""
+
+    @property
+    def aliases(self) -> list[str]:
+        return self._aliases
+
+    def add_parser_arguments(self, parser: ArgumentParser) -> None:
+        pass
+
+    async def run(self, args: Namespace) -> None:
+        pass
+
+
+class TestResolveSubcommandPath(TestCase):
+    def _root(self) -> CommandGroup:
+        return CommandGroup(
+            name="root_command",
+            description="",
+            commands=[
+                _StubCommand(name="list-apps"),
+                _StubCommand(name="list", aliases=["ls"]),
+                CommandGroup(
+                    name="ui",
+                    description="",
+                    commands=[_StubCommand(name="tap")],
+                ),
+            ],
+        )
+
+    def test_top_level_command(self) -> None:
+        args = Namespace(root_command="list-apps")
+        self.assertEqual(self._root().resolve_subcommand_path(args), ["list-apps"])
+
+    def test_nested_command(self) -> None:
+        args = Namespace(root_command="ui", ui="tap")
+        self.assertEqual(self._root().resolve_subcommand_path(args), ["ui", "tap"])
+
+    def test_alias_normalised_to_canonical_name(self) -> None:
+        args = Namespace(root_command="ls")
+        self.assertEqual(self._root().resolve_subcommand_path(args), ["list"])
+
+    def test_no_subcommand_selected(self) -> None:
+        args = Namespace(root_command=None)
+        self.assertEqual(self._root().resolve_subcommand_path(args), [])
+
+    def test_unknown_subcommand(self) -> None:
+        args = Namespace(root_command="does-not-exist")
+        self.assertEqual(self._root().resolve_subcommand_path(args), [])
+
+
+class _RejectingPlugin(ModuleType):
+    def on_command_parsed(
+        self, logger: logging.Logger, command: Command, args: Namespace
+    ) -> None:
+        raise IdbException("rejected by policy")
+
+
+class TestPluginRejection(TestCase):
+    async def test_rejected_command_exits_nonzero_and_still_logs(self) -> None:
+        logged: list[tuple[str, LoggingMetadata]] = []
+
+        @asynccontextmanager
+        async def capture_log_call(
+            name: str, metadata: LoggingMetadata
+        ) -> AsyncIterator[None]:
+            logged.append((name, metadata))
+            yield
+
+        rejecting = _RejectingPlugin("rejecting")
+        with (
+            patch.object(plugin, "PLUGINS", [rejecting]),
+            patch("idb.cli.log_call", capture_log_call),
+        ):
+            exit_code = await cli_main(cmd_input=["ui", "tap", "10", "20"])
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(len(logged), 1)
+        self.assertEqual(logged[0][0], "TapCommand")

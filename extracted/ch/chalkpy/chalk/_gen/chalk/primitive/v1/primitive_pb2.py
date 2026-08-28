@@ -19,7 +19,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/primitive/v1/primitive.proto\x12\x12\x63halk.primitive.v1\x1a\x1a\x63halk/arrow/v1/arrow.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x91\x06\n\tPrimitive\x12\x45\n\nnull_value\x18\x01 \x01(\x0b\x32$.chalk.primitive.v1.PrimitiveNullOptH\x00R\tnullValue\x12\x1f\n\nbool_value\x18\x02 \x01(\x08H\x00R\tboolValue\x12!\n\x0bint64_value\x18\x03 \x01(\x03H\x00R\nint64Value\x12#\n\x0cuint64_value\x18\x04 \x01(\x04H\x00R\x0buint64Value\x12#\n\x0c\x64ouble_value\x18\x05 \x01(\x01H\x00R\x0b\x64oubleValue\x12#\n\x0cstring_value\x18\x06 \x01(\tH\x00R\x0bstringValue\x12!\n\x0b\x62ytes_value\x18\x07 \x01(\x0cH\x00R\nbytesValue\x12\x42\n\x0e\x64uration_value\x18\x08 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00R\rdurationValue\x12\x45\n\x0ftimestamp_value\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x0etimestampValue\x12;\n\x0c\x61rrow_schema\x18\n \x01(\x0b\x32\x16.chalk.arrow.v1.SchemaH\x00R\x0b\x61rrowSchema\x12\x38\n\x0b\x61rrow_field\x18\x0b \x01(\x0b\x32\x15.chalk.arrow.v1.FieldH\x00R\narrowField\x12:\n\narrow_type\x18\x0e \x01(\x0b\x32\x19.chalk.arrow.v1.ArrowTypeH\x00R\tarrowType\x12\x42\n\nlist_value\x18\x0c \x01(\x0b\x32!.chalk.primitive.v1.PrimitiveListH\x00R\tlistValue\x12^\n\x14unordered_dict_value\x18\r \x01(\x0b\x32*.chalk.primitive.v1.PrimitiveUnorderedDictH\x00R\x12unorderedDictValueB\x05\n\x03\x61rg"\x12\n\x10PrimitiveNullOpt"F\n\rPrimitiveList\x12\x35\n\x06values\x18\x01 \x03(\x0b\x32\x1d.chalk.primitive.v1.PrimitiveR\x06values"\xbe\x01\n\x16PrimitiveUnorderedDict\x12K\n\x05items\x18\x01 \x03(\x0b\x32\x35.chalk.primitive.v1.PrimitiveUnorderedDict.ItemsEntryR\x05items\x1aW\n\nItemsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x33\n\x05value\x18\x02 \x01(\x0b\x32\x1d.chalk.primitive.v1.PrimitiveR\x05value:\x02\x38\x01\x42\x92\x01\n\x16\x63om.chalk.primitive.v1B\x0ePrimitiveProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x12\x43halk.Primitive.V1\xca\x02\x12\x43halk\\Primitive\\V1\xe2\x02\x1e\x43halk\\Primitive\\V1\\GPBMetadata\xea\x02\x14\x43halk::Primitive::V1b\x06proto3'
+    b'\n"chalk/primitive/v1/primitive.proto\x12\x12\x63halk.primitive.v1\x1a\x1a\x63halk/arrow/v1/arrow.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xd3\x06\n\tPrimitive\x12\x45\n\nnull_value\x18\x01 \x01(\x0b\x32$.chalk.primitive.v1.PrimitiveNullOptH\x00R\tnullValue\x12\x1f\n\nbool_value\x18\x02 \x01(\x08H\x00R\tboolValue\x12!\n\x0bint64_value\x18\x03 \x01(\x03H\x00R\nint64Value\x12#\n\x0cuint64_value\x18\x04 \x01(\x04H\x00R\x0buint64Value\x12#\n\x0c\x64ouble_value\x18\x05 \x01(\x01H\x00R\x0b\x64oubleValue\x12#\n\x0cstring_value\x18\x06 \x01(\tH\x00R\x0bstringValue\x12!\n\x0b\x62ytes_value\x18\x07 \x01(\x0cH\x00R\nbytesValue\x12\x42\n\x0e\x64uration_value\x18\x08 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00R\rdurationValue\x12\x45\n\x0ftimestamp_value\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x0etimestampValue\x12;\n\x0c\x61rrow_schema\x18\n \x01(\x0b\x32\x16.chalk.arrow.v1.SchemaH\x00R\x0b\x61rrowSchema\x12\x38\n\x0b\x61rrow_field\x18\x0b \x01(\x0b\x32\x15.chalk.arrow.v1.FieldH\x00R\narrowField\x12:\n\narrow_type\x18\x0e \x01(\x0b\x32\x19.chalk.arrow.v1.ArrowTypeH\x00R\tarrowType\x12@\n\x0c\x61rrow_scalar\x18\x0f \x01(\x0b\x32\x1b.chalk.arrow.v1.ScalarValueH\x00R\x0b\x61rrowScalar\x12\x42\n\nlist_value\x18\x0c \x01(\x0b\x32!.chalk.primitive.v1.PrimitiveListH\x00R\tlistValue\x12^\n\x14unordered_dict_value\x18\r \x01(\x0b\x32*.chalk.primitive.v1.PrimitiveUnorderedDictH\x00R\x12unorderedDictValueB\x05\n\x03\x61rg"\x12\n\x10PrimitiveNullOpt"F\n\rPrimitiveList\x12\x35\n\x06values\x18\x01 \x03(\x0b\x32\x1d.chalk.primitive.v1.PrimitiveR\x06values"\xbe\x01\n\x16PrimitiveUnorderedDict\x12K\n\x05items\x18\x01 \x03(\x0b\x32\x35.chalk.primitive.v1.PrimitiveUnorderedDict.ItemsEntryR\x05items\x1aW\n\nItemsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x33\n\x05value\x18\x02 \x01(\x0b\x32\x1d.chalk.primitive.v1.PrimitiveR\x05value:\x02\x38\x01\x42\x92\x01\n\x16\x63om.chalk.primitive.v1B\x0ePrimitiveProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x12\x43halk.Primitive.V1\xca\x02\x12\x43halk\\Primitive\\V1\xe2\x02\x1e\x43halk\\Primitive\\V1\\GPBMetadata\xea\x02\x14\x43halk::Primitive::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -33,13 +33,13 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_PRIMITIVEUNORDEREDDICT_ITEMSENTRY"]._options = None
     _globals["_PRIMITIVEUNORDEREDDICT_ITEMSENTRY"]._serialized_options = b"8\001"
     _globals["_PRIMITIVE"]._serialized_start = 152
-    _globals["_PRIMITIVE"]._serialized_end = 937
-    _globals["_PRIMITIVENULLOPT"]._serialized_start = 939
-    _globals["_PRIMITIVENULLOPT"]._serialized_end = 957
-    _globals["_PRIMITIVELIST"]._serialized_start = 959
-    _globals["_PRIMITIVELIST"]._serialized_end = 1029
-    _globals["_PRIMITIVEUNORDEREDDICT"]._serialized_start = 1032
-    _globals["_PRIMITIVEUNORDEREDDICT"]._serialized_end = 1222
-    _globals["_PRIMITIVEUNORDEREDDICT_ITEMSENTRY"]._serialized_start = 1135
-    _globals["_PRIMITIVEUNORDEREDDICT_ITEMSENTRY"]._serialized_end = 1222
+    _globals["_PRIMITIVE"]._serialized_end = 1003
+    _globals["_PRIMITIVENULLOPT"]._serialized_start = 1005
+    _globals["_PRIMITIVENULLOPT"]._serialized_end = 1023
+    _globals["_PRIMITIVELIST"]._serialized_start = 1025
+    _globals["_PRIMITIVELIST"]._serialized_end = 1095
+    _globals["_PRIMITIVEUNORDEREDDICT"]._serialized_start = 1098
+    _globals["_PRIMITIVEUNORDEREDDICT"]._serialized_end = 1288
+    _globals["_PRIMITIVEUNORDEREDDICT_ITEMSENTRY"]._serialized_start = 1201
+    _globals["_PRIMITIVEUNORDEREDDICT_ITEMSENTRY"]._serialized_end = 1288
 # @@protoc_insertion_point(module_scope)

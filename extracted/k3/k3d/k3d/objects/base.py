@@ -1,15 +1,20 @@
 """Base classes and utilities for K3D objects."""
 
-import ipywidgets as widgets
-import numpy as np
-from traitlets import Any, Bool, Dict, Int, Integer, List, Unicode, Union
-from traittypes import Array
+from typing import Any as TypingAny
+from typing import Dict as TypingDict
 
-from .._version import __version__ as version
-from ..helpers import (array_serialization_wrap, callback_serialization_wrap,
-                       to_json)
+import numpy as np
+from traitlets import Any, Bool, Dict, List, TraitError, Unicode, Union, validate
+
+from .._widget import K3DModelWidget
+from ..helpers import Array, Int, array_serialization_wrap, callback_serialization_wrap, to_json
 
 EPSILON = np.finfo(np.float32).eps
+
+SHININESS_REMOVED = (
+    "shininess was removed in 3.0.0 - use roughness and metalness instead. "
+    "The equivalent is roughness = sqrt(2 / (shininess + 2)), e.g. the old default 50 -> 0.196."
+)
 
 
 class TimeSeries(Union):
@@ -36,33 +41,31 @@ class ListOrArray(List):
         """Validate the value, handling None by converting to empty list."""
         if value is None:
             return []
-        return super(ListOrArray, self).validate(obj, value)
+        return super().validate(obj, value)
 
     def validate_elements(self, obj, value):
         if self._empty_ok and len(value) == 0:
             return list(value)
-        return super(ListOrArray, self).validate_elements(obj, value)
+        return super().validate_elements(obj, value)
 
 
-class VoxelChunk(widgets.Widget):
+class VoxelChunk(K3DModelWidget):
     """Voxel chunk class for selective updating voxels."""
 
-    _model_name = Unicode("ChunkModel").tag(sync=True)
-    _model_module = Unicode("k3d").tag(sync=True)
-    _model_module_version = Unicode(version).tag(sync=True)
+    _kind = Unicode("chunk").tag(sync=True)
 
     id = Int().tag(sync=True)
     voxels = Array(dtype=np.uint8).tag(sync=True, **array_serialization_wrap("voxels"))
     coord = Array(dtype=np.uint32).tag(sync=True, **array_serialization_wrap("coord"))
     multiple = Int().tag(sync=True)
-    compression_level = Integer().tag(sync=True)
+    compression_level = Int().tag(sync=True)
 
     def push_data(self, field):
         self.notify_change({"name": field, "type": "change"})
 
     def __init__(self, **kwargs):
         self.id = id(self)
-        super(VoxelChunk, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __getitem__(self, name):
         return getattr(self, name)
@@ -70,28 +73,36 @@ class VoxelChunk(widgets.Widget):
     def get_binary(self):
         obj = {}
 
-        for k, v in self.traits().items():
-            if "sync" in v.metadata:
-                obj[k] = to_json(k, self[k], self, self["compression_level"])
+        for k in self._synced_props:
+            obj[k] = to_json(k, self[k], self, self["compression_level"])
 
         return obj
 
 
-class Drawable(widgets.Widget):
+class Drawable(K3DModelWidget):
     """
     Base class for drawable objects and groups.
     """
 
-    _model_name = Unicode("ObjectModel").tag(sync=True)
-    _model_module = Unicode("k3d").tag(sync=True)
-    _model_module_version = Unicode(version).tag(sync=True)
+    _kind = Unicode("object").tag(sync=True)
 
-    id = Integer().tag(sync=True)
+    id = Int().tag(sync=True)
     name = Unicode(default_value=None, allow_none=True).tag(sync=True)
     group = Unicode(default_value=None, allow_none=True).tag(sync=True)
     custom_data = Dict(default_value=None, allow_none=True).tag(sync=True)
     visible = TimeSeries(Bool(True)).tag(sync=True)
-    compression_level = Integer().tag(sync=True)
+    compression_level = Int().tag(sync=True)
+
+    # Tombstone. Unknown constructor kwargs are silently swallowed by ipywidgets, so simply
+    # deleting the trait would turn every existing shininess= call into a silent visual change.
+    shininess = Any(default_value=None, allow_none=True)
+
+    @validate("shininess")
+    def _shininess_removed(self, proposal):
+        # None passes - factories forward their tombstone parameter unconditionally
+        if proposal["value"] is None:
+            return
+        raise TraitError(SHININESS_REMOVED)
 
     def __getitem__(self, name):
         return getattr(self, name)
@@ -99,7 +110,7 @@ class Drawable(widgets.Widget):
     def __init__(self, **kwargs):
         self.id = id(self)
 
-        super(Drawable, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def __iter__(self):
         return (self,).__iter__()
@@ -142,16 +153,13 @@ class Drawable(widgets.Widget):
         plot.display()
 
     def clone(self):
-        from .utils import clone_object
-
         return clone_object(self)
 
     def get_binary(self):
         obj = {}
 
-        for k, v in self.traits().items():
-            if "sync" in v.metadata:
-                obj[k] = to_json(k, self[k], self, self["compression_level"])
+        for k in self._synced_props:
+            obj[k] = to_json(k, self[k], self, self["compression_level"])
 
         return obj
 
@@ -165,22 +173,20 @@ class DrawableWithVoxelCallback(Drawable):
     hover_callback = None
 
     def __init__(self, **kwargs):
-        super(DrawableWithVoxelCallback, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.on_msg(self._handle_custom_msg)
 
     def _handle_custom_msg(self, content, buffers):
-        if content.get("msg_type", "") == "click_callback":
-            if self.click_callback is not None:
-                self.click_callback(
-                    content["coord"]["x"], content["coord"]["y"], content["coord"]["z"]
-                )
+        if content.get("msg_type", "") == "click_callback" and self.click_callback is not None:
+            self.click_callback(
+                content["coord"]["x"], content["coord"]["y"], content["coord"]["z"]
+            )
 
-        if content.get("msg_type", "") == "hover_callback":
-            if self.hover_callback is not None:
-                self.hover_callback(
-                    content["coord"]["x"], content["coord"]["y"], content["coord"]["z"]
-                )
+        if content.get("msg_type", "") == "hover_callback" and self.hover_callback is not None:
+            self.hover_callback(
+                content["coord"]["x"], content["coord"]["y"], content["coord"]["z"]
+            )
 
 
 class DrawableWithCallback(Drawable):
@@ -196,18 +202,16 @@ class DrawableWithCallback(Drawable):
     )
 
     def __init__(self, **kwargs):
-        super(DrawableWithCallback, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.on_msg(self._handle_custom_msg)
 
     def _handle_custom_msg(self, content, buffers):
-        if content.get("msg_type", "") == "click_callback":
-            if self.click_callback is not None:
-                self.click_callback(content)
+        if content.get("msg_type", "") == "click_callback" and self.click_callback is not None:
+            self.click_callback(content)
 
-        if content.get("msg_type", "") == "hover_callback":
-            if self.hover_callback is not None:
-                self.hover_callback(content)
+        if content.get("msg_type", "") == "hover_callback" and self.hover_callback is not None:
+            self.hover_callback(content)
 
 
 class Group(Drawable):
@@ -226,6 +230,8 @@ class Group(Drawable):
             for drawable in drawables
         )
 
+        super().__init__()
+
     def __iter__(self):
         return self.__objs.__iter__()
 
@@ -235,10 +241,32 @@ class Group(Drawable):
             for d in self:
                 d.model_matrix = value
         else:
-            super(Group, self).__setattr__(key, value)
+            super().__setattr__(key, value)
 
     @staticmethod
     def __assert_drawable(arg):
         assert isinstance(arg, Drawable)
 
         return arg
+
+
+def clone_object(obj: TypingAny) -> TypingAny:
+    """Clone an existing object.
+
+    Parameters
+    ----------
+    obj : object
+        The object to clone.
+
+    Returns
+    -------
+    object
+        A new instance of the same object type with copied attributes.
+    """
+    param: TypingDict[str, TypingAny] = {}
+
+    for k, _v in obj.traits().items():
+        if k in obj._synced_props and k not in ["id", "type"]:
+            param[k] = obj[k]
+
+    return type(obj)(**param)

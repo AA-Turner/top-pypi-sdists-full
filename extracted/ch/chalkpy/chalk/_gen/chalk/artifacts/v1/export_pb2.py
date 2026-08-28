@@ -21,7 +21,29 @@ from chalk._gen.chalk.artifacts.v1 import (
 from chalk._gen.chalk.artifacts.v1 import cron_query_pb2 as chalk_dot_artifacts_dot_v1_dot_cron__query__pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as chalk_dot_common_dot_v1_dot_chalk__error__pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as chalk_dot_graph_dot_v1_dot_graph__pb2
+
+try:
+    chalk_dot_graph_dot_v1_dot_source__file__reference__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk_dot_graph_dot_v1_dot_source__file__reference__pb2
+    )
+except AttributeError:
+    chalk_dot_graph_dot_v1_dot_source__file__reference__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk.graph.v1.source_file_reference_pb2
+    )
+try:
+    chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2
+    )
+except AttributeError:
+    chalk_dot_graph_dot_v1_dot_sql__resolver__retry__policy__pb2 = (
+        chalk_dot_graph_dot_v1_dot_graph__pb2.chalk.graph.v1.sql_resolver_retry_policy_pb2
+    )
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as chalk_dot_lsp_dot_v1_dot_lsp__pb2
+
+try:
+    chalk_dot_lsp_dot_v1_dot_range__pb2 = chalk_dot_lsp_dot_v1_dot_lsp__pb2.chalk_dot_lsp_dot_v1_dot_range__pb2
+except AttributeError:
+    chalk_dot_lsp_dot_v1_dot_range__pb2 = chalk_dot_lsp_dot_v1_dot_lsp__pb2.chalk.lsp.v1.range_pb2
 from chalk._gen.chalk.python.v1 import types_pb2 as chalk_dot_python_dot_v1_dot_types__pb2
 
 

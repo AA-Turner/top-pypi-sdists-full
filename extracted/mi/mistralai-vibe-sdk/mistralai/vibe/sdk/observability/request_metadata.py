@@ -42,6 +42,7 @@ class RequestMetadata(BaseModel):
     customer_id: str | None = None
     call_type: TelemetryCallType | None = None
     call_source: str = DEFAULT_CALL_SOURCE
+    surface: str | None = None
     message_id: str | None = None
 
     @model_validator(mode="before")

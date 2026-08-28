@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkknx_frontend=self.rspackChunkknx_frontend||[]).push([[92846],{46779(e,s,t){t.d(s,{},{C:(e,s)=>{console.error(`[KNX] "${e}" is stubbed out in this build, so ${s} does not work here. The KNX panel is not supposed to need it — if it does, remove the entry from build-scripts/stubs.cjs.`)}})},73693(e,s,t){(0,t(46779).C)("hls.js","playing camera streams that the browser cannot play natively");t.d(s,{},{default:{isSupported:()=>!1}})}}]);
+//# sourceMappingURL=92846.3503c65d43235241.js.map

@@ -4,6 +4,8 @@ from chalk._gen.chalk.artifacts.v1 import export_pb2 as _export_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -589,6 +591,56 @@ class GetDataLineageIndexResponse(_message.Message):
     RESOLVER_DATA_LINEAGE_FIELD_NUMBER: _ClassVar[int]
     resolver_data_lineage: _containers.MessageMap[str, ResolverDataLineage]
     def __init__(self, resolver_data_lineage: _Optional[_Mapping[str, ResolverDataLineage]] = ...) -> None: ...
+
+class ScheduledQueryLineage(_message.Message):
+    __slots__ = ("cron_query_id", "name", "cron", "resolver_fqns", "feature_fqns", "query_plan_id")
+    CRON_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CRON_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FQNS_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FQNS_FIELD_NUMBER: _ClassVar[int]
+    QUERY_PLAN_ID_FIELD_NUMBER: _ClassVar[int]
+    cron_query_id: int
+    name: str
+    cron: str
+    resolver_fqns: _containers.RepeatedScalarFieldContainer[str]
+    feature_fqns: _containers.RepeatedScalarFieldContainer[str]
+    query_plan_id: str
+    def __init__(
+        self,
+        cron_query_id: _Optional[int] = ...,
+        name: _Optional[str] = ...,
+        cron: _Optional[str] = ...,
+        resolver_fqns: _Optional[_Iterable[str]] = ...,
+        feature_fqns: _Optional[_Iterable[str]] = ...,
+        query_plan_id: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetScheduledQueryLineageIndexRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetScheduledQueryLineageIndexResponse(_message.Message):
+    __slots__ = ("scheduled_queries", "names_without_plan")
+    class ScheduledQueriesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: ScheduledQueryLineage
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[ScheduledQueryLineage, _Mapping]] = ...
+        ) -> None: ...
+
+    SCHEDULED_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    NAMES_WITHOUT_PLAN_FIELD_NUMBER: _ClassVar[int]
+    scheduled_queries: _containers.MessageMap[str, ScheduledQueryLineage]
+    names_without_plan: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        scheduled_queries: _Optional[_Mapping[str, ScheduledQueryLineage]] = ...,
+        names_without_plan: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
 
 class OfflineTable(_message.Message):
     __slots__ = ("internal_version", "table_name", "fqn")

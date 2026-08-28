@@ -86,6 +86,14 @@ ALLOWED_FIELDS = {
                       # resolves map[W] if W is in it, else ``no_evict``, and
                       # simply includes/omits the spill key for THAT worker —
                       # the wire and the worker's admission are untouched.
+    "gguf_file_by_worker",  # per-(model × worker) quant pin, modeled on
+                      # no_evict_by_worker: {worker_name_or_id: basename_or_
+                      # quant_token}. WHICH .gguf serves is a statement about
+                      # ONE box's VRAM, not about the model (q8_0 on a 24 GiB
+                      # card, q4_k_m on the 8 GiB 4060), so it belongs at the
+                      # same grain. Resolution: map[W] wins over the model-wide
+                      # ``gguf_file`` for THAT worker; every other worker keeps
+                      # the model-wide pin / election exactly as before.
 }
 _INT_FIELDS = {"n_gpu_layers", "n_cpu_moe", "threads", "llama_ctx", "ttl_seconds",
                "priority"}
@@ -132,16 +140,85 @@ def available_gguf_files(model_dir: str) -> list:
     return _gguf_basenames(model_dir)
 
 
-def resolve_override_gguf(model_key: str, model_dir: str):
-    """Absolute path of the operator-selected .gguf for this model, IF the
-    ``gguf_file`` override is set and that file exists under ``model_dir``; else
-    None (caller falls back to the registry/auto resolution). Honored by both the
-    in-process runner and the systemd/swap serve spec, so the choice is global."""
-    fn = (get_override(model_key) or {}).get("gguf_file")
+def resolve_gguf_for_worker(by_worker, forms) -> "str | None":
+    """Effective per-worker quant pin for ONE worker: ``map[W]`` when W is in the
+    ``gguf_file_by_worker`` map, else None (the model-wide ``gguf_file`` /
+    election governs). PURE (no disk read), shaped like :func:`resolve_polite`
+    and matching id OR name case-insensitively for the same reason: the console
+    posts ids, an operator editing the file writes names, and a pin that
+    silently failed to match would serve the wrong quant on the box the
+    operator sized it for."""
+    want = {str(f).strip().lower() for f in (forms or []) if str(f).strip()}
+    for name, val in (by_worker or {}).items():
+        if str(name).strip().lower() in want and str(val or "").strip():
+            return str(val).strip()
+    return None
+
+
+_LOCAL_WORKER_ID = None      # lazily-read id from the worker id-file, cached
+
+
+def _local_worker_forms() -> list:
+    """This process's own worker identity spellings — env WORKER_NAME, the
+    hostname, and the enrolled worker id from the id-file when readable. Used
+    when a caller resolves an override with no explicit worker: the load paths
+    all run ON the box that serves, so 'this box' is the right default, and a
+    process with no identity (central sizing a model in the abstract) simply
+    matches nothing in the per-worker map."""
+    global _LOCAL_WORKER_ID
+    forms = []
+    name = os.environ.get("WORKER_NAME")
+    if name:
+        forms.append(name)
+    try:
+        import socket
+        forms.append(socket.gethostname())
+    except Exception:  # noqa: BLE001
+        pass
+    if _LOCAL_WORKER_ID is None:
+        try:
+            idf = os.environ.get("WORKER_ID_FILE") or os.path.expanduser(
+                "~/.abstract_hugpy_worker.json")
+            with open(idf, "r", encoding="utf-8") as fh:
+                _LOCAL_WORKER_ID = str((json.load(fh) or {}).get("worker_id") or "")
+        except Exception:  # noqa: BLE001
+            _LOCAL_WORKER_ID = ""
+    if _LOCAL_WORKER_ID:
+        forms.append(_LOCAL_WORKER_ID)
+    return forms
+
+
+def resolve_override_gguf(model_key: str, model_dir: str, worker=None):
+    """Absolute path of the operator-selected .gguf for this model, IF a pin is
+    set and resolves to a file under ``model_dir``; else None (caller falls back
+    to the registry/auto resolution). Honored by both the in-process runner and
+    the systemd/swap serve spec, so the choice is global.
+
+    PRECEDENCE (mirrors gguf_election rule 0 — a designation always wins):
+    per-worker ``gguf_file_by_worker`` → model-wide ``gguf_file``. ``worker``
+    is an optional id/name (or iterable of spellings) naming WHICH worker is
+    asking; None means this process's own identity (:func:`_local_worker_forms`)
+    — the load paths run on the box that serves, and a process with no identity
+    matches nothing per-worker, i.e. exactly the old model-wide behavior.
+
+    The stored value may be a full basename OR a quant token ("q8_0"): an exact
+    basename that exists wins, else a case-insensitive substring match over the
+    servable files (the same tolerance ``get_gguf_file``'s ``prefer`` applies,
+    so the two resolvers cannot disagree about what a token selects)."""
+    ov = get_override(model_key) or {}
+    forms = ([worker] if isinstance(worker, str) else list(worker or ())) \
+        or _local_worker_forms()
+    fn = resolve_gguf_for_worker(ov.get("gguf_file_by_worker"), forms) \
+        or ov.get("gguf_file")
     if not fn:
         return None
     cand = os.path.join(model_dir, os.path.basename(str(fn)))
-    return cand if os.path.isfile(cand) else None
+    if os.path.isfile(cand):
+        return cand
+    want = os.path.basename(str(fn)).lower()
+    hits = sorted(rel for rel, _sz in _servable_gguf_files(model_dir)
+                  if want in os.path.basename(rel).lower())
+    return os.path.join(model_dir, hits[0]) if hits else None
 
 
 def _file_bytes(model_dir: str, fn: str) -> int:
@@ -348,6 +425,204 @@ def gguf_variants_detail(model_key: str, model_dir: str, cfg=None) -> dict:
     }
 
 
+# ── fit-aware quant pick + the ONE shared load-requirement computation ───────
+_GIB = float(2 ** 30)
+
+
+def select_fitting_gguf(model_key: str, model_dir: str, cfg=None,
+                        budget_bytes=None, headroom: float = 1.15):
+    """The "most amicable" quant for a byte budget: the LARGEST COMPLETE variant
+    whose ``(bytes + mmproj) × headroom`` fits ``budget_bytes``. Returns the
+    winner's entrypoint basename, or None when nothing fits (caller falls back
+    to the plain election — the worker still loads-and-spills as today).
+
+    Selection only — it never overrides a designation; callers gate it behind
+    :func:`autofit_gguf_prefer`, which returns None whenever any pin exists.
+    ``budget_bytes`` is the caller's already-derated figure (free VRAM minus the
+    admission reserve minus the KV estimate)."""
+    try:
+        budget = int(budget_bytes)
+    except (TypeError, ValueError):
+        return None
+    if budget <= 0:
+        return None
+    detail = gguf_variants_detail(model_key, model_dir, cfg) or {}
+    mmproj = int(detail.get("mmproj_bytes") or 0)
+    best = None
+    for v in detail.get("variants") or []:
+        if v.get("complete") is False:
+            continue                      # incomplete shard sets are unelectable
+        b = int(v.get("bytes") or 0)
+        if b <= 0 or int((b + mmproj) * headroom) > budget:
+            continue
+        if best is None or b > int(best.get("bytes") or 0):
+            best = v
+    return best["filename"] if best else None
+
+
+# Worker-side fit-aware auto-pick, registered by the worker agent (which owns
+# the free-VRAM / KV / reserve numbers). Unregistered — central, tests, a bare
+# import — means no auto-pick, i.e. exactly the plain election.
+_GGUF_AUTOFIT_HOOK = None
+
+
+def set_gguf_autofit_hook(fn) -> None:
+    """Register ``fn(model_key, model_dir, cfg) -> basename | None`` as the
+    fit-aware quant picker (the worker agent's selector). None un-registers."""
+    global _GGUF_AUTOFIT_HOOK
+    _GGUF_AUTOFIT_HOOK = fn
+
+
+def autofit_gguf_prefer(model_key: str, model_dir: str, cfg=None):
+    """The fit-aware auto-pick basename for a load, or None. GATED so it can
+    NEVER silently upgrade an operator pin: any designation — per-worker
+    ``gguf_file_by_worker`` (this box), model-wide ``gguf_file``, or the
+    registry ``cfg.filename`` — returns None, and the designation resolves via
+    its own path. Safe to pass straight to ``get_gguf_file(prefer=...)``."""
+    try:
+        ov = get_override(model_key) or {}
+        if ov.get("gguf_file"):
+            return None
+        if resolve_gguf_for_worker(ov.get("gguf_file_by_worker"),
+                                   _local_worker_forms()):
+            return None
+        fname = (cfg or {}).get("filename") if isinstance(cfg, dict) \
+            else getattr(cfg, "filename", None)
+        if fname:
+            return None
+        if _GGUF_AUTOFIT_HOOK is None:
+            return None
+        return _GGUF_AUTOFIT_HOOK(model_key, model_dir, cfg)
+    except Exception:  # noqa: BLE001 — an auto-pick miss must never break a load
+        return None
+
+
+def effective_load_requirement(model_key: str, model_dir: str, cfg=None, *,
+                               free_vram=None, worker=None) -> dict:
+    """THE shared answer to "what does loading this model actually require?" —
+    ``{weights_bytes, gpu_bytes, cpu_bytes, chosen_gguf, moe, basis,
+    mmap_eligible}``. One computation for the dispatch disk detail, the worker
+    fit-guard and central admission, so no path re-invents (and mis-invents)
+    the model's size.
+
+      * ``weights_bytes`` — the artifact that LOADS: for GGUF the designated/
+        elected quant SUMMED across shards + its mmproj (via
+        :func:`gguf_variants_detail`, one cached read), never the multi-quant
+        dir sum. Non-GGUF: the weight-file sum, minus duplicate torch
+        serializations when a safetensors set shadows them.
+      * ``gpu_bytes``  — the GPU-resident share: MoE non_expert + mmproj under
+        the expert split, else ``weights_bytes``.
+      * ``cpu_bytes``  — the MoE expert share (0 for dense). ``mmap_eligible``
+        is True: file-backed weights stream through the page cache, so this is
+        NOT a hard RAM reservation and admission must not price it as one.
+      * ``basis``      — short human string naming what was priced, for honest
+        refusal text.
+
+    ``free_vram`` (optional, already net of reserve/KV): with NO designation,
+    the chosen quant becomes the largest complete variant fitting that budget
+    (:func:`select_fitting_gguf`), falling back to the election. ``worker``:
+    id/name spellings for per-worker pin resolution (None = this process's own
+    identity). Pure and cheap — no I/O beyond gguf_variants_detail / one dir
+    walk for non-GGUF."""
+    out = {"weights_bytes": None, "gpu_bytes": None, "cpu_bytes": 0,
+           "chosen_gguf": None, "moe": None, "basis": None,
+           "mmap_eligible": True}
+    detail = {}
+    try:
+        detail = gguf_variants_detail(model_key, model_dir, cfg) or {}
+    except Exception:  # noqa: BLE001 — sizing degrades, never raises
+        detail = {}
+    if detail:
+        mmproj = int(detail.get("mmproj_bytes") or 0)
+        chosen = detail.get("effective_gguf")
+        chosen_bytes = int(detail.get("effective_quant_bytes") or 0)
+        how = "elected"
+        try:
+            ov = get_override(model_key) or {}
+            forms = ([worker] if isinstance(worker, str)
+                     else list(worker or ())) or _local_worker_forms()
+            pin = resolve_gguf_for_worker(ov.get("gguf_file_by_worker"), forms)
+            if pin:
+                how = "worker pin"
+            elif ov.get("gguf_file"):
+                pin, how = ov.get("gguf_file"), "pinned"
+            else:
+                fname = (cfg or {}).get("filename") if isinstance(cfg, dict) \
+                    else getattr(cfg, "filename", None)
+                if fname and chosen:
+                    how = "designated"
+            if pin:
+                want = os.path.basename(str(pin)).lower()
+                for v in detail.get("variants") or []:
+                    if want == v["filename"].lower() or want in v["filename"].lower():
+                        chosen, chosen_bytes = v["filename"], int(v.get("bytes") or 0)
+                        break
+            elif how == "elected" and free_vram is not None:
+                fitted = select_fitting_gguf(model_key, model_dir, cfg,
+                                             budget_bytes=free_vram)
+                if fitted:
+                    for v in detail.get("variants") or []:
+                        if v["filename"] == fitted:
+                            chosen, chosen_bytes = fitted, int(v.get("bytes") or 0)
+                            how = "auto-fit"
+                            break
+        except Exception:  # noqa: BLE001 — pin resolution is best-effort
+            pass
+        if not chosen or not chosen_bytes:
+            return out
+        weights = chosen_bytes + mmproj
+        out["weights_bytes"] = weights
+        out["chosen_gguf"] = chosen
+        out["gpu_bytes"] = weights
+        out["basis"] = f"{chosen} ({how}) {weights / _GIB:.1f} GiB"
+        # The MoE detail rides the EFFECTIVE variant's header read; it only
+        # describes the chosen quant when the two are the same file.
+        moe = detail.get("moe")
+        if (isinstance(moe, dict) and moe.get("is_moe")
+                and chosen == detail.get("effective_gguf")):
+            nexp = int(moe.get("non_expert_bytes") or 0)
+            exp = int(moe.get("expert_bytes") or 0)
+            if nexp:
+                out["moe"] = moe
+                out["gpu_bytes"] = nexp + mmproj
+                out["cpu_bytes"] = exp
+                out["basis"] = (f"MoE split: {(nexp + mmproj) / _GIB:.1f} GiB "
+                                f"GPU-resident + {exp / _GIB:.1f} GiB experts "
+                                f"(mmap)")
+        return out
+    # Non-GGUF: the existing per-framework logic — sum the weight files, but a
+    # repo shipping BOTH a safetensors set and its torch twin (.bin/.pt/.pth)
+    # loads only one of them, so the duplicate serialization is excluded.
+    st = torchy = other = 0
+    try:
+        for root, _dirs, files in os.walk(model_dir):
+            for fn in files:
+                low = fn.lower()
+                try:
+                    sz = int(os.path.getsize(os.path.join(root, fn)))
+                except OSError:
+                    continue
+                if low.endswith(".safetensors"):
+                    st += sz
+                elif low.endswith((".bin", ".pt", ".pth")):
+                    torchy += sz
+                elif low.endswith((".ckpt", ".onnx")):
+                    other += sz
+    except OSError:
+        return out
+    if st and torchy:
+        weights = st + other
+        basis_note = " (duplicate torch weights excluded)"
+    else:
+        weights = st + torchy + other
+        basis_note = ""
+    if weights:
+        out["weights_bytes"] = weights
+        out["gpu_bytes"] = weights
+        out["basis"] = f"weights {weights / _GIB:.1f} GiB{basis_note}"
+    return out
+
+
 def _truthy(value) -> bool:
     """The one on/off reading for the polite levers — a JSON bool from the
     console and the "yes"/"on"/"1" spellings a curl or a hand-edited file uses
@@ -432,6 +707,38 @@ def _coerce(field: str, value):
             seen.add(name.lower())
             out[name] = _truthy(val)
         return out or None
+    if field == "gguf_file_by_worker":
+        # Per-worker quant pin — same accepted shapes and name discipline as
+        # no_evict_by_worker (the console's {"ae": "q8_0"} or a curl string
+        # "ae=q8_0,computron=m.q4_k_m.gguf"), except the VALUE is a basename or
+        # quant token rather than a boolean. An empty value drops that worker's
+        # entry (back to the model-wide pin / election); an empty map clears
+        # the key entirely.
+        if isinstance(value, str):
+            items = []
+            for part in value.split(","):
+                if not part.strip():
+                    continue
+                name, sep, val = part.partition("=")
+                if not sep:
+                    name, sep, val = part.partition(":")
+                items.append((name, val if sep else ""))
+        elif isinstance(value, dict):
+            items = list(value.items())
+        else:
+            logger.warning("ignoring gguf_file_by_worker of type %s (want a map)",
+                           type(value).__name__)
+            return None
+        out, seen = {}, set()
+        for name, val in items:
+            name = str(name).strip()
+            if not name or name.lower() in seen:
+                continue
+            seen.add(name.lower())
+            val = os.path.basename(str(val or "").strip())
+            if val:
+                out[name] = val
+        return out or None
     if field in _INT_FIELDS:
         return int(value)
     if field in _FLOAT_FIELDS:
@@ -470,7 +777,7 @@ def set_override(model_key: str, fields: dict) -> dict:
     # would notice: drop this model's physical record so the next listing
     # re-derives the size of the quant the operator just chose. Targeted and
     # guarded — a settings write must never fail over a cache.
-    if "gguf_file" in (fields or {}):
+    if "gguf_file" in (fields or {}) or "gguf_file_by_worker" in (fields or {}):
         try:
             from ...comms.model_physical import forget_physical
             forget_physical(model_key, "gguf_file override changed")
@@ -510,7 +817,16 @@ def placement_policy(model_key: str) -> tuple:
     3090 and keeps ordinary eviction rights on computron.
 
     Same total guarding as placement_prefs: an unreadable overrides file
-    degrades to ``([], False, {})``, which is pre-k56 behaviour exactly."""
+    degrades to ``([], False, {})``, which is pre-k56 behaviour exactly.
+
+    GROUP FALLBACK (2026-08-25): when the model carries NO per-model
+    ``worker_prefs``, the ordered ``workers`` allocation of the enabled
+    priority group claiming it (``comms.priority_groups.workers_for_key``)
+    supplies the preference instead. Per-model prefs OUTRANK the group's — an
+    order written on the model itself is the more specific statement — and a
+    model in no group (or a group with no ``workers``) resolves ``[]`` exactly
+    as before. Politeness stays per-model in both cases: the group states
+    WHERE, never eviction manners."""
     try:
         ov = get_override(model_key) or {}
         if not ov:
@@ -523,6 +839,12 @@ def placement_policy(model_key: str) -> tuple:
         return [], False, {}
     prefs = ov.get("worker_prefs")
     prefs = [str(w) for w in prefs if str(w).strip()] if isinstance(prefs, list) else []
+    if not prefs:
+        try:
+            from ...comms.priority_groups import workers_for_key
+            prefs = workers_for_key(model_key)
+        except Exception:  # noqa: BLE001 — the group half must never break placement
+            prefs = []
     by_worker = ov.get("no_evict_by_worker")
     by_worker = ({str(k): bool(v) for k, v in by_worker.items() if str(k).strip()}
                  if isinstance(by_worker, dict) else {})

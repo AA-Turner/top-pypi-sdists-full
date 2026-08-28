@@ -1,5 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
+from chalk._gen.chalk.searchaggregates.v1 import aggregation_pb2 as _aggregation_pb2
+from chalk._gen.chalk.server.v1 import chart_pb2 as _chart_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -315,19 +317,21 @@ class StreamSearchAccessLogEntriesResponse(_message.Message):
     ) -> None: ...
 
 class SearchLogEntriesAggregatedRequest(_message.Message):
-    __slots__ = ("query", "start_time", "end_time", "window_period", "facets", "limit")
+    __slots__ = ("query", "start_time", "end_time", "window_period", "facets", "limit", "options")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     FACETS_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     window_period: _duration_pb2.Duration
     facets: _containers.RepeatedScalarFieldContainer[str]
     limit: int
+    options: _aggregation_pb2.AggregateOptions
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -336,6 +340,7 @@ class SearchLogEntriesAggregatedRequest(_message.Message):
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         facets: _Optional[_Iterable[str]] = ...,
         limit: _Optional[int] = ...,
+        options: _Optional[_Union[_aggregation_pb2.AggregateOptions, _Mapping]] = ...,
     ) -> None: ...
 
 class SearchLogEntriesAggregatedResponse(_message.Message):
@@ -351,21 +356,24 @@ class GetLogFacetsRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class LogFacet(_message.Message):
-    __slots__ = ("path", "name", "facet_type", "groupable")
+    __slots__ = ("path", "name", "facet_type", "groupable", "supported_aggregations")
     PATH_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     FACET_TYPE_FIELD_NUMBER: _ClassVar[int]
     GROUPABLE_FIELD_NUMBER: _ClassVar[int]
+    SUPPORTED_AGGREGATIONS_FIELD_NUMBER: _ClassVar[int]
     path: str
     name: str
     facet_type: LogFacetType
     groupable: bool
+    supported_aggregations: _containers.RepeatedScalarFieldContainer[_aggregation_pb2.AggregationFunction]
     def __init__(
         self,
         path: _Optional[str] = ...,
         name: _Optional[str] = ...,
         facet_type: _Optional[_Union[LogFacetType, str]] = ...,
         groupable: bool = ...,
+        supported_aggregations: _Optional[_Iterable[_Union[_aggregation_pb2.AggregationFunction, str]]] = ...,
     ) -> None: ...
 
 class GetLogFacetsResponse(_message.Message):
@@ -429,6 +437,7 @@ class SearchAccessLogEntriesAggregatedRequest(_message.Message):
         "container_id",
         "facets",
         "limit",
+        "options",
     )
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -438,6 +447,7 @@ class SearchAccessLogEntriesAggregatedRequest(_message.Message):
     CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
     FACETS_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -446,6 +456,7 @@ class SearchAccessLogEntriesAggregatedRequest(_message.Message):
     container_id: str
     facets: _containers.RepeatedScalarFieldContainer[str]
     limit: int
+    options: _aggregation_pb2.AggregateOptions
     def __init__(
         self,
         query: _Optional[str] = ...,
@@ -456,6 +467,7 @@ class SearchAccessLogEntriesAggregatedRequest(_message.Message):
         container_id: _Optional[str] = ...,
         facets: _Optional[_Iterable[str]] = ...,
         limit: _Optional[int] = ...,
+        options: _Optional[_Union[_aggregation_pb2.AggregateOptions, _Mapping]] = ...,
     ) -> None: ...
 
 class SearchAccessLogEntriesAggregatedResponse(_message.Message):
@@ -524,3 +536,125 @@ class GetAccessLogFacetValuesResponse(_message.Message):
     VALUES_FIELD_NUMBER: _ClassVar[int]
     values: _containers.RepeatedCompositeFieldContainer[LogFacetValue]
     def __init__(self, values: _Optional[_Iterable[_Union[LogFacetValue, _Mapping]]] = ...) -> None: ...
+
+class GetAccessLogAggregatesRequest(_message.Message):
+    __slots__ = ("start_time", "end_time", "query", "scaling_group_id", "container_id", "options")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    query: str
+    scaling_group_id: str
+    container_id: str
+    options: _aggregation_pb2.AggregateOptions
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query: _Optional[str] = ...,
+        scaling_group_id: _Optional[str] = ...,
+        container_id: _Optional[str] = ...,
+        options: _Optional[_Union[_aggregation_pb2.AggregateOptions, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetAccessLogAggregatesResponse(_message.Message):
+    __slots__ = ("table",)
+    TABLE_FIELD_NUMBER: _ClassVar[int]
+    table: _aggregation_pb2.AggregateTable
+    def __init__(self, table: _Optional[_Union[_aggregation_pb2.AggregateTable, _Mapping]] = ...) -> None: ...
+
+class GetLogAggregatesRequest(_message.Message):
+    __slots__ = ("start_time", "end_time", "query", "options")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    query: str
+    options: _aggregation_pb2.AggregateOptions
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query: _Optional[str] = ...,
+        options: _Optional[_Union[_aggregation_pb2.AggregateOptions, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetLogAggregatesResponse(_message.Message):
+    __slots__ = ("table",)
+    TABLE_FIELD_NUMBER: _ClassVar[int]
+    table: _aggregation_pb2.AggregateTable
+    def __init__(self, table: _Optional[_Union[_aggregation_pb2.AggregateTable, _Mapping]] = ...) -> None: ...
+
+class GetLogStatRequest(_message.Message):
+    __slots__ = ("query", "start_time", "end_time", "comparison_lookback_offset", "aggregation")
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    COMPARISON_LOOKBACK_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATION_FIELD_NUMBER: _ClassVar[int]
+    query: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    comparison_lookback_offset: _duration_pb2.Duration
+    aggregation: _aggregation_pb2.Aggregation
+    def __init__(
+        self,
+        query: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        comparison_lookback_offset: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        aggregation: _Optional[_Union[_aggregation_pb2.Aggregation, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetLogStatResponse(_message.Message):
+    __slots__ = ("result",)
+    RESULT_FIELD_NUMBER: _ClassVar[int]
+    result: _chart_pb2.StatisticResult
+    def __init__(self, result: _Optional[_Union[_chart_pb2.StatisticResult, _Mapping]] = ...) -> None: ...
+
+class GetAccessLogStatRequest(_message.Message):
+    __slots__ = (
+        "query",
+        "start_time",
+        "end_time",
+        "comparison_lookback_offset",
+        "aggregation",
+        "scaling_group_id",
+        "container_id",
+    )
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    COMPARISON_LOOKBACK_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATION_FIELD_NUMBER: _ClassVar[int]
+    SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    query: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    comparison_lookback_offset: _duration_pb2.Duration
+    aggregation: _aggregation_pb2.Aggregation
+    scaling_group_id: str
+    container_id: str
+    def __init__(
+        self,
+        query: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        comparison_lookback_offset: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        aggregation: _Optional[_Union[_aggregation_pb2.Aggregation, _Mapping]] = ...,
+        scaling_group_id: _Optional[str] = ...,
+        container_id: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetAccessLogStatResponse(_message.Message):
+    __slots__ = ("result",)
+    RESULT_FIELD_NUMBER: _ClassVar[int]
+    result: _chart_pb2.StatisticResult
+    def __init__(self, result: _Optional[_Union[_chart_pb2.StatisticResult, _Mapping]] = ...) -> None: ...

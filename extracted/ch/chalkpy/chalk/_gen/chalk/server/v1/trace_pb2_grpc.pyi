@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.trace_pb2 import (
+    GetSpanAggregatesRequest,
+    GetSpanAggregatesResponse,
     GetSpanFacetValuesRequest,
     GetSpanFacetValuesResponse,
     GetSpanFacetsRequest,
@@ -26,12 +28,18 @@ from chalk._gen.chalk.server.v1.trace_pb2 import (
     GetTraceFacetsResponse,
     GetTraceRequest,
     GetTraceResponse,
+    ListSessionAggregatedRequest,
+    ListSessionAggregatedResponse,
     ListSpanAggregatedRequest,
     ListSpanAggregatedResponse,
     ListSpanRequest,
     ListSpanResponse,
+    ListTraceAggregatedRequest,
+    ListTraceAggregatedResponse,
     ListTraceRequest,
     ListTraceResponse,
+    SearchSessionsRequest,
+    SearchSessionsResponse,
     SearchTraceSummariesRequest,
     SearchTraceSummariesResponse,
 )
@@ -61,6 +69,21 @@ class TraceServiceStub:
         SearchTraceSummariesResponse,
     ]
     """SearchTraceSummaries retrieves traces using indexed trace summary filters"""
+    ListTraceAggregated: UnaryUnaryMultiCallable[
+        ListTraceAggregatedRequest,
+        ListTraceAggregatedResponse,
+    ]
+    """ListTraceAggregated returns trace counts bucketed by time for the same filters as SearchTraceSummaries"""
+    SearchSessions: UnaryUnaryMultiCallable[
+        SearchSessionsRequest,
+        SearchSessionsResponse,
+    ]
+    """SearchSessions groups matching traces into agent sessions (conversations)"""
+    ListSessionAggregated: UnaryUnaryMultiCallable[
+        ListSessionAggregatedRequest,
+        ListSessionAggregatedResponse,
+    ]
+    """ListSessionAggregated returns session counts bucketed by time for the same filters as SearchSessions"""
     GetTraceCallGraph: UnaryUnaryMultiCallable[
         GetTraceCallGraphRequest,
         GetTraceCallGraphResponse,
@@ -111,6 +134,13 @@ class TraceServiceStub:
         GetSpanSourceAggregatesResponse,
     ]
     """GetSpanSourceAggregates returns span counts aggregated by (service, resource_group)"""
+    GetSpanAggregates: UnaryUnaryMultiCallable[
+        GetSpanAggregatesRequest,
+        GetSpanAggregatesResponse,
+    ]
+    """GetSpanAggregates computes arbitrary aggregations (count distinct, sum/avg/min/max,
+    percentiles) grouped by 0-3 span facets.
+    """
 
 class TraceServiceServicer(metaclass=ABCMeta):
     """TraceService provides methods for retrieving trace data"""
@@ -136,6 +166,27 @@ class TraceServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> SearchTraceSummariesResponse:
         """SearchTraceSummaries retrieves traces using indexed trace summary filters"""
+    @abstractmethod
+    def ListTraceAggregated(
+        self,
+        request: ListTraceAggregatedRequest,
+        context: ServicerContext,
+    ) -> ListTraceAggregatedResponse:
+        """ListTraceAggregated returns trace counts bucketed by time for the same filters as SearchTraceSummaries"""
+    @abstractmethod
+    def SearchSessions(
+        self,
+        request: SearchSessionsRequest,
+        context: ServicerContext,
+    ) -> SearchSessionsResponse:
+        """SearchSessions groups matching traces into agent sessions (conversations)"""
+    @abstractmethod
+    def ListSessionAggregated(
+        self,
+        request: ListSessionAggregatedRequest,
+        context: ServicerContext,
+    ) -> ListSessionAggregatedResponse:
+        """ListSessionAggregated returns session counts bucketed by time for the same filters as SearchSessions"""
     @abstractmethod
     def GetTraceCallGraph(
         self,
@@ -206,5 +257,14 @@ class TraceServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetSpanSourceAggregatesResponse:
         """GetSpanSourceAggregates returns span counts aggregated by (service, resource_group)"""
+    @abstractmethod
+    def GetSpanAggregates(
+        self,
+        request: GetSpanAggregatesRequest,
+        context: ServicerContext,
+    ) -> GetSpanAggregatesResponse:
+        """GetSpanAggregates computes arbitrary aggregations (count distinct, sum/avg/min/max,
+        percentiles) grouped by 0-3 span facets.
+        """
 
 def add_TraceServiceServicer_to_server(servicer: TraceServiceServicer, server: Server) -> None: ...

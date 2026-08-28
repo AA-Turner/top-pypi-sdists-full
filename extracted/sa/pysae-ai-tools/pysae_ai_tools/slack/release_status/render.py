@@ -57,6 +57,36 @@ def render_blocks(state: ReleaseState) -> list[dict[str, object]]:
     return blocks
 
 
+def content_from_blocks(blocks: object) -> str:
+    """Read ``state.content`` back out of a rendered message — inverse of :func:`render_blocks`.
+
+    The message is the single source of truth for its own body: the notes live in the
+    section blocks that follow the divider, so they never have to be duplicated into the
+    Slack metadata (whose payload Slack silently discards past
+    :data:`..state.METADATA_PAYLOAD_SAFE_BYTES`, orphaning the message).
+
+    Rejoining the chunks restores the text ``render_blocks`` was given, save for a single
+    line longer than :data:`REPLY_BLOCK_MAX` that :func:`_split_chunks` had to hard-split.
+    Returns ``""`` for a message with no content section (or unreadable blocks).
+    """
+    if not isinstance(blocks, list):
+        return ""
+    chunks: list[str] = []
+    past_divider = False
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "divider":
+            past_divider = True
+            continue
+        if not past_divider or block.get("type") != "section":
+            continue
+        text = block.get("text")
+        if isinstance(text, dict) and isinstance(text.get("text"), str):
+            chunks.append(text["text"])
+    return "\n".join(chunks)
+
+
 def render_text(state: ReleaseState) -> str:
     """Plain-text fallback (notification + the metadata-less searchable summary)."""
     parts = [f"{state.app} {state.version}"]

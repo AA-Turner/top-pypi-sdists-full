@@ -4,15 +4,17 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import asyncio
 import json
 import logging
 import os
 import subprocess
+from collections.abc import AsyncGenerator, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
-from logging import Logger, DEBUG as LOG_LEVEL_DEBUG
-from typing import AsyncGenerator, Dict, List, Optional, Sequence, Union, Tuple
+from logging import DEBUG as LOG_LEVEL_DEBUG, Logger
+from typing import Union
 
 from idb.common.constants import IDB_LOGS_PATH
 from idb.common.file import get_last_n_lines
@@ -22,6 +24,7 @@ from idb.common.format import (
 )
 from idb.common.logging import log_call
 from idb.common.types import (
+    Architecture,
     Companion as CompanionBase,
     ECIDFilter,
     IdbException,
@@ -36,6 +39,9 @@ from idb.utils.typing import none_throws
 DEFAULT_ERASE_COMMAND_TIMEOUT = timedelta(minutes=3)
 DEFAULT_COMPANION_COMMAND_TIMEOUT = timedelta(seconds=120)
 DEFAULT_COMPANION_TEARDOWN_TIMEOUT = timedelta(seconds=30)
+
+
+CompanionReport = dict[str, Union[int, str]]
 
 
 class IdbJsonException(Exception):
@@ -65,7 +71,7 @@ async def _terminate_process(
         process.kill()
 
 
-def _only_arg_from_filter(only: Optional[OnlyFilter]) -> List[str]:
+def _only_arg_from_filter(only: OnlyFilter | None) -> list[str]:
     if isinstance(only, TargetType):
         if only == TargetType.MAC:
             return []
@@ -75,7 +81,7 @@ def _only_arg_from_filter(only: Optional[OnlyFilter]) -> List[str]:
     return []
 
 
-def parse_json_line(line: bytes) -> Dict[str, Union[int, str]]:
+def parse_json_line(line: bytes) -> dict[str, int | str]:
     decoded_line = line.decode()
     try:
         return json.loads(decoded_line)
@@ -84,26 +90,60 @@ def parse_json_line(line: bytes) -> Dict[str, Union[int, str]]:
 
 
 async def _extract_companion_report_from_spawned_companion(
-    stream: asyncio.StreamReader,
-) -> Dict[str, Union[int, str]]:
-    # The first line of stdout should contain launch info,
-    # otherwise something bad has happened
-    line = await stream.readline()
-    logging.debug(f"Read line from companion: {line}")
-    update = parse_json_line(line)
-    logging.debug(f"Got update from companion: {update}")
-    return update
+    stream: asyncio.StreamReader, log_file_path: str
+) -> CompanionReport:
+    try:
+        # The first line of stdout should contain launch info,
+        # otherwise something bad has happened
+        line = await stream.readline()
+        logging.debug(f"Read line from companion: {line}")
+        update = parse_json_line(line)
+        logging.debug(f"Got update from companion: {update}")
+        return update
+    except Exception as e:
+        raise CompanionSpawnerException(
+            f"Failed to spawn companion, couldn't read report "
+            f"stderr: {get_last_n_lines(log_file_path, 30)}"
+        ) from e
 
 
-async def _extract_port_from_spawned_companion(stream: asyncio.StreamReader) -> int:
-    update = await _extract_companion_report_from_spawned_companion(stream=stream)
-    return int(update["grpc_port"])
+async def _verify_port_from_spawned_companion(
+    report: CompanionReport,
+    port_name: str,
+    log_file_path: str,
+    expected_port: int | None,
+) -> int:
+    try:
+        extracted_port = int(report[port_name])
+    except Exception as e:
+        raise CompanionSpawnerException(
+            f"Failed to spawn companion, couldn't read {port_name} output "
+            f"stderr: {get_last_n_lines(log_file_path, 30)}"
+        ) from e
+    if extracted_port == 0:
+        raise CompanionSpawnerException(
+            f"Failed to spawn companion, {port_name} zero is invalid "
+            f"stderr: {get_last_n_lines(log_file_path, 30)}"
+        )
+    if (
+        expected_port is not None
+        and expected_port != 0
+        and extracted_port != expected_port
+    ):
+        raise CompanionSpawnerException(
+            f"Failed to spawn companion, invalid {port_name} "
+            f"(expected {expected_port} got {extracted_port})"
+            f"stderr: {get_last_n_lines(log_file_path, 30)}"
+        )
+    return extracted_port
 
 
 async def _extract_domain_sock_from_spawned_companion(
-    stream: asyncio.StreamReader,
+    stream: asyncio.StreamReader, log_file_path: str
 ) -> str:
-    update = await _extract_companion_report_from_spawned_companion(stream=stream)
+    update = await _extract_companion_report_from_spawned_companion(
+        stream=stream, log_file_path=log_file_path
+    )
     return str(update["grpc_path"])
 
 
@@ -111,28 +151,40 @@ async def _extract_domain_sock_from_spawned_companion(
 class CompanionServerConfig:
     udid: str
     only: OnlyFilter
-    log_file_path: Optional[str]
-    cwd: Optional[str]
-    tmp_path: Optional[str]
+    log_file_path: str | None
+    cwd: str | None
+    tmp_path: str | None
     reparent: bool
 
 
 class Companion(CompanionBase):
     def __init__(
-        self, companion_path: str, device_set_path: Optional[str], logger: Logger
+        self,
+        companion_path: str,
+        device_set_path: str | None,
+        logger: Logger,
+        architecture: Architecture = Architecture.ANY,
+        only: OnlyFilter | None = None,
     ) -> None:
         self._companion_path = companion_path
         self._device_set_path = device_set_path
         self._logger = logger
+        self._architecture = architecture
+        self._only = only
 
     @asynccontextmanager
     async def _start_companion_command(
-        self, arguments: List[str]
+        self, arguments: list[str]
     ) -> AsyncGenerator[asyncio.subprocess.Process, None]:
-        cmd: List[str] = [self._companion_path]
+        cmd: list[str] = []
+        if self._architecture != Architecture.ANY:
+            cmd = ["arch", "-" + self._architecture.value]
+        cmd += [self._companion_path]
         device_set_path = self._device_set_path
         if device_set_path is not None:
             cmd.extend(["--device-set-path", device_set_path])
+        if self._only is not None:
+            cmd.extend(_only_arg_from_filter(only=self._only))
         cmd.extend(arguments)
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -143,7 +195,7 @@ class Companion(CompanionBase):
                 else subprocess.DEVNULL
             ),
         )
-        logger = self._logger.getChild(f"{process.pid}:{' '.join(arguments)}")
+        logger = self._logger.getChild(f"{process.pid}:{' '.join(cmd)}")
         logger.info("Launched process")
         try:
             yield process
@@ -155,7 +207,7 @@ class Companion(CompanionBase):
             )
 
     async def _run_companion_command(
-        self, arguments: List[str], timeout: Optional[timedelta]
+        self, arguments: list[str], timeout: timedelta | None
     ) -> str:
         timeout = timeout if timeout is not None else DEFAULT_COMPANION_COMMAND_TIMEOUT
         async with self._start_companion_command(arguments=arguments) as process:
@@ -164,7 +216,9 @@ class Companion(CompanionBase):
                     process.communicate(), timeout=timeout.total_seconds()
                 )
                 if process.returncode != 0:
-                    raise IdbException(f"Failed to run {arguments}")
+                    message = f"Failed to run {arguments}"
+                    self._logger.error(f"{message}. Output: [[{output}]]")
+                    raise IdbException(message)
                 self._logger.info(f"Ran {arguments} successfully.")
                 return output.decode()
             except asyncio.TimeoutError:
@@ -176,8 +230,8 @@ class Companion(CompanionBase):
         self,
         udid: str,
         command: str,
-        timeout: Optional[timedelta],
-        extra_arguments: Optional[Sequence[str]] = None,
+        timeout: timedelta | None,
+        extra_arguments: Sequence[str] | None = None,
     ) -> str:
         arguments = [f"--{command}", udid]
         if extra_arguments is not None:
@@ -193,15 +247,19 @@ class Companion(CompanionBase):
     async def _spawn_server(
         self,
         config: CompanionServerConfig,
-        bind_arguments: List[str],
-    ) -> Tuple[asyncio.subprocess.Process, str]:
+        port_env_variables: dict[str, str],
+        bind_arguments: list[str],
+    ) -> tuple[asyncio.subprocess.Process, str]:
         if os.getuid() == 0:
             logging.warning(
                 "idb should not be run as root. "
                 "Listing available targets on this host and spawning "
                 "companions will not work"
             )
-        arguments: List[str] = (
+        arguments: list[str] = []
+        if self._architecture != Architecture.ANY:
+            arguments = ["arch", "-" + self._architecture.value]
+        arguments += (
             [
                 self._companion_path,
                 "--udid",
@@ -220,6 +278,8 @@ class Companion(CompanionBase):
         env = dict(os.environ)
         if config.tmp_path:
             env["TMPDIR"] = config.tmp_path
+        if port_env_variables:
+            env.update(port_env_variables)
 
         with open(log_file_path, "a") as log_file:
             process = await asyncio.create_subprocess_exec(
@@ -237,67 +297,80 @@ class Companion(CompanionBase):
     async def spawn_tcp_server(
         self,
         config: CompanionServerConfig,
-        port: Optional[int],
-        tls_cert_path: Optional[str] = None,
-    ) -> Tuple[asyncio.subprocess.Process, int]:
+        port: int | None,
+        swift_port: int | None = None,
+        tls_cert_path: str | None = None,
+    ) -> tuple[asyncio.subprocess.Process, int, int | None]:
+        port_env_variables: dict[str, str] = {}
+        if swift_port is not None:
+            port_env_variables["IDB_SWIFT_COMPANION_PORT"] = str(swift_port)
+
         bind_arguments = ["--grpc-port", str(port) if port is not None else "0"]
         if tls_cert_path is not None:
             bind_arguments.extend(["--tls-cert-path", tls_cert_path])
         (process, log_file_path) = await self._spawn_server(
             config=config,
+            port_env_variables=port_env_variables,
             bind_arguments=bind_arguments,
         )
         stdout = none_throws(process.stdout)
-        try:
-            extracted_port = await _extract_port_from_spawned_companion(stdout)
-        except Exception as e:
-            raise CompanionSpawnerException(
-                f"Failed to spawn companion, couldn't read port output "
-                f"stderr: {get_last_n_lines(log_file_path, 30)}"
-            ) from e
-        if extracted_port == 0:
-            raise CompanionSpawnerException(
-                f"Failed to spawn companion, port zero is invalid "
-                f"stderr: {get_last_n_lines(log_file_path, 30)}"
-            )
-        if port is not None and extracted_port != port:
-            raise CompanionSpawnerException(
-                "Failed to spawn companion, invalid port "
-                f"(expected {port} got {extracted_port})"
-                f"stderr: {get_last_n_lines(log_file_path, 30)}"
-            )
-        return (process, extracted_port)
+        companion_report = await _extract_companion_report_from_spawned_companion(
+            stream=stdout, log_file_path=log_file_path
+        )
+        extracted_port = await _verify_port_from_spawned_companion(
+            companion_report, "grpc_port", log_file_path, port
+        )
+
+        extracted_swift_port: int | None = None
+        if swift_port:
+            try:
+                extracted_swift_port = await _verify_port_from_spawned_companion(
+                    companion_report,
+                    "grpc_swift_port",
+                    log_file_path,
+                    swift_port,
+                )
+            except Exception:
+                self._logger.exception("Failed to verify SWIFT GRPC port")
+        else:
+            self._logger.info("Swift server not requested, skipping verification")
+
+        return (process, extracted_port, extracted_swift_port)
 
     async def spawn_domain_sock_server(
         self, config: CompanionServerConfig, path: str
     ) -> asyncio.subprocess.Process:
         (process, log_file_path) = await self._spawn_server(
-            config=config, bind_arguments=["--grpc-domain-sock", path]
+            config=config,
+            port_env_variables={},
+            bind_arguments=["--grpc-domain-sock", path],
         )
         stdout = none_throws(process.stdout)
         try:
-            extracted_path = await _extract_domain_sock_from_spawned_companion(stdout)
+            extracted_path = await _extract_domain_sock_from_spawned_companion(
+                stream=stdout, log_file_path=log_file_path
+            )
         except Exception as e:
             raise CompanionSpawnerException(
-                f"Failed to spawn companion, couldn't read port "
+                f"Failed to spawn companion, couldn't read domain socket path "
                 f"stderr: {get_last_n_lines(log_file_path, 30)}"
             ) from e
         if not extracted_path:
             raise CompanionSpawnerException(
-                f"Failed to spawn companion, no extracted path"
+                f"Failed to spawn companion, no extracted domain socket path "
                 f"stderr: {get_last_n_lines(log_file_path, 30)}"
             )
         if extracted_path != path:
             raise CompanionSpawnerException(
-                "Failed to spawn companion, extracted path is not correct "
-                f"(expected {path} got {extracted_path})"
+                "Failed to spawn companion, extracted domain socket path "
+                f"is not correct (expected {path} got {extracted_path})"
                 f"stderr: {get_last_n_lines(log_file_path, 30)}"
             )
         return process
 
     @log_call()
     async def create(
-        self, device_type: str, os_version: str, timeout: Optional[timedelta] = None
+        self, device_type: str, os_version: str, timeout: timedelta | None = None
     ) -> TargetDescription:
         output = await self._run_companion_command(
             arguments=["--create", f"{device_type},{os_version}"], timeout=timeout
@@ -306,7 +379,7 @@ class Companion(CompanionBase):
 
     @log_call()
     async def boot(
-        self, udid: str, verify: bool = True, timeout: Optional[timedelta] = None
+        self, udid: str, verify: bool = True, timeout: timedelta | None = None
     ) -> None:
         await self._run_udid_command(
             udid=udid,
@@ -317,7 +390,7 @@ class Companion(CompanionBase):
 
     @asynccontextmanager
     async def boot_headless(
-        self, udid: str, verify: bool = True, timeout: Optional[timedelta] = None
+        self, udid: str, verify: bool = True, timeout: timedelta | None = None
     ) -> AsyncGenerator[None, None]:
         async with self._start_companion_command(
             [
@@ -341,7 +414,7 @@ class Companion(CompanionBase):
             self._logger.info(f"Done with {target}. Shutting down.")
 
     @log_call()
-    async def shutdown(self, udid: str, timeout: Optional[timedelta] = None) -> None:
+    async def shutdown(self, udid: str, timeout: timedelta | None = None) -> None:
         await self._run_udid_command(udid=udid, command="shutdown", timeout=timeout)
 
     @log_call()
@@ -354,8 +427,8 @@ class Companion(CompanionBase):
     async def clone(
         self,
         udid: str,
-        destination_device_set: Optional[str] = None,
-        timeout: Optional[timedelta] = None,
+        destination_device_set: str | None = None,
+        timeout: timedelta | None = None,
     ) -> TargetDescription:
         arguments = ["--clone", udid]
         if destination_device_set is not None:
@@ -364,21 +437,19 @@ class Companion(CompanionBase):
         return target_description_from_json(output.splitlines()[-1])
 
     @log_call()
-    async def delete(
-        self, udid: Optional[str], timeout: Optional[timedelta] = None
-    ) -> None:
+    async def delete(self, udid: str | None, timeout: timedelta | None = None) -> None:
         await self._run_udid_command(
             udid=udid if udid is not None else "all", command="delete", timeout=timeout
         )
 
     @log_call()
-    async def clean(self, udid: str, timeout: Optional[timedelta] = None) -> None:
+    async def clean(self, udid: str, timeout: timedelta | None = None) -> None:
         await self._run_udid_command(udid=udid, command="clean", timeout=timeout)
 
     @log_call()
     async def list_targets(
-        self, only: Optional[OnlyFilter] = None, timeout: Optional[timedelta] = None
-    ) -> List[TargetDescription]:
+        self, only: OnlyFilter | None = None, timeout: timedelta | None = None
+    ) -> list[TargetDescription]:
         arguments = ["--list", "1"] + _only_arg_from_filter(only=only)
         output = await self._run_companion_command(arguments=arguments, timeout=timeout)
         return [
@@ -388,8 +459,8 @@ class Companion(CompanionBase):
         ]
 
     async def tail_targets(
-        self, only: Optional[OnlyFilter] = None
-    ) -> AsyncGenerator[List[TargetDescription], None]:
+        self, only: OnlyFilter | None = None
+    ) -> AsyncGenerator[list[TargetDescription], None]:
         arguments = ["--notify", "stdout"] + _only_arg_from_filter(only=only)
         async with self._start_companion_command(arguments=arguments) as process:
             async for line in none_throws(process.stdout):
@@ -398,9 +469,9 @@ class Companion(CompanionBase):
     @log_call()
     async def target_description(
         self,
-        udid: Optional[str] = None,
-        only: Optional[OnlyFilter] = None,
-        timeout: Optional[timedelta] = None,
+        udid: str | None = None,
+        only: OnlyFilter | None = None,
+        timeout: timedelta | None = None,
     ) -> TargetDescription:
         all_details = await self.list_targets(only=only, timeout=timeout)
         details = all_details
@@ -414,7 +485,7 @@ class Companion(CompanionBase):
 
     @asynccontextmanager
     async def unix_domain_server(
-        self, udid: str, path: str, only: Optional[OnlyFilter] = None
+        self, udid: str, path: str, only: OnlyFilter | None = None
     ) -> AsyncGenerator[str, None]:
         async with self._start_companion_command(
             ["--udid", udid, "--grpc-domain-sock", path]
@@ -426,6 +497,4 @@ class Companion(CompanionBase):
             if grpc_path is None:
                 raise IdbException(f"No grpc_path in {line}")
             self._logger.info(f"Started domain sock server on {grpc_path}")
-            # pyre-fixme[7]: Expected `AsyncGenerator[str, None]` but got
-            #  `AsyncGenerator[Union[int, str], None]`.
-            yield grpc_path
+            yield grpc_path if isinstance(grpc_path, str) else str(grpc_path)

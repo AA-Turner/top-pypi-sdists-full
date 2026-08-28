@@ -1,15 +1,15 @@
 """Factory function for VTK PolyData objects."""
 
-import numpy as np
-from typing import Any
+from typing import Any, Optional, Tuple, Union
 from typing import Dict as TypingDict
 from typing import List as TypingList
-from typing import Optional, Tuple, Union
 
-from .common import _default_color, default_colormap
+import numpy as np
+
 from ..helpers import check_attribute_color_range
 from ..objects import Mesh
 from ..transform import process_transform_arguments
+from .common import _default_color, default_colormap
 
 # Type aliases for better readability
 ArrayLike = Union[TypingList, np.ndarray, Tuple]
@@ -41,6 +41,9 @@ def vtk_poly_data(
         color_range: ColorRange = None,
         cell_color_attribute: Optional[Tuple[str, float, float]] = None,
         flat_shading: bool = True,
+        roughness: float = 0.4,
+        metalness: float = 0.0,
+        shininess: float = None,
         name: Optional[str] = None,
         group: Optional[str] = None,
         custom_data: Optional[TypingDict[str, Any]] = None,
@@ -119,6 +122,9 @@ def vtk_poly_data(
             opacity_function=opacity_function,
             side=side,
             flat_shading=flat_shading,
+            roughness=roughness,
+            metalness=metalness,
+            shininess=shininess,
             slice_planes=slice_planes,
             name=name,
             group=group,

@@ -103,6 +103,28 @@ async def test_default_kernels(jp_fetch, jp_base_url):
 
 
 @pytest.mark.timeout(TEST_TIMEOUT)
+async def test_post_kernel_with_client_supplied_id(
+    jp_fetch, jp_base_url, jp_serverapp, pending_kernel_is_ready
+):
+    """``POST /api/kernels { "kernel_id": <uuid>, "name": <kernel_name> }``
+    should register a kernel at the supplied id.
+    """
+    supplied_kernel_id = "11111111-2222-3333-4444-555555555555"
+    body = json.dumps({"name": NATIVE_KERNEL_NAME, "kernel_id": supplied_kernel_id})
+    r = await jp_fetch("api", "kernels", method="POST", body=body)
+    assert r.code == 201
+    kernel = json.loads(r.body.decode())
+    assert kernel["id"] == supplied_kernel_id
+    assert r.headers["location"] == url_path_join(jp_base_url, "/api/kernels/", supplied_kernel_id)
+    await pending_kernel_is_ready(supplied_kernel_id)
+
+    # Confirm that ``GET /api/kernels/<id>`` resolves to the same id.
+    r = await jp_fetch("api", "kernels", supplied_kernel_id, method="GET")
+    assert r.code == 200
+    assert json.loads(r.body.decode())["id"] == supplied_kernel_id
+
+
+@pytest.mark.timeout(TEST_TIMEOUT)
 async def test_main_kernel_handler(jp_fetch, jp_base_url, jp_serverapp, pending_kernel_is_ready):
     # Start the first kernel
     r = await jp_fetch(
@@ -265,6 +287,86 @@ async def test_resolve_path_server(jp_fetch, jp_serverapp, jp_root_dir):
 
     # Should NOT reveal server path, just acknowledge the name
     assert path["path"] == server_path.name
+
+
+@pytest.mark.timeout(TEST_TIMEOUT)
+async def test_resolve_path_server_expands_user(jp_fetch, jp_serverapp, jp_root_dir, monkeypatch):
+    query_path = "~/my-preferred-dir/foo.py"
+    contents = "(irrelevant)"
+
+    monkeypatch.setenv("HOME", str(jp_root_dir))
+    monkeypatch.setenv("USERPROFILE", str(jp_root_dir))
+
+    # Put the file under the user's home, which is also the server root.
+    server_path = jp_root_dir / "my-preferred-dir" / "foo.py"
+    server_path.parent.mkdir(parents=True, exist_ok=True)
+    server_path.write_text(contents)
+
+    # Resolve the path
+    r = await jp_fetch("api", "resolvePath", params={"path": query_path}, method="GET")
+
+    assert r.code == 200
+    resolution = json.loads(r.body.decode())
+    assert len(resolution["resolved"]) == 1
+    path = resolution["resolved"][0]
+    assert path["scope"] == "server"
+
+    # Should resolve home-relative paths to API paths within the server root.
+    assert path["path"] == "my-preferred-dir/foo.py"
+
+
+@pytest.mark.timeout(TEST_TIMEOUT)
+async def test_resolve_path_server_expands_user_normalizes_path(
+    jp_fetch, jp_serverapp, jp_root_dir, monkeypatch
+):
+    query_path = "~/my-preferred-dir/../foo.py"
+    contents = "(irrelevant)"
+
+    monkeypatch.setenv("HOME", str(jp_root_dir))
+    monkeypatch.setenv("USERPROFILE", str(jp_root_dir))
+
+    # Put the file under the user's home, which is also the server root.
+    (jp_root_dir / "my-preferred-dir").mkdir()
+    server_path = jp_root_dir / "foo.py"
+    server_path.write_text(contents)
+
+    # Resolve the path
+    r = await jp_fetch("api", "resolvePath", params={"path": query_path}, method="GET")
+
+    assert r.code == 200
+    resolution = json.loads(r.body.decode())
+    assert len(resolution["resolved"]) == 1
+    path = resolution["resolved"][0]
+    assert path["scope"] == "server"
+
+    # Should return a normalized API path, not the original path with ".." segments.
+    assert path["path"] == "foo.py"
+
+
+@pytest.mark.timeout(TEST_TIMEOUT)
+async def test_resolve_path_server_expands_user_rejects_outside_root(
+    jp_fetch, jp_serverapp, jp_root_dir, monkeypatch
+):
+    query_path = "~/outside-root.py"
+    contents = "(irrelevant)"
+
+    home_dir = jp_root_dir.parent / f"{jp_root_dir.name}-home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("USERPROFILE", str(home_dir))
+
+    # Put the file under the user's home, but outside the server root.
+    server_path = home_dir / "outside-root.py"
+    server_path.write_text(contents)
+
+    # Resolve the path
+    r = await jp_fetch("api", "resolvePath", params={"path": query_path}, method="GET")
+
+    assert r.code == 200
+    resolution = json.loads(r.body.decode())
+
+    # Should NOT disclose file existence outside the server root after expansion.
+    assert len(resolution["resolved"]) == 0
 
 
 @pytest.mark.skipif(

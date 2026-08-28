@@ -30,6 +30,13 @@ class EnvVarPredicate(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ENV_VAR_PREDICATE_IS_SET: _ClassVar[EnvVarPredicate]
     ENV_VAR_PREDICATE_IS_UNSET: _ClassVar[EnvVarPredicate]
     ENV_VAR_PREDICATE_EQUALS_ANY: _ClassVar[EnvVarPredicate]
+    ENV_VAR_PREDICATE_IS_TRUTHY_OR_UNSET: _ClassVar[EnvVarPredicate]
+
+class RuntimePredicate(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RUNTIME_PREDICATE_UNSPECIFIED: _ClassVar[RuntimePredicate]
+    RUNTIME_PREDICATE_EQUALS_ANY: _ClassVar[RuntimePredicate]
+    RUNTIME_PREDICATE_NOT_EQUALS_ANY: _ClassVar[RuntimePredicate]
 
 class EnvironmentMigrationState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -47,6 +54,10 @@ ENV_VAR_PREDICATE_IS_FALSY_OR_UNSET: EnvVarPredicate
 ENV_VAR_PREDICATE_IS_SET: EnvVarPredicate
 ENV_VAR_PREDICATE_IS_UNSET: EnvVarPredicate
 ENV_VAR_PREDICATE_EQUALS_ANY: EnvVarPredicate
+ENV_VAR_PREDICATE_IS_TRUTHY_OR_UNSET: EnvVarPredicate
+RUNTIME_PREDICATE_UNSPECIFIED: RuntimePredicate
+RUNTIME_PREDICATE_EQUALS_ANY: RuntimePredicate
+RUNTIME_PREDICATE_NOT_EQUALS_ANY: RuntimePredicate
 ENVIRONMENT_MIGRATION_STATE_UNSPECIFIED: EnvironmentMigrationState
 ENVIRONMENT_MIGRATION_STATE_MIGRATED: EnvironmentMigrationState
 ENVIRONMENT_MIGRATION_STATE_UNMIGRATED: EnvironmentMigrationState
@@ -74,19 +85,32 @@ class EnvVarCriterion(_message.Message):
         values: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
+class RuntimeCriterion(_message.Message):
+    __slots__ = ("predicate", "values")
+    PREDICATE_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    predicate: RuntimePredicate
+    values: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self, predicate: _Optional[_Union[RuntimePredicate, str]] = ..., values: _Optional[_Iterable[str]] = ...
+    ) -> None: ...
+
 class MigrationCriterion(_message.Message):
-    __slots__ = ("description", "flag", "env_var")
+    __slots__ = ("description", "flag", "env_var", "runtime")
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     FLAG_FIELD_NUMBER: _ClassVar[int]
     ENV_VAR_FIELD_NUMBER: _ClassVar[int]
+    RUNTIME_FIELD_NUMBER: _ClassVar[int]
     description: str
     flag: FlagCriterion
     env_var: EnvVarCriterion
+    runtime: RuntimeCriterion
     def __init__(
         self,
         description: _Optional[str] = ...,
         flag: _Optional[_Union[FlagCriterion, _Mapping]] = ...,
         env_var: _Optional[_Union[EnvVarCriterion, _Mapping]] = ...,
+        runtime: _Optional[_Union[RuntimeCriterion, _Mapping]] = ...,
     ) -> None: ...
 
 class Migration(_message.Message):
@@ -141,22 +165,33 @@ class ObservedEnvVarState(_message.Message):
     redacted: bool
     def __init__(self, is_set: bool = ..., value: _Optional[str] = ..., redacted: bool = ...) -> None: ...
 
+class ObservedRuntimeState(_message.Message):
+    __slots__ = ("has_active_deployment", "value")
+    HAS_ACTIVE_DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    has_active_deployment: bool
+    value: str
+    def __init__(self, has_active_deployment: bool = ..., value: _Optional[str] = ...) -> None: ...
+
 class CriterionResult(_message.Message):
-    __slots__ = ("criterion", "satisfied", "flag_state", "env_var_state")
+    __slots__ = ("criterion", "satisfied", "flag_state", "env_var_state", "runtime_state")
     CRITERION_FIELD_NUMBER: _ClassVar[int]
     SATISFIED_FIELD_NUMBER: _ClassVar[int]
     FLAG_STATE_FIELD_NUMBER: _ClassVar[int]
     ENV_VAR_STATE_FIELD_NUMBER: _ClassVar[int]
+    RUNTIME_STATE_FIELD_NUMBER: _ClassVar[int]
     criterion: MigrationCriterion
     satisfied: bool
     flag_state: ObservedFlagState
     env_var_state: ObservedEnvVarState
+    runtime_state: ObservedRuntimeState
     def __init__(
         self,
         criterion: _Optional[_Union[MigrationCriterion, _Mapping]] = ...,
         satisfied: bool = ...,
         flag_state: _Optional[_Union[ObservedFlagState, _Mapping]] = ...,
         env_var_state: _Optional[_Union[ObservedEnvVarState, _Mapping]] = ...,
+        runtime_state: _Optional[_Union[ObservedRuntimeState, _Mapping]] = ...,
     ) -> None: ...
 
 class EnvironmentMigrationStatus(_message.Message):

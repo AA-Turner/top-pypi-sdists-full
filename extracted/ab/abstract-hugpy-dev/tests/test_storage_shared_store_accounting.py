@@ -319,7 +319,8 @@ def test_central_proposal_names_only_reapable_rows():
     w["model_last_picked"] = {"hot_cold": 2_000_000.0}   # nas has none = colder
     out = W.storage_proposal(w)
     assert out["over_budget"] is True
-    assert out["need_bytes"] == 100 * GIB                # 900 - 800, not 2.7 TiB
+    # 900 - (800 - 50 reserve carved out of the allocation), not 2.7 TiB
+    assert out["need_bytes"] == 150 * GIB
     assert [p["model_key"] for p in out["proposed_evictions"]] == ["hot_cold"]
 
 

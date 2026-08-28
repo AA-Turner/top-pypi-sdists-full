@@ -1,0 +1,97 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+# NOTE: "_new" suffix is intentional — testing apps for the new
+# AnalyticsEngine flow are registered in the backend with distinct names
+# (e.g. "Car Damage Detection New") so the ORIGINAL apps keep running the
+# legacy post_processing flow. Drop the suffix only when the new flow
+# replaces the legacy one for this app.
+app:
+  id: car_damage_detection_new
+  name: "Car Damage Detection New"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+#   QUALITY — defect_rate (severe damage / all damage)
+# ──────────────────────────────────────────────
+categories:
+  - QUALITY
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+#   Model: best_car.pt (6 damage classes)
+#     0 dent           1 scratch         2 crack
+#     3 shattered_glass 4 broken_lamp    5 flat_tire
+# ──────────────────────────────────────────────
+entity_mapping:
+  dent: Dent
+  scratch: Scratch
+  crack: Crack
+  shattered_glass: Shattered-Glass
+  broken_lamp: Broken-Lamp
+  flat_tire: Flat-Tire
+
+# Fallback when deployment API omits index_to_category (best_car.pt).
+index_to_category:
+  0: dent
+  1: scratch
+  2: crack
+  3: shattered_glass
+  4: broken_lamp
+  5: flat_tire
+
+# ──────────────────────────────────────────────
+# Quality Module — Car Damage Severity
+#
+# inspection_classes: every damage detection counts as an inspection.
+# defect_classes:     only the "severe" damage types that require
+#                     immediate action (crack / shattered glass /
+#                     broken lamp / flat tire). Dents & scratches are
+#                     logged but not counted as defects.
+#
+# defect_rate = severe_damage_count / total_damage_count
+# ──────────────────────────────────────────────
+quality:
+  inspection_classes:
+    - dent
+    - scratch
+    - crack
+    - shattered_glass
+    - broken_lamp
+    - flat_tire
+
+  defect_classes:
+    - crack
+    - shattered_glass
+    - broken_lamp
+    - flat_tire
+
+  metrics:
+    - key: defect_count
+      agg_type: sum
+      category: QUALITY
+    - key: total_inspected
+      agg_type: sum
+      category: QUALITY
+    - key: defect_rate
+      agg_type: avg
+      category: QUALITY
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults:
+    - metric: defect_count
+      condition:
+        operator: ">"
+        value: 0
+      severity: HIGH
+    - metric: defect_rate
+      condition:
+        operator: ">="
+        value: 0.5
+      severity: MEDIUM
+
+  overrides: []

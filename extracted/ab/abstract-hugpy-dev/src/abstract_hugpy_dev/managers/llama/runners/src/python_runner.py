@@ -84,7 +84,17 @@ class LlamaCppPythonRunner(LlamaCppBaseRunner):
         except Exception:
             model_path = None
         if not model_path:
-            model_path = get_gguf_file(model_dir, self.cfg)
+            # Fit-aware quant auto-pick: prefer is None whenever any
+            # designation (pin / cfg.filename) exists, so the election order
+            # inside get_gguf_file is never overridden by the auto-pick.
+            prefer = None
+            try:
+                from abstract_hugpy_dev.managers.serve.overrides import (
+                    autofit_gguf_prefer)
+                prefer = autofit_gguf_prefer(model_key, model_dir, self.cfg)
+            except Exception:
+                prefer = None
+            model_path = get_gguf_file(model_dir, self.cfg, prefer=prefer)
 
         if not model_path:
             # Same honest checkpoint as the slot child's _build_cmd refusal:

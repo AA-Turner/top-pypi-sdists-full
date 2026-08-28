@@ -14,7 +14,7 @@ use tokio::sync::{Mutex, Semaphore};
 use tracing::{Instrument, debug, info_span, instrument, trace, warn};
 use url::Url;
 
-use uv_auth::{CredentialsCache, Indexes, PyxTokenStore};
+use uv_auth::{CredentialsCache, Indexes};
 use uv_cache::{Cache, CacheBucket, CacheEntry, WheelCache};
 use uv_configuration::IndexStrategy;
 use uv_configuration::KeyringProviderType;
@@ -31,9 +31,7 @@ use uv_pep440::{Version, VersionSpecifiers};
 use uv_pep508::MarkerEnvironment;
 use uv_platform_tags::Platform;
 use uv_pypi_types::{HashAlgorithm, HashDigest, HashDigests, ProjectStatus, Yanked};
-use uv_pypi_types::{
-    PypiSimpleDetail, PypiSimpleIndex, PyxSimpleDetail, PyxSimpleIndex, ResolutionMetadata,
-};
+use uv_pypi_types::{PypiSimpleDetail, PypiSimpleIndex, ResolutionMetadata};
 use uv_redacted::DisplaySafeUrl;
 use uv_small_str::SmallString;
 use uv_torch::TorchStrategy;
@@ -204,7 +202,6 @@ impl<'a> RegistryClientBuilder<'a> {
             client,
             read_timeout,
             flat_indexes: Arc::default(),
-            pyx_token_store: PyxTokenStore::from_settings().ok(),
         })
     }
 }
@@ -228,9 +225,6 @@ pub struct RegistryClient {
     read_timeout: Duration,
     /// The flat index entries for each `--find-links`-style index URL, with one slot per index.
     flat_indexes: Arc<Mutex<FlatIndexCache>>,
-    /// The pyx token store to use for persistent credentials.
-    // TODO(charlie): The token store is only needed for `is_known_url`; can we avoid storing it here?
-    pyx_token_store: Option<PyxTokenStore>,
 }
 
 /// The format of the package metadata returned by querying an index.
@@ -550,7 +544,7 @@ impl RegistryClient {
         let result = if matches!(index, IndexUrl::Path(_)) {
             self.fetch_local_simple_detail(package_name, &url).await
         } else {
-            self.fetch_remote_simple_detail(package_name, &url, index, &cache_entry, cache_control)
+            self.fetch_remote_simple_detail(package_name, &url, &cache_entry, cache_control)
                 .await
         };
 
@@ -591,27 +585,14 @@ impl RegistryClient {
         &self,
         package_name: &PackageName,
         url: &DisplaySafeUrl,
-        index: &IndexUrl,
         cache_entry: &CacheEntry,
         cache_control: CacheControl,
     ) -> Result<OwnedArchive<SimpleDetailMetadata>, Error> {
-        // In theory, we should be able to pass `MediaType::all()` to all registries, and as
-        // unsupported media types should be ignored by the server. For now, we implement this
-        // defensively to avoid issues with misconfigured servers.
-        let accept = if self
-            .pyx_token_store
-            .as_ref()
-            .is_some_and(|token_store| token_store.is_known_url(index.url()))
-        {
-            MediaType::all()
-        } else {
-            MediaType::pypi()
-        };
         let simple_request = self
             .uncached_client(url)
             .get(Url::from(url.clone()))
             .header("Accept-Encoding", "gzip, deflate, zstd")
-            .header("Accept", accept)
+            .header("Accept", MediaType::pypi())
             .build()
             .map_err(|err| {
                 ErrorKind::from_reqwest(url.clone(), err, self.client.certificate_source())
@@ -638,44 +619,6 @@ impl RegistryClient {
                 })?;
 
                 let unarchived = match media_type {
-                    MediaType::PyxV1Msgpack => {
-                        let bytes = response.bytes().await.map_err(|err| {
-                            ErrorKind::from_reqwest(
-                                url.clone(),
-                                err,
-                                self.client.certificate_source(),
-                            )
-                        })?;
-                        let data: PyxSimpleDetail = rmp_serde::from_slice(bytes.as_ref())
-                            .map_err(|err| Error::from_msgpack_err(err, url.clone()))?;
-
-                        SimpleDetailMetadata::from_pyx_files(
-                            data.files,
-                            data.core_metadata,
-                            package_name,
-                            data.project_status,
-                            &url,
-                        )
-                    }
-                    MediaType::PyxV1Json => {
-                        let bytes = response.bytes().await.map_err(|err| {
-                            ErrorKind::from_reqwest(
-                                url.clone(),
-                                err,
-                                self.client.certificate_source(),
-                            )
-                        })?;
-                        let data: PyxSimpleDetail = serde_json::from_slice(bytes.as_ref())
-                            .map_err(|err| Error::from_json_err(err, url.clone()))?;
-
-                        SimpleDetailMetadata::from_pyx_files(
-                            data.files,
-                            data.core_metadata,
-                            package_name,
-                            data.project_status,
-                            &url,
-                        )
-                    }
                     MediaType::PypiV1Json => {
                         let bytes = response.bytes().await.map_err(|err| {
                             ErrorKind::from_reqwest(
@@ -781,19 +724,6 @@ impl RegistryClient {
         url: &DisplaySafeUrl,
         index: &IndexUrl,
     ) -> Result<OwnedArchive<SimpleIndexMetadata>, Error> {
-        // In theory, we should be able to pass `MediaType::all()` to all registries, and as
-        // unsupported media types should be ignored by the server. For now, we implement this
-        // defensively to avoid issues with misconfigured servers.
-        let accept = if self
-            .pyx_token_store
-            .as_ref()
-            .is_some_and(|token_store| token_store.is_known_url(index.url()))
-        {
-            MediaType::all()
-        } else {
-            MediaType::pypi()
-        };
-
         let cache_entry = self.cache.entry(
             CacheBucket::Simple,
             WheelCache::Index(index).root(),
@@ -835,30 +765,6 @@ impl RegistryClient {
                 })?;
 
                 let metadata = match media_type {
-                    MediaType::PyxV1Msgpack => {
-                        let bytes = response.bytes().await.map_err(|err| {
-                            ErrorKind::from_reqwest(
-                                url.clone(),
-                                err,
-                                self.client.certificate_source(),
-                            )
-                        })?;
-                        let data: PyxSimpleIndex = rmp_serde::from_slice(bytes.as_ref())
-                            .map_err(|err| Error::from_msgpack_err(err, url.clone()))?;
-                        SimpleIndexMetadata::from_pyx_index(data)
-                    }
-                    MediaType::PyxV1Json => {
-                        let bytes = response.bytes().await.map_err(|err| {
-                            ErrorKind::from_reqwest(
-                                url.clone(),
-                                err,
-                                self.client.certificate_source(),
-                            )
-                        })?;
-                        let data: PyxSimpleIndex = serde_json::from_slice(bytes.as_ref())
-                            .map_err(|err| Error::from_json_err(err, url.clone()))?;
-                        SimpleIndexMetadata::from_pyx_index(data)
-                    }
                     MediaType::PypiV1Json => {
                         let bytes = response.bytes().await.map_err(|err| {
                             ErrorKind::from_reqwest(
@@ -891,7 +797,7 @@ impl RegistryClient {
             .uncached_client(url)
             .get(Url::from(url.clone()))
             .header("Accept-Encoding", "gzip, deflate, zstd")
-            .header("Accept", accept)
+            .header("Accept", MediaType::pypi())
             .build()
             .map_err(|err| {
                 ErrorKind::from_reqwest(url.clone(), err, self.client.certificate_source())
@@ -1425,6 +1331,9 @@ pub struct CachedFile {
     filename: Option<Box<SmallString>>,
     #[rkyv(with = rkyv::with::Niche)]
     yanked: Option<Box<Yanked>>,
+    /// Deprecated pyx-specific zstd wheel metadata, retained only for compatibility with the
+    /// Simple API cache layout.
+    // TODO: Remove this field when the Simple API cache format is next bumped.
     #[rkyv(with = rkyv::with::Niche)]
     zstd: Option<Box<Zstd>>,
     dist_info_metadata: bool,
@@ -1471,7 +1380,7 @@ impl From<File> for CachedFile {
             has_upload_time,
             url: file.url,
             yanked: file.yanked.filter(|yanked| yanked.is_yanked()),
-            zstd: file.zstd,
+            zstd: None,
         }
     }
 }
@@ -1488,7 +1397,7 @@ impl From<CachedFile> for File {
             upload_time_utc_ms: file.has_upload_time.then_some(file.upload_time_utc_ms),
             url: file.url,
             yanked: file.yanked,
-            zstd: file.zstd,
+            zstd: None,
         }
     }
 }
@@ -1631,13 +1540,6 @@ impl SimpleIndexMetadata {
         }
     }
 
-    /// Create a [`SimpleIndexMetadata`] from a [`PyxSimpleIndex`].
-    fn from_pyx_index(index: PyxSimpleIndex) -> Self {
-        Self {
-            projects: index.into_project_names(),
-        }
-    }
-
     /// Create a [`SimpleIndexMetadata`] from HTML content.
     fn from_html(text: &str, url: &DisplaySafeUrl) -> Result<Self, Error> {
         let html = crate::html::SimpleIndexHtml::parse(text).map_err(|err| {
@@ -1743,76 +1645,6 @@ impl SimpleDetailMetadata {
         }
     }
 
-    fn from_pyx_files(
-        files: Vec<uv_pypi_types::PyxFile>,
-        mut core_metadata: FxHashMap<Version, uv_pypi_types::CoreMetadatum>,
-        package_name: &PackageName,
-        project_status: ProjectStatus,
-        base: &Url,
-    ) -> Self {
-        let mut version_map: BTreeMap<Version, VersionFiles> = BTreeMap::default();
-
-        // Convert to a reference-counted string.
-        let base = SmallString::from(base.as_str());
-
-        // Group the distributions by version and kind
-        for file in files {
-            let file = match File::try_from_pyx(file, &base) {
-                Ok(file) => file,
-                Err(err) => {
-                    // Ignore files with unparsable version specifiers.
-                    debug!("Skipping file for {package_name}: {err}");
-                    continue;
-                }
-            };
-            let filename =
-                match DistFilename::try_from_filename_with_reason(&file.filename, package_name) {
-                    Ok(filename) => filename,
-                    Err(err) => {
-                        debug!(
-                            "Skipping file for {package_name}: {:?} ({err})",
-                            file.filename
-                        );
-                        continue;
-                    }
-                };
-            match version_map.entry(filename.version().clone()) {
-                std::collections::btree_map::Entry::Occupied(mut entry) => {
-                    entry.get_mut().push(&filename, file);
-                }
-                std::collections::btree_map::Entry::Vacant(entry) => {
-                    let mut files = VersionFiles::default();
-                    files.push(&filename, file);
-                    entry.insert(files);
-                }
-            }
-        }
-
-        Self {
-            versions: version_map
-                .into_iter()
-                .map(|(version, files)| {
-                    let metadata = core_metadata.remove(&version).map(|metadata| {
-                        Box::new(ResolutionMetadata {
-                            name: package_name.clone(),
-                            version: version.clone(),
-                            requires_dist: metadata.requires_dist,
-                            requires_python: metadata.requires_python,
-                            provides_extra: metadata.provides_extra,
-                            dynamic: false,
-                        })
-                    });
-                    SimpleDetailMetadatum {
-                        version,
-                        files,
-                        metadata,
-                    }
-                })
-                .collect(),
-            project_status,
-        }
-    }
-
     /// Read the [`SimpleDetailMetadata`] from an HTML index.
     fn from_html(
         text: &str,
@@ -1863,8 +1695,6 @@ impl ArchivedSimpleDetailMetadata {
 
 #[derive(Debug)]
 enum MediaType {
-    PyxV1Msgpack,
-    PyxV1Json,
     PypiV1Json,
     PypiV1Html,
     TextHtml,
@@ -1874,8 +1704,6 @@ impl MediaType {
     /// Parse a media type from a string, returning `None` if the media type is not supported.
     fn from_str(s: &str) -> Option<Self> {
         match s {
-            "application/vnd.pyx.simple.v1+msgpack" => Some(Self::PyxV1Msgpack),
-            "application/vnd.pyx.simple.v1+json" => Some(Self::PyxV1Json),
             "application/vnd.pypi.simple.v1+json" => Some(Self::PypiV1Json),
             "application/vnd.pypi.simple.v1+html" => Some(Self::PypiV1Html),
             "text/html" => Some(Self::TextHtml),
@@ -1889,20 +1717,11 @@ impl MediaType {
         // See: https://peps.python.org/pep-0691/#version-format-selection
         "application/vnd.pypi.simple.v1+json, application/vnd.pypi.simple.v1+html;q=0.2, text/html;q=0.01"
     }
-
-    /// Return the `Accept` header value for all supported media types.
-    #[inline]
-    const fn all() -> &'static str {
-        // See: https://peps.python.org/pep-0691/#version-format-selection
-        "application/vnd.pyx.simple.v1+msgpack, application/vnd.pyx.simple.v1+json;q=0.9, application/vnd.pypi.simple.v1+json;q=0.8, application/vnd.pypi.simple.v1+html;q=0.2, text/html;q=0.01"
-    }
 }
 
 impl std::fmt::Display for MediaType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::PyxV1Msgpack => write!(f, "application/vnd.pyx.simple.v1+msgpack"),
-            Self::PyxV1Json => write!(f, "application/vnd.pyx.simple.v1+json"),
             Self::PypiV1Json => write!(f, "application/vnd.pypi.simple.v1+json"),
             Self::PypiV1Html => write!(f, "application/vnd.pypi.simple.v1+html"),
             Self::TextHtml => write!(f, "text/html"),
@@ -1938,9 +1757,9 @@ mod tests {
     use tokio::sync::Semaphore;
     use url::Url;
     use uv_normalize::PackageName;
-    use uv_pypi_types::PypiSimpleDetail;
+    use uv_pypi_types::{HashDigests, PypiSimpleDetail};
     use uv_redacted::DisplaySafeUrl;
-    use uv_torch::{TorchBackend, TorchSource, TorchStrategy};
+    use uv_torch::{TorchBackend, TorchStrategy};
 
     use crate::{
         BaseClientBuilder, Connectivity, RegistryClient, RegistryClientBuilder,
@@ -1948,8 +1767,8 @@ mod tests {
     };
     use uv_cache::Cache;
     use uv_distribution_types::{
-        FileLocation, Index, IndexCapabilities, IndexFormat, IndexLocations, IndexMetadataRef,
-        IndexUrl, ToUrlError,
+        File, FileLocation, Index, IndexCapabilities, IndexFormat, IndexLocations,
+        IndexMetadataRef, IndexUrl, ToUrlError, Zstd,
     };
     use uv_small_str::SmallString;
     use wiremock::matchers::{basic_auth, method, path_regex};
@@ -2067,7 +1886,6 @@ mod tests {
         .index_locations(IndexLocations::new(vec![], vec![flat_index], true))
         .torch_backend(Some(TorchStrategy::Backend {
             backend: TorchBackend::Cpu,
-            source: TorchSource::PyTorch,
         }))
         .build()?;
 
@@ -2313,12 +2131,19 @@ mod tests {
         let package_name = PackageName::from_str("example-1")?;
         let data: PypiSimpleDetail = serde_json::from_str(response)?;
         let base = DisplaySafeUrl::parse("https://pypi.org/simple/example-1/")?;
-        let simple_metadata = SimpleDetailMetadata::from_pypi_files(
+        let mut simple_metadata = SimpleDetailMetadata::from_pypi_files(
             data.files,
             &package_name,
             data.project_status,
             &base,
         );
+        let cached_wheel = &mut simple_metadata.versions[0].files.wheels[0];
+        assert!(cached_wheel.zstd.is_none());
+        // An entry written by an older uv may still contain pyx-specific zstd wheel metadata.
+        cached_wheel.zstd = Some(Box::new(Zstd {
+            hashes: HashDigests::empty(),
+            size: Some(42),
+        }));
         let archived = super::OwnedArchive::from_unarchived(&simple_metadata)?;
         let simple_metadata = super::OwnedArchive::deserialize(&archived);
 
@@ -2326,7 +2151,18 @@ mod tests {
             .versions
             .into_iter()
             .flat_map(|datum| datum.files.all(&package_name))
-            .map(|(filename, _)| filename.to_string())
+            .map(|(filename, mut file)| {
+                assert!(file.zstd.is_none());
+                // New cache entries must not preserve pyx-specific zstd wheel metadata either.
+                file.zstd = Some(Box::new(Zstd {
+                    hashes: HashDigests::empty(),
+                    size: Some(42),
+                }));
+                let cached = super::CachedFile::from(file);
+                assert!(cached.zstd.is_none());
+                assert!(File::from(cached).zstd.is_none());
+                filename.to_string()
+            })
             .collect();
         assert_eq!(
             filenames,

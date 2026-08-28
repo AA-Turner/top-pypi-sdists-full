@@ -1,11 +1,17 @@
-from typing import Any, Optional
+from copy import deepcopy
+from typing import Any, Optional, Union
 
 import pytest
+from pydantic import ValidationError, model_validator
+from typing_extensions import Self
 
 from dstack._internal.core.errors import ConfigurationError
-from dstack._internal.core.models.common import RegistryAuth
+from dstack._internal.core.models.common import CoreModel, RegistryAuth, validate_extra_ignore
 from dstack._internal.core.models.configurations import (
     DevEnvironmentConfigurationParams,
+    PresetConfiguration,
+    PresetModelBase,
+    PresetModelRepo,
     PythonVersion,
     RepoSpec,
     ServiceConfiguration,
@@ -156,9 +162,8 @@ class TestParseConfiguration:
         }
         parsed = parse_run_configuration(conf)
         assert isinstance(parsed, ServiceConfiguration)
-        assert parsed.replicas is not None
-        assert isinstance(parsed.replicas, list)
-        router_g = next(g for g in parsed.replicas if g.name == "router")
+        assert parsed.groups is not None
+        router_g = next(g for g in parsed.groups if g.name == "router")
         assert isinstance(router_g.router, ReplicaGroupRouterConfig)
         assert router_g.router.type == "sglang"
 
@@ -242,7 +247,8 @@ class TestReplicaGroupContainerFields:
         }
         parsed = parse_run_configuration(conf)
         assert isinstance(parsed, ServiceConfiguration)
-        groups = {g.name: g for g in parsed.replicas}
+        assert parsed.groups is not None
+        groups = {g.name: g for g in parsed.groups}
         assert groups["a"].image == "nginx:latest"
         assert groups["b"].python == PythonVersion.PY312
         assert groups["c"].nvcc is True
@@ -263,7 +269,9 @@ class TestReplicaGroupContainerFields:
             ],
         }
         parsed = parse_run_configuration(conf)
-        assert parsed.replicas[0].privileged is True
+        assert isinstance(parsed, ServiceConfiguration)
+        assert parsed.groups is not None
+        assert parsed.groups[0].privileged is True
 
     @pytest.mark.parametrize(
         "yaml_value,expected",
@@ -282,7 +290,9 @@ class TestReplicaGroupContainerFields:
             "replicas": [{"count": 1, "python": yaml_value, "commands": ["x"]}],
         }
         parsed = parse_run_configuration(conf)
-        assert parsed.replicas[0].python == expected
+        assert isinstance(parsed, ServiceConfiguration)
+        assert parsed.groups is not None
+        assert parsed.groups[0].python == expected
 
     def test_replica_group_image_python_mutex(self):
         with pytest.raises(
@@ -354,8 +364,10 @@ class TestReplicaGroupContainerFields:
             ],
         }
         parsed = parse_run_configuration(conf)
-        assert parsed.replicas[0].python == PythonVersion.PY312
-        assert parsed.replicas[0].nvcc is True
+        assert isinstance(parsed, ServiceConfiguration)
+        assert parsed.groups is not None
+        assert parsed.groups[0].python == PythonVersion.PY312
+        assert parsed.groups[0].nvcc is True
 
     def test_replica_group_docker_with_privileged_false_rejected(self):
         with pytest.raises(
@@ -1082,3 +1094,251 @@ class TestNodeGroups:
         assert parsed.groups[0].resources == ResourcesSpec()
         assert parsed.resources.gpu is not None
         assert parsed.resources.gpu.name == ["H100"]
+
+
+class _Legacy021ReplicaGroup(CoreModel):
+    """0.21-shaped group: size is `count`, no `groups` parent field."""
+
+    count: Range[int]
+    commands: list[str] = []
+
+
+class _Legacy021Service(CoreModel):
+    """Stand-in for a 0.21 client that does not know `groups`."""
+
+    commands: list[str] = []
+    image: Optional[str] = None
+    replicas: Optional[Union[list[_Legacy021ReplicaGroup], Range[int]]] = None
+
+    @model_validator(mode="after")
+    def check_image_or_commands_present(self) -> Self:
+        if isinstance(self.replicas, list):
+            return self
+        if not self.commands and self.image is None:
+            raise ValueError("Either `commands` or `image` must be set")
+        return self
+
+
+class TestServiceGroupsPhase1:
+    def test_legacy_replicas_list_parses_to_groups(self):
+        parsed = parse_run_configuration(
+            {
+                "type": "service",
+                "port": 8000,
+                "replicas": [{"count": 1, "commands": ["x"]}],
+            }
+        )
+        assert isinstance(parsed, ServiceConfiguration)
+        assert parsed.replicas is None
+        assert parsed.groups is not None
+        assert parsed.groups[0].replicas == Range(min=1, max=1)
+
+    def test_new_groups_syntax_parses_identically(self):
+        legacy = parse_run_configuration(
+            {
+                "type": "service",
+                "port": 8000,
+                "replicas": [{"count": 1, "commands": ["x"]}],
+            }
+        )
+        new = parse_run_configuration(
+            {
+                "type": "service",
+                "port": 8000,
+                "groups": [{"replicas": 1, "commands": ["x"]}],
+            }
+        )
+        assert isinstance(legacy, ServiceConfiguration)
+        assert isinstance(new, ServiceConfiguration)
+        assert legacy.replicas is None
+        assert new.replicas is None
+        assert legacy.groups == new.groups
+
+    def test_dump_is_legacy_canonical(self):
+        parsed = parse_run_configuration(
+            {
+                "type": "service",
+                "port": 8000,
+                "groups": [{"replicas": 1, "commands": ["x"]}],
+            }
+        )
+        dumped = parsed.model_dump()
+        assert "groups" not in dumped
+        assert isinstance(dumped["replicas"], list)
+        assert "count" in dumped["replicas"][0]
+        assert "replicas" not in dumped["replicas"][0]
+        dumped_json = parsed.model_dump(mode="json")
+        assert "groups" not in dumped_json
+        assert "count" in dumped_json["replicas"][0]
+        assert "replicas" not in dumped_json["replicas"][0]
+
+    def test_dump_validate_is_fixed_point(self):
+        parsed = parse_run_configuration(
+            {
+                "type": "service",
+                "port": 8000,
+                "groups": [{"replicas": 1, "commands": ["x"]}],
+            }
+        )
+        assert isinstance(parsed, ServiceConfiguration)
+        once = ServiceConfiguration.model_validate(parsed.model_dump())
+        twice = ServiceConfiguration.model_validate(once.model_dump())
+        assert once.model_dump() == twice.model_dump() == parsed.model_dump()
+
+    def test_dumped_json_parses_as_0_21_client(self):
+        parsed = parse_run_configuration(
+            {
+                "type": "service",
+                "port": 8000,
+                "groups": [{"replicas": 1, "commands": ["x"]}],
+            }
+        )
+        dumped = parsed.model_dump()
+        validate_extra_ignore(_Legacy021Service, dumped)
+
+    def test_homogeneous_dump_has_no_groups_key(self):
+        parsed = parse_run_configuration(
+            {
+                "type": "service",
+                "port": 8000,
+                "commands": ["x"],
+                "replicas": 2,
+            }
+        )
+        dumped = parsed.model_dump()
+        assert "groups" not in dumped
+        assert dumped["replicas"] == {"min": 2, "max": 2}
+
+    def test_replicas_and_groups_rejected(self):
+        with pytest.raises(ConfigurationError, match="mutually exclusive"):
+            parse_run_configuration(
+                {
+                    "type": "service",
+                    "port": 8000,
+                    "replicas": 2,
+                    "groups": [{"replicas": 1, "commands": ["x"]}],
+                }
+            )
+
+    def test_empty_groups_rejected(self):
+        with pytest.raises(ConfigurationError, match="empty"):
+            parse_run_configuration({"type": "service", "port": 8000, "groups": []})
+
+    def test_parse_does_not_mutate_caller_dict(self):
+        conf = {
+            "type": "service",
+            "port": 8000,
+            "replicas": [{"count": 1, "commands": ["x"]}],
+        }
+        original = deepcopy(conf)
+        parse_run_configuration(conf)
+        assert conf == original
+        assert conf["replicas"][0]["count"] == 1
+
+
+class TestPresetConfiguration:
+    def test_schema_documents_supported_input(self):
+        assert all(field.description for field in PresetConfiguration.model_fields.values())
+        assert all(field.description for field in PresetModelBase.model_fields.values())
+        assert all(field.description for field in PresetModelRepo.model_fields.values())
+        assert {"type": "string"} in PresetConfiguration.model_json_schema()["properties"][
+            "model"
+        ]["anyOf"]
+
+    def test_parses_string_as_exact_repo(self):
+        configuration = PresetConfiguration(model="Qwen/Qwen3.5-27B")
+
+        assert isinstance(configuration.model, PresetModelRepo)
+        assert configuration.model.exact_repo == "Qwen/Qwen3.5-27B"
+        assert configuration.model.api_model_name == "Qwen/Qwen3.5-27B"
+        assert not configuration.model.allows_variant_selection
+
+    def test_parses_base_model(self):
+        configuration = PresetConfiguration(base="Qwen/Qwen3.5-27B")
+
+        assert isinstance(configuration.model, PresetModelBase)
+        assert configuration.model.exact_repo is None
+        assert configuration.model.api_model_name == "Qwen/Qwen3.5-27B"
+        assert configuration.model.allows_variant_selection
+
+    def test_parses_exact_repo_with_client_facing_name(self):
+        configuration = PresetConfiguration(
+            model={
+                "repo": "community/Qwen3.5-27B-GPTQ-Int4",
+                "name": "Qwen/Qwen3.5-27B",
+            }
+        )
+
+        assert configuration.model.exact_repo == "community/Qwen3.5-27B-GPTQ-Int4"
+        assert configuration.model.api_model_name == "Qwen/Qwen3.5-27B"
+
+    def test_rejects_ambiguous_model_object(self):
+        with pytest.raises(ValidationError):
+            PresetConfiguration(model={"base": "Qwen/base", "repo": "Qwen/repo"})
+
+    def test_parses_top_level_base_shorthand(self):
+        configuration = PresetConfiguration(base="Qwen/Qwen3.5-27B")
+
+        assert isinstance(configuration.model, PresetModelBase)
+        assert configuration.model.api_model_name == "Qwen/Qwen3.5-27B"
+        assert configuration.base is None
+
+    def test_parses_top_level_repo_shorthand(self):
+        configuration = PresetConfiguration(repo="community/Qwen3.5-27B-GPTQ-Int4")
+
+        assert isinstance(configuration.model, PresetModelRepo)
+        assert configuration.model.exact_repo == "community/Qwen3.5-27B-GPTQ-Int4"
+        assert configuration.repo is None
+
+    def test_shorthand_round_trips_through_dict(self):
+        configuration = PresetConfiguration(base="Qwen/Qwen3.5-27B")
+
+        round_tripped = PresetConfiguration.model_validate(configuration.model_dump())
+
+        assert round_tripped.model == configuration.model
+
+    def test_rejects_combined_base_and_repo_shorthand(self):
+        with pytest.raises(ValidationError):
+            PresetConfiguration(base="Qwen/base", repo="Qwen/repo")
+
+    def test_rejects_shorthand_combined_with_model(self):
+        with pytest.raises(ValidationError, match="cannot be combined"):
+            PresetConfiguration(base="Qwen/base", model={"repo": "Qwen/repo"})
+
+    def test_requires_model(self):
+        with pytest.raises(ValidationError):
+            PresetConfiguration()
+
+    @pytest.mark.parametrize("field", ["input_tokens", "output_tokens", "shared_prefix_tokens"])
+    def test_rejects_request_shape_fields_with_a_custom_dataset(self, field):
+        with pytest.raises(ValidationError, match="cannot be set together with `dataset`"):
+            PresetConfiguration(base="Qwen/Qwen3.5-27B", dataset="spec_bench", **{field: 512})
+
+    def test_allows_request_shape_fields_without_a_dataset(self):
+        configuration = PresetConfiguration(
+            base="Qwen/Qwen3.5-27B", input_tokens=1024, output_tokens=256
+        )
+
+        assert configuration.input_tokens == 1024
+        assert configuration.output_tokens == 256
+
+    def test_rejects_the_retired_random_alias(self):
+        # `random` used to be the explicit way to ask for synthetic prompts;
+        # now a set dataset always means a real one.
+        with pytest.raises(ValidationError, match="omit `dataset` for synthetic prompts"):
+            PresetConfiguration(base="Qwen/Qwen3.5-27B", dataset="random")
+
+    def test_defaults_to_a_synthetic_workload(self):
+        configuration = PresetConfiguration(base="Qwen/Qwen3.5-27B")
+
+        assert configuration.dataset is None
+
+
+class TestPresetConfigurationSchema:
+    def test_schema_does_not_require_model(self):
+        # `model` is filled from the `base`/`repo` shorthand by a before-validator,
+        # which JSON Schema consumers (IDEs) never run.
+        schema = PresetConfiguration.model_json_schema()
+        assert "model" not in schema.get("required", [])
+        for field in ("model", "base", "repo"):
+            assert field in schema["properties"]

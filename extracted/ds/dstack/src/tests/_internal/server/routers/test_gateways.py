@@ -57,14 +57,14 @@ class TestListAndGetGateways:
         if legacy_replica:
             gateway_replica = await create_gateway_replica(
                 session=session,
-                backend_id=backend.id,
+                backend=backend,
                 populate_configuration=populate_configuration,
             )
             gateway.gateway_replica_id = gateway_replica.id  # pre-0.20.25 relationship style
         else:
             gateway_replica = await create_gateway_replica(
                 session=session,
-                backend_id=backend.id,
+                backend=backend,
                 gateway_id=gateway.id,
                 populate_configuration=populate_configuration,
             )
@@ -109,6 +109,7 @@ class TestListAndGetGateways:
                     "domain": gateway.wildcard_domain,
                     "default": False,
                     "public_ip": True,
+                    "load_balancer": None,
                     "certificate": {"type": "lets-encrypt"},
                     "tags": None,
                     "replicas": None,
@@ -143,14 +144,14 @@ class TestListAndGetGateways:
         if legacy_replica:
             gateway_replica = await create_gateway_replica(
                 session=session,
-                backend_id=backend.id,
+                backend=backend,
                 populate_configuration=populate_configuration,
             )
             gateway.gateway_replica_id = gateway_replica.id  # pre-0.20.25 relationship style
         else:
             gateway_replica = await create_gateway_replica(
                 session=session,
-                backend_id=backend.id,
+                backend=backend,
                 gateway_id=gateway.id,
                 populate_configuration=populate_configuration,
             )
@@ -195,6 +196,7 @@ class TestListAndGetGateways:
                 "domain": gateway.wildcard_domain,
                 "default": False,
                 "public_ip": True,
+                "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
                 "replicas": None,
@@ -220,7 +222,7 @@ class TestListAndGetGateways:
         )
         gateway_replica = await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
         )
         response = await client.post(
@@ -249,7 +251,7 @@ class TestListAndGetGateways:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
         )
         response = await client.post(
@@ -275,7 +277,7 @@ class TestListAndGetGateways:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
         )
         response = await client.post(
@@ -326,7 +328,7 @@ class TestListAndGetGateways:
             backend_id=backend.id,
             name="exported-gateway",
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         await create_export(
             session=session,
             exporter_project=exporter_project,
@@ -369,7 +371,7 @@ class TestListAndGetGateways:
             backend_id=backend.id,
             name="exported-gateway",
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         await create_export(
             session=session,
             exporter_project=exporter_project,
@@ -410,7 +412,7 @@ class TestListAndGetGateways:
             backend_id=backend.id,
             name="exported-gateway",
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         await create_export(
             session=session,
             exporter_project=exporter_project,
@@ -457,7 +459,7 @@ class TestListAndGetGateways:
             backend_id=backend.id,
             name="exported-gateway",
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         await create_export(
             session=session,
             exporter_project=exporter_project,
@@ -536,6 +538,7 @@ class TestCreateGateway:
                 "domain": None,
                 "default": True,
                 "public_ip": True,
+                "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
                 "replicas": None,
@@ -626,6 +629,7 @@ class TestCreateGateway:
                 "domain": None,
                 "default": True,
                 "public_ip": True,
+                "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
                 "replicas": None,
@@ -754,6 +758,30 @@ class TestCreateGateway:
                 "Cannot provision 4 gateway replicas. This server allows at most 3",
                 id="replicas-exceed-max",
             ),
+            pytest.param(
+                {
+                    "type": "gateway",
+                    "name": "test",
+                    "backend": "gcp",
+                    "region": "us",
+                    "certificate": None,
+                    "load_balancer": {"type": "alb"},
+                },
+                "`load_balancer: { type: alb }` is supported for `aws` backend only",
+                id="load-balancer-non-aws-backend",
+            ),
+            pytest.param(
+                {
+                    "type": "gateway",
+                    "name": "test",
+                    "backend": "aws",
+                    "region": "us",
+                    "load_balancer": {"type": "alb"},
+                },
+                "`load_balancer: { type: alb }` can only be used with `certificate: null` or"
+                " `certificate: { type: acm }`",
+                id="load-balancer-with-lets-encrypt-cert",
+            ),
         ],
     )
     async def test_invalid_configuration_rejected(
@@ -820,7 +848,7 @@ class TestDefaultGateway:
         )
         gateway_replica = await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -871,6 +899,7 @@ class TestDefaultGateway:
                 "domain": gateway.wildcard_domain,
                 "default": True,
                 "public_ip": True,
+                "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
                 "replicas": None,
@@ -889,7 +918,7 @@ class TestDefaultGateway:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=second_gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -994,7 +1023,7 @@ class TestDefaultGateway:
             backend_id=backend.id,
             name="exported-gateway",
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         await create_export(
             session=session,
             exporter_project=exporter_project,
@@ -1038,7 +1067,7 @@ class TestDefaultGateway:
             backend_id=backend.id,
             name="exported-gateway",
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         await create_export(
             session=session,
             exporter_project=exporter_project,
@@ -1097,7 +1126,7 @@ class TestDeleteGateway:
         )
         gateway_replica_aws = await create_gateway_replica(
             session=session,
-            backend_id=backend_aws.id,
+            backend=backend_aws,
             gateway_id=gateway_aws.id,
             populate_configuration=populate_configuration,
         )
@@ -1110,7 +1139,7 @@ class TestDeleteGateway:
         )
         gateway_replica_gcp = await create_gateway_replica(
             session=session,
-            backend_id=backend_gcp.id,
+            backend=backend_gcp,
             gateway_id=gateway_gcp.id,
             populate_configuration=populate_configuration,
         )
@@ -1223,7 +1252,7 @@ class TestUpdateGateway:
         )
         gateway_replica = await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -1267,6 +1296,7 @@ class TestUpdateGateway:
                 "domain": "new.example",
                 "default": False,
                 "public_ip": True,
+                "load_balancer": None,
                 "certificate": {"type": "lets-encrypt"},
                 "tags": None,
                 "replicas": None,
@@ -1468,7 +1498,7 @@ class TestGetGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -1514,7 +1544,7 @@ class TestGetGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -1562,7 +1592,7 @@ class TestGetGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -1606,7 +1636,7 @@ class TestGetGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -1681,7 +1711,7 @@ class TestGetGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -1965,7 +1995,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2027,7 +2057,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2082,7 +2112,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2130,7 +2160,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2184,7 +2214,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2231,7 +2261,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2279,7 +2309,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2336,7 +2366,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2401,7 +2431,7 @@ class TestApplyGatewayPlan:
         )
         await create_gateway_replica(
             session=session,
-            backend_id=backend.id,
+            backend=backend,
             gateway_id=gateway.id,
             populate_configuration=populate_configuration,
         )
@@ -2456,9 +2486,7 @@ class TestApplyGatewayPlanDefault:
             region="us-east-1",
             populate_configuration=populate_configuration,
         )
-        await create_gateway_replica(
-            session=session, backend_id=backend.id, gateway_id=first_gateway.id
-        )
+        await create_gateway_replica(session=session, backend=backend, gateway_id=first_gateway.id)
         second_gateway = await create_gateway(
             session=session,
             project_id=project.id,
@@ -2468,7 +2496,7 @@ class TestApplyGatewayPlanDefault:
             populate_configuration=populate_configuration,
         )
         await create_gateway_replica(
-            session=session, backend_id=backend.id, gateway_id=second_gateway.id
+            session=session, backend=backend, gateway_id=second_gateway.id
         )
         response = await client.post(
             f"/api/project/{project.name}/gateways/set_default",
@@ -2539,7 +2567,7 @@ class TestApplyGatewayPlanDefault:
             region="us-east-1",
             populate_configuration=populate_configuration,
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         response = await client.post(
             f"/api/project/{project.name}/gateways/set_default",
             json={"name": gateway.name},
@@ -2604,7 +2632,7 @@ class TestApplyGatewayPlanDefault:
             name="my-gateway",
             region="us-east-1",
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         if initial_default:
             response = await client.post(
                 f"/api/project/{project.name}/gateways/set_default",
@@ -2669,7 +2697,7 @@ class TestApplyGatewayPlanDefault:
             name="my-gateway",
             region="us-east-1",
         )
-        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend=backend, gateway_id=gateway.id)
         if initial_default:
             response = await client.post(
                 f"/api/project/{project.name}/gateways/set_default",

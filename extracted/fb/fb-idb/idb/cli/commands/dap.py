@@ -4,10 +4,11 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import asyncio
 import sys
 from argparse import ArgumentParser, Namespace
-from asyncio import StreamWriter, StreamReader
+from asyncio import StreamReader, StreamWriter
 from dataclasses import dataclass
 
 from idb.cli import ClientCommand
@@ -57,7 +58,7 @@ async def get_std_as_streams() -> StdStreams:
     Makes stdin available for reading and stdout and stderr for writing.
     """
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     stdin = asyncio.StreamReader()
     protocol = asyncio.StreamReaderProtocol(stdin)
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)

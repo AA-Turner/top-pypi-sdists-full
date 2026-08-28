@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-zaqarclient
-Version: 4.6.0
+Version: 4.7.0
 Summary: Client Library for OpenStack Zaqar Messaging API
 Home-page: https://docs.openstack.org/python-zaqarclient/latest/
 Author: OpenStack
@@ -31,12 +31,22 @@ Requires-Dist: oslo.log>=3.36.0
 Requires-Dist: oslo.utils>=3.33.0
 Requires-Dist: keystoneauth1>=3.4.0
 Requires-Dist: osc-lib>=2.1.0
+Provides-Extra: websocket
+Requires-Dist: websocket-client>=0.44.0; extra == "websocket"
+Provides-Extra: test
+Requires-Dist: fixtures>=3.0.0; extra == "test"
+Requires-Dist: testtools>=2.2.0; extra == "test"
+Requires-Dist: stestr>=1.0.0; extra == "test"
+Requires-Dist: coverage!=4.4,>=4.0; extra == "test"
+Requires-Dist: ddt>=1.0.1; extra == "test"
+Requires-Dist: websocket-client>=0.44.0; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

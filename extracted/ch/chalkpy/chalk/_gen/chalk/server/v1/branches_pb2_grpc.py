@@ -15,6 +15,16 @@ class BranchServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.StartBranchDeployment = channel.unary_unary(
+            "/chalk.server.v1.BranchService/StartBranchDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.StartBranchDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.StartBranchDeploymentResponse.FromString,
+        )
+        self.GetBranchDeploymentState = channel.unary_unary(
+            "/chalk.server.v1.BranchService/GetBranchDeploymentState",
+            request_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchDeploymentStateRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchDeploymentStateResponse.FromString,
+        )
         self.GetBranchWithLatestDeployment = channel.unary_unary(
             "/chalk.server.v1.BranchService/GetBranchWithLatestDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchWithLatestDeploymentRequest.SerializeToString,
@@ -34,6 +44,18 @@ class BranchServiceStub(object):
 
 class BranchServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def StartBranchDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBranchDeploymentState(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def GetBranchWithLatestDeployment(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -56,6 +78,16 @@ class BranchServiceServicer(object):
 
 def add_BranchServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "StartBranchDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.StartBranchDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.StartBranchDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.StartBranchDeploymentResponse.SerializeToString,
+        ),
+        "GetBranchDeploymentState": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBranchDeploymentState,
+            request_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchDeploymentStateRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchDeploymentStateResponse.SerializeToString,
+        ),
         "GetBranchWithLatestDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.GetBranchWithLatestDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchWithLatestDeploymentRequest.FromString,
@@ -79,6 +111,64 @@ def add_BranchServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class BranchService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def StartBranchDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BranchService/StartBranchDeployment",
+            chalk_dot_server_dot_v1_dot_branches__pb2.StartBranchDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_branches__pb2.StartBranchDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBranchDeploymentState(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BranchService/GetBranchDeploymentState",
+            chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchDeploymentStateRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchDeploymentStateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def GetBranchWithLatestDeployment(

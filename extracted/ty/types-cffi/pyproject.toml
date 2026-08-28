@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-cffi"
-version = "2.0.0.20260518"
+version = "2.1.0.20260827"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for cffi"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`cffi`](https://github.com/python-cffi/cffi/) package. It can be used by type checkers
 to check code that uses `cffi`. This version of
 `types-cffi` aims to provide accurate annotations for
-`cffi==2.0.*`.
+`cffi==2.1.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,13 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [mypy](https://www.mypy-lang.org/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
+* [pyright](https://microsoft.github.io/pyright/) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`c10142fb9463b1dd0c581d3f08f4c01c5c08a09e`](https://github.com/python/typeshed/commit/c10142fb9463b1dd0c581d3f08f4c01c5c08a09e).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -37,6 +39,8 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = ['types-setuptools']
+
+
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"
@@ -46,9 +50,9 @@ dependencies = ['types-setuptools']
 "Chat" = "https://gitter.im/python/typing"
 
 [tool.setuptools]
-packages = ['cffi-stubs', '_cffi_backend-stubs']
+packages = ['_cffi_backend-stubs', 'cffi-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'cffi-stubs' = ['__init__.pyi', 'api.pyi', 'backend_ctypes.pyi', 'cffi_opcode.pyi', 'commontypes.pyi', 'cparser.pyi', 'error.pyi', 'ffiplatform.pyi', 'lock.pyi', 'model.pyi', 'pkgconfig.pyi', 'recompiler.pyi', 'setuptools_ext.pyi', 'vengine_cpy.pyi', 'vengine_gen.pyi', 'verifier.pyi', 'METADATA.toml', 'py.typed']
 '_cffi_backend-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']
+'cffi-stubs' = ['__init__.pyi', 'api.pyi', 'backend_ctypes.pyi', 'cffi_opcode.pyi', 'commontypes.pyi', 'cparser.pyi', 'error.pyi', 'ffiplatform.pyi', 'gen_src.pyi', 'lock.pyi', 'model.pyi', 'pkgconfig.pyi', 'recompiler.pyi', 'setuptools_ext.pyi', 'vengine_cpy.pyi', 'vengine_gen.pyi', 'verifier.pyi', 'METADATA.toml', 'py.typed']

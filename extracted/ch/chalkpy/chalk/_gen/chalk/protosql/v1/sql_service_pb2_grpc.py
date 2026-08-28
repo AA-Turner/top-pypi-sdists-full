@@ -15,10 +15,30 @@ class SqlServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.GetOfflineQueryInputs = channel.unary_unary(
+            "/chalk.protosql.v1.SqlService/GetOfflineQueryInputs",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryInputsRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryInputsResponse.FromString,
+        )
+        self.GetOfflineQueryPreview = channel.unary_unary(
+            "/chalk.protosql.v1.SqlService/GetOfflineQueryPreview",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryPreviewRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryPreviewResponse.FromString,
+        )
+        self.GetOfflineQueryStats = channel.unary_unary(
+            "/chalk.protosql.v1.SqlService/GetOfflineQueryStats",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryStatsRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryStatsResponse.FromString,
+        )
         self.ExecuteSqlQuery = channel.unary_unary(
             "/chalk.protosql.v1.SqlService/ExecuteSqlQuery",
             request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryResponse.FromString,
+        )
+        self.ExecuteSqlQueryStream = channel.unary_stream(
+            "/chalk.protosql.v1.SqlService/ExecuteSqlQueryStream",
+            request_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamRequest.SerializeToString,
+            response_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamResponse.FromString,
         )
         self.PlanSqlQuery = channel.unary_unary(
             "/chalk.protosql.v1.SqlService/PlanSqlQuery",
@@ -50,8 +70,41 @@ class SqlServiceStub(object):
 class SqlServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
+    def GetOfflineQueryInputs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOfflineQueryPreview(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOfflineQueryStats(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ExecuteSqlQuery(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ExecuteSqlQueryStream(self, request, context):
+        """Execute a SQL query, emitting each chunk of the result as the plan produces it instead of
+        gathering the whole result first. Same request as ExecuteSqlQuery and the same execution;
+        only the delivery differs, so a query whose leading rows are cheap becomes visible while
+        its expensive tail is still running.
+
+        Rows are streamed, never persisted, and never profiled: async_options,
+        persistence_settings.enabled and column_profile_options.enabled are each rejected, since
+        each of them replaces the plan's row output with something else (an operation id to poll,
+        a write summary, an aggregation over the whole result). Use ExecuteSqlQuery for those.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -89,10 +142,30 @@ class SqlServiceServicer(object):
 
 def add_SqlServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "GetOfflineQueryInputs": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineQueryInputs,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryInputsRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryInputsResponse.SerializeToString,
+        ),
+        "GetOfflineQueryPreview": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineQueryPreview,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryPreviewRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryPreviewResponse.SerializeToString,
+        ),
+        "GetOfflineQueryStats": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineQueryStats,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryStatsRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryStatsResponse.SerializeToString,
+        ),
         "ExecuteSqlQuery": grpc.unary_unary_rpc_method_handler(
             servicer.ExecuteSqlQuery,
             request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryRequest.FromString,
             response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryResponse.SerializeToString,
+        ),
+        "ExecuteSqlQueryStream": grpc.unary_stream_rpc_method_handler(
+            servicer.ExecuteSqlQueryStream,
+            request_deserializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamRequest.FromString,
+            response_serializer=chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamResponse.SerializeToString,
         ),
         "PlanSqlQuery": grpc.unary_unary_rpc_method_handler(
             servicer.PlanSqlQuery,
@@ -129,6 +202,93 @@ class SqlService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
+    def GetOfflineQueryInputs(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/GetOfflineQueryInputs",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryInputsRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryInputsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineQueryPreview(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/GetOfflineQueryPreview",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryPreviewRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryPreviewResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineQueryStats(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/GetOfflineQueryStats",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryStatsRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.GetOfflineQueryStatsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def ExecuteSqlQuery(
         request,
         target,
@@ -147,6 +307,35 @@ class SqlService(object):
             "/chalk.protosql.v1.SqlService/ExecuteSqlQuery",
             chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryRequest.SerializeToString,
             chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ExecuteSqlQueryStream(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            "/chalk.protosql.v1.SqlService/ExecuteSqlQueryStream",
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamRequest.SerializeToString,
+            chalk_dot_protosql_dot_v1_dot_sql__service__pb2.ExecuteSqlQueryStreamResponse.FromString,
             options,
             channel_credentials,
             insecure,

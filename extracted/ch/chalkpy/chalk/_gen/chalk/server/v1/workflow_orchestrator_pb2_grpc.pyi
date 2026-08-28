@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.workflow_orchestrator_pb2 import (
     DescribeWorkflowOrchestratorWorkflowRequest,
     DescribeWorkflowOrchestratorWorkflowResponse,
+    GetWorkflowOrchestratorConnectionDetailsRequest,
+    GetWorkflowOrchestratorConnectionDetailsResponse,
     GetWorkflowOrchestratorWorkflowHistoryRequest,
     GetWorkflowOrchestratorWorkflowHistoryResponse,
     ListWorkflowOrchestratorNamespacesRequest,
@@ -26,6 +28,13 @@ from grpc import (
 
 class WorkflowOrchestratorServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    GetWorkflowOrchestratorConnectionDetails: UnaryUnaryMultiCallable[
+        GetWorkflowOrchestratorConnectionDetailsRequest,
+        GetWorkflowOrchestratorConnectionDetailsResponse,
+    ]
+    """Returns how a client (e.g. chalkpy's chalk.workflows) should reach this
+    environment's Temporal frontend directly to start and await workflows.
+    """
     ListWorkflowOrchestratorNamespaces: UnaryUnaryMultiCallable[
         ListWorkflowOrchestratorNamespacesRequest,
         ListWorkflowOrchestratorNamespacesResponse,
@@ -44,6 +53,15 @@ class WorkflowOrchestratorServiceStub:
     ]
 
 class WorkflowOrchestratorServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def GetWorkflowOrchestratorConnectionDetails(
+        self,
+        request: GetWorkflowOrchestratorConnectionDetailsRequest,
+        context: ServicerContext,
+    ) -> GetWorkflowOrchestratorConnectionDetailsResponse:
+        """Returns how a client (e.g. chalkpy's chalk.workflows) should reach this
+        environment's Temporal frontend directly to start and await workflows.
+        """
     @abstractmethod
     def ListWorkflowOrchestratorNamespaces(
         self,

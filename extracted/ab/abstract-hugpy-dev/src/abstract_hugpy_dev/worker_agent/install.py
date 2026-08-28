@@ -203,6 +203,60 @@ def _run_foreground(opts) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# k118 install-time preflight                                                 #
+# --------------------------------------------------------------------------- #
+def preflight(*, force: bool = False) -> int:
+    """Assess THIS box against the fleet doctrine BEFORE it first heartbeats.
+
+    The point is the ordering. Every failure this exists for was found the same
+    way — the worker installed cleanly, registered, advertised a task, took a
+    job, and only then discovered it had no ``ffmpeg`` / ``bitsandbytes`` /
+    ``diffusers``. Running the diff here moves that discovery to the one moment
+    when someone is already looking at the terminal.
+
+    Returns 0 when clean or only warnings, 1 when a BLOCKER was found (unless
+    ``force``). Never raises and never installs anything: it prints the repair
+    plan and lets the operator decide. A box with no resolvable doctrine prints
+    that plainly and returns 0 — an install must not be gated by a document the
+    box has no way to fetch.
+    """
+    try:
+        from ..fleet_doctrine import doctrine as _doctrine
+        from ..fleet_doctrine.doctor import assess, render
+        from .environment_report import build_report
+    except Exception as exc:  # noqa: BLE001 — an older tree simply has no gate
+        print(f"  preflight: unavailable in this build ({exc}) — skipped")
+        return 0
+    current = _doctrine.latest()
+    if current is None:
+        print(f"  preflight: no doctrine found in {_doctrine.doctrine_dir()} "
+              f"— environment NOT assessed (this is honest, not clean)")
+        return 0
+    try:
+        assessment = assess(build_report(), current)
+    except Exception as exc:  # noqa: BLE001 — a preflight never breaks an install
+        print(f"  preflight: could not assess this box ({exc}) — skipped")
+        return 0
+    print()
+    print(render(assessment))
+    if assessment.blockers:
+        print()
+        print("  repair plan (NOT run — copy, review, then run):")
+        for line in assessment.repair_plan():
+            print(f"    {line}")
+        if force:
+            print()
+            print("  --force: continuing with blockers present. This worker "
+                  "will advertise tasks it cannot complete.")
+            return 0
+        print()
+        print("  refusing to continue with blockers present; re-run with "
+              "--force to install anyway.")
+        return 1
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # entry point                                                                 #
 # --------------------------------------------------------------------------- #
 def _resolve_service(choice: str) -> str:
@@ -275,6 +329,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                                          "foreground", "none"),
                    default=os.environ.get("WORKER_SERVICE", "auto"),
                    help="auto-start mechanism (default: auto-detect for this OS)")
+    # k118: the environment doctrine preflight. ON by default — an install that
+    # silently skips the check is the state this slice exists to end.
+    p.add_argument("--no-preflight", dest="preflight", action="store_false",
+                   default=True,
+                   help="skip the k118 environment-doctrine preflight")
+    p.add_argument("--force", action="store_true",
+                   help="install even when the preflight finds blockers")
     opts = p.parse_args(list(sys.argv[1:] if argv is None else argv))
 
     if not opts.central:
@@ -293,6 +354,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"  role    : {opts.role}"
           + (f" (rpc-server on {opts.rpc_host or '0.0.0.0'}:{opts.rpc_port or 50052})"
              if opts.role == "rpc" else ""))
+
+    if getattr(opts, "preflight", True):
+        rc = preflight(force=bool(getattr(opts, "force", False)))
+        if rc != 0:
+            return rc
 
     service = _resolve_service(opts.service)
     if service in ("foreground", "none"):

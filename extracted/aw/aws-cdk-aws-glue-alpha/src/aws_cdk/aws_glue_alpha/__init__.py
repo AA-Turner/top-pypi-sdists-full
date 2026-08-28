@@ -455,17 +455,20 @@ A `Connection` allows Glue jobs, crawlers and development endpoints to access
 certain types of data stores.
 
 * **Secrets Management**
-  You must specify JDBC connection credentials in Secrets Manager and
-  provide the Secrets Manager Key name as a property to the job connection.
+  Manage JDBC connection credentials in Secrets Manager and pass the secret
+  to the connection via the `secret` property (see the example below), rather
+  than embedding credentials in `properties`.
 * **Networking - the CDK determines the best fit subnet for Glue connection
   configuration**
-  The prior version of the glue-alpha-module requires the developer to
-  specify the subnet of the Connection when it’s defined. Now, you can still
-  specify the specific subnet you want to use, but are no longer required
-  to. You are only required to provide a VPC and either a public or private
-  subnet selection. Without a specific subnet provided, the L2 leverages the
-  existing [EC2 Subnet Selection](https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SubnetSelection.html)
-  library to make the best choice selection for the subnet.
+  You can specify the exact subnet of the Connection when it's defined, but
+  you are not required to. Instead, you can provide a `vpc` and, optionally, a
+  `vpcSubnets` selection, and the L2 leverages the existing
+  [EC2 Subnet Selection](https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SubnetSelection.html)
+  library to make the best choice selection for the subnet. A Glue connection
+  targets a single subnet, so the first subnet of the selection is used.
+  `subnet` and `vpc` are mutually exclusive.
+
+Pin the connection to a specific subnet:
 
 ```python
 # security_group: ec2.SecurityGroup
@@ -480,7 +483,22 @@ glue.Connection(self, "MyConnection",
 )
 ```
 
-For RDS `Connection` by JDBC, it is recommended to manage credentials using AWS Secrets Manager. To use Secret, specify `SECRET_ID` in `properties` like the following code. Note that in this case, the subnet must have a route to the AWS Secrets Manager VPC endpoint or to the AWS Secrets Manager endpoint through a NAT gateway.
+Or let the CDK select a subnet from a VPC:
+
+```python
+# security_group: ec2.SecurityGroup
+# vpc: ec2.Vpc
+
+glue.Connection(self, "MyConnection",
+    type=glue.ConnectionType.NETWORK,
+    security_groups=[security_group],
+    vpc=vpc,
+    # Optional - defaults to private subnets
+    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+)
+```
+
+For RDS `Connection` by JDBC, it is recommended to manage credentials using AWS Secrets Manager. Pass the secret via the `secret` property: Glue reads the credentials at runtime through the connection's `SECRET_ID`, so the secret value never enters the template. Note that in this case, the subnet must have a route to the AWS Secrets Manager VPC endpoint or to the AWS Secrets Manager endpoint through a NAT gateway.
 
 ```python
 # security_group: ec2.SecurityGroup
@@ -491,18 +509,18 @@ glue.Connection(self, "RdsConnection",
     type=glue.ConnectionType.JDBC,
     security_groups=[security_group],
     subnet=subnet,
+    secret=db.secret,
     properties={
         "JDBC_CONNECTION_URL": f"jdbc:mysql://{db.clusterEndpoint.socketAddress}/databasename",
-        "JDBC_ENFORCE_SSL": "false",
-        "SECRET_ID": db.secret.secret_name
+        "JDBC_ENFORCE_SSL": "false"
     }
 )
 ```
 
-Connection `properties` are emitted verbatim into the CloudFormation template, so
-any credential placed there in plaintext is stored in plaintext in the template,
-`cdk.out`, and source control. Reference a Secrets Manager secret through
-`SECRET_ID` (as above) instead. If a property key looks like a credential (for
+Prefer the `secret` property over placing credentials in `properties`. Connection
+`properties` are emitted verbatim into the CloudFormation template, so any
+credential placed there in plaintext is stored in plaintext in the template,
+`cdk.out`, and source control. If a property key looks like a credential (for
 example `PASSWORD`, `SECRET`, or `TOKEN`) and holds a plaintext literal, the
 construct emits a synthesis-time warning.
 
@@ -743,14 +761,14 @@ glue.S3Table(self, "MyTable",
 )
 ```
 
-By default, a S3 bucket will be created to store the table's data but you can manually pass the `bucket` and `s3Prefix`:
+By default, a S3 bucket will be created to store the table's data but you can bring your own with `S3TableStorage.fromBucket` and set an `s3Prefix`:
 
 ```python
 # my_bucket: s3.Bucket
 # my_database: glue.Database
 
 glue.S3Table(self, "MyTable",
-    bucket=my_bucket,
+    storage=glue.S3TableStorage.from_bucket(my_bucket),
     s3_prefix="my-table/",
     # ...
     database=my_database,
@@ -1125,9 +1143,10 @@ full rule syntax.
 
 ## [Encryption](https://docs.aws.amazon.com/athena/latest/ug/encryption.html)
 
-When the table creates its own S3 bucket (i.e. you do not pass an explicit `bucket`), that bucket enforces SSL: a bucket policy denies any request made over plain HTTP. If you provide your own bucket, enabling `enforceSSL` on it is your responsibility.
+When the table creates its own S3 bucket (`S3TableStorage.managedBucket`, the default), that bucket enforces SSL: a bucket policy denies any request made over plain HTTP. If you bring your own bucket with `S3TableStorage.fromBucket`, enabling `enforceSSL` on it is your responsibility.
 
-You can enable encryption on a Table's data:
+Server-side encryption applies only to a bucket the table manages. Choose it with
+`storage: glue.S3TableStorage.managedBucket(...)`:
 
 * [S3Managed](https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html) - (default) Server side encryption (`SSE-S3`) with an Amazon S3-managed key.
 
@@ -1135,7 +1154,7 @@ You can enable encryption on a Table's data:
 # my_database: glue.Database
 
 glue.S3Table(self, "MyTable",
-    encryption=glue.TableEncryption.S3_MANAGED,
+    storage=glue.S3TableStorage.managed_bucket(glue.S3TableEncryption.s3_managed()),
     # ...
     database=my_database,
     columns=[glue.Column(
@@ -1153,7 +1172,7 @@ glue.S3Table(self, "MyTable",
 
 # KMS key is created automatically
 glue.S3Table(self, "MyTable",
-    encryption=glue.TableEncryption.KMS,
+    storage=glue.S3TableStorage.managed_bucket(glue.S3TableEncryption.kms()),
     # ...
     database=my_database,
     columns=[glue.Column(
@@ -1165,8 +1184,7 @@ glue.S3Table(self, "MyTable",
 
 # with an explicit KMS key
 glue.S3Table(self, "MyTable",
-    encryption=glue.TableEncryption.KMS,
-    encryption_key=kms.Key(self, "MyKey"),
+    storage=glue.S3TableStorage.managed_bucket(glue.S3TableEncryption.kms(kms.Key(self, "MyKey"))),
     # ...
     database=my_database,
     columns=[glue.Column(
@@ -1183,7 +1201,7 @@ glue.S3Table(self, "MyTable",
 # my_database: glue.Database
 
 glue.S3Table(self, "MyTable",
-    encryption=glue.TableEncryption.KMS_MANAGED,
+    storage=glue.S3TableStorage.managed_bucket(glue.S3TableEncryption.kms_managed()),
     # ...
     database=my_database,
     columns=[glue.Column(
@@ -1194,14 +1212,14 @@ glue.S3Table(self, "MyTable",
 )
 ```
 
-* [ClientSideKms](https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html#client-side-encryption-kms-managed-master-key-intro) - Client-side encryption (`CSE-KMS`) with an AWS KMS Key managed by the account owner.
+Client-side encryption ([CSE-KMS](https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html#client-side-encryption-kms-managed-master-key-intro)) is independent of the bucket's server-side encryption and works with either a managed or an existing bucket. Configure it with `clientSideEncryption`:
 
 ```python
 # my_database: glue.Database
 
 # KMS key is created automatically
 glue.S3Table(self, "MyTable",
-    encryption=glue.TableEncryption.CLIENT_SIDE_KMS,
+    client_side_encryption=glue.TableClientSideEncryption.kms(),
     # ...
     database=my_database,
     columns=[glue.Column(
@@ -1213,8 +1231,7 @@ glue.S3Table(self, "MyTable",
 
 # with an explicit KMS key
 glue.S3Table(self, "MyTable",
-    encryption=glue.TableEncryption.CLIENT_SIDE_KMS,
-    encryption_key=kms.Key(self, "MyKey"),
+    client_side_encryption=glue.TableClientSideEncryption.kms(kms.Key(self, "MyKey")),
     # ...
     database=my_database,
     columns=[glue.Column(
@@ -1225,7 +1242,7 @@ glue.S3Table(self, "MyTable",
 )
 ```
 
-*Note: you cannot provide a `Bucket` when creating the `S3Table` if you wish to use server-side encryption (`KMS`, `KMS_MANAGED` or `S3_MANAGED`)*.
+To store the table's data in an existing bucket, use `glue.S3TableStorage.fromBucket(bucket)`. CDK does not manage that bucket's server-side encryption, so an encryption choice can never be paired with a provided bucket — but client-side encryption still applies.
 
 ### Marking table data as encrypted
 
@@ -1283,6 +1300,8 @@ glue.S3Table(self, "MyTable",
     data_format=glue.DataFormat.JSON
 )
 ```
+
+For a type the `Schema` factories don't model, use `glue.Schema.custom('...')`, which takes the raw Glue input string.
 
 ## Public FAQ
 
@@ -1366,6 +1385,7 @@ if typing.TYPE_CHECKING:
     import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
     import aws_cdk.interfaces.aws_glue as _aws_cdk_interfaces_aws_glue_ceddda9d
     import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+    import aws_cdk.interfaces.aws_secretsmanager as _aws_cdk_interfaces_aws_secretsmanager_ceddda9d
     import constructs as _constructs_77d1e7e8
 else:
 
@@ -1381,6 +1401,7 @@ else:
     _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
     _aws_cdk_interfaces_aws_glue_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_glue")
     _aws_cdk_interfaces_aws_kms_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_kms")
+    _aws_cdk_interfaces_aws_secretsmanager_ceddda9d = _LazyImport("aws_cdk.interfaces.aws_secretsmanager")
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
@@ -2097,7 +2118,7 @@ class Column:
         self,
         *,
         name: builtins.str,
-        type: typing.Union["Type", typing.Dict[builtins.str, typing.Any]],
+        type: "Type",
         comment: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) A column of a table.
@@ -2115,19 +2136,16 @@ class Column:
             # The values are placeholders you should change.
             import aws_cdk.aws_glue_alpha as glue_alpha
             
+            # type: glue_alpha.Type
+            
             column = glue_alpha.Column(
                 name="name",
-                type=glue_alpha.Type(
-                    input_string="inputString",
-                    is_primitive=False
-                ),
+                type=type,
             
                 # the properties below are optional
                 comment="comment"
             )
         '''
-        if isinstance(type, dict):
-            type = Type(**type)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__043c8b76c78332fa2f7a0e1444ad14734d788355c87767ffb0dd0aac9a19fbdf)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -2421,8 +2439,11 @@ class ConditionLogicalOperator(enum.Enum):
         "description": "description",
         "match_criteria": "matchCriteria",
         "properties": "properties",
+        "secret": "secret",
         "security_groups": "securityGroups",
         "subnet": "subnet",
+        "vpc": "vpc",
+        "vpc_subnets": "vpcSubnets",
     },
 )
 class ConnectionOptions:
@@ -2433,8 +2454,11 @@ class ConnectionOptions:
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        secret: typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Base Connection Options.
 
@@ -2442,8 +2466,11 @@ class ConnectionOptions:
         :param description: (experimental) The description of the connection. Default: no description
         :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
         :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
+        :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
         :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
-        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Default: no subnet
+        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the CDK select one for you. Default: - no subnet, unless ``vpc`` is provided
+        :param vpc: (experimental) The VPC to connect to resources within. When provided, the CDK selects a subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single subnet, so the first subnet of the selection is used. Mutually exclusive with ``subnet``. Default: - no VPC, the subnet is taken from ``subnet`` if provided
+        :param vpc_subnets: (experimental) Which subnets of ``vpc`` to select the connection subnet from. Only used when ``vpc`` is provided. Since a Glue connection targets a single subnet, the first subnet of the selection is used. Default: - private subnets
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -2454,9 +2481,13 @@ class ConnectionOptions:
             # The values are placeholders you should change.
             import aws_cdk.aws_glue_alpha as glue_alpha
             from aws_cdk import aws_ec2 as ec2
+            from aws_cdk.interfaces import aws_secretsmanager as interfaces_secretsmanager
             
+            # secret_ref: interfaces_secretsmanager.ISecretRef
             # security_group: ec2.SecurityGroup
             # subnet: ec2.Subnet
+            # subnet_filter: ec2.SubnetFilter
+            # vpc: ec2.Vpc
             
             connection_options = glue_alpha.ConnectionOptions(
                 connection_name="connectionName",
@@ -2465,18 +2496,33 @@ class ConnectionOptions:
                 properties={
                     "properties_key": "properties"
                 },
+                secret=secret_ref,
                 security_groups=[security_group],
-                subnet=subnet
+                subnet=subnet,
+                vpc=vpc,
+                vpc_subnets=ec2.SubnetSelection(
+                    availability_zones=["availabilityZones"],
+                    one_per_az=False,
+                    subnet_filters=[subnet_filter],
+                    subnet_group_name="subnetGroupName",
+                    subnets=[subnet],
+                    subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
+                )
             )
         '''
+        if isinstance(vpc_subnets, dict):
+            vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1670baf78db937cd3601a16badd87755f3fc525b8fd6a352d45c2bc3994b494)
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument match_criteria", value=match_criteria, expected_type=type_hints["match_criteria"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
+            check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument subnet", value=subnet, expected_type=type_hints["subnet"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection_name is not None:
             self._values["connection_name"] = connection_name
@@ -2486,10 +2532,16 @@ class ConnectionOptions:
             self._values["match_criteria"] = match_criteria
         if properties is not None:
             self._values["properties"] = properties
+        if secret is not None:
+            self._values["secret"] = secret
         if security_groups is not None:
             self._values["security_groups"] = security_groups
         if subnet is not None:
             self._values["subnet"] = subnet
+        if vpc is not None:
+            self._values["vpc"] = vpc
+        if vpc_subnets is not None:
+            self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
@@ -2539,6 +2591,24 @@ class ConnectionOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
+    def secret(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"]:
+        '''(experimental) A reference to a Secrets Manager secret holding the credentials for this connection.
+
+        The secret is referenced through the connection's ``SECRET_ID`` property, so
+        Glue reads the credentials at runtime and the secret value never appears in
+        the synthesized template. Prefer this over placing credentials directly in
+        ``properties``. Accepts any ``secretsmanager.ISecret``.
+
+        :default: - no secret; any credentials must be supplied via ``properties``
+
+        :stability: experimental
+        '''
+        result = self._values.get("secret")
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"], result)
+
+    @builtins.property
     def security_groups(
         self,
     ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
@@ -2553,16 +2623,52 @@ class ConnectionOptions:
 
     @builtins.property
     def subnet(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"]:
-        '''(experimental) The VPC subnet to connect to resources within a VPC.
+        '''(experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
 
-        See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
+        Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a
+        specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the
+        CDK select one for you.
 
-        :default: no subnet
+        :default: - no subnet, unless ``vpc`` is provided
 
         :stability: experimental
         '''
         result = self._values.get("subnet")
         return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"], result)
+
+    @builtins.property
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
+        '''(experimental) The VPC to connect to resources within.
+
+        When provided, the CDK selects a
+        subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single
+        subnet, so the first subnet of the selection is used.
+
+        Mutually exclusive with ``subnet``.
+
+        :default: - no VPC, the subnet is taken from ``subnet`` if provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
+
+    @builtins.property
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
+        '''(experimental) Which subnets of ``vpc`` to select the connection subnet from.
+
+        Only used when
+        ``vpc`` is provided. Since a Glue connection targets a single subnet, the
+        first subnet of the selection is used.
+
+        :default: - private subnets
+
+        :stability: experimental
+        '''
+        result = self._values.get("vpc_subnets")
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2673,8 +2779,11 @@ class ConnectionPasswordEncryption:
         "description": "description",
         "match_criteria": "matchCriteria",
         "properties": "properties",
+        "secret": "secret",
         "security_groups": "securityGroups",
         "subnet": "subnet",
+        "vpc": "vpc",
+        "vpc_subnets": "vpcSubnets",
         "type": "type",
     },
 )
@@ -2686,8 +2795,11 @@ class ConnectionProps(ConnectionOptions):
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        secret: typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         type: "ConnectionType",
     ) -> None:
         '''(experimental) Construction properties for ``Connection``.
@@ -2696,8 +2808,11 @@ class ConnectionProps(ConnectionOptions):
         :param description: (experimental) The description of the connection. Default: no description
         :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
         :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
+        :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
         :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
-        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Default: no subnet
+        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the CDK select one for you. Default: - no subnet, unless ``vpc`` is provided
+        :param vpc: (experimental) The VPC to connect to resources within. When provided, the CDK selects a subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single subnet, so the first subnet of the selection is used. Mutually exclusive with ``subnet``. Default: - no VPC, the subnet is taken from ``subnet`` if provided
+        :param vpc_subnets: (experimental) Which subnets of ``vpc`` to select the connection subnet from. Only used when ``vpc`` is provided. Since a Glue connection targets a single subnet, the first subnet of the selection is used. Default: - private subnets
         :param type: (experimental) The type of the connection.
 
         :stability: experimental
@@ -2706,24 +2821,29 @@ class ConnectionProps(ConnectionOptions):
         Example::
 
             # security_group: ec2.SecurityGroup
-            # subnet: ec2.Subnet
+            # vpc: ec2.Vpc
             
             glue.Connection(self, "MyConnection",
                 type=glue.ConnectionType.NETWORK,
-                # The security groups granting AWS Glue inbound access to the data source within the VPC
                 security_groups=[security_group],
-                # The VPC subnet which contains the data source
-                subnet=subnet
+                vpc=vpc,
+                # Optional - defaults to private subnets
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
             )
         '''
+        if isinstance(vpc_subnets, dict):
+            vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3fa037db6ada98c73a1d8889753f75c2f3c7513c8a41daf149dc5769cdb83e8)
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument match_criteria", value=match_criteria, expected_type=type_hints["match_criteria"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
+            check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument subnet", value=subnet, expected_type=type_hints["subnet"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "type": type,
@@ -2736,10 +2856,16 @@ class ConnectionProps(ConnectionOptions):
             self._values["match_criteria"] = match_criteria
         if properties is not None:
             self._values["properties"] = properties
+        if secret is not None:
+            self._values["secret"] = secret
         if security_groups is not None:
             self._values["security_groups"] = security_groups
         if subnet is not None:
             self._values["subnet"] = subnet
+        if vpc is not None:
+            self._values["vpc"] = vpc
+        if vpc_subnets is not None:
+            self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
@@ -2789,6 +2915,24 @@ class ConnectionProps(ConnectionOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
+    def secret(
+        self,
+    ) -> typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"]:
+        '''(experimental) A reference to a Secrets Manager secret holding the credentials for this connection.
+
+        The secret is referenced through the connection's ``SECRET_ID`` property, so
+        Glue reads the credentials at runtime and the secret value never appears in
+        the synthesized template. Prefer this over placing credentials directly in
+        ``properties``. Accepts any ``secretsmanager.ISecret``.
+
+        :default: - no secret; any credentials must be supplied via ``properties``
+
+        :stability: experimental
+        '''
+        result = self._values.get("secret")
+        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"], result)
+
+    @builtins.property
     def security_groups(
         self,
     ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
@@ -2803,16 +2947,52 @@ class ConnectionProps(ConnectionOptions):
 
     @builtins.property
     def subnet(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"]:
-        '''(experimental) The VPC subnet to connect to resources within a VPC.
+        '''(experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
 
-        See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
+        Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a
+        specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the
+        CDK select one for you.
 
-        :default: no subnet
+        :default: - no subnet, unless ``vpc`` is provided
 
         :stability: experimental
         '''
         result = self._values.get("subnet")
         return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"], result)
+
+    @builtins.property
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
+        '''(experimental) The VPC to connect to resources within.
+
+        When provided, the CDK selects a
+        subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single
+        subnet, so the first subnet of the selection is used.
+
+        Mutually exclusive with ``subnet``.
+
+        :default: - no VPC, the subnet is taken from ``subnet`` if provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
+
+    @builtins.property
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
+        '''(experimental) Which subnets of ``vpc`` to select the connection subnet from.
+
+        Only used when
+        ``vpc`` is provided. Since a Glue connection targets a single subnet, the
+        first subnet of the selection is used.
+
+        :default: - private subnets
+
+        :stability: experimental
+        '''
+        result = self._values.get("vpc_subnets")
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     @builtins.property
     def type(self) -> "ConnectionType":
@@ -2852,14 +3032,14 @@ class ConnectionType(
     Example::
 
         # security_group: ec2.SecurityGroup
-        # subnet: ec2.Subnet
+        # vpc: ec2.Vpc
         
         glue.Connection(self, "MyConnection",
             type=glue.ConnectionType.NETWORK,
-            # The security groups granting AWS Glue inbound access to the data source within the VPC
             security_groups=[security_group],
-            # The VPC subnet which contains the data source
-            subnet=subnet
+            vpc=vpc,
+            # Optional - defaults to private subnets
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
         )
     '''
 
@@ -3572,9 +3752,11 @@ class DataFormat(
             data_format=glue.DataFormat.JSON,
             partition_projection={
                 "date": glue.PartitionProjectionConfiguration.date(
-                    min="NOW-3YEARS",
-                    max="NOW",
-                    format="yyyy-MM-dd"
+                    min="2020-01-01",
+                    max="2023-12-31",
+                    format="yyyy-MM-dd",
+                    interval=1,  # optional, defaults to 1
+                    interval_unit=glue.DateIntervalUnit.DAYS
                 )
             }
         )
@@ -4286,8 +4468,8 @@ class DatePartitionProjectionConfigurationProps:
         :param format: (experimental) Date format for partition values. Uses Java SimpleDateFormat patterns.
         :param max: (experimental) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
         :param min: (experimental) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
-        :param interval: (experimental) Interval between partition values. When the provided dates are at single-day or single-month precision, the interval is optional and defaults to 1 day or 1 month, respectively. Otherwise, interval is required. Default: - 1 for single-day or single-month precision, otherwise required
-        :param interval_unit: (experimental) Unit for the interval. When the provided dates are at single-day or single-month precision, the intervalUnit is optional and defaults to 1 day or 1 month, respectively. Otherwise, the intervalUnit is required. Default: - DAYS for single-day precision, MONTHS for single-month precision, otherwise required
+        :param interval: (experimental) Interval between partition values. Required (together with ``intervalUnit``) when ``format`` carries sub-day precision — i.e. a field finer than a day, such as hours or AM/PM. At day or coarser precision Athena defaults the step, so it is optional. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
+        :param interval_unit: (experimental) Unit for the interval. Required (together with ``interval``) when ``format`` carries sub-day precision — i.e. a field finer than a day, such as hours or AM/PM. At day or coarser precision Athena defaults the step, so it is optional. Default: - Athena's default unit for the format's precision; required when ``format`` is sub-day precision
 
         :stability: experimental
         :exampleMetadata: infused
@@ -4387,11 +4569,11 @@ class DatePartitionProjectionConfigurationProps:
     def interval(self) -> typing.Optional[jsii.Number]:
         '''(experimental) Interval between partition values.
 
-        When the provided dates are at single-day or single-month precision,
-        the interval is optional and defaults to 1 day or 1 month, respectively.
-        Otherwise, interval is required.
+        Required (together with ``intervalUnit``) when ``format`` carries sub-day
+        precision — i.e. a field finer than a day, such as hours or AM/PM. At day
+        or coarser precision Athena defaults the step, so it is optional.
 
-        :default: - 1 for single-day or single-month precision, otherwise required
+        :default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
 
         :stability: experimental
         '''
@@ -4402,11 +4584,11 @@ class DatePartitionProjectionConfigurationProps:
     def interval_unit(self) -> typing.Optional["DateIntervalUnit"]:
         '''(experimental) Unit for the interval.
 
-        When the provided dates are at single-day or single-month precision,
-        the intervalUnit is optional and defaults to 1 day or 1 month, respectively.
-        Otherwise, the intervalUnit is required.
+        Required (together with ``interval``) when ``format`` carries sub-day
+        precision — i.e. a field finer than a day, such as hours or AM/PM. At day
+        or coarser precision Athena defaults the step, so it is optional.
 
-        :default: - DAYS for single-day precision, MONTHS for single-month precision, otherwise required
+        :default: - Athena's default unit for the format's precision; required when ``format`` is sub-day precision
 
         :stability: experimental
         '''
@@ -7729,8 +7911,8 @@ class PartitionProjectionConfiguration(
         :param format: (experimental) Date format for partition values. Uses Java SimpleDateFormat patterns.
         :param max: (experimental) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
         :param min: (experimental) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
-        :param interval: (experimental) Interval between partition values. When the provided dates are at single-day or single-month precision, the interval is optional and defaults to 1 day or 1 month, respectively. Otherwise, interval is required. Default: - 1 for single-day or single-month precision, otherwise required
-        :param interval_unit: (experimental) Unit for the interval. When the provided dates are at single-day or single-month precision, the intervalUnit is optional and defaults to 1 day or 1 month, respectively. Otherwise, the intervalUnit is required. Default: - DAYS for single-day precision, MONTHS for single-month precision, otherwise required
+        :param interval: (experimental) Interval between partition values. Required (together with ``intervalUnit``) when ``format`` carries sub-day precision — i.e. a field finer than a day, such as hours or AM/PM. At day or coarser precision Athena defaults the step, so it is optional. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
+        :param interval_unit: (experimental) Unit for the interval. Required (together with ``interval``) when ``format`` carries sub-day precision — i.e. a field finer than a day, such as hours or AM/PM. At day or coarser precision Athena defaults the step, so it is optional. Default: - Athena's default unit for the format's precision; required when ``format`` is sub-day precision
 
         :stability: experimental
         '''
@@ -9003,6 +9185,145 @@ class S3EncryptionMode(enum.Enum):
     '''
 
 
+class S3TableEncryption(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-glue-alpha.S3TableEncryption",
+):
+    '''(experimental) Server-side encryption for the S3 bucket that a managed ``S3Table`` creates.
+
+    Applies only when the table manages its own bucket (via
+    ``S3TableStorage.managedBucket``). An existing bucket keeps whatever encryption
+    it was created with.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # my_database: glue.Database
+        
+        glue.S3Table(self, "MyTable",
+            storage=glue.S3TableStorage.managed_bucket(glue.S3TableEncryption.s3_managed()),
+            # ...
+            database=my_database,
+            columns=[glue.Column(
+                name="col1",
+                type=glue.Schema.STRING
+            )],
+            data_format=glue.DataFormat.JSON
+        )
+    '''
+
+    @jsii.member(jsii_name="kms")
+    @builtins.classmethod
+    def kms(
+        cls,
+        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+    ) -> "S3TableEncryption":
+        '''(experimental) Server-side encryption (SSE-KMS) with an AWS KMS key managed by the account owner.
+
+        :param key: the KMS key used to encrypt the data. A key is created if one is not provided.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c9bd85c80296893b73014fdc895b26df10ab8d7e0c207517615538203ce398aa)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+        return typing.cast("S3TableEncryption", jsii.sinvoke(cls, "kms", [key]))
+
+    @jsii.member(jsii_name="kmsManaged")
+    @builtins.classmethod
+    def kms_managed(cls) -> "S3TableEncryption":
+        '''(experimental) Server-side encryption (SSE-KMS) with an AWS KMS key managed by the KMS service.
+
+        :stability: experimental
+        '''
+        return typing.cast("S3TableEncryption", jsii.sinvoke(cls, "kmsManaged", []))
+
+    @jsii.member(jsii_name="s3Managed")
+    @builtins.classmethod
+    def s3_managed(cls) -> "S3TableEncryption":
+        '''(experimental) Server-side encryption (SSE-S3) with an Amazon S3-managed key.
+
+        :stability: experimental
+        '''
+        return typing.cast("S3TableEncryption", jsii.sinvoke(cls, "s3Managed", []))
+
+
+class S3TableStorage(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-glue-alpha.S3TableStorage",
+):
+    '''(experimental) Where an ``S3Table`` stores its data.
+
+    The two paths are mutually exclusive: a managed bucket may specify its
+    server-side encryption, while an existing bucket keeps its own encryption — so
+    an encryption choice can never be paired with a bring-your-own bucket.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # my_database: glue.Database
+        
+        glue.S3Table(self, "MyTable",
+            storage=glue.S3TableStorage.managed_bucket(glue.S3TableEncryption.s3_managed()),
+            # ...
+            database=my_database,
+            columns=[glue.Column(
+                name="col1",
+                type=glue.Schema.STRING
+            )],
+            data_format=glue.DataFormat.JSON
+        )
+    '''
+
+    @jsii.member(jsii_name="fromBucket")
+    @builtins.classmethod
+    def from_bucket(
+        cls,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+    ) -> "S3TableStorage":
+        '''(experimental) Store the table's data in an existing bucket. CDK does not manage the bucket's encryption.
+
+        The bucket can be one you don't own, imported with
+        ``Bucket.fromBucketArn()`` or ``Bucket.fromBucketAttributes()``. If that bucket
+        is KMS-encrypted, import it with ``Bucket.fromBucketAttributes()`` and supply
+        the ``encryptionKey`` attribute. Otherwise, CDK has no reference to the key,
+        which means that ``S3Table.grantRead()``/``grantWrite()`` will correctly grant
+        S3 access but silently skip the KMS permissions on the key. As a consequence,
+        at runtime, reads and writes will fail with access denied on the key.
+
+        :param bucket: the bucket that holds the table's data.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__21ce0d5de9a9819db560ceacdd6b5952bacd63dde55e28171d26fe171d4730a0)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+        return typing.cast("S3TableStorage", jsii.sinvoke(cls, "fromBucket", [bucket]))
+
+    @jsii.member(jsii_name="managedBucket")
+    @builtins.classmethod
+    def managed_bucket(
+        cls,
+        encryption: typing.Optional["S3TableEncryption"] = None,
+    ) -> "S3TableStorage":
+        '''(experimental) Store the table's data in a bucket created and managed by the table.
+
+        :param encryption: the server-side encryption for the created bucket.
+
+        :default: - S3-managed (SSE-S3) encryption
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__188999384a9cc582ede3bcc6b233363fdba10d1af72bafe56bc0ca67c410e4ae)
+            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
+        return typing.cast("S3TableStorage", jsii.sinvoke(cls, "managedBucket", [encryption]))
+
+
 class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"):
     '''
     :see: https://docs.aws.amazon.com/athena/latest/ug/data-types.html
@@ -9016,18 +9337,21 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         glue.S3Table(self, "MyTable",
             database=my_database,
             columns=[glue.Column(
-                name="col1",
+                name="data",
                 type=glue.Schema.STRING
             )],
             partition_keys=[glue.Column(
-                name="year",
-                type=glue.Schema.SMALL_INT
-            ), glue.Column(
-                name="month",
-                type=glue.Schema.SMALL_INT
+                name="date",
+                type=glue.Schema.STRING
             )],
             data_format=glue.DataFormat.JSON,
-            enable_partition_filtering=True
+            partition_projection={
+                "date": glue.PartitionProjectionConfiguration.date(
+                    min="NOW-3YEARS",
+                    max="NOW",
+                    format="yyyy-MM-dd"
+                )
+            }
         )
     '''
 
@@ -9039,21 +9363,16 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
 
     @jsii.member(jsii_name="array")
     @builtins.classmethod
-    def array(
-        cls,
-        *,
-        input_string: builtins.str,
-        is_primitive: builtins.bool,
-    ) -> "Type":
+    def array(cls, item_type: "Type") -> "Type":
         '''(experimental) Creates an array of some other type.
 
-        :param input_string: (experimental) Glue InputString for this type.
-        :param is_primitive: (experimental) Indicates whether this type is a primitive data type.
+        :param item_type: type contained by the array.
 
         :stability: experimental
         '''
-        item_type = Type(input_string=input_string, is_primitive=is_primitive)
-
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__10ded5f06685c7c05ee2fbe3c09be6fef35475e5c00fde477815f8614a484cbb)
+            check_type(argname="argument item_type", value=item_type, expected_type=type_hints["item_type"])
         return typing.cast("Type", jsii.sinvoke(cls, "array", [item_type]))
 
     @jsii.member(jsii_name="char")
@@ -9070,6 +9389,29 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
             check_type(argname="argument length", value=length, expected_type=type_hints["length"])
         return typing.cast("Type", jsii.sinvoke(cls, "char", [length]))
 
+    @jsii.member(jsii_name="custom")
+    @builtins.classmethod
+    def custom(
+        cls,
+        input_string: builtins.str,
+        is_primitive: typing.Optional[builtins.bool] = None,
+    ) -> "Type":
+        '''(experimental) Creates a custom type from a raw Glue input string.
+
+        Escape hatch for column types the other ``Schema`` factories don't model. The
+        ``inputString`` is emitted verbatim and is not validated.
+
+        :param input_string: the Glue input string for the type (for example ``interval_day_to_second``).
+        :param is_primitive: whether the type is a primitive (non-nested) data type. Defaults to true.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c3081332212c4a1a616782ed41b95e46c97ed3d55d3c8a2e6d25a5f81999b374)
+            check_type(argname="argument input_string", value=input_string, expected_type=type_hints["input_string"])
+            check_type(argname="argument is_primitive", value=is_primitive, expected_type=type_hints["is_primitive"])
+        return typing.cast("Type", jsii.sinvoke(cls, "custom", [input_string, is_primitive]))
+
     @jsii.member(jsii_name="decimal")
     @builtins.classmethod
     def decimal(
@@ -9079,11 +9421,10 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     ) -> "Type":
         '''(experimental) Creates a decimal type.
 
-        TODO: Bounds
+        :param precision: the total number of digits, between 1 and 38.
+        :param scale: the number of digits in the fractional part, between 0 and 38; the default is 0
 
-        :param precision: the total number of digits.
-        :param scale: the number of digits in fractional part, the default is 0.
-
+        :see: https://docs.aws.amazon.com/athena/latest/ug/data-types.html
         :stability: experimental
         '''
         if __debug__:
@@ -9094,26 +9435,18 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
 
     @jsii.member(jsii_name="map")
     @builtins.classmethod
-    def map(
-        cls,
-        key_type: typing.Union["Type", typing.Dict[builtins.str, typing.Any]],
-        *,
-        input_string: builtins.str,
-        is_primitive: builtins.bool,
-    ) -> "Type":
+    def map(cls, key_type: "Type", value_type: "Type") -> "Type":
         '''(experimental) Creates a map of some primitive key type to some value type.
 
         :param key_type: type of key, must be a primitive.
-        :param input_string: (experimental) Glue InputString for this type.
-        :param is_primitive: (experimental) Indicates whether this type is a primitive data type.
+        :param value_type: type fo the value indexed by the key.
 
         :stability: experimental
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc04f65c508e37fca936dfd67a8b4a0f84a73b9ef9c446edcd34f17c738c8dae)
             check_type(argname="argument key_type", value=key_type, expected_type=type_hints["key_type"])
-        value_type = Type(input_string=input_string, is_primitive=is_primitive)
-
+            check_type(argname="argument value_type", value=value_type, expected_type=type_hints["value_type"])
         return typing.cast("Type", jsii.sinvoke(cls, "map", [key_type, value_type]))
 
     @jsii.member(jsii_name="struct")
@@ -10431,7 +10764,7 @@ class StorageParameter(
 
     @jsii.member(jsii_name="custom")
     @builtins.classmethod
-    def custom(cls, key: builtins.str, value: typing.Any) -> "StorageParameter":
+    def custom(cls, key: builtins.str, value: builtins.str) -> "StorageParameter":
         '''(experimental) A custom storage parameter.
 
         :param key: - The key of the storage parameter.
@@ -10609,17 +10942,27 @@ class StorageParameter(
 
     @jsii.member(jsii_name="writeKmsKeyId")
     @builtins.classmethod
-    def write_kms_key_id(cls, value: builtins.str) -> "StorageParameter":
-        '''(experimental) You can specify an AWS Key Management Service key to enable Server–Side Encryption (SSE) for Amazon S3 objects.
+    def write_kms_key_id(
+        cls,
+        key: "_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef",
+    ) -> "StorageParameter":
+        '''(experimental) Enables server-side encryption (SSE-KMS) with the given AWS KMS key on the files Redshift Spectrum writes for this table (via ``CREATE EXTERNAL TABLE AS`` or ``INSERT``).
 
-        :param value: -
+        Redshift Spectrum accepts either the key's ARN or its bare key ID for the
+        ``write.kms.key.id`` property, and encrypts the written objects with that key;
+        this renders the ARN. To use the S3 bucket's default KMS key instead, set the
+        literal value ``auto`` via ``StorageParameter.custom('write.kms.key.id', 'auto')`` —
+        this typed factory cannot express ``auto``.
 
+        :param key: -
+
+        :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html
         :stability: experimental
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__786b7e6901c19fc29fc68d4fe9cfd302c0d877d823b66a1fc00cd87af05bc1a9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        return typing.cast("StorageParameter", jsii.sinvoke(cls, "writeKmsKeyId", [value]))
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+        return typing.cast("StorageParameter", jsii.sinvoke(cls, "writeKmsKeyId", [key]))
 
     @jsii.member(jsii_name="writeMaxFileSizeMb")
     @builtins.classmethod
@@ -10683,7 +11026,7 @@ class StorageParameters(enum.Enum):
 
         # glue_database: glue.IDatabase
         
-        table = glue.Table(self, "Table",
+        table = glue.S3Table(self, "Table",
             storage_parameters=[
                 glue.StorageParameter.skip_header_line_count(1),
                 glue.StorageParameter.compression_type(glue.CompressionType.GZIP),
@@ -11457,14 +11800,12 @@ class TableBaseProps:
             # data_format: glue_alpha.DataFormat
             # partition_projection_configuration: glue_alpha.PartitionProjectionConfiguration
             # storage_parameter: glue_alpha.StorageParameter
+            # type: glue_alpha.Type
             
             table_base_props = glue_alpha.TableBaseProps(
                 columns=[glue_alpha.Column(
                     name="name",
-                    type=glue_alpha.Type(
-                        input_string="inputString",
-                        is_primitive=False
-                    ),
+                    type=type,
             
                     # the properties below are optional
                     comment="comment"
@@ -11488,10 +11829,7 @@ class TableBaseProps:
                 )],
                 partition_keys=[glue_alpha.Column(
                     name="name",
-                    type=glue_alpha.Type(
-                        input_string="inputString",
-                        is_primitive=False
-                    ),
+                    type=type,
             
                     # the properties below are optional
                     comment="comment"
@@ -11708,7 +12046,7 @@ class TableBaseProps:
 
             # glue_database: glue.IDatabase
             
-            table = glue.Table(self, "Table",
+            table = glue.S3Table(self, "Table",
                 storage_parameters=[
                     glue.StorageParameter.skip_header_line_count(1),
                     glue.StorageParameter.compression_type(glue.CompressionType.GZIP),
@@ -11762,11 +12100,16 @@ class TableBaseProps:
         )
 
 
-@jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.TableEncryption")
-class TableEncryption(enum.Enum):
-    '''(experimental) Encryption options for a Table.
+class TableClientSideEncryption(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-glue-alpha.TableClientSideEncryption",
+):
+    '''(experimental) Client-side encryption for an ``S3Table``'s data.
 
-    :see: https://docs.aws.amazon.com/athena/latest/ug/encryption.html
+    Independent of the bucket's server-side encryption and of who owns the bucket:
+    the data is encrypted by the client before it is written to S3. When set, the
+    ``grant*`` methods also grant the relevant KMS permissions on the key.
+
     :stability: experimental
     :exampleMetadata: infused
 
@@ -11774,8 +12117,21 @@ class TableEncryption(enum.Enum):
 
         # my_database: glue.Database
         
+        # KMS key is created automatically
         glue.S3Table(self, "MyTable",
-            encryption=glue.TableEncryption.S3_MANAGED,
+            client_side_encryption=glue.TableClientSideEncryption.kms(),
+            # ...
+            database=my_database,
+            columns=[glue.Column(
+                name="col1",
+                type=glue.Schema.STRING
+            )],
+            data_format=glue.DataFormat.JSON
+        )
+        
+        # with an explicit KMS key
+        glue.S3Table(self, "MyTable",
+            client_side_encryption=glue.TableClientSideEncryption.kms(kms.Key(self, "MyKey")),
             # ...
             database=my_database,
             columns=[glue.Column(
@@ -11786,29 +12142,22 @@ class TableEncryption(enum.Enum):
         )
     '''
 
-    S3_MANAGED = "S3_MANAGED"
-    '''(experimental) Server side encryption (SSE) with an Amazon S3-managed key.
+    @jsii.member(jsii_name="kms")
+    @builtins.classmethod
+    def kms(
+        cls,
+        key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+    ) -> "TableClientSideEncryption":
+        '''(experimental) Client-side encryption (CSE-KMS) with an AWS KMS key managed by the account owner.
 
-    :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
-    :stability: experimental
-    '''
-    KMS = "KMS"
-    '''(experimental) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
+        :param key: the KMS key used to encrypt the data. A key is created if one is not provided.
 
-    :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingKMSEncryption.html
-    :stability: experimental
-    '''
-    KMS_MANAGED = "KMS_MANAGED"
-    '''(experimental) Server-side encryption (SSE) with an AWS KMS key managed by the KMS service.
-
-    :stability: experimental
-    '''
-    CLIENT_SIDE_KMS = "CLIENT_SIDE_KMS"
-    '''(experimental) Client-side encryption (CSE) with an AWS KMS key managed by the account owner.
-
-    :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html
-    :stability: experimental
-    '''
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1c9aafcca958a02033eeb95ddd63beee8aecb98a8cca7c8cc2883a868af786c2)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+        return typing.cast("TableClientSideEncryption", jsii.sinvoke(cls, "kms", [key]))
 
 
 @jsii.data_type(
@@ -12005,89 +12354,60 @@ class TriggerSchedule(
         return typing.cast(builtins.str, jsii.get(self, "expressionString"))
 
 
-@jsii.data_type(
-    jsii_type="@aws-cdk/aws-glue-alpha.Type",
-    jsii_struct_bases=[],
-    name_mapping={"input_string": "inputString", "is_primitive": "isPrimitive"},
-)
-class Type:
-    def __init__(
-        self,
-        *,
-        input_string: builtins.str,
-        is_primitive: builtins.bool,
-    ) -> None:
-        '''(experimental) Represents a type of a column in a table schema.
+class Type(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Type"):
+    '''(experimental) The type of a column in a table schema.
 
-        :param input_string: (experimental) Glue InputString for this type.
-        :param is_primitive: (experimental) Indicates whether this type is a primitive data type.
+    Instances are opaque: obtain one from a ``Schema`` factory (for example
+    ``Schema.STRING``, ``Schema.decimal(...)``, ``Schema.array(...)``) or, for a type the
+    ``Schema`` factories don't model, from ``Schema.custom(...)``.
 
-        :stability: experimental
-        :exampleMetadata: infused
+    :stability: experimental
+    :exampleMetadata: infused
 
-        Example::
+    Example::
 
-            # my_database: glue.Database
-            
-            glue.S3Table(self, "MyTable",
-                database=my_database,
-                columns=[glue.Column(
-                    name="data",
-                    type=glue.Schema.STRING
-                )],
-                partition_keys=[glue.Column(
-                    name="date",
-                    type=glue.Schema.STRING
-                )],
-                data_format=glue.DataFormat.JSON,
-                partition_projection={
-                    "date": glue.PartitionProjectionConfiguration.date(
-                        min="NOW-3YEARS",
-                        max="NOW",
-                        format="yyyy-MM-dd"
-                    )
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__c5fb0ad30c447263aceddf4b77f71aec991966bf6e2dc3a181ff400914c16d85)
-            check_type(argname="argument input_string", value=input_string, expected_type=type_hints["input_string"])
-            check_type(argname="argument is_primitive", value=is_primitive, expected_type=type_hints["is_primitive"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "input_string": input_string,
-            "is_primitive": is_primitive,
-        }
+        # my_database: glue.Database
+        
+        glue.S3Table(self, "MyTable",
+            database=my_database,
+            columns=[glue.Column(
+                name="data",
+                type=glue.Schema.STRING
+            )],
+            partition_keys=[glue.Column(
+                name="date",
+                type=glue.Schema.STRING
+            )],
+            data_format=glue.DataFormat.JSON,
+            partition_projection={
+                "date": glue.PartitionProjectionConfiguration.date(
+                    min="2020-01-01",
+                    max="2023-12-31",
+                    format="yyyy-MM-dd",
+                    interval=1,  # optional, defaults to 1
+                    interval_unit=glue.DateIntervalUnit.DAYS
+                )
+            }
+        )
+    '''
 
     @builtins.property
+    @jsii.member(jsii_name="inputString")
     def input_string(self) -> builtins.str:
         '''(experimental) Glue InputString for this type.
 
         :stability: experimental
         '''
-        result = self._values.get("input_string")
-        assert result is not None, "Required property 'input_string' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(builtins.str, jsii.get(self, "inputString"))
 
     @builtins.property
+    @jsii.member(jsii_name="isPrimitive")
     def is_primitive(self) -> builtins.bool:
         '''(experimental) Indicates whether this type is a primitive data type.
 
         :stability: experimental
         '''
-        result = self._values.get("is_primitive")
-        assert result is not None, "Required property 'is_primitive' is missing"
-        return typing.cast(builtins.bool, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Type(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+        return typing.cast(builtins.bool, jsii.get(self, "isPrimitive"))
 
 
 @jsii.data_type(
@@ -13197,8 +13517,11 @@ class Connection(
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        secret: typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -13208,8 +13531,11 @@ class Connection(
         :param description: (experimental) The description of the connection. Default: no description
         :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
         :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
+        :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
         :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
-        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Default: no subnet
+        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the CDK select one for you. Default: - no subnet, unless ``vpc`` is provided
+        :param vpc: (experimental) The VPC to connect to resources within. When provided, the CDK selects a subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single subnet, so the first subnet of the selection is used. Mutually exclusive with ``subnet``. Default: - no VPC, the subnet is taken from ``subnet`` if provided
+        :param vpc_subnets: (experimental) Which subnets of ``vpc`` to select the connection subnet from. Only used when ``vpc`` is provided. Since a Glue connection targets a single subnet, the first subnet of the selection is used. Default: - private subnets
 
         :stability: experimental
         '''
@@ -13223,8 +13549,11 @@ class Connection(
             description=description,
             match_criteria=match_criteria,
             properties=properties,
+            secret=secret,
             security_groups=security_groups,
             subnet=subnet,
+            vpc=vpc,
+            vpc_subnets=vpc_subnets,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -14199,7 +14528,7 @@ class ExternalTableProps(TableBaseProps):
 
             # glue_database: glue.IDatabase
             
-            table = glue.Table(self, "Table",
+            table = glue.S3Table(self, "Table",
                 storage_parameters=[
                     glue.StorageParameter.skip_header_line_count(1),
                     glue.StorageParameter.compression_type(glue.CompressionType.GZIP),
@@ -16442,9 +16771,11 @@ class S3Table(
             data_format=glue.DataFormat.JSON,
             partition_projection={
                 "date": glue.PartitionProjectionConfiguration.date(
-                    min="NOW-3YEARS",
-                    max="NOW",
-                    format="yyyy-MM-dd"
+                    min="2020-01-01",
+                    max="2023-12-31",
+                    format="yyyy-MM-dd",
+                    interval=1,  # optional, defaults to 1
+                    interval_unit=glue.DateIntervalUnit.DAYS
                 )
             }
         )
@@ -16455,10 +16786,9 @@ class S3Table(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
-        encryption: typing.Optional["TableEncryption"] = None,
-        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        client_side_encryption: typing.Optional["TableClientSideEncryption"] = None,
         s3_prefix: typing.Optional[builtins.str] = None,
+        storage: typing.Optional["S3TableStorage"] = None,
         columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
         database: "IDatabase",
         data_format: "DataFormat",
@@ -16477,10 +16807,9 @@ class S3Table(
         '''
         :param scope: -
         :param id: -
-        :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
-        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``; one is created automatically if omitted. Default: BucketEncryption.S3_MANAGED
-        :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
+        :param client_side_encryption: (experimental) Client-side encryption (CSE-KMS) for the table's data. Independent of the bucket's server-side encryption, and valid whether the bucket is managed or provided. Default: - no client-side encryption
         :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
+        :param storage: (experimental) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide. Default: - a managed bucket with S3-managed (SSE-S3) encryption
         :param columns: (experimental) Columns of the table.
         :param database: (experimental) Database in which to store the table.
         :param data_format: (experimental) Storage type of the table's data.
@@ -16503,10 +16832,9 @@ class S3Table(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = S3TableProps(
-            bucket=bucket,
-            encryption=encryption,
-            encryption_key=encryption_key,
+            client_side_encryption=client_side_encryption,
             s3_prefix=s3_prefix,
+            storage=storage,
             columns=columns,
             database=database,
             data_format=data_format,
@@ -16605,15 +16933,6 @@ class S3Table(
         return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
-    @jsii.member(jsii_name="encryption")
-    def encryption(self) -> "TableEncryption":
-        '''(experimental) The type of encryption enabled for the table.
-
-        :stability: experimental
-        '''
-        return typing.cast("TableEncryption", jsii.get(self, "encryption"))
-
-    @builtins.property
     @jsii.member(jsii_name="s3Prefix")
     def s3_prefix(self) -> builtins.str:
         '''(experimental) S3 Key Prefix under which this table's files are stored in S3.
@@ -16649,15 +16968,17 @@ class S3Table(
         return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTable", jsii.get(self, "tableResource"))
 
     @builtins.property
-    @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
-        '''(experimental) The KMS key used to secure the data if ``encryption`` is set to ``CSE-KMS`` or ``SSE-KMS``.
+    @jsii.member(jsii_name="clientSideEncryptionKey")
+    def client_side_encryption_key(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key used for client-side encryption of the table's data, if ``clientSideEncryption`` was configured. Otherwise, ``undefined``.
 
-        Otherwise, ``undefined``.
+        For server-side (bucket) encryption, read ``bucket.encryptionKey`` instead.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "encryptionKey"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "clientSideEncryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="partitionIndexes")
@@ -16687,10 +17008,9 @@ class S3Table(
         "storage_parameters": "storageParameters",
         "stored_as_sub_directories": "storedAsSubDirectories",
         "table_name": "tableName",
-        "bucket": "bucket",
-        "encryption": "encryption",
-        "encryption_key": "encryptionKey",
+        "client_side_encryption": "clientSideEncryption",
         "s3_prefix": "s3Prefix",
+        "storage": "storage",
     },
 )
 class S3TableProps(TableBaseProps):
@@ -16711,10 +17031,9 @@ class S3TableProps(TableBaseProps):
         storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
         stored_as_sub_directories: typing.Optional[builtins.bool] = None,
         table_name: typing.Optional[builtins.str] = None,
-        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
-        encryption: typing.Optional["TableEncryption"] = None,
-        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        client_side_encryption: typing.Optional["TableClientSideEncryption"] = None,
         s3_prefix: typing.Optional[builtins.str] = None,
+        storage: typing.Optional["S3TableStorage"] = None,
     ) -> None:
         '''
         :param columns: (experimental) Columns of the table.
@@ -16731,10 +17050,9 @@ class S3TableProps(TableBaseProps):
         :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
-        :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
-        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``; one is created automatically if omitted. Default: BucketEncryption.S3_MANAGED
-        :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
+        :param client_side_encryption: (experimental) Client-side encryption (CSE-KMS) for the table's data. Independent of the bucket's server-side encryption, and valid whether the bucket is managed or provided. Default: - no client-side encryption
         :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
+        :param storage: (experimental) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide. Default: - a managed bucket with S3-managed (SSE-S3) encryption
 
         :stability: experimental
         :exampleMetadata: infused
@@ -16781,10 +17099,9 @@ class S3TableProps(TableBaseProps):
             check_type(argname="argument storage_parameters", value=storage_parameters, expected_type=type_hints["storage_parameters"])
             check_type(argname="argument stored_as_sub_directories", value=stored_as_sub_directories, expected_type=type_hints["stored_as_sub_directories"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
-            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
+            check_type(argname="argument client_side_encryption", value=client_side_encryption, expected_type=type_hints["client_side_encryption"])
             check_type(argname="argument s3_prefix", value=s3_prefix, expected_type=type_hints["s3_prefix"])
+            check_type(argname="argument storage", value=storage, expected_type=type_hints["storage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "columns": columns,
             "database": database,
@@ -16812,14 +17129,12 @@ class S3TableProps(TableBaseProps):
             self._values["stored_as_sub_directories"] = stored_as_sub_directories
         if table_name is not None:
             self._values["table_name"] = table_name
-        if bucket is not None:
-            self._values["bucket"] = bucket
-        if encryption is not None:
-            self._values["encryption"] = encryption
-        if encryption_key is not None:
-            self._values["encryption_key"] = encryption_key
+        if client_side_encryption is not None:
+            self._values["client_side_encryption"] = client_side_encryption
         if s3_prefix is not None:
             self._values["s3_prefix"] = s3_prefix
+        if storage is not None:
+            self._values["storage"] = storage
 
     @builtins.property
     def columns(self) -> typing.List["Column"]:
@@ -16981,7 +17296,7 @@ class S3TableProps(TableBaseProps):
 
             # glue_database: glue.IDatabase
             
-            table = glue.Table(self, "Table",
+            table = glue.S3Table(self, "Table",
                 storage_parameters=[
                     glue.StorageParameter.skip_header_line_count(1),
                     glue.StorageParameter.compression_type(glue.CompressionType.GZIP),
@@ -17024,45 +17339,18 @@ class S3TableProps(TableBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
-        '''(experimental) S3 bucket in which to store data.
+    def client_side_encryption(self) -> typing.Optional["TableClientSideEncryption"]:
+        '''(experimental) Client-side encryption (CSE-KMS) for the table's data.
 
-        :default: one is created for you
+        Independent of the bucket's server-side encryption, and valid whether the
+        bucket is managed or provided.
 
-        :stability: experimental
-        '''
-        result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
-
-    @builtins.property
-    def encryption(self) -> typing.Optional["TableEncryption"]:
-        '''(experimental) The kind of encryption to secure the data with.
-
-        You can only provide this option if you are not explicitly passing in a bucket.
-
-        If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``.
-        If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``;
-        one is created automatically if omitted.
-
-        :default: BucketEncryption.S3_MANAGED
+        :default: - no client-side encryption
 
         :stability: experimental
         '''
-        result = self._values.get("encryption")
-        return typing.cast(typing.Optional["TableEncryption"], result)
-
-    @builtins.property
-    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
-        '''(experimental) External KMS key to use for bucket encryption.
-
-        The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``.
-
-        :default: key is managed by KMS.
-
-        :stability: experimental
-        '''
-        result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+        result = self._values.get("client_side_encryption")
+        return typing.cast(typing.Optional["TableClientSideEncryption"], result)
 
     @builtins.property
     def s3_prefix(self) -> typing.Optional[builtins.str]:
@@ -17078,6 +17366,17 @@ class S3TableProps(TableBaseProps):
         '''
         result = self._values.get("s3_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def storage(self) -> typing.Optional["S3TableStorage"]:
+        '''(experimental) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide.
+
+        :default: - a managed bucket with S3-managed (SSE-S3) encryption
+
+        :stability: experimental
+        '''
+        result = self._values.get("storage")
+        return typing.cast(typing.Optional["S3TableStorage"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18865,586 +19164,6 @@ class _SparkJobProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, SparkJob).__jsii_proxy_class__ = lambda : _SparkJobProxy
-
-
-class Table(
-    S3Table,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="@aws-cdk/aws-glue-alpha.Table",
-):
-    '''(deprecated) A Glue table.
-
-    :deprecated: Use {@link S3Table } instead.
-
-    :stability: deprecated
-    :exampleMetadata: infused
-
-    Example::
-
-        # glue_database: glue.IDatabase
-        
-        table = glue.Table(self, "Table",
-            storage_parameters=[
-                glue.StorageParameter.skip_header_line_count(1),
-                glue.StorageParameter.compression_type(glue.CompressionType.GZIP),
-                glue.StorageParameter.custom("foo", "bar"),  # Will have no effect
-                glue.StorageParameter.custom("separatorChar", ","),  # Will describe the separator char used in the data
-                glue.StorageParameter.custom(glue.StorageParameters.WRITE_PARALLEL, "off")
-            ],
-            # ...
-            database=glue_database,
-            columns=[glue.Column(
-                name="col1",
-                type=glue.Schema.STRING
-            )],
-            data_format=glue.DataFormat.CSV
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        *,
-        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
-        encryption: typing.Optional["TableEncryption"] = None,
-        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
-        s3_prefix: typing.Optional[builtins.str] = None,
-        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
-        database: "IDatabase",
-        data_format: "DataFormat",
-        compressed: typing.Optional[builtins.bool] = None,
-        description: typing.Optional[builtins.str] = None,
-        enable_partition_filtering: typing.Optional[builtins.bool] = None,
-        has_encrypted_data: typing.Optional[builtins.bool] = None,
-        parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
-        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
-        stored_as_sub_directories: typing.Optional[builtins.bool] = None,
-        table_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
-        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``; one is created automatically if omitted. Default: BucketEncryption.S3_MANAGED
-        :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
-        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
-        :param columns: (experimental) Columns of the table.
-        :param database: (experimental) Database in which to store the table.
-        :param data_format: (experimental) Storage type of the table's data.
-        :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
-        :param description: (experimental) Description of the table. Default: generated
-        :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
-        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
-        :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
-        :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
-        :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
-        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
-        :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
-        :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
-        :param table_name: (experimental) Name of the table. Default: - generated by CDK.
-
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__1146b20665153f742431bb500cb6e71362a22d8446ea9e132183e7be255411a3)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = S3TableProps(
-            bucket=bucket,
-            encryption=encryption,
-            encryption_key=encryption_key,
-            s3_prefix=s3_prefix,
-            columns=columns,
-            database=database,
-            data_format=data_format,
-            compressed=compressed,
-            description=description,
-            enable_partition_filtering=enable_partition_filtering,
-            has_encrypted_data=has_encrypted_data,
-            parameters=parameters,
-            partition_indexes=partition_indexes,
-            partition_keys=partition_keys,
-            partition_projection=partition_projection,
-            storage_parameters=storage_parameters,
-            stored_as_sub_directories=stored_as_sub_directories,
-            table_name=table_name,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(deprecated) Uniquely identifies this class.
-
-        :stability: deprecated
-        '''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-
-@jsii.data_type(
-    jsii_type="@aws-cdk/aws-glue-alpha.TableProps",
-    jsii_struct_bases=[S3TableProps],
-    name_mapping={
-        "columns": "columns",
-        "database": "database",
-        "data_format": "dataFormat",
-        "compressed": "compressed",
-        "description": "description",
-        "enable_partition_filtering": "enablePartitionFiltering",
-        "has_encrypted_data": "hasEncryptedData",
-        "parameters": "parameters",
-        "partition_indexes": "partitionIndexes",
-        "partition_keys": "partitionKeys",
-        "partition_projection": "partitionProjection",
-        "storage_parameters": "storageParameters",
-        "stored_as_sub_directories": "storedAsSubDirectories",
-        "table_name": "tableName",
-        "bucket": "bucket",
-        "encryption": "encryption",
-        "encryption_key": "encryptionKey",
-        "s3_prefix": "s3Prefix",
-    },
-)
-class TableProps(S3TableProps):
-    def __init__(
-        self,
-        *,
-        columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
-        database: "IDatabase",
-        data_format: "DataFormat",
-        compressed: typing.Optional[builtins.bool] = None,
-        description: typing.Optional[builtins.str] = None,
-        enable_partition_filtering: typing.Optional[builtins.bool] = None,
-        has_encrypted_data: typing.Optional[builtins.bool] = None,
-        parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
-        partition_projection: typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]] = None,
-        storage_parameters: typing.Optional[typing.Sequence["StorageParameter"]] = None,
-        stored_as_sub_directories: typing.Optional[builtins.bool] = None,
-        table_name: typing.Optional[builtins.str] = None,
-        bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
-        encryption: typing.Optional["TableEncryption"] = None,
-        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
-        s3_prefix: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param columns: (experimental) Columns of the table.
-        :param database: (experimental) Database in which to store the table.
-        :param data_format: (experimental) Storage type of the table's data.
-        :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
-        :param description: (experimental) Description of the table. Default: generated
-        :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
-        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
-        :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
-        :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
-        :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
-        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
-        :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
-        :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
-        :param table_name: (experimental) Name of the table. Default: - generated by CDK.
-        :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
-        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``; one is created automatically if omitted. Default: BucketEncryption.S3_MANAGED
-        :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
-        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.aws_glue_alpha as glue_alpha
-            from aws_cdk import aws_kms as kms
-            from aws_cdk import aws_s3 as s3
-            
-            # bucket: s3.Bucket
-            # database: glue_alpha.Database
-            # data_format: glue_alpha.DataFormat
-            # key: kms.Key
-            # partition_projection_configuration: glue_alpha.PartitionProjectionConfiguration
-            # storage_parameter: glue_alpha.StorageParameter
-            
-            table_props = glue_alpha.TableProps(
-                columns=[glue_alpha.Column(
-                    name="name",
-                    type=glue_alpha.Type(
-                        input_string="inputString",
-                        is_primitive=False
-                    ),
-            
-                    # the properties below are optional
-                    comment="comment"
-                )],
-                database=database,
-                data_format=data_format,
-            
-                # the properties below are optional
-                bucket=bucket,
-                compressed=False,
-                description="description",
-                enable_partition_filtering=False,
-                encryption=glue_alpha.TableEncryption.S3_MANAGED,
-                encryption_key=key,
-                has_encrypted_data=False,
-                parameters={
-                    "parameters_key": "parameters"
-                },
-                partition_indexes=[glue_alpha.PartitionIndex(
-                    key_names=["keyNames"],
-            
-                    # the properties below are optional
-                    index_name="indexName"
-                )],
-                partition_keys=[glue_alpha.Column(
-                    name="name",
-                    type=glue_alpha.Type(
-                        input_string="inputString",
-                        is_primitive=False
-                    ),
-            
-                    # the properties below are optional
-                    comment="comment"
-                )],
-                partition_projection={
-                    "partition_projection_key": partition_projection_configuration
-                },
-                s3_prefix="s3Prefix",
-                storage_parameters=[storage_parameter],
-                stored_as_sub_directories=False,
-                table_name="tableName"
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__0336d5abace2b9645857eae2fba5aa1c4bbb0db1762c5d5031d2f8c64019d606)
-            check_type(argname="argument columns", value=columns, expected_type=type_hints["columns"])
-            check_type(argname="argument database", value=database, expected_type=type_hints["database"])
-            check_type(argname="argument data_format", value=data_format, expected_type=type_hints["data_format"])
-            check_type(argname="argument compressed", value=compressed, expected_type=type_hints["compressed"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_partition_filtering", value=enable_partition_filtering, expected_type=type_hints["enable_partition_filtering"])
-            check_type(argname="argument has_encrypted_data", value=has_encrypted_data, expected_type=type_hints["has_encrypted_data"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
-            check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
-            check_type(argname="argument partition_projection", value=partition_projection, expected_type=type_hints["partition_projection"])
-            check_type(argname="argument storage_parameters", value=storage_parameters, expected_type=type_hints["storage_parameters"])
-            check_type(argname="argument stored_as_sub_directories", value=stored_as_sub_directories, expected_type=type_hints["stored_as_sub_directories"])
-            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
-            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
-            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
-            check_type(argname="argument s3_prefix", value=s3_prefix, expected_type=type_hints["s3_prefix"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "columns": columns,
-            "database": database,
-            "data_format": data_format,
-        }
-        if compressed is not None:
-            self._values["compressed"] = compressed
-        if description is not None:
-            self._values["description"] = description
-        if enable_partition_filtering is not None:
-            self._values["enable_partition_filtering"] = enable_partition_filtering
-        if has_encrypted_data is not None:
-            self._values["has_encrypted_data"] = has_encrypted_data
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if partition_indexes is not None:
-            self._values["partition_indexes"] = partition_indexes
-        if partition_keys is not None:
-            self._values["partition_keys"] = partition_keys
-        if partition_projection is not None:
-            self._values["partition_projection"] = partition_projection
-        if storage_parameters is not None:
-            self._values["storage_parameters"] = storage_parameters
-        if stored_as_sub_directories is not None:
-            self._values["stored_as_sub_directories"] = stored_as_sub_directories
-        if table_name is not None:
-            self._values["table_name"] = table_name
-        if bucket is not None:
-            self._values["bucket"] = bucket
-        if encryption is not None:
-            self._values["encryption"] = encryption
-        if encryption_key is not None:
-            self._values["encryption_key"] = encryption_key
-        if s3_prefix is not None:
-            self._values["s3_prefix"] = s3_prefix
-
-    @builtins.property
-    def columns(self) -> typing.List["Column"]:
-        '''(experimental) Columns of the table.
-
-        :stability: experimental
-        '''
-        result = self._values.get("columns")
-        assert result is not None, "Required property 'columns' is missing"
-        return typing.cast(typing.List["Column"], result)
-
-    @builtins.property
-    def database(self) -> "IDatabase":
-        '''(experimental) Database in which to store the table.
-
-        :stability: experimental
-        '''
-        result = self._values.get("database")
-        assert result is not None, "Required property 'database' is missing"
-        return typing.cast("IDatabase", result)
-
-    @builtins.property
-    def data_format(self) -> "DataFormat":
-        '''(experimental) Storage type of the table's data.
-
-        :stability: experimental
-        '''
-        result = self._values.get("data_format")
-        assert result is not None, "Required property 'data_format' is missing"
-        return typing.cast("DataFormat", result)
-
-    @builtins.property
-    def compressed(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether the table's data is compressed or not.
-
-        :default: false
-
-        :stability: experimental
-        '''
-        result = self._values.get("compressed")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description of the table.
-
-        :default: generated
-
-        :stability: experimental
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def enable_partition_filtering(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables partition filtering.
-
-        :default: - The parameter is not defined
-
-        :see: https://docs.aws.amazon.com/athena/latest/ug/glue-best-practices.html#glue-best-practices-partition-index
-        :stability: experimental
-        '''
-        result = self._values.get("enable_partition_filtering")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def has_encrypted_data(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether the data stored in the table is encrypted.
-
-        This sets the ``has_encrypted_data`` table parameter. Athena reads it when
-        querying client-side (CSE-KMS) encrypted datasets; for server-side
-        encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since
-        Amazon S3 decrypts server-side encrypted objects transparently.
-
-        Do not also set ``has_encrypted_data`` through ``parameters`` - use this
-        property instead. A conflicting value in ``parameters`` is rejected.
-
-        :default: true
-
-        :see: https://docs.aws.amazon.com/athena/latest/ug/creating-tables-based-on-encrypted-datasets-in-s3.html
-        :stability: experimental
-        '''
-        result = self._values.get("has_encrypted_data")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) The key/value pairs define properties associated with the table.
-
-        The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed.
-
-        :default: - The parameter is not defined
-
-        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-parameters
-        :stability: experimental
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
-        '''(experimental) Partition indexes on the table.
-
-        A maximum of 3 indexes
-        are allowed on a table. Keys in the index must be part
-        of the table's partition keys.
-
-        :default: table has no partition indexes
-
-        :stability: experimental
-        '''
-        result = self._values.get("partition_indexes")
-        return typing.cast(typing.Optional[typing.List["PartitionIndex"]], result)
-
-    @builtins.property
-    def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
-        '''(experimental) Partition columns of the table.
-
-        :default: table is not partitioned
-
-        :stability: experimental
-        '''
-        result = self._values.get("partition_keys")
-        return typing.cast(typing.Optional[typing.List["Column"]], result)
-
-    @builtins.property
-    def partition_projection(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
-        '''(experimental) Partition projection configuration for this table.
-
-        Partition projection allows Athena to automatically add new partitions
-        without requiring ``ALTER TABLE ADD PARTITION`` statements.
-
-        :default: - No partition projection
-
-        :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html
-        :stability: experimental
-        '''
-        result = self._values.get("partition_projection")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], result)
-
-    @builtins.property
-    def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
-        '''(experimental) The user-supplied properties for the description of the physical storage of this table.
-
-        These properties help describe the format of the data that is stored within the crawled data sources.
-
-        The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed.
-
-        Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property.
-
-        :default: - The parameter is not defined
-
-        :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"*
-        :stability: experimental
-
-        Example::
-
-            # glue_database: glue.IDatabase
-            
-            table = glue.Table(self, "Table",
-                storage_parameters=[
-                    glue.StorageParameter.skip_header_line_count(1),
-                    glue.StorageParameter.compression_type(glue.CompressionType.GZIP),
-                    glue.StorageParameter.custom("foo", "bar"),  # Will have no effect
-                    glue.StorageParameter.custom("separatorChar", ","),  # Will describe the separator char used in the data
-                    glue.StorageParameter.custom(glue.StorageParameters.WRITE_PARALLEL, "off")
-                ],
-                # ...
-                database=glue_database,
-                columns=[glue.Column(
-                    name="col1",
-                    type=glue.Schema.STRING
-                )],
-                data_format=glue.DataFormat.CSV
-            )
-        '''
-        result = self._values.get("storage_parameters")
-        return typing.cast(typing.Optional[typing.List["StorageParameter"]], result)
-
-    @builtins.property
-    def stored_as_sub_directories(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether the table data is stored in subdirectories.
-
-        :default: false
-
-        :stability: experimental
-        '''
-        result = self._values.get("stored_as_sub_directories")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def table_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the table.
-
-        :default: - generated by CDK.
-
-        :stability: experimental
-        '''
-        result = self._values.get("table_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
-        '''(experimental) S3 bucket in which to store data.
-
-        :default: one is created for you
-
-        :stability: experimental
-        '''
-        result = self._values.get("bucket")
-        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
-
-    @builtins.property
-    def encryption(self) -> typing.Optional["TableEncryption"]:
-        '''(experimental) The kind of encryption to secure the data with.
-
-        You can only provide this option if you are not explicitly passing in a bucket.
-
-        If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``.
-        If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``;
-        one is created automatically if omitted.
-
-        :default: BucketEncryption.S3_MANAGED
-
-        :stability: experimental
-        '''
-        result = self._values.get("encryption")
-        return typing.cast(typing.Optional["TableEncryption"], result)
-
-    @builtins.property
-    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
-        '''(experimental) External KMS key to use for bucket encryption.
-
-        The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``.
-
-        :default: key is managed by KMS.
-
-        :stability: experimental
-        '''
-        result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
-
-    @builtins.property
-    def s3_prefix(self) -> typing.Optional[builtins.str]:
-        '''(experimental) S3 prefix under which table objects are stored.
-
-        When the table shares a bucket with other tables or consumers, set this so
-        that the ``grant*`` methods scope S3 access to this table's data. Without a
-        prefix, those grants cover the entire bucket.
-
-        :default: - No prefix. The data will be stored under the root of the bucket.
-
-        :stability: experimental
-        '''
-        result = self._values.get("s3_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TableProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.data_type(
@@ -21420,7 +21139,9 @@ __all__ = [
     "S3Encryption",
     "S3EncryptionMode",
     "S3Table",
+    "S3TableEncryption",
     "S3TableProps",
+    "S3TableStorage",
     "ScalaSparkEtlJob",
     "ScalaSparkEtlJobProps",
     "ScalaSparkFlexEtlJob",
@@ -21440,12 +21161,10 @@ __all__ = [
     "StorageParameters",
     "SurplusBytesHandlingAction",
     "SurplusCharHandlingAction",
-    "Table",
     "TableAttributes",
     "TableBase",
     "TableBaseProps",
-    "TableEncryption",
-    "TableProps",
+    "TableClientSideEncryption",
     "TriggerOptions",
     "TriggerSchedule",
     "Type",
@@ -21543,7 +21262,7 @@ def _typecheckingstub__7667596ec33fb86df61ee9e5603a0bed57aa6e48e3795e84685966147
 def _typecheckingstub__043c8b76c78332fa2f7a0e1444ad14734d788355c87767ffb0dd0aac9a19fbdf(
     *,
     name: builtins.str,
-    type: typing.Union[Type, typing.Dict[builtins.str, typing.Any]],
+    type: Type,
     comment: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -21566,8 +21285,11 @@ def _typecheckingstub__a1670baf78db937cd3601a16badd87755f3fc525b8fd6a352d45c2bc3
     description: typing.Optional[builtins.str] = None,
     match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
     properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    secret: typing.Optional[_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
     subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
+    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21586,8 +21308,11 @@ def _typecheckingstub__d3fa037db6ada98c73a1d8889753f75c2f3c7513c8a41daf149dc5769
     description: typing.Optional[builtins.str] = None,
     match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
     properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    secret: typing.Optional[_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
     subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
+    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     type: ConnectionType,
 ) -> None:
     """Type checking stubs"""
@@ -22046,8 +21771,39 @@ def _typecheckingstub__5966825f76b0928b999155cb9520d466beb9558e71e26ce21f86c25f8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c9bd85c80296893b73014fdc895b26df10ab8d7e0c207517615538203ce398aa(
+    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21ce0d5de9a9819db560ceacdd6b5952bacd63dde55e28171d26fe171d4730a0(
+    bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__188999384a9cc582ede3bcc6b233363fdba10d1af72bafe56bc0ca67c410e4ae(
+    encryption: typing.Optional[S3TableEncryption] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10ded5f06685c7c05ee2fbe3c09be6fef35475e5c00fde477815f8614a484cbb(
+    item_type: Type,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d4b92f46741e45dc5d5e256fe3738d53a8878b40fc430d149eec6fdbfe167229(
     length: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3081332212c4a1a616782ed41b95e46c97ed3d55d3c8a2e6d25a5f81999b374(
+    input_string: builtins.str,
+    is_primitive: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22060,10 +21816,8 @@ def _typecheckingstub__fcdd8f07d6d5e4e87f54cd2104a8605a571a6abede0b42465e2352b51
     pass
 
 def _typecheckingstub__fc04f65c508e37fca936dfd67a8b4a0f84a73b9ef9c446edcd34f17c738c8dae(
-    key_type: typing.Union[Type, typing.Dict[builtins.str, typing.Any]],
-    *,
-    input_string: builtins.str,
-    is_primitive: builtins.bool,
+    key_type: Type,
+    value_type: Type,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22188,7 +21942,7 @@ def _typecheckingstub__666d2a40474ee489c242320aca5600aa88eb0e9ff6b3f6f2523138d1f
 
 def _typecheckingstub__972574c985d99d1bb6f6d431a08c62d778ff9dd7c7acaa151f9c4c535255e211(
     key: builtins.str,
-    value: typing.Any,
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22254,7 +22008,7 @@ def _typecheckingstub__1e1b9effa7f6a703549bb4dbdc074898313b647fe00864615574b5f45
     pass
 
 def _typecheckingstub__786b7e6901c19fc29fc68d4fe9cfd302c0d877d823b66a1fc00cd87af05bc1a9(
-    value: builtins.str,
+    key: _aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22371,6 +22125,12 @@ def _typecheckingstub__c621f615cea5a292fe84c07e10ca61e7529536864f1701be1f19b1684
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1c9aafcca958a02033eeb95ddd63beee8aecb98a8cca7c8cc2883a868af786c2(
+    key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a2b6cfceeecd381878a32bb25b4a4cf4ed62bd37face059db45d932548b13b92(
     *,
     actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
@@ -22382,14 +22142,6 @@ def _typecheckingstub__a2b6cfceeecd381878a32bb25b4a4cf4ed62bd37face059db45d93254
 
 def _typecheckingstub__56ff882bc008a9c07c54cca389af52f69a512017f4daa61c64beb028d7e8c4cc(
     expression: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c5fb0ad30c447263aceddf4b77f71aec991966bf6e2dc3a181ff400914c16d85(
-    *,
-    input_string: builtins.str,
-    is_primitive: builtins.bool,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22558,8 +22310,11 @@ def _typecheckingstub__9e49faf739a72a3e5056a9506838a646b867a4b6b78cad2fc0eb56a8a
     description: typing.Optional[builtins.str] = None,
     match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
     properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    secret: typing.Optional[_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
     subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
+    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+    vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22918,10 +22673,9 @@ def _typecheckingstub__2b5cd7a8c51600d473f125b7e52d34d32dba95265780e87640a28f30e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-    encryption: typing.Optional[TableEncryption] = None,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    client_side_encryption: typing.Optional[TableClientSideEncryption] = None,
     s3_prefix: typing.Optional[builtins.str] = None,
+    storage: typing.Optional[S3TableStorage] = None,
     columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
     database: IDatabase,
     data_format: DataFormat,
@@ -22974,10 +22728,9 @@ def _typecheckingstub__4a30697598fc2a32c5e111aebc024dd5935b49f4f1807d70f75c9a4e8
     storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
     stored_as_sub_directories: typing.Optional[builtins.bool] = None,
     table_name: typing.Optional[builtins.str] = None,
-    bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-    encryption: typing.Optional[TableEncryption] = None,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    client_side_encryption: typing.Optional[TableClientSideEncryption] = None,
     s3_prefix: typing.Optional[builtins.str] = None,
+    storage: typing.Optional[S3TableStorage] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23099,56 +22852,6 @@ def _typecheckingstub__11a4f0418c818bdc6ba201303ceec4eaa6c9b8afe366e2d0a6ff2c79a
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1146b20665153f742431bb500cb6e71362a22d8446ea9e132183e7be255411a3(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-    encryption: typing.Optional[TableEncryption] = None,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
-    s3_prefix: typing.Optional[builtins.str] = None,
-    columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-    database: IDatabase,
-    data_format: DataFormat,
-    compressed: typing.Optional[builtins.bool] = None,
-    description: typing.Optional[builtins.str] = None,
-    enable_partition_filtering: typing.Optional[builtins.bool] = None,
-    has_encrypted_data: typing.Optional[builtins.bool] = None,
-    parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-    partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
-    storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
-    stored_as_sub_directories: typing.Optional[builtins.bool] = None,
-    table_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0336d5abace2b9645857eae2fba5aa1c4bbb0db1762c5d5031d2f8c64019d606(
-    *,
-    columns: typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]],
-    database: IDatabase,
-    data_format: DataFormat,
-    compressed: typing.Optional[builtins.bool] = None,
-    description: typing.Optional[builtins.str] = None,
-    enable_partition_filtering: typing.Optional[builtins.bool] = None,
-    has_encrypted_data: typing.Optional[builtins.bool] = None,
-    parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
-    partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
-    partition_projection: typing.Optional[typing.Mapping[builtins.str, PartitionProjectionConfiguration]] = None,
-    storage_parameters: typing.Optional[typing.Sequence[StorageParameter]] = None,
-    stored_as_sub_directories: typing.Optional[builtins.bool] = None,
-    table_name: typing.Optional[builtins.str] = None,
-    bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
-    encryption: typing.Optional[TableEncryption] = None,
-    encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
-    s3_prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

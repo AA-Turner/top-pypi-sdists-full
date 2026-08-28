@@ -4,18 +4,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import asyncio
 import signal
+from collections.abc import AsyncGenerator, Sequence
 from logging import Logger
 from sys import stderr
-from typing import AsyncGenerator, Sequence, TypeVar
+from typing import TypeVar
 
 
 _SIGNALS: Sequence[signal.Signals] = [signal.SIGTERM, signal.SIGINT]
 
 
 def signal_handler_event(name: str) -> asyncio.Event:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     stop: asyncio.Event = asyncio.Event()
 
     def signal_handler(sig: signal.Signals) -> None:
@@ -23,7 +25,7 @@ def signal_handler_event(name: str) -> asyncio.Event:
         stop.set()
 
     for sig in _SIGNALS:
-        loop.add_signal_handler(sig, lambda: signal_handler(sig))
+        loop.add_signal_handler(sig, lambda sig=sig: signal_handler(sig))
 
     print(f"Running {name} until ^C", file=stderr)
     return stop

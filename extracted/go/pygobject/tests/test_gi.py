@@ -8,6 +8,7 @@ import os
 import gc
 import weakref
 import warnings
+import pathlib
 import pickle
 import platform
 import enum
@@ -20,7 +21,7 @@ from gi.repository import GObject, GLib, Gio
 from gi.repository import GIMarshallingTests
 import pytest
 
-from .helper import capture_exceptions, capture_glib_warnings, capture_output
+from .helper import capture_exceptions, capture_output
 import contextlib
 
 
@@ -726,6 +727,14 @@ class TestUtf8(unittest.TestCase):
     def test_utf8_full_inout(self):
         self.assertEqual("", GIMarshallingTests.utf8_full_inout(CONSTANT_UTF8))
 
+    def test_zero_terminated_array_utf8_full_in(self):
+        GIMarshallingTests.zero_terminated_array_utf8_full_in(["🅰", "β", "c", "d"])
+
+        with self.assertRaises(TypeError):
+            GIMarshallingTests.zero_terminated_array_utf8_full_in(
+                ["🅰", "β", "c", "d"], 1
+            )
+
 
 class TestFilename(unittest.TestCase):
     def setUp(self):
@@ -759,6 +768,25 @@ class TestFilename(unittest.TestCase):
     def test_filename_in_nullable(self):
         self.assertTrue(GIMarshallingTests.filename_copy(None) is None)
         self.assertRaises(TypeError, GIMarshallingTests.filename_exists, None)
+
+    def test_filename_in_pathlike(self):
+        fpath = pathlib.Path(self.workdir) / "test_pathlike.txt"
+
+        try:
+            os.path.exists(fpath)
+        except ValueError:
+            # non-unicode fs encoding
+            return
+
+        self.assertRaises(GLib.GError, GLib.file_get_contents, fpath)
+        self.assertRaises(TypeError, GLib.file_get_contents, 12345)
+
+        with open(fpath, "wb") as f:
+            f.write(b"hello world!\n\x01\x02")
+
+        (result, contents) = GLib.file_get_contents(fpath)
+        self.assertEqual(result, True)
+        self.assertEqual(contents, b"hello world!\n\x01\x02")
 
     @unittest.skipIf(os.name == "nt", "fixme")
     def test_filename_out(self):
@@ -1035,6 +1063,16 @@ class TestArray(unittest.TestCase):
         struct3.long_ = 3
 
         GIMarshallingTests.array_struct_in([struct1, struct2, struct3])
+
+    def test_array_boxed_struct_full_in(self):
+        struct1 = GIMarshallingTests.BoxedStruct()
+        struct1.long_ = 1
+        struct2 = GIMarshallingTests.BoxedStruct()
+        struct2.long_ = 2
+        struct3 = GIMarshallingTests.BoxedStruct()
+        struct3.long_ = 3
+
+        GIMarshallingTests.array_struct_full_in([struct1, struct2, struct3])
 
     def test_array_boxed_struct_in_item_marshal_failure(self):
         struct1 = GIMarshallingTests.BoxedStruct()
@@ -1374,6 +1412,12 @@ class TestGPtrArray(unittest.TestCase):
     def test_gptrarray_utf8_none_in(self):
         GIMarshallingTests.gptrarray_utf8_none_in(Sequence(["0", "1", "2"]))
 
+        self.assertRaises(
+            TypeError,
+            GIMarshallingTests.gptrarray_utf8_none_in,
+            Sequence(["0", "1", 2]),
+        )
+
     def test_gptrarray_utf8_none_out(self):
         self.assertEqual(["0", "1", "2"], GIMarshallingTests.gptrarray_utf8_none_out())
 
@@ -1407,6 +1451,11 @@ class TestGPtrArray(unittest.TestCase):
 class TestGBytes(unittest.TestCase):
     def test_gbytes_create(self):
         b = GLib.Bytes.new(b"\x00\x01\xff")
+        self.assertEqual(3, b.get_size())
+        self.assertEqual(b"\x00\x01\xff", b.get_data())
+
+    def test_gbytes_create_from_bytearray(self):
+        b = GLib.Bytes.new(bytearray(b"\x00\x01\xff"))
         self.assertEqual(3, b.get_size())
         self.assertEqual(b"\x00\x01\xff", b.get_data())
 
@@ -1777,6 +1826,14 @@ class TestGValue(unittest.TestCase):
             GIMarshallingTests.GEnum.__gtype__, GIMarshallingTests.GEnum.VALUE3
         )
         GIMarshallingTests.gvalue_in_enum(value)
+
+    def test_unset_gvalue(self):
+        v = GObject.Value()
+        v2 = GObject.Value(GObject.Value.__gtype__, v)
+
+        assert type(v2) is GObject.Value
+        with pytest.raises(TypeError):
+            v2.get_value()
 
     def test_gvalue_out(self):
         self.assertEqual(42, GIMarshallingTests.gvalue_out())
@@ -2577,7 +2634,7 @@ class TestStructure(unittest.TestCase):
     def test_pointer_array_struct_with_guint8(self):
         out_struct = GIMarshallingTests.PointerArrayStruct.with_uint8_array()
 
-        with capture_glib_warnings(allow_warnings=True):
+        with pytest.raises(TypeError):
             assert out_struct.array == list(map(ord, "0123456789"))
 
     def test_struct_field_assignment(self):

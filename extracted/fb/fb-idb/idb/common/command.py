@@ -4,6 +4,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 from abc import ABCMeta, abstractmethod
 from argparse import ArgumentParser, Namespace
 from typing import Dict, List, Optional
@@ -11,7 +12,7 @@ from typing import Dict, List, Optional
 
 class Command(metaclass=ABCMeta):
     @property
-    def aliases(self) -> List[str]:
+    def aliases(self) -> list[str]:
         return []
 
     @property
@@ -20,42 +21,46 @@ class Command(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def description(self) -> str:
-        ...
+    def description(self) -> str: ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @abstractmethod
-    def add_parser_arguments(self, parser: ArgumentParser) -> None:
-        ...
+    def add_parser_arguments(self, parser: ArgumentParser) -> None: ...
 
     @abstractmethod
-    async def run(self, args: Namespace) -> None:
-        ...
+    async def run(self, args: Namespace) -> None: ...
 
     def resolve_command_from_args(self, args: Namespace) -> "Command":
         return self
 
+    def resolve_subcommand_path(self, args: Namespace) -> list[str]:
+        """Canonical subcommand tokens selected in ``args``.
+
+        Leaf commands contribute nothing; :class:`CompositeCommand` overrides
+        this to walk the selected subcommand chain (e.g. ``["ui", "tap"]``).
+        """
+        return []
+
 
 class CompositeCommand(Command, metaclass=ABCMeta):
     def __init__(self) -> None:
-        self.parser: Optional[ArgumentParser] = None
-        self._subcommands_by_name: Dict[str, Command] = {}
+        self.parser: ArgumentParser | None = None
+        self._subcommands_by_name: dict[str, Command] = {}
 
     @property
     @abstractmethod
-    def subcommands(self) -> List[Command]:
+    def subcommands(self) -> list[Command]:
         pass
 
     @property
-    def subcommands_by_name(self) -> Dict[str, Command]:
+    def subcommands_by_name(self) -> dict[str, Command]:
         def add_unique_cmd(key: str, value: Command) -> None:
-            assert (
-                key not in self._subcommands_by_name
-            ), f'Subcommand by name "{key}" already exists'
+            assert key not in self._subcommands_by_name, (
+                f'Subcommand by name "{key}" already exists'
+            )
             self._subcommands_by_name[key] = value
 
         if len(self._subcommands_by_name) == 0:
@@ -86,12 +91,23 @@ class CompositeCommand(Command, metaclass=ABCMeta):
         assert subcmd is not None, "subcommand %r doesn't exist" % subcmd_name
         return subcmd.resolve_command_from_args(args)
 
+    def resolve_subcommand_path(self, args: Namespace) -> list[str]:
+        subcmd_name = getattr(args, self.name, None)
+        if subcmd_name is None:
+            return []
+        # subcommands_by_name is keyed by aliases as well as canonical names,
+        # so an aliased invocation is normalised to the canonical name here.
+        subcmd = self.subcommands_by_name.get(subcmd_name)
+        if subcmd is None:
+            return []
+        return [subcmd.name, *subcmd.resolve_subcommand_path(args)]
+
     async def run(self, args: Namespace) -> None:
         return await self.resolve_command_from_args(args).run(args)
 
 
 class CommandGroup(CompositeCommand):
-    def __init__(self, name: str, description: str, commands: List[Command]) -> None:
+    def __init__(self, name: str, description: str, commands: list[Command]) -> None:
         super().__init__()
         self.commands = commands
         self._name = name
@@ -106,5 +122,5 @@ class CommandGroup(CompositeCommand):
         return self._description
 
     @property
-    def subcommands(self) -> List[Command]:
+    def subcommands(self) -> list[Command]:
         return self.commands

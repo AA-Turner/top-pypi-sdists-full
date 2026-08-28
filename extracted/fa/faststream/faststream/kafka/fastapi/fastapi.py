@@ -26,7 +26,9 @@ from faststream.__about__ import SERVICE_NAME
 from faststream._internal.constants import EMPTY
 from faststream._internal.context import ContextRepo
 from faststream._internal.fastapi.router import StreamRouter
+from faststream._internal.types import IdGenerator
 from faststream.kafka.broker.broker import KafkaBroker as KB
+from faststream.message import gen_cor_id
 from faststream.middlewares import AckPolicy
 
 if TYPE_CHECKING:
@@ -99,6 +101,7 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
         transaction_timeout_ms: int = 60 * 1000,
         # broker base args
         graceful_timeout: float | None = 15.0,
+        id_generator: IdGenerator = gen_cor_id,
         decoder: Optional["CustomCallable"] = None,
         parser: Optional["CustomCallable"] = None,
         middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
@@ -221,6 +224,8 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
                 explicitly set by the user it will be chosen.
             # broker base args
             graceful_timeout: Graceful shutdown timeout. Broker waits for all running subscribers completion before shut down.
+            id_generator: Factory used to generate `correlation_id` when a publish/request call doesn't set one explicitly.
+                Defaults to `gen_cor_id` (uuid4-based).
             decoder: Custom decoder object.
             parser: Custom parser object.
             middlewares: Middlewares to apply to all broker publishers/subscribers.
@@ -337,6 +342,7 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
             transaction_timeout_ms=transaction_timeout_ms,
             # broker args
             graceful_timeout=graceful_timeout,
+            id_generator=id_generator,
             decoder=decoder,
             parser=parser,
             middlewares=middlewares,
@@ -391,7 +397,7 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
         auto_offset_reset: Literal["latest", "earliest", "none"] = "latest",
         auto_commit_interval_ms: int = 5 * 1000,
         check_crcs: bool = True,
-        partition_assignment_strategy: Sequence["AbstractPartitionAssignor"] = (
+        partition_assignment_strategy: Sequence[type["AbstractPartitionAssignor"]] = (
             RoundRobinPartitionAssignor,
         ),
         max_poll_interval_ms: int = 5 * 60 * 1000,
@@ -447,7 +453,7 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
         auto_offset_reset: Literal["latest", "earliest", "none"] = "latest",
         auto_commit_interval_ms: int = 5 * 1000,
         check_crcs: bool = True,
-        partition_assignment_strategy: Sequence["AbstractPartitionAssignor"] = (
+        partition_assignment_strategy: Sequence[type["AbstractPartitionAssignor"]] = (
             RoundRobinPartitionAssignor,
         ),
         max_poll_interval_ms: int = 5 * 60 * 1000,
@@ -503,7 +509,7 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
         auto_offset_reset: Literal["latest", "earliest", "none"] = "latest",
         auto_commit_interval_ms: int = 5 * 1000,
         check_crcs: bool = True,
-        partition_assignment_strategy: Sequence["AbstractPartitionAssignor"] = (
+        partition_assignment_strategy: Sequence[type["AbstractPartitionAssignor"]] = (
             RoundRobinPartitionAssignor,
         ),
         max_poll_interval_ms: int = 5 * 60 * 1000,
@@ -559,7 +565,7 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
         auto_offset_reset: Literal["latest", "earliest", "none"] = "latest",
         auto_commit_interval_ms: int = 5 * 1000,
         check_crcs: bool = True,
-        partition_assignment_strategy: Sequence["AbstractPartitionAssignor"] = (
+        partition_assignment_strategy: Sequence[type["AbstractPartitionAssignor"]] = (
             RoundRobinPartitionAssignor,
         ),
         max_poll_interval_ms: int = 5 * 60 * 1000,
@@ -615,7 +621,7 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
         auto_offset_reset: Literal["latest", "earliest", "none"] = "latest",
         auto_commit_interval_ms: int = 5 * 1000,
         check_crcs: bool = True,
-        partition_assignment_strategy: Sequence["AbstractPartitionAssignor"] = (
+        partition_assignment_strategy: Sequence[type["AbstractPartitionAssignor"]] = (
             RoundRobinPartitionAssignor,
         ),
         max_poll_interval_ms: int = 5 * 60 * 1000,
@@ -676,7 +682,7 @@ class KafkaRouter(StreamRouter[ConsumerRecord | tuple[ConsumerRecord, ...]]):
         auto_offset_reset: Literal["latest", "earliest", "none"] = "latest",
         auto_commit_interval_ms: int = 5 * 1000,
         check_crcs: bool = True,
-        partition_assignment_strategy: Sequence["AbstractPartitionAssignor"] = (
+        partition_assignment_strategy: Sequence[type["AbstractPartitionAssignor"]] = (
             RoundRobinPartitionAssignor,
         ),
         max_poll_interval_ms: int = 5 * 60 * 1000,

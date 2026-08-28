@@ -2,9 +2,11 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
 import json
+import logging
 import platform
 from collections.abc import Generator
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, NamedTuple
 
 import lancedb
@@ -966,6 +968,90 @@ def test_add_computed_column_auto_backfill(db, local_ray_context) -> None:
     field = table.schema.field("id2")
     assert field.metadata[b"virtual_column"] == b"true"
     assert field.metadata[b"virtual_column.auto_backfill"] == b"true"
+
+
+class TestUdfManifestNotAppliedWarning:
+    """A UDF manifest cannot shape workers on a locally dispatched backfill."""
+
+    @staticmethod
+    def _manifest(name: str, pkgs: list[str]) -> Any:
+        from geneva.manifest import GenevaManifest
+
+        # These tests assert on manifest-not-applied warnings, so opt out of
+        # the unrelated pinning advisory that unpinned pkgs would emit.
+        return GenevaManifest.create_pip(name).pip(pkgs).allow_unpinned().build()
+
+    def test_no_manifest_is_silent(self, caplog) -> None:
+        from geneva.manifest.mgr import warn_if_manifest_not_applied
+
+        with caplog.at_level(logging.WARNING):
+            warn_if_manifest_not_applied(None, target="column 'c'", udf_name="u")
+        assert caplog.text == ""
+
+    def test_warns_without_context_manifest(self, caplog) -> None:
+        from geneva.manifest.mgr import warn_if_manifest_not_applied
+
+        with caplog.at_level(logging.WARNING):
+            warn_if_manifest_not_applied(
+                self._manifest("m1", ["numpy"]), target="column 'emb'", udf_name="embed"
+            )
+        assert "emb" in caplog.text
+        assert "embed" in caplog.text
+        assert "the environment the cluster was created with" in caplog.text
+
+    def test_warns_and_names_active_manifest(self, caplog, monkeypatch) -> None:
+        """When the cluster carries a different manifest, say which one wins."""
+        from geneva.manifest.mgr import warn_if_manifest_not_applied
+
+        active = self._manifest("cluster-env", ["torch"])
+        monkeypatch.setattr(
+            "geneva._context.get_current_context",
+            lambda: SimpleNamespace(manifest=active),
+        )
+
+        with caplog.at_level(logging.WARNING):
+            warn_if_manifest_not_applied(
+                self._manifest("udf-env", ["numpy"]),
+                target="column 'emb'",
+                udf_name="embed",
+            )
+        assert "manifest 'cluster-env'" in caplog.text
+
+    def test_equivalent_context_manifest_is_silent(self, caplog, monkeypatch) -> None:
+        """Same content under a different name is already in force."""
+        from geneva.manifest.mgr import warn_if_manifest_not_applied
+
+        monkeypatch.setattr(
+            "geneva._context.get_current_context",
+            lambda: SimpleNamespace(manifest=self._manifest("named-a", ["numpy"])),
+        )
+
+        with caplog.at_level(logging.WARNING):
+            warn_if_manifest_not_applied(
+                self._manifest("named-b", ["numpy"]),
+                target="column 'emb'",
+                udf_name="embed",
+            )
+        assert caplog.text == ""
+
+    def test_backfill_emits_warning(self, db, local_ray_context, caplog) -> None:
+        """End-to-end: the warning fires on the local dispatch path and the
+        column still backfills."""
+        tbl = pa.Table.from_pydict({"id": [1, 2, 3]})
+        table = db.create_table("warn_table", tbl)
+
+        @udf(data_type=pa.int64(), manifest=self._manifest("udf-env", ["numpy"]))
+        def double_id(id: int) -> int:  # noqa: A002
+            return id * 2
+
+        table.add_columns({"id2": double_id})
+
+        with caplog.at_level(logging.WARNING):
+            table.backfill("id2")
+
+        assert "is not applied to this backfill" in caplog.text
+        assert "double_id" in caplog.text
+        assert table.to_arrow()["id2"].to_pylist() == [2, 4, 6]
 
 
 class TestComputedColumnManifestMetadata:

@@ -1,5 +1,3 @@
-// jshint maxstatements:false, maxcomplexity:false, maxdepth:false
-
 const planeHelper = require('./helpers/planeGUI');
 
 function changeParameter(K3D, json, key, value, timeSeriesReload) {
@@ -177,7 +175,7 @@ function update(K3D, json, GUI, changes) {
         'scale', 'font_size', 'font_weight', 'size', 'point_size', 'level', 'samples', 'alpha_coef', 'gradient_step',
         'shadow_delay', 'focal_length', 'focal_plane', 'on_top', 'max_length', 'label_box', 'is_html',
         // One entry per parameter - these are matched with indexOf().
-        'shininess', 'mask_opacity'];
+        'roughness', 'metalness', 'mask_opacity'];
 
     const availableParams = defaultParams.concat(['color', 'origin_color', 'origin_color', 'head_color',
         'outlines_color', 'text', 'shader', 'shadow_res', 'shadow', 'ray_samples_count', 'width', 'radial_segments',
@@ -266,7 +264,15 @@ function update(K3D, json, GUI, changes) {
         }
 
         if (defaultParams.indexOf(param) !== -1 && !json[param].timeSeries) {
-            addController(K3D.gui_map[json.id], json, param).onChange(changeParameter.bind(this, K3D, json, param));
+            // physically bounded parameters get a real slider instead of a free field
+            const ranges = {
+                roughness: [0.0, 1.0, 0.01],
+                metalness: [0.0, 1.0, 0.01],
+                mask_opacity: [0.0, 1.0, 0.01],
+            };
+
+            addController(K3D.gui_map[json.id], json, param, ...(ranges[param] || []))
+                .onChange(changeParameter.bind(this, K3D, json, param));
         }
 
         // special dependencies
@@ -324,7 +330,7 @@ function update(K3D, json, GUI, changes) {
                         K3D.gui_map[json.id],
                         json,
                         param,
-                        ['3dSpecular', '3d', 'flat', 'mesh', 'dot'],
+                        ['3d', 'flat', 'mesh', 'dot'],
                     ).onChange(
                         changeParameter.bind(this, K3D, json, param),
                     );
@@ -353,7 +359,7 @@ function update(K3D, json, GUI, changes) {
                 break;
             case 'slice_x':
                 if (json.type === 'VolumeSlice') {
-                    let shape = Array.isArray(json.volume) ? json.volume[0].shape : json.volume.shape;
+                    const shape = Array.isArray(json.volume) ? json.volume[0].shape : json.volume.shape;
 
                     addController(K3D.gui_map[json.id], json, param, -1, shape[2] - 1, 1).onChange(
                         changeParameter.bind(this, K3D, json, param),
@@ -362,7 +368,7 @@ function update(K3D, json, GUI, changes) {
                 break;
             case 'slice_y':
                 if (json.type === 'VolumeSlice') {
-                    let shape = Array.isArray(json.volume) ? json.volume[0].shape : json.volume.shape;
+                    const shape = Array.isArray(json.volume) ? json.volume[0].shape : json.volume.shape;
 
                     addController(K3D.gui_map[json.id], json, param, -1, shape[1] - 1, 1).onChange(
                         changeParameter.bind(this, K3D, json, param),
@@ -371,7 +377,7 @@ function update(K3D, json, GUI, changes) {
                 break;
             case 'slice_z':
                 if (json.type === 'VolumeSlice') {
-                    let shape = Array.isArray(json.volume) ? json.volume[0].shape : json.volume.shape;
+                    const shape = Array.isArray(json.volume) ? json.volume[0].shape : json.volume.shape;
 
                     addController(K3D.gui_map[json.id], json, param, -1, shape[0] - 1, 1).onChange(
                         changeParameter.bind(this, K3D, json, param),

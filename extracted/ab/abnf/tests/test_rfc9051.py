@@ -874,3 +874,130 @@ class TestRFC9051:
         """Test esearch-response with search correlator."""
         response = 'ESEARCH (TAG "A001") UID ALL 1:5,10:15'
         rfc9051.Rule("esearch-response").parse_all(response)
+
+
+# Issue #234: the module imported RFC 5322's `atom`, which overwrote the IMAP
+# `atom` it defines itself -- imports are applied after the grammar list.  The
+# character-class rules had also lost characters the RFC allows, and
+# `flag-perm` had lost its backslash.
+@pytest.mark.parametrize(
+    'src',
+    [
+        'abc',
+        'a.b',   # '.' is an ATOM-CHAR; RFC 5322's atom rejects it
+        'a:b',   # ':' is not an atom-special
+        'a}b',   # nor is '}'
+        'a~b',   # nor is '~'
+    ],
+)
+def test_234_imap_atom_accepts(src: str):
+    assert rfc9051.Rule('atom').parse_all(src).value == src
+
+
+@pytest.mark.parametrize(
+    'src',
+    [
+        ' abc ',         # RFC 5322's atom allows surrounding CFWS; IMAP's does not
+        '(comment)abc',  # ...including comments
+        'a*b',           # list-wildcards
+        'a%b',
+        'a(b',
+        'a"b',           # quoted-specials
+        'a]b',           # resp-specials
+        'a{b',
+    ],
+)
+def test_234_imap_atom_rejects(src: str):
+    with pytest.raises(ParseError):
+        rfc9051.Rule('atom').parse_all(src)
+
+
+@pytest.mark.parametrize('src', ['A001', 'a:1', 'a.1'])
+def test_234_tag_accepts(src: str):
+    """tag = 1*<any ASTRING-CHAR except "+">."""
+    assert rfc9051.Rule('tag').parse_all(src).value == src
+
+
+def test_234_tag_rejects_plus():
+    with pytest.raises(ParseError):
+        rfc9051.Rule('tag').parse_all('a+1')
+
+
+@pytest.mark.parametrize('src', ['\\*', '\\Seen', 'keyword'])
+def test_234_flag_perm_accepts(src: str):
+    assert rfc9051.Rule('flag-perm').parse_all(src).value == src
+
+
+def test_234_flag_perm_rejects_bare_star():
+    """RFC 9051: flag-perm = flag / "\\*".  A bare "*" is not a flag."""
+    with pytest.raises(ParseError):
+        rfc9051.Rule('flag-perm').parse_all('*')
+
+
+def test_234_text_is_seven_bit_plus_utf8_sequences():
+    """TEXT-CHAR is <any CHAR except CR and LF>, and CHAR is %x01-7F.
+    Non-ASCII reaches `text` through UTF8-2/3/4, which are octet rules --
+    so IMAP data is parsed decoded as latin-1, one code point per octet."""
+    assert rfc9051.Rule('text').parse_all('hello').value == 'hello'
+
+    octets = b'h\xc3\xa9llo'.decode('latin-1')
+    assert rfc9051.Rule('text').parse_all(octets).value == octets
+
+    with pytest.raises(ParseError):
+        rfc9051.Rule('text').parse_all('\xff')   # a lone invalid UTF-8 byte
+
+
+def test_234_mbox_list_extended_keeps_the_rfc_name():
+    assert rfc9051.Rule('mbox-list-extended').definition is not None
+
+
+# Issue #245: resp-text-code's last alternative is `atom [SP 1*<any TEXT-CHAR
+# except "]">]`, and the prose was left as a Prose parser, which always
+# raises.  The optional group could therefore only take its empty branch, so
+# the `atom SP text` form never matched.  Nothing rejected the input --
+# resp-text falls through to [text], which admits any TEXT-CHAR -- so the code
+# simply vanished from the parse tree.
+def _find(node, name):
+    if getattr(node, 'name', None) == name:
+        return node
+    for child in getattr(node, 'children', None) or ():
+        found = _find(child, name)
+        if found is not None:
+            return found
+    return None
+
+
+@pytest.mark.parametrize(
+    'src, code',
+    [
+        ('[MYCODE some text] hello', 'MYCODE some text'),
+        ('[MYCODE] hi', 'MYCODE'),
+        ('[ALERT] hi', 'ALERT'),
+        ('[BADCHARSET (utf-8)] x', 'BADCHARSET (utf-8)'),
+        ('[UNKNOWN-CTE] y', 'UNKNOWN-CTE'),
+        # The exclusion is what stops the text at the closing bracket: under
+        # longest match, a rule admitting "]" would swallow it and the rest.
+        ('[MYCODE a] b] c', 'MYCODE a'),
+    ],
+)
+def test_245_resp_text_code_is_in_the_tree(src: str, code: str):
+    node = rfc9051.Rule('resp-text').parse_all(src)
+    found = _find(node, 'resp-text-code')
+    assert found is not None, 'resp-text-code absorbed by [text]'
+    assert found.value == code
+
+
+@pytest.mark.parametrize('src', ['MYCODE some text', 'MYCODE', 'x y z'])
+def test_245_resp_text_code_parses_standalone(src: str):
+    assert rfc9051.Rule('resp-text-code').parse_all(src).value == src
+
+
+@pytest.mark.parametrize('char', ['\x01', '\x09', '\x0b', '\x0c', '\x0e', '\x5c', '\x5e', '\x7f'])
+def test_245_resp_text_code_char_admits_text_char(char: str):
+    assert rfc9051.Rule('RESP-TEXT-CODE-CHAR').parse_all(char).value == char
+
+
+@pytest.mark.parametrize('char', [']', '\x00', '\x0a', '\x0d'])
+def test_245_resp_text_code_char_excludes(char: str):
+    with pytest.raises(ParseError):
+        rfc9051.Rule('RESP-TEXT-CODE-CHAR').parse_all(char)

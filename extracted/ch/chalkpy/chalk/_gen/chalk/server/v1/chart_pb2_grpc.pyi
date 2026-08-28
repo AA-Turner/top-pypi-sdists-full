@@ -8,8 +8,12 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.chart_pb2 import (
+    CreateChartAnnotationRequest,
+    CreateChartAnnotationResponse,
     CreateChartRequest,
     CreateChartResponse,
+    DeleteChartAnnotationRequest,
+    DeleteChartAnnotationResponse,
     DeleteChartRequest,
     DeleteChartResponse,
     GetChartOptionsRequest,
@@ -34,6 +38,8 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     GetRawMetricLabelValuesResponse,
     GetResolverMetricsRequest,
     GetResolverMetricsResponse,
+    ListChartAnnotationsRequest,
+    ListChartAnnotationsResponse,
     ListChartsRequest,
     ListChartsResponse,
     ListChartsWithCronAlertsRequest,
@@ -79,6 +85,18 @@ class ChartsServiceStub:
     ListCharts: UnaryUnaryMultiCallable[
         ListChartsRequest,
         ListChartsResponse,
+    ]
+    ListChartAnnotations: UnaryUnaryMultiCallable[
+        ListChartAnnotationsRequest,
+        ListChartAnnotationsResponse,
+    ]
+    CreateChartAnnotation: UnaryUnaryMultiCallable[
+        CreateChartAnnotationRequest,
+        CreateChartAnnotationResponse,
+    ]
+    DeleteChartAnnotation: UnaryUnaryMultiCallable[
+        DeleteChartAnnotationRequest,
+        DeleteChartAnnotationResponse,
     ]
     GetChartSnapshot: UnaryUnaryMultiCallable[
         GetChartSnapshotRequest,
@@ -170,6 +188,24 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: ListChartsRequest,
         context: ServicerContext,
     ) -> ListChartsResponse: ...
+    @abstractmethod
+    def ListChartAnnotations(
+        self,
+        request: ListChartAnnotationsRequest,
+        context: ServicerContext,
+    ) -> ListChartAnnotationsResponse: ...
+    @abstractmethod
+    def CreateChartAnnotation(
+        self,
+        request: CreateChartAnnotationRequest,
+        context: ServicerContext,
+    ) -> CreateChartAnnotationResponse: ...
+    @abstractmethod
+    def DeleteChartAnnotation(
+        self,
+        request: DeleteChartAnnotationRequest,
+        context: ServicerContext,
+    ) -> DeleteChartAnnotationResponse: ...
     @abstractmethod
     def GetChartSnapshot(
         self,

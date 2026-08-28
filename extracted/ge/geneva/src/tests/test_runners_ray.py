@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any, NoReturn
+from unittest import mock
 
 import lance
 import lance.namespace
@@ -31,6 +32,7 @@ from ray_backfill_test_utils import (
 )
 
 import geneva
+import geneva.runners.ray.pipeline as pipeline_mod
 from geneva import CheckpointStore, connect, udf
 from geneva.apply import DirectFragmentWriteResult
 from geneva.apply.task import DEFAULT_CHECKPOINT_ROWS, BackfillUDFTask, ScanTask
@@ -595,6 +597,39 @@ def test_recordbatch_udf_rejects_explicit_input_columns_at_add_time(db) -> None:
         match=r"RecordBatch UDF but has input_columns.*specified",
     ):
         tbl.add_columns({"b": (recordbatch_udf_good, ["a"])}, **default_shuffle_config)
+
+
+def test_recordbatch_udf_backfill_with_empty_input_columns_metadata(
+    db, local_ray_context
+) -> None:
+    """RecordBatch column backfill works when udf_inputs is persisted as [].
+
+    The namespace API stores ``input_columns`` as a non-nullable list, so a
+    RecordBatch column created over ``db://`` reads back as ``[]`` rather than
+    ``null``. The worker must normalize that to None so the UDF receives the
+    whole batch — otherwise ``[]`` becomes an empty scan projection and the UDF
+    loses its source columns. Regression test for GEN-920.
+    """
+    tbl = setup_table_and_udf_column(db, default_shuffle_config, recordbatch_udf)
+
+    # Simulate the remote (db://) representation: rewrite the column's
+    # udf_inputs metadata from "null" to "[]".
+    field = tbl.schema.field("b")
+    metadata = {
+        (k.decode() if isinstance(k, bytes) else k): (
+            v.decode() if isinstance(v, bytes) else v
+        )
+        for k, v in (field.metadata or {}).items()
+    }
+    metadata["virtual_column.udf_inputs"] = "[]"
+    tbl.update_field_metadata({"path": "b", "metadata": metadata, "replace": True})
+    assert tbl.schema.field("b").metadata[b"virtual_column.udf_inputs"] == b"[]"
+
+    # Backfill must still pass the whole batch to the RecordBatch UDF.
+    tbl.backfill("b")
+
+    result = tbl.to_arrow()
+    assert result["b"].to_pylist() == list(range(SIZE))
 
 
 # Backfill tests with scalar return values
@@ -3337,3 +3372,152 @@ def _test_backfill_with_namespace(
         db_impl.drop_table("t")
 
     _LOG.info(f"{type(db_impl)} success")
+
+
+def _captured_actor_options(
+    job: "ColumnAddPipelineJob", node_memory: float | None = 1 << 40
+) -> dict:
+    """Run ``setup_actor`` and return the kwargs it hands ``.options()``.
+
+    ``node_memory`` stands in for the largest live Ray node, which only the
+    unplaceable-reservation warning reads. It defaults to a node with room to
+    spare so these assertions do not depend on how much memory the machine
+    running the tests happens to have.
+    """
+    captured: dict = {}
+
+    class _FakeActor:
+        def options(self, **kwargs):  # noqa: ANN003, ANN202
+            captured.update(kwargs)
+            return self
+
+    with (
+        mock.patch.object(pipeline_mod, "ApplierActor", _FakeActor()),
+        mock.patch.object(
+            pipeline_mod, "largest_node_memory", return_value=node_memory
+        ),
+    ):
+        job.setup_actor()
+    return captured
+
+
+def test_setup_actor_reserves_a_default_when_udf_memory_is_unset(
+    tmp_path: Path,
+) -> None:
+    """GEN-775: an unset ``@udf(memory=)`` used to reserve nothing at all.
+
+    That is not "reserve a little" -- Ray drops an actor with no ``memory`` out
+    of memory scheduling entirely, so it packs actors onto a node by CPU alone
+    until the node OOMs. The floor puts every actor back into the accounting.
+    """
+    import attrs
+
+    from geneva.jobs.config import JobConfig
+
+    db = connect(tmp_path)
+    tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "b": [None, None, None]}))
+
+    @udf(data_type=pa.int32())
+    def one(x: int) -> int:
+        return x + 1
+
+    def _job(cfg: "JobConfig", intra: int = 1) -> ColumnAddPipelineJob:
+        return ColumnAddPipelineJob(
+            map_task=BackfillUDFTask(udfs={"b": one}),
+            checkpoint_store=CheckpointStore.from_uri("memory"),
+            error_store=None,
+            config=cfg,
+            dst=tbl.get_reference(),
+            input_plan=iter([]),
+            job_id="job-default-memory",
+            job_tracker=None,
+            intra_applier_concurrency=intra,
+        )
+
+    cfg = JobConfig.get()
+    default = cfg.applier_default_memory_bytes
+
+    args = _captured_actor_options(_job(cfg))
+    assert args["memory"] == default
+
+    # Scales with in-actor slots, the same way a declared memory does.
+    assert _captured_actor_options(_job(cfg, intra=3))["memory"] == default * 3
+
+    # Zero is a deliberate escape hatch back to pre-GEN-775 scheduling: Ray
+    # treats memory=0 as no reservation, which is what it did before.
+    off = attrs.evolve(cfg, applier_default_memory_bytes=0)
+    assert _captured_actor_options(_job(off))["memory"] == 0
+
+
+def test_setup_actor_warns_but_still_asks_when_no_node_fits(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The request stands; the reason it will not schedule is logged.
+
+    Shrinking it to fit would reserve less than the job was sized for and make
+    Ray's figure differ from the one admission approved.
+    """
+    from geneva.jobs.config import JobConfig
+
+    db = connect(tmp_path)
+    tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "b": [None, None, None]}))
+
+    @udf(data_type=pa.int32())
+    def one(x: int) -> int:
+        return x + 1
+
+    cfg = JobConfig.get()
+    small_node = 2_741_616_640  # a real 4 GiB cgroup, measured
+    assert small_node < cfg.applier_default_memory_bytes
+
+    job = ColumnAddPipelineJob(
+        map_task=BackfillUDFTask(udfs={"b": one}),
+        checkpoint_store=CheckpointStore.from_uri("memory"),
+        error_store=None,
+        config=cfg,
+        dst=tbl.get_reference(),
+        input_plan=iter([]),
+        job_id="job-unplaceable",
+        job_tracker=None,
+    )
+    with caplog.at_level(logging.WARNING):
+        captured = _captured_actor_options(job, node_memory=small_node)
+
+    assert captured["memory"] == cfg.applier_default_memory_bytes
+    assert "cannot be placed" in caplog.text
+    assert "JOB__APPLIER_DEFAULT_MEMORY_BYTES" in caplog.text
+
+    # Said once per job, not once per actor.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        _captured_actor_options(job, node_memory=small_node)
+    assert "cannot be placed" not in caplog.text
+
+
+def test_setup_actor_prefers_an_explicit_udf_memory(tmp_path: Path) -> None:
+    """The default is a floor for jobs that said nothing, not an override."""
+    from geneva.jobs.config import JobConfig
+
+    db = connect(tmp_path)
+    tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3], "b": [None, None, None]}))
+
+    declared_bytes = 123 * 1024 * 1024
+
+    @udf(data_type=pa.int32(), memory=declared_bytes)
+    def one(x: int) -> int:
+        return x + 1
+
+    cfg = JobConfig.get()
+    assert declared_bytes != cfg.applier_default_memory_bytes
+
+    job = ColumnAddPipelineJob(
+        map_task=BackfillUDFTask(udfs={"b": one}),
+        checkpoint_store=CheckpointStore.from_uri("memory"),
+        error_store=None,
+        config=cfg,
+        dst=tbl.get_reference(),
+        input_plan=iter([]),
+        job_id="job-declared-memory",
+        job_tracker=None,
+    )
+    assert _captured_actor_options(job)["memory"] == declared_bytes

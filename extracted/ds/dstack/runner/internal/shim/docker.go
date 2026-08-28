@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -148,7 +149,7 @@ func (t *PullTracker) Progress() *ImagePullProgress {
 }
 
 type DockerRunner struct {
-	client       *docker.Client
+	client       docker.APIClient
 	dockerParams DockerParameters
 	dockerInfo   dockersystem.Info
 	baseEnv      []string
@@ -156,6 +157,8 @@ type DockerRunner struct {
 	gpuVendor    gpu.GpuVendor
 	gpuLock      *GpuLock
 	tasks        TaskStorage
+	// stateMu serializes task state file updates, see saveTaskState()
+	stateMu sync.Mutex
 }
 
 func NewDockerRunner(ctx context.Context, dockerParams DockerParameters) (*DockerRunner, error) {
@@ -203,17 +206,22 @@ func NewDockerRunner(ctx context.Context, dockerParams DockerParameters) (*Docke
 	if err := runner.restoreStateFromContainers(ctx); err != nil {
 		return nil, fmt.Errorf("failed to restore state from containers: %w", err)
 	}
+	// Must be called after the tasks are restored, as it uses them to tell the dirs of
+	// the live tasks from the orphaned ones
+	runner.sweepOrphanedTaskDirs(ctx)
 
 	return runner, nil
+}
+
+// taskContainerFilters returns filters matching all containers spawned by DockerRunner
+func taskContainerFilters() filters.Args {
+	return filters.NewArgs(filters.Arg("label", fmt.Sprintf("%s=%s", LabelKeyIsTask, LabelValueTrue)))
 }
 
 // restoreStateFromContainers regenerates TaskStorage and GpuLock inspecting containers
 // Used to restore shim state on restarts
 func (d *DockerRunner) restoreStateFromContainers(ctx context.Context) error {
-	listOptions := container.ListOptions{
-		All:     true,
-		Filters: filters.NewArgs(filters.Arg("label", fmt.Sprintf("%s=%s", LabelKeyIsTask, LabelValueTrue))),
-	}
+	listOptions := container.ListOptions{All: true, Filters: taskContainerFilters()}
 	containers, err := d.client.ContainerList(ctx, listOptions)
 	if err != nil {
 		return fmt.Errorf("failed to get container list: %w", err)
@@ -224,12 +232,6 @@ func (d *DockerRunner) restoreStateFromContainers(ctx context.Context) error {
 		if taskID == "" {
 			log.Error(ctx, "container has no label", "id", containerID, "label", LabelKeyTaskID)
 			continue
-		}
-		var status TaskStatus
-		if containerShort.State == "exited" {
-			status = TaskStatusTerminated
-		} else {
-			status = TaskStatusRunning
 		}
 		var containerName string
 		if len(containerShort.Names) > 0 {
@@ -287,18 +289,68 @@ func (d *DockerRunner) restoreStateFromContainers(ctx context.Context) error {
 				break
 			}
 		}
-		task := NewTask(taskID, status, containerName, containerID, gpuIDs, ports, runnerDir)
+		state, restored := readRestoredTaskState(ctx, taskID, runnerDir)
+		config := state.Config
+		if !restored {
+			// Containers created by shim versions that did not write the state file have
+			// no config to restore. The volumes can still be recovered from the container
+			// mounts, unlike the host SSH keys, which are only known to the state file
+			config.Volumes = volumesFromMounts(containerShort.Mounts)
+		}
+		if state.CleanedUp {
+			// The resources of this task, its GPUs included, have already been released,
+			// therefore the task owns nothing
+			gpuIDs = nil
+		} else if len(gpuIDs) > 0 {
+			// A GPU already locked by another restored task is not locked again and,
+			// therefore, is not owned by this task -- otherwise, cleaning up this task
+			// would release a GPU that the other one is still using
+			gpuIDs = d.gpuLock.Lock(ctx, gpuIDs)
+			log.Debug(ctx, "locked GPU(s) due to running task", "task", taskID, "gpus", gpuIDs)
+		}
+		// A task with a recorded termination reason has been terminated before the shim
+		// restarted, and its reason must not be overridden by the container exit code.
+		// Otherwise the task is restored as running regardless of the container state,
+		// letting ProcessTasks() decide whether the container is still running and, if
+		// it is not, why it finished
+		status := TaskStatusRunning
+		if state.TerminationReason != "" {
+			status = TaskStatusTerminated
+		}
+		task := NewTask(taskID, status)
+		task.TerminationReason = state.TerminationReason
+		task.TerminationMessage = state.TerminationMessage
+		task.config = config
+		task.containerName = containerName
+		task.containerID = containerID
+		task.gpuIDs = gpuIDs
+		task.ports = ports
+		task.runnerDir = runnerDir
+		task.cleanedUp = state.CleanedUp
 		if !d.tasks.Add(task) {
 			log.Error(ctx, "duplicate restored task", "task", taskID)
-		} else {
-			log.Debug(ctx, "restored task", "task", taskID, "status", status, "gpus", gpuIDs)
+			// Nothing will release the GPUs of a task that is not stored
+			d.gpuLock.Release(ctx, gpuIDs)
+			continue
 		}
-		if status == TaskStatusRunning && len(gpuIDs) > 0 {
-			lockedGpuIDs := d.gpuLock.Lock(ctx, gpuIDs)
-			log.Debug(ctx, "locked GPU(s) due to running task", "task", taskID, "gpus", lockedGpuIDs)
-		}
+		log.Debug(
+			ctx, "restored task",
+			"task", taskID, "status", status, "state", containerShort.State, "gpus", gpuIDs,
+		)
 	}
 	return nil
+}
+
+// volumesFromMounts recovers the volumes attached to a task from its container mounts.
+// Only the volume names are recovered, which is all that is needed to unmount them
+func volumesFromMounts(mounts []dockertypes.MountPoint) []VolumeInfo {
+	var volumes []VolumeInfo
+	for _, mount := range mounts {
+		if name, found := strings.CutPrefix(mount.Source, volumeMountPointDir+"/"); found {
+			volumes = append(volumes, VolumeInfo{Name: name})
+		}
+	}
+	return volumes
 }
 
 func (d *DockerRunner) Resources(ctx context.Context) Resources {
@@ -366,80 +418,138 @@ func (d *DockerRunner) Submit(ctx context.Context, cfg TaskConfig) error {
 	return nil
 }
 
-func (d *DockerRunner) Run(ctx context.Context, taskID string) error {
+// commit applies mutate to the stored task and, on success, updates the local copy
+// of the task accordingly. mutate is called before the local copy is updated, so it
+// can read the local copy to publish fields set by the caller, e.g., containerID.
+// The local copy is left intact if the update is rejected.
+func (d *DockerRunner) commit(ctx context.Context, task *Task, mutate func(*Task)) error {
+	updatedTask, err := d.tasks.Modify(task.ID, func(t *Task) error {
+		mutate(t)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	*task = updatedTask
+	d.saveTaskState(ctx, task.ID)
+	return nil
+}
+
+// commitTerminated commits the terminated status set on the local copy of the task.
+// Used by operations that set the status on their failure paths, where committing it
+// at every such path would be too verbose.
+func (d *DockerRunner) commitTerminated(ctx context.Context, task *Task) {
+	if task.Status != TaskStatusTerminated {
+		// the last successful commit is the actual state, nothing to commit
+		return
+	}
+	if err := d.commit(ctx, task, func(t *Task) {
+		t.SetStatusTerminated(task.TerminationReason, task.TerminationMessage)
+	}); err != nil && !errors.Is(err, ErrNotFound) {
+		log.Error(ctx, "failed to commit terminated status", "task", task.ID, "err", err)
+	}
+}
+
+// Start prepares the task resources, pulls the image, and starts the container.
+// It returns as soon as the container is started, that is, it does not wait for the
+// container to exit. Detecting the exit, terminating the task, and releasing its
+// resources is the responsibility of ProcessTasks().
+// If the task cannot be started, it is terminated and its resources are released
+// before returning, except for the resources that cannot be released while the
+// container may be running -- those are left to ProcessTasks() as well.
+func (d *DockerRunner) Start(ctx context.Context, taskID string) (err error) {
 	task, ok := d.tasks.Get(taskID)
 	if !ok {
-		log.Error(ctx, "cannot run: not found", "task", taskID)
+		log.Error(ctx, "cannot start: not found", "task", taskID)
 		return fmt.Errorf("task %s: %w", taskID, ErrNotFound)
 	}
 
 	if task.Status != TaskStatusPending {
-		return fmt.Errorf("%w: cannot run task %s with %s status", ErrRequest, task.ID, task.Status)
+		return fmt.Errorf("%w: cannot start task %s with %s status", ErrRequest, task.ID, task.Status)
 	}
 
+	// The task is owned by this method until it returns: ProcessTasks() skips tasks
+	// in flight, so that it does not release the resources acquired here
+	started := false
 	defer func() {
-		if err := d.tasks.Update(task); err != nil {
-			if currentTask, ok := d.tasks.Get(task.ID); ok && currentTask.Status != task.Status {
-				// ignore error if task is gone or status has not changed, e.g., terminated -> terminated
-				log.Error(ctx, "failed to update", "task", task.ID, "err", err)
+		if !started {
+			if err != nil && task.Status != TaskStatusTerminated {
+				// a failure path that has not terminated the task, e.g., a rejected update
+				task.SetStatusTerminated(string(types.TerminationReasonExecutorError), err.Error())
 			}
+			if task.containerID == "" {
+				// There is no container that may be running, so it is safe to release
+				// the resources now. Otherwise, ProcessTasks() releases them once the
+				// container is not running
+				task.Lock(ctx)
+				d.cleanupLocked(ctx, &task)
+				task.Release(ctx)
+			}
+		}
+		// Hand the task over to ProcessTasks()
+		if commitErr := d.commit(ctx, &task, func(t *Task) {
+			t.startInFlight = false
+			if task.containerID != "" {
+				t.containerID = task.containerID
+			}
+			if task.cleanedUp {
+				t.cleanedUp = true
+			}
+			if task.Status == TaskStatusTerminated {
+				t.SetStatusTerminated(task.TerminationReason, task.TerminationMessage)
+			}
+		}); commitErr != nil && !errors.Is(commitErr, ErrNotFound) {
+			log.Error(ctx, "failed to commit final state", "task", task.ID, "err", commitErr)
 		}
 	}()
 
-	task.SetStatusPreparing()
-	if err := d.tasks.Update(task); err != nil {
+	if err := d.commit(ctx, &task, func(t *Task) {
+		t.startInFlight = true
+		t.SetStatusPreparing()
+	}); err != nil {
 		return fmt.Errorf("%w: failed to update task %s: %w", ErrInternal, task.ID, err)
 	}
 
 	cfg := task.config
-	var err error
 
 	runnerDir, err := d.dockerParams.MakeRunnerDir(task.containerName)
 	if err != nil {
 		return fmt.Errorf("make runner dir: %w", err)
 	}
-	task.runnerDir = runnerDir
-	log.Debug(ctx, "runner dir", "task", task.ID, "path", runnerDir)
+	log.Trace(ctx, "runner dir", "task", task.ID, "path", runnerDir)
+	// Resources are committed as soon as they are acquired, so that they are not
+	// lost if the task is updated by another goroutine, e.g., terminated by the server
+	if err := d.commit(ctx, &task, func(t *Task) { t.runnerDir = runnerDir }); err != nil {
+		return fmt.Errorf("%w: failed to update task %s: %w", ErrInternal, task.ID, err)
+	}
 
+	var gpuIDs []string
 	if cfg.GPU != 0 {
-		gpuIDs, err := d.gpuLock.Acquire(ctx, cfg.GPU)
+		gpuIDs, err = d.gpuLock.Acquire(ctx, cfg.GPU)
 		if err != nil {
 			log.Error(ctx, err.Error())
 			task.SetStatusTerminated(string(types.TerminationReasonExecutorError), err.Error())
 			return fmt.Errorf("acquire GPU: %w", err)
 		}
-		task.gpuIDs = gpuIDs
 		log.Debug(ctx, "acquired GPU(s)", "task", task.ID, "gpus", gpuIDs)
-
-		defer func() {
-			releasedGpuIDs := d.gpuLock.Release(ctx, task.gpuIDs)
-			log.Debug(ctx, "released GPU(s)", "task", task.ID, "gpus", releasedGpuIDs)
-		}()
 	} else {
-		task.gpuIDs = []string{}
+		gpuIDs = []string{}
+	}
+	if err := d.commit(ctx, &task, func(t *Task) { t.gpuIDs = gpuIDs }); err != nil {
+		return fmt.Errorf("%w: failed to update task %s: %w", ErrInternal, task.ID, err)
 	}
 
 	if len(cfg.HostSshKeys) > 0 {
 		ak := AuthorizedKeys{user: cfg.HostSshUser, lookup: user.Lookup}
-		if err := ak.AppendPublicKeys(cfg.HostSshKeys); err != nil {
+		if err := ak.AppendPublicKeys(ctx, cfg.HostSshKeys); err != nil {
 			errMessage := fmt.Sprintf("ak.AppendPublicKeys error: %s", err.Error())
 			log.Error(ctx, errMessage)
 			task.SetStatusTerminated(string(types.TerminationReasonExecutorError), errMessage)
 			return fmt.Errorf("append public keys: %w", err)
 		}
-		defer func(cfg TaskConfig) {
-			err := ak.RemovePublicKeys(cfg.HostSshKeys)
-			if err != nil {
-				log.Error(ctx, "Error RemovePublicKeys", "err", err)
-			}
-		}(cfg)
 	}
 
-	log.Debug(ctx, "Preparing volumes")
-	// defer unmountVolumes() before calling prepareVolumes(), as the latter
-	// may fail when some volumes are already mounted; if the volume is not mounted,
-	// unmountVolumes() simply skips it
-	defer func() { _ = unmountVolumes(ctx, cfg) }()
+	// Volumes mounted by a failed prepareVolumes() call are unmounted by cleanupLocked()
 	err = prepareVolumes(ctx, cfg)
 	if err != nil {
 		errMessage := fmt.Sprintf("prepareVolumes error: %s", err.Error())
@@ -458,8 +568,7 @@ func (d *DockerRunner) Run(ctx context.Context, taskID string) error {
 	log.Debug(ctx, "Pulling image")
 	pullCtx, cancelPull := context.WithTimeout(ctx, ImagePullTimeout)
 	defer cancelPull()
-	task.SetStatusPulling(cancelPull)
-	if err := d.tasks.Update(task); err != nil {
+	if err := d.commit(ctx, &task, func(t *Task) { t.SetStatusPulling(cancelPull) }); err != nil {
 		return fmt.Errorf("%w: failed to update task %s: %w", ErrInternal, task.ID, err)
 	}
 	// Although it's called "runner dir", we also use it for shim task-related data.
@@ -473,8 +582,7 @@ func (d *DockerRunner) Run(ctx context.Context, taskID string) error {
 	}
 
 	log.Debug(ctx, "Creating container", "task", task.ID, "name", task.containerName)
-	task.SetStatusCreating()
-	if err := d.tasks.Update(task); err != nil {
+	if err := d.commit(ctx, &task, func(t *Task) { t.SetStatusCreating() }); err != nil {
 		return fmt.Errorf("%w: failed to update task %s: %w", ErrInternal, task.ID, err)
 	}
 	if err := d.createContainer(ctx, &task, createContainerOptions{}); err != nil {
@@ -484,11 +592,7 @@ func (d *DockerRunner) Run(ctx context.Context, taskID string) error {
 		return fmt.Errorf("create container: %w", err)
 	}
 
-	log.Debug(ctx, "Running container", "task", task.ID, "name", task.containerName)
-	task.SetStatusRunning()
-	if err := d.tasks.Update(task); err != nil {
-		return fmt.Errorf("%w: failed to update task %s: %w", ErrInternal, task.ID, err)
-	}
+	log.Debug(ctx, "Starting container", "task", task.ID, "name", task.containerName)
 	err = d.startContainer(ctx, &task)
 	if len(task.config.GPUDevices) == 0 &&
 		shouldRetryWithoutNvidiaDisplayCapability(d.gpuVendor, err) {
@@ -505,30 +609,83 @@ func (d *DockerRunner) Run(ctx context.Context, taskID string) error {
 			err = d.startContainer(ctx, &task)
 		}
 	}
-	if err == nil {
-		// startContainer sets `ports` field, committing update
-		if err := d.tasks.Update(task); err != nil {
-			return fmt.Errorf("%w: failed to update task %s: %w", ErrInternal, task.ID, err)
-		}
-		err = d.waitContainer(ctx, &task)
-	}
 	if err != nil {
-		log.Error(ctx, "failed to run container", "err", err)
+		log.Error(ctx, "failed to start container", "task", task.ID, "err", err)
 		var errMessage string
-		if lastLogs, err := getContainerLastLogs(ctx, d.client, task.containerID, 5); err == nil {
+		if lastLogs, logsErr := getContainerLastLogs(ctx, d.client, task.containerID, 5); logsErr == nil {
 			errMessage = strings.Join(lastLogs, "\n")
 		} else {
-			log.Error(ctx, "getContainerLastLogs error", "err", err)
-			errMessage = ""
+			log.Error(ctx, "getContainerLastLogs error", "err", logsErr)
 		}
 		task.SetStatusTerminated(string(types.TerminationReasonContainerExitedWithError), errMessage)
-		return fmt.Errorf("wait container: %w", err)
+		return fmt.Errorf("start container: %w", err)
 	}
 
-	log.Debug(ctx, "Container finished successfully", "task", task.ID, "name", task.containerName)
-	task.SetStatusTerminated(string(types.TerminationReasonDoneByRunner), "")
+	// The container is running, the task is now processed in the background
+	if err := d.commit(ctx, &task, func(t *Task) {
+		// startContainer sets the ports field, the retry above may have
+		// replaced the container
+		t.containerID = task.containerID
+		t.ports = task.ports
+		t.startInFlight = false
+		t.SetStatusRunning()
+	}); err != nil {
+		return fmt.Errorf("%w: failed to update task %s: %w", ErrInternal, task.ID, err)
+	}
+	started = true
+
+	log.Debug(ctx, "Task started", "task", task.ID, "name", task.containerName)
 
 	return nil
+}
+
+// cleanupLocked releases the resources acquired for the task: host SSH keys,
+// volumes, and GPUs. The container must not be running, otherwise unmounting
+// volumes may fail.
+// It is safe to call it more than once: the resources are released only if they
+// have not been released yet.
+// The task lock must be held by the caller.
+func (d *DockerRunner) cleanupLocked(ctx context.Context, task *Task) {
+	if task.cleanedUp {
+		return
+	}
+	// Another operation may have released the resources while we were waiting for
+	// the task lock, therefore the stored task is the source of truth
+	if storedTask, ok := d.tasks.Get(task.ID); ok && storedTask.cleanedUp {
+		task.cleanedUp = true
+		return
+	}
+	log.Debug(ctx, "releasing task resources", "task", task.ID)
+	releaseTaskResources(ctx, task.config)
+	if len(task.gpuIDs) > 0 {
+		releasedGpuIDs := d.gpuLock.Release(ctx, task.gpuIDs)
+		log.Debug(ctx, "released GPU(s)", "task", task.ID, "gpus", releasedGpuIDs)
+	}
+	task.cleanedUp = true
+	// Commit the flag without touching the rest of the local copy of the task,
+	// which may contain uncommitted changes made by the caller
+	if _, err := d.tasks.Modify(task.ID, func(t *Task) error {
+		t.cleanedUp = true
+		return nil
+	}); err != nil && !errors.Is(err, ErrNotFound) {
+		log.Error(ctx, "failed to commit cleaned up state", "task", task.ID, "err", err)
+	}
+	d.saveTaskState(ctx, task.ID)
+}
+
+// releaseTaskResources releases the host resources acquired for a task: volumes and
+// host SSH keys. Unlike GPU locks, which are only kept in memory, these outlive the
+// shim process, therefore they are released by task config and not by task
+func releaseTaskResources(ctx context.Context, cfg TaskConfig) {
+	if err := unmountVolumes(ctx, cfg); err != nil {
+		log.Error(ctx, "failed to unmount volumes", "err", err)
+	}
+	if len(cfg.HostSshKeys) > 0 {
+		ak := AuthorizedKeys{user: cfg.HostSshUser, lookup: user.Lookup}
+		if err := ak.RemovePublicKeys(cfg.HostSshKeys); err != nil {
+			log.Error(ctx, "failed to remove public keys", "err", err)
+		}
+	}
 }
 
 // Terminate aborts running operations (pulling an image, running a container) and sets task status to terminated
@@ -541,11 +698,12 @@ func (d *DockerRunner) Terminate(ctx context.Context, taskID string, timeout uin
 	}
 	task.Lock(ctx)
 	defer func() { task.Release(ctx) }()
-	defer func() {
-		if err := d.tasks.Update(task); err != nil {
-			log.Error(ctx, "failed to update task", "task", task.ID, "err", err)
-		}
-	}()
+	// The task may have been updated while we were acquiring the lock
+	if task, ok = d.tasks.Get(taskID); !ok {
+		log.Error(ctx, "cannot terminate task: not found", "task", taskID)
+		return fmt.Errorf("task %s: %w", taskID, ErrNotFound)
+	}
+	defer func() { d.commitTerminated(ctx, &task) }()
 	return d.terminate(ctx, &task, timeout, reason, message)
 }
 
@@ -565,21 +723,22 @@ func (d *DockerRunner) terminate(ctx context.Context, task *Task, timeout uint, 
 	case TaskStatusPulling:
 		task.cancelPull()
 	case TaskStatusRunning:
-		stopOptions := container.StopOptions{}
-		timeout := int(timeout)
-		stopOptions.Timeout = &timeout
-		if err := d.client.ContainerStop(ctx, task.containerID, stopOptions); err != nil {
-			return fmt.Errorf("%w: failed to stop container: %w", ErrInternal, err)
+		if err := d.stopContainer(ctx, task.containerID, int(timeout)); err != nil {
+			return err
 		}
 	default:
 		return fmt.Errorf("%w: should not reach here", ErrInternal)
 	}
-	if len(task.gpuIDs) > 0 {
-		releasedGpuIDs := d.gpuLock.Release(ctx, task.gpuIDs)
-		log.Debug(ctx, "released GPU(s)", "task", task.ID, "gpus", releasedGpuIDs)
+	if !task.startInFlight {
+		// The container, if any, is not running anymore, so it is safe to release
+		// the resources. If the task is in flight, Start() owns the resources
+		// and releases them itself
+		d.cleanupLocked(ctx, task)
 	}
 	task.SetStatusTerminated(reason, message)
-	log.Debug(ctx, "terminated", "task", task.ID)
+	// Logged a level below the spontaneous termination reported by ProcessTasks():
+	// this one is requested by the caller, which reports it on its own
+	log.Debug(ctx, "terminated", "task", task.ID, "reason", reason)
 	return nil
 }
 
@@ -593,6 +752,11 @@ func (d *DockerRunner) Remove(ctx context.Context, taskID string) error {
 	}
 	task.Lock(ctx)
 	defer func() { task.Release(ctx) }()
+	// The task may have been updated while we were acquiring the lock
+	if task, ok = d.tasks.Get(taskID); !ok {
+		log.Error(ctx, "cannot remove: not found", "task", taskID)
+		return fmt.Errorf("task %s: %w", taskID, ErrNotFound)
+	}
 	err := d.remove(ctx, &task)
 	if err == nil {
 		d.tasks.Delete(taskID)
@@ -614,12 +778,18 @@ func (d *DockerRunner) remove(ctx context.Context, task *Task) (err error) {
 	if err := d.removeContainer(ctx, task); err != nil {
 		return err
 	}
+	// Normally, the resources are already released by ProcessTasks() or Terminate(),
+	// but the task may be removed before that happens
+	d.cleanupLocked(ctx, task)
 	// Normally, it should not be empty
 	if task.runnerDir != "" {
 		// Failed attempts to remove or rename runner dir are considered non-fatal
 		if err := os.RemoveAll(task.runnerDir); err != nil {
 			log.Error(ctx, "failed to remove runner directory", "dir", task.runnerDir, "err", err)
-			trashName := fmt.Sprintf(".trash-%s-%d", task.runnerDir, time.Now().UnixMicro())
+			trashName := filepath.Join(
+				filepath.Dir(task.runnerDir),
+				fmt.Sprintf(".trash-%s-%d", filepath.Base(task.runnerDir), time.Now().UnixMicro()),
+			)
 			if err := os.Rename(task.runnerDir, trashName); err != nil {
 				log.Error(ctx, "failed to rename runner directory", "dir", task.runnerDir, "err", err)
 			}
@@ -851,17 +1021,12 @@ func (d *DockerRunner) startContainer(ctx context.Context, task *Task) error {
 	return nil
 }
 
-func (d *DockerRunner) waitContainer(ctx context.Context, task *Task) error {
-	waitCh, errorCh := d.client.ContainerWait(ctx, task.containerID, "")
-	select {
-	case waitResp := <-waitCh:
-		{
-			if waitResp.StatusCode != 0 {
-				return fmt.Errorf("container exited with exit code %d", waitResp.StatusCode)
-			}
-		}
-	case err := <-errorCh:
-		return fmt.Errorf("wait for container: %w", err)
+// stopContainer stops the container, waiting for it to exit. The container is
+// killed if it does not exit gracefully within timeout seconds.
+func (d *DockerRunner) stopContainer(ctx context.Context, containerID string, timeout int) error {
+	stopOptions := container.StopOptions{Timeout: &timeout}
+	if err := d.client.ContainerStop(ctx, containerID, stopOptions); err != nil {
+		return fmt.Errorf("%w: failed to stop container: %w", ErrInternal, err)
 	}
 	return nil
 }
@@ -1210,8 +1375,12 @@ func (c *CLIArgs) DockerPorts() []int {
 	return []int{c.Runner.HTTPPort, c.Runner.SSHPort}
 }
 
+func (c *CLIArgs) RunnersDir() string {
+	return filepath.Join(c.Shim.HomeDir, "runners")
+}
+
 func (c *CLIArgs) MakeRunnerDir(name string) (string, error) {
-	runnerTemp := filepath.Join(c.Shim.HomeDir, "runners", name)
+	runnerTemp := filepath.Join(c.RunnersDir(), name)
 	if err := os.MkdirAll(runnerTemp, 0o755); err != nil {
 		return "", fmt.Errorf("create runner directory: %w", err)
 	}

@@ -1222,6 +1222,31 @@ class TestFlavorUnset(compute_fakes.TestCompute):
             exceptions.CommandError, self.cmd.take_action, parsed_args
         )
 
+    def test_flavor_unset_project_deleted_project(self):
+        self.identity_sdk_client.find_project.side_effect = [
+            sdk_exceptions.ResourceNotFound()
+        ]
+
+        deleted_project_id = 'deleted-project-uuid'
+        arglist = [
+            '--project',
+            deleted_project_id,
+            self.flavor.id,
+        ]
+        verifylist = [
+            ('project', deleted_project_id),
+            ('flavor', self.flavor.id),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        result = self.cmd.take_action(parsed_args)
+        self.assertIsNone(result)
+
+        self.compute_client.flavor_remove_tenant_access.assert_called_with(
+            self.flavor.id,
+            deleted_project_id,
+        )
+
     def test_flavor_unset_nothing(self):
         arglist = [
             self.flavor.id,

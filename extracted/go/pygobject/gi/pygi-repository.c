@@ -19,9 +19,10 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "pygi-repository.h"
+
 #include "pygi-basictype.h"
 #include "pygi-info.h"
-#include "pygi-repository.h"
 #include "pygi-util.h"
 
 PyObject *PyGIRepositoryError;
@@ -140,7 +141,7 @@ _wrap_gi_repository_require (PyGIRepository *self, PyObject *args,
     const char *version = NULL;
     PyObject *lazy = NULL;
     GIRepositoryLoadFlags flags = 0;
-    GError *error;
+    GError *error = NULL;
 
     if (!PyArg_ParseTupleAndKeywords (args, kwargs, "s|zO:Repository.require",
                                       kwlist, &namespace_, &version, &lazy)) {
@@ -151,7 +152,6 @@ _wrap_gi_repository_require (PyGIRepository *self, PyObject *args,
         flags |= GI_REPOSITORY_LOAD_FLAG_LAZY;
     }
 
-    error = NULL;
     gi_repository_require (self->repository, namespace_, version, flags,
                            &error);
     if (error != NULL) {

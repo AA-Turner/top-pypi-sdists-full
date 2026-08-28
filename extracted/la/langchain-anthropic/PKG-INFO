@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-anthropic
-Version: 1.6.1
+Version: 1.7.0
 Summary: Integration package connecting Claude (Anthropic) APIs and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/anthropic
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_anthropic/
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.10.0
-Requires-Dist: anthropic<1.0.0,>=0.120.0
+Requires-Dist: anthropic<2.0.0,>=0.120.0
 Requires-Dist: langchain-core<2.0.0,>=1.6.0
 Requires-Dist: pydantic<3.0.0,>=2.7.4
 Description-Content-Type: text/markdown

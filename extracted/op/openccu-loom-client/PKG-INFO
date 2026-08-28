@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: openccu-loom-client
-Version: 2026.8.26
+Version: 2026.8.27
 Summary: Async Python REST + WebSocket client for the openccu-loom daemon
 Author: OpenCCU-Loom authors
 License: MIT
 Project-URL: Homepage, https://github.com/SukramJ/openccu-loom-client
 Project-URL: Bug Tracker, https://github.com/SukramJ/openccu-loom-client/issues
 Project-URL: Daemon Repo, https://github.com/SukramJ/openccu-loom
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: AsyncIO
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
@@ -18,9 +18,9 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiohomematic>=2026.8.3
+Requires-Dist: aiohomematic<2026.9,>=2026.8.5
 Requires-Dist: aiohttp>=3.12.0
-Requires-Dist: openccu-loom-types==0.5.5
+Requires-Dist: openccu-loom-types==0.5.7
 Requires-Dist: pydantic>=2.12.0
 Requires-Dist: python-slugify>=8.0.0
 Provides-Extra: dev
@@ -33,10 +33,9 @@ Dynamic: license-file
 
 # openccu-loom-client
 
-**Status:** WIP / Alpha — transport, event bus, domain store, the full
-daemon REST surface (HA-relevant + admin/ops), and the `aiohomematic`
-compat namespace are in place (see "Status of the wire contract"
-below).
+**Status:** Beta — transport, event bus, domain store, the full daemon
+REST surface (HA-relevant + admin/ops), and the `aiohomematic` compat
+namespace are in place (see "Status of the wire contract" below).
 
 Async Python REST + WebSocket client for the
 [openccu-loom](https://github.com/SukramJ/openccu-loom) daemon.

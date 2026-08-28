@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydrawise
-Version: 2026.7.0
+Version: 2026.8.0
 Summary: Python API for interacting with Hydrawise sprinkler controllers.
 Author-email: David Knowles <dknowles2@gmail.com>
 License: Apache-2.0
@@ -9,8 +9,10 @@ Project-URL: Source Code, https://github.com/dknowles2/pydrawise
 Project-URL: Bug Reports, https://github.com/dknowles2/pydrawise/issues
 Keywords: hydrawise,api,iot
 Platform: any
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
@@ -20,6 +22,10 @@ Requires-Dist: apischema
 Requires-Dist: gql
 Requires-Dist: graphql-core
 Requires-Dist: requests
+Provides-Extra: docs
+Requires-Dist: mkdocs==1.6.1; extra == "docs"
+Requires-Dist: mkdocstrings==1.0.6; extra == "docs"
+Requires-Dist: mkdocstrings-python==2.0.7; extra == "docs"
 Dynamic: license-file
 
 # Pydrawise
@@ -58,11 +64,18 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+The example above uses `pydrawise.Hydrawise`, which talks to Hydrawise's GraphQL API. Pydrawise
+also provides a REST API client (`pydrawise.rest.RestClient`) and a hybrid client
+(`pydrawise.hybrid.HybridClient`) that prefers GraphQL but falls back to REST when GraphQL
+requests are throttled. See the [usage guide](https://pydrawise.readthedocs.io/en/latest/usage/)
+for more examples, and the [full API reference](https://pydrawise.readthedocs.io/en/latest/reference/)
+for details.
+
 ## Installation
 
 ### Pip
 
-To install pydrawse, run this command in your terminal:
+To install pydrawise, run this command in your terminal:
 
 ```sh
 $ pip install pydrawise

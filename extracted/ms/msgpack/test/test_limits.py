@@ -27,6 +27,17 @@ def test_integer():
         packb(x + 1)
 
 
+def test_single_float():
+    x = 3.4028234663852886e38  # FLT_MAX
+    assert unpackb(packb(x, use_single_float=True)) == x
+    with pytest.raises(PackOverflowError):
+        packb(x * 2, use_single_float=True)
+
+    # Infinities are representable in single precision, so they must not raise.
+    for x in (float("inf"), float("-inf")):
+        assert unpackb(packb(x, use_single_float=True)) == x
+
+
 def test_array_header():
     packer = Packer()
     packer.pack_array_header(2**32 - 1)
@@ -160,6 +171,7 @@ IS_FREE_THREADED_BUILD = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 
 @pytest.mark.skipif(IS_FREE_THREADED_BUILD, reason="Skipped on free-threaded build")
+@pytest.mark.thread_unsafe
 def test_nest_limit_1024():
     import sys
 

@@ -45,6 +45,16 @@ class CloudAccountCredentialsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsResponse.FromString,
         )
+        self.SimulateClusterPermissions = channel.unary_unary(
+            "/chalk.server.v1.CloudAccountCredentialsService/SimulateClusterPermissions",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateClusterPermissionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateClusterPermissionsResponse.FromString,
+        )
+        self.SimulateVPCPermissions = channel.unary_unary(
+            "/chalk.server.v1.CloudAccountCredentialsService/SimulateVPCPermissions",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateVPCPermissionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateVPCPermissionsResponse.FromString,
+        )
 
 
 class CloudAccountCredentialsServiceServicer(object):
@@ -86,6 +96,18 @@ class CloudAccountCredentialsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def SimulateClusterPermissions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SimulateVPCPermissions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_CloudAccountCredentialsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -118,6 +140,16 @@ def add_CloudAccountCredentialsServiceServicer_to_server(servicer, server):
             servicer.TestCloudCredentials,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsResponse.SerializeToString,
+        ),
+        "SimulateClusterPermissions": grpc.unary_unary_rpc_method_handler(
+            servicer.SimulateClusterPermissions,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateClusterPermissionsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateClusterPermissionsResponse.SerializeToString,
+        ),
+        "SimulateVPCPermissions": grpc.unary_unary_rpc_method_handler(
+            servicer.SimulateVPCPermissions,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateVPCPermissionsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateVPCPermissionsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -294,6 +326,64 @@ class CloudAccountCredentialsService(object):
             "/chalk.server.v1.CloudAccountCredentialsService/TestCloudCredentials",
             chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.TestCloudCredentialsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SimulateClusterPermissions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudAccountCredentialsService/SimulateClusterPermissions",
+            chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateClusterPermissionsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateClusterPermissionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SimulateVPCPermissions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudAccountCredentialsService/SimulateVPCPermissions",
+            chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateVPCPermissionsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__credentials__pb2.SimulateVPCPermissionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

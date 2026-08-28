@@ -22,12 +22,13 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef __PYGI_FOREIGN_H__
-#define __PYGI_FOREIGN_H__
+#pragma once
 
 #include <pythoncapi_compat.h>
 
 #include "pygi-foreign-types.h"
+
+G_BEGIN_DECLS
 
 PyObject *pygi_struct_foreign_convert_to_g_argument (
     PyObject *value, GIRegisteredTypeInfo *interface_info, GITransfer transfer,
@@ -50,4 +51,4 @@ int pygi_foreign_init (void);
 
 PyObject *pygi_register_foreign (PyObject *self, PyObject *args);
 
-#endif /* __PYGI_FOREIGN_H__ */
+G_END_DECLS

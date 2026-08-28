@@ -4,18 +4,15 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+
 import tempfile
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import AsyncGenerator
 from unittest import mock
 
 from idb.common.companion_set import CompanionSet
-from idb.common.types import (
-    CompanionInfo,
-    DomainSocketAddress,
-    TCPAddress,
-)
-from idb.utils.testing import TestCase, ignoreTaskLeaks
+from idb.common.types import CompanionInfo, DomainSocketAddress, TCPAddress
+from idb.utils.testing import ignoreTaskLeaks, TestCase
 
 
 @ignoreTaskLeaks

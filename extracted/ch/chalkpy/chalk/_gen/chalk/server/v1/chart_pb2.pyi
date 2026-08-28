@@ -142,6 +142,33 @@ class TimeSeriesChart(_message.Message):
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
+class ChartAnnotation(_message.Message):
+    __slots__ = ("id", "title", "href", "label", "color", "started_at", "ended_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    HREF_FIELD_NUMBER: _ClassVar[int]
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    COLOR_FIELD_NUMBER: _ClassVar[int]
+    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    ENDED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    title: str
+    href: str
+    label: str
+    color: str
+    started_at: _timestamp_pb2.Timestamp
+    ended_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        title: _Optional[str] = ...,
+        href: _Optional[str] = ...,
+        label: _Optional[str] = ...,
+        color: _Optional[str] = ...,
+        started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        ended_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
 class ListChartsFilters(_message.Message):
     __slots__ = ("link_entity_kind", "linked_entity_id", "linked_entity_id_search")
     LINK_ENTITY_KIND_FIELD_NUMBER: _ClassVar[int]
@@ -196,6 +223,50 @@ class ListChartsResponse(_message.Message):
         charts_with_links: _Optional[_Iterable[_Union[_chart_pb2.Chart, _Mapping]]] = ...,
         next_page_token: _Optional[str] = ...,
     ) -> None: ...
+
+class CreateChartAnnotationRequest(_message.Message):
+    __slots__ = ("annotation",)
+    ANNOTATION_FIELD_NUMBER: _ClassVar[int]
+    annotation: ChartAnnotation
+    def __init__(self, annotation: _Optional[_Union[ChartAnnotation, _Mapping]] = ...) -> None: ...
+
+class CreateChartAnnotationResponse(_message.Message):
+    __slots__ = ("annotation",)
+    ANNOTATION_FIELD_NUMBER: _ClassVar[int]
+    annotation: ChartAnnotation
+    def __init__(self, annotation: _Optional[_Union[ChartAnnotation, _Mapping]] = ...) -> None: ...
+
+class ListChartAnnotationsRequest(_message.Message):
+    __slots__ = ("cursor", "limit")
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    cursor: str
+    limit: int
+    def __init__(self, cursor: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
+
+class ListChartAnnotationsResponse(_message.Message):
+    __slots__ = ("annotations", "next_cursor")
+    ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    annotations: _containers.RepeatedCompositeFieldContainer[ChartAnnotation]
+    next_cursor: str
+    def __init__(
+        self,
+        annotations: _Optional[_Iterable[_Union[ChartAnnotation, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...
+
+class DeleteChartAnnotationRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DeleteChartAnnotationResponse(_message.Message):
+    __slots__ = ("annotation",)
+    ANNOTATION_FIELD_NUMBER: _ClassVar[int]
+    annotation: ChartAnnotation
+    def __init__(self, annotation: _Optional[_Union[ChartAnnotation, _Mapping]] = ...) -> None: ...
 
 class ListChartsWithCronAlertsRequest(_message.Message):
     __slots__ = ("limit", "page_token")
@@ -255,6 +326,10 @@ class CreateChartRequest(_message.Message):
         "linked_entity_id",
         "graph_generated",
         "display_window_period",
+        "mql_formulas",
+        "time_series_options",
+        "stat_options",
+        "virtual_chart_id",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
@@ -265,6 +340,10 @@ class CreateChartRequest(_message.Message):
     LINKED_ENTITY_ID_FIELD_NUMBER: _ClassVar[int]
     GRAPH_GENERATED_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    MQL_FORMULAS_FIELD_NUMBER: _ClassVar[int]
+    TIME_SERIES_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    STAT_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    VIRTUAL_CHART_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     window_period: str
     series: _containers.RepeatedCompositeFieldContainer[_chart_pb2.MetricConfigSeries]
@@ -274,6 +353,10 @@ class CreateChartRequest(_message.Message):
     linked_entity_id: str
     graph_generated: bool
     display_window_period: str
+    mql_formulas: _containers.RepeatedScalarFieldContainer[str]
+    time_series_options: _chart_pb2.TimeSeriesVisualizationOptions
+    stat_options: _chart_pb2.StatisticVisualizationOptions
+    virtual_chart_id: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -285,6 +368,10 @@ class CreateChartRequest(_message.Message):
         linked_entity_id: _Optional[str] = ...,
         graph_generated: bool = ...,
         display_window_period: _Optional[str] = ...,
+        mql_formulas: _Optional[_Iterable[str]] = ...,
+        time_series_options: _Optional[_Union[_chart_pb2.TimeSeriesVisualizationOptions, _Mapping]] = ...,
+        stat_options: _Optional[_Union[_chart_pb2.StatisticVisualizationOptions, _Mapping]] = ...,
+        virtual_chart_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateChartResponse(_message.Message):
@@ -324,6 +411,7 @@ class GetChartSnapshotRequest(_message.Message):
         "return_sql_query_string",
         "exclude_incomplete_last_bucket",
         "metrics_backend",
+        "comparison_lookback_offset",
     )
     METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -333,6 +421,7 @@ class GetChartSnapshotRequest(_message.Message):
     RETURN_SQL_QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
     EXCLUDE_INCOMPLETE_LAST_BUCKET_FIELD_NUMBER: _ClassVar[int]
     METRICS_BACKEND_FIELD_NUMBER: _ClassVar[int]
+    COMPARISON_LOOKBACK_OFFSET_FIELD_NUMBER: _ClassVar[int]
     metric_config: _chart_pb2.MetricConfig
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -341,6 +430,7 @@ class GetChartSnapshotRequest(_message.Message):
     return_sql_query_string: bool
     exclude_incomplete_last_bucket: bool
     metrics_backend: ChartMetricsBackend
+    comparison_lookback_offset: _duration_pb2.Duration
     def __init__(
         self,
         metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...,
@@ -351,20 +441,23 @@ class GetChartSnapshotRequest(_message.Message):
         return_sql_query_string: bool = ...,
         exclude_incomplete_last_bucket: bool = ...,
         metrics_backend: _Optional[_Union[ChartMetricsBackend, str]] = ...,
+        comparison_lookback_offset: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class GetChartSnapshotResponse(_message.Message):
-    __slots__ = ("charts", "x_series", "window_period", "sql_query_strings", "metrics_backend")
+    __slots__ = ("charts", "x_series", "window_period", "sql_query_strings", "metrics_backend", "statistic")
     CHARTS_FIELD_NUMBER: _ClassVar[int]
     X_SERIES_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     SQL_QUERY_STRINGS_FIELD_NUMBER: _ClassVar[int]
     METRICS_BACKEND_FIELD_NUMBER: _ClassVar[int]
+    STATISTIC_FIELD_NUMBER: _ClassVar[int]
     charts: _containers.RepeatedCompositeFieldContainer[_densetimeserieschart_pb2.DenseTimeSeriesChart]
     x_series: _containers.RepeatedCompositeFieldContainer[_timestamp_pb2.Timestamp]
     window_period: _duration_pb2.Duration
     sql_query_strings: _containers.RepeatedScalarFieldContainer[str]
     metrics_backend: ChartMetricsBackend
+    statistic: StatisticResult
     def __init__(
         self,
         charts: _Optional[_Iterable[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]]] = ...,
@@ -372,11 +465,14 @@ class GetChartSnapshotResponse(_message.Message):
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         sql_query_strings: _Optional[_Iterable[str]] = ...,
         metrics_backend: _Optional[_Union[ChartMetricsBackend, str]] = ...,
+        statistic: _Optional[_Union[StatisticResult, _Mapping]] = ...,
     ) -> None: ...
 
 class GetChartSnapshotByQueryRequest(_message.Message):
     __slots__ = (
         "query",
+        "mql_series",
+        "mql_formulae",
         "start_time",
         "end_time",
         "use_start_as_origin",
@@ -386,6 +482,8 @@ class GetChartSnapshotByQueryRequest(_message.Message):
         "metrics_backend",
     )
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    MQL_SERIES_FIELD_NUMBER: _ClassVar[int]
+    MQL_FORMULAE_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     USE_START_AS_ORIGIN_FIELD_NUMBER: _ClassVar[int]
@@ -394,6 +492,8 @@ class GetChartSnapshotByQueryRequest(_message.Message):
     EXCLUDE_INCOMPLETE_LAST_BUCKET_FIELD_NUMBER: _ClassVar[int]
     METRICS_BACKEND_FIELD_NUMBER: _ClassVar[int]
     query: str
+    mql_series: _containers.RepeatedScalarFieldContainer[str]
+    mql_formulae: _containers.RepeatedScalarFieldContainer[str]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     use_start_as_origin: bool
@@ -404,6 +504,8 @@ class GetChartSnapshotByQueryRequest(_message.Message):
     def __init__(
         self,
         query: _Optional[str] = ...,
+        mql_series: _Optional[_Iterable[str]] = ...,
+        mql_formulae: _Optional[_Iterable[str]] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         use_start_as_origin: bool = ...,
@@ -432,6 +534,24 @@ class GetChartSnapshotByQueryResponse(_message.Message):
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         sql_query_strings: _Optional[_Iterable[str]] = ...,
         compiled_metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...,
+    ) -> None: ...
+
+class StatisticResult(_message.Message):
+    __slots__ = ("value", "unit", "previous_value", "comparison_lookback_offset")
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    PREVIOUS_VALUE_FIELD_NUMBER: _ClassVar[int]
+    COMPARISON_LOOKBACK_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    value: float
+    unit: str
+    previous_value: float
+    comparison_lookback_offset: _duration_pb2.Duration
+    def __init__(
+        self,
+        value: _Optional[float] = ...,
+        unit: _Optional[str] = ...,
+        previous_value: _Optional[float] = ...,
+        comparison_lookback_offset: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class DeleteChartRequest(_message.Message):

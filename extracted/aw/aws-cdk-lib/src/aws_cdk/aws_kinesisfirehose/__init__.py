@@ -15437,7 +15437,7 @@ class S3Bucket(
         :param data_format_conversion: The input format, output format, and schema config for converting data from the JSON format to the Parquet or ORC format before writing to Amazon S3. Default: - no data format conversion is done
         :param dynamic_partitioning: Specify dynamic partitioning. Default: - Dynamic partitioning is disabled.
         :param file_extension: Specify a file extension. It will override the default file extension appended by Data Format Conversion or S3 compression features such as ``.parquet`` or ``.gz``. File extension must start with a period (``.``) and can contain allowed characters: ``0-9a-z!-_.*'()``. Default: - The default file extension appended by Data Format Conversion or S3 compression features
-        :param time_zone: The time zone you prefer. Default: - UTC
+        :param time_zone: The time zone you prefer. AWS Kinesis Data Firehose supports standard IANA time zone identifiers (e.g., 'America/New_York', 'Europe/London', 'Asia/Tokyo'). Default: - UTC
         :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled Maximum: Duration.seconds(900) Default: Duration.seconds(300)
         :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         :param compression: The type of compression that Amazon Data Firehose uses to compress the data that it delivers to the Amazon S3 bucket. The compression formats SNAPPY or ZIP cannot be specified for Amazon Redshift destinations because they are not supported by the Amazon Redshift COPY operation that reads from the S3 bucket. Default: - UNCOMPRESSED
@@ -15546,7 +15546,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         :param data_format_conversion: The input format, output format, and schema config for converting data from the JSON format to the Parquet or ORC format before writing to Amazon S3. Default: - no data format conversion is done
         :param dynamic_partitioning: Specify dynamic partitioning. Default: - Dynamic partitioning is disabled.
         :param file_extension: Specify a file extension. It will override the default file extension appended by Data Format Conversion or S3 compression features such as ``.parquet`` or ``.gz``. File extension must start with a period (``.``) and can contain allowed characters: ``0-9a-z!-_.*'()``. Default: - The default file extension appended by Data Format Conversion or S3 compression features
-        :param time_zone: The time zone you prefer. Default: - UTC
+        :param time_zone: The time zone you prefer. AWS Kinesis Data Firehose supports standard IANA time zone identifiers (e.g., 'America/New_York', 'Europe/London', 'Asia/Tokyo'). Default: - UTC
 
         :exampleMetadata: infused
 
@@ -15789,9 +15789,11 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
     def time_zone(self) -> typing.Optional["_aws_cdk_0cae9daa.TimeZone"]:
         '''The time zone you prefer.
 
+        AWS Kinesis Data Firehose supports standard IANA time zone identifiers (e.g., 'America/New_York', 'Europe/London', 'Asia/Tokyo').
+
         :default: - UTC
 
-        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html#timestamp-namespace
+        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-object-name.html
         '''
         result = self._values.get("time_zone")
         return typing.cast(typing.Optional["_aws_cdk_0cae9daa.TimeZone"], result)

@@ -13,6 +13,10 @@ from .edit_run import EditRun
 
 
 class EditRunProcessedWebhookEvent(UncheckedBaseModel):
+    """
+    Triggered after an API-created EditRun finishes filling the document's form fields. If no schema was provided, the EditRun first creates an internal FormDetectionRun; that internal run does not emit Form Detection webhooks.
+    """
+
     event_id: typing_extensions.Annotated[str, FieldMetadata(alias="eventId")] = pydantic.Field(alias="eventId")
     """
     Unique identifier for the event

@@ -12,15 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 from functools import cached_property
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import soundfile as sf
+from numpy.typing import DTypeLike
 
 from audiolab.av.frame import clip
-from audiolab.av.typing import Dtype, Seconds
-from audiolab.reader.backend.backend import Backend
+from audiolab.av.typing import Seconds
+from audiolab.reader.backend.backend import FORCED_DECODE_CHUNK_FRAMES, Backend
 
 _subtype_to_bits = {
     "PCM_S8": 8,
@@ -57,31 +59,30 @@ _supported_dtypes = (np.int16, np.int32, np.float32, np.float64)
 
 
 class SoundFile(Backend):
-    def __init__(self, file: Any, frame_size: Optional[int] = None, forced_decoding: bool = False):
-        super().__init__(file, frame_size, forced_decoding)
-        self.sf = sf.SoundFile(file)
+    def __init__(self, source: Any, frame_size: int | None = None, forced_decoding: bool = False):
+        super().__init__(source, frame_size, forced_decoding)
+        self.sf = sf.SoundFile(source)
+        self.output_dtype: DTypeLike | None = None
 
     def close(self):
-        _sf = self.sf
-        if _sf is None:
+        sound_file = self.sf
+        if sound_file is None:
             return
         self.sf = None
-        try:
-            _sf.close()
-        except Exception:
-            pass
+        with contextlib.suppress(Exception):
+            sound_file.close()
         super().close()
 
     @cached_property
-    def bits_per_sample(self) -> Optional[int]:
-        return _subtype_to_bits.get(self.sf.subtype, None)
+    def bits_per_sample(self) -> int | None:
+        return _subtype_to_bits.get(self.sf.subtype)
 
     @cached_property
     def codec(self) -> str:
         return sf.available_subtypes()[self.sf.subtype]
 
     @cached_property
-    def duration(self) -> Optional[Seconds]:
+    def duration(self) -> Seconds | None:
         if self.num_frames is None:
             return None
         return Seconds(self.num_frames / self.sample_rate)
@@ -99,16 +100,27 @@ class SoundFile(Backend):
         return self.sf.channels
 
     @cached_property
-    def num_frames(self) -> Optional[int]:
+    def num_frames(self) -> int | None:
         if self.forced_decoding:
             num_frames = 0
             pos = self.sf.tell()
             try:
-                frames = self.sf.read()
-                num_frames = frames.shape[0]
+                while True:
+                    audio = self.sf.read(FORCED_DECODE_CHUNK_FRAMES)
+                    if audio.shape[0] == 0:
+                        break
+                    num_frames += audio.shape[0]
             except sf.LibsndfileError:
-                self.sf = sf.SoundFile(self.file)
-            self.seek(pos)
+                sound_file = self.sf
+                with contextlib.suppress(Exception):
+                    sound_file.close()
+                seek = getattr(self.source, "seek", None)
+                if seek is not None:
+                    with contextlib.suppress(OSError, ValueError):
+                        seek(0)
+                self.sf = sf.SoundFile(self.source)
+                num_frames = 0
+            self.sf.seek(pos)
         else:
             num_frames = self.sf.frames
             if num_frames >= np.iinfo(np.int32).max:
@@ -127,12 +139,11 @@ class SoundFile(Backend):
     def seekable(self) -> bool:
         return self.sf.seekable()
 
-    def read(self, nframes: int, dtype: Optional[Dtype] = None) -> Optional[np.ndarray]:
+    def read(self, nframes: int, dtype: DTypeLike | None = None) -> np.ndarray | None:
         if dtype is None:
-            dtype = self.dtype
-        frames = self.sf.read(nframes, dtype=dtype if dtype in _supported_dtypes else np.float64)
-        return np.atleast_2d(clip(frames, dtype).T) if frames.shape[0] > 0 else None
+            dtype = self.output_dtype if self.output_dtype is not None else self.dtype
+        audio = self.sf.read(nframes, dtype=dtype if dtype in _supported_dtypes else np.float64)
+        return np.atleast_2d(clip(audio, dtype).T) if audio.shape[0] > 0 else None
 
     def seek(self, offset: int):
-        if offset > 0:
-            self.sf.seek(offset)
+        self.sf.seek(offset)

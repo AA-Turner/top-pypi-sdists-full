@@ -314,6 +314,7 @@ __all__ = (
     "DeleteLineageEventOutputTypeDef",
     "DeleteListingInputTypeDef",
     "DeleteNotebookInputTypeDef",
+    "DeleteProgressTypeDef",
     "DeleteProjectInputTypeDef",
     "DeleteProjectMembershipInputTypeDef",
     "DeleteProjectProfileInputTypeDef",
@@ -368,6 +369,7 @@ __all__ = (
     "EqualToExpressionTypeDef",
     "EventSummaryTypeDef",
     "FailureCauseTypeDef",
+    "FailureReasonTypeDef",
     "FilterClausePaginatorTypeDef",
     "FilterClauseTypeDef",
     "FilterExpressionTypeDef",
@@ -1675,6 +1677,7 @@ class DeleteDomainInputTypeDef(TypedDict):
     identifier: str
     clientToken: NotRequired[str]
     skipDeletionCheck: NotRequired[bool]
+    cascadeDelete: NotRequired[bool]
 
 
 class DeleteDomainUnitInputTypeDef(TypedDict):
@@ -1736,6 +1739,10 @@ class DeleteListingInputTypeDef(TypedDict):
 class DeleteNotebookInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
+
+
+class DeleteProgressTypeDef(TypedDict):
+    successfullyDeletedProjectCount: NotRequired[int]
 
 
 class DeleteProjectInputTypeDef(TypedDict):
@@ -1930,6 +1937,13 @@ class FailureCauseTypeDef(TypedDict):
     message: NotRequired[str]
 
 
+FailureReasonTypeDef = TypedDict(
+    "FailureReasonTypeDef",
+    {
+        "id": NotRequired[str],
+        "message": NotRequired[str],
+    },
+)
 FilterTypeDef = TypedDict(
     "FilterTypeDef",
     {
@@ -3714,27 +3728,6 @@ CreateDomainOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-GetDomainOutputTypeDef = TypedDict(
-    "GetDomainOutputTypeDef",
-    {
-        "id": str,
-        "rootDomainUnitId": str,
-        "name": str,
-        "description": str,
-        "singleSignOn": SingleSignOnTypeDef,
-        "domainExecutionRole": str,
-        "arn": str,
-        "kmsKeyIdentifier": str,
-        "status": DomainStatusType,
-        "portalUrl": str,
-        "createdAt": datetime,
-        "lastUpdatedAt": datetime,
-        "tags": dict[str, str],
-        "domainVersion": DomainVersionType,
-        "serviceRole": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
 
 
 class UpdateDomainInputTypeDef(TypedDict):
@@ -4283,6 +4276,29 @@ class UpdateSubscriptionGrantStatusInputTypeDef(TypedDict):
     targetName: NotRequired[str]
 
 
+GetDomainOutputTypeDef = TypedDict(
+    "GetDomainOutputTypeDef",
+    {
+        "id": str,
+        "rootDomainUnitId": str,
+        "name": str,
+        "description": str,
+        "singleSignOn": SingleSignOnTypeDef,
+        "domainExecutionRole": str,
+        "arn": str,
+        "kmsKeyIdentifier": str,
+        "status": DomainStatusType,
+        "portalUrl": str,
+        "createdAt": datetime,
+        "lastUpdatedAt": datetime,
+        "tags": dict[str, str],
+        "domainVersion": DomainVersionType,
+        "serviceRole": str,
+        "failureReasons": list[FailureReasonTypeDef],
+        "deleteProgress": DeleteProgressTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 FilterClausePaginatorTypeDef = TypedDict(
     "FilterClausePaginatorTypeDef",
     {

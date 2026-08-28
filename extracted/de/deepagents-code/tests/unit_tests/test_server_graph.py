@@ -16,6 +16,12 @@ from deepagents_code._env_vars import SERVER_ENV_PREFIX
 from deepagents_code._server_config import ServerConfig
 
 
+@pytest.fixture(autouse=True)
+def _disable_extensions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep user extension code out of server graph unit tests."""
+    monkeypatch.delenv("DEEPAGENTS_CODE_EXPERIMENTAL", raising=False)
+
+
 def _import_fresh_server_graph() -> ModuleType:
     """Import `deepagents_code.server_graph` from a clean module state."""
     sys.modules.pop("deepagents_code.server_graph", None)
@@ -251,7 +257,7 @@ class TestServerGraph:
 
         model_result = SimpleNamespace(
             model=model_obj,
-            apply_to_settings=MagicMock(),
+            apply_to_runtime_state=MagicMock(),
             model_retries=5,
             cli_max_retries=3,
         )
@@ -262,7 +268,7 @@ class TestServerGraph:
             configure_langsmith_secret_redaction=configure_redaction,
             create_model=create_model,
             is_memory_auto_save_enabled=MagicMock(return_value=True),
-            settings=SimpleNamespace(
+            credentials=SimpleNamespace(
                 has_tavily=True,
                 reload_from_environment=reload_from_environment,
             ),
@@ -391,6 +397,7 @@ class TestServerGraph:
             enable_skills=True,
             enable_shell=True,
             enable_interpreter=False,
+            interpreter_config=None,
             rubric_model=None,
             rubric_max_iterations=None,
             auto_classifier_model=None,
@@ -403,6 +410,7 @@ class TestServerGraph:
             rubric_grader_tools=[fetch_tool, web_tool, mcp_tool],
             model_retries=5,
             cli_max_retries=3,
+            extension_registry=None,
         )
 
     async def test_build_tools_skips_mcp_when_disabled(self) -> None:
@@ -412,7 +420,7 @@ class TestServerGraph:
         resolve_mcp_tools = AsyncMock()
         config_module = _module_with_attrs(
             "deepagents_code.config",
-            settings=SimpleNamespace(has_tavily=False),
+            credentials=SimpleNamespace(has_tavily=False),
         )
         tools_module = _module_with_attrs(
             "deepagents_code.tools",
@@ -445,38 +453,35 @@ class TestServerGraph:
         resolve_mcp_tools.assert_not_awaited()
 
     async def test_interpreter_settings_apply_before_agent_construction(self) -> None:
-        """Server config settings writes should be visible to `create_cli_agent`."""
+        """Server PTC overrides should reach the interpreter snapshot."""
         graph_obj = object()
         model_obj = object()
         observed: dict[str, object] = {}
 
-        def create_cli_agent_side_effect(**_: object) -> tuple[object, object]:
-            from deepagents_code.config import settings
+        def create_cli_agent_side_effect(**kwargs: object) -> tuple[object, object]:
+            from deepagents_code.configuration.interpreter import InterpreterConfig
 
-            observed["interpreter_ptc"] = settings.interpreter_ptc
-            observed["acknowledge"] = settings.interpreter_ptc_acknowledge_unsafe
-            observed["enable_interpreter"] = settings.enable_interpreter
+            interpreter = kwargs["interpreter_config"]
+            assert isinstance(interpreter, InterpreterConfig)
+            observed["interpreter_ptc"] = interpreter.ptc
+            observed["acknowledge"] = interpreter.ptc_acknowledge_unsafe
+            observed["enable_interpreter"] = kwargs["enable_interpreter"]
             return graph_obj, _backend_with_offload(object())
 
-        settings_obj = SimpleNamespace(
-            has_tavily=False,
-            interpreter_ptc=None,
-            interpreter_ptc_acknowledge_unsafe=False,
-            enable_interpreter=False,
-        )
+        settings_obj = SimpleNamespace(has_tavily=False)
         config_module = _module_with_attrs(
             "deepagents_code.config",
             configure_langsmith_secret_redaction=MagicMock(),
             create_model=MagicMock(
                 return_value=SimpleNamespace(
                     model=model_obj,
-                    apply_to_settings=MagicMock(),
+                    apply_to_runtime_state=MagicMock(),
                     model_retries=5,
                     cli_max_retries=None,
                 ),
             ),
             is_memory_auto_save_enabled=MagicMock(return_value=True),
-            settings=settings_obj,
+            credentials=settings_obj,
         )
         agent_module = _module_with_attrs(
             "deepagents_code.agent",
@@ -542,7 +547,7 @@ class TestServerGraph:
         resolve_mcp_tools = AsyncMock(return_value=(discovered_mcp_tools, None, []))
         config_module = _module_with_attrs(
             "deepagents_code.config",
-            settings=SimpleNamespace(has_tavily=False),
+            credentials=SimpleNamespace(has_tavily=False),
         )
         tools_module = _module_with_attrs(
             "deepagents_code.tools",
@@ -607,7 +612,7 @@ class TestServerGraph:
 
         config_module = _module_with_attrs(
             "deepagents_code.config",
-            settings=SimpleNamespace(has_tavily=False),
+            credentials=SimpleNamespace(has_tavily=False),
         )
         tools_module = _module_with_attrs(
             "deepagents_code.tools",

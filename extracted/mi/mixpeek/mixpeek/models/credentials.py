@@ -18,27 +18,24 @@ import json
 import pprint
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, List, Optional
-from mixpeek.models.box_ccg_credentials import BoxCCGCredentials
-from mixpeek.models.box_jwt_credentials import BoxJWTCredentials
-from mixpeek.models.box_o_auth_credentials import BoxOAuthCredentials
+from mixpeek.models.azure_managed_identity_credentials import AzureManagedIdentityCredentials
+from mixpeek.models.azure_storage_account_key_credentials import AzureStorageAccountKeyCredentials
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-CREDENTIALS_ONE_OF_SCHEMAS = ["BoxCCGCredentials", "BoxJWTCredentials", "BoxOAuthCredentials"]
+CREDENTIALS_ONE_OF_SCHEMAS = ["AzureManagedIdentityCredentials", "AzureStorageAccountKeyCredentials"]
 
 class Credentials(BaseModel):
     """
-    REQUIRED. Box authentication credentials. Choose 'oauth' for user-level access, 'ccg' for server-to-server (recommended), or 'jwt' for high-security enterprise. The 'type' field determines which authentication flow is used.
+    REQUIRED. Azure authentication credentials. Choose 'account_key' (account_name + account_key) or 'managed_identity' (RECOMMENDED for production, uses DefaultAzureCredential). The 'type' field determines which credential mechanism is used.
     """
-    # data type: BoxOAuthCredentials
-    oneof_schema_1_validator: Optional[BoxOAuthCredentials] = None
-    # data type: BoxCCGCredentials
-    oneof_schema_2_validator: Optional[BoxCCGCredentials] = None
-    # data type: BoxJWTCredentials
-    oneof_schema_3_validator: Optional[BoxJWTCredentials] = None
-    actual_instance: Optional[Union[BoxCCGCredentials, BoxJWTCredentials, BoxOAuthCredentials]] = None
-    one_of_schemas: Set[str] = { "BoxCCGCredentials", "BoxJWTCredentials", "BoxOAuthCredentials" }
+    # data type: AzureStorageAccountKeyCredentials
+    oneof_schema_1_validator: Optional[AzureStorageAccountKeyCredentials] = None
+    # data type: AzureManagedIdentityCredentials
+    oneof_schema_2_validator: Optional[AzureManagedIdentityCredentials] = None
+    actual_instance: Optional[Union[AzureManagedIdentityCredentials, AzureStorageAccountKeyCredentials]] = None
+    one_of_schemas: Set[str] = { "AzureManagedIdentityCredentials", "AzureStorageAccountKeyCredentials" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -64,27 +61,22 @@ class Credentials(BaseModel):
         instance = Credentials.model_construct()
         error_messages = []
         match = 0
-        # validate data type: BoxOAuthCredentials
-        if not isinstance(v, BoxOAuthCredentials):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `BoxOAuthCredentials`")
+        # validate data type: AzureStorageAccountKeyCredentials
+        if not isinstance(v, AzureStorageAccountKeyCredentials):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `AzureStorageAccountKeyCredentials`")
         else:
             match += 1
-        # validate data type: BoxCCGCredentials
-        if not isinstance(v, BoxCCGCredentials):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `BoxCCGCredentials`")
-        else:
-            match += 1
-        # validate data type: BoxJWTCredentials
-        if not isinstance(v, BoxJWTCredentials):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `BoxJWTCredentials`")
+        # validate data type: AzureManagedIdentityCredentials
+        if not isinstance(v, AzureManagedIdentityCredentials):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `AzureManagedIdentityCredentials`")
         else:
             match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in Credentials with oneOf schemas: BoxCCGCredentials, BoxJWTCredentials, BoxOAuthCredentials. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in Credentials with oneOf schemas: AzureManagedIdentityCredentials, AzureStorageAccountKeyCredentials. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in Credentials with oneOf schemas: BoxCCGCredentials, BoxJWTCredentials, BoxOAuthCredentials. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in Credentials with oneOf schemas: AzureManagedIdentityCredentials, AzureStorageAccountKeyCredentials. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -99,31 +91,25 @@ class Credentials(BaseModel):
         error_messages = []
         match = 0
 
-        # deserialize data into BoxOAuthCredentials
+        # deserialize data into AzureStorageAccountKeyCredentials
         try:
-            instance.actual_instance = BoxOAuthCredentials.from_json(json_str)
+            instance.actual_instance = AzureStorageAccountKeyCredentials.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into BoxCCGCredentials
+        # deserialize data into AzureManagedIdentityCredentials
         try:
-            instance.actual_instance = BoxCCGCredentials.from_json(json_str)
-            match += 1
-        except (ValidationError, ValueError) as e:
-            error_messages.append(str(e))
-        # deserialize data into BoxJWTCredentials
-        try:
-            instance.actual_instance = BoxJWTCredentials.from_json(json_str)
+            instance.actual_instance = AzureManagedIdentityCredentials.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into Credentials with oneOf schemas: BoxCCGCredentials, BoxJWTCredentials, BoxOAuthCredentials. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into Credentials with oneOf schemas: AzureManagedIdentityCredentials, AzureStorageAccountKeyCredentials. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into Credentials with oneOf schemas: BoxCCGCredentials, BoxJWTCredentials, BoxOAuthCredentials. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into Credentials with oneOf schemas: AzureManagedIdentityCredentials, AzureStorageAccountKeyCredentials. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -137,7 +123,7 @@ class Credentials(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], BoxCCGCredentials, BoxJWTCredentials, BoxOAuthCredentials]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], AzureManagedIdentityCredentials, AzureStorageAccountKeyCredentials]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

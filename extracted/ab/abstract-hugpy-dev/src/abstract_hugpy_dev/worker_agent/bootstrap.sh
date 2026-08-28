@@ -4,7 +4,7 @@
 # Usage:
 #   bootstrap.sh --central https://dev.hugpy.ai --name box-1 --token <enroll-token> \
 #                [--port 9100] [--version 0.1.162] [--storage-root /mnt/llm_storage] \
-#                [--venv ~/hugpy-worker/venv]
+#                [--venv ~/hugpy-worker/venv] [--force]
 #
 # What it does (idempotent — safe to re-run to upgrade):
 #   1. checks python3 >= 3.10 with the venv module
@@ -12,8 +12,16 @@
 #   3. pip install --upgrade 'abstract_hugpy_dev[engine]==<version>'
 #      (when --version is omitted it asks <central>/llm/workers/required-version;
 #       falls back to latest if central pins no version)
-#   4. runs the canonical installer to write + enable the hugpy-worker.service
-#      systemd user unit (see worker_agent/install.py)
+#   4. runs the canonical installer, which FIRST runs the k118 environment
+#      preflight (this box's self-report diffed against the fleet doctrine) and
+#      refuses to register a worker with doctrine BLOCKERS unless --force, then
+#      writes + enables the hugpy-worker.service systemd user unit
+#      (see worker_agent/install.py)
+#
+# Why the preflight is here and not "later": a-brain had no ffmpeg, computron
+# had no bitsandbytes, and both boxes registered, advertised the task, and only
+# found out when a real job died on them. The check costs a few seconds at the
+# one moment an operator is already watching the terminal.
 #
 # The [engine] extra matters: base abstract_hugpy_dev deliberately omits
 # llama-cpp-python, so a worker without it registers fine but serves NO GGUFs.
@@ -28,6 +36,7 @@ PORT="9100"
 VERSION=""
 STORAGE_ROOT=""
 VENV="${HOME}/hugpy-worker/venv"
+FORCE=""
 
 die() { printf 'bootstrap: %s\n' "$*" >&2; exit 1; }
 say() { printf 'bootstrap: %s\n' "$*"; }
@@ -41,6 +50,7 @@ while [ $# -gt 0 ]; do
     --version)      VERSION="${2:-}"; shift 2 ;;
     --storage-root) STORAGE_ROOT="${2:-}"; shift 2 ;;
     --venv)         VENV="${2:-}"; shift 2 ;;
+    --force)        FORCE="1"; shift 1 ;;
     -h|--help)      sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)              die "unknown argument: $1" ;;
   esac
@@ -123,6 +133,10 @@ say "installing media-intelligence deps (sentence-transformers, openai-whisper, 
 # for the new flags and use the env route when they're absent.
 set -- --central "$CENTRAL" --name "$NAME" --port "$PORT"
 HELP="$("$PY_BIN" -m abstract_hugpy_dev.worker_agent.install --help 2>&1 || true)"
+if [ -n "$FORCE" ]; then
+  case "$HELP" in *--force*) set -- "$@" --force;;
+                  *) say "NOTE: this installer predates --force; ignoring";; esac
+fi
 if [ -n "$TOKEN" ]; then
   case "$HELP" in *--enroll-token*) set -- "$@" --enroll-token "$TOKEN";;
                   *) export WORKER_ENROLL_TOKEN="$TOKEN";; esac

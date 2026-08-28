@@ -675,6 +675,17 @@ async def apply_plan(
             raise ServerClientError(
                 "Failed to apply plan. Resource has been changed. Try again or use force apply."
             )
+    if (
+        run_spec.configuration.type == "service"
+        and current_resource.run_spec.configuration.type == "service"
+        and run_spec.configuration.gateway != current_resource.run_spec.configuration.gateway
+    ):
+        await services.assign_service(
+            session=session,
+            run_model=current_resource_model,
+            run_spec=run_spec,
+            is_new_service_submission=False,
+        )
     new_deployment_num = current_resource.deployment_num + 1
     # FIXME: potentially long write transaction
     # Avoid getting run_model after update
@@ -783,8 +794,9 @@ async def submit_run(
         )
 
         if run_spec.configuration.type == "service":
-            # FIXME: Register services asynchronously in the background
-            await services.register_service(session, run_model, run_spec)
+            await services.assign_service(
+                session, run_model, run_spec, is_new_service_submission=True
+            )
             service_config = run_spec.configuration
 
             global_replica_num = 0  # Global counter across all groups for unique replica_num
@@ -793,7 +805,7 @@ async def submit_run(
                 if run_spec.merged_profile.schedule is not None:
                     group_initial_replicas = 0
                 else:
-                    group_initial_replicas = replica_group.count.min or 0
+                    group_initial_replicas = replica_group.replicas.min or 0
 
                 # Each replica in this group gets the same group-specific configuration
                 for group_replica_num in range(group_initial_replicas):

@@ -3,6 +3,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import cloud_config_pb2 as _cloud_config_pb2
 from chalk._gen.chalk.server.v1 import cluster_class_pb2 as _cluster_class_pb2
 from chalk._gen.chalk.utils.v1 import field_change_pb2 as _field_change_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -37,6 +38,7 @@ class VectorDBKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     VECTOR_DB_KIND_MILVUS: _ClassVar[VectorDBKind]
     VECTOR_DB_KIND_VALKEY: _ClassVar[VectorDBKind]
     VECTOR_DB_KIND_TURBOPUFFER: _ClassVar[VectorDBKind]
+    VECTOR_DB_KIND_S3_VECTORS: _ClassVar[VectorDBKind]
 
 class DeploymentBuildProfile(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -57,6 +59,10 @@ class DeploymentBuildProfile(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_RUST_PROFILING: _ClassVar[DeploymentBuildProfile]
     DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_RUST_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
     DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_RUST_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_DEBIAN_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_DEBIAN_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_DEBIAN_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_DEBIAN_PROFILING: _ClassVar[DeploymentBuildProfile]
 
 class DiscoveredBucketSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -97,6 +103,7 @@ VECTOR_DB_KIND_PGVECTOR: VectorDBKind
 VECTOR_DB_KIND_MILVUS: VectorDBKind
 VECTOR_DB_KIND_VALKEY: VectorDBKind
 VECTOR_DB_KIND_TURBOPUFFER: VectorDBKind
+VECTOR_DB_KIND_S3_VECTORS: VectorDBKind
 DEPLOYMENT_BUILD_PROFILE_UNSPECIFIED: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_PROFILING: DeploymentBuildProfile
@@ -114,6 +121,10 @@ DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_RUST_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_RUST_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_RUST_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_RUST_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_DEBIAN_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_DEBIAN_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_DEBIAN_NO_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_DEBIAN_PROFILING: DeploymentBuildProfile
 DISCOVERED_BUCKET_SOURCE_UNSPECIFIED: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_ENGINE: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_METADATA_PLANE: DiscoveredBucketSource
@@ -220,6 +231,8 @@ class Environment(_message.Message):
         "customer_metadata",
         "dataplane_db_direct_secret",
         "primary_linked_cluster_class",
+        "description",
+        "default_engine_base_image",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -333,6 +346,8 @@ class Environment(_message.Message):
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     DATAPLANE_DB_DIRECT_SECRET_FIELD_NUMBER: _ClassVar[int]
     PRIMARY_LINKED_CLUSTER_CLASS_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_ENGINE_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
     name: str
     project_id: str
     id: str
@@ -399,6 +414,8 @@ class Environment(_message.Message):
     customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     dataplane_db_direct_secret: str
     primary_linked_cluster_class: _cluster_class_pb2.ClusterClass
+    description: str
+    default_engine_base_image: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -467,6 +484,8 @@ class Environment(_message.Message):
         customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         dataplane_db_direct_secret: _Optional[str] = ...,
         primary_linked_cluster_class: _Optional[_Union[_cluster_class_pb2.ClusterClass, str]] = ...,
+        description: _Optional[str] = ...,
+        default_engine_base_image: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateEnvironmentV2Request(_message.Message):
@@ -506,10 +525,12 @@ class UpdateEnvironmentV2Response(_message.Message):
     ) -> None: ...
 
 class DeleteEnvironmentRequest(_message.Message):
-    __slots__ = ("id",)
+    __slots__ = ("id", "force")
     ID_FIELD_NUMBER: _ClassVar[int]
+    FORCE_FIELD_NUMBER: _ClassVar[int]
     id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    force: bool
+    def __init__(self, id: _Optional[str] = ..., force: bool = ...) -> None: ...
 
 class DeleteEnvironmentResponse(_message.Message):
     __slots__ = ()

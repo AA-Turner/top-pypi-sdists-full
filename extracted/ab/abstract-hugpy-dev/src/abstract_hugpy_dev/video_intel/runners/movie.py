@@ -47,7 +47,8 @@ from abstract_hugpy_dev.imports.src.utils import slugify
 
 from ..gen_schema import text_part
 from ..media_store import ingest
-from ..movie_schema import MovieSpec, goal_effective, total_frames
+from ..movie_schema import (LEGACY_CHAIN_LABEL, MovieSpec, effective_chain,
+                            goal_effective, legacy_chain_enabled, total_frames)
 from ..result_schema import JobError, JobResult
 from ..scene_schema import make_generate_scene
 from ._img2img import img2img_available
@@ -254,6 +255,14 @@ def _finalize_movie(assets_root: str, projectmeta: str, segment_mp4s: "list[str]
             for g in spec.goals
         ],
         "drift": drift_mode,
+        "legacy_pixel_chain": drift_mode == "carry",
+        "label": (LEGACY_CHAIN_LABEL if drift_mode == "carry" else "independent"),
+        "limitations": ([
+            "legacy pixel chain: each segment's start image is the previous segment's last frame "
+            "(runners/movie.py, opted in with HUGPY_LEGACY_CHAIN=1). This is the chained "
+            "behaviour the oracle directive prohibits; use the video.performance recipe for "
+            "sibling segments, or unset HUGPY_LEGACY_CHAIN."
+        ] if drift_mode == "carry" else []),
         "vision_enabled": spec.vision_enabled,
         "score_threshold": spec.score_threshold,
         "n_frames_total": n_frames_total,
@@ -286,6 +295,7 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
     work_dir = os.path.join(DEFAULT_ROOT, "video_intel", "movies", job_id)
     os.makedirs(assets_root, exist_ok=True)
     os.makedirs(work_dir, exist_ok=True)
+    _write_spec_sidecar(work_dir, job_id, "generate_movie", spec)
 
     # Cross-segment DRIFT feasibility. Each goal may pin its OWN model (k92), so
     # img2img support can differ segment to segment — probe PER effective model,
@@ -299,7 +309,20 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
         return _carry_cache[model_id]
 
     can_carry = _can_carry(spec.model_id)
-    drift_mode = "carry" if can_carry else "independent (image-to-image unavailable on the fleet)"
+    # Oracle directive invariant 9 (board or-k2 / or-p1): carrying the last frame
+    # of segment N into N+1 is a LEGACY pixel chain. It is OFF by default and only
+    # runs when the operator opts in fleet-wide with HUGPY_LEGACY_CHAIN=1 (read
+    # through movie_schema.legacy_chain_enabled, shared with runners/scene.py).
+    # When it runs it is DECLARED on the manifest as 'legacy (pixel-chained)'.
+    # The oracle recipe (video.performance) never chains.
+    legacy_allowed = legacy_chain_enabled()
+    if can_carry and not legacy_allowed:
+        can_carry = False
+        _can_carry = lambda _m: False  # noqa: E731 — per-segment carry must honour the switch too
+    drift_mode = ("carry" if can_carry else
+                  ("independent (legacy pixel chain off: set HUGPY_LEGACY_CHAIN=1 to opt in)"
+                   if not legacy_allowed
+                   else "independent (image-to-image unavailable on the fleet)"))
     logger.info("movie %s: %d segment(s), %d total frame(s), drift=%s",
                 job_id, seg_total, n_frames_total, drift_mode)
 
@@ -324,6 +347,9 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
         eta = round((elapsed / seg_done) * (seg_total - seg_done), 2) if seg_done > 0 else None
         blob = {
             "stage": stage,
+            "drift": drift_mode,
+            "legacy_pixel_chain": drift_mode == "carry",
+            "label": (LEGACY_CHAIN_LABEL if drift_mode == "carry" else "independent"),
             "segment_done": seg_done,
             "segment_total": seg_total,
             "segments": segments_meta,
@@ -381,6 +407,9 @@ def run_generate_movie(spec: MovieSpec, job_id: str) -> JobResult:
         # ---- resolve THIS goal's effective knobs (k92): its own override when set,
         # else the movie-level value. A goal with no overrides == the old behavior. ----
         eff = goal_effective(goal, spec)
+        # per-frame chaining inside a segment is the same legacy pixel chain —
+        # forced off unless HUGPY_LEGACY_CHAIN=1, exactly like runners/scene.py.
+        eff["chain"] = effective_chain(eff["chain"])
 
         # ---- RESUME: a completed segment bundle short-circuits the render ----
         resumed = _resume_segment(seg_bundle)
@@ -631,3 +660,30 @@ def _resume_segment(seg_bundle: str):
         return frame_refs, mp4_path, seed_val
     except Exception:
         return None
+
+
+def _write_spec_sidecar(out_dir: str, job_id: str, kind: str, spec_obj) -> None:
+    """Drop prompt.txt + manifest.json NEXT TO the render (2026-08-13, operator
+    ask: "the prompt info is not associated clearly with the directory in which
+    the media is saved" — until now the spec lived only in media_jobs.db and
+    every output dir shipped bare). Best-effort — a sidecar failure must never
+    fail a render."""
+    try:
+        import dataclasses as _dc
+        import json as _json
+        import time as _time
+        d = _dc.asdict(spec_obj) if _dc.is_dataclass(spec_obj) else (
+            spec_obj if isinstance(spec_obj, dict) else {"repr": repr(spec_obj)})
+        prompts = [p.get("text") for p in (d.get("parts") or [])
+                   if isinstance(p, dict) and p.get("kind") == "text" and p.get("text")]
+        prompts += [g.get("prompt") for g in (d.get("goals") or [])
+                    if isinstance(g, dict) and g.get("prompt")]
+        if d.get("prompt"):
+            prompts.append(d["prompt"])
+        with open(os.path.join(out_dir, "manifest.json"), "w", encoding="utf-8") as fh:
+            _json.dump({"job_id": job_id, "kind": kind, "created": _time.time(),
+                        "spec": d}, fh, indent=1, default=str)
+        with open(os.path.join(out_dir, "prompt.txt"), "w", encoding="utf-8") as fh:
+            fh.write("\n\n".join(p for p in prompts if p) + "\n")
+    except Exception:  # noqa: BLE001 — sidecars are documentation, never load-bearing
+        pass

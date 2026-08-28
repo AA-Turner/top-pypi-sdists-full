@@ -1,0 +1,57 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+app:
+  id: flare_detection
+  name: "Flare Detection"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+# ──────────────────────────────────────────────
+categories:
+  - INCIDENT
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+# ──────────────────────────────────────────────
+entity_mapping:
+  BadFlare: BadFlare
+  GoodFlare: GoodFlare
+
+# ──────────────────────────────────────────────
+# Incident Module — Flare Detection
+#
+# quant_strategy: count_based
+#   Computes incident_quant as (len(detections) / count_threshold) * 100,
+#   matching flare_analysis.py's existing intensity formula
+#   (min(10, total/threshold*10)) scaled from 0-10 to 0-100.
+#
+# count_threshold: 15
+#   Matches flare_analysis.py's default alert_config.count_thresholds["all"].
+# ──────────────────────────────────────────────
+incident:
+  quant_strategy: count_based
+  count_threshold: 15
+
+  incidentTypes:
+    - key: flare_detection
+      name: "Flare Detection"
+      thresholds:
+        - level: low
+          percentage: 0.0001
+        - level: medium
+          percentage: 50
+        - level: significant
+          percentage: 70
+        - level: critical
+          percentage: 90
+      order: ascending
+
+# ──────────────────────────────────────────────
+# Alerts
+# ──────────────────────────────────────────────
+alerts:
+  defaults: []
+  overrides: []

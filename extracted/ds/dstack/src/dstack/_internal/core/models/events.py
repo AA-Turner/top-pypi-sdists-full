@@ -18,7 +18,9 @@ class EventTargetType(str, Enum):
     JOB = "job"
     VOLUME = "volume"
     GATEWAY = "gateway"
+    GATEWAY_REPLICA = "gateway-replica"
     SECRET = "secret"
+    PRESET = "preset"
 
 
 class EventTarget(CoreModel):

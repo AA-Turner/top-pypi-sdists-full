@@ -1,6 +1,6 @@
 [package]
 name = "uv"
-version = "0.12.6"
+version = "0.12.7"
 description = "A Python package and project manager"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -93,10 +93,8 @@ indicatif = { workspace = true }
 indoc = { workspace = true }
 itertools = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
-open = { workspace = true }
 owo-colors = { workspace = true }
 petgraph = { workspace = true }
-reqwest = { workspace = true }
 rkyv = { workspace = true }
 rustc-hash = { workspace = true }
 serde = { workspace = true }
@@ -115,7 +113,6 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "registry"] }
 tracing-tree = { workspace = true }
 unicode-width = { workspace = true }
 url = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
 version-ranges = { workspace = true }
 walkdir = { workspace = true }
 which = { workspace = true }
@@ -136,8 +133,6 @@ uv-test = { workspace = true }
 
 assert_cmd = { workspace = true }
 assert_fs = { workspace = true }
-astral-tokio-tar = { workspace = true }
-async-compression = { workspace = true, features = ["zstd"] }
 backon = { workspace = true }
 byteorder = { workspace = true }
 bytes = { workspace = true }

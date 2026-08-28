@@ -7,6 +7,7 @@ from .builder import (
     SiteManifestBuilder,
 )
 from .mgr import GenevaManifest, ManifestConfigManager
+from .pinning import unpinned_pip_requirements
 
 __all__ = [
     "CondaManifestBuilder",
@@ -14,4 +15,5 @@ __all__ = [
     "ManifestConfigManager",
     "PipManifestBuilder",
     "SiteManifestBuilder",
+    "unpinned_pip_requirements",
 ]

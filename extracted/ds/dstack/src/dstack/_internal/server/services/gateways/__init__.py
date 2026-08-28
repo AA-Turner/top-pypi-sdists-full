@@ -139,6 +139,22 @@ def get_gateway_status_change_message(
     return msg
 
 
+def emit_gateway_replica_status_change_event(
+    session: AsyncSession,
+    replica_model: GatewayReplicaModel,
+    old_status: GatewayReplicaStatus,
+    new_status: GatewayReplicaStatus,
+    status_message: Optional[str],
+    actor: events.AnyActor = events.SystemActor(),
+) -> None:
+    if old_status == new_status:
+        return
+    msg = f"Gateway replica status changed {old_status.upper()} -> {new_status.upper()}"
+    if status_message is not None:
+        msg += f" ({status_message})"
+    events.emit(session, msg, actor=actor, targets=[events.Target.from_model(replica_model)])
+
+
 GATEWAY_CONNECT_ATTEMPTS = 30
 GATEWAY_CONNECT_DELAY = 10
 GATEWAY_CONFIGURE_ATTEMPTS = 50
@@ -183,21 +199,19 @@ async def get_gateway_by_name(
 
 
 def create_gateway_replica_model(
-    project_name: str,
-    configuration: GatewayConfiguration,
+    gateway_model: GatewayModel,
     replica_num: int,
-    gateway_id: uuid.UUID,
-    backend_id: uuid.UUID,
 ) -> GatewayReplicaModel:
-    assert configuration.name is not None
+    configuration = get_gateway_configuration(gateway_model)
+    replica_name = f"{gateway_model.name}-{replica_num}"
 
     private_bytes, public_bytes = crypto.generate_rsa_key_pair_bytes()
     gateway_ssh_private_key = private_bytes.decode()
     gateway_ssh_public_key = public_bytes.decode()
 
     replica_configuration = GatewayReplicaConfiguration(
-        project_name=project_name,
-        instance_name=f"{configuration.name}-{replica_num}",
+        project_name=gateway_model.project.name,
+        instance_name=replica_name,
         backend=configuration.backend,
         region=configuration.region,
         instance_type=configuration.instance_type,
@@ -209,8 +223,11 @@ def create_gateway_replica_model(
 
     now = get_current_datetime()
     return GatewayReplicaModel(
-        gateway_id=gateway_id,
-        backend_id=backend_id,
+        id=uuid.uuid4(),
+        name=replica_name,
+        gateway_id=gateway_model.id,
+        gateway=gateway_model,
+        backend_id=gateway_model.backend_id,
         replica_num=replica_num,
         configuration=replica_configuration.model_dump_json(),
         ssh_private_key=gateway_ssh_private_key,
@@ -948,7 +965,7 @@ def gateway_model_to_gateway(
     all_replica_models = sorted(
         get_gateway_replica_models(gateway_model), key=lambda r: r.replica_num
     )
-    relevant_replica_models = []
+    relevant_replica_models: list[GatewayReplicaModel] = []
     for replica_num, replica_models_for_num in itertools.groupby(
         all_replica_models, key=lambda r: r.replica_num
     ):
@@ -959,7 +976,7 @@ def gateway_model_to_gateway(
             GatewayReplica(
                 hostname=replica_model.ip_address,
                 replica_num=replica_model.replica_num,
-                backend=replica_model.backend.type if replica_model.backend else None,
+                backend=replica_model.backend.type,
                 region=replica_model.region,
                 created_at=replica_model.created_at,
                 status=replica_model.status,
@@ -1186,6 +1203,18 @@ def _validate_gateway_configuration(configuration: GatewayConfiguration):
         raise ServerClientError(
             f"Cannot provision {replicas} gateway replicas. This server allows at most {GATEWAY_MAX_REPLICAS}"
         )
+
+    if configuration.load_balancer is not None:
+        if configuration.load_balancer.type == "alb":
+            if configuration.backend != BackendType.AWS:
+                raise ServerClientError(
+                    "`load_balancer: { type: alb }` is supported for `aws` backend only"
+                )
+            if configuration.certificate is not None and configuration.certificate.type != "acm":
+                raise ServerClientError(
+                    "`load_balancer: { type: alb }` can only be used with `certificate: null` or"
+                    " `certificate: { type: acm }`"
+                )
 
     if configuration.certificate is not None:
         if configuration.certificate.type == "lets-encrypt" and not configuration.public_ip:

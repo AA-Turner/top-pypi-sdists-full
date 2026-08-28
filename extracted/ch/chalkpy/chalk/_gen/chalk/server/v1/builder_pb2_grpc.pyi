@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     AddKarpenterNodepoolResponse,
     AddNodepoolRequest,
     AddNodepoolResponse,
+    BuildImageRequest,
+    BuildImageResponse,
     CreateClusterBackgroundPersistenceRequest,
     CreateClusterBackgroundPersistenceResponse,
     CreateClusterGatewayRequest,
@@ -30,6 +32,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     CreateKafkaTopicsResponse,
     CreateTelemetryDeploymentRequest,
     CreateTelemetryDeploymentResponse,
+    DeleteChalkMachineTypeOverrideRequest,
+    DeleteChalkMachineTypeOverrideResponse,
     DeleteClusterBackgroundPersistenceRequest,
     DeleteClusterBackgroundPersistenceResponse,
     DeleteClusterGatewayRequest,
@@ -56,6 +60,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetBranchServerStatusResponse,
     GetClusterBackgroundPersistenceRequest,
     GetClusterBackgroundPersistenceResponse,
+    GetClusterChalkMachineTypesRequest,
+    GetClusterChalkMachineTypesResponse,
     GetClusterGatewayDefaultRequest,
     GetClusterGatewayDefaultResponse,
     GetClusterGatewayRequest,
@@ -100,6 +106,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     ListClusterGatewaysResponse,
     ListClusterTimescaleDBsRequest,
     ListClusterTimescaleDBsResponse,
+    ListEngineBaseImagesRequest,
+    ListEngineBaseImagesResponse,
     ListStreamingKafkaKedaConfigsRequest,
     ListStreamingKafkaKedaConfigsResponse,
     ListTelemetryDeploymentsRequest,
@@ -110,8 +118,12 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     MigrateClusterWorkflowOrchestratorResponse,
     MigrateTelemetryDeploymentRequest,
     MigrateTelemetryDeploymentResponse,
+    PopulateNamedQueryPlansRequest,
+    PopulateNamedQueryPlansResponse,
     PrepareDeploymentRequest,
     PrepareDeploymentResponse,
+    PrepareGraphSupplementRequest,
+    PrepareGraphSupplementResponse,
     RebuildDeploymentRequest,
     RebuildDeploymentResponse,
     RedeployDeploymentRequest,
@@ -156,6 +168,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     UpdateTelemetryDeploymentResponse,
     UploadSourceRequest,
     UploadSourceResponse,
+    UpsertChalkMachineTypeOverrideRequest,
+    UpsertChalkMachineTypeOverrideResponse,
     ValidateNamedQueriesRequest,
     ValidateNamedQueriesResponse,
 )
@@ -191,6 +205,19 @@ class BuilderServiceStub:
         RunPostIndexValidationRequest,
         RunPostIndexValidationResponse,
     ]
+    PopulateNamedQueryPlans: UnaryUnaryMultiCallable[
+        PopulateNamedQueryPlansRequest,
+        PopulateNamedQueryPlansResponse,
+    ]
+    PrepareGraphSupplement: UnaryUnaryMultiCallable[
+        PrepareGraphSupplementRequest,
+        PrepareGraphSupplementResponse,
+    ]
+    """Assigns internal versions for a deployment's uploaded proto graph and
+    uploads the resulting graph supplement, so build-time planning can use the
+    same version map engines download at boot. Idempotent; graph ingestion
+    later recomputes the assignment and remains authoritative.
+    """
     StartShadowBuildFromDeployment: UnaryUnaryMultiCallable[
         StartShadowBuildFromDeploymentRequest,
         StartShadowBuildFromDeploymentResponse,
@@ -238,6 +265,10 @@ class BuilderServiceStub:
     ResolveEngineBaseImage: UnaryUnaryMultiCallable[
         ResolveEngineBaseImageRequest,
         ResolveEngineBaseImageResponse,
+    ]
+    ListEngineBaseImages: UnaryUnaryMultiCallable[
+        ListEngineBaseImagesRequest,
+        ListEngineBaseImagesResponse,
     ]
     GetClusterTimescaleDB: UnaryUnaryMultiCallable[
         GetClusterTimescaleDBRequest,
@@ -372,6 +403,23 @@ class BuilderServiceStub:
         GetAvailableChalkMachineTypesRequest,
         GetAvailableChalkMachineTypesResponse,
     ]
+    UpsertChalkMachineTypeOverride: UnaryUnaryMultiCallable[
+        UpsertChalkMachineTypeOverrideRequest,
+        UpsertChalkMachineTypeOverrideResponse,
+    ]
+    """----- Chalk machine type fallback overrides -----
+    Override CRUD is team-level (cluster-scoped rows are cross-environment configuration), so
+    requests name the target cluster explicitly and writes are gated on a team-level permission
+    grant rather than an environment-scoped one — mirroring CloudComponentsService cluster CRUD.
+    """
+    DeleteChalkMachineTypeOverride: UnaryUnaryMultiCallable[
+        DeleteChalkMachineTypeOverrideRequest,
+        DeleteChalkMachineTypeOverrideResponse,
+    ]
+    GetClusterChalkMachineTypes: UnaryUnaryMultiCallable[
+        GetClusterChalkMachineTypesRequest,
+        GetClusterChalkMachineTypesResponse,
+    ]
     AddNodepool: UnaryUnaryMultiCallable[
         AddNodepoolRequest,
         AddNodepoolResponse,
@@ -420,6 +468,13 @@ class BuilderServiceStub:
         PrepareDeploymentRequest,
         PrepareDeploymentResponse,
     ]
+    BuildImage: UnaryUnaryMultiCallable[
+        BuildImageRequest,
+        BuildImageResponse,
+    ]
+    """Builds an engine image from the provided source and pushes it to caller-specified
+    registries. Creates no deployment: nothing is promoted and no environment state changes.
+    """
     GetTelemetryDeployment: UnaryUnaryMultiCallable[
         GetTelemetryDeploymentRequest,
         GetTelemetryDeploymentResponse,
@@ -516,6 +571,23 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> RunPostIndexValidationResponse: ...
     @abstractmethod
+    def PopulateNamedQueryPlans(
+        self,
+        request: PopulateNamedQueryPlansRequest,
+        context: ServicerContext,
+    ) -> PopulateNamedQueryPlansResponse: ...
+    @abstractmethod
+    def PrepareGraphSupplement(
+        self,
+        request: PrepareGraphSupplementRequest,
+        context: ServicerContext,
+    ) -> PrepareGraphSupplementResponse:
+        """Assigns internal versions for a deployment's uploaded proto graph and
+        uploads the resulting graph supplement, so build-time planning can use the
+        same version map engines download at boot. Idempotent; graph ingestion
+        later recomputes the assignment and remains authoritative.
+        """
+    @abstractmethod
     def StartShadowBuildFromDeployment(
         self,
         request: StartShadowBuildFromDeploymentRequest,
@@ -583,6 +655,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: ResolveEngineBaseImageRequest,
         context: ServicerContext,
     ) -> ResolveEngineBaseImageResponse: ...
+    @abstractmethod
+    def ListEngineBaseImages(
+        self,
+        request: ListEngineBaseImagesRequest,
+        context: ServicerContext,
+    ) -> ListEngineBaseImagesResponse: ...
     @abstractmethod
     def GetClusterTimescaleDB(
         self,
@@ -779,6 +857,29 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetAvailableChalkMachineTypesResponse: ...
     @abstractmethod
+    def UpsertChalkMachineTypeOverride(
+        self,
+        request: UpsertChalkMachineTypeOverrideRequest,
+        context: ServicerContext,
+    ) -> UpsertChalkMachineTypeOverrideResponse:
+        """----- Chalk machine type fallback overrides -----
+        Override CRUD is team-level (cluster-scoped rows are cross-environment configuration), so
+        requests name the target cluster explicitly and writes are gated on a team-level permission
+        grant rather than an environment-scoped one — mirroring CloudComponentsService cluster CRUD.
+        """
+    @abstractmethod
+    def DeleteChalkMachineTypeOverride(
+        self,
+        request: DeleteChalkMachineTypeOverrideRequest,
+        context: ServicerContext,
+    ) -> DeleteChalkMachineTypeOverrideResponse: ...
+    @abstractmethod
+    def GetClusterChalkMachineTypes(
+        self,
+        request: GetClusterChalkMachineTypesRequest,
+        context: ServicerContext,
+    ) -> GetClusterChalkMachineTypesResponse: ...
+    @abstractmethod
     def AddNodepool(
         self,
         request: AddNodepoolRequest,
@@ -850,6 +951,15 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: PrepareDeploymentRequest,
         context: ServicerContext,
     ) -> PrepareDeploymentResponse: ...
+    @abstractmethod
+    def BuildImage(
+        self,
+        request: BuildImageRequest,
+        context: ServicerContext,
+    ) -> BuildImageResponse:
+        """Builds an engine image from the provided source and pushes it to caller-specified
+        registries. Creates no deployment: nothing is promoted and no environment state changes.
+        """
     @abstractmethod
     def GetTelemetryDeployment(
         self,

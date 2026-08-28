@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt
-Version: 1.0.0.40.18
+Version: 1.0.0.40.21
 Summary: The dbt Cloud CLI - an ELT tool for running SQL transformations and data models in dbt Cloud. For more documentation on these commands, visit: docs.getdbt.com
 Home-page: https://www.getdbt.com/
 Author: dbt Labs
@@ -17,6 +17,16 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Requires-Dist: setuptools>=61.2
+
+⚠️ This is the final release of the dbt Platform CLI under the `dbt` name on PyPI.
+
+As of September 14, 2026, `pip install dbt` installs dbt v2, not the dbt Cloud CLI. Unpinned installs will silently switch to dbt v2 on your next upgrade.
+
+To keep using the dbt Cloud CLI:
+  - Pin your install: pip install dbt==1.0.0.40.20
+  - Reinstall using the current documented method for your operating system.
+
+Details: <https://docs.getdbt.com/docs/platform/platform-cli-migration?version=2>
 
 The dbt Cloud CLI, powered by dbt Cloud, allows you to develop and run dbt commands against your dbt Cloud development environment from your local command line.
 

@@ -10,13 +10,15 @@ from pydantic import (
     ConfigDict,
     Field,
     GetCoreSchemaHandler,
+    PositiveInt,
     RootModel,
-    Tag,
+    SerializerFunctionWrapHandler,
     ValidationError,
     ValidationInfo,
     conint,
     constr,
     field_validator,
+    model_serializer,
     model_validator,
 )
 from pydantic_core import CoreSchema, core_schema
@@ -35,7 +37,6 @@ from dstack._internal.core.models.envs import Env
 from dstack._internal.core.models.files import FilePathMapping
 from dstack._internal.core.models.fleets import FleetConfiguration
 from dstack._internal.core.models.gateways import GatewayConfiguration
-from dstack._internal.core.models.presets import PresetConfiguration
 from dstack._internal.core.models.profiles import (
     ProfileParams,
     SpotPolicy,
@@ -707,10 +708,12 @@ class ConfigurationWithCommandsParams(CoreModel):
     @model_validator(mode="after")
     def check_image_or_commands_present(self) -> Self:
         # If replicas is list, skip validation - commands come from replica groups
+        # (legacy in-memory shape; after parse, service groups live on `groups`).
         replicas = getattr(self, "replicas", None)
         if isinstance(replicas, list):
             return self
         # If groups is set, skip validation - commands come from node groups
+        # or service replica groups.
         if getattr(self, "groups", None) is not None:
             return self
 
@@ -990,7 +993,7 @@ class ReplicaGroup(CoreModel):
             description="The name of the replica group. If not provided, defaults to '0', '1', etc. based on position."
         ),
     ] = None
-    count: Annotated[
+    replicas: Annotated[
         Range[int],
         Field(
             description="The number of replicas. Can be a number (e.g. `2`) or a range (`0..4` or `1..8`). "
@@ -999,7 +1002,7 @@ class ReplicaGroup(CoreModel):
     ]
     scaling: Annotated[
         Optional[ScalingSpec],
-        Field(description="The auto-scaling rules. Required if `count` is set to a range"),
+        Field(description="The auto-scaling rules. Required if `replicas` is set to a range"),
     ] = None
 
     resources: Annotated[
@@ -1069,6 +1072,19 @@ class ReplicaGroup(CoreModel):
         ),
     ] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _alias_count_to_replicas(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        if "replicas" in data:
+            data.pop("count", None)
+            return data
+        if "count" in data:
+            data["replicas"] = data.pop("count")
+        return data
+
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: Optional[str]) -> Optional[str]:
@@ -1077,9 +1093,9 @@ class ReplicaGroup(CoreModel):
                 raise ValueError("Resource name should match regex '^[a-z0-9][a-z0-9-]{0,39}$'")
         return v
 
-    @field_validator("count")
+    @field_validator("replicas")
     @classmethod
-    def convert_count(cls, v: Range[int]) -> Range[int]:
+    def convert_replicas(cls, v: Range[int]) -> Range[int]:
         return _validate_replica_range(v)
 
     @field_validator("python", mode="before")
@@ -1124,11 +1140,11 @@ class ReplicaGroup(CoreModel):
     @model_validator(mode="after")
     def validate_scaling(self) -> Self:
         scaling = self.scaling
-        count = self.count
-        if count and count.min != count.max and not scaling:
-            raise ValueError("When you set `count` to a range, ensure to specify `scaling`.")
-        if count and count.min == count.max and scaling:
-            raise ValueError("To use `scaling`, `count` must be set to a range.")
+        replicas = self.replicas
+        if replicas and replicas.min != replicas.max and not scaling:
+            raise ValueError("When you set `replicas` to a range, ensure to specify `scaling`.")
+        if replicas and replicas.min == replicas.max and scaling:
+            raise ValueError("To use `scaling`, `replicas` must be set to a range.")
         return self
 
 
@@ -1151,7 +1167,8 @@ class ServiceConfigurationParams(CoreModel):
             description=(
                 "The name of the gateway. Specify boolean `false` to run without a gateway."
                 " Specify boolean `true` to run with the default gateway."
-                " Omit to run with the default gateway if there is one, or without a gateway otherwise"
+                " Omit to run with the default gateway if there is one, or without a gateway otherwise."
+                " Can be updated in-place to migrate existing services between gateways"
             ),
         ),
     ] = None
@@ -1206,27 +1223,53 @@ class ServiceConfigurationParams(CoreModel):
     ] = None  # None = omitted (may get default when model is set); [] = explicit empty
 
     replicas: Annotated[
-        Optional[
-            # `Tag` only names the arm in validation errors. Without it the `loc` of a bad
-            # `replicas` spells out the whole wrapped schema —
-            # `service.replicas.list[function-after[validate_scaling(), ReplicaGroup]].0` — which
-            # is what `dstack apply` shows the user.
-            Union[
-                Annotated[list[ReplicaGroup], Tag("ReplicaGroup")],
-                Annotated[Range[int], Tag("Range[int]")],
-            ]
-        ],
+        Optional[Range[int]],
         Field(
             description=(
-                "The number of replicas or a list of replica groups. "
-                "Can be an integer (e.g., `2`), a range (e.g., `0..4`), or a list of replica groups. "
-                "Each replica group defines replicas with shared configuration "
-                "(commands, resources, scaling). "
-                "When `replicas` is a list of replica groups, top-level `scaling`, `commands`, "
-                "and `resources` are not allowed and must be specified in each replica group instead. "
+                "The number of replicas for a homogeneous service. "
+                "Can be an integer (e.g. `2`) or a range (e.g. `0..4`). "
+                "Mutually exclusive with `groups`."
             )
         ),
     ] = None
+    groups: Annotated[
+        Optional[List[ReplicaGroup]],
+        Field(
+            description=(
+                "A list of replica groups for heterogeneous services. "
+                "Mutually exclusive with `replicas`. "
+                "When `groups` is set, top-level `scaling` and `commands` are not allowed."
+            )
+        ),
+    ] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_replica_groups(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        replicas = data.get("replicas")
+        if data.get("groups") is None and isinstance(replicas, list):
+            data["groups"] = replicas
+            data.pop("replicas", None)
+        if data.get("groups") is not None and data.get("replicas") is not None:
+            raise ValueError("`replicas` and `groups` are mutually exclusive")
+        return data
+
+    @model_serializer(mode="wrap")
+    def _serialize_legacy_replica_groups(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> Dict[str, Any]:
+        res = handler(self)
+        groups = res.pop("groups", None)
+        if groups is None:
+            return res
+        for group in groups:
+            if "replicas" in group:
+                group["count"] = group.pop("replicas")
+        res["replicas"] = groups
+        return res
 
     @field_validator("port")
     @classmethod
@@ -1280,31 +1323,28 @@ class ServiceConfigurationParams(CoreModel):
 
     @field_validator("replicas")
     @classmethod
-    def validate_replicas(
-        cls, v: Optional[Union[Range[int], List[ReplicaGroup]]]
-    ) -> Optional[Union[Range[int], List[ReplicaGroup]]]:
+    def validate_replicas(cls, v: Optional[Range[int]]) -> Optional[Range[int]]:
         if v is None:
             return v
-        if isinstance(v, Range):
-            return _validate_replica_range(v)
+        return _validate_replica_range(v)
 
-        if isinstance(v, list):
-            if not v:
-                raise ValueError("`replicas` cannot be an empty list")
-
-            # Assign default names to groups without names
-            for index, group in enumerate(v):
-                if group.name is None:
-                    group.name = str(index)
-
-            # Check for duplicate names
-            names = [group.name for group in v]
-            if len(names) != len(set(names)):
-                duplicates = [name for name in set(names) if names.count(name) > 1]
-                raise ValueError(
-                    f"Duplicate replica group names found: {duplicates}. "
-                    "Each replica group must have a unique name."
-                )
+    @field_validator("groups")
+    @classmethod
+    def validate_groups(cls, v: Optional[List[ReplicaGroup]]) -> Optional[List[ReplicaGroup]]:
+        if v is None:
+            return v
+        if not v:
+            raise ValueError("`groups` cannot be an empty list")
+        for index, group in enumerate(v):
+            if group.name is None:
+                group.name = str(index)
+        counts = Counter(group.name for group in v)
+        duplicates = [name for name, count in counts.items() if count > 1]
+        if duplicates:
+            raise ValueError(
+                f"Duplicate replica group names found: {duplicates}. "
+                "Each replica group must have a unique name."
+            )
         return v
 
     @model_validator(mode="after")
@@ -1323,25 +1363,22 @@ class ServiceConfigurationParams(CoreModel):
 
     @model_validator(mode="after")
     def validate_top_level_properties_with_replica_groups(self) -> Self:
-        """
-        When replicas is a list of ReplicaGroup, forbid top-level scaling and commands.
-        """
-        replicas = self.replicas
-
-        if not isinstance(replicas, list):
+        """When groups is set, forbid top-level scaling and commands."""
+        groups = self.groups
+        if groups is None:
             return self
 
         scaling = self.scaling
         if scaling is not None:
             raise ValueError(
-                "Top-level `scaling` is not allowed when `replicas` is a list. "
+                "Top-level `scaling` is not allowed when `groups` is set. "
                 "Specify `scaling` in each replica group instead."
             )
 
         commands = getattr(self, "commands", None)
         if commands:
             raise ValueError(
-                "Top-level `commands` is not allowed when `replicas` is a list. "
+                "Top-level `commands` is not allowed when `groups` is set. "
                 "Specify `commands` in each replica group instead."
             )
 
@@ -1350,13 +1387,13 @@ class ServiceConfigurationParams(CoreModel):
     @model_validator(mode="after")
     def validate_no_mixed_service_and_group_container_fields(self) -> Self:
         """
-        When replicas is a list, certain fields may be set
+        When `groups` is set, certain fields may be set
         at the service level OR in replica groups, never both. Mixing is
         rejected — including partial mixing, where only some groups set a
         field the service also sets — because it leaves precedence ambiguous.
         """
-        replicas = self.replicas
-        if not isinstance(replicas, list):
+        groups = self.groups
+        if groups is None:
             return self
 
         checks = [
@@ -1399,7 +1436,7 @@ class ServiceConfigurationParams(CoreModel):
 
         for field, service_set, group_set in checks:
             if service_set:
-                conflicting = [g.name for g in replicas if group_set(g)]
+                conflicting = [g.name for g in groups if group_set(g)]
                 if conflicting:
                     raise ValueError(
                         f"`{field}` is set at both the service level and in "
@@ -1415,8 +1452,8 @@ class ServiceConfigurationParams(CoreModel):
         Image-source fields (`image`, `docker`, `python`, `nvcc`) cannot
         be mixed across service and group levels in conflicting ways.
         """
-        replicas = self.replicas
-        if not isinstance(replicas, list):
+        groups = self.groups
+        if groups is None:
             return self
 
         forbidden = [
@@ -1479,7 +1516,7 @@ class ServiceConfigurationParams(CoreModel):
 
         for s_field, s_set, g_field, g_pred in forbidden:
             if s_set:
-                conflicting = [g.name for g in replicas if g_pred(g)]
+                conflicting = [g.name for g in groups if g_pred(g)]
                 if conflicting:
                     raise ValueError(
                         f"Service-level `{s_field}` conflicts with group-level "
@@ -1491,19 +1528,18 @@ class ServiceConfigurationParams(CoreModel):
     @model_validator(mode="after")
     def validate_replica_groups_have_commands_or_image(self) -> Self:
         """
-        When replicas is a list, ensure each ReplicaGroup has something
+        When `groups` is set, ensure each ReplicaGroup has something
         to run. Mirrors the service-level rule: either explicit
         `commands` or an `image` (group-level or service-level) is
         required.
         """
-        replicas = self.replicas
-
-        if not isinstance(replicas, list):
+        groups = self.groups
+        if groups is None:
             return self
 
         service_has_image = getattr(self, "image", None) is not None
 
-        for group in replicas:
+        for group in groups:
             if not group.commands and group.image is None and not service_has_image:
                 raise ValueError(
                     f"Replica group '{group.name}': either `commands` or "
@@ -1515,16 +1551,16 @@ class ServiceConfigurationParams(CoreModel):
 
     @model_validator(mode="after")
     def validate_at_most_one_router_replica_group(self) -> Self:
-        replicas = self.replicas
-        if not isinstance(replicas, list):
+        groups = self.groups
+        if groups is None:
             return self
-        router_groups = [g for g in replicas if g.router is not None]
+        router_groups = [g for g in groups if g.router is not None]
         if len(router_groups) > 1:
             raise ValueError("At most one replica group may specify `router`.")
         if router_groups:
             router_group = router_groups[0]
-            if router_group.count.min != 1 or router_group.count.max != 1:
-                raise ValueError("For now replica group with `router` must have `count: 1`.")
+            if router_group.replicas.min != 1 or router_group.replicas.max != 1:
+                raise ValueError("For now replica group with `router` must have `replicas: 1`.")
         return self
 
 
@@ -1538,31 +1574,353 @@ class ServiceConfiguration(
 
     @property
     def replica_groups(self) -> List[ReplicaGroup]:
-        if self.replicas is None:
-            return [
-                ReplicaGroup(
-                    name=DEFAULT_REPLICA_GROUP_NAME,
-                    count=Range[int](min=1, max=1),
-                    commands=self.commands,
-                    resources=self.resources,
-                    scaling=self.scaling,
-                )
-            ]
-        if isinstance(self.replicas, list):
-            return self.replicas
-        if isinstance(self.replicas, Range):
-            return [
-                ReplicaGroup(
-                    name=DEFAULT_REPLICA_GROUP_NAME,
-                    count=self.replicas,
-                    commands=self.commands,
-                    resources=self.resources,
-                    scaling=self.scaling,
-                )
-            ]
-        raise ValueError(
-            f"Invalid replicas type: {type(self.replicas)}. Expected None, Range[int], or List[ReplicaGroup]"
-        )
+        if self.groups is not None:
+            return self.groups
+        replicas = self.replicas if self.replicas is not None else Range[int](min=1, max=1)
+        return [
+            ReplicaGroup(
+                name=DEFAULT_REPLICA_GROUP_NAME,
+                replicas=replicas,
+                commands=self.commands,
+                resources=self.resources,
+                scaling=self.scaling,
+            )
+        ]
+
+
+# Preset configurations
+
+
+DEFAULT_INPUT_TOKENS = 1024
+DEFAULT_OUTPUT_TOKENS = 1024
+DEFAULT_BASELINE = True
+
+
+class PresetModelRepo(CoreModel):
+    repo: Annotated[str, Field(description="The exact model repo or path to deploy")]
+    name: Annotated[
+        Optional[str], Field(description="The client-facing model name. Defaults to `repo`")
+    ] = None
+
+    @property
+    def api_model_name(self) -> str:
+        return self.name or self.repo
+
+    @property
+    def exact_repo(self) -> str:
+        return self.repo
+
+    @property
+    def allows_variant_selection(self) -> bool:
+        return False
+
+    @field_validator("repo")
+    @classmethod
+    def validate_repo(cls, value: str) -> str:
+        return _validate_model(value, field="repo")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return _validate_model(value, field="name")
+
+
+class PresetModelBase(CoreModel):
+    base: Annotated[
+        str,
+        Field(description="The base model for which the agent may select a compatible variant"),
+    ]
+
+    @property
+    def api_model_name(self) -> str:
+        return self.base
+
+    @property
+    def exact_repo(self) -> None:
+        return None
+
+    @property
+    def allows_variant_selection(self) -> bool:
+        return True
+
+    @field_validator("base")
+    @classmethod
+    def validate_base(cls, value: str) -> str:
+        return _validate_model(value, field="base")
+
+
+PresetModelSpec = Union[PresetModelRepo, PresetModelBase]
+
+MAX_PROMPT_LENGTH = 10_000
+
+
+class PresetPromptFile(CoreModel):
+    path: Annotated[
+        str,
+        Field(description="The path to a prompt file, relative to the configuration file"),
+    ]
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Prompt path must be a non-empty string")
+        return value
+
+
+def _drop_model_from_required(schema: dict) -> None:
+    # `model` is synthesized from the top-level `base`/`repo` shorthand by a
+    # before-validator, which JSON Schema consumers never run.
+    required = [field for field in schema.get("required", []) if field != "model"]
+    if required:
+        schema["required"] = required
+    else:
+        schema.pop("required", None)
+
+
+class PresetConfiguration(
+    ProfileParams,
+):
+    model_config = ConfigDict(json_schema_extra=_drop_model_from_required)
+
+    type: Annotated[Literal["preset"], Field(description="The configuration type")] = "preset"
+    # TODO: Generate a random name when omitted, like runs and fleets do
+    name: Annotated[
+        Optional[str],
+        Field(description="The preset name"),
+    ] = None
+    model: Annotated[
+        PresetModelSpec,
+        Field(
+            description=(
+                "The model to serve. Use a string or `repo` for an exact repo/path, "
+                "or `base` to allow compatible model variants. "
+                "Prefer the top-level `base`/`repo` shorthand unless a custom "
+                "client-facing model name is needed"
+            )
+        ),
+    ]
+    base: Annotated[
+        Optional[str],
+        Field(
+            description=(
+                "The base model repo; compatible variants are allowed. Shorthand for `model.base`"
+            )
+        ),
+    ] = None
+    repo: Annotated[
+        Optional[str],
+        Field(description="The exact model repo/path to serve. Shorthand for `model.repo`"),
+    ] = None
+    prompt: Annotated[
+        Optional[Union[str, PresetPromptFile]],
+        Field(
+            description=(
+                "Additional instructions for the preset creation agent, inline or as a file `path`"
+            )
+        ),
+    ] = None
+    min_context_length: Annotated[
+        Optional[PositiveInt],
+        Field(description="The minimum required context length. Required for creation"),
+    ] = None
+    max_ttft: Annotated[
+        Optional[PositiveInt],
+        Field(
+            description=(
+                "The maximum p50 time to first token, in milliseconds, that any benchmark"
+                " may report. Required for creation"
+            )
+        ),
+    ] = None
+    trials: Annotated[
+        Optional[PositiveInt],
+        Field(
+            description=(
+                "The number of benchmarked trials during preset creation"
+                " before the best one is promoted. Required for creation"
+            )
+        ),
+    ] = None
+    previous: Annotated[
+        Optional[list[str]],
+        Field(
+            description=(
+                "The IDs of previous presets whose creation results the agent"
+                " analyzes and improves on"
+            )
+        ),
+    ] = None
+    concurrency: Annotated[
+        Optional[PositiveInt],
+        Field(
+            description=(
+                "The number of simultaneous requests used for benchmarks during preset"
+                " creation. Required for creation"
+            )
+        ),
+    ] = None
+    input_tokens: Annotated[
+        Optional[PositiveInt],
+        Field(
+            description=(
+                "The number of input tokens per request used for benchmarks during"
+                f" preset creation. Defaults to `{DEFAULT_INPUT_TOKENS}`"
+            )
+        ),
+    ] = None
+    output_tokens: Annotated[
+        Optional[Annotated[int, Field(ge=2)]],
+        Field(
+            description=(
+                "The number of output tokens per request used for benchmarks during"
+                f" preset creation. Defaults to `{DEFAULT_OUTPUT_TOKENS}`"
+            )
+        ),
+    ] = None
+    shared_prefix_tokens: Annotated[
+        Optional[Annotated[int, Field(ge=0)]],
+        Field(
+            description=(
+                "How many of `input_tokens` are a prefix identical in every benchmark request,"
+                " as a repeated system prompt or conversation history would be. Defaults to `0`,"
+                " meaning every request is fully unique"
+            )
+        ),
+    ] = None
+    dataset: Annotated[
+        Optional[str],
+        Field(
+            description=(
+                "The benchmark dataset used during preset creation: a benchmark tool's"
+                " dataset name (e.g. `sharegpt`, `spec_bench`) or a Hugging Face dataset ID."
+                " Omit for synthetic prompts shaped by `input_tokens` and `output_tokens`"
+            )
+        ),
+    ] = None
+    baseline: Annotated[
+        Optional[bool],
+        Field(
+            description=(
+                "Whether the first trial must be a baseline that serves the model with the"
+                " serving framework's recommended defaults instead of an optimization attempt."
+                " Defaults to `true`"
+            )
+        ),
+    ] = None
+    gateway: Annotated[
+        Optional[Union[bool, EntityReference, str]],
+        Field(
+            union_mode="left_to_right",  # preserving pydantic v1 parsing behavior
+            description=(
+                "The name of the gateway. Specify boolean `false` to run without a gateway."
+                " Specify boolean `true` to run with the default gateway."
+                " Omit to run with the default gateway if there is one, or without a gateway otherwise"
+            ),
+        ),
+    ] = None
+    env: Annotated[Env, Field(description="The mapping or the list of environment variables")] = (
+        Env()
+    )
+
+    @property
+    def effective_input_tokens(self) -> int:
+        return self.input_tokens if self.input_tokens is not None else DEFAULT_INPUT_TOKENS
+
+    @property
+    def effective_output_tokens(self) -> int:
+        return self.output_tokens if self.output_tokens is not None else DEFAULT_OUTPUT_TOKENS
+
+    @property
+    def effective_baseline(self) -> bool:
+        return self.baseline if self.baseline is not None else DEFAULT_BASELINE
+
+    @field_validator("dataset")
+    @classmethod
+    def validate_dataset_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        # Stripped because the agent reports the dataset it actually loaded, and
+        # the two are compared for equality when the preset is verified.
+        value = value.strip()
+        if not value:
+            raise ValueError("dataset must be a non-empty string")
+        if value == "random":
+            # The retired alias for the default. A set dataset now always means a
+            # real one; synthetic prompts are requested by omitting it.
+            raise ValueError("`random` is not a dataset; omit `dataset` for synthetic prompts")
+        return value
+
+    @model_validator(mode="after")
+    def validate_dataset(self) -> Self:
+        if self.dataset is None:
+            return self
+        set_fields = [
+            name
+            for name in ("input_tokens", "output_tokens", "shared_prefix_tokens")
+            if getattr(self, name) is not None
+        ]
+        if set_fields:
+            raise ValueError(
+                f"{', '.join(set_fields)} shape synthetic prompts and cannot be set"
+                " together with `dataset`; a dataset defines its own request shape"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_shared_prefix_tokens(self) -> Self:
+        # The prefix is carved out of the request, so something has to be left
+        # to differ between requests.
+        if self.shared_prefix_tokens is None:
+            return self
+        input_tokens = self.input_tokens or DEFAULT_INPUT_TOKENS
+        if self.shared_prefix_tokens >= input_tokens:
+            raise ValueError(
+                f"shared_prefix_tokens must be less than input_tokens ({input_tokens})"
+            )
+        return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_model_shorthand(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+        base, repo = values.get("base"), values.get("repo")
+        if base and repo:
+            raise ValueError("`base` and `repo` are mutually exclusive")
+        if base or repo:
+            if values.get("model") is not None:
+                raise ValueError("`model` cannot be combined with the `base`/`repo` shorthand")
+            values = dict(values)
+            values.pop("base", None)
+            values.pop("repo", None)
+            values["model"] = {"base": base} if base else {"repo": repo}
+        return values
+
+    @field_validator("model", mode="before", json_schema_input_type=Union[PresetModelSpec, str])
+    @classmethod
+    def parse_model(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return {"repo": _validate_model(value, field="model")}
+        return value
+
+    @field_validator("prompt")
+    @classmethod
+    def validate_prompt(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            if not value.strip():
+                raise ValueError("Prompt must be a non-empty string")
+            if len(value) > MAX_PROMPT_LENGTH:
+                raise ValueError(f"Prompt must be at most {MAX_PROMPT_LENGTH} characters")
+        return value
+
+
+def _validate_model(value: Any, *, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Preset model {field} must be a non-empty string")
+    return value
 
 
 AnyRunConfiguration = Union[DevEnvironmentConfiguration, TaskConfiguration, ServiceConfiguration]

@@ -13,13 +13,16 @@ from skillsaw.context import (
     path_matches_patterns,
     HAS_CURSOR,
     HAS_COPILOT,
+    HAS_CLINE,
     HAS_GEMINI,
+    HAS_QWEN,
     HAS_AGENTS_MD,
     HAS_KIRO,
     HAS_CLAUDE_MD,
     HAS_CODERABBIT,
 )
 from skillsaw.rules.builtin.plugins.json_required import PluginJsonRequiredRule
+from skillsaw.discovery.detect import has_skill_md_recursive
 
 
 def test_single_plugin_detection(valid_plugin):
@@ -28,6 +31,35 @@ def test_single_plugin_detection(valid_plugin):
     assert context.repo_type == RepositoryType.SINGLE_PLUGIN
     assert len(context.plugins) == 1
     assert context.plugins[0].resolve() == valid_plugin.resolve()
+
+
+def test_agentskill_marker_scan_terminates_on_symlink_fanout(tmp_path):
+    base = tmp_path / "base"
+    base.mkdir()
+    for index in range(8):
+        (base / f"link-{index}").symlink_to(base, target_is_directory=True)
+
+    assert not has_skill_md_recursive(base, lambda _path: False)
+
+
+def test_lint_tree_failure_is_cached_and_reported(tmp_path, monkeypatch):
+    context = RepositoryContext(tmp_path, repo_types=set())
+    calls = 0
+
+    def fail(_context):
+        nonlocal calls
+        calls += 1
+        raise RecursionError("too deep")
+
+    monkeypatch.setattr("skillsaw.lint_tree.build_lint_tree", fail)
+    first = context.lint_tree
+    second = context.lint_tree
+
+    assert first is second
+    assert calls == 1
+    assert context.lint_tree_errors == [
+        "Failed to build repository lint tree: RecursionError: too deep"
+    ]
 
 
 def test_marketplace_detection(marketplace_repo):
@@ -676,11 +708,77 @@ def test_named_instructions_md_content_analysis(temp_dir):
     assert github_dir / "coding.instructions.md" in paths
 
 
+def test_detected_formats_copilot_prompt_and_agent_dirs(temp_dir):
+    """Prompt files and custom agents are Copilot evidence on their own"""
+    (temp_dir / ".github" / "prompts").mkdir(parents=True)
+    assert HAS_COPILOT in RepositoryContext(temp_dir).detected_formats
+
+    (temp_dir / ".github" / "agents").mkdir()
+    assert HAS_COPILOT in RepositoryContext(temp_dir).detected_formats
+
+
+def test_detected_formats_cursor_commands_dir(temp_dir):
+    """A repo may ship Cursor commands without shipping Cursor rules"""
+    (temp_dir / ".cursor" / "commands").mkdir(parents=True)
+    context = RepositoryContext(temp_dir)
+    assert HAS_CURSOR in context.detected_formats
+
+
+def test_detected_formats_cline_file_and_dir(temp_dir):
+    """Detect .clinerules in both of its shapes"""
+    (temp_dir / ".clinerules").write_text("Never force push.\n")
+    assert HAS_CLINE in RepositoryContext(temp_dir).detected_formats
+
+    (temp_dir / ".clinerules").unlink()
+    (temp_dir / ".clinerules").mkdir()
+    assert HAS_CLINE in RepositoryContext(temp_dir).detected_formats
+
+
 def test_detected_formats_gemini(temp_dir):
     """Detect GEMINI.md at root"""
     (temp_dir / "GEMINI.md").write_text("# Gemini instructions")
     context = RepositoryContext(temp_dir)
     assert HAS_GEMINI in context.detected_formats
+
+
+def test_detected_formats_qwen(temp_dir):
+    """Detect QWEN.md at root"""
+    (temp_dir / "QWEN.md").write_text("# Qwen instructions")
+    context = RepositoryContext(temp_dir)
+    assert HAS_QWEN in context.detected_formats
+
+
+def test_qwen_md_in_instruction_files(temp_dir):
+    """QWEN.md is discovered alongside the other root instruction files"""
+    (temp_dir / "QWEN.md").write_text("# Qwen instructions")
+    context = RepositoryContext(temp_dir)
+    assert [f.name for f in context.instruction_files] == ["QWEN.md"]
+
+
+def test_agent_tool_dirs_finds_nested_and_root(temp_dir):
+    """Editor directories are found wherever they sit in the tree"""
+    (temp_dir / ".cursor" / "rules").mkdir(parents=True)
+    (temp_dir / "apps" / "web" / ".cursor").mkdir(parents=True)
+    (temp_dir / "node_modules" / "pkg" / ".cursor").mkdir(parents=True)
+
+    context = RepositoryContext(temp_dir)
+
+    # node_modules is skipped by the walk — a dependency's editor config is
+    # not this repository's to lint.
+    assert context.agent_tool_dirs(".cursor") == [
+        temp_dir / ".cursor",
+        temp_dir / "apps" / "web" / ".cursor",
+    ]
+
+
+def test_agent_tool_dirs_honours_excludes(temp_dir):
+    """An excluded directory is not handed to the tree builder"""
+    (temp_dir / ".cursor" / "rules").mkdir(parents=True)
+    (temp_dir / "vendor" / ".cursor").mkdir(parents=True)
+
+    context = RepositoryContext(temp_dir, exclude_patterns=["vendor/*"])
+
+    assert context.agent_tool_dirs(".cursor") == [temp_dir / ".cursor"]
 
 
 def test_detected_formats_agents_md(temp_dir):
@@ -738,6 +836,96 @@ def test_apm_dir_with_skills_detected_as_agentskills(temp_dir):
     context = RepositoryContext(temp_dir)
     assert RepositoryType.APM in context.repo_types
     assert RepositoryType.AGENTSKILLS in context.repo_types
+
+
+def test_lowercase_skill_md_is_not_an_agentskills_entrypoint(temp_dir):
+    """Ecosystem filenames stay case-sensitive on case-insensitive hosts."""
+    (temp_dir / "skill.md").write_text(
+        "---\nname: lowercase\ndescription: Not a portable entrypoint.\n---\n"
+    )
+
+    context = RepositoryContext(temp_dir)
+
+    assert RepositoryType.AGENTSKILLS not in context.repo_types
+    assert context.skills == []
+
+
+def test_dangling_skill_md_symlink_is_not_an_agentskills_entrypoint(temp_dir):
+    """A dangling SKILL.md symlink has a directory entry but no target;
+    ``Path.exists()`` semantics ignored it before the scandir probe too."""
+    (temp_dir / "SKILL.md").symlink_to(temp_dir / "missing-target.md")
+
+    context = RepositoryContext(temp_dir)
+
+    assert RepositoryType.AGENTSKILLS not in context.repo_types
+    assert context.skills == []
+
+
+def test_exact_name_exists_rejects_malformed_path():
+    """An embedded NUL raises ValueError from os.scandir, not OSError."""
+    from skillsaw.discovery import exact_name_exists
+
+    assert exact_name_exists(Path("bad\0path"), "SKILL.md") is False
+
+
+def test_exact_name_exists_reads_directory_entries(temp_dir):
+    """The probe matches exactly one shape: a file entry spelled exactly
+    *name* — regardless of the host filesystem's case rules."""
+    from skillsaw.discovery import exact_name_exists
+
+    skill_dir = temp_dir / "real"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("---\nname: real\ndescription: x\n---\n")
+    assert exact_name_exists(skill_dir, "SKILL.md") is True
+
+    miscased = temp_dir / "miscased"
+    miscased.mkdir()
+    (miscased / "skill.md").write_text("---\nname: miscased\ndescription: x\n---\n")
+    assert exact_name_exists(miscased, "SKILL.md") is False
+
+    assert exact_name_exists(temp_dir / "missing", "SKILL.md") is False
+
+    # Discovery walks feed plain files as *parent*; must stay a cheap miss.
+    assert exact_name_exists(skill_dir / "SKILL.md", "SKILL.md") is False
+
+    linked = temp_dir / "linked"
+    linked.mkdir()
+    (linked / "SKILL.md").symlink_to(skill_dir / "SKILL.md")
+    assert exact_name_exists(linked, "SKILL.md") is True
+
+    squatting = temp_dir / "squatting"
+    (squatting / "SKILL.md").mkdir(parents=True)
+    assert exact_name_exists(squatting, "SKILL.md") is False
+
+
+def test_case_insensitive_lookup_does_not_invent_a_skill(temp_dir, monkeypatch):
+    """Emulate a case-folding host (macOS/Windows) on any platform: probes
+    for SKILL.md succeed when only skill.md exists. Discovery must still
+    reject the mis-cased entrypoint — this fails against the old
+    ``Path.exists()`` probe on case-sensitive CI too."""
+    import os as _os
+
+    (temp_dir / "skill.md").write_text(
+        "---\nname: lowercase\ndescription: Not a portable entrypoint.\n---\n"
+    )
+
+    real_exists = Path.exists
+
+    def case_folding_exists(self, **kwargs):
+        if real_exists(self, **kwargs):
+            return True
+        try:
+            with _os.scandir(self.parent) as entries:
+                return any(entry.name.lower() == self.name.lower() for entry in entries)
+        except OSError:
+            return False
+
+    monkeypatch.setattr(Path, "exists", case_folding_exists)
+
+    context = RepositoryContext(temp_dir)
+
+    assert RepositoryType.AGENTSKILLS not in context.repo_types
+    assert context.skills == []
 
 
 def test_apm_dir_does_not_skip_format_detection(temp_dir):

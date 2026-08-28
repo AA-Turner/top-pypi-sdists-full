@@ -451,6 +451,283 @@ def _record_tok_s(row: Dict[str, Any], tok_s: Any) -> bool:
     return True
 
 
+# ── tok/s LOG + ROLLUPS (operator 2026-08-22: "every query logged, and its
+# recent tok/s as a variable viewed in every model selection") ───────────────
+#
+# Three surfaces, one writer (``record_query_toks``):
+#   (a) append-only JSONL beside workers.json — ``toks_log.jsonl`` — one line
+#       per completed query (worker, model, tokens, elapsed, tok/s, request id);
+#   (b) ``worker["model_tok_stats"][model_key]`` = {last_tok_s, avg_tok_s, n,
+#       last_ts} — the per-(worker,model) rollup pick_for_model reads;
+#   (c) ``worker["tok_stats"]`` = {last_tok_s, avg_tok_s, n, last_model,
+#       last_ts} — the per-worker rollup the console header shows.
+# ``model_call_stats[model_key].tok_s_*`` (the parity ledger row above) keeps
+# being stamped by the same call, so the eviction substrate is unchanged.
+
+TOKS_LOG_NAME = "toks_log.jsonl"
+TOKS_LOG_MAX_BYTES = 64 * 1024 * 1024   # rotate to .1 past this; bounded disk
+TOKS_LOG_LIMIT_MAX = 500
+
+
+def _toks_log_path() -> str:
+    override = os.environ.get("HUGPY_TOKS_LOG")
+    if override:
+        return override
+    return os.path.join(os.path.dirname(_default_workers_path()), TOKS_LOG_NAME)
+
+
+def _append_toks_log(entry: Dict[str, Any]) -> None:
+    """Append one JSONL line. Fail-open; rotates once past the size cap."""
+    try:
+        path = _toks_log_path()
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        try:
+            if os.path.getsize(path) > TOKS_LOG_MAX_BYTES:
+                os.replace(path, path + ".1")
+        except OSError:
+            pass
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, separators=(",", ":")) + "\n")
+    except Exception:  # noqa: BLE001 — a log write must never fail a request
+        logger.debug("toks log append skipped", exc_info=True)
+
+
+def read_toks_log(worker_id: Optional[str] = None, limit: int = 50,
+                  model_key: Optional[str] = None,
+                  max_limit: int = TOKS_LOG_LIMIT_MAX) -> List[Dict[str, Any]]:
+    """Most-recent-first tail of the tok/s log, optionally filtered. Bounded.
+
+    ``max_limit`` caps how many entries a caller may ask for; it defaults to the
+    per-worker route's 500 but the fleet-wide /toks/recent + /toks/report
+    aggregates raise it (still bounded by the 4 MiB tail read below)."""
+    try:
+        limit = max(1, min(int(limit or 50), int(max_limit)))
+    except (TypeError, ValueError):
+        limit = 50
+    path = _toks_log_path()
+    out: List[Dict[str, Any]] = []
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+            chunk = min(size, 4 * 1024 * 1024)
+            fh.seek(size - chunk)
+            lines = fh.read().decode("utf-8", "replace").splitlines()
+    except OSError:
+        return out
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if worker_id and e.get("worker_id") != worker_id:
+            continue
+        if model_key and e.get("model_key") != model_key:
+            continue
+        out.append(e)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _vram_bucket(vram_total: Optional[int]) -> str:
+    """A coarse VRAM class for the config_key — total GiB rounded to the
+    nearest 8 GiB so 24564MiB and 24GiB cards group together. ``"?"`` when the
+    box never reported a GPU total (config still groups on the rest)."""
+    try:
+        gib = int(vram_total) / float(1 << 30)
+    except (TypeError, ValueError):
+        return "?"
+    if gib <= 0:
+        return "?"
+    return f"{int(round(gib / 8.0) * 8)}g"
+
+
+def _config_key(backend: Optional[str], dtype: Optional[str],
+                co_resident: int, vram_total: Optional[int]) -> str:
+    """The STABLE grouping string for the allocation study, shape
+    ``f"{backend}|{dtype}|co{N}|vram{bucket}"`` — engine, quant/dtype, how many
+    models were co-resident at serve time, and the VRAM class of the box. Two
+    serves that share this string are "the same configuration"; the report
+    ranks configs by mean tok/s to answer which one is fastest. Unknown parts
+    degrade to ``"?"`` rather than dropping out, so the key stays fixed-shape."""
+    return "%s|%s|co%d|vram%s" % (
+        (backend or "?"), (dtype or "?"), max(0, int(co_resident or 0)),
+        _vram_bucket(vram_total))
+
+
+def _state_snapshot(stored: Dict[str, Any], model_key: str,
+                    meta: Dict[str, Any]) -> Dict[str, Any]:
+    """The per-query configuration snapshot stamped onto the ledger line.
+
+    Sourced from the STORED worker record on central (not the relay): vram
+    used/free, disk allocation and the co-resident model set live on the
+    heartbeat, so only central can say what configuration produced a given
+    tok/s. Fail-open and bounded — every section is guarded, nulls are omitted,
+    and the whole thing is capped so a JSONL line stays ~<=2KB. Also derives the
+    stable ``config_key`` used to group serves in the report.
+
+    ``meta`` carries the request-side facts ``_query_meta`` already measured
+    (prompt/completion tokens, ttft, elapsed, inflight, streaming, warm, ok,
+    breaker); they are echoed into ``request``/``outcome``/``model.warm`` so the
+    whole state of one serve reads from one object."""
+    state: Dict[str, Any] = {}
+    try:
+        vs: Dict[str, Any] = {}
+        try:
+            vs = _vram_summary(stored)
+        except Exception:  # noqa: BLE001
+            vs = {}
+        vram_total = vs.get("vram_total")
+
+        worker: Dict[str, Any] = {}
+        for k_out, val in (("id", stored.get("id")),
+                           ("name", stored.get("name")),
+                           ("agent_version", stored.get("agent_version")
+                            or stored.get("pkg_version")),
+                           ("gpu", vs.get("gpu")),
+                           ("vram_total", vram_total)):
+            if val is not None:
+                worker[k_out] = val
+        if worker:
+            state["worker"] = worker
+
+        loaded = stored.get("loaded_models")
+        co_resident: List[str] = []
+        if isinstance(loaded, (list, tuple, set)):
+            co_resident = sorted(str(m) for m in loaded)[:16]
+        vram: Dict[str, Any] = {}
+        for k in ("vram_used", "vram_free"):
+            if vs.get(k) is not None:
+                vram[k] = vs[k]
+        if co_resident:
+            vram["loaded_models"] = co_resident
+        try:
+            sq = _vram_squatters(stored)
+            if sq:
+                vram["squatters"] = len(sq)
+        except Exception:  # noqa: BLE001
+            pass
+        if vram:
+            state["vram"] = vram
+
+        alloc: Dict[str, Any] = {}
+        try:
+            sp = storage_proposal(stored)
+        except Exception:  # noqa: BLE001
+            sp = {}
+        limits = stored.get("limits") if isinstance(stored.get("limits"), dict) else {}
+        for k_out, val in (
+                ("disk_cache_gib", limits.get("disk_cache_gib")),
+                ("disk_reserve_gib", limits.get("disk_reserve_gib")),
+                ("effective_budget_bytes", sp.get("budget_effective_bytes")),
+                ("cache_used_bytes", sp.get("cache_used_bytes")),
+                ("disk_free", sp.get("disk_free")),
+                ("resident_count", sp.get("allocated_count"))):
+            if val is not None:
+                alloc[k_out] = val
+        if alloc:
+            state["alloc"] = alloc
+
+        backend = None
+        try:
+            backend = _model_engine(model_key)
+        except Exception:  # noqa: BLE001
+            backend = None
+        phys: Dict[str, Any] = {}
+        try:
+            phys = _model_physical(model_key) or {}
+        except Exception:  # noqa: BLE001
+            phys = {}
+        dtype = (phys.get("quant") or phys.get("dtype")
+                 or phys.get("effective_quant"))
+        size_bytes = None
+        try:
+            if phys.get("size_bytes") is not None:
+                size_bytes = int(phys.get("size_bytes"))
+        except (TypeError, ValueError):
+            size_bytes = None
+        model: Dict[str, Any] = {"model_key": model_key}
+        for k_out, val in (
+                ("size_bytes", size_bytes),
+                ("dtype", dtype), ("backend", backend)):
+            if val is not None:
+                model[k_out] = val
+        warm = meta.get("warm_at_pick")
+        if warm is not None:
+            model["warm"] = bool(warm)
+        state["model"] = model
+
+        request: Dict[str, Any] = {}
+        for k in ("prompt_tokens", "completion_tokens", "max_tokens",
+                  "ttft_s", "elapsed_s", "inflight"):
+            if meta.get(k) is not None:
+                request[k] = meta[k]
+        if meta.get("streaming") is not None:
+            request["streaming"] = bool(meta["streaming"])
+        if request:
+            state["request"] = request
+
+        outcome: Dict[str, Any] = {}
+        if meta.get("ok") is not None:
+            outcome["ok"] = bool(meta["ok"])
+        if meta.get("breaker") is not None:
+            outcome["breaker"] = meta["breaker"]
+        if outcome:
+            state["outcome"] = outcome
+
+        state["config_key"] = _config_key(
+            backend, dtype, len(co_resident), vram_total)
+    except Exception:  # noqa: BLE001 — a snapshot must never fail a request
+        logger.debug("state snapshot skipped for %s", model_key, exc_info=True)
+    return state
+
+
+def _rollup_tok_stats(row: Dict[str, Any], tok_s: float, now: float,
+                      model_key: Optional[str] = None) -> Dict[str, Any]:
+    """One step of the {last_tok_s, avg_tok_s, n, last_ts} rollup. Pure.
+
+    ``avg_tok_s`` is the same alpha-0.3 EWMA as the ledger column (see
+    ``_record_tok_s`` for why plain rather than log space). ``n`` counts
+    samples. Returns the row it mutated so callers can chain/test it."""
+    v = float(tok_s)
+    row["last_tok_s"] = round(v, 3)
+    row["avg_tok_s"] = round(_ewma(row.get("avg_tok_s"), v), 3)
+    try:
+        row["n"] = int(row.get("n") or 0) + 1
+    except (TypeError, ValueError):
+        row["n"] = 1
+    row["last_ts"] = float(now)
+    if model_key is not None:
+        row["last_model"] = model_key
+    return row
+
+
+def tok_hint_for(worker: Optional[Dict[str, Any]],
+                 model_key: str) -> Dict[str, Any]:
+    """{last_tok_s, avg_tok_s, n} for (worker, model) — the variable every
+    selection reads. Falls back to the parity ledger's tok_s_* columns for a
+    record written before the rollup existed; all-None when nothing is known."""
+    hint: Dict[str, Any] = {"last_tok_s": None, "avg_tok_s": None, "n": 0}
+    if not isinstance(worker, dict):
+        return hint
+    row = (worker.get("model_tok_stats") or {}).get(model_key)
+    if isinstance(row, dict) and row.get("n"):
+        hint["last_tok_s"] = row.get("last_tok_s")
+        hint["avg_tok_s"] = row.get("avg_tok_s")
+        hint["n"] = row.get("n") or 0
+        return hint
+    cs = (worker.get("model_call_stats") or {}).get(model_key)
+    if isinstance(cs, dict) and cs.get("tok_s_samples"):
+        hint["last_tok_s"] = cs.get("tok_s_last")
+        hint["avg_tok_s"] = cs.get("tok_s_ewma")
+        hint["n"] = cs.get("tok_s_samples") or 0
+    return hint
+
+
 # ``tok_s_from_timings`` lives in ``managers.eviction`` — the module BOTH the
 # central preview and the worker's auto-evict already import, so the one parser
 # stays on the parity substrate rather than behind a web-only import. Re-exported
@@ -1055,8 +1332,12 @@ def _bar_public_fields(bar: Optional[Dict[str, Any]],
     })
 
 
-def _disk_reserve_bytes() -> int:
+def _disk_reserve_bytes(limits: Optional[Dict[str, Any]] = None) -> int:
     """Free-space reserve (bytes) kept on a worker's MODEL-ROOT volume.
+
+    Resolution: per-worker ``limits.disk_reserve_gib`` -> env
+    ``HUGPY_WORKER_DISK_RESERVE_GIB`` -> 50. Mirrors worker_agent/budget.py
+    ``disk_reserve_bytes`` exactly (Parity). Carved OUT of disk_cache_gib.
 
     Below this reserve a worker is "over budget" and its COLD local models become
     eviction candidates. Sized to comfortably exceed the largest single model
@@ -1066,10 +1347,18 @@ def _disk_reserve_bytes() -> int:
     SSD hot-cache bound in managers/serve/model_cache.py) — do not conflate: this
     reserve is on the model-root disk, not the SSD cache.
     """
-    try:
-        gib = float(os.environ.get("HUGPY_WORKER_DISK_RESERVE_GIB", "50"))
-    except (TypeError, ValueError):
-        gib = 50.0
+    gib = None
+    v = (limits or {}).get("disk_reserve_gib") if isinstance(limits, dict) else None
+    if v not in (None, ""):
+        try:
+            gib = float(v)
+        except (TypeError, ValueError):
+            gib = None
+    if gib is None:
+        try:
+            gib = float(os.environ.get("HUGPY_WORKER_DISK_RESERVE_GIB", "50"))
+        except (TypeError, ValueError):
+            gib = 50.0
     if gib < 0:
         gib = 0.0
     return int(gib * (1 << 30))
@@ -1697,7 +1986,9 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
       - ``worker['config']['residency']`` / ``['pinned']`` static/pin attribution.
 
     Budget (two modes, cheap; explicit cap wins):
-      * explicit cap  -> over_budget ``cache_used > cap``;  need ``cache_used-cap``
+      * explicit cap  -> budget = cap - reserve (reserve carved OUT of the
+                         allocation); over_budget ``cache_used > budget`` OR
+                         ``disk_free < reserve``; need = the larger shortfall
       * else reserve  -> over_budget ``disk_free < reserve``; need ``reserve-disk_free``
 
     Proposal (mirrors ``model_cache.evict_for``): domain = RECLAIMABLE candidates
@@ -1795,14 +2086,21 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
     # in-flight nor granted eviction protection. See _live_provisioning.
     provisioning_now = _live_provisioning(worker)
 
-    reserve = _disk_reserve_bytes()
+    reserve = _disk_reserve_bytes(limits)
 
     # ── budget: explicit per-worker cap wins over the free-disk reserve ──────
+    # THE ALLOCATION IS THE TOTAL LIMIT (operator rule, 2026-08-22): the reserve
+    # is portioned OUT OF disk_cache_gib, so the ceiling the cache may reach is
+    # allocation - reserve. Mirrors worker_agent/budget.py (resolve_effective_cap
+    # / fit_plan) byte-for-byte — Parity. The free-disk floor below stays as a
+    # second safety check in cap mode (redundant when allocation == volume).
     cap_gib = limits.get("disk_cache_gib")
     budget_basis = "reserve"
     budget = None
     over_budget = False
     need_bytes = 0
+    allocation_bytes = None
+    central_budget_sources: Dict[str, Any] = {}
     if cap_gib not in (None, ""):
         cap_bytes = None
         try:
@@ -1811,10 +2109,38 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
             cap_bytes = None
         if cap_bytes is not None:
             budget_basis = "cap"
-            budget = cap_bytes
-            if cache_used is not None and cache_used > cap_bytes:
+            # Min-wins over the worker's DECLARED same-drive terms (worker_*_gib
+            # in its reported budget_sources) — the worker's own allocation
+            # inputs are honoured, but the carve-out is computed HERE so a
+            # pre-carve-out agent's stale effective number never governs.
+            _wsrc = (storage.get("budget_sources") or {}) if reported else {}
+            alloc_terms = [("central_gib", cap_bytes)]
+            for _k, _v in (_wsrc.items() if isinstance(_wsrc, dict) else []):
+                if isinstance(_k, str) and _k.startswith("worker_") and _k.endswith("_gib"):
+                    try:
+                        alloc_terms.append((_k, int(float(_v) * (1 << 30))))
+                    except (TypeError, ValueError):
+                        pass
+            alloc_src, allocation_bytes = min(alloc_terms, key=lambda t: t[1])
+            budget = max(0, allocation_bytes - reserve)
+            central_budget_sources = {
+                k: v for k, v in (_wsrc.items() if isinstance(_wsrc, dict) else [])
+                if isinstance(k, str) and k.startswith("worker_")}
+            central_budget_sources.update({
+                "central_gib": round(cap_bytes / (1 << 30), 3),
+                "allocation_gib": round(allocation_bytes / (1 << 30), 3),
+                "allocation_source": alloc_src,
+                "reserve_gib": round(reserve / (1 << 30), 3),
+                "effective_gib": round(budget / (1 << 30), 3),
+                "effective_source": alloc_src,
+            })
+            if cache_used is not None and cache_used > budget:
                 over_budget = True
-                need_bytes = cache_used - cap_bytes
+                need_bytes = cache_used - budget
+            # second safety check: the real volume must keep the reserve free
+            if disk_free is not None and disk_free < reserve:
+                over_budget = True
+                need_bytes = max(need_bytes, reserve - disk_free)
     if budget_basis == "reserve":
         # Express the cache-ceiling budget so the console bar (cache_used vs
         # budget) is consistent with the flag: over_budget <=> cache_used > budget
@@ -1934,6 +2260,7 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
                 # False (it remains a candidate). A bare pinned row therefore
                 # shows why="pinned" but IS eligible for the proposal below.
                 why = "pinned"
+        _tok_hint = tok_hint_for(worker, mk)
         models_out.append({
             "model_key": mk,
             "bytes": b,
@@ -1954,6 +2281,10 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
             # these so the operator can SEE why the used figure shrank.
             "store": store_class,
             "counts_toward_budget": counts,
+            # tok/s last · avg on this (worker, model) — operator 2026-08-22
+            "tok_s_last": _tok_hint["last_tok_s"],
+            "tok_s_avg": _tok_hint["avg_tok_s"],
+            "tok_n": _tok_hint["n"],
         })
         if not protected and counts:
             # Proposals may name ONLY reapable rows (k60 ruling 2). `protected`
@@ -2136,6 +2467,7 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
         "disk_total": disk_total,
         "reserve": reserve,
         "budget": budget,
+        "allocation_bytes": allocation_bytes,   # raw disk_cache_gib; budget = this - reserve
         "budget_basis": budget_basis,
         "over_budget": over_budget,
         "need_bytes": need_bytes if over_budget else 0,
@@ -2176,8 +2508,16 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
         # pre-slice-4 worker -> None/{}/False (feature simply off). This is the
         # WORKER's own resolution; central's `budget`/`over_budget` above are its
         # own view and unchanged.
-        "budget_effective_bytes": (_as_int(storage.get("budget_effective_bytes"))) if reported else None,
-        "budget_sources": (storage.get("budget_sources") or {}) if reported else {},
+        # CENTRAL IS AUTHORITATIVE in cap mode (2026-08-22): allocation - reserve
+        # computed above, with the worker's declared worker_* terms folded into
+        # the min. A stale worker self-report (pre-carve-out agent) is kept only
+        # as worker_reported_* for diagnosis; it never governs.
+        "budget_effective_bytes": (budget if budget_basis == "cap" else
+                                   ((_as_int(storage.get("budget_effective_bytes"))) if reported else None)),
+        "budget_sources": (central_budget_sources if budget_basis == "cap" else
+                           ((storage.get("budget_sources") or {}) if reported else {})),
+        "worker_reported_budget_effective_bytes": (_as_int(storage.get("budget_effective_bytes"))) if reported else None,
+        "worker_reported_budget_sources": (storage.get("budget_sources") or {}) if reported else {},
         "budget_cap_not_applicable": bool(storage.get("budget_cap_not_applicable")) if reported else False,
         # AUTO-REAP MODE (slice 8, Part B) — the per-worker opt-in flag + the last
         # time an auto-fire ran, so the console can show the mode ("auto" vs the
@@ -2559,7 +2899,8 @@ def _routing_rank(worker: Dict[str, Any], model_key: str, wanted: set,
 
 
 def _emit_route_select(model_key: str, chosen: Dict[str, Any],
-                       ordered: List[Dict[str, Any]], wanted: set) -> None:
+                       ordered: List[Dict[str, Any]], wanted: set,
+                       tok_s: Optional[Dict[str, Any]] = None) -> None:
     """Telemetry: WHY this box. Rides the eviction feed (GET /llm/evictions).
 
     Best-effort and totally guarded — a telemetry failure must never cost a
@@ -2577,6 +2918,7 @@ def _emit_route_select(model_key: str, chosen: Dict[str, Any],
             chosen_worker=(chosen.get("name") or chosen.get("id") or ""),
             tier=_route_tier(chosen, model_key, wanted),
             alternatives=alts or None,
+            tok_s=tok_s or None,
         )
     except Exception:  # noqa: BLE001 — telemetry never breaks routing
         logger.debug("route.select telemetry skipped for %s", model_key,
@@ -2993,6 +3335,8 @@ class WorkerStore:
         vram_evictions: Optional[Dict[str, Any]] = None,
         vram_holders: Optional[Dict[str, Any]] = None,
         aggregate: Optional[Dict[str, Any]] = None,
+        environment_digest: Optional[Dict[str, Any]] = None,
+        doctrine_status: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Mark a worker alive and refresh its live GPU / loaded-model stats."""
         with self._transaction() as workers:
@@ -3122,6 +3466,15 @@ class WorkerStore:
                 # a pre-aggregate worker -> the key simply stays unset, which
                 # is how the relay route reports "not yet aggregating".
                 worker["aggregate"] = aggregate
+            # k118 ENVIRONMENT DOCTRINE — both stored VERBATIM, both
+            # None-guarded so an older worker simply leaves the key unset (which
+            # GET /fleet/doctrine/status reports as "no report yet", never as
+            # "clean"). `_public_view` spreads the whole record, so both appear
+            # in list_workers()/GET /llm/workers with no further plumbing.
+            if environment_digest is not None:
+                worker["environment_digest"] = environment_digest
+            if doctrine_status is not None:
+                worker["doctrine_status"] = doctrine_status
             if vram_evictions is not None:
                 # VRAM eviction churn (slice 10): stored verbatim so the console
                 # can surface GPU evict-to-fit churn beside the disk reaps.
@@ -3188,7 +3541,10 @@ class WorkerStore:
     # the free-disk reserve default in storage_proposal), and — unlike the others
     # — has no worker-reported cap, so _clamp_limits passes it through unclamped.
     # More robust than the free-disk reserve against non-model disk pressure.
-    _LIMIT_KEYS = ("ram_max_gib", "gpu_mem_gib", "threads", "disk_cache_gib")
+    # disk_reserve_gib: inference headroom carved OUT of disk_cache_gib (no
+    # worker cap -> _clamp_limits passes it through).
+    _LIMIT_KEYS = ("ram_max_gib", "gpu_mem_gib", "threads", "disk_cache_gib",
+                   "disk_reserve_gib")
 
     def set_limits(self, worker_id: str,
                    limits: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -3384,6 +3740,7 @@ class WorkerStore:
             # that no longer exists. Missing degrades to "no history", which is
             # honestly what an unassigned-then-reassigned model has.
             worker.get("model_call_stats", {}).pop(model_key, None)
+            worker.get("model_tok_stats", {}).pop(model_key, None)
             _remember_assignments(worker)   # 4b: an explicit unassign IS forgotten
             return _public_view(worker)
 
@@ -3635,8 +3992,32 @@ class WorkerStore:
         infeasible_skipped = 0
         engine_skipped = 0
         wildcard_engine_skipped = 0
+        alloc_scope_skipped = 0
+        rows = self.all()
+        # ALLOCATION IS HARD SCOPE (operator ruling 2026-08-28, coder-next/
+        # computron): a model that HAS designation rows anywhere (operator
+        # assignment / SYSTEM grant) lands ONLY on those workers — a wildcard
+        # box never catches an ALLOCATED model, online or busy, initial pick
+        # or reroute. Rationale from the live incident: coder-next is
+        # allocated to ae; when ae hit its concurrency cap the reroute walk
+        # offered wildcard computron (whose 8+16 GiB box can never hold the
+        # 45 GiB file) and the caller got computron's refusal instead of the
+        # honest worker_busy. Unallocated models keep today's fleet-wide
+        # wildcard behavior byte-identically. Residency (loaded_models) is
+        # deliberately NOT part of the predicate — a transient warm copy on a
+        # wildcard box must not scope-lock the model to it.
+        _alloc_ids: set = set()
+        for _w0 in rows:
+            _des = list(_w0.get("models", [])) + list(_w0.get("grants", {}).keys())
+            if _des and _serveable_match(model_key, wanted, _des):
+                _alloc_ids.add(_w0.get("id") or "")
+        # Durable per-(model × worker) blocks (the pair-block half of the same
+        # ruling) — one normalized key so bare / "~"-qualified spellings of
+        # the same model land on one record (the dispatch cache uses the BARE
+        # key; the console the qualified one).
+        _pair_key = str(model_key).split("~")[-1].strip().lower()
         out = []
-        for w in self.all():
+        for w in rows:
             # Only admitted workers serve. Pending (awaiting operator approval) and
             # blocked workers are never picked for inference, even if assigned.
             if w.get("admission") != "approved":
@@ -3707,6 +4088,11 @@ class WorkerStore:
                 # no flags set routes exactly as before this feature existed.
                 if not wildcards.get(w.get("id") or ""):
                     continue
+                if _alloc_ids and (w.get("id") or "") not in _alloc_ids:
+                    # An ALLOCATED model never falls to a wildcard box off its
+                    # allocation (hard scope — see the block comment above).
+                    alloc_scope_skipped += 1
+                    continue
             if online_only and w["status"] != "online":
                 continue
             # Runtime-env tier gate: the model runs ONLY on a worker whose venv
@@ -3745,9 +4131,35 @@ class WorkerStore:
             # model / unmeasured box) never eliminates (degrade-not-guess). A HOME
             # match is exempt — a box already holding/serving the model is feasible
             # de facto and must never be route-refused by a static estimate.
-            if not home and worker_can_hold(w, model_key) is False:
-                infeasible_skipped += 1
-                continue
+            if not home:
+                # Pair-block wiring (operator ruling 2026-08-28): a POSITIVE
+                # permanent-no verdict is recorded as a durable, console-
+                # visible per-(model × worker) block; a True verdict clears
+                # it (quant pin shrank the model / the box grew); a None
+                # verdict (missing data — e.g. the bare dispatch-cache key
+                # can't resolve a size) consults the durable record instead
+                # of admitting the pair the fleet already knows can't fit.
+                # Missing data on its own still never RECORDS anything.
+                _verdict = worker_can_hold(w, model_key)
+                _wid = w.get("id") or ""
+                try:
+                    from ......comms import blocklist as _bl
+                    if _verdict is False:
+                        _bl.auto_block_pair(
+                            _pair_key, _wid,
+                            why=("does not fit this box's combined GPU+RAM "
+                                 "capacity in any mode (static verdict)"),
+                            worker_name=w.get("name"))
+                    elif _verdict is True:
+                        _bl.clear_pair_block(_pair_key, _wid)
+                    elif _bl.pair_blocked(_pair_key, _wid):
+                        infeasible_skipped += 1
+                        continue
+                except Exception:  # noqa: BLE001 — the store must never break routing
+                    pass
+                if _verdict is False:
+                    infeasible_skipped += 1
+                    continue
             if not home:
                 # Transient RESPONSE-COPY marker: ``w`` is a _public_view copy
                 # (self.all() rebuilds it from the store on every read), so this
@@ -3821,6 +4233,15 @@ class WorkerStore:
                 "model %s: %d designated worker(s) skipped — model does not fit "
                 "their GPU+RAM combined (statically infeasible; assign a larger "
                 "box or a smaller quant)", model_key, infeasible_skipped)
+        if not out and alloc_scope_skipped:
+            # Say-why parity: the model IS allocated somewhere, and only
+            # off-allocation wildcard boxes were available right now.
+            import logging as _logging
+            _logging.getLogger(__name__).info(
+                "model %s is ALLOCATED (%d worker(s)); %d wildcard box(es) "
+                "outside its allocation were skipped by hard scope — its own "
+                "workers are unavailable/busy right now", model_key,
+                len(_alloc_ids), alloc_scope_skipped)
         return out
 
     def pick_for_model(self, model_key: str, pool: Optional[str] = None,
@@ -3984,7 +4405,8 @@ class WorkerStore:
         # on the reroute walk, so the feed carries exactly one selection event
         # per dispatch and the operator can read residency/allocation adherence
         # straight off /llm/evictions instead of inferring it from outcomes.
-        _emit_route_select(model_key, chosen, candidates, wanted_forms)
+        _emit_route_select(model_key, chosen, candidates, wanted_forms,
+                           tok_s=tok_hint_for(chosen, model_key))
 
         # Persist the pick so round-robin survives across processes.
         with self._transaction() as workers:
@@ -4031,10 +4453,21 @@ class WorkerStore:
                 _record_interval(_row, _prev_call, now)
                 _row["last_call"] = now
                 chosen = stored
-        return _public_view(chosen)
+        # tok/s IS A VARIABLE IN EVERY SELECTION (operator 2026-08-22): read
+        # the (worker, model) rollup and carry it on the decision — log line,
+        # route.select telemetry, and the returned record (``selection_tok_s``).
+        # Ranking is untouched; this makes the variable PRESENT, not decisive.
+        hint = tok_hint_for(chosen, model_key)
+        logger.info("pick %s -> %s tok/s last=%s avg=%s n=%s",
+                    model_key, chosen.get("name") or chosen.get("id"),
+                    hint["last_tok_s"], hint["avg_tok_s"], hint["n"])
+        out = _public_view(chosen)
+        out["selection_tok_s"] = hint
+        return out
 
     def record_serve_metrics(self, worker_id: str, model_key: str,
-                             tok_s: Optional[float] = None) -> bool:
+                             tok_s: Optional[float] = None,
+                             **meta: Any) -> bool:
         """THE ONE WRITER for measured serve quality on the shared ledger.
 
         Stamps decode rate onto ``model_call_stats[model_key]`` — the same row
@@ -4059,6 +4492,14 @@ class WorkerStore:
         if tok_s is None:
             return False
         try:
+            v = float(tok_s)
+        except (TypeError, ValueError):
+            return False
+        if not (v > 0.0) or v != v or v in (float("inf"), float("-inf")):
+            return False
+        now = _now()
+        state: Dict[str, Any] = {}
+        try:
             with self._transaction() as workers:
                 stored = workers.get(worker_id)
                 if stored is None:
@@ -4067,11 +4508,45 @@ class WorkerStore:
                     model_key, {"calls": 0})
                 if not isinstance(row, dict):
                     return False
-                return _record_tok_s(row, tok_s)
+                ok = _record_tok_s(row, v)
+                if not ok:
+                    return False
+                # (b) per-(worker,model) rollup + (c) per-worker rollup
+                mts = stored.setdefault("model_tok_stats", {})
+                mrow = mts.get(model_key)
+                if not isinstance(mrow, dict):
+                    mrow = mts[model_key] = {}
+                _rollup_tok_stats(mrow, v, now)
+                ts = stored.get("tok_stats")
+                if not isinstance(ts, dict):
+                    ts = stored["tok_stats"] = {}
+                _rollup_tok_stats(ts, v, now, model_key=model_key)
+                # STATE SNAPSHOT — captured INSIDE the transaction, off the
+                # authoritative stored record central holds (vram/alloc/
+                # co-residents live on the heartbeat, not the relay). Assembled
+                # here so the ledger line can later say which configuration gave
+                # the best tok/s. Fail-open inside _state_snapshot.
+                state = _state_snapshot(stored, model_key, meta)
         except Exception:  # noqa: BLE001 — recording must never fail a request
             logger.debug("record_serve_metrics skipped for %s/%s",
                          worker_id, model_key, exc_info=True)
             return False
+        # (a) every query logged — outside the store lock, append-only.
+        entry: Dict[str, Any] = {
+            "ts": round(now, 3), "worker_id": worker_id, "model_key": model_key,
+            "tok_s": round(v, 3),
+        }
+        for k in ("request_id", "prompt_tokens", "completion_tokens",
+                  "elapsed_s", "source", "estimated", "task"):
+            if meta.get(k) is not None:
+                entry[k] = meta[k]
+        if state:
+            entry["state"] = state
+        _append_toks_log(entry)
+        logger.info("toks: %s/%s %.1f tok/s (%s, n=%s) rid=%s",
+                    worker_id, model_key, v, entry.get("source", "?"),
+                    mrow.get("n"), entry.get("request_id"))
+        return True
 
     def candidates_for_model(self, model_key: str,
                              pool: Optional[str] = None,
@@ -4390,7 +4865,10 @@ def worker_can_hold(worker: Dict[str, Any], model_key: str) -> Optional[bool]:
             _model_engine(model_key),
             _model_size_bytes(model_key),
             _worker_gpu_total_bytes(worker),
-            _worker_ram_total_bytes(worker))
+            _worker_ram_total_bytes(worker),
+            # MoE: the split's GPU-resident share is the honest static ceiling
+            # (experts stream via mmap) — same term feasible_modes prices.
+            moe_split_gpu_bytes=_model_moe_gpu_bytes(model_key))
     except Exception:  # noqa: BLE001 — a static gate must never manufacture a skip
         return None
 
@@ -4447,11 +4925,14 @@ def candidates_for_model(model_key: str, pool: Optional[str] = None,
 
 
 def record_serve_metrics(worker_id: str, model_key: str,
-                         tok_s: Optional[float] = None) -> bool:
+                         tok_s: Optional[float] = None, **meta: Any) -> bool:
     """Module-level binding of ``WorkerStore.record_serve_metrics`` — the seam
     the core relay is handed (web -> core), matching pick_worker_for_model's
-    pattern. Fail-open all the way down; see the store method."""
-    return worker_store.record_serve_metrics(worker_id, model_key, tok_s=tok_s)
+    pattern. Fail-open all the way down; see the store method. ``meta`` is the
+    per-query record (request_id, prompt/completion tokens, elapsed_s, source,
+    estimated) that lands in toks_log.jsonl."""
+    return worker_store.record_serve_metrics(worker_id, model_key, tok_s=tok_s,
+                                             **meta)
 
 
 # ---------------------------------------------------------------------------

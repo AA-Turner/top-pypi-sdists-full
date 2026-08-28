@@ -10153,6 +10153,80 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.describe_dbresource_management_mode_with_options_async(request, runtime)
 
+    def describe_dbversion_with_options(
+        self,
+        request: main_models.DescribeDBVersionRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DescribeDBVersionResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbinstance_id):
+            query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.owner_id):
+            query['OwnerId'] = request.owner_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DescribeDBVersion',
+            version = '2016-05-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DescribeDBVersionResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def describe_dbversion_with_options_async(
+        self,
+        request: main_models.DescribeDBVersionRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DescribeDBVersionResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbinstance_id):
+            query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.owner_id):
+            query['OwnerId'] = request.owner_id
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DescribeDBVersion',
+            version = '2016-05-03',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DescribeDBVersionResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def describe_dbversion(
+        self,
+        request: main_models.DescribeDBVersionRequest,
+    ) -> main_models.DescribeDBVersionResponse:
+        runtime = RuntimeOptions()
+        return self.describe_dbversion_with_options(request, runtime)
+
+    async def describe_dbversion_async(
+        self,
+        request: main_models.DescribeDBVersionRequest,
+    ) -> main_models.DescribeDBVersionResponse:
+        runtime = RuntimeOptions()
+        return await self.describe_dbversion_with_options_async(request, runtime)
+
     def describe_dbversion_infos_with_options(
         self,
         request: main_models.DescribeDBVersionInfosRequest,

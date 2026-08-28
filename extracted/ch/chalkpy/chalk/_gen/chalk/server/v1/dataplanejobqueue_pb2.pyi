@@ -36,6 +36,7 @@ class JobQueueKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     JOB_QUEUE_KIND_CHALKSQL_RUN: _ClassVar[JobQueueKind]
     JOB_QUEUE_KIND_DATAFRAME_RUN: _ClassVar[JobQueueKind]
     JOB_QUEUE_KIND_FILL_WIDE_TABLES: _ClassVar[JobQueueKind]
+    JOB_QUEUE_KIND_COMPACT_WIDE_TABLES: _ClassVar[JobQueueKind]
 
 JOB_QUEUE_STATE_UNSPECIFIED: JobQueueState
 JOB_QUEUE_STATE_SCHEDULED: JobQueueState
@@ -52,6 +53,7 @@ JOB_QUEUE_KIND_SCRIPT_TASK: JobQueueKind
 JOB_QUEUE_KIND_CHALKSQL_RUN: JobQueueKind
 JOB_QUEUE_KIND_DATAFRAME_RUN: JobQueueKind
 JOB_QUEUE_KIND_FILL_WIDE_TABLES: JobQueueKind
+JOB_QUEUE_KIND_COMPACT_WIDE_TABLES: JobQueueKind
 
 class JobQueueItem(_message.Message):
     __slots__ = (
@@ -596,6 +598,138 @@ class ListJobQueueConsumersResponse(_message.Message):
     CONSUMERS_FIELD_NUMBER: _ClassVar[int]
     consumers: _containers.RepeatedCompositeFieldContainer[JobQueueConsumer]
     def __init__(self, consumers: _Optional[_Iterable[_Union[JobQueueConsumer, _Mapping]]] = ...) -> None: ...
+
+class JobQueueConsumerWorkload(_message.Message):
+    __slots__ = (
+        "attempt_id",
+        "job_queue_id",
+        "attempt_idx",
+        "attempt_state",
+        "job_state",
+        "job_kind",
+        "operation_id",
+        "job_name",
+        "job_index",
+        "resource_group",
+        "queued_at",
+        "started_at",
+        "work_started_at",
+        "finished_at",
+    )
+    ATTEMPT_ID_FIELD_NUMBER: _ClassVar[int]
+    JOB_QUEUE_ID_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPT_IDX_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPT_STATE_FIELD_NUMBER: _ClassVar[int]
+    JOB_STATE_FIELD_NUMBER: _ClassVar[int]
+    JOB_KIND_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    JOB_NAME_FIELD_NUMBER: _ClassVar[int]
+    JOB_INDEX_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    QUEUED_AT_FIELD_NUMBER: _ClassVar[int]
+    STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    WORK_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    FINISHED_AT_FIELD_NUMBER: _ClassVar[int]
+    attempt_id: int
+    job_queue_id: int
+    attempt_idx: int
+    attempt_state: JobQueueState
+    job_state: JobQueueState
+    job_kind: JobQueueKind
+    operation_id: str
+    job_name: str
+    job_index: int
+    resource_group: str
+    queued_at: _timestamp_pb2.Timestamp
+    started_at: _timestamp_pb2.Timestamp
+    work_started_at: _timestamp_pb2.Timestamp
+    finished_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        attempt_id: _Optional[int] = ...,
+        job_queue_id: _Optional[int] = ...,
+        attempt_idx: _Optional[int] = ...,
+        attempt_state: _Optional[_Union[JobQueueState, str]] = ...,
+        job_state: _Optional[_Union[JobQueueState, str]] = ...,
+        job_kind: _Optional[_Union[JobQueueKind, str]] = ...,
+        operation_id: _Optional[str] = ...,
+        job_name: _Optional[str] = ...,
+        job_index: _Optional[int] = ...,
+        resource_group: _Optional[str] = ...,
+        queued_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        work_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        finished_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class JobQueueConsumerUtilization(_message.Message):
+    __slots__ = (
+        "window_start",
+        "window_end",
+        "lifetime_seconds",
+        "busy_seconds",
+        "idle_seconds",
+        "utilization_ratio",
+        "workload_count",
+        "partial",
+    )
+    WINDOW_START_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_END_FIELD_NUMBER: _ClassVar[int]
+    LIFETIME_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    BUSY_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    IDLE_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    UTILIZATION_RATIO_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_COUNT_FIELD_NUMBER: _ClassVar[int]
+    PARTIAL_FIELD_NUMBER: _ClassVar[int]
+    window_start: _timestamp_pb2.Timestamp
+    window_end: _timestamp_pb2.Timestamp
+    lifetime_seconds: float
+    busy_seconds: float
+    idle_seconds: float
+    utilization_ratio: float
+    workload_count: int
+    partial: bool
+    def __init__(
+        self,
+        window_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        window_end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        lifetime_seconds: _Optional[float] = ...,
+        busy_seconds: _Optional[float] = ...,
+        idle_seconds: _Optional[float] = ...,
+        utilization_ratio: _Optional[float] = ...,
+        workload_count: _Optional[int] = ...,
+        partial: bool = ...,
+    ) -> None: ...
+
+class GetJobQueueConsumerTimelineRequest(_message.Message):
+    __slots__ = ("environment_id", "consumer_id", "limit")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CONSUMER_ID_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    consumer_id: int
+    limit: int
+    def __init__(
+        self, environment_id: _Optional[str] = ..., consumer_id: _Optional[int] = ..., limit: _Optional[int] = ...
+    ) -> None: ...
+
+class GetJobQueueConsumerTimelineResponse(_message.Message):
+    __slots__ = ("consumer", "workloads", "utilization", "truncated")
+    CONSUMER_FIELD_NUMBER: _ClassVar[int]
+    WORKLOADS_FIELD_NUMBER: _ClassVar[int]
+    UTILIZATION_FIELD_NUMBER: _ClassVar[int]
+    TRUNCATED_FIELD_NUMBER: _ClassVar[int]
+    consumer: JobQueueConsumer
+    workloads: _containers.RepeatedCompositeFieldContainer[JobQueueConsumerWorkload]
+    utilization: JobQueueConsumerUtilization
+    truncated: bool
+    def __init__(
+        self,
+        consumer: _Optional[_Union[JobQueueConsumer, _Mapping]] = ...,
+        workloads: _Optional[_Iterable[_Union[JobQueueConsumerWorkload, _Mapping]]] = ...,
+        utilization: _Optional[_Union[JobQueueConsumerUtilization, _Mapping]] = ...,
+        truncated: bool = ...,
+    ) -> None: ...
 
 class ForceCancelJobQueueJobRequest(_message.Message):
     __slots__ = ("environment_id", "by_job_queue_id", "by_operation_and_shard")

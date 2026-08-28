@@ -2,6 +2,8 @@ from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.common.v1 import online_query_pb2 as _online_query_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -271,6 +273,7 @@ class OfflineQueryRequest(_message.Message):
         "use_multiple_computers",
         "num_shards",
         "num_workers",
+        "use_job_queue",
         "query_context",
         "overlay_graph",
         "query_name",
@@ -336,6 +339,7 @@ class OfflineQueryRequest(_message.Message):
     USE_MULTIPLE_COMPUTERS_FIELD_NUMBER: _ClassVar[int]
     NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
     NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
+    USE_JOB_QUEUE_FIELD_NUMBER: _ClassVar[int]
     QUERY_CONTEXT_FIELD_NUMBER: _ClassVar[int]
     OVERLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -372,6 +376,7 @@ class OfflineQueryRequest(_message.Message):
     use_multiple_computers: bool
     num_shards: int
     num_workers: int
+    use_job_queue: bool
     query_context: _containers.MessageMap[str, _struct_pb2.Value]
     overlay_graph: _graph_pb2.OverlayGraph
     query_name: str
@@ -410,6 +415,7 @@ class OfflineQueryRequest(_message.Message):
         use_multiple_computers: bool = ...,
         num_shards: _Optional[int] = ...,
         num_workers: _Optional[int] = ...,
+        use_job_queue: bool = ...,
         query_context: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         overlay_graph: _Optional[_Union[_graph_pb2.OverlayGraph, _Mapping]] = ...,
         query_name: _Optional[str] = ...,

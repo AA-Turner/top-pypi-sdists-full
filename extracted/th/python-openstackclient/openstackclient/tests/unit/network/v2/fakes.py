@@ -901,6 +901,12 @@ def create_one_ip_availability(attrs=None):
         'subnet_ip_availability': [],
         'total_ips': 254,
         'used_ips': 6,
+        'ip_availability_details': {
+            'total_ips_in_subnet': 254,
+            'total_ips_in_allocation_pool': 253,
+            'used_ips_in_subnet': 6,
+            'used_ips_in_allocation_pool': 4,
+        },
         'location': 'MUNCHMUNCHMUNCH',
     }
     network_ip_attrs.update(attrs)

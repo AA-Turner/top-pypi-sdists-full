@@ -15,12 +15,16 @@ _sym_db = _symbol_database.Default()
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as chalk_dot_chart_dot_v1_dot_densetimeserieschart__pb2
+from chalk._gen.chalk.searchaggregates.v1 import (
+    aggregation_pb2 as chalk_dot_searchaggregates_dot_v1_dot_aggregation__pb2,
+)
+from chalk._gen.chalk.server.v1 import chart_pb2 as chalk_dot_server_dot_v1_dot_chart__pb2
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n!chalk/server/v1/kube_events.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/chart/v1/densetimeserieschart.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xf4\x03\n\tKubeEvent\x12\x38\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1d\n\nevent_type\x18\x02 \x01(\tR\teventType\x12\x1a\n\x08severity\x18\x03 \x01(\tR\x08severity\x12!\n\x0c\x63luster_name\x18\x04 \x01(\tR\x0b\x63lusterName\x12\x1c\n\tnamespace\x18\x05 \x01(\tR\tnamespace\x12\x12\n\x04name\x18\x06 \x01(\tR\x04name\x12\x12\n\x04kind\x18\x07 \x01(\tR\x04kind\x12\x16\n\x06reason\x18\x08 \x01(\tR\x06reason\x12\x18\n\x07message\x18\t \x01(\tR\x07message\x12)\n\x10source_component\x18\n \x01(\tR\x0fsourceComponent\x12\x43\n\x0f\x66irst_timestamp\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0e\x66irstTimestamp\x12\x41\n\x0elast_timestamp\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampR\rlastTimestamp\x12\x14\n\x05\x63ount\x18\r \x01(\x05R\x05\x63ount\x12\x0e\n\x02id\x18\x0e \x01(\tR\x02id"A\n\x17ListKubeEventsPageToken\x12&\n\x0fnext_page_token\x18\x01 \x01(\tR\rnextPageToken"\xeb\x03\n\x15ListKubeEventsRequest\x12>\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12"\n\nnamespaces\x18\x03 \x03(\tB\x02\x18\x01R\nnamespaces\x12\x1f\n\tpod_names\x18\x04 \x03(\tB\x02\x18\x01R\x08podNames\x12.\n\x0emessage_filter\x18\x05 \x01(\tB\x02\x18\x01H\x02R\rmessageFilter\x88\x01\x01\x12\x14\n\x05limit\x18\x06 \x01(\x05R\x05limit\x12\x1a\n\x06offset\x18\x07 \x01(\x03\x42\x02\x18\x01R\x06offset\x12\x19\n\x05query\x18\x08 \x01(\tH\x03R\x05query\x88\x01\x01\x12L\n\npage_token\x18\t \x01(\x0b\x32(.chalk.server.v1.ListKubeEventsPageTokenH\x04R\tpageToken\x88\x01\x01\x42\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x11\n\x0f_message_filterB\x08\n\x06_queryB\r\n\x0b_page_token"\xb7\x01\n\x16ListKubeEventsResponse\x12\x32\n\x06\x65vents\x18\x01 \x03(\x0b\x32\x1a.chalk.server.v1.KubeEventR\x06\x65vents\x12U\n\x0fnext_page_token\x18\x02 \x01(\x0b\x32(.chalk.server.v1.ListKubeEventsPageTokenH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token"\x9a\x01\n\x0eKubeEventFacet\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n\tgroupable\x18\x03 \x01(\x08R\tgroupable\x12\x42\n\nfacet_type\x18\x04 \x01(\x0e\x32#.chalk.server.v1.KubeEventFacetTypeR\tfacetType"\x1b\n\x19GetKubeEventFacetsRequest"U\n\x1aGetKubeEventFacetsResponse\x12\x37\n\x06\x66\x61\x63\x65ts\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.KubeEventFacetR\x06\x66\x61\x63\x65ts"\x84\x03\n\x1eGetKubeEventFacetValuesRequest\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12>\n\nstart_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12\x19\n\x05query\x18\x05 \x01(\tH\x03R\x05query\x88\x01\x01\x12\x39\n\x16include_synthetic_rows\x18\x06 \x01(\x08H\x04R\x14includeSyntheticRows\x88\x01\x01\x12\x16\n\x06\x66\x61\x63\x65ts\x18\x07 \x03(\tR\x06\x66\x61\x63\x65tsB\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limitB\x08\n\x06_queryB\x19\n\x17_include_synthetic_rows"Y\n\x13KubeEventFacetValue\x12\x14\n\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n\x05\x63ount\x18\x02 \x01(\x03R\x05\x63ount\x12\x16\n\x06values\x18\x03 \x03(\tR\x06values"_\n\x1fGetKubeEventFacetValuesResponse\x12<\n\x06values\x18\x01 \x03(\x0b\x32$.chalk.server.v1.KubeEventFacetValueR\x06values"\xb5\x02\n\x1fListKubeEventsAggregatedRequest\x12\x19\n\x05query\x18\x01 \x01(\tH\x00R\x05query\x88\x01\x01\x12\x39\n\nstart_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12>\n\rwindow_period\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0cwindowPeriod\x12\x16\n\x06\x66\x61\x63\x65ts\x18\x05 \x03(\tR\x06\x66\x61\x63\x65ts\x12\x19\n\x05limit\x18\x06 \x01(\x05H\x01R\x05limit\x88\x01\x01\x42\x08\n\x06_queryB\x08\n\x06_limit"^\n ListKubeEventsAggregatedResponse\x12:\n\x05\x63hart\x18\x01 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x05\x63hart*\xba\x01\n\x12KubeEventFacetType\x12%\n!KUBE_EVENT_FACET_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aKUBE_EVENT_FACET_TYPE_LIST\x10\x01\x12\x1f\n\x1bKUBE_EVENT_FACET_TYPE_RANGE\x10\x02\x12\x1e\n\x1aKUBE_EVENT_FACET_TYPE_TEXT\x10\x03\x12\x1c\n\x18KUBE_EVENT_FACET_TYPE_ID\x10\x04\x32\x86\x04\n\x11KubeEventsService\x12i\n\x0eListKubeEvents\x12&.chalk.server.v1.ListKubeEventsRequest\x1a\'.chalk.server.v1.ListKubeEventsResponse"\x06\x90\x02\x01\x80}\x0b\x12u\n\x12GetKubeEventFacets\x12*.chalk.server.v1.GetKubeEventFacetsRequest\x1a+.chalk.server.v1.GetKubeEventFacetsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x84\x01\n\x17GetKubeEventFacetValues\x12/.chalk.server.v1.GetKubeEventFacetValuesRequest\x1a\x30.chalk.server.v1.GetKubeEventFacetValuesResponse"\x06\x90\x02\x01\x80}\x0b\x12\x87\x01\n\x18ListKubeEventsAggregated\x12\x30.chalk.server.v1.ListKubeEventsAggregatedRequest\x1a\x31.chalk.server.v1.ListKubeEventsAggregatedResponse"\x06\x90\x02\x01\x80}\x0b\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0fKubeEventsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n!chalk/server/v1/kube_events.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/chart/v1/densetimeserieschart.proto\x1a+chalk/searchaggregates/v1/aggregation.proto\x1a\x1b\x63halk/server/v1/chart.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xf4\x03\n\tKubeEvent\x12\x38\n\ttimestamp\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ttimestamp\x12\x1d\n\nevent_type\x18\x02 \x01(\tR\teventType\x12\x1a\n\x08severity\x18\x03 \x01(\tR\x08severity\x12!\n\x0c\x63luster_name\x18\x04 \x01(\tR\x0b\x63lusterName\x12\x1c\n\tnamespace\x18\x05 \x01(\tR\tnamespace\x12\x12\n\x04name\x18\x06 \x01(\tR\x04name\x12\x12\n\x04kind\x18\x07 \x01(\tR\x04kind\x12\x16\n\x06reason\x18\x08 \x01(\tR\x06reason\x12\x18\n\x07message\x18\t \x01(\tR\x07message\x12)\n\x10source_component\x18\n \x01(\tR\x0fsourceComponent\x12\x43\n\x0f\x66irst_timestamp\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0e\x66irstTimestamp\x12\x41\n\x0elast_timestamp\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampR\rlastTimestamp\x12\x14\n\x05\x63ount\x18\r \x01(\x05R\x05\x63ount\x12\x0e\n\x02id\x18\x0e \x01(\tR\x02id"A\n\x17ListKubeEventsPageToken\x12&\n\x0fnext_page_token\x18\x01 \x01(\tR\rnextPageToken"\xeb\x03\n\x15ListKubeEventsRequest\x12>\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12"\n\nnamespaces\x18\x03 \x03(\tB\x02\x18\x01R\nnamespaces\x12\x1f\n\tpod_names\x18\x04 \x03(\tB\x02\x18\x01R\x08podNames\x12.\n\x0emessage_filter\x18\x05 \x01(\tB\x02\x18\x01H\x02R\rmessageFilter\x88\x01\x01\x12\x14\n\x05limit\x18\x06 \x01(\x05R\x05limit\x12\x1a\n\x06offset\x18\x07 \x01(\x03\x42\x02\x18\x01R\x06offset\x12\x19\n\x05query\x18\x08 \x01(\tH\x03R\x05query\x88\x01\x01\x12L\n\npage_token\x18\t \x01(\x0b\x32(.chalk.server.v1.ListKubeEventsPageTokenH\x04R\tpageToken\x88\x01\x01\x42\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x11\n\x0f_message_filterB\x08\n\x06_queryB\r\n\x0b_page_token"\xb7\x01\n\x16ListKubeEventsResponse\x12\x32\n\x06\x65vents\x18\x01 \x03(\x0b\x32\x1a.chalk.server.v1.KubeEventR\x06\x65vents\x12U\n\x0fnext_page_token\x18\x02 \x01(\x0b\x32(.chalk.server.v1.ListKubeEventsPageTokenH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token"\x81\x02\n\x0eKubeEventFacet\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n\tgroupable\x18\x03 \x01(\x08R\tgroupable\x12\x42\n\nfacet_type\x18\x04 \x01(\x0e\x32#.chalk.server.v1.KubeEventFacetTypeR\tfacetType\x12\x65\n\x16supported_aggregations\x18\x05 \x03(\x0e\x32..chalk.searchaggregates.v1.AggregationFunctionR\x15supportedAggregations"\x1b\n\x19GetKubeEventFacetsRequest"U\n\x1aGetKubeEventFacetsResponse\x12\x37\n\x06\x66\x61\x63\x65ts\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.KubeEventFacetR\x06\x66\x61\x63\x65ts"\x84\x03\n\x1eGetKubeEventFacetValuesRequest\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12>\n\nstart_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12\x19\n\x05query\x18\x05 \x01(\tH\x03R\x05query\x88\x01\x01\x12\x39\n\x16include_synthetic_rows\x18\x06 \x01(\x08H\x04R\x14includeSyntheticRows\x88\x01\x01\x12\x16\n\x06\x66\x61\x63\x65ts\x18\x07 \x03(\tR\x06\x66\x61\x63\x65tsB\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limitB\x08\n\x06_queryB\x19\n\x17_include_synthetic_rows"Y\n\x13KubeEventFacetValue\x12\x14\n\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n\x05\x63ount\x18\x02 \x01(\x03R\x05\x63ount\x12\x16\n\x06values\x18\x03 \x03(\tR\x06values"_\n\x1fGetKubeEventFacetValuesResponse\x12<\n\x06values\x18\x01 \x03(\x0b\x32$.chalk.server.v1.KubeEventFacetValueR\x06values"\xa3\x02\n\x1dGetKubeEventAggregatesRequest\x12>\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12\x19\n\x05query\x18\x03 \x01(\tH\x02R\x05query\x88\x01\x01\x12\x45\n\x07options\x18\x04 \x01(\x0b\x32+.chalk.searchaggregates.v1.AggregateOptionsR\x07optionsB\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_query"a\n\x1eGetKubeEventAggregatesResponse\x12?\n\x05table\x18\x01 \x01(\x0b\x32).chalk.searchaggregates.v1.AggregateTableR\x05table"\x84\x03\n\x1fListKubeEventsAggregatedRequest\x12\x19\n\x05query\x18\x01 \x01(\tH\x00R\x05query\x88\x01\x01\x12\x39\n\nstart_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12>\n\rwindow_period\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0cwindowPeriod\x12\x1a\n\x06\x66\x61\x63\x65ts\x18\x05 \x03(\tB\x02\x18\x01R\x06\x66\x61\x63\x65ts\x12\x1d\n\x05limit\x18\x06 \x01(\x05\x42\x02\x18\x01H\x01R\x05limit\x88\x01\x01\x12\x45\n\x07options\x18\x07 \x01(\x0b\x32+.chalk.searchaggregates.v1.AggregateOptionsR\x07optionsB\x08\n\x06_queryB\x08\n\x06_limit"^\n ListKubeEventsAggregatedResponse\x12:\n\x05\x63hart\x18\x01 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x05\x63hart"\x8c\x03\n\x17GetKubeEventStatRequest\x12\x19\n\x05query\x18\x01 \x01(\tH\x00R\x05query\x88\x01\x01\x12\x39\n\nstart_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12\\\n\x1a\x63omparison_lookback_offset\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationH\x01R\x18\x63omparisonLookbackOffset\x88\x01\x01\x12M\n\x0b\x61ggregation\x18\x05 \x01(\x0b\x32&.chalk.searchaggregates.v1.AggregationH\x02R\x0b\x61ggregation\x88\x01\x01\x42\x08\n\x06_queryB\x1d\n\x1b_comparison_lookback_offsetB\x0e\n\x0c_aggregation"T\n\x18GetKubeEventStatResponse\x12\x38\n\x06result\x18\x01 \x01(\x0b\x32 .chalk.server.v1.StatisticResultR\x06result*\xba\x01\n\x12KubeEventFacetType\x12%\n!KUBE_EVENT_FACET_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aKUBE_EVENT_FACET_TYPE_LIST\x10\x01\x12\x1f\n\x1bKUBE_EVENT_FACET_TYPE_RANGE\x10\x02\x12\x1e\n\x1aKUBE_EVENT_FACET_TYPE_TEXT\x10\x03\x12\x1c\n\x18KUBE_EVENT_FACET_TYPE_ID\x10\x04\x32\x93\x06\n\x11KubeEventsService\x12m\n\x0eListKubeEvents\x12&.chalk.server.v1.ListKubeEventsRequest\x1a\'.chalk.server.v1.ListKubeEventsResponse"\n\x90\x02\x01\x80}\x0b\x92}\x01\x06\x12y\n\x12GetKubeEventFacets\x12*.chalk.server.v1.GetKubeEventFacetsRequest\x1a+.chalk.server.v1.GetKubeEventFacetsResponse"\n\x90\x02\x01\x80}\x0b\x92}\x01\x06\x12\x88\x01\n\x17GetKubeEventFacetValues\x12/.chalk.server.v1.GetKubeEventFacetValuesRequest\x1a\x30.chalk.server.v1.GetKubeEventFacetValuesResponse"\n\x90\x02\x01\x80}\x0b\x92}\x01\x06\x12\x8b\x01\n\x18ListKubeEventsAggregated\x12\x30.chalk.server.v1.ListKubeEventsAggregatedRequest\x1a\x31.chalk.server.v1.ListKubeEventsAggregatedResponse"\n\x90\x02\x01\x80}\x0b\x92}\x01\x06\x12\x85\x01\n\x16GetKubeEventAggregates\x12..chalk.server.v1.GetKubeEventAggregatesRequest\x1a/.chalk.server.v1.GetKubeEventAggregatesResponse"\n\x90\x02\x01\x80}\x0b\x92}\x01\x06\x12s\n\x10GetKubeEventStat\x12(.chalk.server.v1.GetKubeEventStatRequest\x1a).chalk.server.v1.GetKubeEventStatResponse"\n\x90\x02\x01\x80}\x0b\x92}\x01\x06\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0fKubeEventsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -39,44 +43,68 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_LISTKUBEEVENTSREQUEST"].fields_by_name["message_filter"]._serialized_options = b"\030\001"
     _globals["_LISTKUBEEVENTSREQUEST"].fields_by_name["offset"]._options = None
     _globals["_LISTKUBEEVENTSREQUEST"].fields_by_name["offset"]._serialized_options = b"\030\001"
+    _globals["_LISTKUBEEVENTSAGGREGATEDREQUEST"].fields_by_name["facets"]._options = None
+    _globals["_LISTKUBEEVENTSAGGREGATEDREQUEST"].fields_by_name["facets"]._serialized_options = b"\030\001"
+    _globals["_LISTKUBEEVENTSAGGREGATEDREQUEST"].fields_by_name["limit"]._options = None
+    _globals["_LISTKUBEEVENTSAGGREGATEDREQUEST"].fields_by_name["limit"]._serialized_options = b"\030\001"
     _globals["_KUBEEVENTSSERVICE"].methods_by_name["ListKubeEvents"]._options = None
-    _globals["_KUBEEVENTSSERVICE"].methods_by_name["ListKubeEvents"]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_KUBEEVENTSSERVICE"].methods_by_name[
+        "ListKubeEvents"
+    ]._serialized_options = b"\220\002\001\200}\013\222}\001\006"
     _globals["_KUBEEVENTSSERVICE"].methods_by_name["GetKubeEventFacets"]._options = None
-    _globals["_KUBEEVENTSSERVICE"].methods_by_name["GetKubeEventFacets"]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_KUBEEVENTSSERVICE"].methods_by_name[
+        "GetKubeEventFacets"
+    ]._serialized_options = b"\220\002\001\200}\013\222}\001\006"
     _globals["_KUBEEVENTSSERVICE"].methods_by_name["GetKubeEventFacetValues"]._options = None
     _globals["_KUBEEVENTSSERVICE"].methods_by_name[
         "GetKubeEventFacetValues"
-    ]._serialized_options = b"\220\002\001\200}\013"
+    ]._serialized_options = b"\220\002\001\200}\013\222}\001\006"
     _globals["_KUBEEVENTSSERVICE"].methods_by_name["ListKubeEventsAggregated"]._options = None
     _globals["_KUBEEVENTSSERVICE"].methods_by_name[
         "ListKubeEventsAggregated"
-    ]._serialized_options = b"\220\002\001\200}\013"
-    _globals["_KUBEEVENTFACETTYPE"]._serialized_start = 2706
-    _globals["_KUBEEVENTFACETTYPE"]._serialized_end = 2892
-    _globals["_KUBEEVENT"]._serialized_start = 196
-    _globals["_KUBEEVENT"]._serialized_end = 696
-    _globals["_LISTKUBEEVENTSPAGETOKEN"]._serialized_start = 698
-    _globals["_LISTKUBEEVENTSPAGETOKEN"]._serialized_end = 763
-    _globals["_LISTKUBEEVENTSREQUEST"]._serialized_start = 766
-    _globals["_LISTKUBEEVENTSREQUEST"]._serialized_end = 1257
-    _globals["_LISTKUBEEVENTSRESPONSE"]._serialized_start = 1260
-    _globals["_LISTKUBEEVENTSRESPONSE"]._serialized_end = 1443
-    _globals["_KUBEEVENTFACET"]._serialized_start = 1446
-    _globals["_KUBEEVENTFACET"]._serialized_end = 1600
-    _globals["_GETKUBEEVENTFACETSREQUEST"]._serialized_start = 1602
-    _globals["_GETKUBEEVENTFACETSREQUEST"]._serialized_end = 1629
-    _globals["_GETKUBEEVENTFACETSRESPONSE"]._serialized_start = 1631
-    _globals["_GETKUBEEVENTFACETSRESPONSE"]._serialized_end = 1716
-    _globals["_GETKUBEEVENTFACETVALUESREQUEST"]._serialized_start = 1719
-    _globals["_GETKUBEEVENTFACETVALUESREQUEST"]._serialized_end = 2107
-    _globals["_KUBEEVENTFACETVALUE"]._serialized_start = 2109
-    _globals["_KUBEEVENTFACETVALUE"]._serialized_end = 2198
-    _globals["_GETKUBEEVENTFACETVALUESRESPONSE"]._serialized_start = 2200
-    _globals["_GETKUBEEVENTFACETVALUESRESPONSE"]._serialized_end = 2295
-    _globals["_LISTKUBEEVENTSAGGREGATEDREQUEST"]._serialized_start = 2298
-    _globals["_LISTKUBEEVENTSAGGREGATEDREQUEST"]._serialized_end = 2607
-    _globals["_LISTKUBEEVENTSAGGREGATEDRESPONSE"]._serialized_start = 2609
-    _globals["_LISTKUBEEVENTSAGGREGATEDRESPONSE"]._serialized_end = 2703
-    _globals["_KUBEEVENTSSERVICE"]._serialized_start = 2895
-    _globals["_KUBEEVENTSSERVICE"]._serialized_end = 3413
+    ]._serialized_options = b"\220\002\001\200}\013\222}\001\006"
+    _globals["_KUBEEVENTSSERVICE"].methods_by_name["GetKubeEventAggregates"]._options = None
+    _globals["_KUBEEVENTSSERVICE"].methods_by_name[
+        "GetKubeEventAggregates"
+    ]._serialized_options = b"\220\002\001\200}\013\222}\001\006"
+    _globals["_KUBEEVENTSSERVICE"].methods_by_name["GetKubeEventStat"]._options = None
+    _globals["_KUBEEVENTSSERVICE"].methods_by_name[
+        "GetKubeEventStat"
+    ]._serialized_options = b"\220\002\001\200}\013\222}\001\006"
+    _globals["_KUBEEVENTFACETTYPE"]._serialized_start = 3840
+    _globals["_KUBEEVENTFACETTYPE"]._serialized_end = 4026
+    _globals["_KUBEEVENT"]._serialized_start = 270
+    _globals["_KUBEEVENT"]._serialized_end = 770
+    _globals["_LISTKUBEEVENTSPAGETOKEN"]._serialized_start = 772
+    _globals["_LISTKUBEEVENTSPAGETOKEN"]._serialized_end = 837
+    _globals["_LISTKUBEEVENTSREQUEST"]._serialized_start = 840
+    _globals["_LISTKUBEEVENTSREQUEST"]._serialized_end = 1331
+    _globals["_LISTKUBEEVENTSRESPONSE"]._serialized_start = 1334
+    _globals["_LISTKUBEEVENTSRESPONSE"]._serialized_end = 1517
+    _globals["_KUBEEVENTFACET"]._serialized_start = 1520
+    _globals["_KUBEEVENTFACET"]._serialized_end = 1777
+    _globals["_GETKUBEEVENTFACETSREQUEST"]._serialized_start = 1779
+    _globals["_GETKUBEEVENTFACETSREQUEST"]._serialized_end = 1806
+    _globals["_GETKUBEEVENTFACETSRESPONSE"]._serialized_start = 1808
+    _globals["_GETKUBEEVENTFACETSRESPONSE"]._serialized_end = 1893
+    _globals["_GETKUBEEVENTFACETVALUESREQUEST"]._serialized_start = 1896
+    _globals["_GETKUBEEVENTFACETVALUESREQUEST"]._serialized_end = 2284
+    _globals["_KUBEEVENTFACETVALUE"]._serialized_start = 2286
+    _globals["_KUBEEVENTFACETVALUE"]._serialized_end = 2375
+    _globals["_GETKUBEEVENTFACETVALUESRESPONSE"]._serialized_start = 2377
+    _globals["_GETKUBEEVENTFACETVALUESRESPONSE"]._serialized_end = 2472
+    _globals["_GETKUBEEVENTAGGREGATESREQUEST"]._serialized_start = 2475
+    _globals["_GETKUBEEVENTAGGREGATESREQUEST"]._serialized_end = 2766
+    _globals["_GETKUBEEVENTAGGREGATESRESPONSE"]._serialized_start = 2768
+    _globals["_GETKUBEEVENTAGGREGATESRESPONSE"]._serialized_end = 2865
+    _globals["_LISTKUBEEVENTSAGGREGATEDREQUEST"]._serialized_start = 2868
+    _globals["_LISTKUBEEVENTSAGGREGATEDREQUEST"]._serialized_end = 3256
+    _globals["_LISTKUBEEVENTSAGGREGATEDRESPONSE"]._serialized_start = 3258
+    _globals["_LISTKUBEEVENTSAGGREGATEDRESPONSE"]._serialized_end = 3352
+    _globals["_GETKUBEEVENTSTATREQUEST"]._serialized_start = 3355
+    _globals["_GETKUBEEVENTSTATREQUEST"]._serialized_end = 3751
+    _globals["_GETKUBEEVENTSTATRESPONSE"]._serialized_start = 3753
+    _globals["_GETKUBEEVENTSTATRESPONSE"]._serialized_end = 3837
+    _globals["_KUBEEVENTSSERVICE"]._serialized_start = 4029
+    _globals["_KUBEEVENTSSERVICE"]._serialized_end = 4816
 # @@protoc_insertion_point(module_scope)

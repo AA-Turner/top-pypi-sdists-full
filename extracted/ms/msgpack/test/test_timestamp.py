@@ -71,6 +71,15 @@ def test_unpack_timestamp():
         msgpack.unpackb(b"\xc7\x05\xff\0\0\0\0\0")  # ext8 (len=5)
 
 
+def test_unpack_timestamp_out_of_range_nanoseconds():
+    # An out-of-range nanoseconds field must be rejected in every timestamp=
+    # mode (spec: nanoseconds must not exceed 999999999), not only the default.
+    for data in (b"\xd7\xff" + b"\xff" * 8, b"\xc7\x0c\xff" + b"\xff" * 12):
+        for mode in (0, 1, 2, 3):
+            with pytest.raises(ValueError):
+                msgpack.unpackb(data, timestamp=mode)
+
+
 def test_timestamp_from():
     t = Timestamp(42, 14000)
     assert Timestamp.from_unix(42.000014) == t
@@ -109,6 +118,40 @@ def test_timestamp_datetime():
     assert ts_pre_epoch.seconds == -1
     assert ts_pre_epoch.nanoseconds == 500000000
     assert ts_pre_epoch.to_datetime() == pre_epoch
+
+
+def test_from_datetime_far_future_precision():
+    # Regression: Timestamp.from_datetime used the float datetime.timestamp(),
+    # which cannot hold microsecond precision far from the epoch.  It rounded the
+    # whole-second part up by one while still taking the exact microsecond for the
+    # nanoseconds, yielding a Timestamp one second in the future -- and raised
+    # OverflowError near datetime.max.  It must instead match the integer
+    # arithmetic used by the Cython packer.
+    utc = datetime.timezone.utc
+    epoch = datetime.datetime(1970, 1, 1, tzinfo=utc)
+
+    for dt in [
+        datetime.datetime(2515, 1, 1, 0, 0, 0, 999999, tzinfo=utc),
+        datetime.datetime(3000, 1, 1, 0, 0, 0, 999999, tzinfo=utc),
+        datetime.datetime(5000, 6, 15, 12, 30, 45, 123456, tzinfo=utc),
+        # Near datetime.max: previously raised OverflowError.
+        datetime.datetime(9999, 12, 31, 23, 59, 59, 999999, tzinfo=utc),
+    ]:
+        ts = Timestamp.from_datetime(dt)
+        # Round-trips exactly (was one second in the future).
+        assert ts.to_datetime() == dt
+        # Whole-second part is exact, computed independently of the implementation.
+        assert ts.seconds == (dt - epoch) // datetime.timedelta(seconds=1)
+        assert ts.nanoseconds == dt.microsecond * 1000
+        # The pure-Python path agrees with packing the datetime directly (the
+        # reference path), i.e. no off-by-one-second divergence.
+        assert msgpack.packb(ts) == msgpack.packb(dt, datetime=True)
+
+    # Explicit value: 3000-01-01T00:00:00.999999Z is 32503680000 s after the
+    # epoch; the float path produced 32503680001 (one second in the future).
+    ts = Timestamp.from_datetime(datetime.datetime(3000, 1, 1, 0, 0, 0, 999999, tzinfo=utc))
+    assert ts.seconds == 32503680000
+    assert ts.nanoseconds == 999999000
 
 
 def test_unpack_datetime():
@@ -176,3 +219,9 @@ def test_pack_datetime_without_tzinfo():
     packed = msgpack.packb(dt, datetime=True)
     unpacked = msgpack.unpackb(packed, timestamp=3)
     assert unpacked == dt
+
+
+def test_too_large_timestamp():
+    # When timestamp64 is too large, conversion to datetime fails due to int64 -> int32 conversion.
+    # https://github.com/msgpack/msgpack-python/issues/696
+    print(msgpack.unpackb(b"\xd7\xff" + b"\x00" * 8, timestamp=3))

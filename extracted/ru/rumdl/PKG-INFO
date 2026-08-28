@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.61
+Version: 0.2.62
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -237,7 +237,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.61
+mise use rumdl@0.2.62
 ```
 
 ### Using Nix (macOS/Linux)
@@ -469,7 +469,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.61
+    rev: v0.2.62
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, always exits 0
@@ -485,7 +485,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.61
+    rev: v0.2.62
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -502,7 +502,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.61
+    rev: v0.2.62
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -638,6 +638,7 @@ rumdl supports multiple Markdown flavors to accommodate different documentation 
 | [kramdown](docs/flavors/kramdown.md)         | Jekyll / kramdown            | IALs, ALDs, extension blocks                        |
 | [azure_devops](docs/flavors/azure_devops.md) | Azure DevOps Wiki            | Colon code fences (:::lang ... :::)                 |
 | [myst](docs/flavors/myst.md)                 | MyST / Jupyter Book / Sphinx | Directives, roles, `%` comments                     |
+| [mdg](docs/flavors/mdg.md)                   | Markdown with Gherkin        | Gherkin-safe headings, tags, Doc Strings, tables    |
 
 ### Configuring Flavors
 
@@ -657,7 +658,8 @@ Or configure per-file patterns:
 "**/*.qmd" = "quarto"
 ```
 
-When no flavor is configured, rumdl auto-detects based on file extension (`.mdx` → mdx, `.qmd`/`.Rmd` → quarto, `.md` → standard).
+When no flavor is configured, rumdl auto-detects from the file name: `.mdx` → mdx, `.qmd`/`.Rmd` → quarto, `.md` → standard.
+A name ending in `.feature.md` matches that compound suffix before the plain `.md` rule, so those files are linted as mdg.
 
 For complete flavor documentation, see the [Flavors Guide](docs/flavors.md).
 

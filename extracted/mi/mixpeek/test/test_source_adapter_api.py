@@ -34,6 +34,13 @@ class TestSourceAdapterApi(unittest.TestCase):
         """
         pass
 
+    def test_refresh_source_adapter_buckets(self) -> None:
+        """Test case for refresh_source_adapter_buckets
+
+        Refresh Source Adapter
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -13,10 +13,11 @@ from skillsaw.rules.builtin.content_analysis import (
     AgentsMdBlock,
     ClaudeMdBlock,
     GeminiMdBlock,
+    QwenMdBlock,
 )
 from skillsaw.rules.builtin.utils import read_text
 
-from ._helpers import _IMPORT_RE
+from ._helpers import IMPORT_RE
 from skillsaw.paths import safe_exists, safe_is_file, safe_resolve
 
 _MAX_IMPORT_HOPS = 4
@@ -51,7 +52,10 @@ class InstructionImportsValidRule(Rule):
 
     @property
     def description(self) -> str:
-        return "Import references (@path) in AGENTS.md, CLAUDE.md, and GEMINI.md must point to existing files"
+        return (
+            "Import references (@path) in AGENTS.md, CLAUDE.md, GEMINI.md and QWEN.md "
+            "must point to existing files"
+        )
 
     def default_severity(self) -> Severity:
         return Severity.WARNING
@@ -69,6 +73,7 @@ class InstructionImportsValidRule(Rule):
             context.lint_tree.find(AgentsMdBlock)
             + context.lint_tree.find(ClaudeMdBlock)
             + context.lint_tree.find(GeminiMdBlock)
+            + context.lint_tree.find(QwenMdBlock)
         )
         for block in import_blocks:
             file_path = block.path
@@ -179,7 +184,7 @@ class InstructionImportsValidRule(Rule):
 
 
 def _iter_import_paths(line: str) -> Iterable[Tuple[str, bool]]:
-    for match in _IMPORT_RE.finditer(line):
+    for match in IMPORT_RE.finditer(line):
         import_path = match.group(1).rstrip(".!?")
         if not import_path:
             continue

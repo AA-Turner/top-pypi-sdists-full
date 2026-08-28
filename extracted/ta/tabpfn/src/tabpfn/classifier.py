@@ -735,6 +735,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             min_samples_for_inference=self.inference_config_.MIN_NUMBER_SAMPLES_FOR_CATEGORICAL_INFERENCE,
             max_unique_for_category=self.inference_config_.MAX_UNIQUE_FOR_CATEGORICAL_FEATURES,
             min_unique_for_numerical=self.inference_config_.MIN_UNIQUE_FOR_NUMERICAL_FEATURES,
+            min_cardinality_for_text=self.inference_config_.MIN_CARDINALITY_FOR_TEXT,
         )
         X, ordinal_encoder, feature_schema = clean_data(
             X=X,
@@ -878,6 +879,7 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
             forced_inference_dtype_=self.forced_inference_dtype_,
             memory_saving_mode=self.memory_saving_mode,
             use_autocast_=self.use_autocast_,
+            task_type="multiclass",
             inference_mode=True,
             keep_cache_on_device=self.keep_cache_on_device,
             kv_cache_precision=self.kv_cache_precision,
@@ -1829,7 +1831,9 @@ class TabPFNClassifier(ClassifierMixin, BaseEstimator):
                 Select the transformer output to return. Use ``"train"`` to obtain
                 embeddings from the training tokens and ``"test"`` for the test
                 tokens. When ``n_estimators > 1`` the returned array has shape
-                ``(n_estimators, n_samples, embedding_dim)``.
+                ``(n_estimators, n_samples, embedding_dim)``. ``"train"`` is not
+                available with ``fit_mode="fit_with_cache"``; see
+                :func:`tabpfn.base.get_embeddings`.
 
         Returns:
             np.ndarray

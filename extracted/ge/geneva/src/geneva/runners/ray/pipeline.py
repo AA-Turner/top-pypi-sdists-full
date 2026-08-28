@@ -186,6 +186,12 @@ from geneva.runners.ray.jobtracker import (
     job_tracker_throttle_kwargs,
 )
 from geneva.runners.ray.kuberay import PodStatus, _ray_status, k8s_status
+from geneva.runners.ray.memory_budget import (
+    largest_node_memory,
+    resolve_default_actor_memory,
+    unplaceable_reservation_warning,
+)
+from geneva.runners.ray.naming import job_tracker_name, ray_name
 from geneva.runners.ray.oom_recovery_budget import (
     OOMRecoveryBudgetTracker,
     init_oom_recovery_metrics,
@@ -219,6 +225,7 @@ from geneva.transformer import (
     BACKFILL_SELECTED,
     UDF,
     Chunker,
+    UDFArgType,
     UnpackedUDFField,
     _get_field_type_from_schema,
 )
@@ -377,6 +384,17 @@ _SEAL_SENTINEL: tuple[int, str, int] = (-1, "", 0)
 # flush), not the whole fragment, so it is an escape hatch, not a knob.
 WRITER_NO_PROGRESS_TIMEOUT_S = float(
     os.environ.get("GENEVA_WRITER_NO_PROGRESS_TIMEOUT_S", "600")
+)
+
+# How long the whole teardown may go with *no* writer placed before the job
+# gives up. Not a per-writer deadline: as long as one writer is running the job
+# is making progress, because it will finish, be reaped, and hand its
+# reservation to the next in line -- however long its own fragment takes. What
+# cannot resolve itself is nobody running at all, since then nothing will ever
+# free anything. Generous enough to cover ordinary scheduling latency, because
+# it only has to catch a state that never ends.
+WRITER_PLACEMENT_STALL_S = float(
+    os.environ.get("GENEVA_WRITER_PLACEMENT_STALL_S", "600")
 )
 
 _DRAIN_POLL_INTERVAL_S = 5.0
@@ -876,10 +894,27 @@ def _default_worker_loss_policy(
     )
 
 
+def _read_task_detail(task: Any) -> str | None:
+    """Best-effort ``frag=<id> off=<offset>`` scope for a read task's Ray name.
+
+    Never raises: a task whose destination range can't be resolved simply shows
+    up without the range in the dashboard.
+    """
+    try:
+        return f"frag={task.dest_frag_id()} off={task.dest_offset()}"
+    except Exception:
+        return None
+
+
 @ray.remote  # type: ignore[misc]
 @attrs.define
 class ApplierActor:  # pyright: ignore[reportRedeclaration]
     applier: CheckpointingApplier
+    # Dashboard-only labels, resolved on the driver so the repr stays cheap and
+    # crash-safe: they identify which job/table/column this actor is serving.
+    table_name: str | None = attrs.field(default=None)
+    column_name: str | None = attrs.field(default=None)
+    job_id: str | None = attrs.field(default=None)
     table_cache: TableCache = attrs.field(factory=TableCache, init=False, repr=False)
 
     def __ray_ready__(self) -> None:
@@ -888,16 +923,22 @@ class ApplierActor:  # pyright: ignore[reportRedeclaration]
     def __repr__(self) -> str:
         """Crash-safe repr used by Ray as the per-line log prefix.
 
-        Ray stamps ``repr(self)`` onto every log line this actor emits, so the
-        attrs-generated repr would splat the full applier config tree (including
-        redacted-but-noisy credential dicts) onto every line. Keep it to a short
-        job identifier.
+        Ray stamps ``repr(self)`` onto every log line this actor emits and shows
+        it in the dashboard's actor list, so the attrs-generated repr would
+        splat the full applier config tree (including redacted-but-noisy
+        credential dicts) onto every line. Keep it to the fields that tie the
+        actor back to its ``_geneva_jobs`` row.
         """
         try:
-            job_id = getattr(self.applier.batch_applier, "job_id", None)
-            return f"ApplierActor(job_id={job_id})"
+            job_id = self.job_id or getattr(self.applier.batch_applier, "job_id", None)
+            return ray_name(
+                "applier",
+                table=self.table_name,
+                column=self.column_name,
+                job_id=job_id,
+            )
         except Exception:
-            return "ApplierActor"
+            return "applier"
 
     def run(
         self, task, trace_carrier: dict | None = None
@@ -1214,6 +1255,7 @@ def _run_pipeline(
     enable_job_tracker_saves: bool = True,
     src_data_files_by_dst: dict[int, frozenset[str]] | None = None,
     fragment_base_placement: FragmentBasePlacement | None = None,
+    default_actor_memory_bytes: int | None = None,
 ) -> None:
     """
     Run the column adding pipeline.
@@ -1245,7 +1287,7 @@ def _run_pipeline(
             },
         )
         job_tracker = job_tracker or job_tracker_options(
-            name=f"jobtracker-{job_id}",
+            name=job_tracker_name(job_id),
             num_cpus=rc.jobtracker_num_cpus,
             memory=rc.jobtracker_memory,
             max_restarts=-1,
@@ -1278,6 +1320,7 @@ def _run_pipeline(
             skipped_stats=skipped_stats or {},
             src_data_files_by_dst=src_data_files_by_dst or {},
             fragment_base_placement=fragment_base_placement,
+            default_actor_memory_bytes=default_actor_memory_bytes,
         )
         job.run()
 
@@ -1425,6 +1468,13 @@ class ColumnAddPipelineJob:
     # Multi-base destination placement (None for single-base datasets):
     # staged output data files follow their fragment's storage base.
     fragment_base_placement: "FragmentBasePlacement | None" = None
+    # Bytes an actor reserves when its task declares no memory, priced on the
+    # *client* alongside the admission check and carried here so admission and
+    # Ray are given the same number -- they run in different processes, whose
+    # JobConfigs a runtime-env override can separate. None -> resolve from
+    # this process's config (callers that arrive outside backfill).
+    default_actor_memory_bytes: int | None = None
+    _warned_unplaceable: bool = attrs.field(default=False, init=False)
     _total_rows: int = attrs.field(default=0, init=False)
     # Running "tasks_completed" total; grows as failed ReadTasks are replaced
     # (see _account_for_replacements) so the completion bar can't overshoot.
@@ -1570,7 +1620,7 @@ class ColumnAddPipelineJob:
 
         rc = PipelineResourceConfig.get()
         self.job_tracker = self.job_tracker or job_tracker_options(  # type: ignore[assignment]
-            name=f"jobtracker-{self.job_id}",
+            name=job_tracker_name(self.job_id),
             num_cpus=rc.jobtracker_num_cpus,
             memory=rc.jobtracker_memory,
             max_restarts=-1,
@@ -1614,6 +1664,16 @@ class ColumnAddPipelineJob:
             total_readtasks,
         )
 
+    def _udf_label(self) -> str | None:
+        """Best-effort UDF label for Ray task names and actor reprs.
+
+        Never raises: a missing label only costs dashboard detail.
+        """
+        try:
+            return self.map_task.name()
+        except Exception:
+            return None
+
     def setup_actor(self) -> ray.actor.ActorHandle:
         actor = ApplierActor
 
@@ -1641,11 +1701,41 @@ class ColumnAddPipelineJob:
         elif self.use_cpu_only_pool:
             _LOG.info("Using CPU only pool for applier, setting %s to 1", CPU_ONLY_NODE)
             args["resources"] = {CPU_ONLY_NODE: 1}  # type: ignore[assignment]
-        memory = self.map_task.memory()
-        if memory:
+        # An actor with no ``memory`` is not scheduled conservatively -- Ray
+        # leaves it out of memory accounting entirely and packs by CPU alone,
+        # so a backfill UDF that declares nothing gets the configured floor
+        # (GEN-775). The task decides whether the floor reaches it at all:
+        # ``resolve_memory`` returns the declaration for every task outside
+        # that policy, and ``None`` when there is none, reserving nothing.
+        memory = self.map_task.resolve_memory(self._default_actor_memory_bytes())
+        if memory is not None:
             args["memory"] = memory * self.intra_applier_concurrency
+            self._warn_if_unplaceable(args["memory"])
         actor = actor.options(**args)  # type: ignore[attr-defined]
         return actor  # type: ignore[return-value]
+
+    def _warn_if_unplaceable(self, request_bytes: int) -> None:
+        """Say so when the reservation exceeds every node, once per job.
+
+        Not corrected here. Shrinking the request to fit would reserve less
+        than the job was sized for, and would make the figure Ray receives
+        differ from the one admission approved -- trading a loud failure for a
+        quiet one. The actor still asks for what it needs; this names why it
+        will sit unscheduled.
+        """
+        if self._warned_unplaceable:
+            return
+        message = unplaceable_reservation_warning(request_bytes, largest_node_memory())
+        if message is None:
+            return
+        self._warned_unplaceable = True
+        _LOG.warning("%s", message)
+
+    def _default_actor_memory_bytes(self) -> int:
+        """The floor the client priced, or this process's config if none."""
+        if self.default_actor_memory_bytes is not None:
+            return max(0, int(self.default_actor_memory_bytes))
+        return resolve_default_actor_memory(self.config)
 
     def _log_fatal_error_record(self, error_record: Any) -> None:
         if self._error_logger is None:
@@ -1773,7 +1863,13 @@ class ColumnAddPipelineJob:
             self.job_tracker.set_desc.remote("workers", "Workers started")
 
         pool = ActorPool(
-            functools.partial(actor.remote, applier=applier),
+            functools.partial(
+                actor.remote,
+                applier=applier,
+                table_name=self.dst.table_name,
+                column_name=self._udf_label(),
+                job_id=self.job_id,
+            ),
             self.applier_concurrency,
             job_tracker=self.job_tracker,
             worker_metric="workers",
@@ -2794,9 +2890,22 @@ class ColumnAddPipelineJob:
         # Capture the current (execute) span context once and hand it to every
         # actor task so worker `applier.run` spans join this job's trace.
         trace_carrier = telemetry.inject_context()
-        submit_fn = lambda actor, value: actor.run.remote(  # noqa: E731
-            value.task, trace_carrier
-        )
+        # Name every actor task after the fragment range it reads so a stuck or
+        # failed row in the Ray dashboard identifies both the job and the exact
+        # slice of data to replay locally.
+        udf_label = self._udf_label()
+
+        def submit_fn(actor, value):  # noqa: ANN001, ANN202
+            return actor.run.options(
+                name=ray_name(
+                    "applier.run",
+                    table=self.dst.table_name,
+                    column=udf_label,
+                    job_id=self.job_id,
+                    detail=_read_task_detail(value.task),
+                )
+            ).remote(value.task, trace_carrier)
+
         feeder = _ReadTaskFeeder(
             iter(plans),
             Counter(tasks_by_frag),
@@ -3144,6 +3253,8 @@ class FragmentWriterSession:
     )
     job_tracker: ActorHandle | None = attrs.field(default=None, repr=False)
     job_id: str | None = None
+    # Labels the writer actor reports in its Ray repr (dashboard/log prefix).
+    table_name: str | None = None
 
     # runtime state.  This is single-threaded and is not thread-safe.
     queue: ray.util.queue.Queue | None = attrs.field(default=None, init=False)
@@ -3166,6 +3277,11 @@ class FragmentWriterSession:
     # Liveness state for drain()'s no-progress watchdog (see _check_liveness).
     _live_last_seq: int | None = attrs.field(default=None, init=False)
     _live_last_advance: float = attrs.field(factory=time.monotonic, init=False)
+    # Readiness of the *current* actor generation. ``started`` only says the
+    # handle exists; Ray places the actor asynchronously, and an unplaced one
+    # cannot answer a progress probe.
+    _ready_fut: "ray.ObjectRef | None" = attrs.field(default=None, init=False)
+    _placed: bool = attrs.field(default=False, init=False)
     _live_last_snap: "WriterProgress | None" = attrs.field(default=None, init=False)
     _live_probe_fut: "ray.ObjectRef | None" = attrs.field(default=None, init=False)
     _live_warned_quiet: bool = attrs.field(default=False, init=False)
@@ -3216,6 +3332,9 @@ class FragmentWriterSession:
         # GEN-631: spread writers across nodes by default so per-pod working set
         # and write bandwidth don't pile onto whichever pod Ray packs them onto.
         scheduling_strategy = rc.fragment_writer_scheduling_strategy()
+        # Reset before the handle exists so a restart cannot inherit the old
+        # generation's readiness.
+        self._begin_placement_window()
         self.actor = FragmentWriter.options(  # type: ignore[assignment]
             num_cpus=num_cpus,
             memory=memory,
@@ -3258,9 +3377,19 @@ class FragmentWriterSession:
             blob_read_strategy=self.blob_read_strategy,
             blob_read_buffer_size=self.blob_read_buffer_size,
             max_rows_per_batch=self.writer_max_rows,
+            job_id=self.job_id,
+            table_name=self.table_name,
         )
-        # prime one future so we can detect when it finishes
-        fut = self.actor.write.remote()  # type: ignore[call-arg]
+        # prime one future so we can detect when it finishes. Named so the
+        # dashboard shows which fragment of which job a long write belongs to.
+        fut = self.actor.write.options(  # type: ignore[call-arg]
+            name=ray_name(
+                "writer.write",
+                table=self.table_name,
+                job_id=self.job_id,
+                detail=f"frag={self.frag_id}",
+            )
+        ).remote()
         self.inflight[fut] = self.frag_id  # type: ignore[assignment]
         self._shutdown = False
 
@@ -3592,7 +3721,83 @@ class FragmentWriterSession:
         assert res.frag_id == self.frag_id
         self.completed += 1
         self.inflight.pop(fut)
+        # A completed write is the strongest possible evidence of progress, so
+        # the no-progress deadline restarts from here.
+        self._reset_liveness()
         return res
+
+    def begin_liveness_window(self) -> None:
+        """Start this session's no-progress deadline from now.
+
+        Sessions are sealed as their read tasks land but are only watched once
+        teardown drains them, so ``_live_last_advance`` can be minutes stale by
+        the time the first check runs. Without restarting the clock here that
+        first check exceeds the deadline immediately and restarts a perfectly
+        healthy writer.
+
+        Queued writers are unaffected: their no-progress window is armed at
+        placement, not here.
+        """
+        self._reset_liveness()
+
+    def _begin_placement_window(self) -> None:
+        """Mark this actor generation unplaced."""
+        self._ready_fut = None
+        self._placed = False
+
+    @property
+    def placed(self) -> bool:
+        """Whether Ray has this session's current actor generation running."""
+        return self._placed
+
+    def _poll_placement(self) -> bool:
+        """Whether Ray has placed the current actor generation.
+
+        ``started`` only means the handle exists. Ray schedules the actor
+        asynchronously, and until it runs there is nobody to answer
+        ``progress()`` -- so a queued writer looks exactly like a wedged one.
+        ``__ray_ready__`` resolves when the actor is alive, which is the
+        earliest moment a progress deadline means anything.
+        """
+        if self._placed:
+            return True
+        if self.actor is None:
+            return False
+        if self._ready_fut is None:
+            self._ready_fut = self.actor.__ray_ready__.remote()
+        ready, _ = ray.wait([self._ready_fut], timeout=0.0)
+        if not ready:
+            # Still queued. Not a failure and not on a clock -- an infeasible
+            # reservation was already rejected at ``_start_writer``, so waiting
+            # here means waiting for a peer to finish, which is the design.
+            return False
+        self._ready_fut = None
+        self._placed = True
+        # The progress deadline starts at placement, not at seal: everything
+        # before this was queueing, which is not the writer's fault.
+        self._reset_liveness()
+        return True
+
+    def poll_liveness(self) -> None:
+        """Run one no-progress check, if this session owes progress.
+
+        The teardown drain waits on every session's futures at once, so it
+        ticks each session's watchdog itself rather than each session driving
+        its own loop.
+
+        The no-progress deadline is armed only once Ray has placed this actor
+        generation. Writers contend for memory and take turns; a queued writer
+        cannot answer a progress probe, so watching it as though it were
+        running spends its whole restart budget waiting for a slot it was
+        always going to get -- while the healthy writer holding that slot runs
+        its legitimate 30-70 minutes. A reservation that can never fit is
+        bounded separately, by the placement deadline.
+        """
+        if self.failed or not self.sealed or not self.started:
+            return
+        if not self._poll_placement():
+            return
+        self._check_liveness()
 
     def poll_ready(self) -> list[FragmentWriteResult]:
         """Non‑blocking check for any finished futures.
@@ -3846,6 +4051,10 @@ class FragmentWriterManager:
     # GEN-630: estimated output bytes/row, used to size each writer task's Ray
     # reservation. 0 means "couldn't estimate" -> writers use the fixed defaults.
     writer_avg_row_bytes: int = attrs.field(default=0, init=False)
+    # When the fleet last showed signs of life: a writer placed, or one
+    # finished. Not per session -- one running writer keeps the whole drain
+    # alive, because its completion is what frees the next slot.
+    _last_writer_turnover: float = attrs.field(factory=time.monotonic, init=False)
     output_field_ids: frozenset[int] | None = attrs.field(default=None, init=False)
     writer_filler_schema: pa.Schema | None = attrs.field(default=None, init=False)
     writer_field_ids: list[int] | None = attrs.field(default=None, init=False)
@@ -4210,6 +4419,131 @@ class FragmentWriterManager:
             self.writer_oom_fragments[frag_id] = reason
         return True
 
+    def _note_writer_turnover(self) -> None:
+        """Record that the fleet moved: a writer finished, or one is running."""
+        self._last_writer_turnover = time.monotonic()
+
+    def _check_drain_liveness(self) -> None:
+        """Fail only when *no* writer is running and none is starting.
+
+        The liveness invariant of the shared drain is simpler than any
+        per-writer rule: **if one writer is placed, the job completes.** That
+        writer runs -- for however long its fragment takes, which is legitimately
+        30-70+ minutes for large blobs -- then finishes, is reaped, and hands
+        its reservation to the next in line. A wedged one is covered separately
+        by its own no-progress watchdog. Either way the queue moves.
+
+        What cannot resolve itself is nobody running at all: no reservation is
+        ever returned, so no queued writer becomes placeable, and the drain
+        would wait forever.
+
+        Deliberately blind to *why* nothing is placed. Memory, CPU, a custom
+        resource, an autoscaler that will never scale -- Ray schedules the whole
+        bundle against the whole cluster, and reproducing that arithmetic here
+        would be a second scheduler that can disagree with the real one. This
+        asks the scheduler's own answer instead: after this long, did it place
+        anything?
+        """
+        if any(sess.placed for sess in self.sessions.values()):
+            self._note_writer_turnover()
+            return
+        quiet_s = time.monotonic() - self._last_writer_turnover
+        if quiet_s <= WRITER_PLACEMENT_STALL_S:
+            return
+        pending = len(self.sessions)
+        raise RuntimeError(
+            f"No FragmentWriter has been placed for {quiet_s:.0f}s with "
+            f"{pending} fragment(s) still to write. Ray is not scheduling any "
+            "of them, so no reservation will be returned and the job cannot "
+            "make progress. Their reservations do not fit the cluster: lower "
+            "the writer's memory reservation, or use larger nodes."
+        )
+
+    def drain_sessions(self) -> Generator[FragmentWriteResult, None, None]:
+        """Yield write results from every remaining session, as they complete.
+
+        Sessions are drained *together*, not one after another. Draining them
+        serially deadlocks whenever writers contend for memory: each sealed
+        session owns its own FragmentWriter actor, a writer's reservation is
+        returned only by ``sess.shutdown()`` -> ``ray.kill``, and a serial loop
+        blocks on a write future belonging to an actor Ray may never have
+        placed. If the writer that *did* get placed belongs to a session later
+        in the iteration order, its memory is never reaped, the blocked
+        session's actor never becomes placeable, and the job burns
+        ``MAX_WRITER_RESTARTS x WRITER_NO_PROGRESS_TIMEOUT_S`` committing
+        nothing. Waiting on the union of every session's futures lets whichever
+        writer was placed finish and be reaped, handing its memory to the next.
+
+        An unresolved write future is not evidence of a stall; large-blob
+        fragments legitimately flush for 30-70+ min. A sealed writer is
+        restarted only when its progress counter stops advancing for
+        ``WRITER_NO_PROGRESS_TIMEOUT_S`` (see ``poll_liveness``).
+        """
+        _warn_if_stall_rounds_env_set()
+        # Every session's deadline starts now, not whenever it was last touched
+        # during the run.
+        for sess in self.sessions.values():
+            sess.begin_liveness_window()
+        self._note_writer_turnover()
+
+        while True:
+            pending: dict[ray.ObjectRef, tuple[int, FragmentWriterSession]] = {}
+            for frag_id, sess in list(self.sessions.items()):
+                if sess.failed and self._record_session_failure(frag_id, sess):
+                    # Reap it here rather than in a sweep at the end, so a
+                    # failed writer's reservation goes back to the scheduler
+                    # while the others still need it.
+                    _LOG.warning(
+                        "Fragment %d marked as failed during drain: %s",
+                        frag_id,
+                        sess.failure_reason,
+                    )
+                    sess.shutdown()
+                    self.sessions.pop(frag_id, None)
+                    continue
+                sess.check_seal_ack()
+                futures = sess.pending_poll_futures()
+                if not futures:
+                    # Nothing left to wait on. Reap now rather than in a sweep at
+                    # the end so this writer's reservation goes back to the
+                    # scheduler while the others still need it.
+                    sess.shutdown()
+                    self.sessions.pop(frag_id, None)
+                    continue
+                for fut in futures:
+                    pending[fut] = (frag_id, sess)
+
+            if not pending:
+                return
+
+            ready, _ = ray.wait(
+                list(pending), num_returns=1, timeout=_DRAIN_POLL_INTERVAL_S
+            )
+            if ready:
+                # Take everything else already done in the same round. Waking for
+                # one future at a time would re-walk every session per
+                # completion, which is quadratic in the fragment count.
+                also_ready, _ = ray.wait(
+                    list(pending), num_returns=len(pending), timeout=0
+                )
+                ready = also_ready or ready
+            if not ready:
+                # No writer advanced this round; tick each session's watchdog.
+                for sess in list(self.sessions.values()):
+                    sess.poll_liveness()
+                self._check_drain_liveness()
+                continue
+
+            # A completion is turnover: a reservation just came back, so the
+            # queue can move even if nothing is placed at this instant.
+            self._note_writer_turnover()
+
+            for fut in ready:
+                _frag_id, sess = pending[fut]
+                result = sess.consume_ready_future(fut)
+                if result is not None:
+                    yield result
+
     def poll_all(self) -> None:
         completed_records = self._drain_completed_fragment_records()
         pending: dict[ray.ObjectRef, tuple[int, FragmentWriterSession]] = {}
@@ -4356,6 +4690,7 @@ class FragmentWriterManager:
             oom_budget_tracker=self.oom_budget_tracker,
             job_tracker=self.job_tracker,
             job_id=self.job_id,
+            table_name=self.table_name,
         )
         self.sessions[frag_id] = sess
         return sess
@@ -4873,6 +5208,32 @@ class FragmentWriterManager:
             self._drain_completed_fragment_records()
 
         self._commit_if_n_fragments(commit_granularity)
+
+    def _collect_failed_session(
+        self, frag_id: int, sess: FragmentWriterSession, *, phase: str
+    ) -> bool:
+        """Record and release a failed session; return whether it had failed.
+
+        Graceful degradation: a fragment that failed is classified (corrupt
+        checkpoint, coverage gap) and dropped rather than crashing the job.
+        ``phase`` only names the situation in the log.
+        """
+        if not (sess.failed and sess.failure_reason):
+            return False
+        self.failed_fragments[frag_id] = sess.failure_reason
+        self._release_fragment_task_keys(frag_id)
+        if _is_corrupt_checkpoint_failure(
+            getattr(sess, "failure_exc", None), sess.failure_reason
+        ):
+            self.corrupt_fragments[frag_id] = sess.failure_reason
+        if _is_coverage_gap_failure(
+            getattr(sess, "failure_exc", None), sess.failure_reason
+        ):
+            self.coverage_gap_fragments[frag_id] = sess.failure_reason
+        _LOG.warning("Fragment %d failed: %s. %s.", frag_id, sess.failure_reason, phase)
+        sess.shutdown()
+        self.sessions.pop(frag_id, None)
+        return True
 
     def _release_sealed_idle_session(
         self, frag_id: int, sess: FragmentWriterSession | None = None
@@ -5459,41 +5820,33 @@ class FragmentWriterManager:
                     sess.failure_reason,
                 )
                 sess.shutdown()
+                # Drop it here. The shared drain below walks whatever is left
+                # in ``self.sessions``, and a session shut down twice reports
+                # its teardown twice.
+                self.sessions.pop(_frag_id, None)
                 continue
-
             if self._release_sealed_idle_session(_frag_id, sess):
                 continue
-
             if not sess.sealed:
                 sess.seal()
             # poll_all may not run again after this final seal.
             sess.check_seal_ack()
-            for result in sess.drain():
-                # this may in turn pop more sessions via _record_fragment
-                self._record_fragment(
-                    result.frag_id,
-                    result.new_file,
-                    self.commit_granularity,
-                    result.rows_written,
-                    buffer_sort_ms=result.buffer_sort_ms,
-                    align_ms=result.align_ms,
-                    write_ms=result.write_ms,
-                    queue_wait_ms=result.queue_wait_ms,
-                    checkpoint_read_ms=result.checkpoint_read_ms,
-                    avg_batch_num_rows=result.avg_batch_num_rows,
-                    avg_batch_size=result.avg_batch_size,
-                )
 
-            # Check if session failed during drain
-            if sess.failed and sess.failure_reason:
-                self._record_session_failure(_frag_id, sess)
-                _LOG.warning(
-                    "Fragment %d failed during drain: %s",
-                    _frag_id,
-                    sess.failure_reason,
-                )
-
-            sess.shutdown()
+        for result in self.drain_sessions():
+            # this may in turn pop more sessions via _record_fragment
+            self._record_fragment(
+                result.frag_id,
+                result.new_file,
+                self.commit_granularity,
+                result.rows_written,
+                buffer_sort_ms=result.buffer_sort_ms,
+                align_ms=result.align_ms,
+                write_ms=result.write_ms,
+                queue_wait_ms=result.queue_wait_ms,
+                checkpoint_read_ms=result.checkpoint_read_ms,
+                avg_batch_num_rows=result.avg_batch_num_rows,
+                avg_batch_size=result.avg_batch_size,
+            )
 
         # 3) Clear out any sessions that finished in the loop above
         self._drain_pending_fragment_records()
@@ -6417,6 +6770,7 @@ def _make_populated_append_actor() -> Any:
             dst_storage_options: dict[str, str] | None,
             dest_data_storage_version: str,
             flush_rows: int | None,
+            label: str = "mv.append_actor",
         ) -> None:
             import pyarrow as pa
 
@@ -6431,6 +6785,11 @@ def _make_populated_append_actor() -> Any:
             self._flush_rows = flush_rows
             self._write_schema = pa.ipc.open_stream(write_schema_ipc).schema
             self._table = None
+            self._label = label
+
+        def __repr__(self) -> str:
+            """Driver-built label Ray shows in the dashboard and log prefixes."""
+            return self._label
 
         def _get_table(self) -> Any:
             if self._table is None:
@@ -6600,6 +6959,7 @@ def _append_populated_fragments(
     dst_ref: TableReference | None = None,
     concurrency: int = 4,
     job_tracker: ActorHandle | None = None,
+    job_id: str | None = None,
 ) -> set[int] | None:
     """Append new MV rows with their projected view columns already computed.
 
@@ -6696,6 +7056,7 @@ def _append_populated_fragments(
     )
 
     actor_cls = _get_populated_append_actor()
+    dst_table_name = getattr(dst_ref, "table_name", None)
     actor_factory = functools.partial(
         actor_cls.remote,
         src_ref,
@@ -6708,6 +7069,7 @@ def _append_populated_fragments(
         dst_storage_options,
         dst_data_storage_version,
         flush_rows,
+        ray_name("mv.append_actor", table=dst_table_name, job_id=job_id),
     )
 
     work_items = sorted(row_ids_by_fragment.items())
@@ -6725,7 +7087,14 @@ def _append_populated_fragments(
     total_rows = 0
     try:
         for fragment_jsons, row_count in pool.map_unordered(
-            lambda actor, item: actor.append_fragment.remote(item[0], item[1]),
+            lambda actor, item: actor.append_fragment.options(
+                name=ray_name(
+                    "mv.append_fragment",
+                    table=dst_table_name,
+                    job_id=job_id,
+                    detail=f"src_frag={item[0]} rows={len(item[1])}",
+                )
+            ).remote(item[0], item[1]),
             work_items,
         ):
             total_rows += row_count
@@ -6819,6 +7188,7 @@ def _make_chunker_expand_actor() -> Any:
             dst_uri: str | None = None,
             dst_storage_options: dict[str, str] | None = None,
             dest_data_storage_version: str | None = None,
+            label: str = "udtf.chunker",
         ) -> None:
             self._chunker = chunker_obj
             self._src_uri = src_uri
@@ -6831,6 +7201,7 @@ def _make_chunker_expand_actor() -> Any:
             self._dst_storage_options = dst_storage_options
             self._dest_data_storage_version = dest_data_storage_version
             self._dataset = None
+            self._label = label
 
             import pyarrow as pa
 
@@ -6846,6 +7217,10 @@ def _make_chunker_expand_actor() -> Any:
                 ]
                 if c not in seen and not seen.add(c)  # type: ignore[func-returns-value]
             ]
+
+        def __repr__(self) -> str:
+            """Driver-built label Ray shows in the dashboard and log prefixes."""
+            return self._label
 
         def _get_dataset(self) -> Any:
             if self._dataset is None:
@@ -7324,6 +7699,7 @@ def _append_expanded_fragments(
     dst_uri = dst_lance.uri
     dst_data_storage_version = dst_lance.data_storage_version
     dst_storage_options = dst_ref.storage_options if dst_ref else None
+    dst_table_name_label = getattr(dst_ref, "table_name", None)
 
     # Bound the actor's per-flush output rows so peak memory is
     # ``flush_rows x payload`` regardless of total fanout. Reuse
@@ -7349,6 +7725,7 @@ def _append_expanded_fragments(
         dst_uri,
         dst_storage_options,
         dst_data_storage_version,
+        ray_name("udtf.chunker", table=dst_table_name_label, job_id=job_id),
     )
 
     num_actors = min(len(work_items), concurrency)
@@ -7365,7 +7742,7 @@ def _append_expanded_fragments(
         )
         rc = PipelineResourceConfig.get()
         job_tracker = job_tracker_options(
-            name=f"jobtracker-{jt_name}",
+            name=job_tracker_name(jt_name),
             num_cpus=rc.jobtracker_num_cpus,
             memory=rc.jobtracker_memory,
         ).remote(  # type: ignore[call-arg]
@@ -7435,7 +7812,14 @@ def _append_expanded_fragments(
     try:
         for result in _iter_scalar_udtf_results(
             pool,
-            lambda actor, item: actor.expand_batch.remote(item, flush_rows),
+            lambda actor, item: actor.expand_batch.options(
+                name=ray_name(
+                    "udtf.expand_batch",
+                    table=dst_table_name_label,
+                    job_id=job_id,
+                    detail=f"rows={len(item)}",
+                )
+            ).remote(item, flush_rows),
             work_items,
             prefetch=num_actors + 1,
             oom_budget_tracker=oom_budget_tracker,
@@ -8363,6 +8747,7 @@ def run_ray_copy_table(
             dst_ref=dst,
             concurrency=concurrency,
             job_tracker=job_tracker,
+            job_id=job_id,
         )
 
     # After appending the new rows, update dst reference to use latest version.
@@ -8663,7 +9048,7 @@ def dispatch_run_ray_add_column(
 
     rc = PipelineResourceConfig.get()
     job_tracker = job_tracker_options(
-        name=f"jobtracker-{job.job_id}",
+        name=job_tracker_name(job.job_id),
         num_cpus=rc.jobtracker_num_cpus,
         memory=rc.jobtracker_memory,
         max_restarts=-1,
@@ -8683,7 +9068,13 @@ def dispatch_run_ray_add_column(
     remote_runner = cast(
         "Any",
         run_ray_add_column_remote.options(
-            **(head_pin_options() or {"num_cpus": rc.driver_num_cpus})
+            name=ray_name(
+                "backfill.driver",
+                table=table_ref.table_name,
+                column=col_name,
+                job_id=job.job_id,
+            ),
+            **(head_pin_options() or {"num_cpus": rc.driver_num_cpus}),
         ).remote,
     )
     parent_carrier = telemetry.inject_context()
@@ -8818,7 +9209,7 @@ def dispatch_run_ray_refresh(
     try:
         rc = PipelineResourceConfig.get()
         job_tracker = job_tracker_options(
-            name=f"jobtracker-{job.job_id}",
+            name=job_tracker_name(job.job_id),
             num_cpus=rc.jobtracker_num_cpus,
             memory=rc.jobtracker_memory,
             max_restarts=-1,
@@ -8832,7 +9223,12 @@ def dispatch_run_ray_refresh(
         remote_runner = cast(
             "Any",
             run_ray_refresh_remote.options(
-                **(head_pin_options() or {"num_cpus": rc.driver_num_cpus})
+                name=ray_name(
+                    "refresh.driver",
+                    table=table_ref.table_name,
+                    job_id=job.job_id,
+                ),
+                **(head_pin_options() or {"num_cpus": rc.driver_num_cpus}),
             ).remote,
         )
         parent_carrier = telemetry.inject_context()
@@ -9254,6 +9650,15 @@ def run_ray_add_column_remote(
                     "required dependencies."
                 )
 
+        # RecordBatch UDFs declare no input columns and receive the whole batch.
+        # The namespace API persists that as an empty list (its input_columns
+        # field is a non-nullable list), so a column created over db:// reads
+        # back as []. Normalize it to the RecordBatch canonical None: leaving []
+        # would make it an explicit empty scan projection and the UDF would
+        # receive none of its source columns.
+        if udf.arg_type == UDFArgType.RECORD_BATCH and not input_columns:
+            input_columns = None
+
         # Apply input_columns override to the UDF if needed
         # This handles the case where add_columns was called with explicit column
         # mapping e.g., table.add_columns({"col": (udf, ["seq"])})
@@ -9664,6 +10069,9 @@ def run_ray_add_column(
     # Local only: the ``_`` prefix keeps these off the remote (db://) path --
     # see geneva.utils.remote_options.
     skip_planner_filter_count = kwargs.pop("_skip_planner_filter_count", None)
+    # Popped, not read: anything left in ``kwargs`` is splatted onward, and a
+    # planner-only option arriving at a downstream signature is a TypeError.
+    default_actor_memory_bytes = kwargs.pop("_default_actor_memory_bytes", None)
     skip_checkpoint_index_scan = bool(kwargs.pop("_skip_checkpoint_index_scan", False))
 
     config = base_config.with_overrides(
@@ -9863,6 +10271,7 @@ def run_ray_add_column(
             batch_checkpoint_flush_interval_seconds
         ),
         fragment_base_placement=fragment_base_placement,
+        default_actor_memory_bytes=default_actor_memory_bytes,
         **pipeline_args,
     )
 
@@ -10352,7 +10761,7 @@ def dispatch_run_ray_bulk_load(
 
     rc = PipelineResourceConfig.get()
     job_tracker = job_tracker_options(
-        name=f"jobtracker-{job.job_id}",
+        name=job_tracker_name(job.job_id),
         num_cpus=rc.jobtracker_num_cpus,
         memory=rc.jobtracker_memory,
         max_restarts=-1,
@@ -10369,7 +10778,13 @@ def dispatch_run_ray_bulk_load(
     remote_runner = cast(
         "Any",
         run_ray_bulk_load_remote.options(
-            **(head_pin_options() or {"num_cpus": rc.driver_num_cpus})
+            name=ray_name(
+                "bulkload.driver",
+                table=table_ref.table_name,
+                column=col_label,
+                job_id=job.job_id,
+            ),
+            **(head_pin_options() or {"num_cpus": rc.driver_num_cpus}),
         ).remote,
     )
     parent_carrier = telemetry.inject_context()

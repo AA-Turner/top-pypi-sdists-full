@@ -135,6 +135,20 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 """
 
+# Sidecar annotations pinned to a job id (k121: keeper diagnosis of a failed
+# download, discard audit). A separate table, NOT the data blob, so a note
+# survives the row's owner rewriting `data` and needs no dataclass field.
+# conn.execute() runs ONE statement, hence a second constant, not _SCHEMA text.
+_NOTES_SCHEMA = """
+CREATE TABLE IF NOT EXISTS job_notes (
+    job_id  TEXT NOT NULL,
+    key     TEXT NOT NULL,
+    value   TEXT NOT NULL,
+    updated REAL NOT NULL,
+    PRIMARY KEY (job_id, key)
+);
+"""
+
 # Statuses considered "active" for the wedged-orphan sweep. Mirrors the
 # _STALL_ACTIVE spirit in jobs.py: only a job that claims to be doing work can
 # be "wedged". A pending/queued job is starved (waiting its turn), not wedged,
@@ -157,7 +171,61 @@ def _pending_expiry_seconds() -> float:
     except ValueError:
         return 1800.0
 
+# ---------------------------------------------------------------------------
+# CLAIM-QUEUE kinds (k119)
+# ---------------------------------------------------------------------------
+# Kinds that are dispatched by a DAEMON taking a claim (claim_next), not by a
+# worker being assigned. They never carry a `worker`, so the worker-dispatch
+# orphan sweep below would retire every one of them after 30 minutes with the
+# message "no capable worker" — which is a LIE for a download (there is no
+# worker in that path at all) and, worse, silently deletes the operator's
+# request. Every one of the 65 download rows on the dev box read exactly that.
+# These kinds get their own, far longer expiry and an honest message that names
+# the service that is supposed to claim them.
+CLAIM_QUEUE_KINDS = ("download",)
+
+
+def _claim_queue_expiry_seconds() -> float:
+    """How long a CLAIMABLE job may sit unclaimed before it is retired. Far
+    longer than the worker-dispatch window: a queue of large models legitimately
+    waits hours behind the two concurrent transfer slots, and a downloader that
+    is merely stopped for a maintenance window must not lose the queue. Default
+    24h; env-overridable."""
+    raw = (os.environ.get("HUGPY_JOB_CLAIM_EXPIRY_SECONDS") or "").strip()
+    if not raw:
+        return 86400.0
+    try:
+        v = float(raw)
+        return v if v > 0 else 86400.0
+    except ValueError:
+        return 86400.0
+
+
 MAX_FAILURES = 5
+
+# ---------------------------------------------------------------------------
+# Mirror quarantine, NOT a kill switch (k119 — the download-queue outage)
+# ---------------------------------------------------------------------------
+# MAX_FAILURES consecutive faults used to set `_disabled = True` FOREVER: "…
+# degrade to per-process until restart". For the API that is survivable (a
+# gunicorn worker recycles). For the DOWNLOADER DAEMON it is fatal and silent:
+# the daemon's whole job is claim_next() against this mirror, it opens ~40
+# connections a minute against a virtiofs mount that demonstrably throws
+# transient `disk I/O error` / `database is locked` / `unable to open database
+# file`, and Downloader.run() only checks the mirror ONCE at startup. On
+# 2026-08-10 08:54:51-57 five consecutive blips latched it off; for the next 11
+# days the daemon logged a reassuring `polling (active=0)` every 5 minutes while
+# claiming nothing, and every "Add model" the operator clicked sat pending until
+# the orphan sweep expired it.
+#
+# So the breaker now OPENS (stop taxing every call with a doomed write) and then
+# HALF-OPENS: after a cooldown one probe is allowed through, and a success
+# restores the mirror and says so in the log. The cooldown backs off
+# exponentially to a cap so a genuinely dead DB is still not hammered.
+MIRROR_COOLDOWN_SECONDS = float(
+    os.environ.get("HUGPY_COMMS_MIRROR_COOLDOWN_SECONDS", "30") or 30)
+MIRROR_COOLDOWN_MAX_SECONDS = float(
+    os.environ.get("HUGPY_COMMS_MIRROR_COOLDOWN_MAX_SECONDS", "300") or 300)
 
 
 def default_db_path() -> str:
@@ -175,6 +243,16 @@ class SqliteMirror:
         self.retain_secs = retain_secs
         self._failures = 0
         self._disabled = False
+        # Quarantine bookkeeping (see MIRROR_COOLDOWN_SECONDS): when the breaker
+        # opens we stamp the epoch it may next be probed and how long the next
+        # cooldown should be. `_outages` is a counter for the log/health view so
+        # an operator can see a mount that keeps flapping.
+        self._retry_at = 0.0
+        self._cooldown = MIRROR_COOLDOWN_SECONDS
+        self._outages = 0
+        self._recovered = 0
+        self._probing = False
+        self._last_error = ""
         self._init_lock = threading.Lock()
         self._initialized = False
 
@@ -191,7 +269,21 @@ class SqliteMirror:
 
     def _ensure(self) -> bool:
         if self._disabled:
-            return False
+            # HALF-OPEN: the breaker is a cooldown, never a permanent latch.
+            # Before the cooldown elapses every call short-circuits (that is the
+            # point — no doomed write per token). After it elapses ONE call gets
+            # through to probe the DB; if that probe succeeds, `_ok()` closes the
+            # breaker and logs the recovery, and if it fails `_note_failure`
+            # re-opens it with a longer cooldown.
+            if time.time() < self._retry_at:
+                return False
+            self._disabled = False
+            self._initialized = False   # re-run CREATE/migrate on the probe
+            self._failures = 0
+            self._probing = True
+            logger.warning(
+                "comms mirror probing after %.0fs quarantine (%s) — one attempt",
+                self._cooldown, self.path)
         if self._initialized:
             return True
         with self._init_lock:
@@ -200,6 +292,7 @@ class SqliteMirror:
             try:
                 with self._connect() as conn:
                     conn.execute(_SCHEMA)
+                    conn.execute(_NOTES_SCHEMA)
                     self._migrate(conn)
                 self._initialized = True
                 return True
@@ -229,17 +322,61 @@ class SqliteMirror:
 
     def _note_failure(self, op: str, exc: Exception) -> None:
         self._failures += 1
-        if self._failures >= MAX_FAILURES and not self._disabled:
+        self._last_error = f"{exc} during {op}"
+        # A FAILED half-open probe re-opens the breaker immediately — it must not
+        # spend another MAX_FAILURES calls proving what the probe just showed.
+        if self._probing and self._failures < MAX_FAILURES:
+            self._failures = MAX_FAILURES
+        if self._failures >= MAX_FAILURES:
+            # OPEN the breaker for a cooldown that grows on repeat outages, so a
+            # flapping mount backs off but a one-off blip costs ~30s of queue
+            # latency instead of the whole download plane until someone notices.
+            if self._probing or self._disabled:
+                # Still broken after a probe: back off, don't re-count the outage.
+                self._cooldown = min(self._cooldown * 2,
+                                     MIRROR_COOLDOWN_MAX_SECONDS)
+            else:
+                self._outages += 1
             self._disabled = True
-            logger.error("comms mirror DISABLED after %d failures "
+            self._initialized = False
+            self._retry_at = time.time() + self._cooldown
+            logger.error("comms mirror QUARANTINED for %.0fs after %d failures "
                          "(last: %s during %s) — cross-process cancel/queue "
-                         "degrade to per-process until restart",
-                         self._failures, exc, op)
+                         "degrade to per-process; it retries itself, no restart "
+                         "needed",
+                         self._cooldown, self._failures, exc, op)
         else:
             logger.warning("comms mirror %s failed: %s", op, exc)
 
     def _ok(self) -> None:
+        if self._probing:
+            # The half-open probe succeeded — close the breaker and SAY SO.
+            # "DISABLED" was logged once and then nothing for 11 days, which is
+            # precisely why the outage stayed invisible.
+            self._probing = False
+            self._recovered += 1
+            logger.warning("comms mirror RECOVERED (%s) — cross-process "
+                           "queue/cancel is live again", self.path)
+        self._disabled = False
+        self._retry_at = 0.0
+        self._cooldown = MIRROR_COOLDOWN_SECONDS
         self._failures = 0
+        self._last_error = ""
+
+    # -- health --------------------------------------------------------------
+    def health(self) -> dict[str, Any]:
+        """What state the breaker is in, for a daemon's log line and the
+        console's queue view. Cheap and side-effect-free — never opens the DB."""
+        return {
+            "path": self.path,
+            "ok": not self._disabled,
+            "failures": self._failures,
+            "outages": self._outages,
+            "recoveries": self._recovered,
+            "retry_in": (max(0.0, self._retry_at - time.time())
+                         if self._disabled else 0.0),
+            "last_error": self._last_error,
+        }
 
     # -- writes --------------------------------------------------------------
     def upsert(self, job_dict: dict[str, Any]) -> None:
@@ -294,7 +431,8 @@ class SqliteMirror:
             self._note_failure("request_cancel", exc)
             return False
 
-    def force_terminal(self, job_id: str, status: str, message: str = "") -> bool:
+    def force_terminal(self, job_id: str, status: str, message: str = "",
+                       override_terminal: bool = False) -> bool:
         """Force a LIVE mirror row terminal (slice 9) — the authoritative cancel /
         orphan-expiry path for a row NO process holds in memory (the immortal
         pending job that survived restarts). Updates the persisted `status`
@@ -307,11 +445,16 @@ class SqliteMirror:
         if not self._ensure():
             return False
         term = str(status or "cancelled")
+        # k121: override_terminal lets the DISCARD verb flip an
+        # already-terminal record (failed/expired -> discarded); nothing else
+        # may overwrite a terminal status (first-terminal-wins stands).
+        guard = ("AND status <> 'discarded'" if override_terminal else
+                 "AND status NOT IN ('done','cancelled','failed',"
+                 "'expired','discarded')")
         try:
             with self._connect() as conn:
                 row = conn.execute(
-                    "SELECT data FROM jobs WHERE id=? "
-                    "AND status NOT IN ('done','cancelled','failed','expired')",
+                    f"SELECT data FROM jobs WHERE id=? {guard}",
                     (job_id,)).fetchone()
                 if not row:
                     return False           # unknown or already terminal
@@ -335,6 +478,46 @@ class SqliteMirror:
             self._note_failure("force_terminal", exc)
             return False
 
+    def set_job_note(self, job_id: str, key: str, value: str) -> bool:
+        """Pin an annotation to a job id (k121: keeper `diagnosis` on a failed
+        download, discard audit). Upsert; survives the owner rewriting the row's
+        data blob. Swept only when the job row itself is pruned."""
+        if not self._ensure():
+            return False
+        try:
+            with self._connect() as conn:
+                conn.execute(
+                    "INSERT INTO job_notes (job_id, key, value, updated) "
+                    "VALUES (?,?,?,?) ON CONFLICT(job_id, key) "
+                    "DO UPDATE SET value=excluded.value, updated=excluded.updated",
+                    (job_id, key, str(value), time.time()))
+            self._ok()
+            return True
+        except Exception as exc:
+            self._note_failure("set_job_note", exc)
+            return False
+
+    def job_notes_for(self, job_ids: list[str]) -> dict[str, dict[str, str]]:
+        """{job_id: {key: value}} for the given ids (empty on any trouble —
+        notes are garnish on the /jobs view, never a reason it fails)."""
+        ids = [str(j) for j in (job_ids or []) if j]
+        if not ids or not self._ensure():
+            return {}
+        try:
+            placeholders = ",".join("?" for _ in ids)
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT job_id, key, value FROM job_notes "
+                    f"WHERE job_id IN ({placeholders})", ids).fetchall()
+            self._ok()
+        except Exception as exc:
+            self._note_failure("job_notes_for", exc)
+            return {}
+        out: dict[str, dict[str, str]] = {}
+        for job_id, key, value in rows:
+            out.setdefault(job_id, {})[key] = value
+        return out
+
     def expire_pending_orphans(self) -> list[str]:
         """Transition never-dispatched pending jobs to terminal `expired` (slice 9,
         defect 2). A `pending` row with no worker whose `progressed_at` is older
@@ -347,17 +530,32 @@ class SqliteMirror:
         reads the honest terminal state + message. Returns the expired ids."""
         if not self._ensure():
             return []
-        cutoff = time.time() - _pending_expiry_seconds()
+        now = time.time()
+        cutoff = now - _pending_expiry_seconds()
+        # k119: a CLAIM-QUEUE row (download) has no worker BY DESIGN, so the
+        # worker-dispatch cutoff above would retire every queued download after
+        # 30 minutes and label it "no capable worker" — the exact lie found on
+        # all 65 download rows. Claimable kinds age on their own long clock and
+        # name the service that should have claimed them.
+        claim_cutoff = now - _claim_queue_expiry_seconds()
         msg = ("never dispatched — model unresolvable or no capable worker "
                "(auto-expired)")
+        claim_msg = ("never claimed by the downloader service — it was not "
+                     "running, or its queue was unreachable (auto-expired). "
+                     "Re-add the model once hugpy-downloader is up.")
         expired: list[str] = []
         try:
             with self._connect() as conn:
+                # The widest (latest) cutoff of the two policies, so both kinds of
+                # candidate come back; the per-row test below applies the right
+                # clock. max(), not min(): these are epochs, and the 30-minute
+                # cutoff is the LATER one.
                 rows = conn.execute(
-                    "SELECT id, data FROM jobs WHERE status='pending' "
+                    "SELECT id, data, kind, progressed_at, claimed_by FROM jobs "
+                    "WHERE status='pending' "
                     "AND progressed_at IS NOT NULL AND progressed_at < ?",
-                    (cutoff,)).fetchall()
-                for job_id, data_json in rows:
+                    (max(cutoff, claim_cutoff),)).fetchall()
+                for job_id, data_json, kind, prog, claimed_by in rows:
                     try:
                         data = json.loads(data_json) if data_json else {}
                     except Exception:
@@ -367,9 +565,21 @@ class SqliteMirror:
                     # only takes pending, but a worker means an owner exists).
                     if data.get("worker"):
                         continue
+                    claimable = str(kind or "") in CLAIM_QUEUE_KINDS
+                    if claimable:
+                        # A claimed row has an owner about to start it, and an
+                        # unclaimed one still inside the long window is simply
+                        # QUEUED — that is the row the operator is waiting on and
+                        # it must survive a downloader restart/maintenance window.
+                        if claimed_by:
+                            continue
+                        if float(prog) >= claim_cutoff:
+                            continue
+                    elif float(prog) >= cutoff:
+                        continue
                     data["id"] = job_id
                     data["status"] = "expired"
-                    data["message"] = msg
+                    data["message"] = claim_msg if claimable else msg
                     data["ended_ts"] = data.get("ended_ts") or time.time()
                     conn.execute(
                         "UPDATE jobs SET status='expired', data=?, updated=? "
@@ -402,10 +612,19 @@ class SqliteMirror:
                 # (1) Terminal rows past the retain window — correctly keyed on
                 # `updated` (any-write clock): once terminal, no more real
                 # progress happens, so time-since-any-write is the right age.
+                # k121 (operator ruling 2026-08-20): a FAILURE RECORD is never
+                # auto-deleted — `failed` and `expired` rows persist, reason and
+                # all, until an admin explicitly discards them (POST
+                # /jobs/<id>/discard flips them to `discarded`, which IS swept
+                # here). Before this, every failure evaporated after 10 minutes.
                 conn.execute(
                     "DELETE FROM jobs WHERE "
-                    "status IN ('done','cancelled','failed') AND updated < ?",
+                    "status IN ('done','cancelled','discarded') AND updated < ?",
                     (now - self.retain_secs,))
+                # Notes of swept rows go with them (tiny table, cheap subquery).
+                conn.execute(
+                    "DELETE FROM job_notes WHERE job_id NOT IN "
+                    "(SELECT id FROM jobs)")
                 # (2) Wedged-orphan sweep: a job whose owner died mid-stream
                 # never goes terminal. It MUST age on real forward-progress
                 # silence (`progressed_at`), NOT on `updated` — `updated` is
@@ -480,6 +699,31 @@ class SqliteMirror:
         data["id"] = job_id
         data["claimed_by"] = owner
         return data
+
+    def claimable_count(self, kinds: tuple) -> int:
+        """How many jobs of *kinds* are queued and up for grabs RIGHT NOW.
+
+        The observability counterpart of claim_next: that method answers None for
+        both "nothing to do" and "I cannot see the queue", which is exactly the
+        ambiguity that let a quarantined mirror look like an idle one for eleven
+        days. Returns -1 when the mirror itself is unavailable, so a caller can
+        tell "0 queued" from "I don't know"."""
+        kinds = tuple(kinds or ())
+        if not kinds or not self._ensure():
+            return -1
+        placeholders = ",".join("?" for _ in kinds)
+        try:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM jobs WHERE status='pending' "
+                    f"AND kind IN ({placeholders}) "
+                    "AND (claimed_by IS NULL OR claimed_by='') "
+                    "AND cancel_requested=0", kinds).fetchone()
+            self._ok()
+            return int(row[0]) if row else 0
+        except Exception as exc:
+            self._note_failure("claimable_count", exc)
+            return -1
 
     def release_claim(self, job_id: str) -> None:
         """Drop the claim without touching status — the job becomes claimable
@@ -648,7 +892,8 @@ class SqliteMirror:
             with self._connect() as conn:
                 rows = conn.execute(
                     "SELECT data FROM jobs WHERE "
-                    "status NOT IN ('done','cancelled','failed')").fetchall()
+                    "status NOT IN ('done','cancelled','failed',"
+                    "'expired','discarded')").fetchall()
             self._ok()
         except Exception as exc:
             self._note_failure("live_rows", exc)
@@ -679,7 +924,7 @@ class SqliteMirror:
             with self._connect() as conn:
                 rows = conn.execute(
                     "SELECT data FROM jobs WHERE "
-                    "status IN ('done','cancelled','failed') "
+                    "status IN ('done','cancelled','failed','expired') "
                     f"AND kind IN ({placeholders})", kinds).fetchall()
             self._ok()
         except Exception as exc:

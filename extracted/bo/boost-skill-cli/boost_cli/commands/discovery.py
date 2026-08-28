@@ -12,7 +12,6 @@ import re
 import shutil
 import subprocess
 import sys
-import textwrap
 import threading
 import time
 import urllib.parse
@@ -152,7 +151,7 @@ def cmd_search(argv):
             if reranked:
                 scored, ranker = reranked, "Claude Haiku relevance"
         else:
-            out.warn(ai.fallback_note())
+            out.warn(ai.fallback_note(), wrap=True)
     shown = scored[:args.limit]
     # The dot marks "a skill by this name is installed" — a name match, with
     # the known homonym caveat (13 real skills share `code-reviewer`). A lock
@@ -176,8 +175,27 @@ def cmd_search(argv):
             installed=e["name"] in installed, lay=lay))
     out.info(out.role("%d match%s · ranked by %s"
                    % (len(scored), "" if len(scored) == 1 else "es", ranker), "muted"))
+    if use_rag:
+        _note_stem_expansions(query)
     _hint_semantic_search(engine)
     return 0
+
+
+def _note_stem_expansions(query: str) -> None:
+    """Say when a query term was widened to the word actually indexed.
+
+    Staying quiet would be a worse answer than the old empty one: the user
+    asked for `brainstorm` and is looking at results for `brainstorming`, and
+    only one of those is a word they typed.
+    """
+    subs = rag.stem_expansions(rag.tokenize(query))
+    if not subs:
+        return
+    said = ", ".join("%r" % term for term in subs)
+    shown = ", ".join("%r" % term for term in subs.values())
+    out.info(out.role(out.truncate(
+        "no exact match for %s — showing %s" % (said, shown),
+        max(0, out.term_width() - 2)), "muted"))
 
 
 def _hint_semantic_search(engine: str) -> None:
@@ -209,8 +227,12 @@ def _hint_semantic_search(engine: str) -> None:
     # runnable — a copy-pasteable `pip install ...` matters more than a hard
     # clamp, and _FIX is tested to hold no token long enough to overflow.
     msg = "semantic search is off — %s" % dense.fix_hint(st.get("reason", ""), st)
-    for line in textwrap.wrap(msg, max(out.term_width(), 20),
-                              break_long_words=False, break_on_hyphens=False):
+    # `- 2` pays for the indent `out.info` adds: wrapping to the full width and
+    # then indenting is what put this hint one column over the pane. Wrap
+    # first, colour each line after — `out.role` brackets its argument with a
+    # start code and a reset, so colouring first and splitting after leaves the
+    # first line unterminated and the second uncoloured.
+    for line in out.wrap(msg, max(out.term_width() - 2, 20)):
         out.info(out.role(line, "muted"))
 
 
@@ -296,7 +318,8 @@ def cmd_reindex(argv):
                           ", ".join(stats["reindexed"]) or "none"), "muted"))
     if args.dense:
         if dense_stats is None:
-            out.warn("dense index skipped — %s" % embed.fallback_note())
+            out.warn("dense index skipped — %s" % embed.fallback_note(),
+                     wrap=True)
         else:
             failed = dense_stats.get("failed") or []
             if failed:

@@ -1227,13 +1227,8 @@ class OfflineSender(object):
                 None, "comet.internal.file_upload_worker_ratio"
             ),
             worker_count=self.config.get_raw(None, "comet.internal.worker_count"),
-            s3_upload_options=MultipartUploadOptions(
-                file_size_threshold=self.config.get_int(
-                    None, "comet.s3_multipart.size_threshold"
-                ),
-                upload_expires_in=self.config.get_int(
-                    None, "comet.s3_multipart.expires_in"
-                ),
+            s3_upload_options=MultipartUploadOptions.from_config(
+                self.config,
                 direct_s3_upload_enabled=self.config.has_direct_s3_file_upload_enabled(),
             ),
         )

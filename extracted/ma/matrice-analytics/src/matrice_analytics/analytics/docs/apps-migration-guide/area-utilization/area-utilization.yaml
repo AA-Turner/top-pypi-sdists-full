@@ -1,0 +1,81 @@
+# ──────────────────────────────────────────────
+# App Identity
+# ──────────────────────────────────────────────
+app:
+  id: area_utilization
+  name: "Area Utilization"
+  version: "1.0"
+
+# ──────────────────────────────────────────────
+# Pipeline Categories
+#   ZONE   — per-zone occupancy / utilization metrics
+#   VOLUME — per-zone person counts as throughput signal
+# ──────────────────────────────────────────────
+categories:
+  - ZONE
+  - VOLUME
+
+# ──────────────────────────────────────────────
+# Detection → Domain Mapping
+#   key   = semantic entity name used by processors
+#   value = raw model class name (or list of class names)
+# ──────────────────────────────────────────────
+entity_mapping:
+  person: person
+
+# ──────────────────────────────────────────────
+# Zone Module — per-zone occupancy and utilization
+#
+# zones[] — supplied at deploy time from StreamInfo / deployment;
+#   the "global" fallback below is used only when no zones are configured.
+#
+# metrics[] — same list form used by every other manifest
+#   (see footfall.yaml, ppe_detection.yaml). agg_type per metric.
+# ──────────────────────────────────────────────
+zone:
+  zones:
+    - id: global
+      type: occupancy
+      capacity: 10        # max headcount before alert; override per deployment
+
+  metrics:
+    - key: count
+      agg_type: last
+    - key: capacity
+      agg_type: last
+    - key: occupancy_percent
+      agg_type: last
+    - key: time_occupied_percent
+      agg_type: mean
+    - key: avg_occupancy_percent
+      agg_type: mean
+
+# ──────────────────────────────────────────────
+# Volume Module — per-zone throughput
+#   Tracks entries / exits and current occupancy. ZONE metrics above
+#   already carry the occupancy ratios — VOLUME stays focused on counts.
+# ──────────────────────────────────────────────
+volume:
+  metrics:
+    - key: entry_count
+      agg_type: sum
+    - key: exit_count
+      agg_type: sum
+    - key: current_occupancy
+      agg_type: last
+
+# ──────────────────────────────────────────────
+# Alerts
+#   Tag each alert with the zone it watches.
+#   Override occupancy capacity at runtime via AlertConfig.
+# ──────────────────────────────────────────────
+alerts:
+  defaults:
+    - metric: occupancy_percent
+      zone: global
+      condition:
+        operator: ">"
+        value: 100
+      severity: HIGH
+
+  overrides: []

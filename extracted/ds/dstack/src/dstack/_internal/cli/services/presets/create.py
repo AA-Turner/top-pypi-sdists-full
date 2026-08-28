@@ -22,7 +22,7 @@ from dstack._internal.cli.models.preset_agent import (
     PresetSessionStatus,
     PresetSessionWorkspace,
 )
-from dstack._internal.cli.models.presets import Preset
+from dstack._internal.cli.models.presets import VerifiedPreset
 from dstack._internal.cli.services.presets.agent import (
     ClaudeAuth,
     PresetAgentProcessOutput,
@@ -73,17 +73,19 @@ from dstack._internal.cli.services.presets.workspace import (
 from dstack._internal.cli.utils.common import NO_OFFERS_WARNING, confirm_ask, console, warn
 from dstack._internal.cli.utils.offers import print_offers_table
 from dstack._internal.core.errors import CLIError, ConfigurationError
-from dstack._internal.core.models.configurations import TaskConfiguration
+from dstack._internal.core.models.configurations import (
+    PresetConfiguration,
+    TaskConfiguration,
+)
 from dstack._internal.core.models.envs import Env, EnvSentinel
 from dstack._internal.core.models.fleets import FleetStatus
 from dstack._internal.core.models.presets import (
-    DEFAULT_DATASET,
-    PresetConfiguration,
     PresetConstraints,
     PresetDatasetConstraints,
     PresetRandomConstraints,
 )
 from dstack._internal.core.models.runs import RunSpec
+from dstack._internal.utils.power import prevent_idle_sleep
 from dstack.api import Client
 
 _RUN_STOP_TIMEOUT_SECONDS = 10 * 60
@@ -92,7 +94,7 @@ _NO_FLEETS_ERROR = "The project has no fleets. Create one before creating a pres
 
 @dataclass(frozen=True)
 class PresetCreateResult:
-    preset: Preset
+    preset: VerifiedPreset
     path: Path
     final_run_id: uuid.UUID
     final_run_name: str
@@ -174,9 +176,12 @@ def load_session_configuration(session: PresetSession) -> PresetConfiguration:
             f" followed; run `dstack preset resume {session.preset_id}` instead"
         )
     try:
-        return PresetConfiguration.model_validate(
-            yaml.safe_load(configuration_path.read_text(encoding="utf-8"))
-        )
+        data = yaml.safe_load(configuration_path.read_text(encoding="utf-8"))
+        # A session started before the `random` alias was retired legally saved
+        # it; the rejection is for fresh configurations, not this record.
+        if isinstance(data, dict) and data.get("dataset") == "random":
+            data = {key: value for key, value in data.items() if key != "dataset"}
+        return PresetConfiguration.model_validate(data)
     except (OSError, ValueError) as e:
         raise CLIError(f"Could not read the preset configuration: {e}") from e
 
@@ -400,7 +405,6 @@ def create_preset(
     store: PresetStore,
     keep_service: bool = False,
     build_name: Optional[str] = None,
-    debug: bool = False,
     resume_session: Optional[PresetSession] = None,
     user_prompt: Optional[str] = None,
     allowed_fleets: Optional[tuple[str, ...]] = None,
@@ -409,25 +413,27 @@ def create_preset(
     session = resume_session or create_preset_session(
         configuration,
         previous=tuple(session.preset_id for session in previous),
-        debug=debug,
     )
     try:
         resolved_configuration = _resolve_preset_env(configuration)
-        result = asyncio.run(
-            _create_preset(
-                api=api,
-                configuration=resolved_configuration,
-                source_configuration=configuration,
-                store=store,
-                keep_service=keep_service,
-                build_name=build_name,
-                session=session,
-                mode="resume" if resume_session is not None else "fresh",
-                user_prompt=user_prompt,
-                allowed_fleets=allowed_fleets,
-                previous=previous,
+        # A creation session runs unattended for hours; an idling machine would
+        # freeze the agent and the process supervising it alike.
+        with prevent_idle_sleep():
+            result = asyncio.run(
+                _create_preset(
+                    api=api,
+                    configuration=resolved_configuration,
+                    source_configuration=configuration,
+                    store=store,
+                    keep_service=keep_service,
+                    build_name=build_name,
+                    session=session,
+                    mode="resume" if resume_session is not None else "fresh",
+                    user_prompt=user_prompt,
+                    allowed_fleets=allowed_fleets,
+                    previous=previous,
+                )
             )
-        )
     except KeyboardInterrupt:
         _stop_or_detach_agent_session(session, api)
         raise
@@ -598,7 +604,7 @@ async def _create_preset(
     )
     env: dict[str, str] = {}
     report: Optional[PresetAgentSuccess] = None
-    preset: Optional[Preset] = None
+    preset: Optional[VerifiedPreset] = None
     preset_path: Optional[Path] = None
     creation_succeeded = False
     interrupted = False
@@ -615,7 +621,7 @@ async def _create_preset(
         user_prompt=setup.user_prompt,
         baseline=configuration.effective_baseline,
         previous=setup.previous,
-        custom_dataset=configuration.effective_dataset != DEFAULT_DATASET,
+        custom_dataset=configuration.dataset is not None,
     )
     if setup.write_constraints:
         if setup.user_prompt:
@@ -629,10 +635,9 @@ async def _create_preset(
         # A second, persistent copy: the workspace above is deleted with the run,
         # while the listing and `--previous` read constraints from the session dir.
         session.write_constraints(constraints_text)
-        if session.debug:
-            session.write_prompt(prompt)
-            if setup.auth is not None:
-                session.write_agent_info(setup.auth)
+        session.write_prompt(prompt)
+        if setup.auth is not None:
+            session.write_agent_info(setup.auth)
     try:
         if mode == "attach":
             process_output = await attach_preset_agent(
@@ -675,7 +680,7 @@ async def _create_preset(
             session_path=session.path,
             preset_id=session.preset_id,
             name=_read_claimed_name(session),
-            submitted_at=session.created_at,
+            created_at=session.created_at,
         )
         if contains_redacted_value(preset.model_dump(mode="json"), redacted_values):
             raise CLIError("Generated preset contains a secret value")
@@ -685,12 +690,11 @@ async def _create_preset(
         interrupted = True
         raise
     finally:
-        if session.debug:
-            _save_final_report_copy(
-                workspace=setup.workspace,
-                session=session,
-                redacted_values=redacted_values,
-            )
+        _save_final_report_copy(
+            workspace=setup.workspace,
+            session=session,
+            redacted_values=redacted_values,
+        )
         if not interrupted:
             keep_final_service = keep_service and creation_succeeded
             try:
@@ -832,7 +836,7 @@ class PresetNameHolders:
     creation sessions claiming it (excluding the holder preset's own session)."""
 
     name: str
-    preset: Optional[Preset]
+    preset: Optional[VerifiedPreset]
     sessions: list[PresetSession]
 
     @property
@@ -918,8 +922,7 @@ def _build_constraints(
     build_name: str,
     allowed_fleets: Sequence[str],
 ) -> str:
-    dataset = configuration.effective_dataset
-    if dataset == DEFAULT_DATASET:
+    if configuration.dataset is None:
         constraints: PresetConstraints = PresetRandomConstraints(
             run_name_prefix=build_name,
             model=configuration.model,
@@ -942,7 +945,7 @@ def _build_constraints(
             max_ttft=configuration.max_ttft,
             trials_num=configuration.trials,
             concurrency=configuration.concurrency,
-            dataset=dataset,
+            dataset=configuration.dataset,
             baseline=configuration.effective_baseline,
             fleets=list(allowed_fleets),
             env=list(configuration.env),
@@ -1009,8 +1012,7 @@ async def _cleanup_runs(
                     pending.remove(name)
             if pending:
                 await asyncio.sleep(2)
-    if session.debug:
-        print_preset_progress("All preset creation runs stopped.", session=session)
+    print_preset_progress("All preset creation runs stopped.", session=session)
 
 
 def _load_submitted_run_names(path: Path) -> list[str]:

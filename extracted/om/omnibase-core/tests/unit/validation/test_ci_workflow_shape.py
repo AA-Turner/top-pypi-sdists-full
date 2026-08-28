@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -96,9 +97,6 @@ AUDITED_GUARD_JOB_EXECUTION_CONTRACTS = {
     "detect-secrets": (
         "e52c18585e93fd68b8ea8e1db1689fb5bd255e352e176e362b359ede4f346d9b"  # pragma: allowlist secret
     ),
-    "version-pin-check": (
-        "69ece7afcf893b932d5adb400a6fa7d84f12a2bfb1bb30715f54af920faf662c"  # pragma: allowlist secret
-    ),
     "sdk-boundary-check": (
         "6701fd3e6101f2107010ee2b6fc436acb2aaac73fb136e8ef237d41f0b7b70bb"  # pragma: allowlist secret
     ),
@@ -141,7 +139,6 @@ OTHER_AUDITED_GUARD_JOBS = {
     "core-infra-boundary",
     "check-deterministic-skills",
     "detect-secrets",
-    "version-pin-check",
 }
 
 NO_DEV_DIRECT_EXECUTABLES = {
@@ -753,4 +750,79 @@ def test_ci_summary_is_hosted_no_needs_poller() -> None:
         "scripts/ci/ci_summary_gate.py" in str(step.get("run", ""))
         for step in job["steps"]
         if isinstance(step, dict)
+    )
+
+
+_TIMEOUT_METHOD_RE = re.compile(r"--timeout-method=(\S+)")
+
+
+def _has_pytest_token(run: str) -> bool:
+    """True when a non-comment line of the run script invokes pytest."""
+    return any(
+        token == "pytest" or token.endswith("/pytest")
+        for line in run.splitlines()
+        if not line.lstrip().startswith("#")
+        for token in line.split()
+    )
+
+
+def _all_workflow_run_commands() -> list[tuple[str, str, str]]:
+    """Every ``(workflow file, job, run script)`` triple in .github/workflows."""
+    commands: list[tuple[str, str, str]] = []
+    for path in sorted(WORKFLOW_PATH.parent.glob("*.yml")) + sorted(
+        WORKFLOW_PATH.parent.glob("*.yaml")
+    ):
+        data = yaml.safe_load(path.read_text())
+        if not isinstance(data, dict):
+            continue
+        jobs = data.get("jobs")
+        if not isinstance(jobs, dict):
+            continue
+        for job_name, job in jobs.items():
+            if not isinstance(job, dict):
+                continue
+            steps = job.get("steps")
+            if not isinstance(steps, list):
+                continue
+            for step in steps:
+                if isinstance(step, dict) and "run" in step:
+                    commands.append((path.name, str(job_name), str(step["run"])))
+    return commands
+
+
+def test_no_workflow_pytest_invocation_uses_thread_timeout_method() -> None:
+    """OMN-16348: every ``--timeout-method`` in any workflow must be ``signal``.
+
+    OMN-15977 banned pytest-timeout's ``thread`` method: its watcher thread
+    fires only when the GIL is released, so a CPU-bound pure-Python runaway
+    holds the GIL continuously and the declared ``--timeout`` ceiling silently
+    never fires (the config behind the 2026-08-12 46/53-minute pre-push
+    runaways that needed manual SIGKILL). The ban was originally enforced
+    per-file (``pyproject.toml`` addopts + the pre-push hook) and missed
+    ci.yml, whose explicit CLI flag overrides the addopts ``signal`` default.
+    This assertion is per-invocation-surface — the OMN-15977 guards were
+    per-file, which is exactly why a third surface stayed invisible — so it
+    scans every run step of every workflow file: none may pass
+    ``--timeout-method=`` with any value other than ``signal``.
+    """
+    commands = _all_workflow_run_commands()
+
+    # Positive control: the scanner must actually be seeing ci.yml's pytest
+    # steps — an empty scan would vacuously pass while enforcing nothing.
+    assert any(
+        source == WORKFLOW_PATH.name and _has_pytest_token(run)
+        for source, _, run in commands
+    )
+
+    violations = [
+        f"{source}::{job}: {line.strip()}"
+        for source, job, run in commands
+        for line in run.splitlines()
+        for method in _TIMEOUT_METHOD_RE.findall(line)
+        if method != "signal"
+    ]
+    assert violations == [], (
+        "workflow passes a non-signal --timeout-method (banned by OMN-15977; "
+        "the explicit CLI flag overrides the addopts signal default): "
+        f"{violations}"
     )

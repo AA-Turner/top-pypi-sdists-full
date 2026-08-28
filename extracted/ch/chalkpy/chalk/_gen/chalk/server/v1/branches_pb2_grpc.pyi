@@ -8,12 +8,16 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.branches_pb2 import (
+    GetBranchDeploymentStateRequest,
+    GetBranchDeploymentStateResponse,
     GetBranchVenvInstalledPackagesRequest,
     GetBranchVenvInstalledPackagesResponse,
     GetBranchWithLatestDeploymentRequest,
     GetBranchWithLatestDeploymentResponse,
     ListBranchWithLatestDeploymentsRequest,
     ListBranchWithLatestDeploymentsResponse,
+    StartBranchDeploymentRequest,
+    StartBranchDeploymentResponse,
 )
 from grpc import (
     Channel,
@@ -24,6 +28,14 @@ from grpc import (
 
 class BranchServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    StartBranchDeployment: UnaryUnaryMultiCallable[
+        StartBranchDeploymentRequest,
+        StartBranchDeploymentResponse,
+    ]
+    GetBranchDeploymentState: UnaryUnaryMultiCallable[
+        GetBranchDeploymentStateRequest,
+        GetBranchDeploymentStateResponse,
+    ]
     GetBranchWithLatestDeployment: UnaryUnaryMultiCallable[
         GetBranchWithLatestDeploymentRequest,
         GetBranchWithLatestDeploymentResponse,
@@ -38,6 +50,18 @@ class BranchServiceStub:
     ]
 
 class BranchServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def StartBranchDeployment(
+        self,
+        request: StartBranchDeploymentRequest,
+        context: ServicerContext,
+    ) -> StartBranchDeploymentResponse: ...
+    @abstractmethod
+    def GetBranchDeploymentState(
+        self,
+        request: GetBranchDeploymentStateRequest,
+        context: ServicerContext,
+    ) -> GetBranchDeploymentStateResponse: ...
     @abstractmethod
     def GetBranchWithLatestDeployment(
         self,

@@ -16,14 +16,16 @@ from deepspeed.runtime.zenflow import zenflow_utils
 import gc
 import math
 from typing import Container
-from deepspeed.runtime.zero.offload_states import offload_optimizer_states, reload_optimizer_states
+from deepspeed.runtime.zero.offload_states import (offload_optimizer_states, reload_optimizer_states,
+                                                   unpin_offloaded_optimizer_states)
 from deepspeed.runtime.base_optimizer import ZeROOptimizer
 from deepspeed.runtime.fp16.loss_scaler import CreateLossScaler
 from deepspeed.runtime.torch_autocast import get_autocast_dtype, get_all_comm_dtypes, is_autocast_initialized, sort_dtypes
-from deepspeed.runtime.utils import (empty_cache, see_memory_usage, inf, is_model_parallel_parameter,
+from deepspeed.runtime.utils import (empty_cache, see_memory_usage, has_inf_or_nan, inf, is_model_parallel_parameter,
                                      align_dense_tensors, all_gather_dp_groups, mask_nan_or_inf_with_val_inplace,
                                      count_used_parameters_in_backward)
 from deepspeed.runtime.zero.config import ZeroStageEnum
+from deepspeed.runtime.zero.utils import get_norm_dtype
 from deepspeed.runtime.zero.offload_config import OffloadDeviceEnum, OffloadStateTypeEnum
 from deepspeed.ops.adam import DeepSpeedCPUAdam
 from deepspeed.utils import logger
@@ -169,6 +171,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
                  communication_data_type=torch.float16,
                  postscale_gradients=True,
                  gradient_predivide_factor=1.0,
+                 gradient_average=True,
                  gradient_accumulation_steps=1,
                  ignore_unused_parameters=True,
                  partition_grads=True,
@@ -279,6 +282,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
         self.communication_data_type = communication_data_type
         self.gradient_predivide_factor = gradient_predivide_factor
         self.postscale_gradients = postscale_gradients
+        self.gradient_average = gradient_average
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.micro_step_id = INITIAL_MICRO_STEP_ID
         self.ignore_unused_parameters = ignore_unused_parameters
@@ -304,8 +308,9 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
         if self.reduce_scatter and self.partition_gradients:
             valid_reduce_scatter_dtypes = (torch.float16, torch.bfloat16, torch.float32)
             assert self.communication_data_type in valid_reduce_scatter_dtypes, f"{self.zero_stage_string} supports {valid_reduce_scatter_dtypes} communication_data_type with reduce scatter enabled. Got: '{self.communication_data_type}'"
-            assert self.gradient_predivide_factor == 1.0, f"gradient_predivide_factor != 1.0 is not yet supported with {self.zero_stage_string} with reduce scatter enabled"
-            assert self.postscale_gradients, f"pre-scale gradients is not yet supported with {self.zero_stage_string} with reduce scatter enabled"
+            if self.gradient_average:
+                assert self.gradient_predivide_factor == 1.0, f"gradient_predivide_factor != 1.0 is not yet supported with {self.zero_stage_string} with reduce scatter enabled"
+                assert self.postscale_gradients, f"pre-scale gradients is not yet supported with {self.zero_stage_string} with reduce scatter enabled"
 
         # param flattened by groups
         self.bit16_groups = []
@@ -681,6 +686,32 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
         for hook in self._grad_acc_hooks:
             hook.remove()
         self.print_rank_0("Removed grad acc hooks")
+        if get_accelerator().is_available():
+            get_accelerator().synchronize()
+        self._unpin_offload_buffers()
+
+    def _unpin_offload_buffers(self):
+        # Release the page-locked host buffers we pinned for CPU offload. unpin_memory is a
+        # no-op for the torch backend and only frees under DS_PIN_MEMORY_BACKEND=native,
+        # where the mlocked allocation would otherwise persist until garbage collection.
+        accelerator = get_accelerator()
+        # offload_states(pin_memory=True) pins host buffers regardless of the ZeRO
+        # CPU-offload config, and destroy() may run while states are still offloaded.
+        for attr in ('hp_params_pin_buffers', 'lp_params_pin_buffers'):
+            for buffer in getattr(self, attr, []):
+                accelerator.unpin_memory(buffer)
+        unpin_offloaded_optimizer_states(self.optimizer)
+        if not (self.cpu_offload and self.cpu_offload_pin_memory):
+            return
+        for fp32_partition in self.single_partition_of_fp32_groups:
+            accelerator.unpin_memory(fp32_partition)
+            if fp32_partition.grad is not None:
+                accelerator.unpin_memory(fp32_partition.grad)
+        for buffer in self.param_buffer_of_bit16_for_cpu_offload_groups:
+            accelerator.unpin_memory(buffer)
+        temp_grad_buffer = getattr(self, 'temp_grad_buffer_for_cpu_offload', None)
+        if temp_grad_buffer is not None:
+            accelerator.unpin_memory(temp_grad_buffer)
 
     def _enable_universal_checkpoint(self):
         self._universal_checkpoint_info = None
@@ -1171,6 +1202,9 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
     ############### Independent Partition Gradient ########################
     def reduce_independent_p_g_buckets_and_remove_grads(self, param, i):
 
+        if param.numel() == 0:
+            return
+
         grad_reduc = self.get_gradient_for_reduction(param)
         comm_dtype = self.get_param_comm_dtype(param)
         bucket = self.ipg_buckets[comm_dtype]
@@ -1243,7 +1277,9 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
         if communication_data_type != tensor.dtype:
             tensor_to_allreduce = tensor.to(communication_data_type)
 
-        if self.postscale_gradients:
+        if not self.gradient_average:
+            dist.all_reduce(tensor_to_allreduce, group=self.dp_process_group)
+        elif self.postscale_gradients:
             if self.gradient_predivide_factor != 1.0:
                 tensor_to_allreduce.mul_(1. / self.gradient_predivide_factor)
 
@@ -1406,7 +1442,8 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
                     curr_size += numel
                     prev_id, prev_process_group, prev_copy_ranks = partition_id, process_group, copy_ranks
 
-            tensor.div_(dist.get_world_size(group=self.dp_process_group) / float(self.sequence_parallel_size))
+            if self.gradient_average:
+                tensor.div_(dist.get_world_size(group=self.dp_process_group) / float(self.sequence_parallel_size))
 
             buckets = {}
             for i, (dst, bucket_offset, numel, copy_ranks) in enumerate(rank_and_offsets):
@@ -1543,7 +1580,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
         start = source_offset
         accumulated_grad = accumulated_grad.view(-1).narrow(0, start, num_elements)
 
-        self.norm_for_param_grads[param_id] = accumulated_grad.data.double().norm(2)
+        self.norm_for_param_grads[param_id] = accumulated_grad.data.to(get_norm_dtype()).norm(2)
 
     def set_norm_for_param_grad_in_gpu(self, param):
         param_id = self.get_param_id(param)
@@ -1558,7 +1595,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
         start = source_offset
         accumulated_grad = accumulated_grad.view(-1).narrow(0, start, num_elements)
 
-        self.norm_for_param_grads[param_id] = accumulated_grad.data.double().norm(2)
+        self.norm_for_param_grads[param_id] = accumulated_grad.data.to(get_norm_dtype()).norm(2)
 
     def async_inplace_copy_grad_to_fp32_buffer_from_gpu(self, param):
         param_id = self.get_param_id(param)
@@ -1823,7 +1860,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
         if communication_data_type != tensor.dtype:
             tensor_to_allreduce = tensor.to(communication_data_type)
 
-        if divide:
+        if divide and self.gradient_average:
             tensor_to_allreduce.div_(dist.get_world_size(group=process_group) / float(self.sequence_parallel_size))
 
         if rank is None:
@@ -2032,9 +2069,8 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
         the gradients are modified in place.
 
         Arguments:
-            parameters (Iterable[Tensor] or Tensor): an iterable of Tensors or a
+            params (Iterable[Tensor] or Tensor): an iterable of Tensors or a
                 single Tensor that will have gradients normalized
-            max_norm (float or int): max norm of the gradients
             norm_type (float or int): type of the used p-norm. Can be ``'inf'`` for
                 infinity norm.
 
@@ -2060,7 +2096,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
                     continue
                 if is_model_parallel_parameter(p) or (self.model_parallel_rank == 0):
                     all_norms.append(
-                        torch.linalg.vector_norm(g.data.double().detach(),
+                        torch.linalg.vector_norm(g.data.to(get_norm_dtype()).detach(),
                                                  ord=norm_type).to(get_accelerator().current_device_name()))
             if len(all_norms) > 0:
                 total_norm = torch.stack(all_norms).square().sum().float()
@@ -2458,11 +2494,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
     # `x` is a torch.Tensor
     @staticmethod
     def _has_inf_or_nan(x, j=None):
-        float_x = x.float()
-        nan = float_x.isnan()
-        inf = float_x.isinf()
-        inf_or_nan = nan.logical_or(inf)
-        return inf_or_nan.float().max()
+        return has_inf_or_nan(x)
 
     def setup_buckets(self):
         if not self.ready_for_gradients:
@@ -2917,7 +2949,8 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
             if pin_memory:
                 if not hasattr(self, "hp_params_pin_buffers"):
                     self.hp_params_pin_buffers = [
-                        torch.empty_like(t, device=device).pin_memory() for t in self.single_partition_of_fp32_groups
+                        get_accelerator().pin_memory(torch.empty_like(t, device=device), make_copy=False)
+                        for t in self.single_partition_of_fp32_groups
                     ]
                 for src_tensor, dest_buf in zip(self.single_partition_of_fp32_groups, self.hp_params_pin_buffers):
                     dest_buf.copy_(src_tensor, non_blocking=non_blocking)
@@ -2940,7 +2973,8 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
             if pin_memory:
                 if not hasattr(self, "lp_params_pin_buffers"):
                     self.lp_params_pin_buffers = [
-                        torch.empty_like(t, device=device).pin_memory() for t in self.bit16_groups_flat
+                        get_accelerator().pin_memory(torch.empty_like(t, device=device), make_copy=False)
+                        for t in self.bit16_groups_flat
                     ]
                 for src_tensor, dest_buf in zip(self.bit16_groups_flat, self.lp_params_pin_buffers):
                     dest_buf.copy_(src_tensor, non_blocking=non_blocking)
@@ -2989,12 +3023,18 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
                 If True, attempts to perform reload operations asynchronously. Defaults to False.
         """
         device = get_accelerator().current_device_name()
+        # Host sources of the copies queued below. The native (mlock) backend has
+        # no CUDA stream tracking and frees as soon as the last reference drops,
+        # unlike the torch pinned allocator, so hold them until after the
+        # synchronize at the end of this method.
+        pending_host_buffers = []
 
         # Reload FP32 Master Parameters (HP Params)
         if OffloadStateTypeEnum.hp_params in self.offloaded_states:
             for buf in self.single_partition_of_fp32_groups:
                 buf.data = buf.data.to(device, non_blocking=non_blocking)
             if hasattr(self, "hp_params_pin_buffers"):
+                pending_host_buffers.append(self.hp_params_pin_buffers)
                 del self.hp_params_pin_buffers
             self._link_all_hp_params()
             self.offloaded_states.remove(OffloadStateTypeEnum.hp_params)
@@ -3014,6 +3054,7 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
                 self._update_model_bit16_weights(i)
 
             if hasattr(self, "lp_params_pin_buffers"):
+                pending_host_buffers.append(self.lp_params_pin_buffers)
                 del self.lp_params_pin_buffers
             self._link_all_hp_params()
             self.offloaded_states.remove(OffloadStateTypeEnum.lp_params)
@@ -3033,11 +3074,13 @@ class DeepSpeedZeroOptimizer(ZeROOptimizer):
 
         # Reload Optimizer States
         if OffloadStateTypeEnum.optim_states in self.offloaded_states:
-            reload_optimizer_states(self.optimizer, device, non_blocking=non_blocking)
+            pending_host_buffers.append(reload_optimizer_states(self.optimizer, device, non_blocking=non_blocking))
             self.offloaded_states.remove(OffloadStateTypeEnum.optim_states)
 
         if non_blocking:
             get_accelerator().synchronize()
+        # The copies have completed, so the host sources can be released.
+        del pending_host_buffers
 
 
 def _handle_overflow(cpu_sum, x, i):

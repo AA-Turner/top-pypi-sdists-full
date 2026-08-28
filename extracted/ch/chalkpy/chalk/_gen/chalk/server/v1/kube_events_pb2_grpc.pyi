@@ -8,10 +8,14 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.kube_events_pb2 import (
+    GetKubeEventAggregatesRequest,
+    GetKubeEventAggregatesResponse,
     GetKubeEventFacetValuesRequest,
     GetKubeEventFacetValuesResponse,
     GetKubeEventFacetsRequest,
     GetKubeEventFacetsResponse,
+    GetKubeEventStatRequest,
+    GetKubeEventStatResponse,
     ListKubeEventsAggregatedRequest,
     ListKubeEventsAggregatedResponse,
     ListKubeEventsRequest,
@@ -42,6 +46,18 @@ class KubeEventsServiceStub:
         ListKubeEventsAggregatedRequest,
         ListKubeEventsAggregatedResponse,
     ]
+    GetKubeEventAggregates: UnaryUnaryMultiCallable[
+        GetKubeEventAggregatesRequest,
+        GetKubeEventAggregatesResponse,
+    ]
+    """GetKubeEventAggregates computes arbitrary aggregations (count distinct, dedup-aware sum/avg of
+    the occurrence Count, ...) grouped by 0-3 kube-event facets.
+    """
+    GetKubeEventStat: UnaryUnaryMultiCallable[
+        GetKubeEventStatRequest,
+        GetKubeEventStatResponse,
+    ]
+    """GetKubeEventStat reduces the matched events to one scalar for a dashboard statistic tile."""
 
 class KubeEventsServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -68,5 +84,21 @@ class KubeEventsServiceServicer(metaclass=ABCMeta):
         request: ListKubeEventsAggregatedRequest,
         context: ServicerContext,
     ) -> ListKubeEventsAggregatedResponse: ...
+    @abstractmethod
+    def GetKubeEventAggregates(
+        self,
+        request: GetKubeEventAggregatesRequest,
+        context: ServicerContext,
+    ) -> GetKubeEventAggregatesResponse:
+        """GetKubeEventAggregates computes arbitrary aggregations (count distinct, dedup-aware sum/avg of
+        the occurrence Count, ...) grouped by 0-3 kube-event facets.
+        """
+    @abstractmethod
+    def GetKubeEventStat(
+        self,
+        request: GetKubeEventStatRequest,
+        context: ServicerContext,
+    ) -> GetKubeEventStatResponse:
+        """GetKubeEventStat reduces the matched events to one scalar for a dashboard statistic tile."""
 
 def add_KubeEventsServiceServicer_to_server(servicer: KubeEventsServiceServicer, server: Server) -> None: ...

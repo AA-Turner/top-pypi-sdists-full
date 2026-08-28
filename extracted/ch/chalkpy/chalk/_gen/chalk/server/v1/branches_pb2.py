@@ -13,13 +13,14 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.artifacts.v1 import export_pb2 as chalk_dot_artifacts_dot_v1_dot_export__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as chalk_dot_server_dot_v1_dot_deployment__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1e\x63halk/server/v1/branches.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/server/v1/deployment.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x92\x01\n\x06\x42ranch\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x39\n\ncreated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12)\n\x10\x64\x65ployment_count\x18\x04 \x01(\x05R\x0f\x64\x65ploymentCount"[\n\rPythonPackage\x12!\n\x0cpackage_name\x18\x01 \x01(\tR\x0bpackageName\x12\'\n\x0fpackage_version\x18\x02 \x01(\tR\x0epackageVersion"S\n\x0cVenvPackages\x12\x43\n\rvenv_packages\x18\x01 \x03(\x0b\x32\x1e.chalk.server.v1.PythonPackageR\x0cvenvPackages"\x97\x04\n\x1a\x42ranchWithLatestDeployment\x12/\n\x06\x62ranch\x18\x01 \x01(\x0b\x32\x17.chalk.server.v1.BranchR\x06\x62ranch\x12[\n\x18latest_deployment_status\x18\x02 \x01(\x0e\x32!.chalk.server.v1.DeploymentStatusR\x16latestDeploymentStatus\x12V\n\x19latest_deployment_created\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x17latestDeploymentCreated\x12V\n\x19latest_deployment_updated\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x17latestDeploymentUpdated\x12\x35\n\x14latest_deployment_id\x18\x05 \x01(\tH\x00R\x12latestDeploymentId\x88\x01\x01\x12H\n\x1elatest_deployment_triggered_by\x18\x06 \x01(\tH\x01R\x1blatestDeploymentTriggeredBy\x88\x01\x01\x42\x17\n\x15_latest_deployment_idB!\n\x1f_latest_deployment_triggered_by":\n$GetBranchWithLatestDeploymentRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"\x97\x01\n%GetBranchWithLatestDeploymentResponse\x12n\n\x1d\x62ranch_with_latest_deployment\x18\x01 \x01(\x0b\x32+.chalk.server.v1.BranchWithLatestDeploymentR\x1a\x62ranchWithLatestDeployment"u\n&ListBranchWithLatestDeploymentsRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limit"\xc3\x01\n\'ListBranchWithLatestDeploymentsResponse\x12p\n\x1e\x62ranch_with_latest_deployments\x18\x01 \x03(\x0b\x32+.chalk.server.v1.BranchWithLatestDeploymentR\x1b\x62ranchWithLatestDeployments\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x42\t\n\x07_cursor"v\n%GetBranchVenvInstalledPackagesRequest\x12\x1b\n\tbranch_id\x18\x01 \x01(\tR\x08\x62ranchId\x12\x30\n\x14latest_deployment_id\x18\x02 \x01(\tR\x12latestDeploymentId"\x93\x02\n&GetBranchVenvInstalledPackagesResponse\x12\x82\x01\n\x15venv_packages_by_name\x18\x01 \x03(\x0b\x32O.chalk.server.v1.GetBranchVenvInstalledPackagesResponse.VenvPackagesByNameEntryR\x12venvPackagesByName\x1a\x64\n\x17VenvPackagesByNameEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x33\n\x05value\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.VenvPackagesR\x05value:\x02\x38\x01\x32\xda\x03\n\rBranchService\x12\x93\x01\n\x1dGetBranchWithLatestDeployment\x12\x35.chalk.server.v1.GetBranchWithLatestDeploymentRequest\x1a\x36.chalk.server.v1.GetBranchWithLatestDeploymentResponse"\x03\x80}\x0b\x12\x99\x01\n\x1fListBranchWithLatestDeployments\x12\x37.chalk.server.v1.ListBranchWithLatestDeploymentsRequest\x1a\x38.chalk.server.v1.ListBranchWithLatestDeploymentsResponse"\x03\x80}\x0b\x12\x96\x01\n\x1eGetBranchVenvInstalledPackages\x12\x36.chalk.server.v1.GetBranchVenvInstalledPackagesRequest\x1a\x37.chalk.server.v1.GetBranchVenvInstalledPackagesResponse"\x03\x80}\x0b\x42\x96\x01\n\x13\x63om.chalk.server.v1B\rBranchesProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1e\x63halk/server/v1/branches.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/artifacts/v1/export.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/server/v1/deployment.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x92\x01\n\x06\x42ranch\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x39\n\ncreated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12)\n\x10\x64\x65ployment_count\x18\x04 \x01(\x05R\x0f\x64\x65ploymentCount"[\n\rPythonPackage\x12!\n\x0cpackage_name\x18\x01 \x01(\tR\x0bpackageName\x12\'\n\x0fpackage_version\x18\x02 \x01(\tR\x0epackageVersion"S\n\x0cVenvPackages\x12\x43\n\rvenv_packages\x18\x01 \x03(\x0b\x32\x1e.chalk.server.v1.PythonPackageR\x0cvenvPackages"\x97\x04\n\x1a\x42ranchWithLatestDeployment\x12/\n\x06\x62ranch\x18\x01 \x01(\x0b\x32\x17.chalk.server.v1.BranchR\x06\x62ranch\x12[\n\x18latest_deployment_status\x18\x02 \x01(\x0e\x32!.chalk.server.v1.DeploymentStatusR\x16latestDeploymentStatus\x12V\n\x19latest_deployment_created\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x17latestDeploymentCreated\x12V\n\x19latest_deployment_updated\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x17latestDeploymentUpdated\x12\x35\n\x14latest_deployment_id\x18\x05 \x01(\tH\x00R\x12latestDeploymentId\x88\x01\x01\x12H\n\x1elatest_deployment_triggered_by\x18\x06 \x01(\tH\x01R\x1blatestDeploymentTriggeredBy\x88\x01\x01\x42\x17\n\x15_latest_deployment_idB!\n\x1f_latest_deployment_triggered_by":\n$GetBranchWithLatestDeploymentRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"\x97\x01\n%GetBranchWithLatestDeploymentResponse\x12n\n\x1d\x62ranch_with_latest_deployment\x18\x01 \x01(\x0b\x32+.chalk.server.v1.BranchWithLatestDeploymentR\x1a\x62ranchWithLatestDeployment"\x90\x02\n&ListBranchWithLatestDeploymentsRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12\x39\n\x06status\x18\x03 \x03(\x0e\x32!.chalk.server.v1.DeploymentStatusR\x06status\x12\x1f\n\x0b\x64\x65ployed_by\x18\x04 \x03(\tR\ndeployedBy\x12*\n\x0esort_ascending\x18\x05 \x01(\x08H\x02R\rsortAscending\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limitB\x11\n\x0f_sort_ascending"\xc3\x01\n\'ListBranchWithLatestDeploymentsResponse\x12p\n\x1e\x62ranch_with_latest_deployments\x18\x01 \x03(\x0b\x32+.chalk.server.v1.BranchWithLatestDeploymentR\x1b\x62ranchWithLatestDeployments\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x42\t\n\x07_cursor"v\n%GetBranchVenvInstalledPackagesRequest\x12\x1b\n\tbranch_id\x18\x01 \x01(\tR\x08\x62ranchId\x12\x30\n\x14latest_deployment_id\x18\x02 \x01(\tR\x12latestDeploymentId"\x93\x02\n&GetBranchVenvInstalledPackagesResponse\x12\x82\x01\n\x15venv_packages_by_name\x18\x01 \x03(\x0b\x32O.chalk.server.v1.GetBranchVenvInstalledPackagesResponse.VenvPackagesByNameEntryR\x12venvPackagesByName\x1a\x64\n\x17VenvPackagesByNameEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x33\n\x05value\x18\x02 \x01(\x0b\x32\x1d.chalk.server.v1.VenvPackagesR\x05value:\x02\x38\x01"Y\n\x1cStartBranchDeploymentRequest\x12\x1f\n\x0b\x62ranch_name\x18\x01 \x01(\tR\nbranchName\x12\x18\n\x07\x61rchive\x18\x02 \x01(\x0cR\x07\x61rchive"\x8d\x01\n\x1dStartBranchDeploymentResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment\x12/\n\x13\x64\x65ployment_warnings\x18\x02 \x03(\tR\x12\x64\x65ploymentWarnings"g\n\x1fGetBranchDeploymentStateRequest\x12\x1f\n\x0b\x62ranch_name\x18\x01 \x01(\tR\nbranchName\x12#\n\rdeployment_id\x18\x02 \x01(\tR\x0c\x64\x65ploymentId"\xe8\x01\n GetBranchDeploymentStateResponse\x12;\n\ndeployment\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.DeploymentR\ndeployment\x12\x37\n\x06\x65xport\x18\x02 \x01(\x0b\x32\x1a.chalk.artifacts.v1.ExportH\x00R\x06\x65xport\x88\x01\x01\x12.\n\x10\x64\x65ployment_stage\x18\x03 \x01(\tH\x01R\x0f\x64\x65ploymentStage\x88\x01\x01\x42\t\n\x07_exportB\x13\n\x11_deployment_stage2\xde\x05\n\rBranchService\x12{\n\x15StartBranchDeployment\x12-.chalk.server.v1.StartBranchDeploymentRequest\x1a..chalk.server.v1.StartBranchDeploymentResponse"\x03\x80}\r\x12\x84\x01\n\x18GetBranchDeploymentState\x12\x30.chalk.server.v1.GetBranchDeploymentStateRequest\x1a\x31.chalk.server.v1.GetBranchDeploymentStateResponse"\x03\x80}\x0b\x12\x93\x01\n\x1dGetBranchWithLatestDeployment\x12\x35.chalk.server.v1.GetBranchWithLatestDeploymentRequest\x1a\x36.chalk.server.v1.GetBranchWithLatestDeploymentResponse"\x03\x80}\x0b\x12\x99\x01\n\x1fListBranchWithLatestDeployments\x12\x37.chalk.server.v1.ListBranchWithLatestDeploymentsRequest\x1a\x38.chalk.server.v1.ListBranchWithLatestDeploymentsResponse"\x03\x80}\x0b\x12\x96\x01\n\x1eGetBranchVenvInstalledPackages\x12\x36.chalk.server.v1.GetBranchVenvInstalledPackagesRequest\x1a\x37.chalk.server.v1.GetBranchVenvInstalledPackagesResponse"\x03\x80}\x0b\x42\x96\x01\n\x13\x63om.chalk.server.v1B\rBranchesProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -32,34 +33,46 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.server.v1B\rBranchesProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
     _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE_VENVPACKAGESBYNAMEENTRY"]._options = None
     _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE_VENVPACKAGESBYNAMEENTRY"]._serialized_options = b"8\001"
+    _globals["_BRANCHSERVICE"].methods_by_name["StartBranchDeployment"]._options = None
+    _globals["_BRANCHSERVICE"].methods_by_name["StartBranchDeployment"]._serialized_options = b"\200}\r"
+    _globals["_BRANCHSERVICE"].methods_by_name["GetBranchDeploymentState"]._options = None
+    _globals["_BRANCHSERVICE"].methods_by_name["GetBranchDeploymentState"]._serialized_options = b"\200}\013"
     _globals["_BRANCHSERVICE"].methods_by_name["GetBranchWithLatestDeployment"]._options = None
     _globals["_BRANCHSERVICE"].methods_by_name["GetBranchWithLatestDeployment"]._serialized_options = b"\200}\013"
     _globals["_BRANCHSERVICE"].methods_by_name["ListBranchWithLatestDeployments"]._options = None
     _globals["_BRANCHSERVICE"].methods_by_name["ListBranchWithLatestDeployments"]._serialized_options = b"\200}\013"
     _globals["_BRANCHSERVICE"].methods_by_name["GetBranchVenvInstalledPackages"]._options = None
     _globals["_BRANCHSERVICE"].methods_by_name["GetBranchVenvInstalledPackages"]._serialized_options = b"\200}\013"
-    _globals["_BRANCH"]._serialized_start = 152
-    _globals["_BRANCH"]._serialized_end = 298
-    _globals["_PYTHONPACKAGE"]._serialized_start = 300
-    _globals["_PYTHONPACKAGE"]._serialized_end = 391
-    _globals["_VENVPACKAGES"]._serialized_start = 393
-    _globals["_VENVPACKAGES"]._serialized_end = 476
-    _globals["_BRANCHWITHLATESTDEPLOYMENT"]._serialized_start = 479
-    _globals["_BRANCHWITHLATESTDEPLOYMENT"]._serialized_end = 1014
-    _globals["_GETBRANCHWITHLATESTDEPLOYMENTREQUEST"]._serialized_start = 1016
-    _globals["_GETBRANCHWITHLATESTDEPLOYMENTREQUEST"]._serialized_end = 1074
-    _globals["_GETBRANCHWITHLATESTDEPLOYMENTRESPONSE"]._serialized_start = 1077
-    _globals["_GETBRANCHWITHLATESTDEPLOYMENTRESPONSE"]._serialized_end = 1228
-    _globals["_LISTBRANCHWITHLATESTDEPLOYMENTSREQUEST"]._serialized_start = 1230
-    _globals["_LISTBRANCHWITHLATESTDEPLOYMENTSREQUEST"]._serialized_end = 1347
-    _globals["_LISTBRANCHWITHLATESTDEPLOYMENTSRESPONSE"]._serialized_start = 1350
-    _globals["_LISTBRANCHWITHLATESTDEPLOYMENTSRESPONSE"]._serialized_end = 1545
-    _globals["_GETBRANCHVENVINSTALLEDPACKAGESREQUEST"]._serialized_start = 1547
-    _globals["_GETBRANCHVENVINSTALLEDPACKAGESREQUEST"]._serialized_end = 1665
-    _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE"]._serialized_start = 1668
-    _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE"]._serialized_end = 1943
-    _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE_VENVPACKAGESBYNAMEENTRY"]._serialized_start = 1843
-    _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE_VENVPACKAGESBYNAMEENTRY"]._serialized_end = 1943
-    _globals["_BRANCHSERVICE"]._serialized_start = 1946
-    _globals["_BRANCHSERVICE"]._serialized_end = 2420
+    _globals["_BRANCH"]._serialized_start = 185
+    _globals["_BRANCH"]._serialized_end = 331
+    _globals["_PYTHONPACKAGE"]._serialized_start = 333
+    _globals["_PYTHONPACKAGE"]._serialized_end = 424
+    _globals["_VENVPACKAGES"]._serialized_start = 426
+    _globals["_VENVPACKAGES"]._serialized_end = 509
+    _globals["_BRANCHWITHLATESTDEPLOYMENT"]._serialized_start = 512
+    _globals["_BRANCHWITHLATESTDEPLOYMENT"]._serialized_end = 1047
+    _globals["_GETBRANCHWITHLATESTDEPLOYMENTREQUEST"]._serialized_start = 1049
+    _globals["_GETBRANCHWITHLATESTDEPLOYMENTREQUEST"]._serialized_end = 1107
+    _globals["_GETBRANCHWITHLATESTDEPLOYMENTRESPONSE"]._serialized_start = 1110
+    _globals["_GETBRANCHWITHLATESTDEPLOYMENTRESPONSE"]._serialized_end = 1261
+    _globals["_LISTBRANCHWITHLATESTDEPLOYMENTSREQUEST"]._serialized_start = 1264
+    _globals["_LISTBRANCHWITHLATESTDEPLOYMENTSREQUEST"]._serialized_end = 1536
+    _globals["_LISTBRANCHWITHLATESTDEPLOYMENTSRESPONSE"]._serialized_start = 1539
+    _globals["_LISTBRANCHWITHLATESTDEPLOYMENTSRESPONSE"]._serialized_end = 1734
+    _globals["_GETBRANCHVENVINSTALLEDPACKAGESREQUEST"]._serialized_start = 1736
+    _globals["_GETBRANCHVENVINSTALLEDPACKAGESREQUEST"]._serialized_end = 1854
+    _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE"]._serialized_start = 1857
+    _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE"]._serialized_end = 2132
+    _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE_VENVPACKAGESBYNAMEENTRY"]._serialized_start = 2032
+    _globals["_GETBRANCHVENVINSTALLEDPACKAGESRESPONSE_VENVPACKAGESBYNAMEENTRY"]._serialized_end = 2132
+    _globals["_STARTBRANCHDEPLOYMENTREQUEST"]._serialized_start = 2134
+    _globals["_STARTBRANCHDEPLOYMENTREQUEST"]._serialized_end = 2223
+    _globals["_STARTBRANCHDEPLOYMENTRESPONSE"]._serialized_start = 2226
+    _globals["_STARTBRANCHDEPLOYMENTRESPONSE"]._serialized_end = 2367
+    _globals["_GETBRANCHDEPLOYMENTSTATEREQUEST"]._serialized_start = 2369
+    _globals["_GETBRANCHDEPLOYMENTSTATEREQUEST"]._serialized_end = 2472
+    _globals["_GETBRANCHDEPLOYMENTSTATERESPONSE"]._serialized_start = 2475
+    _globals["_GETBRANCHDEPLOYMENTSTATERESPONSE"]._serialized_end = 2707
+    _globals["_BRANCHSERVICE"]._serialized_start = 2710
+    _globals["_BRANCHSERVICE"]._serialized_end = 3444
 # @@protoc_insertion_point(module_scope)

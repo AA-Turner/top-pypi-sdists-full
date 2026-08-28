@@ -381,7 +381,7 @@ _pygi_closure_convert_arguments (PyGIInvokeState *state,
             } else if (arg_cache->meta_type != PYGI_META_ARG_TYPE_PARENT) {
                 continue;
             } else {
-                gpointer cleanup_data = NULL;
+                PyGIMarshalCleanupData cleanup_data = { NULL, NULL };
 
                 value = arg_cache->to_py_marshaller (state, cache, arg_cache,
                                                      &state->args[i].arg_value,
@@ -389,8 +389,6 @@ _pygi_closure_convert_arguments (PyGIInvokeState *state,
                 state->args[i].to_py_arg_cleanup_data = cleanup_data;
 
                 if (value == NULL) {
-                    pygi_marshal_cleanup_args_to_py_parameter_fail (state,
-                                                                    cache, i);
                     return FALSE;
                 }
             }
@@ -422,10 +420,9 @@ _pygi_closure_set_out_arguments (PyGIInvokeState *state,
 
         success = cache->return_cache->from_py_marshaller (
             state, cache, cache->return_cache, item, &state->return_arg,
-            &state->args[0].arg_cleanup_data);
+            &state->from_py_return_arg_cleanup_data);
 
         if (!success) {
-            pygi_marshal_cleanup_args_return_fail (state, cache);
             return FALSE;
         }
 
@@ -448,18 +445,14 @@ _pygi_closure_set_out_arguments (PyGIInvokeState *state,
             if (PyTuple_Check (py_retval)) {
                 item = PyTuple_GET_ITEM (py_retval, i_py_retval);
             } else if (i_py_retval != 0) {
-                pygi_marshal_cleanup_args_to_py_parameter_fail (state, cache,
-                                                                i_py_retval);
                 return FALSE;
             }
 
             success = arg_cache->from_py_marshaller (
                 state, cache, arg_cache, item, &state->args[i].arg_value,
-                &state->args[i_py_retval].arg_cleanup_data);
+                &state->args[i_py_retval].from_py_arg_cleanup_data);
 
             if (!success) {
-                pygi_marshal_cleanup_args_to_py_parameter_fail (state, cache,
-                                                                i_py_retval);
                 return FALSE;
             }
 
@@ -521,10 +514,8 @@ _pygi_closure_handle (ffi_cif *cif, void *result, void **args, void *data)
     PyGILState_STATE py_state;
     PyGICClosure *closure = data;
     PyObject *retval;
-    gboolean success;
-    PyGIInvokeState state = {
-        0,
-    };
+    gboolean success = TRUE;
+    PyGIInvokeState state = { 0 };
 
     /* Ignore closures when Python is not initialized. This can happen in cases
      * where calling Python implemented vfuncs can happen at shutdown time.
@@ -556,13 +547,12 @@ _pygi_closure_handle (ffi_cif *cif, void *result, void **args, void *data)
         goto end;
     }
 
-    pygi_marshal_cleanup_args_to_py_marshal_success (&state, closure->cache);
-    success = _pygi_closure_set_out_arguments (&state, closure->cache, retval,
-                                               result);
+    pygi_marshal_cleanup_args_to_py (&state, closure->cache, success);
+    success |= _pygi_closure_set_out_arguments (&state, closure->cache, retval,
+                                                result);
 
     if (!success) {
-        pygi_marshal_cleanup_args_from_py_marshal_success (&state,
-                                                           closure->cache);
+        pygi_marshal_cleanup_args_from_py (&state, closure->cache, success);
         _pygi_closure_clear_retvals (&state, closure->cache, result);
     }
 

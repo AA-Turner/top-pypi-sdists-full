@@ -12,6 +12,7 @@ from ..component_registry import R
 from ..as_embedding import BaseAsEmbedding
 
 Miss = tuple[int, str, str]  # (result_index, text, cache_key)
+_MAX_VECTOR_SPACE_ATTEMPTS = 3
 
 
 @R.register("local")
@@ -66,35 +67,63 @@ class LocalEmbeddingStore(BaseEmbeddingStore):
         await self.load()
 
     async def _close(self) -> None:
-        await self.dump()
+        if self.is_started:
+            await self.dump()
 
-    async def health_check(self, timeout: float = 5.0) -> bool:
+    async def health_check(self, timeout: float | None = None) -> bool:
+        timeout = self.health_check_timeout if timeout is None else timeout
+        if not isinstance(timeout, (int, float)) or not np.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and greater than 0")
         tag = f"[EMBEDDING HEALTH CHECK] name={self.name} workspace_dir={self.workspace_path}"
+        started_at = asyncio.get_running_loop().time()
         try:
+            # Provider construction may synchronously import an SDK and build
+            # its HTTP client. Keep that one-time work outside the request
+            # timeout so the full budget applies to the initialized provider
+            # call instead of being consumed before a request can be sent.
+            self.as_embedding.initialize_model()
             result = await asyncio.wait_for(self.as_embedding(["ping"]), timeout=timeout)
             if not result or result[0] is None:
                 raise RuntimeError("empty embedding")
             if len(result[0]) != self.dimensions:
                 raise RuntimeError(f"embedding dimension mismatch: {len(result[0])} != {self.dimensions}")
             self.is_healthy = True
-            self.logger.info(f"{tag} -> OK")
+            elapsed = asyncio.get_running_loop().time() - started_at
+            self.logger.info(f"{tag} -> OK timeout={timeout}s elapsed={elapsed:.3f}s")
         except asyncio.TimeoutError:
             self.is_healthy = False
-            self.logger.error(f"{tag} -> FAIL timeout({timeout}s)")
-        except Exception as e:
+            elapsed = asyncio.get_running_loop().time() - started_at
+            self.logger.error(f"{tag} -> FAIL timeout={timeout}s elapsed={elapsed:.3f}s error=timeout({timeout}s)")
+        except Exception as exc:  # Provider SDKs expose many exception types.
             self.is_healthy = False
-            self.logger.error(f"{tag} -> FAIL {type(e).__name__}: {e}")
+            elapsed = asyncio.get_running_loop().time() - started_at
+            self.logger.error(
+                f"{tag} -> FAIL timeout={timeout}s elapsed={elapsed:.3f}s error={type(exc).__name__}: {exc}",
+            )
         return self.is_healthy
 
     # -- Public API --
 
     async def get_embeddings(self, input_text: list[str], **kwargs) -> list[np.ndarray | None]:
-        await self._sync_cache_space()
         texts = [self._truncate(t) for t in input_text]
-        results, misses = self._partition_by_cache(texts)
-        if misses:
-            await self._fill_misses(misses, results, **kwargs)
-        return results
+        for attempt in range(1, _MAX_VECTOR_SPACE_ATTEMPTS + 1):
+            await self._sync_cache_space()
+            vector_space_id = self._cache_space
+            results, misses = self._partition_by_cache(texts)
+            stable = not misses or await self._fill_misses(misses, results, vector_space_id, **kwargs)
+            if stable and vector_space_id == self.vector_space_id == self._cache_space:
+                return results
+            if attempt == _MAX_VECTOR_SPACE_ATTEMPTS:
+                self.logger.warning(
+                    f"Embedding vector space kept changing while computing a request; "
+                    f"discarding all result(s) after {attempt} attempts",
+                )
+            else:
+                self.logger.info(
+                    f"Embedding vector space changed while computing a request; "
+                    f"discarding all result(s) and retrying ({attempt}/{_MAX_VECTOR_SPACE_ATTEMPTS})",
+                )
+        return [None] * len(texts)
 
     # -- Batching --
 
@@ -110,15 +139,26 @@ class LocalEmbeddingStore(BaseEmbeddingStore):
                 misses.append((idx, text, key))
         return results, misses
 
-    async def _fill_misses(self, misses: list[Miss], results: list[np.ndarray | None], **kwargs) -> None:
-        vector_space_id = self._cache_space
+    async def _fill_misses(
+        self,
+        misses: list[Miss],
+        results: list[np.ndarray | None],
+        vector_space_id: str,
+        **kwargs,
+    ) -> bool:
+        """Fill every miss only while the request remains in one vector space."""
         size = self.max_batch_size
         for start in range(0, len(misses), size):
+            if vector_space_id != self.vector_space_id or vector_space_id != self._cache_space:
+                return False
             batch = misses[start : start + size]
-            for idx, key, emb in await self._compute_batch(batch, **kwargs):
+            computed = await self._compute_batch(batch, **kwargs)
+            if vector_space_id != self.vector_space_id or vector_space_id != self._cache_space:
+                return False
+            for idx, key, emb in computed:
                 results[idx] = emb
-                if vector_space_id == self.vector_space_id == self._cache_space:
-                    self._cache_put(key, emb)
+                self._cache_put(key, emb)
+        return True
 
     async def _compute_batch(self, batch: list[Miss], **kwargs) -> list[tuple[int, str, np.ndarray]]:
         texts = [text for _, text, _ in batch]
@@ -138,6 +178,10 @@ class LocalEmbeddingStore(BaseEmbeddingStore):
         if bad_dims:
             details = ", ".join(f"{count} with dim {dim}" for dim, count in sorted(bad_dims.items()))
             self.logger.error(f"Embedding dimension mismatch in batch: expected {self.dimensions}; rejected {details}")
+        if out:
+            self.is_healthy = True
+        else:
+            self.is_healthy = False
         return out
 
     async def _call_with_retry(self, texts: list[str], **kwargs) -> list[list[float] | None] | None:
@@ -161,7 +205,9 @@ class LocalEmbeddingStore(BaseEmbeddingStore):
                     await asyncio.sleep(self.quota_retry_delay)
                     continue
                 self.logger.exception("Embedding request failed")
+                self.is_healthy = False
                 return None
+        self.is_healthy = False
         return None
 
     @staticmethod

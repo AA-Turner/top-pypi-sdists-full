@@ -22,14 +22,15 @@ from deepspeed.utils.pin_memory_tracker import pinned_memory_summary
 from deepspeed.runtime.fp16.loss_scaler import CreateLossScaler
 from deepspeed.runtime.torch_autocast import get_autocast_dtype, get_all_comm_dtypes, is_autocast_initialized, sort_dtypes
 from deepspeed.runtime.comm.coalesced_collectives import reduce_scatter_coalesced, all_to_all_quant_reduce, all_to_all_loco_quant_reduce
-from deepspeed.runtime.utils import inf, is_model_parallel_parameter, mask_nan_or_inf_with_val_inplace, count_used_parameters_in_backward
+from deepspeed.runtime.utils import has_inf_or_nan, inf, is_model_parallel_parameter, mask_nan_or_inf_with_val_inplace, count_used_parameters_in_backward
 from deepspeed.runtime.zero.partition_parameters import *
 from deepspeed.runtime.zero.config import ZeroStageEnum
 from deepspeed.runtime.zero.offload_config import OffloadDeviceEnum, OffloadStateTypeEnum
 from deepspeed.runtime.zero.parameter_offload import DeepSpeedZeRoOffload
 import deepspeed.runtime.zenflow.engine_stage3 as zf_engine_stage3
-from deepspeed.runtime.zero.utils import get_mapping_to_flat_buffer, defragment
-from deepspeed.runtime.zero.offload_states import offload_adam_states, reload_adam_states
+from deepspeed.runtime.zero.utils import get_mapping_to_flat_buffer, defragment, get_norm_dtype
+from deepspeed.runtime.zero.offload_states import (offload_adam_states, reload_adam_states,
+                                                   unpin_offloaded_optimizer_states)
 from deepspeed.ops.adam import DeepSpeedCPUAdam
 from deepspeed.runtime.swap_tensor.partitioned_param_swapper import PartitionedParamStatus
 from deepspeed.runtime.swap_tensor.optimizer_utils import OptimizerSwapper
@@ -531,6 +532,40 @@ class DeepSpeedZeroOptimizer_Stage3(ZeROOptimizer):
             hook.remove()
         print_rank_0("Removed grad acc hooks", force=False)
         self.ipg_buckets.clear()
+        if get_accelerator().is_available():
+            get_accelerator().synchronize()
+        self._unpin_offload_buffers()
+
+    def _unpin_offload_buffers(self):
+        # Release the page-locked host buffers we pinned for parameter/optimizer offload.
+        # unpin_memory is a no-op for the torch backend and only frees under
+        # DS_PIN_MEMORY_BACKEND=native, where these would otherwise persist until GC.
+        accelerator = get_accelerator()
+        for buffer in getattr(self, 'param_groups_fp16_flat_cpu_memory', []):
+            accelerator.unpin_memory(buffer)
+        for attr in ('grad_partitions_flat_buffer', 'lp_param_contiguous_pin_buffer',
+                     'lp_grad_partitions_flat_pin_buffers'):
+            buffer = getattr(self, attr, None)
+            if buffer is not None:
+                accelerator.unpin_memory(buffer)
+        for buffer in getattr(self, 'hp_params_pin_buffers', []):
+            accelerator.unpin_memory(buffer)
+        unpin_offloaded_optimizer_states(self.optimizer)
+        if self.offload_optimizer_pin_memory:
+            for fp32_partition in self.fp32_partitioned_groups_flat:
+                if fp32_partition.grad is not None:
+                    accelerator.unpin_memory(fp32_partition.grad)
+        if self.zenflow:
+            # ZenFlow keeps per-parameter selective-optimizer state and per-subgroup
+            # overlap-grad buffers pinned on the host.
+            for param in self.module.parameters():
+                for attr in ('exp_avg_cpu_data', 'exp_avg_sq_cpu_data'):
+                    buffer = getattr(param, attr, None)
+                    if buffer is not None:
+                        accelerator.unpin_memory(buffer)
+            for fp32_partition in getattr(self, 'fp32_partitioned_groups_flat', []):
+                for buffer in getattr(fp32_partition, 'overlap_grad', None) or []:
+                    accelerator.unpin_memory(buffer)
 
     def create_zenflow_hooks(self):
         from functools import partial
@@ -1812,9 +1847,9 @@ class DeepSpeedZeroOptimizer_Stage3(ZeROOptimizer):
         norm = None
         for part in input.view(-1).split(buffer_size):
             if norm is None:
-                norm = part.data.double().norm(2)**2.0
+                norm = part.data.to(get_norm_dtype()).norm(2)**2.0
             else:
-                norm += part.data.double().norm(2)**2.0
+                norm += part.data.to(get_norm_dtype()).norm(2)**2.0
         return norm**0.5
 
     def set_norm_for_param_grad_in_gpu(self, param):
@@ -2223,9 +2258,8 @@ class DeepSpeedZeroOptimizer_Stage3(ZeROOptimizer):
         the gradients are modified in place.
 
         Arguments:
-            parameters (Iterable[Tensor] or Tensor): an iterable of Tensors or a
+            params (Iterable[Tensor] or Tensor): an iterable of Tensors or a
                 single Tensor that will have gradients normalized
-            max_norm (float or int): max norm of the gradients
             norm_type (float or int): type of the used p-norm. Can be ``'inf'`` for
                 infinity norm.
 
@@ -2252,13 +2286,14 @@ class DeepSpeedZeroOptimizer_Stage3(ZeROOptimizer):
             grad_norms = []
             for g, p in zip(gradients, params):
                 if is_model_parallel_parameter(p) or (self.model_parallel_rank == 0):
-                    grad_norms.append(g.to(get_accelerator().device_name(), non_blocking=True).double().norm(2))
+                    grad_norms.append(
+                        g.to(get_accelerator().device_name(), non_blocking=True).to(get_norm_dtype()).norm(2))
 
             # Sum across all model parallel GPUs.
             if len(grad_norms) == 0:
                 # FIX https://github.com/deepspeedai/DeepSpeed/issues/3564
-                total_norm_cuda = torch.tensor(0,
-                                               dtype=gradients[0].dtype).to(get_accelerator().device_name()).double()
+                total_norm_cuda = torch.tensor(0, dtype=gradients[0].dtype).to(get_accelerator().device_name()).to(
+                    get_norm_dtype())
             else:
                 total_norm_cuda = torch.sum(torch.pow(torch.stack(grad_norms), 2))
 
@@ -2732,24 +2767,7 @@ class DeepSpeedZeroOptimizer_Stage3(ZeROOptimizer):
     # `x` is a torch.Tensor
     @staticmethod
     def _has_inf_or_nan(x, j=None):
-        try:
-            # if x is half, the .float() incurs an additional deep copy, but it's necessary if
-            # Pytorch's .sum() creates a one-element tensor of the same type as x
-            # (which is true for some recent version of pytorch).
-            cpu_sum = float(x.float().sum())
-            # More efficient version that can be used if .sum() returns a Python scalar
-            # cpu_sum = float(x.sum())
-        except RuntimeError as instance:
-            # We want to check if inst is actually an overflow exception.
-            # RuntimeError could come from a different error.
-            # If so, we still want the exception to propagate.
-            if "value cannot be converted" not in instance.args[0]:
-                raise
-            return True
-        else:
-            if cpu_sum == float('inf') or cpu_sum == -float('inf') or cpu_sum != cpu_sum:
-                return True
-            return False
+        return has_inf_or_nan(x)
 
     def backward_prologue(self):
         if self.swap_optimizer:

@@ -32,6 +32,7 @@ from geneva.runners.ray.actor_pool import (
     ActorPool,
     ActorPoolTaskError,
 )
+from geneva.runners.ray.naming import ray_name
 from geneva.runners.ray.oom_recovery_budget import (
     OOMRecoveryBudgetTracker,
     init_oom_recovery_metrics,
@@ -183,9 +184,14 @@ def _make_sparse_actor() -> typing.Any:
         failure is returned as an error result (carrying the range it covered) so
         the driver counts + skips that range rather than aborting the job."""
 
-        def __init__(self, udf: UDF) -> None:
+        def __init__(self, udf: UDF, label: str = "sparse.actor") -> None:
             self._udf = udf
             self._ds_cache: dict = {}  # (uri, version) -> dataset, opened once
+            self._label = label
+
+        def __repr__(self) -> str:
+            """Driver-built label Ray shows in the dashboard and log prefixes."""
+            return self._label
 
         def _dataset(self, task: SparseRangeTask) -> lance.LanceDataset:
             key = (task.uri, task.version)
@@ -298,7 +304,13 @@ def run_ray_sparse_update(
     output_fid = lance_field_id(ds, output_column)
 
     actor_cls = _make_sparse_actor()
-    actor_factory = functools.partial(actor_cls.remote, udf)
+    actor_label = ray_name(
+        "sparse.actor",
+        table=table_ref.table_name,
+        column=output_column,
+        job_id=job_id,
+    )
+    actor_factory = functools.partial(actor_cls.remote, udf, actor_label)
 
     if job_tracker is not None:
         job_tracker.set_total.remote("fragments", fragments_total)
@@ -369,7 +381,16 @@ def run_ray_sparse_update(
             )
             try:
                 for res in pool.map_unordered(
-                    lambda actor, task: actor.run.remote(task), wave_tasks
+                    lambda actor, task: actor.run.options(
+                        name=ray_name(
+                            "sparse.run",
+                            table=table_ref.table_name,
+                            column=output_column,
+                            job_id=job_id,
+                            detail=f"frags={len(task.frag_ids)}",
+                        )
+                    ).remote(task),
+                    wave_tasks,
                 ):
                     if res.fatal_worker_oom:
                         result_range = tuple(res.source_frag_ids)

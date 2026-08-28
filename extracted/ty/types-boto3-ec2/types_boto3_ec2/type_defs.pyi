@@ -2396,7 +2396,10 @@ __all__ = (
     "InstanceTypeDef",
     "InstanceTypeInfoFromInstanceRequirementsTypeDef",
     "InstanceTypeInfoTypeDef",
+    "InstanceTypeItemTypeDef",
     "InstanceTypeOfferingTypeDef",
+    "InstanceTypeSpecificationRequestTypeDef",
+    "InstanceTypeSpecificationTypeDef",
     "InstanceUsageTypeDef",
     "IntegrateServicesTypeDef",
     "InternetGatewayAttachmentTypeDef",
@@ -2917,6 +2920,8 @@ __all__ = (
     "ReplaceIamInstanceProfileAssociationResultTypeDef",
     "ReplaceImageCriteriaInAllowedImagesSettingsRequestTypeDef",
     "ReplaceImageCriteriaInAllowedImagesSettingsResultTypeDef",
+    "ReplaceImageInstanceTypeSpecificationRequestTypeDef",
+    "ReplaceImageInstanceTypeSpecificationResultTypeDef",
     "ReplaceNetworkAclAssociationRequestNetworkAclReplaceAssociationTypeDef",
     "ReplaceNetworkAclAssociationRequestTypeDef",
     "ReplaceNetworkAclAssociationResultTypeDef",
@@ -7094,6 +7099,13 @@ class VCpuInfoTypeDef(TypedDict):
     ValidCores: NotRequired[list[int]]
     ValidThreadsPerCore: NotRequired[list[int]]
 
+class InstanceTypeItemTypeDef(TypedDict):
+    InstanceType: NotRequired[str]
+
+class InstanceTypeSpecificationRequestTypeDef(TypedDict):
+    SupportedInstanceTypes: NotRequired[Sequence[str]]
+    UnsupportedInstanceTypes: NotRequired[Sequence[str]]
+
 class IpRangeTypeDef(TypedDict):
     Description: NotRequired[str]
     CidrIp: NotRequired[str]
@@ -9485,6 +9497,10 @@ class ReleaseIpamPoolAllocationResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ReplaceImageCriteriaInAllowedImagesSettingsResultTypeDef(TypedDict):
+    ReturnValue: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ReplaceImageInstanceTypeSpecificationResultTypeDef(TypedDict):
     ReturnValue: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -15069,6 +15085,15 @@ class ModifyInstanceEventStartTimeResultTypeDef(TypedDict):
     Event: InstanceStatusEventTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class InstanceTypeSpecificationTypeDef(TypedDict):
+    SupportedInstanceTypes: NotRequired[list[InstanceTypeItemTypeDef]]
+    UnsupportedInstanceTypes: NotRequired[list[InstanceTypeItemTypeDef]]
+
+class ReplaceImageInstanceTypeSpecificationRequestTypeDef(TypedDict):
+    ImageId: str
+    InstanceTypeSpecification: NotRequired[InstanceTypeSpecificationRequestTypeDef]
+    DryRun: NotRequired[bool]
+
 class IpPermissionOutputTypeDef(TypedDict):
     IpProtocol: NotRequired[str]
     FromPort: NotRequired[int]
@@ -17074,47 +17099,6 @@ class ImageAttributeTypeDef(TypedDict):
     BlockDeviceMappings: list[BlockDeviceMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ImageTypeDef(TypedDict):
-    PlatformDetails: NotRequired[str]
-    UsageOperation: NotRequired[str]
-    BlockDeviceMappings: NotRequired[list[BlockDeviceMappingTypeDef]]
-    Description: NotRequired[str]
-    EnaSupport: NotRequired[bool]
-    Hypervisor: NotRequired[HypervisorTypeType]
-    ImageOwnerAlias: NotRequired[str]
-    Name: NotRequired[str]
-    RootDeviceName: NotRequired[str]
-    RootDeviceType: NotRequired[DeviceTypeType]
-    SriovNetSupport: NotRequired[str]
-    StateReason: NotRequired[StateReasonTypeDef]
-    Tags: NotRequired[list[TagTypeDef]]
-    VirtualizationType: NotRequired[VirtualizationTypeType]
-    BootMode: NotRequired[BootModeValuesType]
-    TpmSupport: NotRequired[Literal["v2.0"]]
-    DeprecationTime: NotRequired[str]
-    ImdsSupport: NotRequired[Literal["v2.0"]]
-    SourceInstanceId: NotRequired[str]
-    DeregistrationProtection: NotRequired[str]
-    LastLaunchedTime: NotRequired[str]
-    ImageAllowed: NotRequired[bool]
-    SourceImageId: NotRequired[str]
-    SourceImageRegion: NotRequired[str]
-    FreeTierEligible: NotRequired[bool]
-    PublicSsmParameterName: NotRequired[str]
-    ImageWatermarks: NotRequired[list[ImageWatermarkTypeDef]]
-    ImageId: NotRequired[str]
-    ImageLocation: NotRequired[str]
-    State: NotRequired[ImageStateType]
-    OwnerId: NotRequired[str]
-    CreationDate: NotRequired[str]
-    Public: NotRequired[bool]
-    ProductCodes: NotRequired[list[ProductCodeTypeDef]]
-    Architecture: NotRequired[ArchitectureValuesType]
-    ImageType: NotRequired[ImageTypeValuesType]
-    KernelId: NotRequired[str]
-    RamdiskId: NotRequired[str]
-    Platform: NotRequired[Literal["windows"]]
-
 class CancelCapacityReservationFleetsResultTypeDef(TypedDict):
     SuccessfulFleetCancellations: list[CapacityReservationFleetCancellationStateTypeDef]
     FailedFleetCancellations: list[FailedCapacityReservationFleetCancellationResultTypeDef]
@@ -18012,6 +17996,48 @@ class InstanceStatusTypeDef(TypedDict):
     SystemStatus: NotRequired[InstanceStatusSummaryTypeDef]
     AttachedEbsStatus: NotRequired[EbsStatusSummaryTypeDef]
     ApplicationStatus: NotRequired[ApplicationStatusSummaryTypeDef]
+
+class ImageTypeDef(TypedDict):
+    PlatformDetails: NotRequired[str]
+    UsageOperation: NotRequired[str]
+    BlockDeviceMappings: NotRequired[list[BlockDeviceMappingTypeDef]]
+    Description: NotRequired[str]
+    EnaSupport: NotRequired[bool]
+    Hypervisor: NotRequired[HypervisorTypeType]
+    ImageOwnerAlias: NotRequired[str]
+    Name: NotRequired[str]
+    RootDeviceName: NotRequired[str]
+    RootDeviceType: NotRequired[DeviceTypeType]
+    SriovNetSupport: NotRequired[str]
+    StateReason: NotRequired[StateReasonTypeDef]
+    Tags: NotRequired[list[TagTypeDef]]
+    VirtualizationType: NotRequired[VirtualizationTypeType]
+    BootMode: NotRequired[BootModeValuesType]
+    TpmSupport: NotRequired[Literal["v2.0"]]
+    DeprecationTime: NotRequired[str]
+    ImdsSupport: NotRequired[Literal["v2.0"]]
+    SourceInstanceId: NotRequired[str]
+    DeregistrationProtection: NotRequired[str]
+    LastLaunchedTime: NotRequired[str]
+    ImageAllowed: NotRequired[bool]
+    SourceImageId: NotRequired[str]
+    SourceImageRegion: NotRequired[str]
+    FreeTierEligible: NotRequired[bool]
+    PublicSsmParameterName: NotRequired[str]
+    ImageWatermarks: NotRequired[list[ImageWatermarkTypeDef]]
+    InstanceTypeSpecification: NotRequired[InstanceTypeSpecificationTypeDef]
+    ImageId: NotRequired[str]
+    ImageLocation: NotRequired[str]
+    State: NotRequired[ImageStateType]
+    OwnerId: NotRequired[str]
+    CreationDate: NotRequired[str]
+    Public: NotRequired[bool]
+    ProductCodes: NotRequired[list[ProductCodeTypeDef]]
+    Architecture: NotRequired[ArchitectureValuesType]
+    ImageType: NotRequired[ImageTypeValuesType]
+    KernelId: NotRequired[str]
+    RamdiskId: NotRequired[str]
+    Platform: NotRequired[Literal["windows"]]
 
 class RevokeSecurityGroupEgressResultTypeDef(TypedDict):
     Return: bool
@@ -20410,11 +20436,6 @@ class DescribeHostsResultTypeDef(TypedDict):
 
 StorageUnionTypeDef = Union[StorageTypeDef, StorageOutputTypeDef]
 
-class DescribeImagesResultTypeDef(TypedDict):
-    Images: list[ImageTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class CreateCapacityReservationBySplittingResultTypeDef(TypedDict):
     SourceCapacityReservation: CapacityReservationTypeDef
     DestinationCapacityReservation: CapacityReservationTypeDef
@@ -20720,6 +20741,11 @@ class DescribeInstanceConnectEndpointsResultTypeDef(TypedDict):
 
 class DescribeInstanceStatusResultTypeDef(TypedDict):
     InstanceStatuses: list[InstanceStatusTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeImagesResultTypeDef(TypedDict):
+    Images: list[ImageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

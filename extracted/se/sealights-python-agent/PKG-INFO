@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sealights_python_agent
-Version: 2.10.17
+Version: 2.10.19
 Summary: Tricentis Sealights Python Agent - Quality Intelligence and Code Coverage
 Home-page: https://www.tricentis.com/products/sealights
 Author: Tricentis Sealights
@@ -29,13 +29,14 @@ Requires-Dist: six==1.16.0
 Requires-Dist: tzlocal==4.2
 Requires-Dist: pytz-deprecation-shim==0.1.0.post0
 Requires-Dist: tzdata==2022.1; platform_system == "Windows"
-Requires-Dist: cryptography>=48.0.1
+Requires-Dist: cryptography>=50.0.0
 Requires-Dist: cffi>=2.0.0
 Requires-Dist: pycparser==2.21
-Requires-Dist: GitPython>=3.1.52
+Requires-Dist: GitPython>=3.1.58
 Requires-Dist: gitdb==4.0.9
 Requires-Dist: smmap==5.0.0
 Requires-Dist: unittest_xml_reporting==3.1.0
+Requires-Dist: lxml>=6.1.1
 Requires-Dist: urllib3>=2.7.0
 Requires-Dist: requests>=2.33.0
 Requires-Dist: idna>=3.15
@@ -44,6 +45,9 @@ Provides-Extra: dev
 Requires-Dist: check-manifest; extra == "dev"
 Provides-Extra: test
 Requires-Dist: coverage; extra == "test"
+Provides-Extra: robot
+Requires-Dist: robotframework>=7.0; extra == "robot"
+Requires-Dist: opentelemetry-api; extra == "robot"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -148,6 +152,10 @@ See ``LICENSE.txt`` for details.
 Release Notes
 =============
 
+
+2.10.18 (2026-08-11)
+--------------------
+* Raised minimum versions of ``lxml``, ``GitPython``, and ``cryptography`` to address security vulnerabilities
 
 2.10.17 (2026-07-29)
 --------------------

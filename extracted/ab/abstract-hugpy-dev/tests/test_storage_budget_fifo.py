@@ -25,6 +25,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from abstract_hugpy_dev.worker_agent import budget  # noqa: E402
 
+
+# The reserve is carved OUT of disk_cache_gib since 2026-08-22 (effective =
+# allocation - reserve). These tests reason in pure-allocation numbers, so pin
+# the reserve to 0 here; the carve-out itself is covered by
+# tests/test_budget_reserve_carveout.py.
+@pytest.fixture(autouse=True)
+def _zero_disk_reserve(monkeypatch):
+    monkeypatch.setenv("HUGPY_WORKER_DISK_RESERVE_GIB", "0")
+
+
 GIB = 1 << 30
 
 
@@ -47,8 +57,10 @@ def _static(key, gib, last_picked=None, **flags):
 
 
 def _storage(models):
+    # disk_free is generous: fit_plan now also keeps a free-space floor as a
+    # second safety check (2026-08-22); these tests are about the CAP.
     return {"cache_used_bytes": sum(m["bytes"] for m in models),
-            "models": models, "disk_free": 10 * GIB}
+            "models": models, "disk_free": 1000 * GIB}
 
 
 # ── 1. fits under budget -> no eviction, proceeds ───────────────────────────

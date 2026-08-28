@@ -1,4 +1,4 @@
-"""Oracle repair controller (k92): ONE bounded retry decision per failing card.
+"""Oracle repair controller (k90c): ONE bounded retry decision per failing card.
 
 The movie precedent (``runners/movie.py`` attempt loop) retries a weak take
 with a bumped seed, at most ``max_attempts_per_segment`` times. The oracle
@@ -34,7 +34,7 @@ from typing import Any
 from .contracts import ExecutionReceipt, GoalSpec, RepairCode, Scorecard
 from .router import RouteDecision
 
-# The closed action vocabulary — plain strings on the wire (k93 reads these).
+# The closed action vocabulary — plain strings on the wire (k90d reads these).
 ACTIONS = ("none", "retry_same", "retry_next_model", "reseed")
 
 _RETRY_NEXT = (RepairCode.WORKER_UNAVAILABLE, RepairCode.TIMEOUT)
@@ -61,7 +61,7 @@ class RepairDecision:
 
 
 def next_eligible_model(route: RouteDecision) -> str | None:
-    """The next model from the capability's eligible set (the k90 catalog's
+    """The next model from the capability's eligible set (the k90a catalog's
     ordering, as recorded on the route) that is not the one that just failed."""
     for model_id in route.model_ids:
         if model_id != route.model_id:

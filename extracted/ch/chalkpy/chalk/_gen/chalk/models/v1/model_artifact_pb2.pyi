@@ -62,9 +62,7 @@ class TensorDimension(_message.Message):
     NAMED_FIELD_NUMBER: _ClassVar[int]
     fixed: int
     named: str
-    def __init__(
-        self, fixed: _Optional[int] = ..., named: _Optional[str] = ...
-    ) -> None: ...
+    def __init__(self, fixed: _Optional[int] = ..., named: _Optional[str] = ...) -> None: ...
 
 class TensorSpec(_message.Message):
     __slots__ = ("dtype", "shape", "name")
@@ -88,26 +86,20 @@ class TabularSpec(_message.Message):
     dtype: _arrow_pb2.ArrowType
     name: str
     def __init__(
-        self,
-        dtype: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
-        name: _Optional[str] = ...,
+        self, dtype: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ..., name: _Optional[str] = ...
     ) -> None: ...
 
 class TensorSchema(_message.Message):
     __slots__ = ("tensors",)
     TENSORS_FIELD_NUMBER: _ClassVar[int]
     tensors: _containers.RepeatedCompositeFieldContainer[TensorSpec]
-    def __init__(
-        self, tensors: _Optional[_Iterable[_Union[TensorSpec, _Mapping]]] = ...
-    ) -> None: ...
+    def __init__(self, tensors: _Optional[_Iterable[_Union[TensorSpec, _Mapping]]] = ...) -> None: ...
 
 class TabularSchema(_message.Message):
     __slots__ = ("columns",)
     COLUMNS_FIELD_NUMBER: _ClassVar[int]
     columns: _containers.RepeatedCompositeFieldContainer[TabularSpec]
-    def __init__(
-        self, columns: _Optional[_Iterable[_Union[TabularSpec, _Mapping]]] = ...
-    ) -> None: ...
+    def __init__(self, columns: _Optional[_Iterable[_Union[TabularSpec, _Mapping]]] = ...) -> None: ...
 
 class ModelSchema(_message.Message):
     __slots__ = ("tensor", "tabular")

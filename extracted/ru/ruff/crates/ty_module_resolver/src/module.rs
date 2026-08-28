@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::debug_assert_matches;
 use std::fmt::Formatter;
 use std::str::FromStr;
 
@@ -55,7 +56,7 @@ impl<'db> Module<'db> {
     }
 
     /// The resolver environment used to resolve this module.
-    pub fn resolver_environment(self, db: &'db dyn Database) -> ResolverEnvironment<'db> {
+    fn resolver_environment(self, db: &'db dyn Database) -> ResolverEnvironment<'db> {
         match self {
             Module::File(module) => module.resolver_environment(db),
             Module::Namespace(module) => module.resolver_environment(db),
@@ -204,11 +205,7 @@ fn all_submodule_names_for_package<'db>(
     }
 
     let path = SystemOrVendoredPathRef::try_from_file(db, module.file(db))?;
-    debug_assert!(
-        matches!(path.file_name(), Some("__init__.py" | "__init__.pyi")),
-        "expected package file `{:?}` to be `__init__.py` or `__init__.pyi`",
-        path.file_name(),
-    );
+    debug_assert_matches!(path.file_name(), Some("__init__.py" | "__init__.pyi"));
 
     let resolver_environment = module.resolver_environment(db);
     Some(match path.parent()? {
@@ -405,6 +402,8 @@ pub enum KnownModule {
     #[strum(serialize = "pydantic.types")]
     PydanticTypes,
     Pytest,
+    #[strum(serialize = "_pytest.config")]
+    PytestConfig,
     #[strum(serialize = "_pytest.fixtures")]
     PytestFixtures,
     #[strum(serialize = "_pytest.mark.structures")]
@@ -454,6 +453,7 @@ impl KnownModule {
             Self::PydanticSettingsMain => "pydantic_settings.main",
             Self::PydanticTypes => "pydantic.types",
             Self::Pytest => "pytest",
+            Self::PytestConfig => "_pytest.config",
             Self::PytestFixtures => "_pytest.fixtures",
             Self::PytestMarkStructures => "_pytest.mark.structures",
         }
@@ -487,6 +487,7 @@ impl KnownModule {
             | Self::PydanticSettingsMain
             | Self::PydanticTypes
             | Self::Pytest
+            | Self::PytestConfig
             | Self::PytestFixtures
             | Self::PytestMarkStructures => true,
             Self::Builtins

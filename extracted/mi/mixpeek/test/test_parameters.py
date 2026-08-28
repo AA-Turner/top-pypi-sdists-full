@@ -84,7 +84,7 @@ class TestParameters(unittest.TestCase):
                 silence_db_threshold = 56,
                 scene_detection_threshold = 1.337,
                 run_transcription = True,
-                transcription_language = 'en',
+                transcription_language = '',
                 run_video_description = True,
                 run_transcription_embedding = True,
                 run_ocr_embedding = True,

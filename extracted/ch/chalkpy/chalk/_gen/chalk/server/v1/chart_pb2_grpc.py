@@ -40,6 +40,21 @@ class ChartsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsResponse.FromString,
         )
+        self.ListChartAnnotations = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/ListChartAnnotations",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartAnnotationsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartAnnotationsResponse.FromString,
+        )
+        self.CreateChartAnnotation = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/CreateChartAnnotation",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.CreateChartAnnotationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.CreateChartAnnotationResponse.FromString,
+        )
+        self.DeleteChartAnnotation = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/DeleteChartAnnotation",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartAnnotationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartAnnotationResponse.FromString,
+        )
         self.GetChartSnapshot = channel.unary_unary(
             "/chalk.server.v1.ChartsService/GetChartSnapshot",
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotRequest.SerializeToString,
@@ -140,6 +155,24 @@ class ChartsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ListCharts(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListChartAnnotations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateChartAnnotation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteChartAnnotation(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -250,6 +283,21 @@ def add_ChartsServiceServicer_to_server(servicer, server):
             servicer.ListCharts,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsResponse.SerializeToString,
+        ),
+        "ListChartAnnotations": grpc.unary_unary_rpc_method_handler(
+            servicer.ListChartAnnotations,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartAnnotationsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.ListChartAnnotationsResponse.SerializeToString,
+        ),
+        "CreateChartAnnotation": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateChartAnnotation,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.CreateChartAnnotationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.CreateChartAnnotationResponse.SerializeToString,
+        ),
+        "DeleteChartAnnotation": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteChartAnnotation,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartAnnotationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartAnnotationResponse.SerializeToString,
         ),
         "GetChartSnapshot": grpc.unary_unary_rpc_method_handler(
             servicer.GetChartSnapshot,
@@ -460,6 +508,93 @@ class ChartsService(object):
             "/chalk.server.v1.ChartsService/ListCharts",
             chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_chart__pb2.ListChartsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListChartAnnotations(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/ListChartAnnotations",
+            chalk_dot_server_dot_v1_dot_chart__pb2.ListChartAnnotationsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.ListChartAnnotationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateChartAnnotation(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/CreateChartAnnotation",
+            chalk_dot_server_dot_v1_dot_chart__pb2.CreateChartAnnotationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.CreateChartAnnotationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteChartAnnotation(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/DeleteChartAnnotation",
+            chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartAnnotationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.DeleteChartAnnotationResponse.FromString,
             options,
             channel_credentials,
             insecure,

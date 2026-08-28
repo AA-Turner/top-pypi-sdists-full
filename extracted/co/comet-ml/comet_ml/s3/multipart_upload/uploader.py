@@ -11,46 +11,77 @@
 #  This source code is licensed under the MIT license.
 # *******************************************************
 import logging
-import pathlib
-from typing import IO, Callable, Optional, Tuple
+from typing import Optional, Tuple
 
 from requests import Response, Session
 
-from ...connection.http_session import get_cached_http_session
 from ...file_upload_size_monitor import UploadSizeMonitor
 from .base_helper import MultipartUploadMetadata, S3MultipartBaseHelper
-from .file_parts_strategy import (
-    BaseFilePartsStrategy,
-    FileLikePartsStrategy,
-    FilePartsStrategy,
+from .file_parts import (
+    PartsCollector,
+    PartsUploadScheduler,
+    RetryingPartSender,
+    SerialPartsUploadScheduler,
+    open_parts_source,
 )
-from .upload_error import S3UploadError, S3UploadFileError
+from .file_parts.part_types import PartMetadata  # noqa: F401  (kept importable here)
+from .file_parts_strategy import BaseFilePartsStrategy
+from .upload_error import S3UploadError
 
 LOGGER = logging.getLogger(__name__)
 
 
-class PartMetadata(object):
-    __slots__ = ["e_tag", "part_number", "size"]
-
-    def __init__(self, e_tag: str, part_number: int, size: int):
-        self.e_tag = e_tag
-        self.part_number = part_number
-        self.size = size
-
-
 class S3MultipartUploader(object):
+    """Drives one multipart upload: start, send every part, complete.
+
+    How the parts are actually sent is not this class's concern. It receives a
+    scheduler, which is serial unless a parts pool was supplied further up, and a
+    sender, which owns the retry behaviour. That keeps the start/complete
+    handshake identical for both the serial and the parallel paths.
+    """
+
     def __init__(
         self,
         file_parts_strategy: BaseFilePartsStrategy,
         s3_helper: S3MultipartBaseHelper,
+        scheduler: PartsUploadScheduler,
+        part_sender: RetryingPartSender,
     ):
-
+        """Prefer create(). Both collaborators are required here so that this class
+        holds no opinion about which scheduler or sender is the default."""
         self.s3_helper = s3_helper
         self.file_parts_strategy = file_parts_strategy
+        self._scheduler = scheduler
+        self._part_sender = part_sender
+        self._collector = PartsCollector()
 
-        self.bytes_read = 0
-        self.upload_parts = []
-        self.upload_monitor = None
+    @classmethod
+    def create(
+        cls,
+        file_parts_strategy: BaseFilePartsStrategy,
+        s3_helper: S3MultipartBaseHelper,
+        scheduler: Optional[PartsUploadScheduler] = None,
+    ) -> "S3MultipartUploader":
+        """Builds an uploader with the sender derived from the helper it was given.
+
+        Omitting the scheduler gives the serial one, which is the behaviour that
+        shipped before per-part parallelism.
+        """
+        return cls(
+            file_parts_strategy=file_parts_strategy,
+            s3_helper=s3_helper,
+            scheduler=(
+                scheduler if scheduler is not None else SerialPartsUploadScheduler()
+            ),
+            part_sender=RetryingPartSender(
+                retry_strategy=s3_helper.upload_retry_strategy_op,
+                file_name=file_parts_strategy.file,
+            ),
+        )
+
+    @property
+    def bytes_read(self) -> int:
+        return self._collector.bytes_read
 
     def upload(
         self, session: Session, monitor: Optional[UploadSizeMonitor] = None
@@ -59,23 +90,24 @@ class S3MultipartUploader(object):
         multipart_info = self.s3_helper.start_multipart_upload(
             session=session, parts_number=parts_number
         )
-        self.upload_monitor = monitor
+        self._collector = PartsCollector(monitor=monitor)
         return self._do_upload(session=session, multipart_info=multipart_info)
 
     def _do_upload(
         self, session: Session, multipart_info: MultipartUploadMetadata
     ) -> Tuple[int, Response]:
         try:
-            if isinstance(self.file_parts_strategy, FilePartsStrategy):
-                file_to_upload = pathlib.Path(self.file_parts_strategy.file)
-                with file_to_upload.open("rb") as fp:
-                    self._upload_fp(fp=fp, multipart_info=multipart_info)
-            elif isinstance(self.file_parts_strategy, FileLikePartsStrategy):
-                # rewind
-                self.file_parts_strategy.file_like.seek(0)
-                self._upload_fp(
-                    fp=self.file_parts_strategy.file_like,
-                    multipart_info=multipart_info,
+            with open_parts_source(
+                strategy=self.file_parts_strategy,
+                parts_urls=multipart_info.parts_urls,
+                # So the progress display moves while parts are in flight rather
+                # than only as each one lands.
+                on_part_progress=self._collector.on_part_progress,
+            ) as source:
+                self._scheduler.upload(
+                    source=source,
+                    sender=self._part_sender,
+                    collector=self._collector,
                 )
         except Exception as ex:
             LOGGER.error(
@@ -95,84 +127,12 @@ class S3MultipartUploader(object):
             raise ex
 
         # complete upload with collected parts and success status
+        bytes_read = self._collector.bytes_read
         response = self.s3_helper.complete_multipart_upload(
             session=session,
             upload_metadata=multipart_info,
-            parts=[
-                {"ETag": part.e_tag, "PartNumber": part.part_number}
-                for part in self.upload_parts
-            ],
+            parts=self._collector.completed_parts(),
             succeed=True,
-            file_size=self.bytes_read,
+            file_size=bytes_read,
         )
-        return self.bytes_read, response
-
-    def _on_part_complete(self, part: PartMetadata) -> None:
-        self.upload_parts.append(part)
-        self.bytes_read += part.size
-        if self.upload_monitor is not None:
-            self.upload_monitor.monitor_callback(self)
-
-    def _upload_fp(self, fp: IO, multipart_info: MultipartUploadMetadata):
-        # use session without Comet headers because this is direct call to the AWS S3
-        # it doesn't require session retry because we do this by our retry strategy later
-        session = get_cached_http_session(
-            retry=False, verify_tls=True, tcp_keep_alive=False
-        )
-        max_file_part_size = self.file_parts_strategy.max_file_part_size
-        for i, url in enumerate(multipart_info.parts_urls):
-            part_number = i + 1
-            file_data = fp.read(max_file_part_size)
-            self._send_data_part(
-                session=session,
-                url=url,
-                file_data=file_data,
-                part_number=part_number,
-                on_part_complete=self._on_part_complete,
-            )
-
-    def _send_data_part(
-        self,
-        session: Session,
-        url: str,
-        file_data: bytes,
-        part_number: int,
-        on_part_complete: Callable[[PartMetadata], None],
-    ) -> None:
-        result = self.s3_helper.upload_retry_strategy_op.upload_s3_file_part(
-            session=session,
-            url=url,
-            file_data=file_data,
-        )
-
-        if not result.failed and result.response.status_code == 200:
-            e_tag = result.response.headers["ETag"]
-            on_part_complete(
-                PartMetadata(e_tag=e_tag, part_number=part_number, size=len(file_data))
-            )
-            return
-
-        # process failed response
-        if result.response is not None:
-            message = (
-                "S3 file part #%d upload failed in %d attempt(s), got response - status: %d, text: %r"
-                % (
-                    part_number,
-                    result.retry_attempts,
-                    result.response.status_code,
-                    result.response.text,
-                )
-            )
-        else:
-            message = "S3 file part #%d upload failed in %d attempt(s)" % (
-                part_number,
-                result.retry_attempts,
-            )
-
-        LOGGER.debug(message)
-        raise S3UploadFileError(
-            file=self.file_parts_strategy.file,
-            reason=message,
-            retry_attempts=result.retry_attempts,
-            due_connection_error=result.has_connection_error,
-        )
+        return bytes_read, response

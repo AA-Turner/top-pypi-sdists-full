@@ -80,6 +80,36 @@ class WorksheetsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetCommitsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetCommitsResponse.FromString,
         )
+        self.RunOnlineWorksheetCommit = channel.unary_unary(
+            "/chalk.server.v1.WorksheetsService/RunOnlineWorksheetCommit",
+            request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOnlineWorksheetCommitRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOnlineWorksheetCommitResponse.FromString,
+        )
+        self.RunOfflineWorksheetCommit = channel.unary_unary(
+            "/chalk.server.v1.WorksheetsService/RunOfflineWorksheetCommit",
+            request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOfflineWorksheetCommitRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOfflineWorksheetCommitResponse.FromString,
+        )
+        self.RunSqlWorksheetCommit = channel.unary_unary(
+            "/chalk.server.v1.WorksheetsService/RunSqlWorksheetCommit",
+            request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunSqlWorksheetCommitRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunSqlWorksheetCommitResponse.FromString,
+        )
+        self.CancelWorksheetRun = channel.unary_unary(
+            "/chalk.server.v1.WorksheetsService/CancelWorksheetRun",
+            request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.CancelWorksheetRunRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.CancelWorksheetRunResponse.FromString,
+        )
+        self.GetWorksheetRun = channel.unary_unary(
+            "/chalk.server.v1.WorksheetsService/GetWorksheetRun",
+            request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.GetWorksheetRunRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.GetWorksheetRunResponse.FromString,
+        )
+        self.ListWorksheetRuns = channel.unary_unary(
+            "/chalk.server.v1.WorksheetsService/ListWorksheetRuns",
+            request_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetRunsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetRunsResponse.FromString,
+        )
 
 
 class WorksheetsServiceServicer(object):
@@ -163,6 +193,42 @@ class WorksheetsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def RunOnlineWorksheetCommit(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def RunOfflineWorksheetCommit(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def RunSqlWorksheetCommit(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CancelWorksheetRun(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetWorksheetRun(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListWorksheetRuns(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_WorksheetsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -230,6 +296,36 @@ def add_WorksheetsServiceServicer_to_server(servicer, server):
             servicer.ListWorksheetCommits,
             request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetCommitsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetCommitsResponse.SerializeToString,
+        ),
+        "RunOnlineWorksheetCommit": grpc.unary_unary_rpc_method_handler(
+            servicer.RunOnlineWorksheetCommit,
+            request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOnlineWorksheetCommitRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOnlineWorksheetCommitResponse.SerializeToString,
+        ),
+        "RunOfflineWorksheetCommit": grpc.unary_unary_rpc_method_handler(
+            servicer.RunOfflineWorksheetCommit,
+            request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOfflineWorksheetCommitRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOfflineWorksheetCommitResponse.SerializeToString,
+        ),
+        "RunSqlWorksheetCommit": grpc.unary_unary_rpc_method_handler(
+            servicer.RunSqlWorksheetCommit,
+            request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunSqlWorksheetCommitRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.RunSqlWorksheetCommitResponse.SerializeToString,
+        ),
+        "CancelWorksheetRun": grpc.unary_unary_rpc_method_handler(
+            servicer.CancelWorksheetRun,
+            request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.CancelWorksheetRunRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.CancelWorksheetRunResponse.SerializeToString,
+        ),
+        "GetWorksheetRun": grpc.unary_unary_rpc_method_handler(
+            servicer.GetWorksheetRun,
+            request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.GetWorksheetRunRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.GetWorksheetRunResponse.SerializeToString,
+        ),
+        "ListWorksheetRuns": grpc.unary_unary_rpc_method_handler(
+            servicer.ListWorksheetRuns,
+            request_deserializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetRunsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetRunsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.WorksheetsService", rpc_method_handlers)
@@ -607,6 +703,180 @@ class WorksheetsService(object):
             "/chalk.server.v1.WorksheetsService/ListWorksheetCommits",
             chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetCommitsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetCommitsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RunOnlineWorksheetCommit(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorksheetsService/RunOnlineWorksheetCommit",
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOnlineWorksheetCommitRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOnlineWorksheetCommitResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RunOfflineWorksheetCommit(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorksheetsService/RunOfflineWorksheetCommit",
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOfflineWorksheetCommitRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.RunOfflineWorksheetCommitResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RunSqlWorksheetCommit(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorksheetsService/RunSqlWorksheetCommit",
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.RunSqlWorksheetCommitRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.RunSqlWorksheetCommitResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CancelWorksheetRun(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorksheetsService/CancelWorksheetRun",
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.CancelWorksheetRunRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.CancelWorksheetRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetWorksheetRun(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorksheetsService/GetWorksheetRun",
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.GetWorksheetRunRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.GetWorksheetRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListWorksheetRuns(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorksheetsService/ListWorksheetRuns",
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetRunsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_worksheets__pb2.ListWorksheetRunsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -395,6 +395,112 @@ class TestLimitSet(identity_fakes.TestIdentity):
         )
         self.assertEqual(datalist, data)
 
+    def test_limit_set_resource_limit_zero(self):
+        resource_limit = 0
+        limit = sdk_fakes.generate_fake_resource(
+            resource_type=_limit.Limit,
+            project_id=self.project.id,
+            service_id=self.service.id,
+            resource_name='foobars',
+            description=None,
+            resource_limit=resource_limit,
+            region_id=None,
+        )
+        self.identity_sdk_client.update_limit.return_value = limit
+
+        arglist = [
+            '--resource-limit',
+            str(resource_limit),
+            limit.id,
+        ]
+        verifylist = [
+            ('resource_limit', resource_limit),
+            ('limit_id', limit.id),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.identity_sdk_client.update_limit.assert_called_with(
+            limit.id,
+            resource_limit=resource_limit,
+        )
+
+        collist = (
+            'description',
+            'id',
+            'project_id',
+            'region_id',
+            'resource_limit',
+            'resource_name',
+            'service_id',
+        )
+        self.assertEqual(collist, columns)
+        datalist = (
+            None,
+            limit.id,
+            self.project.id,
+            None,
+            resource_limit,
+            limit.resource_name,
+            self.service.id,
+        )
+        self.assertEqual(datalist, data)
+
+    def test_limit_set_without_resource_limit(self):
+        limit = sdk_fakes.generate_fake_resource(
+            resource_type=_limit.Limit,
+            project_id=self.project.id,
+            service_id=self.service.id,
+            resource_name='foobars',
+            description=None,
+            resource_limit=20,
+            region_id=None,
+        )
+
+        self.identity_sdk_client.update_limit.return_value = limit
+
+        arglist = [
+            limit.id,
+        ]
+        verifylist = [
+            ('limit_id', limit.id),
+        ]
+
+        parsed_args = self.check_parser(
+            self.cmd,
+            arglist,
+            verifylist,
+        )
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.identity_sdk_client.update_limit.assert_called_once_with(
+            limit.id,
+        )
+
+        collist = (
+            'description',
+            'id',
+            'project_id',
+            'region_id',
+            'resource_limit',
+            'resource_name',
+            'service_id',
+        )
+        self.assertEqual(collist, columns)
+
+        datalist = (
+            None,
+            limit.id,
+            self.project.id,
+            None,
+            20,
+            limit.resource_name,
+            self.service.id,
+        )
+        self.assertEqual(datalist, data)
+
 
 class TestLimitList(identity_fakes.TestIdentity):
     def setUp(self):
@@ -427,6 +533,47 @@ class TestLimitList(identity_fakes.TestIdentity):
         columns, data = self.cmd.take_action(parsed_args)
 
         self.identity_sdk_client.limits.assert_called_with()
+
+        collist = (
+            'ID',
+            'Project ID',
+            'Service ID',
+            'Resource Name',
+            'Resource Limit',
+            'Description',
+            'Region ID',
+        )
+        self.assertEqual(collist, columns)
+        datalist = (
+            (
+                self.limit.id,
+                self.project.id,
+                self.service.id,
+                self.limit.resource_name,
+                self.limit.resource_limit,
+                None,
+                None,
+            ),
+        )
+        self.assertEqual(datalist, tuple(data))
+
+    def test_limit_list_with_service_filter(self):
+        self.identity_sdk_client.find_service.return_value = self.service
+
+        arglist = [
+            '--service',
+            self.service.name,
+        ]
+        verifylist = [
+            ('service', self.service.name),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.identity_sdk_client.limits.assert_called_with(
+            service_id=self.service.id,
+        )
 
         collist = (
             'ID',

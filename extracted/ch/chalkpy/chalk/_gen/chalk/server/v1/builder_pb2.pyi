@@ -2,7 +2,10 @@ from chalk._gen.chalk.artifacts.v1 import export_pb2 as _export_pb2
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
+from chalk._gen.chalk.lsp.v1 import range_pb2 as _range_pb2
 from chalk._gen.chalk.nodepools.v1 import gke_pb2 as _gke_pb2
 from chalk._gen.chalk.nodepools.v1 import karpenter_pb2 as _karpenter_pb2
 from chalk._gen.chalk.server.v1 import cloud_config_pb2 as _cloud_config_pb2
@@ -12,6 +15,8 @@ from chalk._gen.chalk.server.v1 import graph_pb2 as _graph_pb2_1
 from chalk._gen.chalk.server.v1 import log_pb2 as _log_pb2
 from chalk._gen.chalk.usage.v1 import rate_pb2 as _rate_pb2
 from chalk._gen.chalk.utils.v1 import field_change_pb2 as _field_change_pb2
+from chalk._gen.chalk.utils.v1 import large_pb2 as _large_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -151,6 +156,12 @@ class BranchServerStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     BRANCH_SERVER_STATUS_NOT_CONFIGURED: _ClassVar[BranchServerStatus]
     BRANCH_SERVER_STATUS_ERROR_COMMUNICATING: _ClassVar[BranchServerStatus]
 
+class ChalkMachineTypeOverrideScope(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CHALK_MACHINE_TYPE_OVERRIDE_SCOPE_UNSPECIFIED: _ClassVar[ChalkMachineTypeOverrideScope]
+    CHALK_MACHINE_TYPE_OVERRIDE_SCOPE_CLUSTER: _ClassVar[ChalkMachineTypeOverrideScope]
+    CHALK_MACHINE_TYPE_OVERRIDE_SCOPE_ENVIRONMENT: _ClassVar[ChalkMachineTypeOverrideScope]
+
 class VectorAggregatorBufferType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     VECTOR_AGGREGATOR_BUFFER_TYPE_UNSPECIFIED: _ClassVar[VectorAggregatorBufferType]
@@ -228,6 +239,9 @@ BRANCH_SERVER_STATUS_OFFLINE: BranchServerStatus
 BRANCH_SERVER_STATUS_DISABLED: BranchServerStatus
 BRANCH_SERVER_STATUS_NOT_CONFIGURED: BranchServerStatus
 BRANCH_SERVER_STATUS_ERROR_COMMUNICATING: BranchServerStatus
+CHALK_MACHINE_TYPE_OVERRIDE_SCOPE_UNSPECIFIED: ChalkMachineTypeOverrideScope
+CHALK_MACHINE_TYPE_OVERRIDE_SCOPE_CLUSTER: ChalkMachineTypeOverrideScope
+CHALK_MACHINE_TYPE_OVERRIDE_SCOPE_ENVIRONMENT: ChalkMachineTypeOverrideScope
 VECTOR_AGGREGATOR_BUFFER_TYPE_UNSPECIFIED: VectorAggregatorBufferType
 VECTOR_AGGREGATOR_BUFFER_TYPE_MEMORY: VectorAggregatorBufferType
 VECTOR_AGGREGATOR_BUFFER_TYPE_DISK: VectorAggregatorBufferType
@@ -318,6 +332,7 @@ class RunPostIndexValidationRequest(_message.Message):
         "validate_named_queries",
         "disable_plan_cache_writes",
         "collect_all_failures",
+        "preplan_scheduled_queries",
     )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
@@ -325,12 +340,14 @@ class RunPostIndexValidationRequest(_message.Message):
     VALIDATE_NAMED_QUERIES_FIELD_NUMBER: _ClassVar[int]
     DISABLE_PLAN_CACHE_WRITES_FIELD_NUMBER: _ClassVar[int]
     COLLECT_ALL_FAILURES_FIELD_NUMBER: _ClassVar[int]
+    PREPLAN_SCHEDULED_QUERIES_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     shadow_run_id: str
     run_indexing: bool
     validate_named_queries: bool
     disable_plan_cache_writes: bool
     collect_all_failures: bool
+    preplan_scheduled_queries: bool
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -339,6 +356,7 @@ class RunPostIndexValidationRequest(_message.Message):
         validate_named_queries: bool = ...,
         disable_plan_cache_writes: bool = ...,
         collect_all_failures: bool = ...,
+        preplan_scheduled_queries: bool = ...,
     ) -> None: ...
 
 class RunPostIndexValidationResponse(_message.Message):
@@ -461,6 +479,8 @@ class RedeployDeploymentRequest(_message.Message):
         "force_rebuild_dockerfile",
         "build_options",
         "platform_version",
+        "customer_cicd_job_url",
+        "customer_vcs_url",
     )
     class CustomerMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -490,6 +510,8 @@ class RedeployDeploymentRequest(_message.Message):
     FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
     BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_CICD_JOB_URL_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_VCS_URL_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     enable_profiling: bool
     deployment_tags: _containers.RepeatedScalarFieldContainer[str]
@@ -502,6 +524,8 @@ class RedeployDeploymentRequest(_message.Message):
     force_rebuild_dockerfile: bool
     build_options: _containers.ScalarMap[str, str]
     platform_version: str
+    customer_cicd_job_url: str
+    customer_vcs_url: str
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -516,6 +540,8 @@ class RedeployDeploymentRequest(_message.Message):
         force_rebuild_dockerfile: bool = ...,
         build_options: _Optional[_Mapping[str, str]] = ...,
         platform_version: _Optional[str] = ...,
+        customer_cicd_job_url: _Optional[str] = ...,
+        customer_vcs_url: _Optional[str] = ...,
     ) -> None: ...
 
 class RedeployDeploymentResponse(_message.Message):
@@ -605,6 +631,8 @@ class PrepareDeploymentRequest(_message.Message):
         "enable_profiling",
         "build_profile",
         "build_options",
+        "customer_cicd_job_url",
+        "customer_vcs_url",
     )
     class CustomerMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -641,6 +669,8 @@ class PrepareDeploymentRequest(_message.Message):
     ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
     BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
     BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_CICD_JOB_URL_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_VCS_URL_FIELD_NUMBER: _ClassVar[int]
     git_branch: str
     git_commit: str
     git_pr: str
@@ -660,6 +690,8 @@ class PrepareDeploymentRequest(_message.Message):
     enable_profiling: bool
     build_profile: _environment_pb2.DeploymentBuildProfile
     build_options: _containers.ScalarMap[str, str]
+    customer_cicd_job_url: str
+    customer_vcs_url: str
     def __init__(
         self,
         git_branch: _Optional[str] = ...,
@@ -681,6 +713,8 @@ class PrepareDeploymentRequest(_message.Message):
         enable_profiling: bool = ...,
         build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
         build_options: _Optional[_Mapping[str, str]] = ...,
+        customer_cicd_job_url: _Optional[str] = ...,
+        customer_vcs_url: _Optional[str] = ...,
     ) -> None: ...
 
 class PrepareDeploymentResponse(_message.Message):
@@ -693,6 +727,52 @@ class PrepareDeploymentResponse(_message.Message):
     progress_url: str
     def __init__(
         self, deployment_id: _Optional[str] = ..., status: _Optional[str] = ..., progress_url: _Optional[str] = ...
+    ) -> None: ...
+
+class BuildImageRequest(_message.Message):
+    __slots__ = (
+        "archive",
+        "destinations",
+        "base_image_override",
+        "platform_version",
+        "build_profile",
+        "dependency_hash",
+    )
+    ARCHIVE_FIELD_NUMBER: _ClassVar[int]
+    DESTINATIONS_FIELD_NUMBER: _ClassVar[int]
+    BASE_IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
+    BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    DEPENDENCY_HASH_FIELD_NUMBER: _ClassVar[int]
+    archive: bytes
+    destinations: _containers.RepeatedScalarFieldContainer[str]
+    base_image_override: str
+    platform_version: str
+    build_profile: _environment_pb2.DeploymentBuildProfile
+    dependency_hash: str
+    def __init__(
+        self,
+        archive: _Optional[bytes] = ...,
+        destinations: _Optional[_Iterable[str]] = ...,
+        base_image_override: _Optional[str] = ...,
+        platform_version: _Optional[str] = ...,
+        build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+        dependency_hash: _Optional[str] = ...,
+    ) -> None: ...
+
+class BuildImageResponse(_message.Message):
+    __slots__ = ("build_id", "destinations", "warnings")
+    BUILD_ID_FIELD_NUMBER: _ClassVar[int]
+    DESTINATIONS_FIELD_NUMBER: _ClassVar[int]
+    WARNINGS_FIELD_NUMBER: _ClassVar[int]
+    build_id: str
+    destinations: _containers.RepeatedScalarFieldContainer[str]
+    warnings: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        build_id: _Optional[str] = ...,
+        destinations: _Optional[_Iterable[str]] = ...,
+        warnings: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class LintSourceRequest(_message.Message):
@@ -861,6 +941,127 @@ class ResolveEngineBaseImageResponse(_message.Message):
         digest: _Optional[str] = ...,
         git_commit_sha: _Optional[str] = ...,
         resolve_flag_enabled: bool = ...,
+    ) -> None: ...
+
+class ListEngineBaseImagesRequest(_message.Message):
+    __slots__ = ("environment_id", "limit", "cursor")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    limit: int
+    cursor: str
+    def __init__(
+        self, environment_id: _Optional[str] = ..., limit: _Optional[int] = ..., cursor: _Optional[str] = ...
+    ) -> None: ...
+
+class EngineBaseImageVariant(_message.Message):
+    __slots__ = (
+        "repository",
+        "python_version",
+        "uses_o2",
+        "uses_rust",
+        "uses_bazel",
+        "digest",
+        "tags",
+        "created_at",
+        "uses_debian",
+    )
+    REPOSITORY_FIELD_NUMBER: _ClassVar[int]
+    PYTHON_VERSION_FIELD_NUMBER: _ClassVar[int]
+    USES_O2_FIELD_NUMBER: _ClassVar[int]
+    USES_RUST_FIELD_NUMBER: _ClassVar[int]
+    USES_BAZEL_FIELD_NUMBER: _ClassVar[int]
+    DIGEST_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    USES_DEBIAN_FIELD_NUMBER: _ClassVar[int]
+    repository: str
+    python_version: str
+    uses_o2: bool
+    uses_rust: bool
+    uses_bazel: bool
+    digest: str
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    created_at: _timestamp_pb2.Timestamp
+    uses_debian: bool
+    def __init__(
+        self,
+        repository: _Optional[str] = ...,
+        python_version: _Optional[str] = ...,
+        uses_o2: bool = ...,
+        uses_rust: bool = ...,
+        uses_bazel: bool = ...,
+        digest: _Optional[str] = ...,
+        tags: _Optional[_Iterable[str]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        uses_debian: bool = ...,
+    ) -> None: ...
+
+class EngineBaseImageRelease(_message.Message):
+    __slots__ = (
+        "version_tag",
+        "tags",
+        "created_at",
+        "variant_count",
+        "variants",
+        "git_commit_sha",
+        "is_latest_resolved",
+    )
+    VERSION_TAG_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    VARIANT_COUNT_FIELD_NUMBER: _ClassVar[int]
+    VARIANTS_FIELD_NUMBER: _ClassVar[int]
+    GIT_COMMIT_SHA_FIELD_NUMBER: _ClassVar[int]
+    IS_LATEST_RESOLVED_FIELD_NUMBER: _ClassVar[int]
+    version_tag: str
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    created_at: _timestamp_pb2.Timestamp
+    variant_count: int
+    variants: _containers.RepeatedCompositeFieldContainer[EngineBaseImageVariant]
+    git_commit_sha: str
+    is_latest_resolved: bool
+    def __init__(
+        self,
+        version_tag: _Optional[str] = ...,
+        tags: _Optional[_Iterable[str]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        variant_count: _Optional[int] = ...,
+        variants: _Optional[_Iterable[_Union[EngineBaseImageVariant, _Mapping]]] = ...,
+        git_commit_sha: _Optional[str] = ...,
+        is_latest_resolved: bool = ...,
+    ) -> None: ...
+
+class ListEngineBaseImagesResponse(_message.Message):
+    __slots__ = (
+        "releases",
+        "cursor",
+        "default_base_image",
+        "latest_resolved_tag",
+        "resolve_flag_enabled",
+        "unavailable_repositories",
+    )
+    RELEASES_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    LATEST_RESOLVED_TAG_FIELD_NUMBER: _ClassVar[int]
+    RESOLVE_FLAG_ENABLED_FIELD_NUMBER: _ClassVar[int]
+    UNAVAILABLE_REPOSITORIES_FIELD_NUMBER: _ClassVar[int]
+    releases: _containers.RepeatedCompositeFieldContainer[EngineBaseImageRelease]
+    cursor: str
+    default_base_image: str
+    latest_resolved_tag: str
+    resolve_flag_enabled: bool
+    unavailable_repositories: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        releases: _Optional[_Iterable[_Union[EngineBaseImageRelease, _Mapping]]] = ...,
+        cursor: _Optional[str] = ...,
+        default_base_image: _Optional[str] = ...,
+        latest_resolved_tag: _Optional[str] = ...,
+        resolve_flag_enabled: bool = ...,
+        unavailable_repositories: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class GetClusterTimescaleDBRequest(_message.Message):
@@ -1113,6 +1314,7 @@ class ClusterTimescaleSpecs(_message.Message):
         "shared_preload_libraries",
         "require_infrastructure_nodepool",
         "pgbouncer_parameters",
+        "chalk_machine_type",
     )
     class PostgresParametersEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1170,6 +1372,7 @@ class ClusterTimescaleSpecs(_message.Message):
     SHARED_PRELOAD_LIBRARIES_FIELD_NUMBER: _ClassVar[int]
     REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     PGBOUNCER_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    CHALK_MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
     timescale_image: str
     database_name: str
     database_replicas: int
@@ -1202,6 +1405,7 @@ class ClusterTimescaleSpecs(_message.Message):
     shared_preload_libraries: _containers.RepeatedScalarFieldContainer[str]
     require_infrastructure_nodepool: bool
     pgbouncer_parameters: _containers.ScalarMap[str, str]
+    chalk_machine_type: str
     def __init__(
         self,
         timescale_image: _Optional[str] = ...,
@@ -1236,6 +1440,7 @@ class ClusterTimescaleSpecs(_message.Message):
         shared_preload_libraries: _Optional[_Iterable[str]] = ...,
         require_infrastructure_nodepool: bool = ...,
         pgbouncer_parameters: _Optional[_Mapping[str, str]] = ...,
+        chalk_machine_type: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateClusterTimescaleDBResponse(_message.Message):
@@ -2323,6 +2528,7 @@ class VectorAggregatorChalkDatadogMetricsSinkSpec(_message.Message):
         "buffer_type",
         "buffer_max_events",
         "workers",
+        "batch_workers",
     )
     REQUEST_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
     BATCH_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
@@ -2334,6 +2540,7 @@ class VectorAggregatorChalkDatadogMetricsSinkSpec(_message.Message):
     BUFFER_TYPE_FIELD_NUMBER: _ClassVar[int]
     BUFFER_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
     WORKERS_FIELD_NUMBER: _ClassVar[int]
+    BATCH_WORKERS_FIELD_NUMBER: _ClassVar[int]
     request_concurrency: int
     batch_max_events: int
     batch_max_bytes: int
@@ -2344,6 +2551,7 @@ class VectorAggregatorChalkDatadogMetricsSinkSpec(_message.Message):
     buffer_type: VectorAggregatorBufferType
     buffer_max_events: int
     workers: int
+    batch_workers: int
     def __init__(
         self,
         request_concurrency: _Optional[int] = ...,
@@ -2356,6 +2564,7 @@ class VectorAggregatorChalkDatadogMetricsSinkSpec(_message.Message):
         buffer_type: _Optional[_Union[VectorAggregatorBufferType, str]] = ...,
         buffer_max_events: _Optional[int] = ...,
         workers: _Optional[int] = ...,
+        batch_workers: _Optional[int] = ...,
     ) -> None: ...
 
 class VectorAggregatorMetricAggregationSpec(_message.Message):
@@ -2398,6 +2607,7 @@ class CustomerVectorAggregatorDatadogMetricsSinkSpec(_message.Message):
         "buffer_type",
         "buffer_max_events",
         "workers",
+        "batch_workers",
     )
     REQUEST_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
     BATCH_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
@@ -2409,6 +2619,7 @@ class CustomerVectorAggregatorDatadogMetricsSinkSpec(_message.Message):
     BUFFER_TYPE_FIELD_NUMBER: _ClassVar[int]
     BUFFER_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
     WORKERS_FIELD_NUMBER: _ClassVar[int]
+    BATCH_WORKERS_FIELD_NUMBER: _ClassVar[int]
     request_concurrency: int
     batch_max_events: int
     batch_max_bytes: int
@@ -2419,6 +2630,7 @@ class CustomerVectorAggregatorDatadogMetricsSinkSpec(_message.Message):
     buffer_type: VectorAggregatorBufferType
     buffer_max_events: int
     workers: int
+    batch_workers: int
     def __init__(
         self,
         request_concurrency: _Optional[int] = ...,
@@ -2431,6 +2643,7 @@ class CustomerVectorAggregatorDatadogMetricsSinkSpec(_message.Message):
         buffer_type: _Optional[_Union[VectorAggregatorBufferType, str]] = ...,
         buffer_max_events: _Optional[int] = ...,
         workers: _Optional[int] = ...,
+        batch_workers: _Optional[int] = ...,
     ) -> None: ...
 
 class CustomerVectorAggregatorDatadogExportConfig(_message.Message):
@@ -2512,6 +2725,7 @@ class CustomerVectorAggregatorConfig(_message.Message):
         "traces_remap_vrl",
         "request",
         "max_replicas",
+        "otlp_metrics_export",
     )
     DATADOG_EXPORT_FIELD_NUMBER: _ClassVar[int]
     REPLICAS_FIELD_NUMBER: _ClassVar[int]
@@ -2521,6 +2735,7 @@ class CustomerVectorAggregatorConfig(_message.Message):
     TRACES_REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     MAX_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    OTLP_METRICS_EXPORT_FIELD_NUMBER: _ClassVar[int]
     datadog_export: CustomerVectorAggregatorDatadogExportConfig
     replicas: int
     statsd_export: CustomerVectorAggregatorStatsdExportConfig
@@ -2529,6 +2744,7 @@ class CustomerVectorAggregatorConfig(_message.Message):
     traces_remap_vrl: str
     request: KubeResourceConfig
     max_replicas: int
+    otlp_metrics_export: CustomerVectorAggregatorOtlpMetricsExportConfig
     def __init__(
         self,
         datadog_export: _Optional[_Union[CustomerVectorAggregatorDatadogExportConfig, _Mapping]] = ...,
@@ -2539,6 +2755,7 @@ class CustomerVectorAggregatorConfig(_message.Message):
         traces_remap_vrl: _Optional[str] = ...,
         request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         max_replicas: _Optional[int] = ...,
+        otlp_metrics_export: _Optional[_Union[CustomerVectorAggregatorOtlpMetricsExportConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class AggregatorSpec(_message.Message):
@@ -2716,6 +2933,8 @@ class VectorCollectorSinkSpec(_message.Message):
         "compression",
         "request_concurrency_mode",
         "routing_service_count",
+        "retry_buffer_max_events",
+        "retry_buffer_max_bytes",
     )
     REQUEST_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
     BATCH_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
@@ -2726,6 +2945,8 @@ class VectorCollectorSinkSpec(_message.Message):
     COMPRESSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_CONCURRENCY_MODE_FIELD_NUMBER: _ClassVar[int]
     ROUTING_SERVICE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    RETRY_BUFFER_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    RETRY_BUFFER_MAX_BYTES_FIELD_NUMBER: _ClassVar[int]
     request_concurrency: int
     batch_max_events: int
     batch_max_bytes: int
@@ -2735,6 +2956,8 @@ class VectorCollectorSinkSpec(_message.Message):
     compression: str
     request_concurrency_mode: VectorCollectorRequestConcurrencyMode
     routing_service_count: int
+    retry_buffer_max_events: int
+    retry_buffer_max_bytes: int
     def __init__(
         self,
         request_concurrency: _Optional[int] = ...,
@@ -2746,6 +2969,8 @@ class VectorCollectorSinkSpec(_message.Message):
         compression: _Optional[str] = ...,
         request_concurrency_mode: _Optional[_Union[VectorCollectorRequestConcurrencyMode, str]] = ...,
         routing_service_count: _Optional[int] = ...,
+        retry_buffer_max_events: _Optional[int] = ...,
+        retry_buffer_max_bytes: _Optional[int] = ...,
     ) -> None: ...
 
 class VectorStatsdSpec(_message.Message):
@@ -2911,7 +3136,16 @@ class GpuTelemetrySpec(_message.Message):
     ) -> None: ...
 
 class ClickHouseSpec(_message.Message):
-    __slots__ = ("click_house_version", "request", "limit", "storage", "gateway_id", "instance_type", "serve_over_http")
+    __slots__ = (
+        "click_house_version",
+        "request",
+        "limit",
+        "storage",
+        "gateway_id",
+        "instance_type",
+        "serve_over_http",
+        "chalk_machine_type",
+    )
     CLICK_HOUSE_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
@@ -2919,6 +3153,7 @@ class ClickHouseSpec(_message.Message):
     GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     SERVE_OVER_HTTP_FIELD_NUMBER: _ClassVar[int]
+    CHALK_MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
     click_house_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
@@ -2926,6 +3161,7 @@ class ClickHouseSpec(_message.Message):
     gateway_id: str
     instance_type: str
     serve_over_http: bool
+    chalk_machine_type: str
     def __init__(
         self,
         click_house_version: _Optional[str] = ...,
@@ -2935,6 +3171,7 @@ class ClickHouseSpec(_message.Message):
         gateway_id: _Optional[str] = ...,
         instance_type: _Optional[str] = ...,
         serve_over_http: bool = ...,
+        chalk_machine_type: _Optional[str] = ...,
     ) -> None: ...
 
 class VictoriaMetricsSpec(_message.Message):
@@ -2954,6 +3191,8 @@ class VictoriaMetricsSpec(_message.Message):
         "insert_request",
         "insert_replicas",
         "insert_max_concurrent_inserts",
+        "auth_replicas",
+        "auth_request",
     )
     RETENTION_PERIOD_FIELD_NUMBER: _ClassVar[int]
     STORAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
@@ -2970,6 +3209,8 @@ class VictoriaMetricsSpec(_message.Message):
     INSERT_REQUEST_FIELD_NUMBER: _ClassVar[int]
     INSERT_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     INSERT_MAX_CONCURRENT_INSERTS_FIELD_NUMBER: _ClassVar[int]
+    AUTH_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    AUTH_REQUEST_FIELD_NUMBER: _ClassVar[int]
     retention_period: str
     storage_size: str
     storage_class: str
@@ -2985,6 +3226,8 @@ class VictoriaMetricsSpec(_message.Message):
     insert_request: KubeResourceConfig
     insert_replicas: int
     insert_max_concurrent_inserts: int
+    auth_replicas: int
+    auth_request: KubeResourceConfig
     def __init__(
         self,
         retention_period: _Optional[str] = ...,
@@ -3002,6 +3245,8 @@ class VictoriaMetricsSpec(_message.Message):
         insert_request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         insert_replicas: _Optional[int] = ...,
         insert_max_concurrent_inserts: _Optional[int] = ...,
+        auth_replicas: _Optional[int] = ...,
+        auth_request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class ZombieKillerSpec(_message.Message):
@@ -3747,6 +3992,30 @@ class ChalkMachineTypeFallback(_message.Message):
         self, instance_type: _Optional[str] = ..., cpus: _Optional[float] = ..., memory_gb: _Optional[float] = ...
     ) -> None: ...
 
+class ChalkMachineTypeInstanceOption(_message.Message):
+    __slots__ = ("instance_type", "cpus", "memory_gb", "gpus", "local_ssd_count", "local_ssd_size_gb")
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    CPUS_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_GB_FIELD_NUMBER: _ClassVar[int]
+    GPUS_FIELD_NUMBER: _ClassVar[int]
+    LOCAL_SSD_COUNT_FIELD_NUMBER: _ClassVar[int]
+    LOCAL_SSD_SIZE_GB_FIELD_NUMBER: _ClassVar[int]
+    instance_type: str
+    cpus: float
+    memory_gb: float
+    gpus: float
+    local_ssd_count: int
+    local_ssd_size_gb: int
+    def __init__(
+        self,
+        instance_type: _Optional[str] = ...,
+        cpus: _Optional[float] = ...,
+        memory_gb: _Optional[float] = ...,
+        gpus: _Optional[float] = ...,
+        local_ssd_count: _Optional[int] = ...,
+        local_ssd_size_gb: _Optional[int] = ...,
+    ) -> None: ...
+
 class ChalkMachineTypeMapping(_message.Message):
     __slots__ = (
         "cloud",
@@ -3758,6 +4027,10 @@ class ChalkMachineTypeMapping(_message.Message):
         "cpus",
         "memory_gb",
         "fallbacks",
+        "override_scope",
+        "default_instance_type",
+        "default_fallbacks",
+        "allowed_instance_types",
     )
     CLOUD_FIELD_NUMBER: _ClassVar[int]
     MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -3768,6 +4041,10 @@ class ChalkMachineTypeMapping(_message.Message):
     CPUS_FIELD_NUMBER: _ClassVar[int]
     MEMORY_GB_FIELD_NUMBER: _ClassVar[int]
     FALLBACKS_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_FALLBACKS_FIELD_NUMBER: _ClassVar[int]
+    ALLOWED_INSTANCE_TYPES_FIELD_NUMBER: _ClassVar[int]
     cloud: _rate_pb2.BillingCloud
     machine_type: str
     workload_type: str
@@ -3777,6 +4054,10 @@ class ChalkMachineTypeMapping(_message.Message):
     cpus: float
     memory_gb: float
     fallbacks: _containers.RepeatedCompositeFieldContainer[ChalkMachineTypeFallback]
+    override_scope: ChalkMachineTypeOverrideScope
+    default_instance_type: str
+    default_fallbacks: _containers.RepeatedCompositeFieldContainer[ChalkMachineTypeFallback]
+    allowed_instance_types: _containers.RepeatedCompositeFieldContainer[ChalkMachineTypeInstanceOption]
     def __init__(
         self,
         cloud: _Optional[_Union[_rate_pb2.BillingCloud, str]] = ...,
@@ -3788,6 +4069,10 @@ class ChalkMachineTypeMapping(_message.Message):
         cpus: _Optional[float] = ...,
         memory_gb: _Optional[float] = ...,
         fallbacks: _Optional[_Iterable[_Union[ChalkMachineTypeFallback, _Mapping]]] = ...,
+        override_scope: _Optional[_Union[ChalkMachineTypeOverrideScope, str]] = ...,
+        default_instance_type: _Optional[str] = ...,
+        default_fallbacks: _Optional[_Iterable[_Union[ChalkMachineTypeFallback, _Mapping]]] = ...,
+        allowed_instance_types: _Optional[_Iterable[_Union[ChalkMachineTypeInstanceOption, _Mapping]]] = ...,
     ) -> None: ...
 
 class GetAvailableChalkMachineTypesRequest(_message.Message):
@@ -3799,6 +4084,161 @@ class GetAvailableChalkMachineTypesResponse(_message.Message):
     MAPPINGS_FIELD_NUMBER: _ClassVar[int]
     mappings: _containers.RepeatedCompositeFieldContainer[ChalkMachineTypeMapping]
     def __init__(self, mappings: _Optional[_Iterable[_Union[ChalkMachineTypeMapping, _Mapping]]] = ...) -> None: ...
+
+class ChalkMachineTypeOverride(_message.Message):
+    __slots__ = (
+        "id",
+        "kube_cluster_id",
+        "environment_id",
+        "workload_type",
+        "machine_type",
+        "gpu",
+        "spilling",
+        "fallbacks",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    GPU_FIELD_NUMBER: _ClassVar[int]
+    SPILLING_FIELD_NUMBER: _ClassVar[int]
+    FALLBACKS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    kube_cluster_id: str
+    environment_id: str
+    workload_type: str
+    machine_type: str
+    gpu: bool
+    spilling: bool
+    fallbacks: _containers.RepeatedScalarFieldContainer[str]
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    created_by: str
+    updated_by: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        kube_cluster_id: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        workload_type: _Optional[str] = ...,
+        machine_type: _Optional[str] = ...,
+        gpu: bool = ...,
+        spilling: bool = ...,
+        fallbacks: _Optional[_Iterable[str]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        created_by: _Optional[str] = ...,
+        updated_by: _Optional[str] = ...,
+    ) -> None: ...
+
+class UpsertChalkMachineTypeOverrideRequest(_message.Message):
+    __slots__ = ("kube_cluster_id", "environment_id", "workload_type", "machine_type", "gpu", "spilling", "fallbacks")
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    GPU_FIELD_NUMBER: _ClassVar[int]
+    SPILLING_FIELD_NUMBER: _ClassVar[int]
+    FALLBACKS_FIELD_NUMBER: _ClassVar[int]
+    kube_cluster_id: str
+    environment_id: str
+    workload_type: str
+    machine_type: str
+    gpu: bool
+    spilling: bool
+    fallbacks: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        kube_cluster_id: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        workload_type: _Optional[str] = ...,
+        machine_type: _Optional[str] = ...,
+        gpu: bool = ...,
+        spilling: bool = ...,
+        fallbacks: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class UpsertChalkMachineTypeOverrideResponse(_message.Message):
+    __slots__ = ("override",)
+    OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    override: ChalkMachineTypeOverride
+    def __init__(self, override: _Optional[_Union[ChalkMachineTypeOverride, _Mapping]] = ...) -> None: ...
+
+class DeleteChalkMachineTypeOverrideRequest(_message.Message):
+    __slots__ = ("kube_cluster_id", "environment_id", "workload_type", "machine_type", "gpu", "spilling")
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    GPU_FIELD_NUMBER: _ClassVar[int]
+    SPILLING_FIELD_NUMBER: _ClassVar[int]
+    kube_cluster_id: str
+    environment_id: str
+    workload_type: str
+    machine_type: str
+    gpu: bool
+    spilling: bool
+    def __init__(
+        self,
+        kube_cluster_id: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        workload_type: _Optional[str] = ...,
+        machine_type: _Optional[str] = ...,
+        gpu: bool = ...,
+        spilling: bool = ...,
+    ) -> None: ...
+
+class DeleteChalkMachineTypeOverrideResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ClusterEnvironmentChalkMachineTypes(_message.Message):
+    __slots__ = ("environment_id", "environment_name", "cloud_region", "mappings")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_NAME_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_REGION_FIELD_NUMBER: _ClassVar[int]
+    MAPPINGS_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    environment_name: str
+    cloud_region: str
+    mappings: _containers.RepeatedCompositeFieldContainer[ChalkMachineTypeMapping]
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        environment_name: _Optional[str] = ...,
+        cloud_region: _Optional[str] = ...,
+        mappings: _Optional[_Iterable[_Union[ChalkMachineTypeMapping, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetClusterChalkMachineTypesRequest(_message.Message):
+    __slots__ = ("kube_cluster_id",)
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    kube_cluster_id: str
+    def __init__(self, kube_cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetClusterChalkMachineTypesResponse(_message.Message):
+    __slots__ = ("overrides", "cluster_mappings", "environments")
+    OVERRIDES_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_MAPPINGS_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENTS_FIELD_NUMBER: _ClassVar[int]
+    overrides: _containers.RepeatedCompositeFieldContainer[ChalkMachineTypeOverride]
+    cluster_mappings: _containers.RepeatedCompositeFieldContainer[ChalkMachineTypeMapping]
+    environments: _containers.RepeatedCompositeFieldContainer[ClusterEnvironmentChalkMachineTypes]
+    def __init__(
+        self,
+        overrides: _Optional[_Iterable[_Union[ChalkMachineTypeOverride, _Mapping]]] = ...,
+        cluster_mappings: _Optional[_Iterable[_Union[ChalkMachineTypeMapping, _Mapping]]] = ...,
+        environments: _Optional[_Iterable[_Union[ClusterEnvironmentChalkMachineTypes, _Mapping]]] = ...,
+    ) -> None: ...
 
 class AddNodepoolRequest(_message.Message):
     __slots__ = ("karpenter_nodepool", "gke_nodepool")
@@ -4013,6 +4453,8 @@ class CreateDeploymentRequest(_message.Message):
         "customer_metadata",
         "display_description",
         "build_options",
+        "customer_cicd_job_url",
+        "customer_vcs_url",
     )
     class CustomerMetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -4042,6 +4484,8 @@ class CreateDeploymentRequest(_message.Message):
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_CICD_JOB_URL_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_VCS_URL_FIELD_NUMBER: _ClassVar[int]
     git_branch: str
     git_commit: str
     git_pr: str
@@ -4054,6 +4498,8 @@ class CreateDeploymentRequest(_message.Message):
     customer_metadata: _containers.ScalarMap[str, str]
     display_description: str
     build_options: _containers.ScalarMap[str, str]
+    customer_cicd_job_url: str
+    customer_vcs_url: str
     def __init__(
         self,
         git_branch: _Optional[str] = ...,
@@ -4068,6 +4514,8 @@ class CreateDeploymentRequest(_message.Message):
         customer_metadata: _Optional[_Mapping[str, str]] = ...,
         display_description: _Optional[str] = ...,
         build_options: _Optional[_Mapping[str, str]] = ...,
+        customer_cicd_job_url: _Optional[str] = ...,
+        customer_vcs_url: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateDeploymentResponse(_message.Message):
@@ -4077,17 +4525,26 @@ class CreateDeploymentResponse(_message.Message):
     def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
 
 class KubernetesCluster(_message.Message):
-    __slots__ = ("id", "name", "cloud_credentials", "cluster_gateway", "cluster_background_persistence")
+    __slots__ = (
+        "id",
+        "name",
+        "cloud_credentials",
+        "cluster_gateway",
+        "cluster_background_persistence",
+        "services_gateway",
+    )
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CLOUD_CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_GATEWAY_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_BACKGROUND_PERSISTENCE_FIELD_NUMBER: _ClassVar[int]
+    SERVICES_GATEWAY_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     cloud_credentials: _cloud_config_pb2.CloudConfig
     cluster_gateway: EnvoyGatewaySpecs
     cluster_background_persistence: BackgroundPersistenceDeploymentSpecs
+    services_gateway: EnvoyGatewaySpecs
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -4095,6 +4552,7 @@ class KubernetesCluster(_message.Message):
         cloud_credentials: _Optional[_Union[_cloud_config_pb2.CloudConfig, _Mapping]] = ...,
         cluster_gateway: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...,
         cluster_background_persistence: _Optional[_Union[BackgroundPersistenceDeploymentSpecs, _Mapping]] = ...,
+        services_gateway: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...,
     ) -> None: ...
 
 class GetEnvironmentKubeClustersRequest(_message.Message):
@@ -4349,3 +4807,54 @@ class VectorTelemetryPipelineMetricsSpec(_message.Message):
         healthcheck_enabled: bool = ...,
         expire_metrics_secs: _Optional[int] = ...,
     ) -> None: ...
+
+class CustomerVectorAggregatorOtlpMetricsExportConfig(_message.Message):
+    __slots__ = ("enabled", "url", "authorization_header_secret_arn", "remap_vrl")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    URL_FIELD_NUMBER: _ClassVar[int]
+    AUTHORIZATION_HEADER_SECRET_ARN_FIELD_NUMBER: _ClassVar[int]
+    REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    url: str
+    authorization_header_secret_arn: str
+    remap_vrl: str
+    def __init__(
+        self,
+        enabled: bool = ...,
+        url: _Optional[str] = ...,
+        authorization_header_secret_arn: _Optional[str] = ...,
+        remap_vrl: _Optional[str] = ...,
+    ) -> None: ...
+
+class PopulateNamedQueryPlansRequest(_message.Message):
+    __slots__ = ("existing_deployment_id", "shadow_run_id", "expected_platform_version")
+    EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
+    existing_deployment_id: str
+    shadow_run_id: str
+    expected_platform_version: str
+    def __init__(
+        self,
+        existing_deployment_id: _Optional[str] = ...,
+        shadow_run_id: _Optional[str] = ...,
+        expected_platform_version: _Optional[str] = ...,
+    ) -> None: ...
+
+class PopulateNamedQueryPlansResponse(_message.Message):
+    __slots__ = ("fallback_to_in_cluster",)
+    FALLBACK_TO_IN_CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    fallback_to_in_cluster: bool
+    def __init__(self, fallback_to_in_cluster: bool = ...) -> None: ...
+
+class PrepareGraphSupplementRequest(_message.Message):
+    __slots__ = ("existing_deployment_id", "shadow_run_id")
+    EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    existing_deployment_id: str
+    shadow_run_id: str
+    def __init__(self, existing_deployment_id: _Optional[str] = ..., shadow_run_id: _Optional[str] = ...) -> None: ...
+
+class PrepareGraphSupplementResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

@@ -22,6 +22,8 @@ from chalk._gen.chalk.scalinggroup.v1.service_pb2 import (
     ListScalingGroupRevisionsResponse,
     ListScalingGroupsRequest,
     ListScalingGroupsResponse,
+    UpdateScalingGroupRequest,
+    UpdateScalingGroupResponse,
 )
 from grpc import (
     Channel,
@@ -36,7 +38,13 @@ class ScalingGroupManagerServiceStub:
         CreateScalingGroupRequest,
         CreateScalingGroupResponse,
     ]
-    """CreateScalingGroup creates a new scaling group as a Kubernetes Deployment"""
+    """Preserves deployed clients' create-or-append behavior. New callers that
+    address an existing resource should use UpdateScalingGroup.
+    """
+    UpdateScalingGroup: UnaryUnaryMultiCallable[
+        UpdateScalingGroupRequest,
+        UpdateScalingGroupResponse,
+    ]
     GetScalingGroup: UnaryUnaryMultiCallable[
         GetScalingGroupRequest,
         GetScalingGroupResponse,
@@ -47,6 +55,11 @@ class ScalingGroupManagerServiceStub:
         ListScalingGroupsResponse,
     ]
     """ListScalingGroups lists all scaling groups in the current environment"""
+    DeleteScalingGroup: UnaryUnaryMultiCallable[
+        DeleteScalingGroupRequest,
+        DeleteScalingGroupResponse,
+    ]
+    """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
     GetScalingGroupRevision: UnaryUnaryMultiCallable[
         GetScalingGroupRevisionRequest,
         GetScalingGroupRevisionResponse,
@@ -57,11 +70,6 @@ class ScalingGroupManagerServiceStub:
         ListScalingGroupRevisionsResponse,
     ]
     """ListScalingGroupRevisions lists scaling group revisions in the current environment"""
-    DeleteScalingGroup: UnaryUnaryMultiCallable[
-        DeleteScalingGroupRequest,
-        DeleteScalingGroupResponse,
-    ]
-    """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
     BatchUpdateScalingGroupStatus: UnaryUnaryMultiCallable[
         BatchUpdateScalingGroupStatusRequest,
         BatchUpdateScalingGroupStatusResponse,
@@ -75,7 +83,15 @@ class ScalingGroupManagerServiceServicer(metaclass=ABCMeta):
         request: CreateScalingGroupRequest,
         context: ServicerContext,
     ) -> CreateScalingGroupResponse:
-        """CreateScalingGroup creates a new scaling group as a Kubernetes Deployment"""
+        """Preserves deployed clients' create-or-append behavior. New callers that
+        address an existing resource should use UpdateScalingGroup.
+        """
+    @abstractmethod
+    def UpdateScalingGroup(
+        self,
+        request: UpdateScalingGroupRequest,
+        context: ServicerContext,
+    ) -> UpdateScalingGroupResponse: ...
     @abstractmethod
     def GetScalingGroup(
         self,
@@ -91,6 +107,13 @@ class ScalingGroupManagerServiceServicer(metaclass=ABCMeta):
     ) -> ListScalingGroupsResponse:
         """ListScalingGroups lists all scaling groups in the current environment"""
     @abstractmethod
+    def DeleteScalingGroup(
+        self,
+        request: DeleteScalingGroupRequest,
+        context: ServicerContext,
+    ) -> DeleteScalingGroupResponse:
+        """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
+    @abstractmethod
     def GetScalingGroupRevision(
         self,
         request: GetScalingGroupRevisionRequest,
@@ -104,13 +127,6 @@ class ScalingGroupManagerServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ListScalingGroupRevisionsResponse:
         """ListScalingGroupRevisions lists scaling group revisions in the current environment"""
-    @abstractmethod
-    def DeleteScalingGroup(
-        self,
-        request: DeleteScalingGroupRequest,
-        context: ServicerContext,
-    ) -> DeleteScalingGroupResponse:
-        """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
     @abstractmethod
     def BatchUpdateScalingGroupStatus(
         self,

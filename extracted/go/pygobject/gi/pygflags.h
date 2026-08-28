@@ -17,11 +17,12 @@
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __PYGOBJECT_FLAGS_H__
-#define __PYGOBJECT_FLAGS_H__
+#pragma once
 
 #include <girepository/girepository.h>
 #include <pythoncapi_compat.h>
+
+G_BEGIN_DECLS
 
 extern GQuark pygflags_class_key;
 
@@ -39,4 +40,4 @@ gint pyg_flags_get_value (GType flag_type, PyObject *obj, guint *val);
 
 int pygi_flags_register_types (PyObject *d);
 
-#endif /* __PYGOBJECT_FLAGS_H__ */
+G_END_DECLS

@@ -1,4 +1,4 @@
-"""k92 — evaluator kernel + bounded repair: rubric selection, verdict parsing,
+"""k90c — evaluator kernel + bounded repair: rubric selection, verdict parsing,
 per-quality thresholds, judge-unavailable degradation (the fleet's vision plane
 is DOWN today — that path is load-bearing), the repair policy table, and the
 route-level integration with dispatch + judge monkeypatched.
@@ -590,3 +590,184 @@ def test_route_technical_failure_still_repairs_without_evaluate(monkeypatch):
     assert body["repair"]["action"] == "none"        # only-eligible qwen-chat
     assert "no eligible alternative" in body["repair"]["rationale"]
     assert "receipts" not in body
+
+
+# ---------------------------------------------------------------------------
+# k115 (or-k6): independent judge panel.
+# ---------------------------------------------------------------------------
+
+from abstract_hugpy_dev.oracle.contracts import JudgeResult  # noqa: E402
+
+
+def _jr(judge, verdict, score=None):
+    return JudgeResult(judge=f"image_intent:{judge}", verdict=verdict, score=score)
+
+
+@pytest.mark.parametrize("model_id, family", [
+    ("Qwen/Qwen2.5-7B-Instruct-Q4_K_M", "qwen"),
+    ("qwen-vl", "qwen"),
+    ("qwen2-chat", "qwen"),
+    ("meta-llama/Llama-3-8b", "llama"),
+    ("llava-1.5-13b", "llava"),
+    ("sdxl", "sdxl"),
+    ("whisper-x", "whisper"),
+    ("gemma2:9b", "gemma"),
+    (None, ""),
+])
+def test_model_family_key(model_id, family):
+    assert evaluation.model_family(model_id) == family
+
+
+def test_fold_unanimous_split_single_none():
+    p = evaluation.fold_verdicts([_jr("a", "YES", 90), _jr("b", "YES", 70)])
+    assert p.confidence == 1.0 and p.verdict == "YES" and p.score == 80
+    assert p.disagreements == () and p.limitations == ()
+
+    p = evaluation.fold_verdicts([_jr("a", "YES", 90), _jr("b", "NO", 20)])
+    assert p.confidence == 0.5 and p.verdict == "SPLIT"
+    assert len(p.disagreements) == 2 and "image_intent:b: NO (20)" in p.disagreements
+
+    p = evaluation.fold_verdicts([_jr("a", "YES", 90), _jr("b", "YES", 80), _jr("c", "NO", 10)])
+    assert abs(p.confidence - 2 / 3) < 1e-3 and p.verdict == "YES"
+    assert p.disagreements == ("image_intent:c: NO (10)",)
+
+    p = evaluation.fold_verdicts([_jr("a", "YES", 90), _jr("b", "unavailable")])
+    assert p.confidence == evaluation.SINGLE_JUDGE_CONFIDENCE
+    assert p.limitations == ("single_judge",) and p.verdict == "YES"
+
+    p = evaluation.fold_verdicts([_jr("a", "unavailable"), _jr("b", "unscored")])
+    assert p.confidence == 0.0 and p.limitations == ("no_judge",)
+    assert p.verdict == "unscored"
+
+
+def _route(cap, model_id, model_ids):
+    return router.RouteDecision(capability=cap, execution="execute", task="t",
+                                model_id=model_id, model_ids=tuple(model_ids))
+
+
+def test_resolve_judge_routes_excludes_generator_prior_picks_and_family(monkeypatch):
+    from abstract_hugpy_dev.oracle import selection
+    pool = ("sdxl-vl", "qwen-vl", "qwen2-vl-7b", "llava-1.5", "gemma-vision")
+    monkeypatch.setattr(evaluation, "_resolve_judge_route_excluding",
+                        lambda cap, ex: _route(cap, "qwen-vl", pool))
+    monkeypatch.setattr(selection, "requested_model_for",
+                        lambda goal, cap, **kw: (None, None))
+    monkeypatch.setattr(router, "resolve_route",
+                        lambda goal, requested=None: _route(goal.capability, requested, pool))
+    routes = evaluation._resolve_judge_routes("image.understand", ("sdxl",), 3)
+    picked = [r.model_id for r in routes]
+    # qwen2-vl-7b is the same family as qwen-vl; sdxl-vl is the generator's family
+    assert picked == ["qwen-vl", "llava-1.5", "gemma-vision"]
+
+
+def test_resolve_judge_routes_single_family_pool_yields_one(monkeypatch):
+    from abstract_hugpy_dev.oracle import selection
+    pool = ("qwen-vl", "qwen2-vl-2b", "Qwen/Qwen2.5-VL-72B")
+    monkeypatch.setattr(evaluation, "_resolve_judge_route_excluding",
+                        lambda cap, ex: _route(cap, "qwen-vl", pool))
+    monkeypatch.setattr(selection, "requested_model_for",
+                        lambda goal, cap, **kw: ("qwen2-vl-2b", {}))
+    monkeypatch.setattr(router, "resolve_route",
+                        lambda goal, requested=None: _route(goal.capability, requested, pool))
+    routes = evaluation._resolve_judge_routes("image.understand", ("sdxl",), 2)
+    assert [r.model_id for r in routes] == ["qwen-vl"]
+
+
+def test_resolve_judge_routes_refuses_generator_as_only_judge(monkeypatch):
+    monkeypatch.setattr(evaluation, "_resolve_judge_route_excluding",
+                        lambda cap, ex: _route(cap, "sdxl", ("sdxl",)))
+    routes = evaluation._resolve_judge_routes("image.understand", ("sdxl",), 2)
+    assert [r.model_id for r in routes] == ["sdxl"]  # run_judge turns this into the refusal
+
+
+def _panel_routes(monkeypatch, *model_ids):
+    monkeypatch.setattr(
+        evaluation, "_resolve_judge_routes",
+        lambda cap, ex, n: [_route(cap, m, model_ids) for m in model_ids][:n])
+
+
+def _judge_by_model(monkeypatch, replies):
+    calls = []
+
+    def fake(task, body):
+        calls.append(dict(body))
+        return _Result(ok=True, text=replies[body["model_key"]])
+
+    monkeypatch.setattr(evaluation, "_judge_dispatch", fake)
+    return calls
+
+
+def test_run_judges_two_independent_unanimous(monkeypatch, tmp_path):
+    _panel_routes(monkeypatch, "qwen-vl", "llava-1.5")
+    calls = _judge_by_model(monkeypatch, {"qwen-vl": "VERDICT=YES; SCORE=90; WHY=a",
+                                          "llava-1.5": "VERDICT=YES; SCORE=70; WHY=b"})
+    panel = evaluation.run_judges(evaluation.RUBRICS["image.generate"], _goal("x"),
+                                  [_image_artifact(tmp_path)], generator_model="sdxl")
+    assert [c["model_key"] for c in calls] == ["qwen-vl", "llava-1.5"]
+    assert panel.confidence == 1.0 and panel.score == 80 and panel.limitations == ()
+    card = evaluation.evaluate(_goal("x"), _image_route(), [_image_artifact(tmp_path)],
+                               _receipt(), _passing_card())
+    assert card.hard_pass and card.confidence == 1.0 and card.disagreements == ()
+    assert len(card.judge_results) == 2
+
+
+def test_evaluate_split_panel_records_disagreements_and_half_confidence(monkeypatch, tmp_path):
+    _panel_routes(monkeypatch, "qwen-vl", "llava-1.5")
+    _judge_by_model(monkeypatch, {"qwen-vl": "VERDICT=YES; SCORE=90; WHY=fine",
+                                  "llava-1.5": "VERDICT=NO; SCORE=10; WHY=wrong subject"})
+    card = evaluation.evaluate(_goal("x"), _image_route(), [_image_artifact(tmp_path)],
+                               _receipt(), _passing_card())
+    assert card.confidence == 0.5
+    assert any(d.startswith("image_intent:llava-1.5: NO") for d in card.disagreements)
+    assert any(d.startswith("image_intent:qwen-vl: YES") for d in card.disagreements)
+    # mean 50 < balanced 60 -> fails on the panel, not on one voice
+    assert card.hard_pass is False and card.repair_code is RepairCode.INTENT_MISMATCH
+    assert "agreement 0.50" in card.diagnosis
+
+
+def test_evaluate_single_independent_judge_is_named_not_faked(monkeypatch, tmp_path):
+    _panel_routes(monkeypatch, "qwen-vl")
+    _judge_by_model(monkeypatch, {"qwen-vl": "VERDICT=YES; SCORE=90; WHY=fine"})
+    card = evaluation.evaluate(_goal("x"), _image_route(), [_image_artifact(tmp_path)],
+                               _receipt(), _passing_card())
+    assert card.hard_pass is True
+    assert card.confidence == evaluation.SINGLE_JUDGE_CONFIDENCE
+    assert "limitation:single_judge" in card.disagreements
+    assert len(card.judge_results) == 1
+
+
+def test_evaluate_second_judge_down_degrades_to_single(monkeypatch, tmp_path):
+    _panel_routes(monkeypatch, "qwen-vl", "llava-1.5")
+
+    def fake(task, body):
+        if body["model_key"] == "llava-1.5":
+            raise ConnectionError("vision plane down")
+        return _Result(ok=True, text="VERDICT=YES; SCORE=90; WHY=fine")
+    monkeypatch.setattr(evaluation, "_judge_dispatch", fake)
+    card = evaluation.evaluate(_goal("x"), _image_route(), [_image_artifact(tmp_path)],
+                               _receipt(), _passing_card())
+    assert card.hard_pass is True and card.confidence == evaluation.SINGLE_JUDGE_CONFIDENCE
+    assert [j.verdict for j in card.judge_results] == ["YES", "unavailable"]
+    assert "limitation:single_judge" in card.disagreements
+
+
+def test_evaluate_forwards_panel_confidence_to_ledger_when_supported(monkeypatch, tmp_path):
+    from abstract_hugpy_dev.oracle import selection
+    seen = []
+    monkeypatch.setattr(selection, "note_verdict",
+                        lambda cap, model, *, hard_pass, confidence=1.0:
+                        seen.append((cap, model, hard_pass, confidence)))
+    _panel_routes(monkeypatch, "qwen-vl", "llava-1.5")
+    _judge_by_model(monkeypatch, {"qwen-vl": "VERDICT=YES; SCORE=90; WHY=a",
+                                  "llava-1.5": "VERDICT=YES; SCORE=80; WHY=b"})
+    evaluation.evaluate(_goal("x"), _image_route(), [_image_artifact(tmp_path)],
+                        _receipt(), _passing_card())
+    assert seen == [("image.generate", "sdxl", True, 1.0)]
+
+
+def test_run_judge_still_single_and_backward_compatible(monkeypatch, tmp_path):
+    _stub_catalog(monkeypatch)
+    calls = _judge_reply(monkeypatch, "VERDICT=YES; SCORE=90; WHY=good")
+    res = evaluation.run_judge(evaluation.RUBRICS["image.generate"], _goal("x"),
+                               [_image_artifact(tmp_path)], generator_model="sdxl")
+    assert isinstance(res, JudgeResult) and res.verdict == "YES" and len(calls) == 1

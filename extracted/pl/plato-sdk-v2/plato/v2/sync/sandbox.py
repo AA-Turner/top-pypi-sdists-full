@@ -39,6 +39,7 @@ from plato._generated.api.v1.sandbox import start_worker
 from plato._generated.api.v1.simulator import get_env_flows as simulator_get_env_flows
 from plato._generated.api.v1.simulator import get_plato_config as simulator_get_plato_config
 from plato._generated.api.v1.simulator import get_simulator_versions as simulator_get_simulator_versions
+from plato._generated.api.v2.artifacts import get_artifact
 from plato._generated.api.v2.jobs import add_ssh_key as jobs_add_ssh_key
 from plato._generated.api.v2.jobs import checkpoint as jobs_checkpoint
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
@@ -65,6 +66,9 @@ from plato._generated.models import (
     AppApiV2SchemasSessionCreateSnapshotRequest,
     AppApiV2SchemasSessionCreateSnapshotResponse,
     AppSchemasBuildModelsSimConfigDataset,
+    ArtifactCredential,
+    ArtifactCredentials,
+    ArtifactInfoResponse,
     CloseSessionResponse,
     CreateCheckpointRequest,
     CreateCheckpointResult,
@@ -72,6 +76,7 @@ from plato._generated.models import (
     DatabaseMutationListenerConfig,
     EnvCleanupResponse,
     Flow,
+    Kind,
     PrefetchRequest,
     RemoveJobRequest,
     RemoveJobResponse,
@@ -825,6 +830,74 @@ def dataset_config_from_plato_config(
         # dataset config directly (some artifacts store it this way).
         dataset_config = config
     return AppSchemasBuildModelsSimConfigDataset.model_validate(dataset_config)
+
+
+# Variable names (metadata.variables[].name) that identify the login credential.
+_USER_VARIABLES = ("username", "user", "email", "login")
+_PASSWORD_VARIABLES = ("password", "pass")
+_TOKEN_VARIABLES = ("token", "api_key", "api_token", "secret")
+
+
+def credentials_from_dataset_config(
+    dataset_config: AppSchemasBuildModelsSimConfigDataset,
+) -> ArtifactCredentials | None:
+    """Login credentials to store on the artifact, read from plato-config metadata.
+
+    The artifact stores structured credentials next to its flows so consumers
+    (task cards, ``Session.login``) never have to parse ``flows.yml``. Two
+    sources, explicit first:
+
+    * ``metadata.credentials`` — the API shape verbatim (``primary`` plus
+      optional ``roles``); use it for role accounts or non-password kinds.
+    * ``metadata.variables`` — the login variables the flows fill:
+      ``username``/``user``/``email``/``login`` + ``password`` → a password
+      credential; a user alone → ``email_only``; a token/secret alone →
+      ``token``.
+
+    Returns None when neither is declared — the backend then carries the parent
+    artifact's credentials forward, and a first snapshot stores none.
+    """
+    metadata = dataset_config.metadata
+    if metadata is None:
+        return None
+    explicit = (metadata.model_extra or {}).get("credentials")
+    if explicit is not None:
+        if not isinstance(explicit, dict):
+            raise ValueError("metadata.credentials must be a mapping with 'primary' and optional 'roles'")
+        return ArtifactCredentials.model_validate(explicit)
+
+    values: dict[str, str] = {}
+    for variable in metadata.variables or []:
+        name = str(variable.get("name", "")).strip().lower()
+        value = variable.get("value")
+        if name and value is not None:
+            values[name] = str(value)
+    user = next((values[n] for n in _USER_VARIABLES if n in values), None)
+    password = next((values[n] for n in _PASSWORD_VARIABLES if n in values), None)
+    token = next((values[n] for n in _TOKEN_VARIABLES if n in values), None)
+    if user and password is not None:
+        primary = ArtifactCredential(kind=Kind.password, user=user, password=password)
+    elif user:
+        primary = ArtifactCredential(kind=Kind.email_only, user=user)
+    elif token:
+        primary = ArtifactCredential(kind=Kind.token, secret=token)
+    else:
+        return None
+    return ArtifactCredentials(primary=primary)
+
+
+def describe_credentials(credentials: ArtifactCredentials | None) -> str:
+    """One-line, secret-free summary for console output (``user=admin kind=password``)."""
+    if credentials is None or credentials.primary is None:
+        return "none"
+    primary = credentials.primary
+    kind = primary.kind.value if primary.kind is not None else "password"
+    parts = [f"kind={kind}"]
+    if primary.user:
+        parts.insert(0, f"user={primary.user}")
+    if credentials.roles:
+        parts.append(f"roles={','.join(sorted(credentials.roles))}")
+    return " ".join(parts)
 
 
 class SandboxClient:
@@ -1758,6 +1831,12 @@ class SandboxClient:
                 else:
                     self.console.print(f"[yellow]Warning: flows file not found at {flows_path}[/yellow]")
 
+            # Structured login credentials travel with the flows they belong to.
+            checkpoint_request.credentials = credentials_from_dataset_config(dataset_config)
+            self.console.print(
+                f"[dim]Artifact credentials: {describe_credentials(checkpoint_request.credentials)}[/dim]"
+            )
+
         return checkpoint_request
 
     # CHECKED
@@ -1798,6 +1877,10 @@ class SandboxClient:
                     break
 
         return response
+
+    def artifact_info(self, artifact_id: str) -> ArtifactInfoResponse:
+        """Artifact record (status, parent, stored credentials, ...) — GET /api/v2/artifacts/{id}."""
+        return get_artifact.sync(client=self._http, artifact_id=artifact_id, x_api_key=self.api_key)
 
     def _record_artifact_id(self, artifact_id: str) -> None:
         """Record a fresh artifact on the sandbox slot this client is driving."""

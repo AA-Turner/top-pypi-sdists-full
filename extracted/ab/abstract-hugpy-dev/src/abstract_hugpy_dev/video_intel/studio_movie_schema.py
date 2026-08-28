@@ -306,6 +306,13 @@ class StudioMovieSpec:
     context_frames: int = _DEFAULT_CONTEXT_FRAMES
     frames: Optional[int] = None
     reference_images: Tuple[str, ...] = ()
+    # k120 slice 2 — PRODUCER CONTINUITY REFRESH (opt-in, advisory). When True the
+    # runner rewrites each non-root segment's prompt from a vision description of
+    # the frame the previous segment ACTUALLY ended on, before rendering it.
+    # continuity_model pins the TEXT model for the rewrite (None = the runner's
+    # explicit default, never the silent task-default).
+    continuity_refresh: bool = False
+    continuity_model: Optional[str] = None
 
 
 def _check_steps_cfg(where: str, steps, cfg) -> None:
@@ -365,6 +372,8 @@ def make_studio_movie(
     context_frames: int = _DEFAULT_CONTEXT_FRAMES,
     frames: Optional[int] = None,
     reference_images: Optional[Tuple[str, ...]] = None,
+    continuity_refresh: bool = False,
+    continuity_model: Optional[str] = None,
 ) -> StudioMovieSpec:
     """Validate every field and build the frozen ``StudioMovieSpec``. Raises
     ``ValueError``/``TypeError`` LOCALLY on any structural violation — a
@@ -610,7 +619,19 @@ def make_studio_movie(
         context_frames=context_frames,
         frames=frames,
         reference_images=reference_images,
+        # k120 slice 2 — bool() collapses truthy dict values; a non-string model
+        # pin is a caller error worth raising on.
+        continuity_refresh=bool(continuity_refresh),
+        continuity_model=_checked_continuity_model(continuity_model),
     )
+
+
+def _checked_continuity_model(value):
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"continuity_model must be a non-empty string or None; got {value!r}")
+    return value.strip()
 
 
 def _goal_from_dict(d: dict) -> StudioMovieGoal:
@@ -667,5 +688,12 @@ def studio_movie_from_dict(d: dict) -> StudioMovieSpec:
         start_image=ref,
         time_budget_s=d.get("time_budget_s"),
         context_frames=d.get("context_frames", _DEFAULT_CONTEXT_FRAMES),
+        # MOVIE-LEVEL FRAMES: this factory used to drop the field on every bus
+        # rehydrate/resume (present on the dataclass + set by the route since
+        # 2026-08-13, never round-tripped here) — k120 recon caught it.
+        frames=d.get("frames"),
         reference_images=d.get("reference_images"),
+        # k120 slice 2 — absent on every pre-k120 spec; .get keeps them rehydratable.
+        continuity_refresh=d.get("continuity_refresh", False),
+        continuity_model=d.get("continuity_model"),
     )

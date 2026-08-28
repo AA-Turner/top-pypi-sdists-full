@@ -103,12 +103,34 @@ class ListEventsRequest(CoreModel):
             max_length=MAX_FILTER_ITEMS,
         ),
     ] = None
+    target_gateway_replicas: Annotated[
+        Optional[list[uuid.UUID]],
+        Field(
+            description=(
+                "List of gateway replica IDs."
+                " The response will only include events that target the specified gateway replicas"
+            ),
+            min_length=MIN_FILTER_ITEMS,
+            max_length=MAX_FILTER_ITEMS,
+        ),
+    ] = None
     target_secrets: Annotated[
         Optional[list[uuid.UUID]],
         Field(
             description=(
                 "List of secret IDs."
                 " The response will only include events that target the specified secrets"
+            ),
+            min_length=MIN_FILTER_ITEMS,
+            max_length=MAX_FILTER_ITEMS,
+        ),
+    ] = None
+    target_presets: Annotated[
+        Optional[list[uuid.UUID]],
+        Field(
+            description=(
+                "List of preset IDs."
+                " The response will only include events that target the specified presets"
             ),
             min_length=MIN_FILTER_ITEMS,
             max_length=MAX_FILTER_ITEMS,
@@ -145,6 +167,18 @@ class ListEventsRequest(CoreModel):
                 "List of run IDs."
                 " The response will only include events that target the specified runs"
                 " or jobs within those runs"
+            ),
+            min_length=MIN_FILTER_ITEMS,
+            max_length=MAX_FILTER_ITEMS,
+        ),
+    ] = None
+    within_gateways: Annotated[
+        Optional[list[uuid.UUID]],
+        Field(
+            description=(
+                "List of gateway IDs."
+                " The response will only include events that target the specified gateways"
+                " or replicas within those gateways"
             ),
             min_length=MIN_FILTER_ITEMS,
             max_length=MAX_FILTER_ITEMS,

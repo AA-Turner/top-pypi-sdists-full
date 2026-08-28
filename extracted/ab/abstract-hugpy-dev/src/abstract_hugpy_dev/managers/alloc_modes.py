@@ -850,7 +850,8 @@ def default_allocation(engine: Any,
 def worker_fit_verdict(engine: Any,
                        model_bytes: "Optional[int]",
                        gpu_total_bytes: "Optional[int]",
-                       ram_total_bytes: "Optional[int]") -> "Optional[bool]":
+                       ram_total_bytes: "Optional[int]",
+                       moe_split_gpu_bytes: "Optional[int]" = None) -> "Optional[bool]":
     """Can ``model_bytes`` land on THIS one worker in SOME allocation mode?
 
     ``True`` = yes (some mode fits), ``False`` = confidently no, ``None`` =
@@ -870,15 +871,34 @@ def worker_fit_verdict(engine: Any,
     NOTE the engine is accepted (and ignored) for signature parity with the rest
     of this module: combined GPU+RAM is the ceiling for GGUF (partial offload)
     and for transformers (accelerate's cpu/disk offload) alike, so no engine
-    distinction is defensible at THIS question's granularity."""
+    distinction is defensible at THIS question's granularity.
+
+    ``moe_split_gpu_bytes`` (mirroring ``feasible_modes``): a detected MoE's
+    GPU-resident share under the expert split (non-expert + mmproj). When
+    present it is the GPU-side figure tested — the expert bytes are file-backed
+    page cache (mmap-streamable), so charging the FULL file against the GPU
+    would refuse exactly the model the split makes serveable (a 45 GiB MoE with
+    a 1.5 GiB backbone on a 24 GiB box). The COMBINED GPU+RAM ceiling still
+    applies to the WHOLE file, though (coder-next/computron 2026-08-28): the
+    worker's own expert-RAM guard refuses a split whose expert tensors overflow
+    budgetable host RAM, so a box whose VRAM+RAM combined cannot hold the model
+    is a PERMANENT no — offering it per-request only harvests that refusal
+    (computron, 8 GiB card: passed the backbone-only test, refused every
+    dispatch). Loosening on the GPU side only — never past the box's physical
+    ceiling."""
     size = _as_int(model_bytes)
+    moe_gpu = _as_int(moe_split_gpu_bytes)
     gpu_total = _as_int(gpu_total_bytes)
     ram_total = _as_int(ram_total_bytes)
-    if size is None:
+    if size is None and moe_gpu is None:
         return None                     # unsizable model: nobody may vote
     if gpu_total is None and ram_total is None:
         return None                     # unmeasured box: it has no opinion
     capacity = (gpu_total or 0) + (ram_total or 0)
+    if moe_gpu is not None:
+        if size is None:
+            return moe_gpu <= capacity  # unsizable file: the split share votes
+        return moe_gpu <= capacity and size <= capacity
     return size <= capacity
 
 

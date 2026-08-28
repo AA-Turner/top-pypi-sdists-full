@@ -7,13 +7,11 @@
 
 import asyncio
 import re
+from collections.abc import AsyncIterator
 from logging import Logger
-from typing import AsyncIterator, Optional
+from typing import Optional
 
-from idb.grpc.idb_pb2 import (
-    XctraceRecordRequest,
-    XctraceRecordResponse,
-)
+from idb.grpc.idb_pb2 import XctraceRecordRequest, XctraceRecordResponse
 from idb.grpc.stream import Stream
 from idb.utils.typing import none_throws
 
@@ -66,7 +64,7 @@ async def xctrace_drain_until_stop(
             logger.info(output.decode())
 
 
-def formatted_time_to_seconds(formatted_time: Optional[str]) -> Optional[float]:
+def formatted_time_to_seconds(formatted_time: str | None) -> float | None:
     if not formatted_time:
         return None
     pattern = r"^([1-9]\d*)(ms|s|m|h)$"
