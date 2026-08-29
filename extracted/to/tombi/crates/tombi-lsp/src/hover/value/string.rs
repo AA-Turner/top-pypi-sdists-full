@@ -18,11 +18,11 @@ use crate::{
 };
 use tombi_future::Boxable;
 
-impl GetHoverContent for tombi_document_tree::String {
+impl GetHoverContent for tombi_document_tree_syntax::String {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -308,6 +308,7 @@ impl GetHoverContent for tombi_document_tree::String {
                     constraints: None,
                     schema_uri: None,
                     range: Some(self.range()),
+                    schema_tooltip: None,
                 }))
             }
         }
@@ -319,7 +320,7 @@ impl GetHoverContent for StringSchema {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree::Key],
+        _keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
@@ -350,8 +351,9 @@ impl GetHoverContent for StringSchema {
                     pattern: self.pattern.clone(),
                     ..Default::default()
                 }),
-                schema_uri: current_schema.map(|schema| schema.schema_uri.as_ref().clone()),
+                schema_uri: super::super::current_schema_link_uri(current_schema),
                 range: None,
+                schema_tooltip: None,
             }))
         }
         .boxed()

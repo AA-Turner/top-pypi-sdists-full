@@ -14,6 +14,7 @@ from ._errors import (
     LinkupBudgetLimitExceededError,
     LinkupFailedFetchError,
     LinkupFetchResponseTooLargeError,
+    LinkupFetchTargetNotFoundError,
     LinkupFetchTargetUnreachableError,
     LinkupFetchUnsupportedContentTypeError,
     LinkupFetchUrlIsFileError,
@@ -260,10 +261,10 @@ class LinkupClient:
               True
 
         Raises:
-            TypeError: If structured_output_schema is not provided or is not a string, dictionary,
-                or pydantic.BaseModel when output_type is "structured".
-            LinkupInvalidRequestError: If structured_output_schema doesn't represent a valid object
-                JSON schema when output_type is "structured".
+            TypeError: If structured_output_schema is not a string, dictionary, or
+                pydantic.BaseModel when provided.
+            LinkupInvalidRequestError: If the request parameters are invalid, including an invalid
+                or missing structured_output_schema when output_type is "structured".
             LinkupAuthenticationError: If the Linkup API key is invalid.
             LinkupInsufficientCreditError: If you have run out of credit.
             LinkupBudgetLimitExceededError: If the API key has reached its configured budget limit.
@@ -457,10 +458,10 @@ class LinkupClient:
               True
 
         Raises:
-            TypeError: If structured_output_schema is not provided or is not a string, dictionary,
-                or pydantic.BaseModel when output_type is "structured".
-            LinkupInvalidRequestError: If structured_output_schema doesn't represent a valid object
-                JSON schema when output_type is "structured".
+            TypeError: If structured_output_schema is not a string, dictionary, or
+                pydantic.BaseModel when provided.
+            LinkupInvalidRequestError: If the request parameters are invalid, including an invalid
+                or missing structured_output_schema when output_type is "structured".
             LinkupAuthenticationError: If the Linkup API key is invalid.
             LinkupInsufficientCreditError: If you have run out of credit.
             LinkupBudgetLimitExceededError: If the API key has reached its configured budget limit.
@@ -538,9 +539,8 @@ class LinkupClient:
             The newly created research task, with "pending" status and no output.
 
         Raises:
-            TypeError: If structured_output_schema is not provided when output_type is
-                "structured", or if it is not a string, dictionary, or pydantic.BaseModel when
-                provided.
+            TypeError: If structured_output_schema is not a string, dictionary, or
+                pydantic.BaseModel when provided.
             LinkupInvalidRequestError: If the request parameters are invalid.
             LinkupAuthenticationError: If the Linkup API key is invalid.
             LinkupInsufficientCreditError: If you have run out of credit.
@@ -611,9 +611,8 @@ class LinkupClient:
             The newly created research task, with "pending" status and no output.
 
         Raises:
-            TypeError: If structured_output_schema is not provided when output_type is
-                "structured", or if it is not a string, dictionary, or pydantic.BaseModel when
-                provided.
+            TypeError: If structured_output_schema is not a string, dictionary, or
+                pydantic.BaseModel when provided.
             LinkupInvalidRequestError: If the request parameters are invalid.
             LinkupAuthenticationError: If the Linkup API key is invalid.
             LinkupInsufficientCreditError: If you have run out of credit.
@@ -1004,6 +1003,8 @@ class LinkupClient:
         timeout: float | None = None,
         include_raw_content: bool | None = None,
         mode: Literal["standard", "pro"] | None = None,
+        schema: type[pydantic.BaseModel] | dict[str, Any] | str | None = None,
+        instructions: str | None = None,
     ) -> LinkupFetchResponse:
         """Fetch the content of a web page using the Linkup API /fetch endpoint.
 
@@ -1024,26 +1025,33 @@ class LinkupClient:
                 response.
             mode: The fetch strategy to use. "pro" delivers significantly higher success rates on
                 hard-to-retrieve pages.
+            schema: An object JSON schema describing an optional structured data to extract.
+                Supported formats are a pydantic.BaseModel, a Python dictionary, or a JSON string.
+            instructions: Optional instructions guiding structured data extraction if schema is
+                passed.
 
         Returns:
             The response of the web page fetch, containing the web page content.
 
         Raises:
             LinkupInvalidRequestError: If the provided URL is not valid.
-            LinkupFailedFetchError: If the provided URL is not found or can't be fetched.
+            LinkupFailedFetchError: If the provided URL can't be fetched.
             LinkupFetchResponseTooLargeError: If the fetch response is too large.
+            LinkupFetchTargetNotFoundError: If the target URL is not found.
             LinkupFetchTargetUnreachableError: If the target URL cannot be reached.
             LinkupFetchUnsupportedContentTypeError: If the URL resolves to an unsupported content
                 type.
             LinkupTimeoutError: If the request times out.
         """
-        params: dict[str, str | bool] = self._get_fetch_params(
+        params: dict[str, Any] = self._get_fetch_params(
             url=url,
             include_raw_html=include_raw_html,
             include_raw_content=include_raw_content,
             render_js=render_js,
             extract_images=extract_images,
             mode=mode,
+            schema=schema,
+            instructions=instructions,
         )
 
         response: httpx.Response = self._request(
@@ -1064,6 +1072,8 @@ class LinkupClient:
         timeout: float | None = None,
         include_raw_content: bool | None = None,
         mode: Literal["standard", "pro"] | None = None,
+        schema: type[pydantic.BaseModel] | dict[str, Any] | str | None = None,
+        instructions: str | None = None,
     ) -> LinkupFetchResponse:
         """Asynchronously fetch the content of a web page using the Linkup API /fetch endpoint.
 
@@ -1084,26 +1094,33 @@ class LinkupClient:
                 response.
             mode: The fetch strategy to use. "pro" delivers significantly higher success rates on
                 hard-to-retrieve pages.
+            schema: An object JSON schema describing an optional structured data to extract.
+                Supported formats are a pydantic.BaseModel, a Python dictionary, or a JSON string.
+            instructions: Optional instructions guiding structured data extraction if schema is
+                passed.
 
         Returns:
             The response of the web page fetch, containing the web page content.
 
         Raises:
             LinkupInvalidRequestError: If the provided URL is not valid.
-            LinkupFailedFetchError: If the provided URL is not found or can't be fetched.
+            LinkupFailedFetchError: If the provided URL can't be fetched.
             LinkupFetchResponseTooLargeError: If the fetch response is too large.
+            LinkupFetchTargetNotFoundError: If the target URL is not found.
             LinkupFetchTargetUnreachableError: If the target URL cannot be reached.
             LinkupFetchUnsupportedContentTypeError: If the URL resolves to an unsupported content
                 type.
             LinkupTimeoutError: If the request times out.
         """
-        params: dict[str, str | bool] = self._get_fetch_params(
+        params: dict[str, Any] = self._get_fetch_params(
             url=url,
             include_raw_html=include_raw_html,
             include_raw_content=include_raw_content,
             render_js=render_js,
             extract_images=extract_images,
             mode=mode,
+            schema=schema,
+            instructions=instructions,
         )
 
         response: httpx.Response = await self._async_request(
@@ -1338,6 +1355,12 @@ class LinkupClient:
                         "The provided URL's response is too large to be processed.\n"
                         f"Original error message: {error_msg}."
                     )
+                if code == "FETCH_TARGET_NOT_FOUND":
+                    raise LinkupFetchTargetNotFoundError(
+                        "The Linkup API returned a fetch target not found error (400). "
+                        "The target URL was not found.\n"
+                        f"Original error message: {error_msg}."
+                    )
                 if code == "FETCH_TARGET_UNREACHABLE":
                     raise LinkupFetchTargetUnreachableError(
                         "The Linkup API returned a fetch target unreachable error (400). "
@@ -1449,11 +1472,6 @@ class LinkupClient:
         include_inline_citations: bool | None,
         include_sources: bool | None,
     ) -> dict[str, str | bool | int | list[str]]:
-        if output_type == "structured" and structured_output_schema is None:
-            raise TypeError(
-                "structured_output_schema must be provided when output_type is 'structured'"
-            )
-
         params: dict[str, str | bool | int | list[str]] = {
             "q": query,
             "depth": depth,
@@ -1503,11 +1521,6 @@ class LinkupClient:
         exclude_domains: list[str] | None,
         include_domains: list[str] | None,
     ) -> dict[str, str | bool | list[str]]:
-        if output_type == "structured" and structured_output_schema is None:
-            raise TypeError(
-                "structured_output_schema must be provided when output_type is 'structured'"
-            )
-
         params: dict[str, str | bool | list[str]] = {
             "q": query,
             "outputType": output_type,
@@ -1621,6 +1634,8 @@ class LinkupClient:
                             render_js=task.render_js,
                             extract_images=task.extract_images,
                             mode=task.mode,
+                            schema=task.schema_,
+                            instructions=task.instructions,
                         ),
                     }
                 )
@@ -1657,8 +1672,10 @@ class LinkupClient:
         render_js: bool | None,
         extract_images: bool | None,
         mode: Literal["standard", "pro"] | None,
-    ) -> dict[str, str | bool]:
-        params: dict[str, str | bool] = {
+        schema: type[pydantic.BaseModel] | str | dict[str, Any] | None,
+        instructions: str | None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
             "url": url,
         }
         if include_raw_html is not None:
@@ -1671,6 +1688,17 @@ class LinkupClient:
             params["extractImages"] = extract_images
         if mode is not None:
             params["mode"] = mode
+        if schema is not None:
+            if isinstance(schema, str):
+                params["schema"] = schema
+            elif isinstance(schema, dict):
+                params["schema"] = json.dumps(schema)
+            elif issubclass(schema, pydantic.BaseModel):
+                params["schema"] = json.dumps(schema.model_json_schema())
+            else:
+                raise TypeError(f"Unexpected schema type: '{type(schema)}'")
+        if instructions is not None:
+            params["instructions"] = instructions
         return params
 
     def _parse_search_response(

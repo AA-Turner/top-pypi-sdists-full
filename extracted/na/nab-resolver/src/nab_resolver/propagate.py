@@ -17,7 +17,14 @@ from .types import IncompatibilityState, SetRelation, Term
 
 if TYPE_CHECKING:
     from .resolver import Resolver
-    from .types import Incompatibility
+    from .types import Incompatibility, RangeProtocol
+
+# Bound once so the hot paths load a module global instead of a class attribute.
+_SATISFIED_REL = SetRelation.SATISFIED
+_CONTRADICTED_REL = SetRelation.CONTRADICTED
+_UNDETERMINED_REL = SetRelation.UNDETERMINED
+_CONTRADICTED_STATE = IncompatibilityState.CONTRADICTED
+_CONFLICT_STATE = IncompatibilityState.CONFLICT
 
 __all__ = [
     "classify_relation",
@@ -28,6 +35,19 @@ __all__ = [
 
 # Upper bound on relation_cache size; cleared on overflow to bound memory.
 RELATION_CACHE_MAX = 100_000
+
+# A probe that misses builds its key for nothing, and on a conflict-heavy
+# resolve most probes miss.  So the memo runs only while its hit rate over a
+# window of probes pays for the key, and a longer window re-samples it later in
+# case the resolve changes shape.
+RELATION_GATE_WINDOW = 4_096
+RELATION_GATE_MIN_HITS = 1_024
+RELATION_GATE_RECHECK = 65_536
+
+# Upper bound on the address-keyed token memo, cleared on overflow together
+# with the range objects it holds alive.  A larger cap wipes less often and so
+# holds on to more ranges, which costs peak memory.
+RANGE_ID_MEMO_MAX = 8_192
 
 
 def unit_propagation(
@@ -64,11 +84,11 @@ def unit_propagation(
             incompatibility = resolver.incompatibilities[incompatibility_index]
             evaluation = evaluate_incompatibility(resolver, incompatibility)
 
-            if evaluation is IncompatibilityState.CONTRADICTED:
+            if evaluation is _CONTRADICTED_STATE:
                 contradicted_at[incompatibility_index] = epoch
                 continue
 
-            if evaluation is IncompatibilityState.CONFLICT:
+            if evaluation is _CONFLICT_STATE:
                 return incompatibility
 
             if isinstance(evaluation, Term):
@@ -115,17 +135,61 @@ def evaluate_incompatibility(
 
     for term in incompatibility.terms:
         relation = term_relation(resolver, term)
-        if relation is SetRelation.SATISFIED:
+        if relation is _SATISFIED_REL:
             continue
-        if relation is SetRelation.CONTRADICTED:
-            return IncompatibilityState.CONTRADICTED
+        if relation is _CONTRADICTED_REL:
+            return _CONTRADICTED_STATE
         if undetermined_term is not None:
             return None
         undetermined_term = term
 
     if undetermined_term is not None:
         return undetermined_term
-    return IncompatibilityState.CONFLICT
+    return _CONFLICT_STATE
+
+
+def _intern_range(resolver: Resolver[Any, Any], range_: RangeProtocol[Any]) -> int:
+    """Return the token for ``range_``, minting one the first time it is seen.
+
+    Equal ranges share a token, so the relation cache keys on range value
+    rather than on identity.  The address memo the caller reads first is only
+    sound while the object it answers for is alive, so ``interned_ranges``
+    holds on to every range that memo records.
+    """
+    tokens = resolver.range_tokens
+    token = tokens.get(range_)
+    if token is None:
+        token = resolver.next_range_token
+        resolver.next_range_token = token + 1
+        tokens[range_] = token
+
+    id_tokens = resolver.range_token_by_id
+    if len(id_tokens) >= RANGE_ID_MEMO_MAX:
+        id_tokens.clear()
+        resolver.interned_ranges.clear()
+    id_tokens[id(range_)] = token
+    resolver.interned_ranges.append(range_)
+
+    return token
+
+
+def _resample_relation_gate(resolver: Resolver[Any, Any]) -> None:
+    """Judge the window of probes that just ended and open the next one.
+
+    While the memo is on, the window counts hits, and too few switch the memo
+    off and drop the entries it collected.  While it is off, the window is only
+    the wait before the memo is tried again.
+    """
+    window = RELATION_GATE_WINDOW
+    if not resolver.relation_cache_on:
+        resolver.relation_cache_on = True
+    elif resolver.relation_gate_hits < RELATION_GATE_MIN_HITS:
+        resolver.relation_cache_on = False
+        resolver.relation_cache.clear()
+        window = RELATION_GATE_RECHECK
+
+    resolver.relation_gate_hits = 0
+    resolver.relation_gate_probes_left = window
 
 
 def term_relation(resolver: Resolver[Any, Any], term: Term[Any, Any]) -> SetRelation:
@@ -139,26 +203,56 @@ def term_relation(resolver: Resolver[Any, Any], term: Term[Any, Any]) -> SetRela
     """
     assignment = resolver.solution.get(term.package)
     if assignment is None:
-        return SetRelation.UNDETERMINED
+        return _UNDETERMINED_REL
 
     positive = term.is_positive()
-    cache = resolver.relation_cache
-    key = (positive, assignment, term.constraint)
-    result = cache.get(key)
+    constraint = term.constraint
+
+    # key stays None while the memo is off, so a miss below stores nothing.
+    key = None
+    result = None
+    if resolver.relation_cache_on:
+        # Both lookups stay inline because most probes hit while the memo is
+        # on; only a miss pays for the call into _intern_range.
+        id_tokens = resolver.range_token_by_id
+        assignment_token = id_tokens.get(id(assignment))
+        if assignment_token is None:
+            assignment_token = _intern_range(resolver, assignment)
+        constraint_token = id_tokens.get(id(constraint))
+        if constraint_token is None:
+            constraint_token = _intern_range(resolver, constraint)
+
+        key = (positive, assignment_token, constraint_token)
+        result = resolver.relation_cache.get(key)
+
     if result is None:
-        relation = assignment.relation(term.constraint)
+        relation = assignment.relation(constraint)
         result = classify_relation(
             term, subset=relation.is_subset, disjoint=relation.is_disjoint
         )
-        if len(cache) >= RELATION_CACHE_MAX:
-            cache.clear()
-        cache[key] = result
 
-    needs_positive = (positive and result is SetRelation.SATISFIED) or (
-        not positive and result is SetRelation.CONTRADICTED
+        # A hit must not write this counter, so it is charged here and not above.
+        probes_left = resolver.relation_gate_probes_left - 1
+        resolver.relation_gate_probes_left = probes_left
+
+        if key is not None:
+            cache = resolver.relation_cache
+            if len(cache) >= RELATION_CACHE_MAX:
+                cache.clear()
+            cache[key] = result
+
+        # Nothing hits while the memo is off, so the recheck wait runs its
+        # full length.
+        if probes_left <= resolver.relation_gate_hits:
+            _resample_relation_gate(resolver)
+    else:
+        resolver.relation_gate_hits += 1
+
+    needs_positive = (positive and result is _SATISFIED_REL) or (
+        not positive and result is _CONTRADICTED_REL
     )
     if needs_positive and not resolver.solution.has_positive_constraint(term.package):
-        return SetRelation.UNDETERMINED
+        return _UNDETERMINED_REL
 
     return result
 
@@ -185,7 +279,7 @@ def classify_relation(
         satisfied, contradicted = disjoint, subset
 
     if satisfied:
-        return SetRelation.SATISFIED
+        return _SATISFIED_REL
     if contradicted:
-        return SetRelation.CONTRADICTED
-    return SetRelation.UNDETERMINED
+        return _CONTRADICTED_REL
+    return _UNDETERMINED_REL

@@ -310,6 +310,11 @@ class AsyncReadOnlyStore(Protocol):
     Both async data systems expose their active store through this uniform interface:
     :class:`AsyncFeatureStore` satisfies it directly (FDv1), and FDv2 adapts its
     synchronous in-memory store to it. This is the async analog of :class:`ReadOnlyStore`.
+
+    .. caution::
+        This feature is experimental and should NOT be considered ready for production
+        use. It may change or be removed without notice and is not subject to backwards
+        compatibility guarantees.
     """
 
     @abstractmethod
@@ -386,7 +391,7 @@ class AsyncFeatureStore(ABC):
         """
 
     @abstractmethod
-    async def delete(self, kind: VersionedDataKind, key: str, version: int) -> None:
+    async def delete(self, kind: VersionedDataKind, key: str, version: int) -> bool:
         """
         Deletes the object associated with the specified key, if it exists and its version is less
         than the specified version. The object should be replaced in the data store by a
@@ -395,13 +400,24 @@ class AsyncFeatureStore(ABC):
         :param kind: The kind of object to delete
         :param key: The key of the object to be deleted
         :param version: The version for the delete operation
+        :return: True if the store was updated (a newer delete placeholder was written); False if the
+            delete was rejected because the stored version was equal or newer
         """
 
     @property
     @abstractmethod
     def initialized(self) -> bool:
         """
-        Returns whether the store has been initialized yet or not.
+        Returns the store's last observed initialized state without querying it.
+        """
+
+    @abstractmethod
+    async def is_initialized(self) -> bool:
+        """
+        Queries whether the store has been initialized, awaiting the store if a query is required.
+
+        A persistent store may have been populated by another process, so this can require I/O.
+        Implementations should latch a positive result: once the store is initialized it stays so.
         """
 
     async def close(self) -> None:
@@ -412,6 +428,88 @@ class AsyncFeatureStore(ABC):
         override this to close connections and release resources on shutdown.
         """
         pass
+
+
+class AsyncFeatureStoreCore(ABC):
+    """
+    Async equivalent of :class:`FeatureStoreCore`, for use with
+    :class:`ldclient.async_feature_store_helpers.AsyncCachingStoreWrapper`. It exposes a simplified
+    subset of the functionality of :class:`AsyncFeatureStore`, so a database integration only has to
+    implement the database-specific logic; the wrapper adds caching and encode/decode handling.
+
+    .. caution::
+        This feature is experimental and should NOT be considered ready for production
+        use. It may change or be removed without notice and is not subject to backwards
+        compatibility guarantees. Pin to a specific minor version and review the changelog
+        before upgrading.
+
+    All items passed to and returned from these methods are plain JSON-compatible dicts, not decoded
+    model objects. The wrapper handles decoding for its cache and its callers.
+    """
+
+    @abstractmethod
+    async def get_internal(self, kind: VersionedDataKind, key: str) -> Optional[dict]:
+        """
+        Returns the object to which the specified key is mapped, or None if no such item exists.
+        The method should not attempt to filter out any items based on their deleted property,
+        nor to cache any items.
+
+        :param kind: The kind of object to get
+        :param key: The key of the object
+        :return: The object to which the specified key is mapped, or None
+        """
+        ...
+
+    @abstractmethod
+    async def get_all_internal(self, kind: VersionedDataKind) -> Mapping[str, dict]:
+        """
+        Returns a dictionary of all associated objects of a given kind. The method should not attempt
+        to filter out any items based on their deleted property, nor to cache any items.
+
+        :param kind: The kind of objects to get
+        :return: A dictionary of keys to items
+        """
+        ...
+
+    @abstractmethod
+    async def init_internal(self, all_data: Mapping[VersionedDataKind, Mapping[str, dict]]) -> None:
+        """
+        Initializes (or re-initializes) the store with the specified set of objects. Any existing
+        entries will be removed. Implementations can assume that this set of objects is up to date--
+        there is no need to perform individual version comparisons between the existing objects and
+        the supplied data.
+
+        :param all_data: A dictionary of data kinds to item collections
+        """
+        ...
+
+    @abstractmethod
+    async def upsert_internal(self, kind: VersionedDataKind, item: dict) -> dict:
+        """
+        Updates or inserts the object associated with the specified key. If an item with the same key
+        already exists, it should update it only if the new item's version property is greater than
+        the old one. It should return the final state of the item, that is, the item that was passed
+        in if the update succeeded, or the item that is currently in the data store if the update
+        failed the version check. This lets the wrapper update its cache correctly.
+
+        :param kind: The kind of object to update
+        :param item: The object to update or insert
+        :return: The state of the object after the update
+        """
+        ...
+
+    @abstractmethod
+    async def initialized_internal(self) -> bool:
+        """
+        Returns true if this store has been initialized. In a shared data store, it should be able to
+        detect this even if init_internal was called in a different process, so the test should be
+        based on what is in the data store.
+        """
+        ...
+
+    # An implementation may also define ``async def is_available(self) -> bool`` and
+    # ``async def close(self) -> None``. The wrapper detects and uses them if present, so they are
+    # not declared here as required methods.
 
 
 # Internal use only. Common methods for components that perform a task in the background.
@@ -451,6 +549,37 @@ class UpdateProcessor(BackgroundOperation, ABC):
         """
 
 
+class AsyncUpdateProcessor(ABC):
+    """
+    Async interface for the component that obtains feature flag data and passes it to an
+    :class:`AsyncFeatureStore`, for use with :class:`ldclient.async_client.AsyncLDClient`. It mirrors
+    :class:`UpdateProcessor`, except ``stop`` is a coroutine. The built-in implementations are the
+    client's standard streaming or polling behavior.
+
+    .. caution::
+        This feature is experimental and should NOT be considered ready for production
+        use. It may change or be removed without notice and is not subject to backwards
+        compatibility guarantees.
+    """
+
+    def start(self):
+        """
+        Starts the update processor in the background. Should return immediately and not block.
+        """
+        pass
+
+    async def stop(self):
+        """
+        Stops the update processor. Awaiting the result ensures background work has stopped.
+        """
+        pass
+
+    def initialized(self) -> bool:  # type: ignore[empty-body]
+        """
+        Returns whether the update processor has received feature flags and has initialized its feature store.
+        """
+
+
 class EventProcessor(ABC):
     """
     Interface for the component that buffers analytics events and sends them to LaunchDarkly.
@@ -479,6 +608,47 @@ class EventProcessor(ABC):
         """
 
 
+class AsyncEventProcessor(ABC):
+    """
+    Async interface for the component that buffers analytics events and sends them to LaunchDarkly,
+    for use with :class:`ldclient.async_client.AsyncLDClient`. It mirrors :class:`EventProcessor`,
+    except ``stop`` is a coroutine. The default implementation can be replaced for testing.
+
+    .. caution::
+        This feature is experimental and should NOT be considered ready for production
+        use. It may change or be removed without notice and is not subject to backwards
+        compatibility guarantees.
+    """
+
+    @abstractmethod
+    def send_event(self, event):
+        """
+        Processes an event to be sent at some point.
+        """
+
+    @abstractmethod
+    def flush(self):
+        """
+        Specifies that any buffered events should be sent as soon as possible, rather than waiting
+        for the next flush interval. This method is not awaitable and does not wait for delivery;
+        use ``flush_and_wait`` to wait for delivery to complete.
+        """
+
+    @abstractmethod
+    async def flush_and_wait(self, timeout: float) -> bool:
+        """
+        Flushes any buffered events and waits for delivery to complete, up to ``timeout`` seconds.
+        Returns True if delivery completed within the timeout, or False if it timed out. Unlike
+        ``stop``, this does not shut down the event processor.
+        """
+
+    @abstractmethod
+    async def stop(self):
+        """
+        Shuts down the event processor after first delivering all pending events.
+        """
+
+
 class FeatureRequester(ABC):
     """
     Interface for the component that acquires feature flag data in polling mode. The default
@@ -490,6 +660,39 @@ class FeatureRequester(ABC):
         Gets all feature flags.
         """
         pass
+
+    def get_all_data(self) -> Mapping[VersionedDataKind, Mapping[str, dict]]:
+        """
+        Fetches all feature flag and segment data.
+        """
+        raise NotImplementedError
+
+
+class AsyncFeatureRequester(ABC):
+    """
+    Async interface for the component that acquires feature flag data in polling
+    mode. The default implementation can be replaced for testing purposes.
+
+    .. caution::
+        This feature is experimental and should NOT be considered ready for production
+        use. It may change or be removed without notice and is not subject to backwards
+        compatibility guarantees. Pin to a specific minor version and review the changelog
+        before upgrading.
+    """
+
+    @abstractmethod
+    async def get_all_data(self) -> Mapping[VersionedDataKind, Mapping[str, dict]]:
+        """
+        Fetches all feature flag and segment data.
+        """
+        ...
+
+    @abstractmethod
+    async def close(self) -> None:
+        """
+        Releases any resources (such as an HTTP transport) owned by the requester.
+        """
+        ...
 
 
 class DiagnosticDescription:
@@ -691,6 +894,9 @@ class BigSegmentStoreStatusProvider:
         """
         Gets the current status of the store.
 
+        Before the first poll completes, this performs a blocking store query and returns its
+        result, so the status is accurate even if called immediately after the client starts.
+
         :return: the status
         """
         pass
@@ -702,6 +908,57 @@ class BigSegmentStoreStatusProvider:
 
         The listener is a function or method that will be called with a single parameter: the
         new ``BigSegmentStoreStatus``.
+
+        :param listener: the listener to add
+        """
+        pass
+
+    @abstractmethod
+    def remove_listener(self, listener: Callable[[BigSegmentStoreStatus], None]) -> None:
+        """
+        Unsubscribes from notifications of status changes.
+
+        :param listener: a listener that was previously added with :func:`add_listener()`; if it was not,
+            this method does nothing
+        """
+        pass
+
+
+class AsyncBigSegmentStoreStatusProvider(ABC):
+    """
+    Async interface for querying the status of a Big Segment store, for use with the async
+    client (:class:`ldclient.async_client.AsyncLDClient`). It mirrors
+    :class:`BigSegmentStoreStatusProvider`, except the current status is read with the
+    coroutine :meth:`get_status` instead of a synchronous ``status`` property (a property
+    cannot await).
+
+    .. caution::
+        This feature is experimental and should NOT be considered ready for production
+        use. It may change or be removed without notice and is not subject to backwards
+        compatibility guarantees.
+
+    An implementation of this abstract class is returned by
+    :meth:`ldclient.async_client.AsyncLDClient.big_segment_store_status_provider`. Application
+    code never needs to implement this interface.
+    """
+
+    @abstractmethod
+    async def get_status(self) -> BigSegmentStoreStatus:
+        """
+        Gets the current status of the store.
+
+        Before the first poll completes, this awaits a store query and returns its result, so
+        the status is accurate even if called immediately after the client starts.
+
+        :return: the status
+        """
+        pass
+
+    @abstractmethod
+    def add_listener(self, listener: Callable[[BigSegmentStoreStatus], None]) -> None:
+        """
+        Subscribes for notifications of status changes. Behaves identically to
+        :meth:`BigSegmentStoreStatusProvider.add_listener`.
 
         :param listener: the listener to add
         """
@@ -1183,6 +1440,56 @@ class FlagTracker(ABC):
         :param key: The flag key to monitor
         :param context: The context to evaluate against the flag
         :param listener: The listener to trigger if the value has changed
+        """
+        pass
+
+
+class AsyncFlagTracker(ABC):
+    """
+    An interface for tracking changes in feature flag configurations, for use with the async client
+    (:class:`ldclient.async_client.AsyncLDClient`). It mirrors :class:`FlagTracker`, except
+    :meth:`add_flag_value_change_listener` is a coroutine.
+
+    .. caution::
+        This feature is experimental and should NOT be considered ready for production
+        use. It may change or be removed without notice and is not subject to backwards
+        compatibility guarantees.
+
+    An implementation of this abstract class is returned by
+    :meth:`ldclient.async_client.AsyncLDClient.flag_tracker`. Application code never needs to
+    implement this interface.
+    """
+
+    @abstractmethod
+    def add_listener(self, listener: Callable[[FlagChange], None]) -> None:
+        """
+        Registers a listener to be notified of feature flag changes in general. Behaves identically
+        to :meth:`FlagTracker.add_listener`.
+
+        :param listener: listener to call when a flag has changed
+        """
+        pass
+
+    @abstractmethod
+    def remove_listener(self, listener: Callable[[FlagChange], None]) -> None:
+        """
+        Unregisters a listener so that it will no longer be notified of feature flag changes.
+
+        :param listener: the listener to remove
+        """
+        pass
+
+    @abstractmethod
+    async def add_flag_value_change_listener(self, key: str, context: Context, listener: Callable[[FlagValueChange], None]) -> Callable[[FlagChange], None]:
+        """
+        Registers a listener to be notified when a specific flag's evaluated value changes for a
+        specific context. Behaves like :meth:`FlagTracker.add_flag_value_change_listener`, but is a
+        **coroutine** and must be awaited (it evaluates the flag to capture the baseline value).
+
+        :param key: the flag key to monitor
+        :param context: the context to evaluate against the flag
+        :param listener: the listener to trigger if the value has changed
+        :return: the subscription; pass it to :meth:`remove_listener` to unsubscribe
         """
         pass
 

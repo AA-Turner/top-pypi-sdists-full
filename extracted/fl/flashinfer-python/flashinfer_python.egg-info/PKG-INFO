@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.6.17
+Version: 0.6.18
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 License-Expression: Apache-2.0
@@ -17,7 +17,7 @@ Requires-Dist: nccl4py>=0.3.1
 Requires-Dist: ninja
 Requires-Dist: numpy
 Requires-Dist: nvidia-cudnn-frontend>=1.25.0
-Requires-Dist: nvidia-cutlass-dsl>=4.5.0
+Requires-Dist: nvidia-cutlass-dsl>=4.6.2a0
 Requires-Dist: nvidia-ml-py
 Requires-Dist: packaging>=24.2
 Requires-Dist: requests
@@ -25,9 +25,9 @@ Requires-Dist: tabulate
 Requires-Dist: torch
 Requires-Dist: tqdm
 Provides-Extra: cu12
-Requires-Dist: nvidia-cutlass-dsl>=4.5.0; extra == "cu12"
+Requires-Dist: nvidia-cutlass-dsl>=4.6.2a0; extra == "cu12"
 Provides-Extra: cu13
-Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.5.0; extra == "cu13"
+Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.6.2a0; extra == "cu13"
 Provides-Extra: nvep
 Dynamic: license-file
 
@@ -259,9 +259,10 @@ Users can customize their own attention variants with additional parameters. For
 
 ## CUDA Support
 
-**Supported CUDA Versions:** 12.6, 12.8, 13.0, 13.1
+**Supported CUDA Versions:** 12.9, 13.0, and 13.4 (PyTorch nightly)
 
 > **Note:** FlashInfer strives to follow PyTorch's supported CUDA versions plus the latest CUDA release.
+> CUDA 13.4 wheels are built with the preview toolkit and PyTorch nightly; runtime CI currently covers CUDA 12.9 and 13.0.
 
 ## Adoption
 

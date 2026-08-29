@@ -9,12 +9,17 @@ from textwrap import dedent
 from graphql.validation import specified_rules
 
 from .client_generators.constants import (
+    CLIENT_FORWARD_REFS_PLUGIN,
     DEFAULT_ASYNC_BASE_CLIENT_NAME,
+    DEFAULT_ASYNC_BASE_CLIENT_NO_UPLOAD_PATH,
     DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_NAME,
+    DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_NO_UPLOAD_PATH,
     DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_PATH,
     DEFAULT_ASYNC_BASE_CLIENT_PATH,
     DEFAULT_BASE_CLIENT_NAME,
+    DEFAULT_BASE_CLIENT_NO_UPLOAD_PATH,
     DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_NAME,
+    DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_NO_UPLOAD_PATH,
     DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_PATH,
     DEFAULT_BASE_CLIENT_PATH,
 )
@@ -46,6 +51,7 @@ def get_validation_rule(rule: str):
 class Strategy(str, enum.Enum):
     CLIENT = "client"
     GRAPHQL_SCHEMA = "graphqlschema"
+    MODELS_ONLY = "models_only"
 
 
 @dataclass
@@ -66,10 +72,12 @@ class IntrospectionSettings:
 @dataclass
 class BaseSettings:
     schema_path: str = ""
+    schema_paths: list[str] = field(default_factory=list)
     remote_schema_url: str = ""
     remote_schema_headers: dict = field(default_factory=dict)
     remote_schema_verify_ssl: bool = True
     remote_schema_timeout: float = 5
+    remote_schema_http_client_path: str | None = None
     enable_custom_operations: bool = False
     plugins: list[str] = field(default_factory=list)
     introspection_descriptions: bool = False
@@ -78,11 +86,28 @@ class BaseSettings:
     introspection_schema_description: bool = False
     introspection_directive_is_repeatable: bool = False
     introspection_input_object_one_of: bool = False
+    show_deprecation_warnings: bool = True
 
     def __post_init__(self):
-        if not self.schema_path and not self.remote_schema_url:
+        provided_sources = [
+            name
+            for name, value in (
+                ("schema_path", self.schema_path),
+                ("schema_paths", self.schema_paths),
+                ("remote_schema_url", self.remote_schema_url),
+            )
+            if value
+        ]
+        if not provided_sources:
             raise InvalidConfiguration(
-                "Schema source not provided. Use schema_path or remote_schema_url"
+                "Schema source not provided. Use one of: schema_path, schema_paths,"
+                " or remote_schema_url."
+            )
+        if len(provided_sources) > 1:
+            raise InvalidConfiguration(
+                "Cannot use more than one schema source at the same time. "
+                f"Provided: {', '.join(provided_sources)}. Use only one of: "
+                "schema_path, schema_paths, or remote_schema_url."
             )
 
         if self.schema_path:
@@ -97,7 +122,16 @@ class BaseSettings:
         """
         Return true if remote schema is used as source, false otherwise.
         """
-        return bool(self.remote_schema_url) and not bool(self.schema_path)
+        return bool(self.remote_schema_url)
+
+    @property
+    def schema_source(self) -> str:
+        """Return a human-readable description of the configured schema source."""
+        if self.schema_path:
+            return self.schema_path
+        if self.schema_paths:
+            return ", ".join(self.schema_paths)
+        return self.remote_schema_url
 
     @property
     def introspection_settings(self) -> IntrospectionSettings:
@@ -125,14 +159,10 @@ class BaseSettings:
 
 
 @dataclass
-class ClientSettings(BaseSettings):
+class GeneratorSettings(BaseSettings):
     queries_path: str = ""
     target_package_name: str = "graphql_client"
     target_package_path: str = field(default_factory=lambda: Path.cwd().as_posix())
-    client_name: str = "Client"
-    client_file_name: str = "client"
-    base_client_name: str = ""
-    base_client_file_path: str = ""
     enums_module_name: str = "enums"
     input_types_module_name: str = "input_types"
     fragments_module_name: str = "fragments"
@@ -140,8 +170,6 @@ class ClientSettings(BaseSettings):
     convert_to_snake_case: bool = True
     include_all_inputs: bool = True
     include_all_enums: bool = True
-    async_client: bool = True
-    opentelemetry_client: bool = False
     skip_validation_rules: list[str] = field(
         default_factory=lambda: [
             "NoUnusedFragments",
@@ -152,11 +180,20 @@ class ClientSettings(BaseSettings):
     default_optional_fields_to_none: bool = False
     include_typename: bool = True
     ignore_extra_fields: bool = True
+    defer_model_build: bool = False
+    use_alias_generator: bool = False
+    lazy_imports: bool = False
 
     def __post_init__(self):
-        if not self.queries_path and not self.enable_custom_operations:
-            raise TypeError("__init__ missing 1 required argument: 'queries_path'")
         super().__post_init__()
+
+        # `lazy_imports` needs both halves: the lazy `__init__` stops the package
+        # importing every module, and the plugin stops `client.py` importing every
+        # input type it annotates with. Either alone still pulls the models in, so
+        # the setting turns the plugin on for you. Appended last: it rewrites the
+        # client module other plugins (`ShorterResultsPlugin`) produce.
+        if self.lazy_imports and CLIENT_FORWARD_REFS_PLUGIN not in self.plugins:
+            self.plugins.append(CLIENT_FORWARD_REFS_PLUGIN)
 
         try:
             self.include_comments = CommentsStrategy(self.include_comments)
@@ -167,15 +204,59 @@ class ClientSettings(BaseSettings):
                 f"Valid options are: {valid_options}"
             ) from exc
 
-        self._set_default_base_client_data()
-
         for name, data in self.scalars.items():
             data.graphql_name = name
 
-        assert_path_exists(self.queries_path)
-
         assert_string_is_valid_python_identifier(self.target_package_name)
         assert_path_is_valid_directory(self.target_package_path)
+
+        assert_string_is_valid_python_identifier(self.enums_module_name)
+        assert_string_is_valid_python_identifier(self.input_types_module_name)
+
+        for file_path in self.files_to_include:
+            assert_path_is_valid_file(file_path)
+
+    def get_use_alias_generator_msg(self) -> str:
+        if not self.use_alias_generator:
+            use_alias_generator_msg = (
+                "Spelling out a `Field(alias=...)` for every renamed field."
+            )
+        elif not self.convert_to_snake_case:
+            # Field names already match the schema, so every renamed field keeps
+            # its explicit alias and the generator only adds a per-field call.
+            use_alias_generator_msg = (
+                "Deriving field aliases with `alias_generator=to_camel`, which "
+                "saves nothing with `convert_to_snake_case = false` - every "
+                "renamed field still needs its own `Field(alias=...)`."
+            )
+        else:
+            use_alias_generator_msg = (
+                "Deriving field aliases with `alias_generator=to_camel` "
+                "(faster import of generated models)."
+            )
+        return use_alias_generator_msg
+
+
+@dataclass
+class ClientSettings(GeneratorSettings):
+    client_name: str = "Client"
+    client_file_name: str = "client"
+    base_client_name: str = ""
+    base_client_file_path: str = ""
+    base_client_module_name: str = ""
+    async_client: bool = True
+    opentelemetry_client: bool = False
+    multipart_uploads: bool = True
+
+    def __post_init__(self):
+        if not self.queries_path and not self.enable_custom_operations:
+            raise TypeError("__init__ missing 1 required argument: 'queries_path'")
+
+        super().__post_init__()
+
+        assert_path_exists(self.queries_path)
+
+        self._set_default_base_client_data()
 
         assert_string_is_valid_python_identifier(self.client_name)
         assert_string_is_valid_python_identifier(self.client_file_name)
@@ -186,41 +267,56 @@ class ClientSettings(BaseSettings):
             Path(self.base_client_file_path), self.base_client_name
         )
 
-        assert_string_is_valid_python_identifier(self.enums_module_name)
-        assert_string_is_valid_python_identifier(self.input_types_module_name)
-
-        for file_path in self.files_to_include:
-            assert_path_is_valid_file(file_path)
-
     def _set_default_base_client_data(self):
         default_clients_map = {
-            (True, True): (
+            (True, True, True): (
                 DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_PATH,
                 DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_NAME,
+                DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_PATH.stem,
             ),
-            (True, False): (
+            (True, True, False): (
+                DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_NO_UPLOAD_PATH,
+                DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_NAME,
+                DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_PATH.stem,
+            ),
+            (True, False, True): (
                 DEFAULT_ASYNC_BASE_CLIENT_PATH,
                 DEFAULT_ASYNC_BASE_CLIENT_NAME,
+                DEFAULT_ASYNC_BASE_CLIENT_PATH.stem,
             ),
-            (False, True): (
+            (True, False, False): (
+                DEFAULT_ASYNC_BASE_CLIENT_NO_UPLOAD_PATH,
+                DEFAULT_ASYNC_BASE_CLIENT_NAME,
+                DEFAULT_ASYNC_BASE_CLIENT_PATH.stem,
+            ),
+            (False, True, True): (
                 DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_PATH,
                 DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_NAME,
+                DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_PATH.stem,
             ),
-            (False, False): (
+            (False, True, False): (
+                DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_NO_UPLOAD_PATH,
+                DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_NAME,
+                DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_PATH.stem,
+            ),
+            (False, False, True): (
                 DEFAULT_BASE_CLIENT_PATH,
                 DEFAULT_BASE_CLIENT_NAME,
+                DEFAULT_BASE_CLIENT_PATH.stem,
+            ),
+            (False, False, False): (
+                DEFAULT_BASE_CLIENT_NO_UPLOAD_PATH,
+                DEFAULT_BASE_CLIENT_NAME,
+                DEFAULT_BASE_CLIENT_PATH.stem,
             ),
         }
         if not self.base_client_name and not self.base_client_file_path:
-            path, name = default_clients_map[
-                (self.async_client, self.opentelemetry_client)
+            path, name, module_name = default_clients_map[
+                (self.async_client, self.opentelemetry_client, self.multipart_uploads)
             ]
             self.base_client_name = name
             self.base_client_file_path = path.as_posix()
-
-    @property
-    def schema_source(self) -> str:
-        return self.schema_path if self.schema_path else self.remote_schema_url
+            self.base_client_module_name = module_name
 
     @property
     def used_settings_message(self) -> str:
@@ -251,13 +347,26 @@ class ClientSettings(BaseSettings):
             if self.include_typename
             else "Not including __typename fields in generated queries."
         )
+        defer_model_build_msg = (
+            "Deferring Pydantic model builds to first use "
+            "(faster import of generated package)."
+            if self.defer_model_build
+            else "Building Pydantic models eagerly at import time."
+        )
+        use_alias_generator_msg = self.get_use_alias_generator_msg()
+        lazy_imports_msg = (
+            "Importing generated modules on first use "
+            "(faster import of generated package)."
+            if self.lazy_imports
+            else "Importing every generated module in the package's `__init__`."
+        )
         introspection_msg = (
             self._introspection_settings_message() if self.using_remote_schema else ""
         )
         return dedent(
             f"""\
             Selected strategy: {Strategy.CLIENT}
-            Using schema from '{self.schema_path or self.remote_schema_url}'.
+            Using schema from '{self.schema_source}'.
             {introspection_msg}
             Reading queries from '{self.queries_path}'.
             Using '{self.target_package_name}' as package name.
@@ -272,6 +381,82 @@ class ClientSettings(BaseSettings):
             {snake_case_msg}
             {async_client_msg}
             {include_typename_msg}
+            {defer_model_build_msg}
+            {use_alias_generator_msg}
+            {lazy_imports_msg}
+            {files_to_include_msg}
+            {plugins_msg}
+            """
+        )
+
+
+@dataclass
+class ModelsOnlySettings(GeneratorSettings):
+    def __post_init__(self):
+        super().__post_init__()
+
+        if self.queries_path:
+            assert_path_exists(self.queries_path)
+
+    @property
+    def used_settings_message(self) -> str:
+        queries_msg = (
+            f"Reading queries from '{self.queries_path}'."
+            if self.queries_path
+            else "No queries path provided, generating models only."
+        )
+
+        snake_case_msg = (
+            "Converting fields and arguments name to snake case."
+            if self.convert_to_snake_case
+            else "Not converting fields and arguments name to snake case."
+        )
+
+        files_to_include_list = ",".join(self.files_to_include)
+        files_to_include_msg = (
+            f"Copying the following files into the package: {files_to_include_list}"
+            if self.files_to_include
+            else "No files to copy."
+        )
+        plugins_list = ",".join(self.plugins)
+        plugins_msg = (
+            f"Plugins to use: {plugins_list}"
+            if self.plugins
+            else "No plugin is being used."
+        )
+
+        defer_model_build_msg = (
+            "Deferring Pydantic model builds to first use "
+            "(faster import of generated package)."
+            if self.defer_model_build
+            else "Building Pydantic models eagerly at import time."
+        )
+        use_alias_generator_msg = self.get_use_alias_generator_msg()
+        lazy_imports_msg = (
+            "Importing generated modules on first use "
+            "(faster import of generated package)."
+            if self.lazy_imports
+            else "Importing every generated module in the package's `__init__`."
+        )
+        introspection_msg = (
+            self._introspection_settings_message() if self.using_remote_schema else ""
+        )
+        return dedent(
+            f"""\
+            Selected strategy: {Strategy.MODELS_ONLY}
+            Using schema from '{self.schema_source}'.
+            {introspection_msg}
+            {queries_msg}
+            Using '{self.target_package_name}' as package name.
+            Generating package into '{self.target_package_path}'.
+            Generating enums into '{self.enums_module_name}.py'.
+            Generating inputs into '{self.input_types_module_name}.py'.
+            Generating fragments into '{self.fragments_module_name}.py'.
+            Comments type: {self.include_comments.value}
+            {snake_case_msg}
+            {defer_model_build_msg}
+            {use_alias_generator_msg}
+            {lazy_imports_msg}
             {files_to_include_msg}
             {plugins_msg}
             """
@@ -307,7 +492,7 @@ class GraphQLSchemaSettings(BaseSettings):
             return dedent(
                 f"""\
                 Selected strategy: {Strategy.GRAPHQL_SCHEMA}
-                Using schema from {self.schema_path or self.remote_schema_url}
+                Using schema from {self.schema_source}
                 {introspection_msg}
                 Saving graphql schema to: {self.target_file_path}
                 Using {self.schema_variable_name} as variable name for schema.
@@ -319,7 +504,7 @@ class GraphQLSchemaSettings(BaseSettings):
         return dedent(
             f"""\
             Selected strategy: {Strategy.GRAPHQL_SCHEMA}
-            Using schema from {self.schema_path or self.remote_schema_url}
+            Using schema from {self.schema_source}
             {introspection_msg}
             Saving graphql schema to: {self.target_file_path}
             {plugins_msg}

@@ -1,6 +1,7 @@
 from django import forms
+from django.test import override_settings
 
-from .base import DJANGO_VERSION, BootstrapTestCase
+from .base import BootstrapTestCase
 
 
 class XssTestForm(forms.Form):
@@ -24,19 +25,17 @@ class FieldTestCase(BootstrapTestCase):
     def test_show_help(self):
         html = self.render("{% bootstrap_field form.subject %}", {"form": SubjectTestForm()})
         self.assertIn("my_help_text", html)
-        if DJANGO_VERSION >= "5":  # TODO: Django 4.2
-            self.assertIn('aria-describedby="id_subject_helptext"', html)
-            self.assertIn('<div id="id_subject_helptext" class="form-text">my_help_text</div>', html)
+        self.assertIn('aria-describedby="id_subject_helptext"', html)
+        self.assertIn('<div id="id_subject_helptext" class="form-text">my_help_text</div>', html)
         self.assertNotIn("<i>my_help_text</i>", html)
         html = self.render("{% bootstrap_field form.subject show_help=False %}", {"form": SubjectTestForm()})
         self.assertNotIn("my_help_text", html)
 
     def test_help_text_overridden_aria_describedby(self):
-        if DJANGO_VERSION >= "5":  # TODO: Django 4.2
-            form = SubjectTestForm()
-            form.fields["subject"].widget.attrs["aria-describedby"] = "my_id"
-            html = self.render("{% bootstrap_field form.subject %}", {"form": form})
-            self.assertIn('<div id="id_subject_helptext" class="form-text">my_help_text</div>', html)
+        form = SubjectTestForm()
+        form.fields["subject"].widget.attrs["aria-describedby"] = "my_id"
+        html = self.render("{% bootstrap_field form.subject %}", {"form": form})
+        self.assertIn('<div id="id_subject_helptext" class="form-text">my_help_text</div>', html)
 
     def test_placeholder(self):
         html = self.render("{% bootstrap_field form.subject %}", {"form": SubjectTestForm()})
@@ -84,8 +83,40 @@ class FieldTestCase(BootstrapTestCase):
         _test_size_medium("md")
         _test_size_medium("")
 
+    def test_input_class(self):
+        self.assertIn(
+            'class="form-control foobar-class"',
+            self.render('{% bootstrap_field form.subject input_class="foobar-class" %}', {"form": SubjectTestForm()}),
+        )
+
     def test_label(self):
         self.assertEqual(
             self.render('{% bootstrap_label "foobar" label_for="subject" %}'),
             '<label class="form-label" for="subject">foobar</label>',
         )
+
+    def test_label_kwarg(self):
+        """bootstrap_field label kwarg overrides the field's own label text (#635)."""
+        html = self.render('{% bootstrap_field form.subject label="Custom Label" %}', {"form": SubjectTestForm()})
+        self.assertIn('<label class="form-label" for="id_subject">Custom Label</label>', html)
+        self.assertNotIn(">Subject<", html)
+
+    def test_label_kwarg_used_as_default_placeholder(self):
+        class PlainTestForm(forms.Form):
+            plain = forms.CharField()
+
+        html = self.render('{% bootstrap_field form.plain label="Custom Label" %}', {"form": PlainTestForm()})
+        self.assertIn('placeholder="Custom Label"', html)
+
+    @override_settings(BOOTSTRAP5={"label_class": "custom-label-class"})
+    def test_label_class_setting(self):
+        html = self.render("{% bootstrap_field form.subject %}", {"form": SubjectTestForm()})
+        self.assertIn('class="form-label custom-label-class"', html)
+
+    def test_label_class_kwarg_overrides_setting(self):
+        with override_settings(BOOTSTRAP5={"label_class": "custom-label-class"}):
+            html = self.render(
+                '{% bootstrap_field form.subject label_class="kwarg-label-class" %}', {"form": SubjectTestForm()}
+            )
+            self.assertIn('class="form-label kwarg-label-class"', html)
+            self.assertNotIn("custom-label-class", html)

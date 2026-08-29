@@ -154,7 +154,10 @@ class WheelRepair:
     _platlib_dir: str  # extracted path to .data/platlib directory, is set even if directory does not exist
     _include: set[str]  # additional DLLs to include, lowercase
     _exclude: set[str]  # DLLs to exclude, lowercase (allows * wildcard)
-    _wheel_dirs: typing.Optional[list[str]]  # extracted directories from inside wheel
+    _wheel_dirs_casemap: typing.Optional[dict[str, list[str]]]
+        # map from the lowercase name of each extracted file from inside the
+        # wheel to the list of extracted paths of the files whose lowercase
+        # name is that name
     _ignore_existing: bool  # whether to ignore DLLs that are already inside wheel
     _analyze_existing: bool  # whether to analyze and vendor in dependencies of DLLs that are already in the wheel
     _analyze_existing_exes: bool  # whether to analyze and vendor in dependencies of EXEs that are in the wheel
@@ -218,8 +221,8 @@ class WheelRepair:
         self._purelib_dir = os.path.join(self._data_dir, 'purelib')
         self._platlib_dir = os.path.join(self._data_dir, 'platlib')
 
-        self._include = set() if include is None else include
-        self._exclude = set() if exclude is None else exclude
+        self._include = set() if include is None else include.copy()
+        self._exclude = set() if exclude is None else exclude.copy()
 
         # Modify self._exclude to include those that are already part of every
         # Python distribution the wheel targets.
@@ -253,16 +256,16 @@ class WheelRepair:
                     break
             self._exclude |= ignore_abi3
 
-        # If ignore_existing is True, save list of all directories in the
-        # wheel. These directories will be used to search for DLLs that are
+        # If ignore_existing is True, save a case-insensitive map of all files
+        # in the wheel. This map will be used to search for DLLs that are
         # already in the wheel.
         if ignore_existing:
-            self._wheel_dirs = [self._extract_dir]
-            for root, dirnames, _ in os.walk(self._extract_dir):
-                for dirname in dirnames:
-                    self._wheel_dirs.append(os.path.join(root, dirname))
+            self._wheel_dirs_casemap = {}
+            for root, _, filenames in os.walk(self._extract_dir):
+                for filename in filenames:
+                    self._wheel_dirs_casemap.setdefault(filename.lower(), []).append(os.path.join(root, filename))
         else:
-            self._wheel_dirs = None
+            self._wheel_dirs_casemap = None
         self._ignore_existing = ignore_existing
 
         self._analyze_existing = analyze_existing
@@ -281,7 +284,8 @@ class WheelRepair:
                         elif self._arch and self._arch is not arch:
                             raise NotImplementedError('Wheels targeting multiple CPU architectures are not supported')
                         self._arch = arch
-            self._arch = _dll_list.MachineType.AMD64  # set default value for safety; this shouldn't be used
+        if not self._arch:
+            self._arch = _dll_list.MachineType.AMD64  # choose default value
 
         # get minimum supported Python version
         if python_tags:
@@ -305,13 +309,15 @@ class WheelRepair:
                 digest = hashlib.file_digest(file, hashlib.sha256)
                 size = os.path.getsize(file_path)
             else:
-                contents = file.read()
-                digest = hashlib.sha256(contents)
-                size = len(contents)
+                digest = hashlib.sha256()
+                size = 0
+                while buf := file.read(65536):
+                    digest.update(buf)
+                    size += len(buf)
             return base64.urlsafe_b64encode(digest.digest()).decode('latin1').rstrip('='), size
 
     @staticmethod
-    def _hashfile(afile: typing.BinaryIO, blocksize: int = 65536, length: int = 32, start: typing.Optional[typing.Iterable[str]] = None) -> str:
+    def _hashfile(afile: typing.BinaryIO, blocksize: int = 65536, length: int = 32, start: typing.Optional[collections.abc.Iterable[str]] = None) -> str:
         """Hash the contents of start along with the contents of an open file
         handle with SHA256. Return the first length characters of the hash in
         hexadecimal form."""
@@ -409,7 +415,7 @@ class WheelRepair:
         children = list(ast.iter_child_nodes(node))
         for child in reversed(children):
             if isinstance(child, ast.ImportFrom) and child.module == '__future__':
-                future_import_lineno = child.lineno
+                future_import_lineno = child.end_lineno
                 break
         else:
             future_import_lineno = 0  # no "from __future__ import" statement found
@@ -536,7 +542,7 @@ class WheelRepair:
                 return path
         return None
 
-    def _patch_package(self, package_dir: str, namespace_pkgs: set[tuple[str]], libs_dir: str, load_order_filename: str, depth: int) -> set[str]:
+    def _patch_package(self, package_dir: str, namespace_pkgs: set[tuple[str, ...]], libs_dir: str, load_order_filename: typing.Optional[str], depth: int) -> set[str]:
         """Patch a package so that vendored DLLs can be found at runtime.
         Return a set containing the absolute extracted paths of all .pyd
         extension modules that are at the root of a namespace package within
@@ -568,7 +574,7 @@ class WheelRepair:
             self._patch_py_file(self._get_init(package_dir) or os.path.join(package_dir, '__init__.py'), libs_dir, load_order_filename, depth)
         return namespace_root_ext_modules
 
-    def _patch_custom(self, item_path: str, libs_dir: str, load_order_filename: str, depth: int) -> bool:
+    def _patch_custom(self, item_path: str, libs_dir: str, load_order_filename: typing.Optional[str], depth: int) -> bool:
         """Patch a package or .py file so that vendored DLLs can be found at
         runtime. The patch is placed at every line consisting of the comment
         '# delvewheel: patch'. Return True iff the patch was applied at least
@@ -618,7 +624,7 @@ class WheelRepair:
             return '(unknown version)'
         return ''
 
-    def _split_dependency_paths(self, dependency_paths: collections.abc.Iterable) -> tuple[set, set]:
+    def _split_dependency_paths(self, dependency_paths: collections.abc.Iterable[str]) -> tuple[set[str], set[str]]:
         """Given an iterable of DLL paths, partition the contents into a tuple
         of sets
         (dependency_paths_in_wheel, dependency_paths_outside_wheel).
@@ -665,7 +671,7 @@ class WheelRepair:
         return module_names
 
     @staticmethod
-    def _isdir_case(root: str, remainder: tuple[str]) -> bool:
+    def _isdir_case(root: str, remainder: tuple[str, ...]) -> bool:
         """Return True if remainder is an existing directory relative to root.
         Regardless of the case sensitivity of the file system, treat remainder
         as case-sensitive. Treat root using the file system's case sensitivity.
@@ -717,7 +723,7 @@ class WheelRepair:
             for filename in filenames:
                 if (filename_lower := filename.lower()).endswith('.pyd') or self._analyze_existing and filename_lower.endswith('.dll') or self._analyze_existing_exes and filename_lower.endswith('.exe'):
                     executable_path = os.path.join(root, filename)
-                    discovered, _, ignored, not_found = _dll_utils.get_all_needed(executable_path, self._exclude, self._wheel_dirs, 'ignore', False, False)
+                    discovered, _, ignored, not_found = _dll_utils.get_all_needed(executable_path, self._exclude, self._wheel_dirs_casemap, 'ignore', False, False)
                     dependency_paths |= discovered
                     ignored_dll_names |= ignored
                     not_found_dll_names |= not_found
@@ -782,7 +788,7 @@ class WheelRepair:
             strip: bool,
             lib_sdir: str,
             log_diagnostics: bool,
-            namespace_pkgs: set[tuple[str]],
+            namespace_pkgs: set[tuple[str, ...]],
             include_symbols: bool,
             include_imports: bool,
             custom_patch: bool) -> None:
@@ -805,6 +811,8 @@ class WheelRepair:
             as a tuple of path components
         include_symbols is True if .pdb symbol files should be included with
             the vendored DLLs
+        include_imports is True if .lib import library files should be included
+            with the vendored DLLs
         custom_patch is True to indicate that the DLL patch location is
             custom"""
         print(f'repairing {self._whl_path}')
@@ -846,7 +854,7 @@ class WheelRepair:
                         # is_existing_exe
                         print(f'analyzing existing EXE {os.path.relpath(executable_path, self._extract_dir)}')
                     executable_paths.append(executable_path)
-                    discovered, associated, ignored = _dll_utils.get_all_needed(executable_path, self._exclude, self._wheel_dirs, 'raise', include_symbols, include_imports)[:3]
+                    discovered, associated, ignored = _dll_utils.get_all_needed(executable_path, self._exclude, self._wheel_dirs_casemap, 'raise', include_symbols, include_imports)[:3]
                     dependency_paths |= discovered
                     associated_paths |= associated
                     ignored_dll_names |= ignored
@@ -854,6 +862,7 @@ class WheelRepair:
         # if --ignore-existing is specified, ignore DLLs that were found inside
         # the wheel unless they are specified with --include
         dependency_paths_in_wheel, dependency_paths_outside_wheel = self._split_dependency_paths(dependency_paths)
+        no_mangles = no_mangles.copy()
         if self._ignore_existing:
             for p in dependency_paths_in_wheel:
                 name_lower = os.path.basename(p).lower()
@@ -926,11 +935,11 @@ class WheelRepair:
 
         # mangle library names
         name_mangler = {}  # dict from lowercased old name to new name
+        name_mangle_graph = {}  # map from lowercase DLL name to list of lowercase DLL dependencies that will be name-mangled
         if no_mangle_all:
             print('skip mangling DLL names')
         else:
             print('mangling DLL names')
-            name_mangle_graph = {}  # map from lowercase DLL name to list of lowercase DLL dependencies that will be name-mangled
             lib_name_casemap = {}  # map from lowercase DLL name to original case DLL name
             for dependency_path in dependency_paths:
                 # dependency_path is NOT lowercased
@@ -968,7 +977,8 @@ class WheelRepair:
                         print(f'repairing {lib_name} -> {name_mangler[lib_name_lower]}')
                     else:
                         print(f'repairing {lib_name} -> {lib_name}')
-                needed = _dll_utils.get_direct_mangleable_needed(dependency_path, self._exclude, no_mangles)
+                if (needed := name_mangle_graph.get(lib_name_lower)) is None:
+                    needed = _dll_utils.get_direct_mangleable_needed(dependency_path, self._exclude, no_mangles)
             _dll_utils.replace_needed(dependency_path, needed, name_mangler, strip, False)
             if lib_name_lower in name_mangler:
                 os.rename(dependency_path, os.path.join(libs_dir, name_mangler[lib_name_lower]))
@@ -1128,12 +1138,13 @@ class WheelRepair:
             date_time = None
         os.makedirs(target, exist_ok=True)
         whl_dest_path = os.path.join(target, self._whl_name)
-        with zipfile.ZipFile(whl_dest_path, 'w', zipfile.ZIP_DEFLATED) as whl_file:
+        compress_type = zipfile.ZIP_STORED if 'no_compress' in _Config.test else zipfile.ZIP_DEFLATED
+        with zipfile.ZipFile(whl_dest_path, 'w', compress_type) as whl_file:
             for root, dirs, files in walk(self._extract_dir, dist_info_foldername):
                 for dir in dirs:
                     dir_path = os.path.join(root, dir)
                     zip_dir_name = os.path.relpath(dir_path, self._extract_dir).replace('\\', '/') + '/'
-                    zip_info = zipfile.ZipInfo.from_file(dir_path, zip_dir_name)
+                    zip_info = zipfile.ZipInfo.from_file(dir_path, zip_dir_name, strict_timestamps=False)
                     if date_time is not None:
                         zip_info.date_time = date_time
                     whl_file.writestr(zip_info, b'')
@@ -1141,12 +1152,12 @@ class WheelRepair:
                     file_path = os.path.join(root, file)
                     relpath = os.path.relpath(file_path, self._extract_dir)
                     zip_file_name = relpath.replace('\\', '/')
-                    zip_info = zipfile.ZipInfo.from_file(file_path, zip_file_name)
-                    zip_info.compress_type = zipfile.ZIP_DEFLATED
+                    zip_info = zipfile.ZipInfo.from_file(file_path, zip_file_name, strict_timestamps=False)
+                    zip_info.compress_type = compress_type
                     if date_time is not None:
                         zip_info.date_time = date_time
                     if _Config.verbose >= 1:
                         print(f'adding {relpath}')
-                    with open(file_path, 'rb') as f:
-                        whl_file.writestr(zip_info, f.read())
+                    with open(file_path, 'rb') as f, whl_file.open(zip_info, 'w') as dest:
+                        shutil.copyfileobj(f, dest)
         print(f'fixed wheel written to {os.path.abspath(whl_dest_path)}')

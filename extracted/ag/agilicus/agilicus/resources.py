@@ -8,6 +8,7 @@ from .create import handle_api_409
 from agilicus.output.table import make_columns
 from . import resource_helpers
 from .pagination import normalize_page_args
+from . import get_many_entries
 
 from .output.table import (
     subobject_column,
@@ -357,3 +358,19 @@ def list_resource_groups(ctx, org_id=None, **kwargs):
     if query_results:
         return query_results.resource_groups
     return []
+
+
+def list_resource_guids(ctx, page_size=100, org_id=None, **kwargs):
+    client = context.get_apiclient_from_ctx(ctx)
+    org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
+    kwargs["org_id"] = org_id
+    kwargs = strip_none(kwargs)
+
+    return get_many_entries(
+        client.resources_api.list_resource_guid_mapping,
+        "guid_to_name_list",
+        maximum=kwargs.get("limit", None),
+        page_size=page_size,
+        page_key="previous_guid",
+        **kwargs,
+    )

@@ -3,7 +3,8 @@ import json
 
 import click
 
-from modal.config import _profile, _store_user_config, config
+from modal import config as config_module
+from modal.config import _store_user_config, config
 from modal.environments import Environment
 from modal.output import OutputManager
 
@@ -21,12 +22,16 @@ config_cli = ModalGroup(
 
 
 @config_cli.command("show", help="Show current configuration values (debugging command).")
-@click.option("--redact/--no-redact", default=True, help="Redact the `token_secret` value.")
+@click.option("--redact/--no-redact", default=True, help="Redact secret credential values.")
 def show(redact: bool):
     # This is just a test command
     config_dict = config.to_dict()
     if redact and config_dict.get("token_secret"):
         config_dict["token_secret"] = "***"
+    if redact and config_dict.get("oauth_refresh_token"):
+        config_dict["oauth_refresh_token"] = "***"
+    if redact and config_dict.get("oauth_client_secret"):
+        config_dict["oauth_client_secret"] = "***"
 
     OutputManager.get().print_json(json.dumps(config_dict))
 
@@ -46,7 +51,7 @@ def set_environment(environment_name: str):
     # Confirm that the environment exists by looking it up
     Environment.from_name(environment_name).hydrate()
     _store_user_config({"environment": environment_name})
-    click.echo(f"New default environment for profile {_profile}: {environment_name}")
+    click.echo(f"New default environment for profile {config_module._profile}: {environment_name}")
 
 
 @config_cli.command("set", hidden=True, no_args_is_help=True)

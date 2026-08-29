@@ -9,18 +9,18 @@ mod offset_date_time;
 mod string;
 mod table;
 
-use super::{GetTypeDefinition, schema_type_definition};
+use super::{GetTypeDefinition, TypeDefinition, schema_type_definition};
 use tombi_future::Boxable;
 
-impl GetTypeDefinition for tombi_document_tree::Value {
+impl GetTypeDefinition for tombi_document_tree_syntax::Value {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Option<crate::goto_type_definition::TypeDefinition>> {
+    ) -> tombi_future::BoxFuture<'b, Vec<TypeDefinition>> {
         async move {
             if let Some(Ok(current_schema)) = schema_context
                 .get_subschema(accessors, current_schema)
@@ -38,7 +38,7 @@ impl GetTypeDefinition for tombi_document_tree::Value {
             }
 
             let instance_type = tombi_schema_store::SchemaType::from_value_type(
-                tombi_document_tree::ValueImpl::value_type(self),
+                tombi_document_tree_syntax::ValueImpl::value_type(self),
             );
             let projected_schema = current_schema.and_then(|schema| {
                 instance_type.and_then(|instance_type| {
@@ -183,11 +183,11 @@ impl GetTypeDefinition for tombi_document_tree::Value {
                             )
                             .await
                     }
-                    None => None,
+                    None => Vec::new(),
                 },
             };
 
-            if type_definition.is_some() {
+            if !type_definition.is_empty() {
                 return type_definition;
             }
 
@@ -209,7 +209,7 @@ impl GetTypeDefinition for tombi_document_tree::Value {
                     .await;
             }
 
-            None
+            Vec::new()
         }
         .boxed()
     }
@@ -219,11 +219,11 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [tombi_schema_store::Accessor],
         current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Option<crate::goto_type_definition::TypeDefinition>> {
+    ) -> tombi_future::BoxFuture<'b, Vec<TypeDefinition>> {
         async move {
             match self {
                 Self::Boolean(boolean_schema) => {
@@ -369,14 +369,14 @@ impl GetTypeDefinition for tombi_schema_store::SchemaView {
                         )
                         .await
                 }
-                Self::Anything(schema) => current_schema.map(|current_schema| {
-                    schema_type_definition(
+                Self::Anything(schema) => current_schema.map_or_else(Vec::new, |current_schema| {
+                    vec![schema_type_definition(
                         current_schema.schema_uri.as_ref(),
                         accessors,
                         schema.range,
-                    )
+                    )]
                 }),
-                Self::Nothing(_) | Self::Null => None,
+                Self::Nothing(_) | Self::Null => Vec::new(),
             }
         }
         .boxed()

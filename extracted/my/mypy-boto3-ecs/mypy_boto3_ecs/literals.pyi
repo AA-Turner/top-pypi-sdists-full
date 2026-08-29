@@ -129,6 +129,7 @@ __all__ = (
     "ServiceDeploymentStatusType",
     "ServiceFieldType",
     "ServiceName",
+    "ServiceRevisionCleanupType",
     "ServicesInactiveWaiterName",
     "ServicesStableWaiterName",
     "SettingNameType",
@@ -347,6 +348,7 @@ ServiceDeploymentStatusType = Literal[
     "SUCCESSFUL",
 ]
 ServiceFieldType = Literal["TAGS"]
+ServiceRevisionCleanupType = Literal["BLOCKING", "DEFERRED"]
 ServicesInactiveWaiterName = Literal["services_inactive"]
 ServicesStableWaiterName = Literal["services_stable"]
 SettingNameType = Literal[
@@ -409,8 +411,11 @@ ECSServiceName = Literal["ecs"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -585,6 +590,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",

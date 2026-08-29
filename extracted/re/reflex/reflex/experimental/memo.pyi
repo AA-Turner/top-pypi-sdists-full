@@ -83,9 +83,12 @@ class MemoComponentDefinition(MemoDefinition):
     export_name: str
     passthrough_hole_child: Component | None
     wrapper: Var | None
+    auto_memo_wrapper: bool
+    display_name: str | None
 
     @property
     def component(self) -> Component: ...
+    def rest_target_field_names(self) -> set[str]: ...
 
 class MemoComponent(Component):
     @classmethod
@@ -166,7 +169,9 @@ class _MemoCallBinding:
     def add_event_trigger(
         self, js_prop_name: str, value: Any, args_spec: Any
     ) -> None: ...
-    def take_rest(self, component_fields: Mapping[str, Any]) -> dict[str, Any]: ...
+    def take_rest(
+        self, component_fields: Mapping[str, Any], rest_target_fields: set[str]
+    ) -> dict[str, Any]: ...
     def build_super_kwargs(self) -> dict[str, Any]: ...
     def finalize(
         self, component: Component, rest_props: dict[str, Any]

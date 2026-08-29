@@ -7,6 +7,9 @@ from chalk._gen.chalk.engine.v2 import (
     feature_values_chart_pb2 as chalk_dot_engine_dot_v2_dot_feature__values__chart__pb2,
 )
 from chalk._gen.chalk.engine.v2 import feature_values_pb2 as chalk_dot_engine_dot_v2_dot_feature__values__pb2
+from chalk._gen.chalk.engine.v2 import (
+    offline_store_metrics_pb2 as chalk_dot_engine_dot_v2_dot_offline__store__metrics__pb2,
+)
 from chalk._gen.chalk.engine.v2 import query_log_pb2 as chalk_dot_engine_dot_v2_dot_query__log__pb2
 from chalk._gen.chalk.engine.v2 import query_values_pb2 as chalk_dot_engine_dot_v2_dot_query__values__pb2
 
@@ -44,6 +47,11 @@ class OfflineStoreServiceStub(object):
             request_serializer=chalk_dot_engine_dot_v2_dot_feature__values__pb2.GetFeatureValuesRequest.SerializeToString,
             response_deserializer=chalk_dot_engine_dot_v2_dot_feature__values__pb2.GetFeatureValuesResponse.FromString,
         )
+        self.GetMetrics = channel.unary_unary(
+            "/chalk.engine.v2.OfflineStoreService/GetMetrics",
+            request_serializer=chalk_dot_engine_dot_v2_dot_offline__store__metrics__pb2.GetMetricsRequest.SerializeToString,
+            response_deserializer=chalk_dot_engine_dot_v2_dot_offline__store__metrics__pb2.GetMetricsResponse.FromString,
+        )
 
 
 class OfflineStoreServiceServicer(object):
@@ -77,6 +85,12 @@ class OfflineStoreServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetMetrics(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_OfflineStoreServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -99,6 +113,11 @@ def add_OfflineStoreServiceServicer_to_server(servicer, server):
             servicer.GetFeatureValues,
             request_deserializer=chalk_dot_engine_dot_v2_dot_feature__values__pb2.GetFeatureValuesRequest.FromString,
             response_serializer=chalk_dot_engine_dot_v2_dot_feature__values__pb2.GetFeatureValuesResponse.SerializeToString,
+        ),
+        "GetMetrics": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMetrics,
+            request_deserializer=chalk_dot_engine_dot_v2_dot_offline__store__metrics__pb2.GetMetricsRequest.FromString,
+            response_serializer=chalk_dot_engine_dot_v2_dot_offline__store__metrics__pb2.GetMetricsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.engine.v2.OfflineStoreService", rpc_method_handlers)
@@ -219,6 +238,35 @@ class OfflineStoreService(object):
             "/chalk.engine.v2.OfflineStoreService/GetFeatureValues",
             chalk_dot_engine_dot_v2_dot_feature__values__pb2.GetFeatureValuesRequest.SerializeToString,
             chalk_dot_engine_dot_v2_dot_feature__values__pb2.GetFeatureValuesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMetrics(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.engine.v2.OfflineStoreService/GetMetrics",
+            chalk_dot_engine_dot_v2_dot_offline__store__metrics__pb2.GetMetricsRequest.SerializeToString,
+            chalk_dot_engine_dot_v2_dot_offline__store__metrics__pb2.GetMetricsResponse.FromString,
             options,
             channel_credentials,
             insecure,

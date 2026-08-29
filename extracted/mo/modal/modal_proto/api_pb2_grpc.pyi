@@ -445,6 +445,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionGetSerializedRequest,
         modal_proto.api_pb2.FunctionGetSerializedResponse,
     ]
+    FunctionGetTimeRangeStats: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionGetTimeRangeStatsRequest,
+        modal_proto.api_pb2.FunctionGetTimeRangeStatsResponse,
+    ]
     FunctionMap: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionMapRequest,
         modal_proto.api_pb2.FunctionMapResponse,
@@ -634,6 +638,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse,
     ]
     SandboxGetExitSnapshot: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
+        modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
+    ]
+    SandboxGetExitSnapshotV2: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
         modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
     ]
@@ -1648,6 +1656,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.FunctionGetSerializedResponse: ...
     @abc.abstractmethod
+    def FunctionGetTimeRangeStats(
+        self,
+        request: modal_proto.api_pb2.FunctionGetTimeRangeStatsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionGetTimeRangeStatsResponse: ...
+    @abc.abstractmethod
     def FunctionMap(
         self,
         request: modal_proto.api_pb2.FunctionMapRequest,
@@ -1927,6 +1941,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> modal_proto.api_pb2.SandboxGetCommandRouterAccessResponse: ...
     @abc.abstractmethod
     def SandboxGetExitSnapshot(
+        self,
+        request: modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetExitSnapshotResponse: ...
+    @abc.abstractmethod
+    def SandboxGetExitSnapshotV2(
         self,
         request: modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
         context: grpc.ServicerContext,

@@ -3,14 +3,14 @@
 Drives an :class:`~nab_index.transport.AsyncHttpTransport` and consults a
 :class:`~nab_index.cache.CacheBackend` before any HTTP call. Honors a small
 subset of RFC 9111: fresh entries are served directly, stale entries are
-revalidated with ``If-None-Match``, and PEP 658 metadata + sdist PKG-INFO are
-treated as immutable (cached forever; never revalidated).
+revalidated with ``If-None-Match``, a listing the origin marks ``no-cache`` or
+``no-store`` gets no freshness window of its own, and PEP 658 metadata + sdist
+PKG-INFO are treated as immutable (cached forever; never revalidated).
 """
 
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 import re
 import time
@@ -19,23 +19,26 @@ from datetime import timezone
 from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING
 
+from nab_provider.records import select_artifact_hash
 from nab_provider.serialization import SimpleSerialization, simple_accept_header
 
-from .cache import CacheBackend, CachePolicy, OfflineError
+from ._json_decode import decode_json
+from .cache import CacheBackend, CachePolicy, OfflineError, is_sendable_etag
 from .client import (
     _HTTP_NOT_FOUND,
     DEFAULT_INDEX,
     MalformedSimpleResponseError,
     SdistFile,
     WheelFile,
-    _extract_sdist_files,
+    _extract_sdist_files_if_readable,
     _header,
     _listing_body,
     _parse_files,
-    _select_artifact_hash,
     _verify_metadata_hash,
+    holds_only_yanked,
     holds_unreadable_format,
     verify_sdist_hash,
+    zip_sdist_versions,
 )
 from .lazy_wheel import (
     RangeCapabilityMemo,
@@ -58,11 +61,13 @@ if TYPE_CHECKING:
     from packaging.utils import NormalizedName
     from typing_extensions import Self
 
+    from .parsed_listing import ParsedListing
     from .transport import AsyncHttpTransport, HttpResponse
 
 __all__ = [
     "CachedAsyncSimpleClient",
     "ParsedCacheStats",
+    "SdistArchiveHold",
     "read_fresh_parsed_listing",
 ]
 
@@ -77,11 +82,15 @@ class ParsedCacheStats:
     after it, so a benchmark can confirm a warm resolve serves parsed blobs
     rather than reparsing.
 
-    Each fresh-or-offline consult of ``get_files`` bumps exactly one counter:
-    ``hit`` when a present blob binds the policy's body and is served without
-    reading the raw body; ``miss`` when no blob was present; ``rebuild`` when a
-    blob was present but was not served (a stale digest, a different build,
-    corruption, or no records in it) and was rebuilt from the raw body.
+    Every consult of ``get_files`` that reaches the blob bumps exactly one
+    counter, on a cached read and on a revalidation alike: ``hit`` when a
+    present blob binds the policy's body and is served without reading the raw
+    body; ``miss`` when no blob was present; ``rebuild`` when a blob was
+    present but was not served (a stale digest, a different build, corruption,
+    or no records in it).
+
+    ``rebuild`` says the blob did not answer, not that one was written: on a
+    304 the fallback reparses the raw body and leaves the blob in place.
     """
 
     hit: int = 0
@@ -93,9 +102,11 @@ _DEFAULT_MAX_AGE = 600
 _HTTP_NOT_MODIFIED = 304
 # RFC 9111 5.2: directive names are case-insensitive and the argument may be quoted.
 _MAX_AGE_RE = re.compile(r'max-age\s*=\s*"?(\d+)', re.IGNORECASE)
+_NO_REUSE_RE = re.compile(r"(?:\A|,)\s*no-(?:cache|store)\s*(?:[,=]|\Z)", re.IGNORECASE)
 _AGE_RE = re.compile(r"\A\s*(\d+)\s*\Z")
 _SECONDS_CEILING = 2**31
 _SECONDS_CEILING_DIGITS = len(str(_SECONDS_CEILING))
+_DEFAULT_HELD_ARCHIVES = 50
 
 
 def _parse_seconds(digits: str) -> int:
@@ -120,6 +131,17 @@ def _max_age_directive(cache_control: str | None) -> int | None:
     if match is None:
         return None
     return _parse_seconds(match.group(1))
+
+
+def _requires_revalidation(cache_control: str | None) -> bool:
+    """Whether Cache-Control bars reusing a stored response unvalidated.
+
+    ``no-cache`` (RFC 9111 5.2.2.4) says so directly. ``no-store`` (5.2.2.5)
+    bars storing the response at all; nab stores it anyway and revalidates on
+    every read instead. A ``no-cache`` qualified with field names reads as the
+    bare directive.
+    """
+    return cache_control is not None and _NO_REUSE_RE.search(cache_control) is not None
 
 
 def _parse_age(age: str | None) -> int:
@@ -198,9 +220,14 @@ def _freshness_lifetime(response: HttpResponse) -> int:
 
     RFC 9111 4.2.1 for a private cache: an explicit ``max-age``, else Expires
     measured from Date, else the heuristic default. 4.2.2 reserves that default
-    for a response stating no expiry at all.
+    for a response stating no expiry at all, and a response barred from
+    unvalidated reuse gets no window whatever else it states.
     """
-    max_age = _max_age_directive(_header(response, "cache-control"))
+    cache_control = _header(response, "cache-control")
+    if _requires_revalidation(cache_control):
+        return 0
+
+    max_age = _max_age_directive(cache_control)
     if max_age is not None:
         return max_age
 
@@ -224,17 +251,17 @@ def _carried_digest(policy: CachePolicy, page_url: str) -> str | None:
 
 def read_fresh_parsed_listing(
     cache: CacheBackend, package: str, *, offline: bool
-) -> list[WheelFile | SdistFile] | None:
+) -> ParsedListing | None:
     """Read a fresh (or offline) parsed listing for ``package``, or ``None``.
 
     The write-free subset of :meth:`CachedAsyncSimpleClient.get_files`' fresh-hit
     branch: same policy, same ``is_fresh() or offline`` test, same blob, same
     :func:`parsed_listing.decode`, so on a hit it returns the records
-    ``get_files`` would. Every other case (no policy, stale-online, no blob, a
-    non-binding digest, a corrupt blob, a blob holding no records) declines to
-    ``None`` and, unlike ``get_files``, never reads the raw body, revalidates,
-    rebuilds, writes, or logs. It never raises, so a caller's pending is never
-    stranded.
+    ``get_files`` would, plus the releases it served as a ``.zip`` sdist. Every
+    other case (no policy, stale-online, no blob, a non-binding digest, a
+    corrupt blob, a blob holding no records) declines to ``None`` and, unlike
+    ``get_files``, never reads the raw body, revalidates, rebuilds, writes, or
+    logs. It never raises, so a caller's pending is never stranded.
 
     A blob that rehydrates to no records declines for the same reason
     :meth:`CachedAsyncSimpleClient._parsed_hit` does: an empty listing also has
@@ -249,7 +276,47 @@ def read_fresh_parsed_listing(
     blob = cache.get_simple_parsed(package)
     if blob is None:
         return None
-    return _decode_parsed(blob, policy) or None
+    parsed = _decode_parsed(blob, policy)
+    if parsed is None or not parsed.files:
+        return None
+    return parsed
+
+
+class SdistArchiveHold:
+    """Archive bytes read for a PKG-INFO, kept for a build of the same version.
+
+    A version taken down the ``BUILD_REMOTE`` path reads its sdist twice, once
+    for the PKG-INFO the metadata ladder reads and again for the whole archive
+    the backend builds. Holding what the first read downloaded lets the second
+    take those bytes rather than the URL.
+
+    At most ``max_entries`` archives are held, the oldest evicted first, so a
+    resolve whose sdists are read but never built has a ceiling rather than a
+    growing hold. A build whose archive was evicted, or never held, downloads
+    it.
+
+    Touched only on the fetcher loop's single thread, so its state needs no
+    lock.
+    """
+
+    def __init__(self, max_entries: int = _DEFAULT_HELD_ARCHIVES) -> None:
+        """Create a hold with room for ``max_entries`` archives."""
+        self._held: dict[tuple[str, str], bytes] = {}
+        self._max_entries = max_entries
+
+    def put(self, package: str, version: str, data: bytes) -> None:
+        """Hold ``data`` as the archive of ``package==version``."""
+        self._held[(package, version)] = data
+        while len(self._held) > self._max_entries:
+            del self._held[next(iter(self._held))]
+
+    def take(self, package: str, version: str) -> bytes | None:
+        """Release and return the archive held for ``package==version``."""
+        return self._held.pop((package, version), None)
+
+    def clear(self) -> None:
+        """Drop every archive still held."""
+        self._held.clear()
 
 
 class CachedAsyncSimpleClient:
@@ -259,7 +326,7 @@ class CachedAsyncSimpleClient:
     :class:`FetchCoordinator` actually needs rather than the Simple API.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - the index's settings plus the run's shared state
         self,
         transport: AsyncHttpTransport,
         cache: CacheBackend,
@@ -270,6 +337,7 @@ class CachedAsyncSimpleClient:
         serialization: SimpleSerialization = SimpleSerialization.NEGOTIATE,
         min_fresh_seconds: int | None = None,
         parsed_stats: ParsedCacheStats | None = None,
+        sdist_archive_hold: SdistArchiveHold | None = None,
     ) -> None:
         """Create a cached client wrapping ``transport``.
 
@@ -290,6 +358,10 @@ class CachedAsyncSimpleClient:
         same way so hit/miss/rebuild counts total across every index client. A
         private sink is created when none is passed, so a stand-alone client
         still counts its own outcomes.
+
+        ``sdist_archive_hold`` is the run's :class:`SdistArchiveHold`; ``None``
+        holds nothing, which is what a resolve that never builds a remote sdist
+        wants.
         """
         self._transport = transport
         self._cache = cache
@@ -297,6 +369,8 @@ class CachedAsyncSimpleClient:
         self._offline = offline
         self._serialization = serialization
         self._unreadable_only: set[str] = set()
+        self._all_yanked: set[str] = set()
+        self._zip_sdists: dict[str, frozenset[str]] = {}
         self._range_memo = (
             range_memo if range_memo is not None else RangeCapabilityMemo()
         )
@@ -305,6 +379,7 @@ class CachedAsyncSimpleClient:
             parsed_stats if parsed_stats is not None else ParsedCacheStats()
         )
         self._parsed_store_failed = False
+        self._sdist_archive_hold = sdist_archive_hold
 
     async def aclose(self) -> None:
         """Close the underlying transport."""
@@ -326,8 +401,9 @@ class CachedAsyncSimpleClient:
         the large raw body; on a blob miss, build/digest mismatch, corruption,
         or a blob holding no records the raw body is reparsed and the blob
         rebuilt (a WARNING self-heal on genuine corruption).
-        Cache hit + stale + online: conditional revalidation; on 304 the body
-        (and its parsed blob) are reused, on 200 both are replaced.
+        Cache hit + stale + online: conditional revalidation without reading
+        the body; on 304 the parsed blob answers and the body is read only
+        when the blob misses, on 200 body and blob are replaced.
         Cache miss + offline: raises :class:`OfflineError`.
         Cache miss + online: fetches, caches, returns.
 
@@ -354,22 +430,21 @@ class CachedAsyncSimpleClient:
                 or self._offline
                 or self._floor_keeps_fresh(policy, package, "listing")
             )
-            if serve_cached:
-                hit = self._parsed_hit(package, policy)
-                if hit is not None:
-                    return hit
-            # A parsed miss (serving cached) or a stale-online revalidation both
-            # need the raw body now, so read it once here.
+            if not serve_cached:
+                return await self._revalidate_simple(package, policy)
+
+            hit = self._parsed_hit(package, policy)
+            if hit is not None:
+                return hit
+
             cached = self._cache.get_simple(package)
             if cached is not None:
                 body, policy = cached
                 data = self._decode_cached_listing(body, package)
                 if data is not None:
                     files = self._parse_body(data, package, page_url=policy.page_url)
-                    if serve_cached:
-                        self._rebuild_parsed(package, body, policy, files)
-                        return files
-                    return await self._revalidate_simple(package, body, policy)
+                    self._rebuild_parsed(package, body, policy, files)
+                    return files
                 corrupt_positive = True
 
         if not corrupt_positive:
@@ -416,16 +491,18 @@ class CachedAsyncSimpleClient:
 
         Returns the records only when a present blob decodes to at least one
         record and its header binds ``policy``'s body. An absent blob, a
-        build/digest mismatch, or a corrupt blob all return ``None`` so the
-        caller reparses the raw body; genuine corruption (garbage/truncated
-        bytes) is logged at WARNING as a self-heal, while a build/digest
-        mismatch is a silent rebuild.
+        build/digest mismatch, or a corrupt blob all return ``None``, leaving
+        the caller to answer from the raw body or the index; genuine corruption
+        (garbage/truncated bytes) is logged at WARNING, while a build/digest
+        mismatch is silent.
 
         A blob that rehydrates to no records also declines. An empty listing
         carries a second fact the blob does not hold: whether the page offered
         only formats nab does not read, which decides between the "no such
         package" and the "nothing nab reads" report. Only the raw body answers
         that, and an empty listing is small enough to reparse.
+
+        A served blob also restores the releases served as a ``.zip`` sdist.
 
         This is the one place that reads the blob, so it records the outcome: a
         served blob counts a ``hit``, an absent one a ``miss``, and a
@@ -435,18 +512,18 @@ class CachedAsyncSimpleClient:
         if blob is None:
             self._parsed_stats.miss += 1
             return None
-        records = _decode_parsed(blob, policy)
-        if records:
+        parsed = _decode_parsed(blob, policy)
+        if parsed is not None and parsed.files:
+            self._zip_sdists[package] = parsed.zip_sdists
             self._parsed_stats.hit += 1
-            return records
+            return parsed.files
         self._parsed_stats.rebuild += 1
-        if records is not None:
+        if parsed is not None:
             return None
         reason = _parsed_corruption(blob)
         if reason is not None:
             logger.warning(
-                "Corrupt parsed-listing cache blob for %r from %s: %s; "
-                "rebuilding from the raw body",
+                "Corrupt parsed-listing cache blob for %r from %s: %s; ignoring it",
                 package,
                 self._index_url,
                 reason,
@@ -464,13 +541,17 @@ class CachedAsyncSimpleClient:
         none, so writing one would rebuild and rewrite it on every later read
         without ever serving it.
 
+        The blob also carries the releases served as a ``.zip`` sdist,
+        since no record survives to name them.
+
         A refused write is dropped: the blob only accelerates a read the raw
         body already answers. Only the first refusal warns.
         """
         if digest is None or not files:
             return
 
-        blob = _encode_parsed(files, digest)
+        zip_sdists = self._zip_sdists.get(package, frozenset())
+        blob = _encode_parsed(files, digest, zip_sdists)
         try:
             self._cache.put_simple_parsed(package, blob)
         except OSError as exc:
@@ -517,17 +598,19 @@ class CachedAsyncSimpleClient:
         """Return the parsed JSON of a cached Simple body, or ``None``.
 
         A body that will not decode as JSON is logged and treated as a miss.
-        A body that decodes but is the wrong shape is not caught here:
-        :func:`_parse_files` raises on it, the same as on the wire path.
+        A body that decodes but is the wrong shape is not caught here: only
+        the path that serves the body parses it, and :func:`_parse_files`
+        raises there, the same as on the wire path.
         """
         try:
-            decoded: object = json.loads(body)
-        except ValueError:
+            decoded: object = decode_json(body)
+        except ValueError as exc:
             logger.warning(
-                "Corrupt cached Simple-API body for %r from %s: not valid JSON; "
+                "Corrupt cached Simple-API body for %r from %s: %s; "
                 "treating as a miss and re-fetching",
                 package,
                 self._index_url,
+                exc,
             )
             return None
         return decoded
@@ -537,18 +620,16 @@ class CachedAsyncSimpleClient:
     ) -> list[WheelFile | SdistFile]:
         """Parse a Simple-API listing body served from ``page_url``.
 
-        A body that is not valid JSON raises the same
+        A body that will not decode raises the same
         :class:`MalformedSimpleResponseError` as a valid-JSON body of the
-        wrong shape, not a raw decode error. ``json.loads`` raises a
-        :class:`ValueError` for every body it rejects, including non-UTF-8
-        bytes and an integer literal past CPython's conversion limit.
+        wrong shape, not a raw decode error.
         """
         try:
-            data = json.loads(body)
+            data = decode_json(body)
         except ValueError as exc:
             msg = (
                 f"{self._index_url} served a malformed Simple-API response for "
-                f"{package!r}: body is not valid JSON"
+                f"{package!r}: body is {exc}"
             )
             raise MalformedSimpleResponseError(msg) from exc
         return self._parse_body(data, package, page_url=page_url)
@@ -556,7 +637,7 @@ class CachedAsyncSimpleClient:
     def _parse_body(
         self, data: object, package: str, *, page_url: str | None = None
     ) -> list[WheelFile | SdistFile]:
-        """Parse a decoded listing body, marking one with no readable file.
+        """Parse a decoded listing body, recording what nab could not read in it.
 
         ``page_url`` is the URL the body was served from, which its relative
         entries resolve against.
@@ -564,19 +645,58 @@ class CachedAsyncSimpleClient:
         files = _parse_files(data, self._index_url, package, page_url=page_url)
         if not files and holds_unreadable_format(data):
             self._unreadable_only.add(package)
+        if not files and holds_only_yanked(data):
+            self._all_yanked.add(package)
+
+        self._zip_sdists[package] = zip_sdist_versions(data, package)
         return files
 
     def served_unreadable_only(self, package: str) -> bool:
         """Whether a listing for ``package`` held only files nab cannot read."""
         return package in self._unreadable_only
 
+    def served_all_yanked(self, package: str) -> bool:
+        """Whether a listing for ``package`` held files and yanked every one."""
+        return package in self._all_yanked
+
+    def served_zip_sdists(self, package: str) -> frozenset[str]:
+        """Versions ``package`` was served as a ``.zip`` sdist."""
+        return self._zip_sdists.get(package, frozenset())
+
+    def _unmodified_records(
+        self, package: str, policy: CachePolicy
+    ) -> list[WheelFile | SdistFile] | None:
+        """Return the records a 304 confirms, or ``None`` when nothing holds them.
+
+        The blob answers a 304 the same way it answers a fresh read, so the raw
+        body is read only on a blob miss, and a body that is gone or will not
+        decode leaves nothing to serve.
+        """
+        hit = self._parsed_hit(package, policy)
+        if hit is not None:
+            return hit
+
+        cached = self._cache.get_simple(package)
+        if cached is None:
+            return None
+        body, _ = cached
+        data = self._decode_cached_listing(body, package)
+        if data is None:
+            return None
+        return self._parse_body(data, package, page_url=policy.page_url)
+
     async def _revalidate_simple(
-        self, package: str, body: bytes, policy: CachePolicy
+        self, package: str, policy: CachePolicy
     ) -> list[WheelFile | SdistFile]:
+        """Revalidate a stale cached listing and return the records to serve.
+
+        A 304 is answered from the parsed blob, falling back to the cached body
+        and then to a full fetch; a 200 serves the replacement body and a 404
+        serves nothing.
+        """
         url = f"{self._index_url}{package}/"
         headers = {"Accept": simple_accept_header(self._serialization)}
-        # httpx raises on a non-ASCII header value.
-        if policy.etag is not None and policy.etag.isascii():
+        if policy.etag is not None and is_sendable_etag(policy.etag):
             headers["If-None-Match"] = policy.etag
         response = await self._transport.get(url, headers=headers)
         if response.status_code == _HTTP_NOT_MODIFIED:
@@ -592,8 +712,16 @@ class CachedAsyncSimpleClient:
                 page_url=response.url,
                 body_digest=_carried_digest(policy, response.url),
             )
+
+            # Find the records before refreshing the policy, so a body that
+            # will not parse keeps its stale window.
+            unmodified = self._unmodified_records(package, new_policy)
+            if unmodified is None:
+                # The 304 confirmed a body the cache can no longer read.
+                return await self._fetch_simple(package)
+
             self._cache.refresh_simple_policy(package, new_policy)
-            return self._parse_listing(body, package, response.url)
+            return unmodified
 
         if response.status_code == _HTTP_NOT_FOUND:
             self._cache.put_negative(package, self._negative_policy(response))
@@ -727,7 +855,7 @@ class CachedAsyncSimpleClient:
             wheel_url,
             canonical_name,
             self._range_memo,
-            wheel_hash=_select_artifact_hash(wheel_hashes),
+            wheel_hash=select_artifact_hash(wheel_hashes),
         )
         if result.text is not None:
             self._cache.put_metadata(package, wheel_url, result.text)
@@ -745,12 +873,19 @@ class CachedAsyncSimpleClient:
         Cache miss + offline raises :class:`OfflineError`.  Either
         element may be ``None`` if the corresponding file is absent
         from the archive (or the archive cannot be parsed).  Both are
-        treated as immutable: cached forever, never revalidated.
+        treated as immutable: cached forever, never revalidated.  An
+        archive that was read is cached even when neither file came out
+        of it; one that could not be read is not, so a later run can try
+        again.
 
         When ``sdist_hashes`` carries an acceptable published digest, the
         downloaded archive is verified against it before extraction. A
         mismatch raises :class:`SdistHashMismatchError` and nothing is
         cached.
+
+        A downloaded archive is handed to the client's
+        :class:`SdistArchiveHold`, when it has one, for a build of the same
+        version to take.
         """
         cached = self._cache.get_sdist_files(package, version)
         if cached is not None:
@@ -762,15 +897,19 @@ class CachedAsyncSimpleClient:
 
         response = await self._transport.get(sdist_url, headers=IDENTITY_HEADERS)
         raise_unless_ok(response, sdist_url)
-        selected = _select_artifact_hash(sdist_hashes)
+        selected = select_artifact_hash(sdist_hashes)
         if selected is not None:
             verify_sdist_hash(response.content, selected)
-        pkg_info, pyproject_toml = _extract_sdist_files(response.content)
+        files = _extract_sdist_files_if_readable(response.content)
 
-        if pkg_info is not None or pyproject_toml is not None:
-            self._cache.put_sdist_files(package, version, pkg_info, pyproject_toml)
+        if self._sdist_archive_hold is not None:
+            self._sdist_archive_hold.put(package, version, response.content)
 
-        return (pkg_info, pyproject_toml)
+        if files is None:
+            return (None, None)
+
+        self._cache.put_sdist_files(package, version, *files)
+        return files
 
     async def get_sdist_archive(
         self,
@@ -782,22 +921,33 @@ class CachedAsyncSimpleClient:
         """Return the raw bytes of an sdist archive.
 
         Used by the ``BUILD_REMOTE`` path when a real backend invocation
-        is required.  No on-disk caching is performed: archives are
-        large, builds are rare, and the in-memory index already
-        deduplicates within a single resolve.  Offline mode raises
-        :class:`OfflineError` because there is no slot to read from.
+        is required.  A :class:`SdistArchiveHold` answers when this version's
+        PKG-INFO read already downloaded the archive.  No on-disk caching is
+        performed: archives are large, builds are rare, and the in-memory
+        index already deduplicates within a single resolve.  Offline mode
+        raises :class:`OfflineError` because there is no slot to read from.
 
         When ``sdist_hashes`` carries an acceptable published digest, the
-        downloaded archive is verified before its bytes are returned. A
-        mismatch raises :class:`SdistHashMismatchError`.
+        archive is verified before its bytes are returned, whether it was
+        downloaded here or held. A mismatch raises
+        :class:`SdistHashMismatchError`.
         """
-        del package, version  # offline check below is the only use
-        if self._offline:
-            msg = f"sdist archive fetch unavailable in offline mode ({sdist_url})"
-            raise OfflineError(msg)
-        response = await self._transport.get(sdist_url, headers=IDENTITY_HEADERS)
-        raise_unless_ok(response, sdist_url)
-        selected = _select_artifact_hash(sdist_hashes)
+        content = self._held_archive(package, version)
+        if content is None:
+            if self._offline:
+                msg = f"sdist archive fetch unavailable in offline mode ({sdist_url})"
+                raise OfflineError(msg)
+            response = await self._transport.get(sdist_url, headers=IDENTITY_HEADERS)
+            raise_unless_ok(response, sdist_url)
+            content = response.content
+
+        selected = select_artifact_hash(sdist_hashes)
         if selected is not None:
-            verify_sdist_hash(response.content, selected)
-        return response.content
+            verify_sdist_hash(content, selected)
+        return content
+
+    def _held_archive(self, package: str, version: str) -> bytes | None:
+        """Take this version's archive out of the hold, when there is one."""
+        if self._sdist_archive_hold is None:
+            return None
+        return self._sdist_archive_hold.take(package, version)

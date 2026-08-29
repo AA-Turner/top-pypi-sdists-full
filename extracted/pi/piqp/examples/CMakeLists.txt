@@ -9,8 +9,6 @@ cmake_minimum_required(VERSION 3.21)
 
 project(piqp_examples)
 
-set(CMAKE_CXX_STANDARD 14)
-
 # find_package(piqp REQUIRED)
 
 if (BUILD_C_INTERFACE)

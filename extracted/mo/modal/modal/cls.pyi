@@ -289,7 +289,17 @@ class _Cls(modal._object._Object):
 
     def _hydrate_metadata(self, metadata: google.protobuf.message.Message): ...
     @staticmethod
+    def _validate_construction_mechanism(user_cls):
+        """mdmd:hidden"""
+        ...
+
+    @staticmethod
     def validate_construction_mechanism(user_cls):
+        """mdmd:hidden"""
+        ...
+
+    @staticmethod
+    def _from_local(user_cls, app: modal.app._App, class_service_function: modal._functions._Function) -> _Cls:
         """mdmd:hidden"""
         ...
 
@@ -505,7 +515,17 @@ class Cls(modal.object.Object):
 
     def _hydrate_metadata(self, metadata: google.protobuf.message.Message): ...
     @staticmethod
+    def _validate_construction_mechanism(user_cls):
+        """mdmd:hidden"""
+        ...
+
+    @staticmethod
     def validate_construction_mechanism(user_cls):
+        """mdmd:hidden"""
+        ...
+
+    @staticmethod
+    def _from_local(user_cls, app: modal.app.App, class_service_function: modal.functions.Function) -> Cls:
         """mdmd:hidden"""
         ...
 

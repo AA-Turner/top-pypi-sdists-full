@@ -5,6 +5,7 @@ import ctypes
 import ctypes.wintypes
 import errno
 import fnmatch
+import functools
 import io
 import itertools
 import os
@@ -242,15 +243,80 @@ def _translate_directory() -> collections.abc.Callable[[str, MachineType], str]:
 _translate_directory = _translate_directory()
 
 
-def find_library(
+@functools.lru_cache(maxsize=None)
+def _listdir_casemap(directory: str) -> typing.Optional[dict[str, list[str]]]:
+    """Given a directory to search for a DLL, return a dict that maps the
+    lowercase name of each item in the directory to the list of original-case
+    names of the items whose lowercase name is that name. If the directory
+    cannot be listed, return None.
+
+    Each list typically contains 1 element. It contains >1 element only if we
+    are on a case-sensitive file system and the directory contains items whose
+    names differ by case only.
+
+    The result is cached because each directory is often searched more than
+    once."""
+    try:
+        contents = os.listdir(directory)
+    except (FileNotFoundError, PermissionError):
+        return None
+    except OSError as e:
+        # If the directory is an invalid path, ignore it.
+        if e.errno == errno.EINVAL:
+            return None
+        raise
+    casemap = {}
+    for item in contents:
+        casemap.setdefault(item.lower(), []).append(item)
+    return casemap
+
+
+@functools.lru_cache(maxsize=None)
+def _find_library_in_path(
         name: str,
-        wheel_dirs: typing.Optional[collections.abc.Iterable[str]],
         arch: MachineType,
         include_symbols: bool,
-        include_imports: bool) -> typing.Optional[tuple[str, list[str]]]:
+        include_imports: bool) -> typing.Optional[tuple[str, tuple[str, ...]]]:
+    """Helper for find_library() that searches the PATH environment variable,
+    with any applicable adjustments due to the Windows file system redirector.
+    Return None if the DLL cannot be found. An associated .pdb symbol file or
+    .lib import library file is searched for in the directory containing the
+    DLL only.
+
+    name must be lowercase.
+
+    The result is cached because a given DLL can be searched multiple times, as
+    when a wheel contains >1 extension module with a shared dependency."""
+    for directory in os.environ['PATH'].split(os.pathsep):
+        directory = _translate_directory(directory, arch)
+        if (casemap := _listdir_casemap(directory)) is None:
+            continue
+        for item in casemap.get(name, ()):
+            if os.path.isfile(dll_path := os.path.join(directory, item)) and get_arch(dll_path) == arch:
+                break
+        else:
+            continue
+        associated_paths = []
+        for search, ext in ((include_symbols, '.pdb'), (include_imports, '.lib')):
+            if not search:
+                continue
+            for item in casemap.get(os.path.splitext(name)[0] + ext, ()):
+                if os.path.isfile(path := os.path.join(directory, item)):
+                    associated_paths.append(path)
+                    break
+        return dll_path, tuple(associated_paths)
+    return None
+
+
+def find_library(
+        name: str,
+        wheel_dirs_casemap: typing.Optional[dict[str, list[str]]],
+        arch: MachineType,
+        include_symbols: bool,
+        include_imports: bool) -> typing.Optional[tuple[str, tuple[str, ...]]]:
     """Given the name of a DLL, return a tuple where
     - the 1st element is the path to the DLL
-    - the 2nd element is a list that may contain paths to the .pdb symbol file
+    - the 2nd element is a tuple that may contain paths to the .pdb symbol file
       and/or the .lib import library file associated with the DLL. If
       include_symbols is True, then search for the .pdb symbol file. If
       include_imports is True, then search for the .lib import library file.
@@ -264,43 +330,18 @@ def find_library(
     arbitrarily. The search goes in the following order and considers only the
     DLLs with the architecture arch.
 
-    1. If not None, the directories in wheel_dirs. We never search for symbol
-       files or import library files in wheel_dirs.
+    1. If not None, the files in the wheel, as given by wheel_dirs_casemap,
+       which maps the lowercase name of each file in the wheel to the list of
+       original-case paths of the files whose lowercase name is that name. We
+       never search for symbol files or import library files in the wheel.
     2. The PATH environment variable, with any applicable adjustments due to
        the Windows file system redirector."""
     name = name.lower()
-    if wheel_dirs is not None:
-        for wheel_dir in wheel_dirs:
-            for item in os.listdir(wheel_dir):
-                if name == item.lower() and os.path.isfile(path := os.path.join(wheel_dir, item)) and get_arch(path) == arch:
-                    return path, []
-    for directory in os.environ['PATH'].split(os.pathsep):
-        directory = _translate_directory(directory, arch)
-        try:
-            contents = os.listdir(directory)
-        except (FileNotFoundError, PermissionError):
-            continue
-        dll_path = None
-        for item in contents:
-            if name == item.lower() and os.path.isfile(path := os.path.join(directory, item)) and get_arch(path) == arch:
-                dll_path = path
-                break
-        associated_paths = []
-        if include_symbols:
-            symbol_name = os.path.splitext(name)[0] + '.pdb'
-            for item in contents:
-                if symbol_name == item.lower() and os.path.isfile(path := os.path.join(directory, item)):
-                    associated_paths.append(path)
-                    break
-        if include_imports:
-            imports_name = os.path.splitext(name)[0] + '.lib'
-            for item in contents:
-                if imports_name == item.lower() and os.path.isfile(path := os.path.join(directory, item)):
-                    associated_paths.append(path)
-                    break
-        if dll_path:
-            return dll_path, associated_paths
-    return None
+    if wheel_dirs_casemap is not None:
+        for path in wheel_dirs_casemap.get(name, ()):
+            if os.path.isfile(path) and get_arch(path) == arch:
+                return path, ()
+    return _find_library_in_path(name, arch, include_symbols, include_imports)
 
 
 def get_direct_needed(lib_path: str) -> set[str]:
@@ -335,7 +376,7 @@ def wildcard_contains(item: str, patterns: set[str]) -> bool:
     return False
 
 
-def get_direct_mangleable_needed(lib_path: str, exclude: set, no_mangles: set) -> list[str]:
+def get_direct_mangleable_needed(lib_path: str, exclude: set[str], no_mangles: set[str]) -> list[str]:
     """Given the path to a shared library, return a deterministically-ordered
     list containing the lowercase DLL names of all direct dependencies that
     belong in the wheel and should be name-mangled.
@@ -389,12 +430,12 @@ def _toolset_too_old(linker_version: tuple[int, int], vc_redist_linker_version: 
 
 def get_all_needed(lib_path: str,
                    exclude: set[str],
-                   wheel_dirs: typing.Optional[collections.abc.Iterable],
+                   wheel_dirs_casemap: typing.Optional[dict[str, list[str]]],
                    on_error: str,
                    include_symbols: bool,
                    include_imports: bool) -> tuple[set[str], set[str], set[str], set[str]]:
     """Given the path to a shared library, return a 4-tuple of sets
-    (discovered, symbols, ignored, not_found).
+    (discovered, associated, ignored, not_found).
     - discovered contains the original-case DLL paths of all direct and
       indirect dependencies of that shared library that should be bundled into
       the wheel.
@@ -410,22 +451,33 @@ def get_all_needed(lib_path: str,
     exclude is a set of DLL names to force exclusion from the wheel. The `*`
     wildcard is supported. We do not search for dependencies of these DLLs.
 
-    If wheel_dirs is not None, it is an iterable of directories in the wheel
-    where dependencies are searched first.
+    If wheel_dirs_casemap is not None, it maps the lowercase name of each file
+    in the wheel to the list of original-case paths of the files whose
+    lowercase name is that name. Dependencies are searched in the wheel first.
 
     include_symbols specifies whether to search for .pdb symbol files
 
     include_imports specifies whether to search for .lib import library
     files"""
-    first_lib_path = lib_path.lower()
+    first_lib_path = lib_path
     stack = [first_lib_path]
     discovered = set()
+    discovered_lower = set()  # lowercased paths, for case-insensitive deduplication
     associated = set()
     ignored = set()
     not_found = set()
+    # Map from (lowercase DLL name, architecture) to find_library() result.
+    # Used to avoid redundant find_library() calls when a DLL shows up more
+    # than once in dependency graph.
+    resolved = {}
     while stack:
-        if (lib_path := stack.pop()) not in discovered:
+        lib_path = stack.pop()
+        # DLL names are case-insensitive, but we must open the file using its
+        # original-case path so that discovery works on a case-sensitive file
+        # system (e.g. when running on Linux).
+        if (lib_path_lower := lib_path.lower()) not in discovered_lower:
             discovered.add(lib_path)
+            discovered_lower.add(lib_path_lower)
             with PEContext(lib_path, None, True) as pe:
                 imports = []
                 for attr in ('DIRECTORY_ENTRY_IMPORT', 'DIRECTORY_ENTRY_DELAY_IMPORT'):
@@ -441,7 +493,9 @@ def get_all_needed(lib_path: str,
                             not any(r.fullmatch(dll_name) for r in _dll_list.ignore_regexes) and \
                             not wildcard_contains(dll_name, exclude) and \
                             (lib_name_lower not in _dll_list.ignore_dependency or dll_name not in _dll_list.ignore_dependency[lib_name_lower]):
-                        if dll_info := find_library(dll_name, wheel_dirs, lib_arch, include_symbols, include_imports):
+                        if (search_key := (dll_name, lib_arch)) not in resolved:
+                            resolved[search_key] = find_library(dll_name, wheel_dirs_casemap, lib_arch, include_symbols, include_imports)
+                        if dll_info := resolved[search_key]:
                             stack.append(dll_info[0])
                             associated.update(dll_info[1])
                             if re.fullmatch(_dll_list.vc_redist, dll_name):
@@ -464,12 +518,22 @@ def get_all_needed(lib_path: str,
     return discovered, associated, ignored, not_found
 
 
-def clear_dependent_load_flags(lib_path: str):
+def _is_cert_table_only_overlay(pe: pefile.PE, lib_path: str, pe_size: int) -> bool:
+    """Return True iff an attribute certificate table exists and is the only
+    thing in the overlay of the PE file.
+
+    pe: the parsed PE file
+    lib_path: path to the PE file
+    pe_size: size of the PE file excluding any overlay"""
+    cert_table = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
+    return cert_table.VirtualAddress == _round_to_next(pe_size, _ATTRIBUTE_CERTIFICATE_TABLE_ALIGNMENT) and cert_table.VirtualAddress + cert_table.Size == os.path.getsize(lib_path)
+
+
+def _clear_dependent_load_flags(lib_path: str):
     """If the DLL given by lib_path has a non-0 value for DependentLoadFlags,
     then set the value to 0, fix the PE checksum, and clear any signatures.
 
-    lib_path: path to the DLL
-    verbose: verbosity level, 0 to 2"""
+    lib_path: path to the DLL"""
     with PEContext(lib_path, None, False) as pe:
         pe.parse_data_directories([pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG']])
         if not hasattr(pe, 'DIRECTORY_ENTRY_LOAD_CONFIG') or not pe.DIRECTORY_ENTRY_LOAD_CONFIG.struct.DependentLoadFlags:
@@ -480,10 +544,10 @@ def clear_dependent_load_flags(lib_path: str):
 
         # determine whether to remove signatures from overlay
         pe_size = max(section.PointerToRawData + section.SizeOfRawData for section in pe.sections)
-        cert_table = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
-        truncate = cert_table.VirtualAddress == _round_to_next(pe_size, _ATTRIBUTE_CERTIFICATE_TABLE_ALIGNMENT) and cert_table.VirtualAddress + cert_table.Size == os.path.getsize(lib_path)
+        truncate = _is_cert_table_only_overlay(pe, lib_path, pe_size)
 
         # clear reference to attribute certificate table if it exists
+        cert_table = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
         cert_table.VirtualAddress = 0
         cert_table.Size = 0
 
@@ -568,21 +632,10 @@ def replace_needed(lib_path: str, old_deps: list[str], name_map: dict[str, str],
         delvewheel replace-needed"""
     if not old_deps:
         # no dependency names to change
-        clear_dependent_load_flags(lib_path)
+        _clear_dependent_load_flags(lib_path)
         return
     name_map = {dep.lower().encode(): name_map[dep].encode() for dep in old_deps}
         # keep only the DLLs that will be mangled
-
-    # If an attribute certificate table exists and is the only thing in the
-    # overlay, remove the table. In this case, we end up removing the entire
-    # overlay without needing to run strip.
-    with PEContext(lib_path, None, False) as pe:
-        pe_size = max(section.PointerToRawData + section.SizeOfRawData for section in pe.sections)
-        cert_table = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
-        truncate = cert_table.VirtualAddress == _round_to_next(pe_size, _ATTRIBUTE_CERTIFICATE_TABLE_ALIGNMENT) and cert_table.VirtualAddress + cert_table.Size == os.path.getsize(lib_path)
-    if truncate:
-        with open(lib_path, 'rb+') as f:
-            f.truncate(pe_size)
 
     # New dependency names are longer than the old ones, so we cannot simply
     # overwrite the bytes of the old dependency names. Determine whether the PE
@@ -594,8 +647,16 @@ def replace_needed(lib_path: str, old_deps: list[str], name_map: dict[str, str],
     # dependency names are items and the contiguous padding runs are bins. The
     # bin packing problem is NP-hard, so for simplicity, we use the Next Fit
     # algorithm.
+    #
+    # In addition, if an attribute certificate table exists and is the only
+    # thing in the overlay, remove the table. In this case, we end up removing
+    # the entire overlay without needing to run strip.
     with PEContext(lib_path, None, False) as pe:
         pe_size, enough_padding = _get_pe_size_and_enough_padding(pe, name_map.values())
+        truncate = _is_cert_table_only_overlay(pe, lib_path, pe_size)
+    if truncate:
+        with open(lib_path, 'rb+') as f:
+            f.truncate(pe_size)
     if 'not_enough_padding' in _Config.test:
         enough_padding = False
     if not enough_padding and pe_size < os.path.getsize(lib_path) and strip:

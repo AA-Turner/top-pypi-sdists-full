@@ -265,6 +265,12 @@ class ReplicaPool:
                 rid = self._bundle_indices[i]
                 env["VLLM_RAY_BUNDLE_INDICES"] = ",".join(
                     str(rid * self.tp_size + t) for t in range(self.tp_size))
+            # Ensure we start from offset base ports so that vllm workers do not
+            # collide when attempting to obtain free ports. vLLM increments ports
+            # until a free one is found, but this can lead to a race condition when
+            # spinning up many replicas at the same time.
+            base, stride = 30000, 100
+            env["VLLM_PORT"] = str(base + i*stride)
             init_tasks.append(w.initialize.remote(engine_kwargs, env or None))
         await asyncio.gather(*init_tasks)
 

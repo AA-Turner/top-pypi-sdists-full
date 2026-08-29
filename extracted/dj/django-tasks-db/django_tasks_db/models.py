@@ -1,18 +1,23 @@
 import datetime
 import logging
 import uuid
+from collections.abc import Sequence
+from traceback import format_exception
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar
 
-import django
 from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
 from django.db import models
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
+from django.db.backends.ddl_references import Statement  # add this
 from django.db.models import F, Q
 from django.db.models.constraints import CheckConstraint
 from django.utils import timezone
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
-from django_tasks.base import (
+from typing_extensions import ParamSpec
+
+from .compat import (
     DEFAULT_TASK_PRIORITY,
     DEFAULT_TASK_QUEUE_NAME,
     TASK_MAX_PRIORITY,
@@ -21,13 +26,6 @@ from django_tasks.base import (
     TaskError,
     TaskResultStatus,
 )
-from django_tasks.utils import (
-    get_exception_traceback,
-    get_module_path,
-)
-from typing_extensions import ParamSpec
-
-from .compat import TASK_CLASSES
 from .utils import normalize_uuid, retry
 
 logger = logging.getLogger("django_tasks_db")
@@ -40,7 +38,6 @@ if TYPE_CHECKING:
 
     class GenericBase(Generic[P, T]):
         pass
-
 else:
 
     class GenericBase:
@@ -58,7 +55,57 @@ def get_date_max() -> datetime.datetime:
     )
 
 
-class DBTaskResultQuerySet(models.QuerySet):
+class ConditionalPartialIndex(models.Index):
+    """
+    An index that applies its condition only on backends that support partial/filtered indexes.
+    On unsupported backends, the index is created without the condition,
+    rather than being skipped altogether.
+    """
+
+    def __init__(
+        self,
+        *expressions: Any,
+        condition: Q | None = None,
+        **kwargs: Any,
+    ) -> None:
+        # Capture condition before passing to constructor so it's unset and the index can always be applied.
+        # See add_index.
+        self._partial_condition = condition
+        super().__init__(*expressions, **kwargs)
+
+    @property
+    def contains_expressions(self) -> bool:
+        # Pretend there are no expressions.
+        # Some DB backends claim to not support expressions, but do support them if they're simple enough.
+        return False
+
+    def create_sql(
+        self,
+        model: type[models.Model],
+        schema_editor: BaseDatabaseSchemaEditor,
+        using: str = "",
+        **kwargs: Any,
+    ) -> Statement:
+        if (
+            self._partial_condition is not None
+            and schema_editor.connection.features.supports_partial_indexes
+        ):
+            # Add condition back just before executing SQL so the condition is included.
+            self.condition = self._partial_condition
+            try:
+                return super().create_sql(model, schema_editor, using=using, **kwargs)
+            finally:
+                self.condition = None
+        return super().create_sql(model, schema_editor, using=using, **kwargs)
+
+    def deconstruct(self) -> tuple[str, Sequence[Any], dict[str, Any]]:
+        path, args, kwargs = super().deconstruct()
+        if self._partial_condition is not None:
+            kwargs["condition"] = self._partial_condition
+        return path, args, kwargs
+
+
+class DBTaskResultQuerySet(models.QuerySet["DBTaskResult"]):
     def ready(self) -> "DBTaskResultQuerySet":
         """
         Return tasks which are ready to be processed.
@@ -81,7 +128,6 @@ class DBTaskResultQuerySet(models.QuerySet):
     def finished(self) -> "DBTaskResultQuerySet":
         return self.failed() | self.successful()
 
-    @retry()
     def get_locked(self) -> Optional["DBTaskResult"]:
         """
         Get a job, locking the row and accounting for deadlocks.
@@ -125,11 +171,11 @@ class DBTaskResult(GenericBase[P, T], models.Model):
     objects = DBTaskResultQuerySet.as_manager()
 
     class Meta:
-        ordering = [F("priority").desc(), F("run_after").asc()]
+        ordering = [F("priority").desc(), F("run_after").asc(), F("enqueued_at").asc()]
         verbose_name = _("Task Result")
         verbose_name_plural = _("Task Results")
         indexes = [
-            models.Index(
+            ConditionalPartialIndex(
                 "status",
                 *ordering,
                 name="tasks_db_new_ordering_idx",
@@ -138,32 +184,23 @@ class DBTaskResult(GenericBase[P, T], models.Model):
             models.Index(fields=["queue_name"]),
             models.Index(fields=["backend_name"]),
         ]
-
-        if django.VERSION >= (5, 1):
-            constraints = [
-                CheckConstraint(
-                    condition=Q(priority__range=(TASK_MIN_PRIORITY, TASK_MAX_PRIORITY)),
-                    name="priority_range",
-                )
-            ]
-        else:
-            constraints = [
-                CheckConstraint(
-                    check=Q(priority__range=(TASK_MIN_PRIORITY, TASK_MAX_PRIORITY)),
-                    name="priority_range",
-                )
-            ]
+        constraints = [
+            CheckConstraint(
+                condition=Q(priority__range=(TASK_MIN_PRIORITY, TASK_MAX_PRIORITY)),
+                name="priority_range",
+            )
+        ]
 
     @property
     def task(self) -> Task[P, T]:
         task = import_string(self.task_path)
 
-        if not isinstance(task, TASK_CLASSES):
+        if not isinstance(task, Task):
             raise SuspiciousOperation(
                 f"Task {self.id} does not point to a Task ({self.task_path})"
             )
 
-        return task.using(  # type: ignore[no-any-return]
+        return task.using(
             priority=self.priority,
             queue_name=self.queue_name,
             run_after=None if self.run_after == get_date_max() else self.run_after,
@@ -171,10 +208,10 @@ class DBTaskResult(GenericBase[P, T], models.Model):
         )
 
     @property
-    def task_result(self) -> "TaskResult[T]":
+    def task_result(self) -> "TaskResult[P, T]":
         from .backend import TaskResult
 
-        task_result: TaskResult[T] = TaskResult(
+        task_result = TaskResult(
             db_result=self,
             task=self.task,
             id=normalize_uuid(self.id),
@@ -216,7 +253,6 @@ class DBTaskResult(GenericBase[P, T], models.Model):
         except IndexError:
             return self.task_path
 
-    @retry(backoff_delay=0)
     def claim(self, worker_id: str) -> None:
         """
         Mark as job as being run
@@ -248,8 +284,8 @@ class DBTaskResult(GenericBase[P, T], models.Model):
     def set_failed(self, exc: BaseException) -> None:
         self.status = TaskResultStatus.FAILED
         self.finished_at = timezone.now()
-        self.exception_class_path = get_module_path(type(exc))
-        self.traceback = get_exception_traceback(exc)
+        self.exception_class_path = f"{type(exc).__module__}.{type(exc).__qualname__}"
+        self.traceback = "".join(format_exception(exc))
         self.return_value = None
 
         self.save(

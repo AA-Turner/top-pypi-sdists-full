@@ -17,7 +17,6 @@
 
 from testscenarios import TestWithScenarios
 
-
 scenario1 = ("basic", {"attribute": "value"})
 scenario2 = ("advanced", {"attribute": "value2"})
 

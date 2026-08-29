@@ -50,7 +50,7 @@ class KafkaClient(object):
             ssl_context (SSLContext): SSL context options
 
         Notes:
-            ``use_ssl=True`` is implied when a username or password are
+            ``ssl=True`` is implied when a username or password is
             supplied.
 
             When using Azure Event Hubs, the username is literally
@@ -81,7 +81,7 @@ class KafkaClient(object):
     def strip_metadata(report: dict[str, Any]):
         """
         Duplicates org_name, org_email and report_id into JSON root
-        and removes report_metadata key to bring it more inline
+        and removes report_metadata key to bring it more in line
         with Elastic output.
         """
         report["org_name"] = report["report_metadata"]["org_name"]
@@ -94,7 +94,7 @@ class KafkaClient(object):
     @staticmethod
     def generate_date_range(report: dict[str, Any]):
         """
-        Creates a date_range timestamp with format YYYY-MM-DD-T-HH:MM:SS
+        Creates a date_range timestamp with format YYYY-MM-DDTHH:MM:SS
         based on begin and end dates for easier parsing in Kibana.
 
         Move to utils to avoid duplication w/ elastic?
@@ -160,9 +160,15 @@ class KafkaClient(object):
         failure_topic: str,
     ):
         """
-        Saves failure DMARC reports to Kafka, sends individual
-        records (slices) since Kafka requires messages to be <= 1MB
-        by default.
+        Saves failure DMARC reports to Kafka, one message per report, so a
+        large batch is far less likely to exceed Kafka's default 1MB
+        message limit
+
+        Mirrors ``save_aggregate_reports_to_kafka``'s per-slice send/flush
+        shape (minus the aggregate-only ``strip_metadata``/date-range
+        logic): failure reports carry message samples, so a batch sent as
+        a single JSON array could easily exceed the broker's default max
+        message size.
 
         Args:
             failure_reports (list):  A list of failure report dicts
@@ -176,17 +182,18 @@ class KafkaClient(object):
         if len(failure_reports) < 1:
             return
 
-        try:
-            logger.debug("Saving failure reports to Kafka")
-            self.producer.send(failure_topic, failure_reports)
-        except UnknownTopicOrPartitionError:
-            raise KafkaError("Kafka error: Unknown topic or partition on broker")
-        except Exception as e:
-            raise KafkaError(f"Kafka error: {e.__str__()}")
-        try:
-            self.producer.flush()
-        except Exception as e:
-            raise KafkaError(f"Kafka error: {e.__str__()}")
+        for report in failure_reports:
+            try:
+                logger.debug("Saving failure report to Kafka")
+                self.producer.send(failure_topic, report)
+            except UnknownTopicOrPartitionError:
+                raise KafkaError("Kafka error: Unknown topic or partition on broker")
+            except Exception as e:
+                raise KafkaError(f"Kafka error: {e.__str__()}")
+            try:
+                self.producer.flush()
+            except Exception as e:
+                raise KafkaError(f"Kafka error: {e.__str__()}")
 
     # Backward-compatible alias
     save_forensic_reports_to_kafka = save_failure_reports_to_kafka
@@ -197,9 +204,13 @@ class KafkaClient(object):
         smtp_tls_topic: str,
     ):
         """
-        Saves SMTP TLS reports to Kafka, sends individual
-        records (slices) since Kafka requires messages to be <= 1MB
-        by default.
+        Saves SMTP TLS reports to Kafka, one message per report, so a
+        large batch is far less likely to exceed Kafka's default 1MB
+        message limit
+
+        Mirrors ``save_aggregate_reports_to_kafka``'s per-slice send/flush
+        shape (minus the aggregate-only ``strip_metadata``/date-range
+        logic).
 
         Args:
             smtp_tls_reports (list):  A list of SMTP TLS report dicts
@@ -213,14 +224,15 @@ class KafkaClient(object):
         if len(smtp_tls_reports) < 1:
             return
 
-        try:
-            logger.debug("Saving SMTP TLS reports to Kafka")
-            self.producer.send(smtp_tls_topic, smtp_tls_reports)
-        except UnknownTopicOrPartitionError:
-            raise KafkaError("Kafka error: Unknown topic or partition on broker")
-        except Exception as e:
-            raise KafkaError(f"Kafka error: {e.__str__()}")
-        try:
-            self.producer.flush()
-        except Exception as e:
-            raise KafkaError(f"Kafka error: {e.__str__()}")
+        for report in smtp_tls_reports:
+            try:
+                logger.debug("Saving SMTP TLS report to Kafka")
+                self.producer.send(smtp_tls_topic, report)
+            except UnknownTopicOrPartitionError:
+                raise KafkaError("Kafka error: Unknown topic or partition on broker")
+            except Exception as e:
+                raise KafkaError(f"Kafka error: {e.__str__()}")
+            try:
+                self.producer.flush()
+            except Exception as e:
+                raise KafkaError(f"Kafka error: {e.__str__()}")

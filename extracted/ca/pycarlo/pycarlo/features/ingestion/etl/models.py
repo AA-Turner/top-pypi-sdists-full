@@ -4,7 +4,13 @@ from dataclasses import dataclass, field
 
 from dataclasses_json import DataClassJsonMixin, config
 
-from pycarlo.features.ingestion.models import Tag, _is_empty, _is_none
+from pycarlo.features.ingestion.models import (
+    AssetRef,
+    Tag,
+    _check_batch_size,
+    _is_empty,
+    _is_none,
+)
 
 # Allowed values for ``EtlRunEvent.status``.
 ETL_RUN_STATUS_VALUES: frozenset[str] = frozenset(
@@ -48,14 +54,6 @@ ETL_RUN_TRIGGER_VALUES: frozenset[str] = frozenset(
         "RETRY",
     }
 )
-
-# Allowed values for ``AssetRef.asset_type``.
-ASSET_REF_ASSET_TYPE_VALUES: frozenset[str] = frozenset(
-    {"TABLE", "FILE", "VIEW", "TOPIC", "DATASET", "DASHBOARD"}
-)
-
-# Allowed values for ``AssetRef.role``.
-ASSET_REF_ROLE_VALUES: frozenset[str] = frozenset({"INPUT", "OUTPUT"})
 
 # Allowed values for ``Schedule.kind``.
 ETL_SCHEDULE_KIND_VALUES: frozenset[str] = frozenset(
@@ -152,40 +150,6 @@ class EtlError(DataClassJsonMixin):
         default_factory=list, metadata=config(exclude=_is_empty)
     )
     structured_fields: dict | None = field(default=None, metadata=config(exclude=_is_none))
-
-
-@dataclass
-class AssetRef(DataClassJsonMixin):
-    """
-    Reference to an upstream input or downstream output asset on a run event.
-
-    Either ``mcon`` or ``fully_qualified_name`` must be set so the backend
-    can resolve the asset; the wire marks both as nullable but a downstream
-    resolver can't act on an entirely empty reference, so the SDK fails fast.
-
-    :param asset_type: One of :data:`ASSET_REF_ASSET_TYPE_VALUES`.
-    :param role: One of :data:`ASSET_REF_ROLE_VALUES`.
-    :param mcon: Monte Carlo Object Name for the asset.
-    :param fully_qualified_name: Fully-qualified name (vendor format).
-    """
-
-    asset_type: str
-    role: str
-    mcon: str | None = field(default=None, metadata=config(exclude=_is_none))
-    fully_qualified_name: str | None = field(default=None, metadata=config(exclude=_is_none))
-
-    def __post_init__(self) -> None:
-        if self.asset_type not in ASSET_REF_ASSET_TYPE_VALUES:
-            raise ValueError(
-                f"AssetRef.asset_type must be one of {sorted(ASSET_REF_ASSET_TYPE_VALUES)}; "
-                f"got {self.asset_type!r}."
-            )
-        if self.role not in ASSET_REF_ROLE_VALUES:
-            raise ValueError(
-                f"AssetRef.role must be one of {sorted(ASSET_REF_ROLE_VALUES)}; got {self.role!r}."
-            )
-        if not self.mcon and not self.fully_qualified_name:
-            raise ValueError("AssetRef requires at least one of mcon or fully_qualified_name.")
 
 
 @dataclass
@@ -421,18 +385,6 @@ class EtlRunEvent(DataClassJsonMixin):
             raise ValueError(
                 f"EtlRunEvent.attempt_number must be >= 1; got {self.attempt_number!r}."
             )
-
-
-_ETL_BATCH_MIN = 1
-_ETL_BATCH_MAX = 100
-
-
-def _check_batch_size(events: list, label: str) -> None:
-    if not (_ETL_BATCH_MIN <= len(events) <= _ETL_BATCH_MAX):
-        raise ValueError(
-            f"{label} requires between {_ETL_BATCH_MIN} and {_ETL_BATCH_MAX} events; "
-            f"got {len(events)}."
-        )
 
 
 def build_etl_metadata_payload(

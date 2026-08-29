@@ -185,7 +185,7 @@ async def _create_all_objects(
             # this is to ensure that directly referenced functions from the global scope has
             # ids associated with them when they are serialized into other functions
             await resolver.preload(obj, load_context, existing_object_id)
-            if obj.is_hydrated:
+            if obj._is_hydrated:
                 tag_to_object_id[tag] = obj.object_id
 
         async def _load(tag, obj):
@@ -391,16 +391,16 @@ async def _run_app(
         )
 
     if name:
-        app.set_description(name)
-    elif app.description is None:
+        app._description = name
+    elif app._description is None:
         import __main__
 
         if "__file__" in dir(__main__):
-            app.set_description(os.path.basename(__main__.__file__))
+            app._description = os.path.basename(__main__.__file__)
         else:
             # Interactive mode does not have __file__.
             # https://docs.python.org/3/library/__main__.html#import-main
-            app.set_description(__main__.__name__)
+            app._description = __main__.__name__
 
     app_state = api_pb2.APP_STATE_DETACHED if detach else api_pb2.APP_STATE_EPHEMERAL
     output_mgr = OutputManager.get()
@@ -413,7 +413,7 @@ async def _run_app(
 
     running_app: RunningApp = await _init_local_app_new(
         load_context.client,
-        app.description or "",
+        app._description or "",
         local_app_state.tags,
         environment_name=load_context.environment_name,
         app_state=app_state,

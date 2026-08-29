@@ -47,11 +47,13 @@ from openccu_loom_client.bridge import bind_ws_events_to_store
 from openccu_loom_client.capabilities import Capability
 from openccu_loom_client.events import (
     DeviceCreatedEvent,
+    DeviceReleasedEvent,
     EventBus,
     SubscriptionGroup,
     event_from_envelope,
     new_auth_failed_event,
     new_connection_state_changed_event,
+    new_daemon_latency_changed_event,
     new_data_points_created_event,
 )
 from openccu_loom_client.exceptions import BaseLoomException, LoomIncompatibleVersionError, LoomNotFoundError
@@ -120,12 +122,9 @@ _DEFAULT_WS_SUBSCRIPTIONS: Final = (
 # collapses to at most one walk per (walk duration + cooldown).
 _REBOOTSTRAP_COOLDOWN_SECONDS: Final = 30.0
 
-# How long wait_until_ready() polls before giving up, and how often. A CCU
-# bring-up on a large installation is a minutes-long affair, and the cost of
-# waiting is nil compared to bootstrapping an empty model — but the wait must
-# be bounded, because a daemon whose CCU never appears would otherwise hold a
-# consumer's setup open forever.
-_READINESS_WAIT_TIMEOUT_SECONDS: Final = 180.0
+# How often wait_until_ready() polls. The ceiling it polls against is
+# LoomConfig.readiness_wait_seconds, because how long a caller can afford to
+# block is the caller's question, not this module's.
 _READINESS_POLL_SECONDS: Final = 3.0
 
 
@@ -382,7 +381,7 @@ class LoomClient:
             return None
         return getattr(entry, "readiness", None)
 
-    async def wait_until_ready(self, *, timeout_seconds: float = _READINESS_WAIT_TIMEOUT_SECONDS) -> bool:
+    async def wait_until_ready(self, *, timeout_seconds: float | None = None) -> bool:
         """
         Poll the daemon's readiness until its bring-up has latched, or give up.
 
@@ -392,12 +391,18 @@ class LoomClient:
         the bootstrap "succeeds", the store is empty, and a consumer announces
         no entities at all.
 
+        ``timeout_seconds`` defaults to :attr:`LoomConfig.readiness_wait_seconds`,
+        so a caller that cares about its own startup latency sets it once on the
+        config rather than at every call site. A value of 0 skips the wait.
+
         Returns ``True`` when readiness latched (or the daemon does not report
         readiness at all, which is the older-daemon case and must not block
         anyone), ``False`` on timeout. A ``False`` is not fatal: the caller may
         bootstrap anyway and rely on the daemon's resync push when the CCU
         arrives — this only avoids paying for a walk that is known to be empty.
         """
+        if timeout_seconds is None:
+            timeout_seconds = self._config.readiness_wait_seconds
         deadline = asyncio.get_running_loop().time() + timeout_seconds
         logged = False
         while True:
@@ -455,7 +460,7 @@ class LoomClient:
         detail-only, not carried by the snapshot's device summaries.
         """
         include = "data_points" if fetch_data_points else None
-        snapshot = await self.system.get_snapshot(include=include)
+        snapshot = await self.system.get_snapshot(include=include, released_only=self._config.released_only)
         self._store.load_snapshot(snapshot=snapshot)
 
         # load_snapshot derives the central id from the interface list.
@@ -557,6 +562,7 @@ class LoomClient:
                 on_replay_lost=self._on_replay_lost,
                 on_auth_failed=self._on_auth_failed,
                 on_connection_state=self._on_connection_state,
+                on_heartbeat=self._on_heartbeat,
             )
             await self._ws.start()
         else:
@@ -585,6 +591,12 @@ class LoomClient:
         # announce) because it — unlike the store — knows the bus. Subscribed
         # after the bridge so the stub exists before the reconcile spawns.
         self._wire_group.subscribe(event_type=DeviceCreatedEvent, handler=self._on_device_created)
+        # Onboarding release (daemon ≥ 0.66.1). With released_only on, the
+        # device.created frame for a withheld device never arrives — this is
+        # the frame that says it became adoptable, and the daemon never
+        # withholds it. Same reconcile as a fresh pairing: the device is
+        # complete on the daemon side by now, we simply have not loaded it.
+        self._wire_group.subscribe(event_type=DeviceReleasedEvent, handler=self._on_device_released)
 
         # Dispatch loop: WsEnvelope → typed event → bus.publish.
         self._dispatch_task = asyncio.create_task(self._dispatch_loop(), name="openccu-loom-dispatch")
@@ -722,6 +734,30 @@ class LoomClient:
             name="openccu-loom-reconcile-device",
         )
 
+    async def _on_device_released(self, event: DeviceReleasedEvent, /) -> None:
+        """
+        Adopt a device whose onboarding the operator just finished.
+
+        Reached only in the ``released_only`` mode this client defaults to;
+        without the filter the device was adopted at ``device.created`` and is
+        already complete, which the guard below detects either way.
+
+        Unlike ``device.created`` there is no store stub to build on — the wire
+        bridge never saw the device — so the reconcile fetches the whole graph,
+        which is what it does for a new pairing anyway.
+        """
+        if self._closing:
+            return
+        address = event.payload.device_address
+        if self._store_holds_complete_device(address=address):
+            _LOGGER.debug("device.released for %s, already complete in the store — nothing to adopt", address)
+            return
+        _LOGGER.info("device %s finished onboarding — adopting it", address)
+        self._spawn_background(
+            coro=self._reconcile_new_device(address=address),
+            name="openccu-loom-adopt-released-device",
+        )
+
     def _store_holds_complete_device(self, *, address: str) -> bool:
         """
         Report whether the store already has this device with channels and data points.
@@ -776,6 +812,21 @@ class LoomClient:
         says they stopped being updated.
         """
         return self._connected
+
+    @property
+    def daemon_latency_ms(self) -> float | None:
+        """
+        Latest client↔daemon round trip in milliseconds, or ``None``.
+
+        Measured by the daemon across the heartbeat it already runs, so reading
+        it costs nothing. ``None`` before the stream has completed a second
+        heartbeat, and against a daemon that does not time its pings.
+        """
+        return self._ws.last_rtt_ms if self._ws is not None else None
+
+    async def _on_heartbeat(self, latency_ms: float, /) -> None:
+        """Publish the round trip the daemon just reported."""
+        await self._bus.publish(event=new_daemon_latency_changed_event(latency_ms=latency_ms))
 
     async def _on_connection_state(self, connected: bool, /) -> None:
         """

@@ -88,6 +88,7 @@ def expected_fragments(contract: Mapping[str, Any]) -> dict[str, list[str]]:
         ".github/actions/build-wheel/action.yml": [
             "check_python_wheel.py",
             "smoke_python37_runtime.py --profile native_py37",
+            "smoke_zero_typing_extensions.py",
         ],
     }
     for distribution in contract["distributions"].values():
@@ -478,8 +479,11 @@ def collect_backfill_tooling_errors(root: Path) -> list[str]:
             errors.append(f"{relative}: {job_name} must build source before fetching and running workflow tooling")
     for job_name in ("py37-lite", "linux-py37", "windows-py37"):
         block = _workflow_job_block(text, job_name)
-        if "if [[ -f compatibility/python.json ]]" not in block:
-            errors.append(f"{relative}: {job_name} must retain the pre-contract backfill smoke path")
+        if (
+            ".workflow-tools/scripts/ci/python37_wheel_smoke.py" not in block
+            or '--checkout-ref "$CHECKOUT_REF"' not in block
+        ):
+            errors.append(f"{relative}: {job_name} must use the version/ref-bound historical wheel smoke")
     return errors
 
 

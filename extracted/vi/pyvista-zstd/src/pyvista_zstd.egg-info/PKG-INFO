@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista-zstd
-Version: 0.3.1
+Version: 0.4.0
 Summary: VTK zstandard compression library.
 Author-email: The PyVista developers <info@pyvista.org>
 License-Expression: MIT
@@ -17,7 +17,6 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pyvista>=0.45.0
 Requires-Dist: tqdm>=4.0.0
-Requires-Dist: zstandard>=0.24.0
 Provides-Extra: docs
 Requires-Dist: numpydoc==1.10.0; extra == "docs"
 Requires-Dist: sphinx-book-theme==1.2.0; extra == "docs"
@@ -28,6 +27,7 @@ Requires-Dist: sphinx==9.1.0; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: pytest-cov==7.1.0; extra == "tests"
 Requires-Dist: pytest>=6.2.0; extra == "tests"
+Requires-Dist: zstandard>=0.24.0; extra == "tests"
 Dynamic: license-file
 
 pyvista-zstd
@@ -88,6 +88,23 @@ Install with:
 
    pip install pyvista-zstd
 
+The package is a C++ library with a Python wrapper around it, so an install is
+either a prebuilt wheel or a compile. Wheels are published for:
+
++---------+--------------------------------------------------+
+| Linux   | x86_64 (manylinux2014 and manylinux_2_28)        |
++---------+--------------------------------------------------+
+| macOS   | x86_64 and arm64                                 |
++---------+--------------------------------------------------+
+| Windows | AMD64                                            |
++---------+--------------------------------------------------+
+
+Everywhere else -- musl-based Linux, Linux on aarch64, Windows on ARM -- ``pip``
+falls back to the source distribution and builds the core during the install,
+which needs a C++17 compiler on the machine. CMake does not: it comes from the
+build requirements. A machine without a compiler fails the install rather than
+producing a package that imports and cannot read anything.
+
 Compatible with all VTK dataset types. Uses
 `PyVista <https://docs.pyvista.org/>`__ under the hood.
 
@@ -145,6 +162,25 @@ directly:
 
 No additional imports needed. This works via PyVista's ``pyvista.readers``
 entry point group, so the registration happens at install time.
+
+
+The C library
+~~~~~~~~~~~~~
+
+The reader and writer are a C++ core with a pure C ABI, ``pvzstd``, declared in
+``cpp/include/pvzstd/pvzstd.h``. The Python package is one consumer of it,
+bound with ``ctypes``; a C or C++ consumer -- or a WebAssembly build -- can link
+the same library directly, and it depends on nothing but zstd.
+
+.. code:: cmake
+
+   find_package(pvzstd CONFIG REQUIRED)
+   target_link_libraries(my_app PRIVATE pvzstd::pvzstd)
+
+See `The C library <https://pyvista.github.io/pyvista-zstd/c_api.html>`__ for
+the build options, both ways of consuming the CMake package, the ABI-version
+contract, and a worked example. The on-disk format is specified in
+``doc/format/container-v2.md``.
 
 
 Rational

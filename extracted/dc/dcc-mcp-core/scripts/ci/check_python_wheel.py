@@ -13,10 +13,14 @@ from typing import Any
 import zipfile
 
 try:
+    from .archive_payload_policy import archive_member_errors
+    from .dependency_marker_policy import is_default_requirement as _is_default_requirement
     from .python_support_contract import load_contract
     from .python_support_contract import minimum_python_spec
 except ImportError:  # pragma: no cover - direct script execution
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from archive_payload_policy import archive_member_errors
+    from dependency_marker_policy import is_default_requirement as _is_default_requirement
     from python_support_contract import load_contract
     from python_support_contract import minimum_python_spec
 
@@ -61,6 +65,32 @@ def _release_tuple(version: str) -> tuple[int, int, int] | None:
     if match is None:
         return None
     return tuple(int(part) for part in match.groups())
+
+
+def _requirement_name(requirement: str) -> str:
+    """Return a normalized distribution name from one Requires-Dist value."""
+    match = re.match(r"\s*([A-Za-z0-9_.-]+)", requirement)
+    if match is None:
+        return ""
+    return re.sub(r"[-_.]+", "-", match.group(1)).lower()
+
+
+def forbidden_runtime_dependency_errors(metadata: Any, distribution: dict[str, Any]) -> list[str]:
+    """Return active forbidden default dependencies found in package metadata."""
+    version = _release_tuple(str(metadata.get("Version", "")))
+    requirements = metadata.get_all("Requires-Dist") or []
+    names = {
+        _requirement_name(str(requirement)) for requirement in requirements if _is_default_requirement(str(requirement))
+    }
+    errors = []
+    for rule in distribution.get("forbidden_runtime_dependencies", []):
+        starts_at = _release_tuple(rule["from_version"])
+        if version is None or starts_at is None or version < starts_at:
+            continue
+        normalized = re.sub(r"[-_.]+", "-", rule["name"]).lower()
+        if normalized in names:
+            errors.append(f"forbidden runtime dependency {normalized!r} is present")
+    return errors
 
 
 def _core_ui_control_contract_errors(archive: zipfile.ZipFile, names: list[str]) -> list[str]:
@@ -128,6 +158,7 @@ def validate_wheel(
     try:
         with zipfile.ZipFile(str(path)) as archive:
             names = archive.namelist()
+            errors.extend(archive_member_errors(archive.infolist()))
             has_extension = _contains_extension(names, profile_contract.get("extension_module"))
             metadata = Parser().parsestr(_read_single_member(archive, ".dist-info/METADATA"))
             wheel_metadata = Parser().parsestr(_read_single_member(archive, ".dist-info/WHEEL"))
@@ -141,8 +172,9 @@ def validate_wheel(
                 errors.extend(_core_ui_control_contract_errors(archive, names))
             distribution_contract = contract["distributions"][expected_distribution]
             errors.extend(_wheel_resource_errors(archive, distribution_contract.get("wheel_resources", [])))
+            errors.extend(forbidden_runtime_dependency_errors(metadata, distribution_contract))
     except (OSError, ValueError, zipfile.BadZipFile, UnicodeDecodeError) as exc:
-        return [f"cannot inspect wheel: {exc}"]
+        return [*errors, f"cannot inspect wheel: {exc}"]
 
     actual_distribution = str(metadata.get("Name", "")).lower().replace("_", "-")
     if actual_distribution != expected_distribution:

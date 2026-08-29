@@ -16,17 +16,19 @@ target_link_libraries(piqp_c PRIVATE piqp_header_only)
 set_target_properties(piqp_c PROPERTIES OUTPUT_NAME piqpc)
 add_library(piqp::piqp_c ALIAS piqp_c)
 
-install(
-    DIRECTORY include/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/piqp_c
-)
+if (ENABLE_INSTALL)
+    install(
+        DIRECTORY include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/piqp_c
+    )
 
-install(
-    TARGETS piqp_c
-    EXPORT piqpTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
+    install(
+        TARGETS piqp_c
+        EXPORT piqpTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+endif ()
 
 if (BUILD_TESTS)
     add_subdirectory(tests)

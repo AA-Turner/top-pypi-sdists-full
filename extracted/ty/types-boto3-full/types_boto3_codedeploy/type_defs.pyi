@@ -27,6 +27,7 @@ from .literals import (
     BundleTypeType,
     ComputePlatformType,
     DeploymentCreatorType,
+    DeploymentModeType,
     DeploymentOptionType,
     DeploymentReadyActionType,
     DeploymentStatusType,
@@ -1047,6 +1048,7 @@ class CreateDeploymentInputTypeDef(TypedDict):
     autoRollbackConfiguration: NotRequired[AutoRollbackConfigurationUnionTypeDef]
     updateOutdatedInstancesOnly: NotRequired[bool]
     fileExistsBehavior: NotRequired[FileExistsBehaviorType]
+    deploymentMode: NotRequired[DeploymentModeType]
     overrideAlarmConfiguration: NotRequired[AlarmConfigurationUnionTypeDef]
 
 class BatchGetDeploymentTargetsOutputTypeDef(TypedDict):

@@ -159,6 +159,21 @@ ghrel_template = """
 
 """
 
+## CHECK-MANIFEST
+
+[tool.check-manifest]
+# Use our own explicit rules.
+ignore-default-rules = true
+ignore = [
+    # Files that package building creates and aren't expected in git.
+    "PKG-INFO",
+    "*.egg-info",
+    "*.egg-info/*",
+    "setup.cfg",
+    # Files that we create during packaging.
+    "a1_coverage.pth",
+]
+
 ## RUFF
 # We are using ruff for formatting, but not for linting.
 
@@ -170,14 +185,15 @@ line-length = 100
 [tool.ruff.lint]
 ignore = [
     # Temporary while we gradually fix ruff concerns
-    "I001",     # TEMP: import order
     "UP031",    # TEMP: Use format specifiers instead of percent format
 
     # Rules I want to suppress. I know when I have done these things.
     "BLE001",   # Do not catch blind exception: `Exception`
     "C408",     # Unnecessary `dict()` call (rewrite as a literal)
+    "PLC0414",  # Import alias does not rename original package
     "SIM",      # Many "simplifying" rules that mask my intent.
     "S102",     # Use of `exec` detected
+    "YTT201",   # Checking `sys.version_info[0] == 3`
 ]
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?)|[a-zA-Z0-9_]+_unused)$"
 
@@ -186,4 +202,5 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?)|[a-zA-Z0-9_]+_unused)$
     "PT031",    # `pytest.warns()` block should contain a single simple statement
     # Lots of tests have global lists of expected values
     "RUF012",   # Mutable default value for class attribute
+    "RUF024",   # Do not pass mutable objects as values to `dict.fromkeys`
 ]

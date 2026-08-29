@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+from structlog.testing import capture_logs
 from temporalio.client import WorkflowFailureError
 from temporalio.converter import DataConverter
 from temporalio.exceptions import ActivityError, ApplicationError, CancelledError
@@ -24,7 +25,7 @@ from mistralai.workflows.core._registration.execution_registration_interceptor i
 )
 from mistralai.workflows.core._registration.registration_activity import _register_execution
 from mistralai.workflows.core._registration.search_key_ingestion import (
-    _MAX_UPSERT_ATTEMPTS,
+    _MAX_REQUEST_ATTEMPTS,
     _is_retryable,
     _must_propagate,
     _upsert_search_keys,
@@ -156,10 +157,10 @@ class _FailureCase:
 # Status-code classification is covered exhaustively by the _is_retryable unit tests; these
 # are one representative per class, run end-to-end through both branches.
 _FAILURE_CASES = [
-    _FailureCase("server_error", lambda: _sdk_error(500, "Internal Server Error"), _MAX_UPSERT_ATTEMPTS, False),
-    _FailureCase("rate_limited", lambda: _sdk_error(429, "Too Many Requests"), _MAX_UPSERT_ATTEMPTS, False),
-    _FailureCase("connect_error", lambda: httpx.ConnectError("connection refused"), _MAX_UPSERT_ATTEMPTS, False),
-    _FailureCase("read_timeout", lambda: httpx.ReadTimeout("read timed out"), _MAX_UPSERT_ATTEMPTS, False),
+    _FailureCase("server_error", lambda: _sdk_error(500, "Internal Server Error"), _MAX_REQUEST_ATTEMPTS, False),
+    _FailureCase("rate_limited", lambda: _sdk_error(429, "Too Many Requests"), _MAX_REQUEST_ATTEMPTS, False),
+    _FailureCase("connect_error", lambda: httpx.ConnectError("connection refused"), _MAX_REQUEST_ATTEMPTS, False),
+    _FailureCase("read_timeout", lambda: httpx.ReadTimeout("read timed out"), _MAX_REQUEST_ATTEMPTS, False),
     _FailureCase("not_found", lambda: _sdk_error(404, "Not Found"), 1, False),
     _FailureCase("unprocessable", lambda: _sdk_error(422, "Unprocessable Entity"), 1, False),
     _FailureCase("unparseable_body", _unparseable_response, 1, False),
@@ -279,14 +280,6 @@ class TestDispatch:
         assert call["search_key_metadata"] == {"customer.tier": "gold"}
 
     @pytest.mark.asyncio
-    async def test_upsert_token_hash_matches_registration(self) -> None:
-        tracker = _UpsertTracker()
-
-        await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-hash")
-
-        assert tracker.upsert_calls[0]["execution_token_hash"] == tracker.register_calls[0]["execution_token_hash"]
-
-    @pytest.mark.asyncio
     async def test_activity_can_upsert_search_keys(self) -> None:
         tracker = _UpsertTracker()
 
@@ -303,12 +296,23 @@ class TestDispatch:
         assert call["search_key_metadata"] == {"activity.key": "from-activity"}
 
     @pytest.mark.asyncio
-    async def test_missing_execution_token_skips_upsert(self) -> None:
+    async def test_upsert_names_the_execution_by_run_id_and_sends_no_token(self) -> None:
+        tracker = _UpsertTracker()
+
+        await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-run-id")
+
+        call = tracker.upsert_calls[0]
+        assert call["temporal_run_id"] == tracker.register_calls[0]["temporal_run_id"]
+        assert "execution_token_hash" not in call
+
+    @pytest.mark.asyncio
+    async def test_upserts_even_when_registration_left_no_token(self) -> None:
         tracker = _UpsertTracker(register_error=_sdk_error(404, "Not Found"))
 
         await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-no-token")
 
-        assert tracker.upsert_calls == []
+        assert len(tracker.upsert_calls) == 1
+        assert tracker.upsert_calls[0]["temporal_run_id"]
 
     @pytest.mark.asyncio
     async def test_upsert_timeout_does_not_fail_workflow(self) -> None:
@@ -316,10 +320,10 @@ class TestDispatch:
         # the other transient paths raise.
         tracker = _UpsertTracker(hang_on_upsert=True)
 
-        with patch(f"{_INGEST_MODULE}._UPSERT_TIMEOUT_SECONDS", 0.2):
+        with patch(f"{_INGEST_MODULE}._REQUEST_TIMEOUT_SECONDS", 0.2):
             await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-timeout")
 
-        assert len(tracker.upsert_calls) == _MAX_UPSERT_ATTEMPTS
+        assert len(tracker.upsert_calls) == _MAX_REQUEST_ATTEMPTS
 
     @pytest.mark.asyncio
     async def test_partial_response_does_not_fail_workflow(self) -> None:
@@ -330,6 +334,23 @@ class TestDispatch:
         await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-partial")
 
         assert len(tracker.upsert_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_partial_response_logs_warning_with_dropped_and_truncated_keys(self) -> None:
+        tracker = _UpsertTracker(
+            upsert_response=UpsertExecutionMetadataResponse(
+                metadata_status="partial", dropped_keys=["over.cap"], truncated_keys=["over.long"]
+            )
+        )
+
+        with capture_logs() as logs:
+            await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-partial-warn")
+
+        warnings = [entry for entry in logs if entry["event"] == "Search keys only partially persisted"]
+        assert len(warnings) == 1
+        assert warnings[0]["log_level"] == "warning"
+        assert warnings[0]["dropped_keys"] == ["over.cap"]
+        assert warnings[0]["truncated_keys"] == ["over.long"]
 
     @pytest.mark.asyncio
     async def test_invalid_key_from_workflow_fails_execution(self) -> None:

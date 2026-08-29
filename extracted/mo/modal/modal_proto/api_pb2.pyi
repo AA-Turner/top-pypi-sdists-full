@@ -5393,12 +5393,15 @@ class EnvironmentCreateRequest(google.protobuf.message.Message):
     SETTINGS_FIELD_NUMBER: builtins.int
     ENVIRONMENT_TYPE_FIELD_NUMBER: builtins.int
     DEFAULT_MEMBER_ROLE_FIELD_NUMBER: builtins.int
+    DEFAULT_MEMBER_ROLE_STR_FIELD_NUMBER: builtins.int
     name: builtins.str
     is_managed: builtins.bool
     @property
     def settings(self) -> global___EnvironmentSettings: ...
     environment_type: global___EnvironmentType.ValueType
     default_member_role: global___EnvironmentRole.ValueType
+    default_member_role_str: builtins.str
+    """String representation; parsed when the enum is unspecified."""
     def __init__(
         self,
         *,
@@ -5407,9 +5410,10 @@ class EnvironmentCreateRequest(google.protobuf.message.Message):
         settings: global___EnvironmentSettings | None = ...,
         environment_type: global___EnvironmentType.ValueType = ...,
         default_member_role: global___EnvironmentRole.ValueType | None = ...,
+        default_member_role_str: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_default_member_role", b"_default_member_role", "default_member_role", b"default_member_role", "settings", b"settings"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_default_member_role", b"_default_member_role", "default_member_role", b"default_member_role", "environment_type", b"environment_type", "is_managed", b"is_managed", "name", b"name", "settings", b"settings"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_default_member_role", b"_default_member_role", "default_member_role", b"default_member_role", "default_member_role_str", b"default_member_role_str", "environment_type", b"environment_type", "is_managed", b"is_managed", "name", b"name", "settings", b"settings"]) -> None: ...
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_default_member_role", b"_default_member_role"]) -> typing_extensions.Literal["default_member_role"] | None: ...
 
 global___EnvironmentCreateRequest = EnvironmentCreateRequest
@@ -5609,6 +5613,7 @@ class EnvironmentGetRolesResponse(google.protobuf.message.Message):
         CHOOSABLE_ROLES_FIELD_NUMBER: builtins.int
         MEMBER_ROLE_FIELD_NUMBER: builtins.int
         INHERITS_DEFAULT_MEMBER_ROLE_FIELD_NUMBER: builtins.int
+        HAS_ROLE_ASSIGNMENT_FIELD_NUMBER: builtins.int
         user_id: builtins.str
         service_user_id: builtins.str
         email: builtins.str
@@ -5622,6 +5627,7 @@ class EnvironmentGetRolesResponse(google.protobuf.message.Message):
         def choosable_roles(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[global___EnvironmentRole.ValueType]: ...
         member_role: global___MemberRole.ValueType
         inherits_default_member_role: builtins.bool
+        has_role_assignment: builtins.bool
         def __init__(
             self,
             *,
@@ -5636,9 +5642,13 @@ class EnvironmentGetRolesResponse(google.protobuf.message.Message):
             choosable_roles: collections.abc.Iterable[global___EnvironmentRole.ValueType] | None = ...,
             member_role: global___MemberRole.ValueType = ...,
             inherits_default_member_role: builtins.bool | None = ...,
+            has_role_assignment: builtins.bool | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing_extensions.Literal["_inherits_default_member_role", b"_inherits_default_member_role", "inherits_default_member_role", b"inherits_default_member_role"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing_extensions.Literal["_inherits_default_member_role", b"_inherits_default_member_role", "avatar_url", b"avatar_url", "choosable_roles", b"choosable_roles", "email", b"email", "inherits_default_member_role", b"inherits_default_member_role", "member_role", b"member_role", "role", b"role", "role_str", b"role_str", "service_user_id", b"service_user_id", "service_user_name", b"service_user_name", "user_id", b"user_id", "user_name", b"user_name"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["_has_role_assignment", b"_has_role_assignment", "_inherits_default_member_role", b"_inherits_default_member_role", "has_role_assignment", b"has_role_assignment", "inherits_default_member_role", b"inherits_default_member_role"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["_has_role_assignment", b"_has_role_assignment", "_inherits_default_member_role", b"_inherits_default_member_role", "avatar_url", b"avatar_url", "choosable_roles", b"choosable_roles", "email", b"email", "has_role_assignment", b"has_role_assignment", "inherits_default_member_role", b"inherits_default_member_role", "member_role", b"member_role", "role", b"role", "role_str", b"role_str", "service_user_id", b"service_user_id", "service_user_name", b"service_user_name", "user_id", b"user_id", "user_name", b"user_name"]) -> None: ...
+        @typing.overload
+        def WhichOneof(self, oneof_group: typing_extensions.Literal["_has_role_assignment", b"_has_role_assignment"]) -> typing_extensions.Literal["has_role_assignment"] | None: ...
+        @typing.overload
         def WhichOneof(self, oneof_group: typing_extensions.Literal["_inherits_default_member_role", b"_inherits_default_member_role"]) -> typing_extensions.Literal["inherits_default_member_role"] | None: ...
 
     NAME_FIELD_NUMBER: builtins.int
@@ -6289,6 +6299,7 @@ class Function(google.protobuf.message.Message):
     SINGLE_USE_CONTAINERS_FIELD_NUMBER: builtins.int
     IS_SERVER_FIELD_NUMBER: builtins.int
     ROUTING_REGION_FIELD_NUMBER: builtins.int
+    IS_SESSIONED_FIELD_NUMBER: builtins.int
     module_name: builtins.str
     function_name: builtins.str
     @property
@@ -6452,6 +6463,8 @@ class Function(google.protobuf.message.Message):
     """When True, the function is a server function"""
     routing_region: builtins.str
     """Where inputs to a function should be routed through."""
+    is_sessioned: builtins.bool
+    """True when the function is a Sessioned Server. Only valid together with is_server."""
     def __init__(
         self,
         *,
@@ -6536,9 +6549,10 @@ class Function(google.protobuf.message.Message):
         single_use_containers: builtins.bool = ...,
         is_server: builtins.bool = ...,
         routing_region: builtins.str = ...,
+        is_sessioned: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["X_experimental_proxy_ip", b"X_experimental_proxy_ip", "_cloud_provider", b"_cloud_provider", "_experimental_proxy_ip", b"_experimental_proxy_ip", "_http_config", b"_http_config", "_proxy_id", b"_proxy_id", "_scheduler_placement", b"_scheduler_placement", "autoscaler_settings", b"autoscaler_settings", "checkpoint", b"checkpoint", "class_parameter_info", b"class_parameter_info", "cloud_provider", b"cloud_provider", "function_schema", b"function_schema", "http_config", b"http_config", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "rate_limit", b"rate_limit", "resources", b"resources", "retry_policy", b"retry_policy", "schedule", b"schedule", "scheduler_placement", b"scheduler_placement", "web_url_info", b"web_url_info", "webhook_config", b"webhook_config"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["X_experimental_proxy_ip", b"X_experimental_proxy_ip", "_cloud_provider", b"_cloud_provider", "_experimental_buffer_containers", b"_experimental_buffer_containers", "_experimental_concurrent_cancellations", b"_experimental_concurrent_cancellations", "_experimental_custom_scaling", b"_experimental_custom_scaling", "_experimental_enable_gpu_snapshot", b"_experimental_enable_gpu_snapshot", "_experimental_fabric_size", b"_experimental_fabric_size", "_experimental_group_size", b"_experimental_group_size", "_experimental_proxy_ip", b"_experimental_proxy_ip", "_experimental_task_templates", b"_experimental_task_templates", "_experimental_task_templates_enabled", b"_experimental_task_templates_enabled", "_http_config", b"_http_config", "_proxy_id", b"_proxy_id", "_scheduler_placement", b"_scheduler_placement", "app_name", b"app_name", "autoscaler_settings", b"autoscaler_settings", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "block_network", b"block_network", "checkpoint", b"checkpoint", "checkpointing_enabled", b"checkpointing_enabled", "class_parameter_info", b"class_parameter_info", "class_serialized", b"class_serialized", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "concurrency_limit", b"concurrency_limit", "custom_domain_info", b"custom_domain_info", "definition_type", b"definition_type", "enable_gpu_snapshot", b"enable_gpu_snapshot", "experimental_options", b"experimental_options", "flash_service_label", b"flash_service_label", "flash_service_urls", b"flash_service_urls", "function_name", b"function_name", "function_schema", b"function_schema", "function_serialized", b"function_serialized", "function_type", b"function_type", "http_config", b"http_config", "i6pn_enabled", b"i6pn_enabled", "image_id", b"image_id", "implementation_name", b"implementation_name", "is_auto_snapshot", b"is_auto_snapshot", "is_builder_function", b"is_builder_function", "is_checkpointing_function", b"is_checkpointing_function", "is_class", b"is_class", "is_method", b"is_method", "is_server", b"is_server", "max_concurrent_inputs", b"max_concurrent_inputs", "max_inputs", b"max_inputs", "method_definitions", b"method_definitions", "method_definitions_set", b"method_definitions_set", "module_name", b"module_name", "mount_client_dependencies", b"mount_client_dependencies", "mount_ids", b"mount_ids", "object_dependencies", b"object_dependencies", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "rate_limit", b"rate_limit", "resources", b"resources", "retry_policy", b"retry_policy", "routing_region", b"routing_region", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "runtime_perf_record", b"runtime_perf_record", "s3_mounts", b"s3_mounts", "schedule", b"schedule", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "shared_volume_mounts", b"shared_volume_mounts", "single_use_containers", b"single_use_containers", "snapshot_debug", b"snapshot_debug", "startup_timeout_secs", b"startup_timeout_secs", "supported_input_formats", b"supported_input_formats", "supported_output_formats", b"supported_output_formats", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "untrusted", b"untrusted", "use_function_id", b"use_function_id", "use_method_name", b"use_method_name", "volume_mounts", b"volume_mounts", "warm_pool_size", b"warm_pool_size", "web_url", b"web_url", "web_url_info", b"web_url_info", "webhook_config", b"webhook_config", "worker_id", b"worker_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["X_experimental_proxy_ip", b"X_experimental_proxy_ip", "_cloud_provider", b"_cloud_provider", "_experimental_buffer_containers", b"_experimental_buffer_containers", "_experimental_concurrent_cancellations", b"_experimental_concurrent_cancellations", "_experimental_custom_scaling", b"_experimental_custom_scaling", "_experimental_enable_gpu_snapshot", b"_experimental_enable_gpu_snapshot", "_experimental_fabric_size", b"_experimental_fabric_size", "_experimental_group_size", b"_experimental_group_size", "_experimental_proxy_ip", b"_experimental_proxy_ip", "_experimental_task_templates", b"_experimental_task_templates", "_experimental_task_templates_enabled", b"_experimental_task_templates_enabled", "_http_config", b"_http_config", "_proxy_id", b"_proxy_id", "_scheduler_placement", b"_scheduler_placement", "app_name", b"app_name", "autoscaler_settings", b"autoscaler_settings", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "block_network", b"block_network", "checkpoint", b"checkpoint", "checkpointing_enabled", b"checkpointing_enabled", "class_parameter_info", b"class_parameter_info", "class_serialized", b"class_serialized", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "concurrency_limit", b"concurrency_limit", "custom_domain_info", b"custom_domain_info", "definition_type", b"definition_type", "enable_gpu_snapshot", b"enable_gpu_snapshot", "experimental_options", b"experimental_options", "flash_service_label", b"flash_service_label", "flash_service_urls", b"flash_service_urls", "function_name", b"function_name", "function_schema", b"function_schema", "function_serialized", b"function_serialized", "function_type", b"function_type", "http_config", b"http_config", "i6pn_enabled", b"i6pn_enabled", "image_id", b"image_id", "implementation_name", b"implementation_name", "is_auto_snapshot", b"is_auto_snapshot", "is_builder_function", b"is_builder_function", "is_checkpointing_function", b"is_checkpointing_function", "is_class", b"is_class", "is_method", b"is_method", "is_server", b"is_server", "is_sessioned", b"is_sessioned", "max_concurrent_inputs", b"max_concurrent_inputs", "max_inputs", b"max_inputs", "method_definitions", b"method_definitions", "method_definitions_set", b"method_definitions_set", "module_name", b"module_name", "mount_client_dependencies", b"mount_client_dependencies", "mount_ids", b"mount_ids", "object_dependencies", b"object_dependencies", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "rate_limit", b"rate_limit", "resources", b"resources", "retry_policy", b"retry_policy", "routing_region", b"routing_region", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "runtime_perf_record", b"runtime_perf_record", "s3_mounts", b"s3_mounts", "schedule", b"schedule", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "shared_volume_mounts", b"shared_volume_mounts", "single_use_containers", b"single_use_containers", "snapshot_debug", b"snapshot_debug", "startup_timeout_secs", b"startup_timeout_secs", "supported_input_formats", b"supported_input_formats", "supported_output_formats", b"supported_output_formats", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "untrusted", b"untrusted", "use_function_id", b"use_function_id", "use_method_name", b"use_method_name", "volume_mounts", b"volume_mounts", "warm_pool_size", b"warm_pool_size", "web_url", b"web_url", "web_url_info", b"web_url_info", "webhook_config", b"webhook_config", "worker_id", b"worker_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["X_experimental_proxy_ip", b"X_experimental_proxy_ip"]) -> typing_extensions.Literal["_experimental_proxy_ip"] | None: ...
     @typing.overload
@@ -6936,15 +6950,19 @@ class FunctionCreateResponse(google.protobuf.message.Message):
     FUNCTION_FIELD_NUMBER: builtins.int
     HANDLE_METADATA_FIELD_NUMBER: builtins.int
     SERVER_WARNINGS_FIELD_NUMBER: builtins.int
+    FUNCTION_DATA_FIELD_NUMBER: builtins.int
     function_id: builtins.str
     __deprecated_web_url: builtins.str
     """Used up until 0.62.212"""
     @property
-    def function(self) -> global___Function: ...
+    def function(self) -> global___Function:
+        """deprecated soon"""
     @property
     def handle_metadata(self) -> global___FunctionHandleMetadata: ...
     @property
     def server_warnings(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Warning]: ...
+    @property
+    def function_data(self) -> global___FunctionData: ...
     def __init__(
         self,
         *,
@@ -6953,9 +6971,10 @@ class FunctionCreateResponse(google.protobuf.message.Message):
         function: global___Function | None = ...,
         handle_metadata: global___FunctionHandleMetadata | None = ...,
         server_warnings: collections.abc.Iterable[global___Warning] | None = ...,
+        function_data: global___FunctionData | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["function", b"function", "handle_metadata", b"handle_metadata"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["__deprecated_web_url", b"__deprecated_web_url", "function", b"function", "function_id", b"function_id", "handle_metadata", b"handle_metadata", "server_warnings", b"server_warnings"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["function", b"function", "function_data", b"function_data", "handle_metadata", b"handle_metadata"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["__deprecated_web_url", b"__deprecated_web_url", "function", b"function", "function_data", b"function_data", "function_id", b"function_id", "handle_metadata", b"handle_metadata", "server_warnings", b"server_warnings"]) -> None: ...
 
 global___FunctionCreateResponse = FunctionCreateResponse
 
@@ -7063,6 +7082,7 @@ class FunctionData(google.protobuf.message.Message):
     IMPLEMENTATION_NAME_FIELD_NUMBER: builtins.int
     IS_SERVER_FIELD_NUMBER: builtins.int
     ROUTING_REGION_FIELD_NUMBER: builtins.int
+    IS_SESSIONED_FIELD_NUMBER: builtins.int
     module_name: builtins.str
     function_name: builtins.str
     function_type: global___Function.FunctionType.ValueType
@@ -7140,6 +7160,8 @@ class FunctionData(google.protobuf.message.Message):
     """When True, the function is a server function"""
     routing_region: builtins.str
     """Where inputs to a function should be routed through."""
+    is_sessioned: builtins.bool
+    """True when the function is a Sessioned Server. Only valid together with is_server."""
     def __init__(
         self,
         *,
@@ -7185,9 +7207,10 @@ class FunctionData(google.protobuf.message.Message):
         implementation_name: builtins.str = ...,
         is_server: builtins.bool = ...,
         routing_region: builtins.str = ...,
+        is_sessioned: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["X_experimental_proxy_ip", b"X_experimental_proxy_ip", "_experimental_proxy_ip", b"_experimental_proxy_ip", "_http_config", b"_http_config", "autoscaler_settings", b"autoscaler_settings", "class_parameter_info", b"class_parameter_info", "function_schema", b"function_schema", "http_config", b"http_config", "schedule", b"schedule", "web_url_info", b"web_url_info", "webhook_config", b"webhook_config"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["X_experimental_proxy_ip", b"X_experimental_proxy_ip", "_experimental_buffer_containers", b"_experimental_buffer_containers", "_experimental_custom_scaling", b"_experimental_custom_scaling", "_experimental_enable_gpu_snapshot", b"_experimental_enable_gpu_snapshot", "_experimental_fabric_size", b"_experimental_fabric_size", "_experimental_group_size", b"_experimental_group_size", "_experimental_proxy_ip", b"_experimental_proxy_ip", "_http_config", b"_http_config", "autoscaler_settings", b"autoscaler_settings", "class_parameter_info", b"class_parameter_info", "concurrency_limit", b"concurrency_limit", "custom_domain_info", b"custom_domain_info", "experimental_options", b"experimental_options", "flash_service_label", b"flash_service_label", "flash_service_urls", b"flash_service_urls", "function_name", b"function_name", "function_schema", b"function_schema", "function_type", b"function_type", "http_config", b"http_config", "implementation_name", b"implementation_name", "is_class", b"is_class", "is_method", b"is_method", "is_server", b"is_server", "method_definitions", b"method_definitions", "method_definitions_set", b"method_definitions_set", "module_name", b"module_name", "ranked_functions", b"ranked_functions", "routing_region", b"routing_region", "runtime_perf_record", b"runtime_perf_record", "schedule", b"schedule", "snapshot_debug", b"snapshot_debug", "startup_timeout_secs", b"startup_timeout_secs", "supported_input_formats", b"supported_input_formats", "supported_output_formats", b"supported_output_formats", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "untrusted", b"untrusted", "use_function_id", b"use_function_id", "use_method_name", b"use_method_name", "warm_pool_size", b"warm_pool_size", "web_url", b"web_url", "web_url_info", b"web_url_info", "webhook_config", b"webhook_config", "worker_id", b"worker_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["X_experimental_proxy_ip", b"X_experimental_proxy_ip", "_experimental_buffer_containers", b"_experimental_buffer_containers", "_experimental_custom_scaling", b"_experimental_custom_scaling", "_experimental_enable_gpu_snapshot", b"_experimental_enable_gpu_snapshot", "_experimental_fabric_size", b"_experimental_fabric_size", "_experimental_group_size", b"_experimental_group_size", "_experimental_proxy_ip", b"_experimental_proxy_ip", "_http_config", b"_http_config", "autoscaler_settings", b"autoscaler_settings", "class_parameter_info", b"class_parameter_info", "concurrency_limit", b"concurrency_limit", "custom_domain_info", b"custom_domain_info", "experimental_options", b"experimental_options", "flash_service_label", b"flash_service_label", "flash_service_urls", b"flash_service_urls", "function_name", b"function_name", "function_schema", b"function_schema", "function_type", b"function_type", "http_config", b"http_config", "implementation_name", b"implementation_name", "is_class", b"is_class", "is_method", b"is_method", "is_server", b"is_server", "is_sessioned", b"is_sessioned", "method_definitions", b"method_definitions", "method_definitions_set", b"method_definitions_set", "module_name", b"module_name", "ranked_functions", b"ranked_functions", "routing_region", b"routing_region", "runtime_perf_record", b"runtime_perf_record", "schedule", b"schedule", "snapshot_debug", b"snapshot_debug", "startup_timeout_secs", b"startup_timeout_secs", "supported_input_formats", b"supported_input_formats", "supported_output_formats", b"supported_output_formats", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "untrusted", b"untrusted", "use_function_id", b"use_function_id", "use_method_name", b"use_method_name", "warm_pool_size", b"warm_pool_size", "web_url", b"web_url", "web_url_info", b"web_url_info", "webhook_config", b"webhook_config", "worker_id", b"worker_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["X_experimental_proxy_ip", b"X_experimental_proxy_ip"]) -> typing_extensions.Literal["_experimental_proxy_ip"] | None: ...
     @typing.overload
@@ -7552,20 +7575,24 @@ class FunctionGetResponse(google.protobuf.message.Message):
     FUNCTION_ID_FIELD_NUMBER: builtins.int
     HANDLE_METADATA_FIELD_NUMBER: builtins.int
     SERVER_WARNINGS_FIELD_NUMBER: builtins.int
+    FUNCTION_FIELD_NUMBER: builtins.int
     function_id: builtins.str
     @property
     def handle_metadata(self) -> global___FunctionHandleMetadata: ...
     @property
     def server_warnings(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___Warning]: ...
+    @property
+    def function(self) -> global___FunctionData: ...
     def __init__(
         self,
         *,
         function_id: builtins.str = ...,
         handle_metadata: global___FunctionHandleMetadata | None = ...,
         server_warnings: collections.abc.Iterable[global___Warning] | None = ...,
+        function: global___FunctionData | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["handle_metadata", b"handle_metadata"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["function_id", b"function_id", "handle_metadata", b"handle_metadata", "server_warnings", b"server_warnings"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["function", b"function", "handle_metadata", b"handle_metadata"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["function", b"function", "function_id", b"function_id", "handle_metadata", b"handle_metadata", "server_warnings", b"server_warnings"]) -> None: ...
 
 global___FunctionGetResponse = FunctionGetResponse
 
@@ -7599,6 +7626,113 @@ class FunctionGetSerializedResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["class_serialized", b"class_serialized", "function_serialized", b"function_serialized"]) -> None: ...
 
 global___FunctionGetSerializedResponse = FunctionGetSerializedResponse
+
+class FunctionGetTimeRangeStatsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    FUNCTION_ID_FIELD_NUMBER: builtins.int
+    SINCE_FIELD_NUMBER: builtins.int
+    UNTIL_FIELD_NUMBER: builtins.int
+    ROLLUP_FIELD_NUMBER: builtins.int
+    function_id: builtins.str
+    @property
+    def since(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """Inclusive."""
+    @property
+    def until(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """Exclusive."""
+    rollup: builtins.bool
+    """Aggregate the root Function pool and its non-version-pinned variant pools."""
+    def __init__(
+        self,
+        *,
+        function_id: builtins.str = ...,
+        since: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        until: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        rollup: builtins.bool = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["since", b"since", "until", b"until"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["function_id", b"function_id", "rollup", b"rollup", "since", b"since", "until", b"until"]) -> None: ...
+
+global___FunctionGetTimeRangeStatsRequest = FunctionGetTimeRangeStatsRequest
+
+class FunctionGetTimeRangeStatsResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SINCE_FIELD_NUMBER: builtins.int
+    UNTIL_FIELD_NUMBER: builtins.int
+    EXECUTION_TIME_SECONDS_FIELD_NUMBER: builtins.int
+    QUEUE_TIME_SECONDS_FIELD_NUMBER: builtins.int
+    END_TO_END_LATENCY_SECONDS_FIELD_NUMBER: builtins.int
+    CONTAINER_STARTUP_TIME_SECONDS_FIELD_NUMBER: builtins.int
+    INPUT_SUCCESS_COUNT_FIELD_NUMBER: builtins.int
+    INPUT_FAILURE_COUNT_FIELD_NUMBER: builtins.int
+    INPUT_TIMEOUT_COUNT_FIELD_NUMBER: builtins.int
+    CPU_UTILIZATION_FIELD_NUMBER: builtins.int
+    MEMORY_UTILIZATION_FIELD_NUMBER: builtins.int
+    GPU_UTILIZATION_FIELD_NUMBER: builtins.int
+    VARIANT_COUNT_FIELD_NUMBER: builtins.int
+    @property
+    def since(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """Inclusive."""
+    @property
+    def until(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """Exclusive."""
+    @property
+    def execution_time_seconds(self) -> global___FunctionStatsPercentiles:
+        """Per-input latency distributions.
+        Execution time derived from inputs that finish in the window
+        """
+    @property
+    def queue_time_seconds(self) -> global___FunctionStatsPercentiles:
+        """Purposely omitted for now since it can't be computed
+        from the desired tables without caveats that are confusing
+        to explain to users
+        """
+    @property
+    def end_to_end_latency_seconds(self) -> global___FunctionStatsPercentiles: ...
+    @property
+    def container_startup_time_seconds(self) -> global___FunctionStatsPercentiles:
+        """Container startup is measured from enqueue to start."""
+    input_success_count: builtins.int
+    """Counts of inputs that finish in the requested time range."""
+    input_failure_count: builtins.int
+    input_timeout_count: builtins.int
+    @property
+    def cpu_utilization(self) -> global___FunctionStatsPercentiles:
+        """Resource distributions are computed from normalized container heartbeat
+        observations and expressed as fractions, where 1.0 represents 100% utilization.
+        A missing message indicates that no observations were available.
+        """
+    @property
+    def memory_utilization(self) -> global___FunctionStatsPercentiles: ...
+    @property
+    def gpu_utilization(self) -> global___FunctionStatsPercentiles: ...
+    variant_count: builtins.int
+    """Number of direct non-version-pinned variants included in the roll-up.
+    Zero when roll-up is disabled or the base Function has no variants.
+    """
+    def __init__(
+        self,
+        *,
+        since: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        until: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        execution_time_seconds: global___FunctionStatsPercentiles | None = ...,
+        queue_time_seconds: global___FunctionStatsPercentiles | None = ...,
+        end_to_end_latency_seconds: global___FunctionStatsPercentiles | None = ...,
+        container_startup_time_seconds: global___FunctionStatsPercentiles | None = ...,
+        input_success_count: builtins.int = ...,
+        input_failure_count: builtins.int = ...,
+        input_timeout_count: builtins.int = ...,
+        cpu_utilization: global___FunctionStatsPercentiles | None = ...,
+        memory_utilization: global___FunctionStatsPercentiles | None = ...,
+        gpu_utilization: global___FunctionStatsPercentiles | None = ...,
+        variant_count: builtins.int = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["container_startup_time_seconds", b"container_startup_time_seconds", "cpu_utilization", b"cpu_utilization", "end_to_end_latency_seconds", b"end_to_end_latency_seconds", "execution_time_seconds", b"execution_time_seconds", "gpu_utilization", b"gpu_utilization", "memory_utilization", b"memory_utilization", "queue_time_seconds", b"queue_time_seconds", "since", b"since", "until", b"until"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_startup_time_seconds", b"container_startup_time_seconds", "cpu_utilization", b"cpu_utilization", "end_to_end_latency_seconds", b"end_to_end_latency_seconds", "execution_time_seconds", b"execution_time_seconds", "gpu_utilization", b"gpu_utilization", "input_failure_count", b"input_failure_count", "input_success_count", b"input_success_count", "input_timeout_count", b"input_timeout_count", "memory_utilization", b"memory_utilization", "queue_time_seconds", b"queue_time_seconds", "since", b"since", "until", b"until", "variant_count", b"variant_count"]) -> None: ...
+
+global___FunctionGetTimeRangeStatsResponse = FunctionGetTimeRangeStatsResponse
 
 class FunctionHandleMetadata(google.protobuf.message.Message):
     """contains all the info about a function that is needed to trigger the right
@@ -8296,6 +8430,23 @@ class FunctionStats(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["backlog", b"backlog", "input_headroom", b"input_headroom", "num_running_inputs", b"num_running_inputs", "num_total_tasks", b"num_total_tasks"]) -> None: ...
 
 global___FunctionStats = FunctionStats
+
+class FunctionStatsPercentiles(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    P50_FIELD_NUMBER: builtins.int
+    P90_FIELD_NUMBER: builtins.int
+    p50: builtins.float
+    p90: builtins.float
+    def __init__(
+        self,
+        *,
+        p50: builtins.float = ...,
+        p90: builtins.float = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["p50", b"p50", "p90", b"p90"]) -> None: ...
+
+global___FunctionStatsPercentiles = FunctionStatsPercentiles
 
 class FunctionUpdateSchedulingParamsRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

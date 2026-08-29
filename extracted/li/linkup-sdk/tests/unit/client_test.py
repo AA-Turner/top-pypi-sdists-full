@@ -385,18 +385,6 @@ def test_search_structured_output_model_dump_preserves_data(
     }
 
 
-def test_search_structured_output_requires_schema(client: linkup.Client) -> None:
-    with pytest.raises(
-        TypeError,
-        match="structured_output_schema must be provided",
-    ):
-        client.search(
-            query="query",
-            depth="standard",
-            output_type="structured",
-        )
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     (
@@ -432,19 +420,6 @@ async def test_async_search(
         timeout=expected_timeout,
     )
     assert search_response == expected_search_response
-
-
-@pytest.mark.asyncio
-async def test_async_search_structured_output_requires_schema(client: linkup.Client) -> None:
-    with pytest.raises(
-        TypeError,
-        match="structured_output_schema must be provided",
-    ):
-        await client.async_search(
-            query="query",
-            depth="standard",
-            output_type="structured",
-        )
 
 
 test_search_error_parameters = [
@@ -742,17 +717,6 @@ def test_research(mocker: MockerFixture, client: linkup.Client) -> None:
     )
 
 
-def test_research_structured_output_requires_schema(client: linkup.Client) -> None:
-    with pytest.raises(
-        TypeError,
-        match="structured_output_schema must be provided",
-    ):
-        client.research(
-            query="query",
-            output_type="structured",
-        )
-
-
 def test_get_research_structured_output_keeps_sourced_answer_shape_raw(
     mocker: MockerFixture, client: linkup.Client
 ) -> None:
@@ -841,20 +805,6 @@ async def test_async_research(mocker: MockerFixture, client: linkup.Client) -> N
     assert research_response.output == {"summary": "done"}
     assert research_response.input.query == "query"
     assert research_response.input.structured_output_schema == {"type": "object"}
-
-
-@pytest.mark.asyncio
-async def test_async_research_structured_output_requires_schema(
-    client: linkup.Client,
-) -> None:
-    with pytest.raises(
-        TypeError,
-        match="structured_output_schema must be provided",
-    ):
-        await client.async_research(
-            query="query",
-            output_type="structured",
-        )
 
 
 def test_research_with_iso_datetime_string_dates(
@@ -1001,6 +951,30 @@ test_fetch_parameters = [
             markdown="Some web page content",
         ),
     ),
+    (
+        {
+            "url": "https://example.com",
+            "schema": {"type": "object", "properties": {"name": {"type": "string"}}},
+            "instructions": "Extract the product name.",
+        },
+        {
+            "url": "https://example.com",
+            "schema": json.dumps({"type": "object", "properties": {"name": {"type": "string"}}}),
+            "instructions": "Extract the product name.",
+        },
+        b"""
+        {
+            "data": {"name": "Example product"},
+            "favicon": "https://favicons.linkup.so?domain=example.com",
+            "markdown": "Example product"
+        }
+        """,
+        linkup.FetchResponse(
+            data={"name": "Example product"},
+            favicon="https://favicons.linkup.so?domain=example.com",
+            markdown="Example product",
+        ),
+    ),
 ]
 
 
@@ -1121,6 +1095,19 @@ test_fetch_error_parameters = [
         }
         """,
         linkup.FetchResponseTooLargeError,
+    ),
+    (
+        400,
+        b"""
+        {
+            "error": {
+                "code": "FETCH_TARGET_NOT_FOUND",
+                "message": "The target URL was not found",
+                "details": []
+            }
+        }
+        """,
+        linkup.FetchTargetNotFoundError,
     ),
     (
         400,
@@ -1263,6 +1250,9 @@ def test_create_tasks(mocker: MockerFixture, client: linkup.Client) -> None:
                     },
                     "output": {
                         "contentType": "html",
+                        "data": {
+                            "name": "Example product"
+                        },
                         "favicon": "https://favicons.linkup.so?domain=example.com",
                         "images": [
                             {
@@ -1294,6 +1284,8 @@ def test_create_tasks(mocker: MockerFixture, client: linkup.Client) -> None:
                 url="https://example.com",
                 extract_images=True,
                 include_raw_content=True,
+                schema_={"type": "object", "properties": {"name": {"type": "string"}}},
+                instructions="Extract the product name.",
                 mode="pro",
             ),
         ]
@@ -1318,6 +1310,10 @@ def test_create_tasks(mocker: MockerFixture, client: linkup.Client) -> None:
                     "url": "https://example.com",
                     "extractImages": True,
                     "includeRawContent": True,
+                    "schema": json.dumps(
+                        {"type": "object", "properties": {"name": {"type": "string"}}}
+                    ),
+                    "instructions": "Extract the product name.",
                     "mode": "pro",
                 },
             },
@@ -1335,6 +1331,7 @@ def test_create_tasks(mocker: MockerFixture, client: linkup.Client) -> None:
     assert tasks_response[1].output.images[0].url == "https://example.com/image.png"
     assert tasks_response[1].output.raw_content == "<html>Fetched content</html>"
     assert tasks_response[1].output.content_type == "html"
+    assert tasks_response[1].output.data == {"name": "Example product"}
 
 
 def test_create_tasks_research_model(mocker: MockerFixture, client: linkup.Client) -> None:

@@ -15,6 +15,7 @@ from .shared import ScheduleParser, ScheduleTicker, backoff_delay, safe_call
 from ._base_scheduler import (
     _BaseAgentScheduler,
     _compute_run_cost,
+    build_from_blueprint,
     build_from_recipe,
     build_from_yaml,
 )
@@ -42,6 +43,25 @@ class AsyncRecipeExecutorAgent:
         from praisonai.recipe.bridge import execute_resolved_recipe
         # Fallback sync method
         return execute_resolved_recipe(self.resolved)
+
+
+class AsyncBlueprintAgent:
+    """Async twin of ``BlueprintAgent`` — dispatches without blocking the loop."""
+
+    def __init__(self, prompt_text: str, blueprint_name: str):
+        self.prompt_text = prompt_text
+        self.name = f"Blueprint:{blueprint_name}"
+
+    async def astart(self, task: str) -> Any:
+        from praisonaiagents import Agent
+        agent = Agent(instructions=self.prompt_text)
+        return await adispatch_agent(agent, self.prompt_text)
+
+    def start(self, task: str) -> Any:
+        from praisonaiagents import Agent
+        from praisonai._async_bridge import run_sync
+        agent = Agent(instructions=self.prompt_text)
+        return run_sync(adispatch_agent(agent, self.prompt_text))
 
 
 class AsyncAgentExecutorInterface(ABC):
@@ -154,6 +174,8 @@ class AsyncAgentScheduler(_BaseAgentScheduler):
         self._execution_count = 0
         self._success_count = 0
         self._failure_count = 0
+        self._undelivered_count = 0
+        self._delivered_count = 0
         self._start_time: Optional[datetime] = None
         
         # Sync lock for async primitives creation and bound loop tracking
@@ -377,6 +399,11 @@ class AsyncAgentScheduler(_BaseAgentScheduler):
             "success_rate": (self._success_count / self._execution_count * 100) if self._execution_count > 0 else 0,
             "total_cost_usd": round(self._total_cost, 4),
             "remaining_budget": round(self.max_cost - self._total_cost, 4) if self.max_cost is not None else None,
+            # Explicit delivery-outcome counters (Issue #4454): never inferred
+            # from success minus undelivered, so NOT_CONFIGURED / SUPPRESSED
+            # runs never over-report a delivery.
+            "delivered_deliveries": getattr(self, "_delivered_count", 0),
+            "undelivered_deliveries": getattr(self, "_undelivered_count", 0),
         }
     
     async def _run_schedule(self, ticker: "ScheduleTicker", max_retries: int):
@@ -477,11 +504,27 @@ class AsyncAgentScheduler(_BaseAgentScheduler):
                 )
                 
                 # Deliver to the configured chat target (if any) off the event
-                # loop, since the shared delivery helper uses the sync bridge.
+                # loop, since the shared delivery helper uses the sync bridge,
+                # and fold the outcome into truthful accounting (Issue #4454):
+                # a run whose delivery fails is recorded ``undelivered`` and
+                # fires ``on_failure`` instead of a silent ``on_success``.
+                delivered_ok = True
                 if self.deliver:
-                    await asyncio.to_thread(self._deliver_result, result)
+                    delivered_ok = await asyncio.to_thread(
+                        self._finalize_delivery, result
+                    )
 
-                safe_call(self.on_success, result)
+                if delivered_ok:
+                    safe_call(self.on_success, result)
+                else:
+                    logger.error(
+                        "Scheduled run executed but its result could not be "
+                        "delivered to the configured target"
+                    )
+                    safe_call(
+                        self.on_failure,
+                        "scheduled result could not be delivered",
+                    )
                 await asyncio.to_thread(self._update_state_if_daemon)
                 return
                 
@@ -491,7 +534,8 @@ class AsyncAgentScheduler(_BaseAgentScheduler):
                 if attempt < max_retries - 1:
                     wait_time = backoff_delay(attempt)
                     logger.info(f"Waiting {wait_time}s before async retry after timeout...")
-                    await asyncio.sleep(wait_time)
+                    if await self._sleep_or_stop(wait_time):
+                        return
             except Exception as e:
                 last_exc = e
                 logger.error(f"Async agent execution failed on attempt {attempt + 1}: {e}")
@@ -499,7 +543,8 @@ class AsyncAgentScheduler(_BaseAgentScheduler):
                 if attempt < max_retries - 1:
                     wait_time = backoff_delay(attempt)
                     logger.info(f"Waiting {wait_time}s before async retry...")
-                    await asyncio.sleep(wait_time)
+                    if await self._sleep_or_stop(wait_time):
+                        return
         
         async with self._stats_lock:
             self._failure_count += 1
@@ -510,7 +555,26 @@ class AsyncAgentScheduler(_BaseAgentScheduler):
             else RuntimeError(f"Failed after {max_retries} attempts")
         )
         await asyncio.to_thread(self._update_state_if_daemon)
-    
+
+    async def _sleep_or_stop(self, wait_time: float) -> bool:
+        """Interruptible retry backoff.
+
+        Mirrors the sync scheduler's ``self._stop_event.wait(wait_time)`` and
+        the scheduled-run sleep elsewhere in this file: waits ``wait_time``
+        seconds but returns immediately if ``stop()`` is called, so a graceful
+        shutdown is never held hostage for the full backoff ``cap``.
+
+        Returns ``True`` if stop() was requested during the wait.
+        """
+        if self._stop_event is None:
+            await asyncio.sleep(wait_time)
+            return False
+        try:
+            await asyncio.wait_for(self._stop_event.wait(), timeout=wait_time)
+            return True  # event fired → stop requested
+        except asyncio.TimeoutError:
+            return False  # normal backoff completed
+
     async def execute_once(self) -> Any:
         """
         Execute agent immediately (one-time execution).
@@ -647,6 +711,70 @@ class AsyncAgentScheduler(_BaseAgentScheduler):
             timeout_override=timeout_override,
             max_cost_override=max_cost_override,
             deliver=deliver,
+            on_success=on_success,
+            on_failure=on_failure,
+        )
+
+    @classmethod
+    def from_blueprint(
+        cls,
+        blueprint_name: str,
+        *,
+        slots: Optional[Dict[str, Any]] = None,
+        deliver: str = "",
+        agent_id: str = "",
+        interval_override: Optional[str] = None,
+        max_retries_override: Optional[int] = None,
+        timeout_override: Optional[int] = None,
+        max_cost_override: Optional[float] = None,
+        on_success: Optional[Callable] = None,
+        on_failure: Optional[Callable] = None,
+    ) -> 'AsyncAgentScheduler':
+        """
+        Create AsyncAgentScheduler from a blueprint template.
+
+        Async twin of :meth:`AgentScheduler.from_blueprint`, giving the async
+        surface the same blueprint parity. The blueprint prompt is dispatched
+        via ``astart``, so scheduled runs never block the event loop.
+
+        Args:
+            blueprint_name: Name of the blueprint
+                (``"morning-brief"``, ``"important-mail"``, ``"weekly-review"``,
+                or a custom blueprint).
+            slots: Parameter values to fill blueprint slots.
+            deliver: Delivery target token (overrides blueprint default).
+            agent_id: Agent ID to execute the job.
+            interval_override: Override the resolved schedule expression.
+            max_retries_override: Override max retries.
+            timeout_override: Override timeout in seconds.
+            max_cost_override: Override max cost in USD.
+            on_success: Callback for successful execution.
+            on_failure: Callback for failed execution.
+
+        Returns:
+            Configured :class:`AsyncAgentScheduler` instance.
+
+        Raises:
+            ValueError: If the blueprint is not found or required slots
+                        are missing.
+
+        Example:
+            scheduler = AsyncAgentScheduler.from_blueprint(
+                "morning-brief", slots={"topic": "AI"}
+            )
+            await scheduler.start_from_yaml_config()
+        """
+        return build_from_blueprint(
+            cls,
+            AsyncBlueprintAgent,
+            blueprint_name,
+            slots=slots,
+            deliver=deliver,
+            agent_id=agent_id,
+            interval_override=interval_override,
+            max_retries_override=max_retries_override,
+            timeout_override=timeout_override,
+            max_cost_override=max_cost_override,
             on_success=on_success,
             on_failure=on_failure,
         )

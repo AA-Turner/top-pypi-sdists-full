@@ -138,6 +138,7 @@ __all__ = (
     "ConflictExceptionTypeDef",
     "ContentBlockTypeDef",
     "ContentDeltaEventTypeDef",
+    "ContentSourceTypeDef",
     "ContentStopEventTypeDef",
     "ContentTypeDef",
     "ContextTypeDef",
@@ -291,7 +292,11 @@ __all__ = (
     "HarnessToolUseBlockDeltaTypeDef",
     "HarnessToolUseBlockStartTypeDef",
     "HarnessToolUseBlockTypeDef",
+    "IngestDataInputTypeDef",
+    "IngestDataOutputTypeDef",
+    "IngestPayloadTypeTypeDef",
     "InlineGroundTruthTypeDef",
+    "InlineMemoryContentTypeDef",
     "InputContentBlockTypeDef",
     "InsightTypeDef",
     "InsightsFailureSignalTypeDef",
@@ -1733,6 +1738,11 @@ class GetWorkloadAccessTokenResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class IngestDataOutputTypeDef(TypedDict):
+    sessionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class InvokeAgentRuntimeResponseTypeDef(TypedDict):
     runtimeSessionId: str
     mcpSessionId: str
@@ -2589,6 +2599,11 @@ class DescriptorsTypeDef(TypedDict):
     agentSkills: NotRequired[AgentSkillsDescriptorTypeDef]
 
 
+class IngestPayloadTypeTypeDef(TypedDict):
+    conversational: NotRequired[ConversationalTypeDef]
+    json: NotRequired[MemoryJsonDataUnionTypeDef]
+
+
 class PayloadTypeTypeDef(TypedDict):
     conversational: NotRequired[ConversationalTypeDef]
     blob: NotRequired[Mapping[str, Any]]
@@ -2925,6 +2940,10 @@ class RegistryRecordSummaryTypeDef(TypedDict):
     description: NotRequired[str]
 
 
+class InlineMemoryContentTypeDef(TypedDict):
+    payload: Sequence[IngestPayloadTypeTypeDef]
+
+
 PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
 
 
@@ -3144,6 +3163,10 @@ class SearchRegistryRecordsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ContentSourceTypeDef(TypedDict):
+    inline: NotRequired[InlineMemoryContentTypeDef]
+
+
 class CreateEventInputTypeDef(TypedDict):
     memoryId: str
     actorId: str
@@ -3279,6 +3302,17 @@ class PaymentInstrumentTypeDef(TypedDict):
 PaymentInstrumentDetailsUnionTypeDef = Union[
     PaymentInstrumentDetailsTypeDef, PaymentInstrumentDetailsOutputTypeDef
 ]
+
+
+class IngestDataInputTypeDef(TypedDict):
+    memoryId: str
+    source: ContentSourceTypeDef
+    contentTimestamp: TimestampTypeDef
+    actorId: str
+    sessionId: NotRequired[str]
+    extractionConfig: NotRequired[ExtractionConfigTypeDef]
+    metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
+    clientToken: NotRequired[str]
 
 
 class StartBrowserSessionRequestTypeDef(TypedDict):

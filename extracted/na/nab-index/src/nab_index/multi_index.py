@@ -12,11 +12,9 @@ an absent package.
 
 Per-package overrides route a package to a *named* index regardless
 of order; when an override matches, *only* that index is consulted
-(strict pin), matching uv's ``[tool.uv.sources]`` semantics.
-
-Marker evaluation for overrides happens upstream; this layer just sees
-a ``canonical_package_name -> index_name`` mapping that has already
-been resolved against the active environment.
+(strict pin), matching uv's ``[tool.uv.sources]`` semantics.  The
+index is chosen before any version is known, so a route carries no
+version scope and no marker.
 """
 
 from __future__ import annotations
@@ -62,6 +60,14 @@ class IndexClient(Protocol):
 
     def served_unreadable_only(self, package: str) -> bool:
         """Whether a listing for ``package`` held only files nab cannot read."""
+        ...
+
+    def served_all_yanked(self, package: str) -> bool:
+        """Whether a listing for ``package`` held files and yanked every one."""
+        ...
+
+    def served_zip_sdists(self, package: str) -> frozenset[str]:
+        """Versions ``package`` was served as a ``.zip`` sdist."""
         ...
 
     async def get_metadata_text(
@@ -182,7 +188,12 @@ class MultiIndexClient:
         """Close all clients on exit."""
         await self.aclose()
 
-    def _override_index(self, package: str) -> str | None:
+    def pinned_index(self, package: str) -> str | None:
+        """Return the index a routing override pins ``package`` to, or ``None``.
+
+        A pin is a strict route: a pinned package skips the walk over the
+        configured order, so the index named here is the only one asked.
+        """
         return self._override_map.get(_normalise_name(package))
 
     async def get_files(self, package: str) -> list[WheelFile | SdistFile]:
@@ -193,7 +204,7 @@ class MultiIndexClient:
         client.  Raises :class:`~nab_index.cache.OfflineError` when no
         index served a listing and at least one was skipped offline.
         """
-        override = self._override_index(package)
+        override = self.pinned_index(package)
         if override is not None:
             client = self._clients[override]
             files = await client.get_files(package)
@@ -234,6 +245,30 @@ class MultiIndexClient:
         """
         return any(
             client.served_unreadable_only(package) for client in self._clients.values()
+        )
+
+    def served_all_yanked(self, package: str) -> bool:
+        """Whether a walked index listed ``package`` and yanked every file.
+
+        Asked of every client for the same reason
+        :meth:`served_unreadable_only` is: an empty walk routes ``package``
+        to the first index, which need not be the one that served it.
+        """
+        return any(
+            client.served_all_yanked(package) for client in self._clients.values()
+        )
+
+    def served_zip_sdists(self, package: str) -> frozenset[str]:
+        """Versions any walked index served as a ``.zip`` sdist.
+
+        Asked of every client for the same reason
+        :meth:`served_unreadable_only` is: the routed index need not be the
+        one that served the ``.zip``.
+        """
+        return frozenset(
+            version
+            for client in self._clients.values()
+            for version in client.served_zip_sdists(package)
         )
 
     async def get_metadata_text(

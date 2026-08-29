@@ -1,0 +1,48 @@
+name: Python CI
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.9", "3.13"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Lint with ruff
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Type checking with mypy
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          uv run mypy censys
+
+      - name: Test with pytest
+        run: |
+          uv run pytest --cov --cov-fail-under=100

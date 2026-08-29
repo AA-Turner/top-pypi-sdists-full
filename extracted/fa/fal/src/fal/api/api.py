@@ -121,6 +121,10 @@ SERVE_REQUIREMENTS = [
     "structlog",
     "tomli",
     "tomli-w",
+    # toolkit's upload-policy path POSTs outputs to a caller's bucket from the
+    # runner. Floor covers the Client(follow_redirects=) API it uses (httpx
+    # 0.20); left uncapped so a customer's own newer httpx pin still wins.
+    "httpx>=0.20",
 ]
 
 
@@ -1255,6 +1259,7 @@ class FalServerlessHost(Host):
         request_timeout = options.host.get("request_timeout")
         startup_timeout = options.host.get("startup_timeout")
         regions = options.host.get("regions")
+        health_check_config = options.host.get("health_check_config")
         secrets = options.host.get("secrets")
         data_mounts = options.host.get("data_mounts")
         machine_requirements = MachineRequirements(
@@ -1315,6 +1320,7 @@ class FalServerlessHost(Host):
             application_name=effective_app_name,
             auth_mode=effective_auth_mode,
             environment_name=self.environment_name,
+            health_check_config=health_check_config,
             secrets=secrets,
             data_mounts=data_mounts,
             entrypoint=entrypoint,

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["flit_core >=3.2,<4"]
+requires = ["flit_core >=3.11,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
@@ -13,27 +13,36 @@ readme = "README.rst"
 keywords = ["affine", "transformation", "matrix"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Multimedia :: Graphics :: Graphics Conversion",
     "Topic :: Scientific/Engineering :: GIS",
     "Typing :: Typed",
 ]
-license = {text = "BSD-3-Clause"}
+license = "BSD-3-Clause"
+license-files = ["AUTHORS.txt", "LICENSE.txt"]
 requires-python = ">=3.9"
 dependencies = [
-    "attrs",
+    "attrs>=21.3.0",
 ]
 
-[project.optional-dependencies]
-test = [
+[dependency-groups]
+dev = [
+    "coveralls>=3.0",
+    "pre-commit>=4.3.0",
+    "tox>=4.22",
+    {include-group = "tests"},
+]
+tests = [
     "numpy>=1.20",
     "pytest>=6.0",
     "pytest-cov",
-]
-dev = [
-    "coveralls>=3.0",
 ]
 
 [project.urls]

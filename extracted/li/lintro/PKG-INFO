@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lintro
-Version: 0.132.0
+Version: 0.135.1
 Summary: A unified CLI tool for code formatting, linting, and quality assurance
 Author-email: lgtm-hq <turbocoder13@gmail.com>
 License-Expression: MIT
@@ -33,6 +33,7 @@ Requires-Dist: tabulate>=0.9.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: defusedxml>=0.7.1
 Requires-Dist: identify>=2.6.19
+Requires-Dist: watchdog>=6.0.0
 Provides-Extra: dev
 Requires-Dist: pytest>=9.0.3; extra == "dev"
 Requires-Dist: pytest-cov>=7.0.0; extra == "dev"
@@ -272,6 +273,12 @@ system.
 <td><code>rustup component add rustfmt</code></td>
 </tr>
 <tr><th colspan="4">Lint + Format</th></tr>
+<tr>
+<td><a href="https://buf.build/"><img src="https://img.shields.io/badge/buf-161b22?logo=buffer&logoColor=white" alt="buf"></a></td>
+<td>🧩 Protobuf</td>
+<td>✅</td>
+<td><code>brew install bufbuild/buf/buf</code><br><a href="https://github.com/bufbuild/buf/releases">GitHub Releases</a></td>
+</tr>
 <tr>
 <td><a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/badge/Ruff-000?logo=ruff&logoColor=white" alt="Ruff"></a></td>
 <td>🐍 Python</td>

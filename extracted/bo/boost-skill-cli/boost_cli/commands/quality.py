@@ -1,3 +1,5 @@
+# Copyright the boost contributors.
+# SPDX-License-Identifier: GPL-3.0-only
 """Quality & Health commands — doctor, lint, drift, test, fingerprint, decay,
 heal, conflict, changelog, health, trust.
 
@@ -92,7 +94,12 @@ def _resolve_as_far_as_it_exists(path: Path) -> Path:
     while cur != cur.parent and not cur.exists():
         tail.append(cur.name)
         cur = cur.parent
-    with suppress(OSError):
+    # RuntimeError is not redundant with OSError here: Python 3.12's
+    # `Path.resolve()` raises RuntimeError("Symlink loop from ...") for a
+    # cycle even in non-strict mode, and RuntimeError is NOT an OSError
+    # subclass — 3.13+ raises OSError for the same input. See
+    # store.resolves_into_store for the identical split, caught the same way.
+    with suppress(OSError, RuntimeError):
         cur = cur.resolve()
     return cur.joinpath(*reversed(tail))
 
@@ -535,6 +542,19 @@ def cmd_doctor(argv):
                  "left alone; yours to remove or repair"
                  % (len(foreign), _s(len(foreign))))
 
+    for dup in store.duplicate_discovery():
+        # An agent that reads the canonical store natively, holding its own
+        # entry for a skill that store already carries. Boost did not put it
+        # there — it never links into a native-store agent — but the agent
+        # loads the same skill from two discovery tiers and says so on every
+        # session, so a health check that stayed quiet about it would be
+        # describing a machine the user is not looking at.
+        bad("skill %s is discoverable twice by %s — %s leads to %s, which it "
+            "already reads natively; remove the duplicate with "
+            "`boost heal --prune-duplicates`"
+            % (dup.name, agents.display_name(dup.agent), _tilde(dup.path),
+               _tilde(dup.target)), wrap=True)
+
     for adir in enabled.values():
         if adir.is_dir() and not os.access(str(adir), os.W_OK):
             bad("agent dir %s is not writable" % _tilde(adir))
@@ -854,6 +874,9 @@ def cmd_heal(argv):
         description="Self-diagnose & repair the boost environment")
     ap.add_argument("--dry-run", action="store_true",
                     help="show repairs without applying them")
+    ap.add_argument("--prune-duplicates", action="store_true",
+                    help="remove symlinks in a native-store agent's skills dir "
+                         "that lead back into the canonical store")
     args = ap.parse_args(argv)
     dry = args.dry_run
     actions: list[str] = []
@@ -889,10 +912,18 @@ def cmd_heal(argv):
 
     plan = store.sync_plan()
     if dry:
+        # `ours` above is exactly what a real run unlinks before computing
+        # this plan, so `sync_plan`'s stale-link sweep never sees those paths
+        # on a real run — only here, where nothing was unlinked yet. Skip
+        # them so a preview doesn't report the same path twice under two
+        # different actions.
+        already_reported = {str(link) for link in ours}
         for name, agent in plan["missing_links"]:
             out.info("would link %s → %s" % (name, agent))
             actions.append("link %s" % name)
         for p in plan["stale_links"]:
+            if p in already_reported:
+                continue
             out.info("would remove stale link %s" % _tilde(p))
             actions.append("stale %s" % p)
         for name in plan["missing_store"]:
@@ -902,6 +933,30 @@ def cmd_heal(argv):
         for msg in store.sync_apply(plan):
             out.ok(msg.replace(str(paths.home()), "~"))
             actions.append(msg)
+
+    # Opt-in, unlike everything above it. The rest of `heal` repairs what boost
+    # itself created; these entries boost did not create, so deleting one on a
+    # plain `boost heal` would be silently removing another tool's file. Named
+    # every run so the flag is discoverable from the command that would use it.
+    duplicates = store.duplicate_discovery()
+    declined_duplicates = bool(duplicates) and not args.prune_duplicates
+    for dup in duplicates:
+        label = "%s → %s (%s)" % (_tilde(dup.path), _tilde(dup.target), dup.agent)
+        if not args.prune_duplicates:
+            out.info("duplicate skill discovery %s — %s reads the store "
+                     "natively; remove it with `boost heal --prune-duplicates`"
+                     % (label, agents.display_name(dup.agent)), wrap=True)
+        elif dry:
+            out.info("would remove duplicate skill discovery %s" % label)
+            actions.append("duplicate %s" % dup.path)
+        elif store.remove_duplicate_discovery(dup):
+            out.ok("removed duplicate skill discovery %s" % label)
+            actions.append("duplicate %s" % dup.path)
+        else:
+            # Re-gated at the point of deletion, so a real directory or a link
+            # repointed since the scan lands here rather than being removed.
+            out.warn("%s is no longer a symlink into the store — left alone"
+                     % _tilde(dup.path))
 
     for tap in registry.list_taps():
         if not tap.is_cloned:
@@ -929,7 +984,11 @@ def cmd_heal(argv):
         actions.append("rotate")
 
     if not actions:
-        out.ok("nothing to heal")
+        # A duplicate this run declined to prune is something `heal` saw, can
+        # fix, and deliberately left. A bare "nothing to heal" printed under
+        # the line offering the flag contradicts it.
+        out.ok("nothing to heal automatically"
+               if declined_duplicates else "nothing to heal")
     elif not dry:
         journal.log("heal", "%d actions" % len(actions))
     return 0
@@ -942,7 +1001,12 @@ def cmd_conflict(argv):
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
-    installed = _iter_installed()
+    # Quarantine removes a skill's active links/materialization on purpose
+    # (see _drift_status_materialized's docstring) — a quarantined skill has
+    # nothing live to be contradicted by, so it is excluded from both sides
+    # of conflict detection rather than surfacing a conflict finding no
+    # `boost quarantine` can ever clear.
+    installed = [(n, e) for n, e in _iter_installed() if not e.get("quarantined")]
     rules: list[tuple[str, str, str, set]] = []   # skill, line, polarity, stems
     declared: list[tuple[str, str]] = []           # skill, conflicting skill
     installed_names = {n for n, _e in installed}
@@ -1189,7 +1253,18 @@ def cmd_trust(argv) -> int:
                     if key_path.is_file() else args.key)
         rec = provenance.add_trusted_key(args.name, key_text)
         journal.log("trust", args.name, op="add-key")
-        out.ok("trusted key %s (%s)" % (rec["name"], rec["fingerprint"]))
+        # The fingerprint is the point of this line, not incidental detail: it
+        # is how the user checks by eye that the key they just trusted is the
+        # one the publisher advertises. CodeQL's py/clear-text-logging-sensitive
+        # -data flags it because `name` is user-supplied and `fingerprint` reads
+        # like a credential, but a minisign PUBLIC key fingerprint is meant to
+        # be published — printing it is the verification, and an autofix that
+        # replaced this with a constant string (dc6e827) removed the only check
+        # `trust add` offers. Restored, suppressed with the reason, and pinned
+        # by tests/functional/test_tap_signing.py so it cannot be quietly
+        # dropped a second time.
+        out.ok("trusted key %s (%s)"  # codeql[py/clear-text-logging-sensitive-data]
+               % (rec["name"], rec["fingerprint"]))
         return 0
 
     if args.action == "remove":

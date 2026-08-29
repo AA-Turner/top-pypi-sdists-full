@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiounifi
-Version: 94
+Version: 95
 Summary: Python library for communicating with UniFi Network Controller API
 Author-email: Robert Svensson <Kane610@users.noreply.github.com>
 License: MIT

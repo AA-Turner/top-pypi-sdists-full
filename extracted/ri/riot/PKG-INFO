@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: riot
-Version: 0.22.1
+Version: 0.23.0
 Summary: A simple Python test runner runner.
 Home-page: https://github.com/DataDog/riot
 Author: Datadog, Inc.

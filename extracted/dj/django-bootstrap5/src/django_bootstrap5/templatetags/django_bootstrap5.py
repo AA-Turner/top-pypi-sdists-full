@@ -379,8 +379,15 @@ def bootstrap_field(field, **kwargs):
         field_class
             CSS class of the ``div`` that wraps the field.
 
+        label
+            Override the field's label text. Also used as the default placeholder, if ``set_placeholder`` is on.
+
+            :default: the field's own ``label``
+
         label_class
             CSS class of the ``label`` element. Will always have ``control-label`` as the last CSS class.
+
+            :default: ``''``. Can be changed :doc:`settings`
 
         show_help
             Show the field's help text, if the field has help text.
@@ -404,9 +411,9 @@ def bootstrap_field(field, **kwargs):
 
             One of the following values:
 
-                * ``'small'``
-                * ``'medium'``
-                * ``'large'``
+                * ``'sm'``
+                * ``'md'``
+                * ``'lg'``
 
         placeholder
             Sets the placeholder text of a textbox
@@ -471,6 +478,16 @@ def bootstrap_field(field, **kwargs):
             CSS class used when the field has valid data
 
             :default: ``'has-success'``. Can be changed :doc:`settings`
+
+        input_class
+            CSS class added to the input html element
+
+            :default: ``''``
+
+        server_side_validation
+            Whether to add ``is-valid``/``is-invalid`` classes based on the field's validation state.
+
+            :default: ``True``. Can be changed :doc:`settings`
 
     **Usage**::
 
@@ -682,8 +699,8 @@ def bootstrap_pagination(page, **kwargs):
 
             One of the following:
 
-                * ``'small'``
-                * ``'large'``
+                * ``'sm'``
+                * ``'lg'``
 
             :default: ``None``
 

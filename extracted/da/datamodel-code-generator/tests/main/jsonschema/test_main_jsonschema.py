@@ -21,12 +21,14 @@ from typing import TYPE_CHECKING, get_args, get_type_hints
 import black
 import pytest
 from packaging import version
+from pydantic import VERSION as PYDANTIC_VERSION
 from pydantic import ValidationError
 
 from datamodel_code_generator import (
     MIN_VERSION,
     DanglingRefWarning,
     DataModelType,
+    DefaultValueType,
     Error,
     InputFileType,
     InvalidFileFormatError,
@@ -742,6 +744,25 @@ def test_main_simple_pydantic_v2_fields(output_file: Path) -> None:
     )
 
 
+def test_main_simple_pydantic_v2_fields_with_custom_template(output_file: Path) -> None:
+    """Keep empty field plans compatible with custom Pydantic v2 templates."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "simple_pydantic_v2_fields.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="simple_pydantic_v2_fields.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--field-constraints",
+            "--disable-timestamp",
+            "--custom-template-dir",
+            str(DATA_PATH / "templates_extensions"),
+        ],
+    )
+
+
 @pytest.mark.benchmark
 def test_main_autodetect(output_file: Path) -> None:
     """Test automatic input file type detection."""
@@ -1150,9 +1171,9 @@ def test_main_complicated_enum_default_member(
 
 @pytest.mark.cli_doc(
     options=["--set-default-enum-member"],
-    option_description="""Set the first enum member as the default value for enum fields.
+    option_description="""Use the legacy flag for deserializing enum defaults.
 
-The `--set-default-enum-member` flag configures the code generation behavior.""",
+The `--set-default-enum-member` flag is deprecated. Use `--deserialize-default-values enum` instead.""",
     input_schema="jsonschema/duplicate_enum.json",
     cli_args=["--reuse-model", "--set-default-enum-member"],
     golden_output="jsonschema/json_reuse_enum_default_member.py",
@@ -1457,6 +1478,70 @@ def test_main_jsonschema_anchor_ref(output_file: Path) -> None:
         assert_func=assert_file_content,
         expected_file="anchor_ref.py",
         extra_args=["--disable-timestamp"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_name", "expected_file", "extra_args"),
+    [
+        pytest.param(
+            "simple_string.json",
+            "simple_string.py",
+            ["--formatters", "builtin", "--disable-timestamp"],
+            id="primitive-leaf",
+        ),
+        pytest.param(
+            "schema_validators.json",
+            "schema_validators.py",
+            [
+                "--generate-schema-validators",
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--use-annotated",
+                "--disable-timestamp",
+            ],
+            id="children-conditional-reference",
+        ),
+        pytest.param(
+            "anchor_ref.json",
+            "anchor_ref.py",
+            ["--disable-timestamp"],
+            id="anchor-reference",
+        ),
+        pytest.param(
+            "dynamic_ref.json",
+            "dynamic_ref_pydantic_v2.py",
+            ["--output-model-type", "pydantic_v2.BaseModel"],
+            id="children-dynamic-anchor",
+        ),
+    ],
+)
+def test_main_jsonschema_leaf_schema_traversal_cli(
+    output_file: Path,
+    input_name: str,
+    expected_file: str,
+    extra_args: list[str],
+) -> None:
+    """Keep CLI output byte-identical for leaf and nested traversal schemas."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / input_name,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=extra_args,
+    )
+
+
+def test_generate_jsonschema_leaf_schema_traversal_dynamic_reference(output_file: Path) -> None:
+    """Keep the public generate API aligned for dynamic child references."""
+    run_generate_file_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref.json",
+        output_path=output_file,
+        input_file_type=InputFileType.JsonSchema,
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_pydantic_v2.py",
+        output_model_type=DataModelType.PydanticV2BaseModel,
     )
 
 
@@ -1998,6 +2083,16 @@ def test_main_external_files_in_directory(output_file: Path) -> None:
     """Test external files in directory structure."""
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "external_files_in_directory" / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+    )
+
+
+def test_main_jsonschema_local_reference_file_cache(output_file: Path) -> None:
+    """Generate local references with shared file parts, fragments, and recursive nested schemas."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "local_reference_file_cache" / "root.json",
         output_path=output_file,
         input_file_type="jsonschema",
         assert_func=assert_file_content,
@@ -6010,16 +6105,26 @@ def test_main_jsonschema_modular_default_enum_member(output_dir: Path) -> None:
         )
 
 
-def test_main_jsonschema_falsy_default_enum_member(output_file: Path) -> None:
+@pytest.mark.parametrize(
+    "deserialize_args",
+    [
+        pytest.param(["--deserialize-default-values", "enum"], id="generic-option"),
+        pytest.param(["--set-default-enum-member"], id="legacy-option"),
+    ],
+)
+def test_main_jsonschema_falsy_default_enum_member(deserialize_args: list[str], output_file: Path) -> None:
     """Test enum member mapping for falsy default values."""
-    run_main_and_assert(
-        input_path=JSON_SCHEMA_DATA_PATH / "falsy_default_enum_member.json",
-        output_path=output_file,
-        input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file="falsy_default_enum_member.py",
-        extra_args=["--set-default-enum-member"],
-    )
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "falsy_default_enum_member.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file="falsy_default_enum_member.py",
+            extra_args=deserialize_args,
+        )
+
+    assert_warnings_do_not_contain(recorded_warnings, "--set-default-enum-member is deprecated")
 
 
 @pytest.mark.skipif(
@@ -6157,6 +6262,19 @@ def test_main_jsonschema_items_boolean(output_file: Path) -> None:
         input_file_type="jsonschema",
         assert_func=assert_file_content,
         expected_file="items_boolean.py",
+    )
+
+
+def test_main_jsonschema_array_constraint_fast_path(output_file: Path) -> None:
+    """Keep array length constraints identical when the fast path is unavailable."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "array_constraint_fast_path.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="array_constraint_fast_path.py",
+        extra_args=["--disable-timestamp", "--formatters", "builtin", "--output-model-type", "pydantic_v2.BaseModel"],
+        force_exec_validation=True,
     )
 
 
@@ -7468,6 +7586,127 @@ def test_main_jsonschema_additional_properties_schema_with_properties(output_fil
         expected_error_type="int_type",
         expected_attribute_path=("__pydantic_extra__",),
         expected_attribute_value={"size": 1},
+    )
+
+
+def test_main_jsonschema_property_names_additional_properties_schema_with_properties(output_file: Path) -> None:
+    """Test propertyNames constrains typed extra keys as well as their values."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "property_names_additional_properties_schema_with_properties.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="property_names_additional_properties_schema_with_properties.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+        ],
+        force_exec_validation=True,
+    )
+    # Pydantic validates constrained typed-extra keys only in this supported range.
+    if not version.parse("2.11") <= version.parse(PYDANTIC_VERSION) < version.parse("2.13"):
+        return
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="property_names_additional_properties_schema_with_properties",
+        model_name="KnownAndNamedExtra",
+        valid_json='{"name":"known","valid_key":1}',
+        invalid_json='{"name":"known","Invalid":1}',
+        expected_error_type="string_pattern_mismatch",
+        expected_attribute_path=("__pydantic_extra__",),
+        expected_attribute_value={"valid_key": 1},
+    )
+
+
+def test_main_jsonschema_property_names_true_additional_properties_schema_with_properties(output_file: Path) -> None:
+    """Test unconstrained propertyNames keeps the typed-extra string-key fast path."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "property_names_true_additional_properties_schema_with_properties.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="property_names_true_additional_properties_schema_with_properties.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+        ],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="property_names_true_additional_properties_schema_with_properties",
+        model_name="KnownAndAnyExtra",
+        valid_json='{"name":"known","extra":1}',
+        invalid_json='{"name":"known","extra":[]}',
+        expected_error_type="int_type",
+        expected_attribute_path=("__pydantic_extra__",),
+        expected_attribute_value={"extra": 1},
+    )
+
+
+def test_main_jsonschema_property_names_ref_additional_properties_schema_with_properties(output_file: Path) -> None:
+    """Test referenced propertyNames keeps typed-extra keys as strings."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "property_names_ref_additional_properties_schema_with_properties.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="property_names_ref_additional_properties_schema_with_properties.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+        ],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="property_names_ref_additional_properties_schema_with_properties",
+        model_name="KnownAndReferencedExtra",
+        valid_json='{"name":"known","valid_key":1}',
+        invalid_json='{"name":"known","valid_key":[]}',
+        expected_error_type="int_type",
+        expected_attribute_path=("__pydantic_extra__",),
+        expected_attribute_value={"valid_key": 1},
+    )
+
+
+def test_main_jsonschema_property_names_type_non_string_additional_properties_schema_with_properties(
+    output_file: Path,
+) -> None:
+    """Test propertyNames with a non-string branch keeps typed-extra keys as strings."""
+    run_main_and_assert(
+        input_path=(
+            JSON_SCHEMA_DATA_PATH / "property_names_type_non_string_additional_properties_schema_with_properties.json"
+        ),
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="property_names_type_non_string_additional_properties_schema_with_properties.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+        ],
+        force_exec_validation=True,
+    )
+
+
+def test_main_jsonschema_property_names_forbidden_additional_properties_schema_with_properties(
+    output_file: Path,
+) -> None:
+    """Test an impossible direct propertyNames schema does not constrain typed extra keys."""
+    run_main_and_assert(
+        input_path=(
+            JSON_SCHEMA_DATA_PATH / "property_names_forbidden_additional_properties_schema_with_properties.json"
+        ),
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="property_names_forbidden_additional_properties_schema_with_properties.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+        ],
+        force_exec_validation=True,
     )
 
 
@@ -17760,42 +17999,87 @@ def test_main_dataclass_enum_member_special_defaults(output_file: Path) -> None:
         input_path=JSON_SCHEMA_DATA_PATH / "enum_member_special_defaults.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        extra_args=["--output-model-type", "dataclasses.dataclass"],
+        extra_args=["--output-model-type", "dataclasses.dataclass", "--no-deserialize-default-values"],
         assert_func=assert_file_content,
         expected_file="dataclass_enum_member_special_defaults.py",
         importable_module_name="generated_dataclass_enum_member_special_defaults",
     )
 
 
-def test_main_jsonschema_enum_member_typed_defaults(output_file: Path) -> None:
+def test_main_jsonschema_enum_member_special_defaults(output_file: Path) -> None:
+    """Deserialize quoted scalar and list defaults through the generic option."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "enum_member_special_defaults.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--deserialize-default-values", "enum"],
+        assert_func=assert_file_content,
+        expected_file="enum_member_special_defaults.py",
+        importable_module_name="generated_enum_member_special_defaults",
+    )
+
+
+@pytest.mark.parametrize(
+    "deserialize_args",
+    [
+        pytest.param(["--deserialize-default-values", "enum"], id="generic-option"),
+        pytest.param(["--set-default-enum-member"], id="legacy-option"),
+    ],
+)
+def test_main_jsonschema_enum_member_typed_defaults(deserialize_args: list[str], output_file: Path) -> None:
     """Test enum defaults resolve to the member with a matching JSON type."""
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "enum_member_typed_defaults.json",
         output_path=output_file,
         input_file_type="jsonschema",
-        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--set-default-enum-member"],
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", *deserialize_args],
         assert_func=assert_file_content,
         expected_file="enum_member_typed_defaults.py",
         importable_module_name="generated_enum_member_typed_defaults",
     )
 
 
+def test_main_jsonschema_enum_deserialization_preset_opt_out(output_file: Path) -> None:
+    """Let an explicit no-option disable preset enum deserialization."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "enum_member_typed_defaults.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--preset",
+            "standard-py310-20260826",
+            "--no-deserialize-default-values",
+            "--formatters",
+            "builtin",
+        ],
+        assert_func=assert_file_content,
+        expected_file="enum_member_typed_defaults_preset_opt_out.py",
+        importable_module_name="generated_enum_member_typed_defaults_preset_opt_out",
+    )
+
+
 @pytest.mark.parametrize(
-    "custom_template_dir",
+    ("custom_template_dir", "default_options"),
     [
-        pytest.param(None, id="builtin-template"),
-        pytest.param(DATA_PATH / "templates_extensions", id="existing-custom-enum-template"),
+        pytest.param(None, {"deserialize_default_values": (DefaultValueType.Enum,)}, id="generic-option"),
+        pytest.param(
+            DATA_PATH / "templates_extensions",
+            {"set_default_enum_member": True},
+            id="legacy-option-custom-template",
+        ),
     ],
 )
-def test_generate_jsonschema_structured_enum_values(custom_template_dir: Path | None) -> None:
+def test_generate_jsonschema_structured_enum_values(
+    custom_template_dir: Path | None, default_options: dict[str, object]
+) -> None:
     """Keep raw enum values distinct from rendered source through the generate API."""
     run_generate_and_assert(
         input_=JSON_SCHEMA_DATA_PATH / "structured_enum_values.json",
         expected_file=EXPECTED_JSON_SCHEMA_PATH / "structured_enum_values.py",
         input_file_type=InputFileType.JsonSchema,
         output_model_type=DataModelType.PydanticV2BaseModel,
-        set_default_enum_member=True,
         custom_template_dir=custom_template_dir,
+        **default_options,
     )
 
 

@@ -8,16 +8,17 @@ import structlog
 import temporalio.client
 import temporalio.common
 import temporalio.worker
-from pydantic import BaseModel
 from temporalio import workflow
 
 from mistralai.workflows.core._registration.registration_activity import (
     _register_execution,
 )
 from mistralai.workflows.core._registration.search_keys import extract_search_key_metadata
+from mistralai.workflows.core.definition.validation._parameter_conversion import (
+    resolve_params_with_defaults,
+)
 from mistralai.workflows.core.definition.workflow_definition import (
-    get_workflow_entrypoint_param_names,
-    get_workflow_search_keys,
+    get_workflow_search_key_info,
 )
 from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.temporal.context_handler_interceptor import (
@@ -35,17 +36,12 @@ def _hash_token(raw_token: str) -> str:
 
 def _resolve_search_key_metadata(workflow_name: str, args: Sequence[Any]) -> dict[str, str]:
     try:
-        search_keys = get_workflow_search_keys(workflow_name)
-        if not search_keys:
+        info = get_workflow_search_key_info(workflow_name)
+        if not info.search_keys:
             return {}
-        params = args[0] if args else None
-        # A single scalar-param entrypoint arrives as a raw primitive, not a dict;
-        # wrap it under the param name so path-based extraction can reach it (mirrors
-        # the runtime's own param normalization).
-        param_names = get_workflow_entrypoint_param_names(workflow_name)
-        if params is not None and not isinstance(params, (dict, BaseModel)) and len(param_names) == 1:
-            params = {param_names[0]: params}
-        return extract_search_key_metadata(params, search_keys)
+        # Extraction runs before the run wrapper validates, so resolve defaults first.
+        params = resolve_params_with_defaults(args[0] if args else None, info.entrypoint_param_names, info.input_model)
+        return extract_search_key_metadata(params, info.search_keys)
     except Exception as exc:
         logger.warning(
             "Failed to resolve search key metadata",

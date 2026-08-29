@@ -12,7 +12,7 @@ use super::branch_result::collect_branch_completions;
 pub fn find_any_of_completion_items<'a: 'b, 'b, T>(
     value: &'a T,
     position: tombi_text::Position,
-    keys: &'a [tombi_document_tree::Key],
+    keys: &'a [tombi_document_tree_syntax::Key],
     accessors: &'a [Accessor],
     any_of_schema: &'a tombi_schema_store::AnyOfSchema,
     current_schema: &'a CurrentSchema<'a>,
@@ -45,6 +45,7 @@ where
         };
 
         let (mut completion_items, narrow_branches) = collect_branch_completions(
+            tombi_validator::Applicator::AnyOf,
             value,
             position,
             keys,
@@ -75,12 +76,14 @@ where
             )
             .await;
 
-        for completion_item in completion_items.iter_mut() {
-            if completion_item.detail.is_none() {
-                completion_item.detail = detail.clone();
-            }
-            if completion_item.documentation.is_none() {
-                completion_item.documentation = documentation.clone();
+        if keys.is_empty() {
+            for completion_item in completion_items.iter_mut() {
+                if completion_item.detail.is_none() {
+                    completion_item.detail = detail.clone();
+                }
+                if completion_item.documentation.is_none() {
+                    completion_item.documentation = documentation.clone();
+                }
             }
         }
 

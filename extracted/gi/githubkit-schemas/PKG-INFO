@@ -1,26 +1,26 @@
 Metadata-Version: 2.4
 Name: GitHubKit-schemas
-Version: 26.8.14
+Version: 26.8.28
 Summary: GitHub Schemas for GitHubKit
 Keywords: github,octokit
 Author: yanyongyu
 Author-email: yanyongyu <yyy@yyydl.top>
 License-Expression: MIT
 Requires-Dist: githubkit>=0.16.0
-Requires-Dist: githubkit-schemas-2026-03-10==26.8.14
-Requires-Dist: githubkit-schemas-2022-11-28==26.8.14 ; extra == '2022-11-28'
-Requires-Dist: githubkit-schemas-2026-03-10==26.8.14 ; extra == '2026-03-10'
-Requires-Dist: githubkit-schemas-2022-11-28==26.8.14 ; extra == 'all'
-Requires-Dist: githubkit-schemas-2026-03-10==26.8.14 ; extra == 'all'
-Requires-Dist: githubkit-schemas-ghec-2022-11-28==26.8.14 ; extra == 'all'
-Requires-Dist: githubkit-schemas-ghec-2026-03-10==26.8.14 ; extra == 'all'
-Requires-Dist: githubkit-schemas-2022-11-28==26.8.14 ; extra == 'all-gh'
-Requires-Dist: githubkit-schemas-2026-03-10==26.8.14 ; extra == 'all-gh'
-Requires-Dist: githubkit-schemas-ghec-2022-11-28==26.8.14 ; extra == 'all-ghec'
-Requires-Dist: githubkit-schemas-ghec-2026-03-10==26.8.14 ; extra == 'all-ghec'
-Requires-Dist: githubkit-schemas-ghec-2026-03-10==26.8.14 ; extra == 'ghec'
-Requires-Dist: githubkit-schemas-ghec-2022-11-28==26.8.14 ; extra == 'ghec-2022-11-28'
-Requires-Dist: githubkit-schemas-ghec-2026-03-10==26.8.14 ; extra == 'ghec-2026-03-10'
+Requires-Dist: githubkit-schemas-2026-03-10==26.8.28
+Requires-Dist: githubkit-schemas-2022-11-28==26.8.28 ; extra == '2022-11-28'
+Requires-Dist: githubkit-schemas-2026-03-10==26.8.28 ; extra == '2026-03-10'
+Requires-Dist: githubkit-schemas-2022-11-28==26.8.28 ; extra == 'all'
+Requires-Dist: githubkit-schemas-2026-03-10==26.8.28 ; extra == 'all'
+Requires-Dist: githubkit-schemas-ghec-2022-11-28==26.8.28 ; extra == 'all'
+Requires-Dist: githubkit-schemas-ghec-2026-03-10==26.8.28 ; extra == 'all'
+Requires-Dist: githubkit-schemas-2022-11-28==26.8.28 ; extra == 'all-gh'
+Requires-Dist: githubkit-schemas-2026-03-10==26.8.28 ; extra == 'all-gh'
+Requires-Dist: githubkit-schemas-ghec-2022-11-28==26.8.28 ; extra == 'all-ghec'
+Requires-Dist: githubkit-schemas-ghec-2026-03-10==26.8.28 ; extra == 'all-ghec'
+Requires-Dist: githubkit-schemas-ghec-2026-03-10==26.8.28 ; extra == 'ghec'
+Requires-Dist: githubkit-schemas-ghec-2022-11-28==26.8.28 ; extra == 'ghec-2022-11-28'
+Requires-Dist: githubkit-schemas-ghec-2026-03-10==26.8.28 ; extra == 'ghec-2026-03-10'
 Requires-Python: >=3.10, <4.0
 Project-URL: Homepage, https://github.com/yanyongyu/githubkit
 Project-URL: Repository, https://github.com/yanyongyu/githubkit

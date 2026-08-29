@@ -101,7 +101,20 @@ def test_release_wheels_are_uploaded_once_after_every_build() -> None:
         "merge-multiple": True,
     }
 
-    upload = publish["steps"][1]
+    validate_index = next(
+        index
+        for index, step in enumerate(publish["steps"])
+        if "check_release_distribution_set.py" in step.get("run", "")
+    )
+    upload_index = next(
+        index for index, step in enumerate(publish["steps"]) if step.get("uses") == "softprops/action-gh-release@v3"
+    )
+    assert validate_index < upload_index
+    validation = publish["steps"][validate_index]
+    assert "--dist-dir dist" in validation["run"]
+    assert "--version" in validation["run"]
+
+    upload = publish["steps"][upload_index]
     assert upload["uses"] == "softprops/action-gh-release@v3"
     assert upload["with"] == {
         "tag_name": "${{ inputs.release-tag-name }}",
@@ -111,7 +124,7 @@ def test_release_wheels_are_uploaded_once_after_every_build() -> None:
     }
 
 
-def test_python37_runtime_smokes_provision_workflow_owned_typing_extensions() -> None:
+def test_python37_runtime_smokes_share_version_and_ref_bound_dependency_preparation() -> None:
     smoke_steps = {
         "py37-lite": "Test py37-lite wheel",
         "linux-py37": "Test native Python 3.7 wheel with workflow smoke",
@@ -120,15 +133,11 @@ def test_python37_runtime_smokes_provision_workflow_owned_typing_extensions() ->
 
     for job_id, smoke_step_name in smoke_steps.items():
         steps = _jobs()[job_id]["steps"]
-        provision_index, provision = next(
-            (index, step)
-            for index, step in enumerate(steps)
-            if step.get("name") == "Provision Python 3.7 smoke dependencies"
-        )
         smoke_index = next(index for index, step in enumerate(steps) if step.get("name") == smoke_step_name)
-
-        assert provision_index < smoke_index
-        command = provision["run"]
-        assert ".workflow-tools/compatibility/python.json" in command
-        assert '["test_toolchain"]["typing_extensions"]' in command
-        assert '"typing-extensions==${TYPING_EXTENSIONS_VERSION}"' in command
+        smoke = steps[smoke_index]
+        assert "python37_wheel_smoke.py" in smoke["run"]
+        assert '--checkout-ref "$CHECKOUT_REF"' in smoke["run"]
+        assert smoke["env"]["CHECKOUT_REF"] == "${{ inputs.checkout-ref || github.ref }}"
+        assert "--profile " + ("lite_py37" if job_id == "py37-lite" else "native_py37") in smoke["run"]
+        assert "if [[ -f" not in smoke["run"]
+        assert all("test_issue_2388_zero_typing_extensions.py" not in step.get("run", "") for step in steps)

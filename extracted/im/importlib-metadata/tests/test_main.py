@@ -22,6 +22,7 @@ from importlib_metadata import (
 
 from . import fixtures
 from ._path import Symlink
+from .compat.py314 import frozendict
 
 
 class BasicTests(fixtures.DistInfoPkg, unittest.TestCase):
@@ -57,7 +58,7 @@ class BasicTests(fixtures.DistInfoPkg, unittest.TestCase):
         dict(name=''),
     )
     def test_invalid_inputs_to_from_name(self, name):
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValueError):
             Distribution.from_name(name)
 
 
@@ -134,7 +135,7 @@ class NameNormalizationTests(fixtures.OnSysPath, fixtures.SiteDir, unittest.Test
 
 class InvalidMetadataTests(fixtures.OnSysPath, fixtures.SiteDir, unittest.TestCase):
     @staticmethod
-    def make_pkg(name, files=dict(METADATA="VERSION: 1.0")):
+    def make_pkg(name, files=frozendict(METADATA="VERSION: 1.0")):
         """
         Create metadata for a dist-info package with name and files.
         """
@@ -164,7 +165,7 @@ class InvalidMetadataTests(fixtures.OnSysPath, fixtures.SiteDir, unittest.TestCa
         """
         fixtures.build_files(self.make_pkg('foo-4.3', files={}), self.site_dir)
         with self.assertRaises(MetadataNotFound):
-            Distribution.from_name('foo').metadata
+            _ = Distribution.from_name('foo').metadata
         with self.assertRaises(MetadataNotFound):
             metadata('foo')
 
@@ -259,9 +260,8 @@ class DirectoryTest(fixtures.OnSysPath, fixtures.SiteDir, unittest.TestCase):
     def test_egg(self):
         egg = self.site_dir.joinpath('foo-3.6.egg')
         egg.mkdir()
-        with self.add_sys_path(egg):
-            with self.assertRaises(PackageNotFoundError):
-                version('foo')
+        with self.add_sys_path(egg), self.assertRaises(PackageNotFoundError):
+            version('foo')
 
 
 class MissingSysPath(fixtures.OnSysPath, unittest.TestCase):

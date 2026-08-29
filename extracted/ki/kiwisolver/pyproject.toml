@@ -23,6 +23,7 @@
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: Implementation :: GraalPy",
@@ -69,6 +70,15 @@
 #define PY_KIWI_VERSION "{version}"
 
 """
+
+[tool.cibuildwheel]
+  test-requires = ["pytest"]
+  test-command = "python -m pytest {package}/py/tests -v"
+
+[tool.cibuildwheel.ios]
+  xbuild-tools = []
+  test-sources = ["py/tests"]
+  test-command = "python -m pytest py/tests -vv"
 
 [tool.ruff]
   src = ["src"]

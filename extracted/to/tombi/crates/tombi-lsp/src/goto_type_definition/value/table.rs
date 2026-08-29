@@ -14,15 +14,15 @@ use crate::{
     schema_resolver::resolve_table_unevaluated_property_schema,
 };
 
-impl GetTypeDefinition for tombi_document_tree::Table {
+impl GetTypeDefinition for tombi_document_tree_syntax::Table {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Option<TypeDefinition>> {
+    ) -> tombi_future::BoxFuture<'b, Vec<TypeDefinition>> {
         log::trace!("self = {:?}", self);
         log::trace!("keys = {:?}", keys);
         log::trace!("accessors = {:?}", accessors);
@@ -31,13 +31,14 @@ impl GetTypeDefinition for tombi_document_tree::Table {
         async move {
             if let Some((comment_directive_context, schema_uri)) =
                 get_table_comment_directive_content_with_schema_uri(self, position, accessors)
-                && let Some(hover_content) = get_tombi_value_comment_directive_type_definition(
+                && let hover_content = get_tombi_value_comment_directive_type_definition(
                     comment_directive_context,
                     schema_uri,
                 )
                 .await
+                && !hover_content.is_empty()
             {
-                return Some(hover_content);
+                return hover_content;
             }
 
             if let Some(Ok(current_schema)) = schema_context
@@ -60,7 +61,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                     SchemaView::Table(table_schema) => {
                         if let Some(key) = keys.first() {
                             if let Some(value) = self.get(key) {
-                                let accessor = Accessor::Key(key.value.clone());
+                                let accessor = Accessor::Key(key.value().to_owned());
                                 let schema_accessor = SchemaAccessor::from(&accessor);
                                 let accessors = accessors
                                     .iter()
@@ -68,13 +69,13 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                     .chain(std::iter::once(accessor))
                                     .collect_vec();
 
-                                if let Some(key_range) = table_schema
-                                    .properties
-                                    .read()
-                                    .await
-                                    .get(&schema_accessor)
-                                    .map(|property_schema| property_schema.key_range)
-                                {
+                                let key_range = {
+                                    let properties = table_schema.properties.read().await;
+                                    properties
+                                        .get(&schema_accessor)
+                                        .map(|property_schema| property_schema.key_range)
+                                };
+                                if let Some(key_range) = key_range {
                                     if let Ok(Some(current_schema)) = table_schema
                                         .resolve_property_schema(
                                             &schema_accessor,
@@ -85,6 +86,26 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                         )
                                         .await
                                     {
+                                        if tombi_document_tree_syntax::ValueImpl::range(key)
+                                            .contains(position)
+                                        {
+                                            return current_schema
+                                                .schema_view
+                                                .get_type_definition(
+                                                    position,
+                                                    &keys[1..],
+                                                    &accessors,
+                                                    Some(&current_schema),
+                                                    schema_context,
+                                                )
+                                                .await
+                                                .into_iter()
+                                                .map(|type_definition| {
+                                                    type_definition
+                                                        .update_range(&accessors, &key_range)
+                                                })
+                                                .collect();
+                                        }
                                         return value
                                             .get_type_definition(
                                                 position,
@@ -94,9 +115,11 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                                 schema_context,
                                             )
                                             .await
+                                            .into_iter()
                                             .map(|type_definition| {
                                                 type_definition.update_range(&accessors, &key_range)
-                                            });
+                                            })
+                                            .collect();
                                     }
 
                                     return value
@@ -121,7 +144,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                     for (property_key, key_range) in pattern_properties {
                                         if let Ok(pattern) = tombi_regex::Regex::new(&property_key)
                                         {
-                                            if pattern.is_match(&key.value) {
+                                            if pattern.is_match(key.value()) {
                                                 if let Ok(Some(current_schema)) = table_schema
                                                     .resolve_pattern_property_schema(
                                                         &property_key,
@@ -141,11 +164,13 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                                             schema_context,
                                                         )
                                                         .await
+                                                        .into_iter()
                                                         .map(|type_definition| {
                                                             type_definition.update_range(
                                                                 &accessors, &key_range,
                                                             )
-                                                        });
+                                                        })
+                                                        .collect();
                                                 }
 
                                                 return value
@@ -190,14 +215,16 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                             schema_context,
                                         )
                                         .await
+                                        .into_iter()
                                         .map(|type_definition| {
                                             type_definition
                                                 .update_range(&accessors, schema_key_range)
-                                        });
+                                        })
+                                        .collect();
                                 }
 
                                 if let Some(one_of_schema) = table_schema.one_of.as_deref()
-                                    && let Some(type_definition) = get_one_of_type_definition(
+                                    && let type_definitions = get_one_of_type_definition(
                                         self,
                                         position,
                                         keys,
@@ -209,11 +236,12 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                         schema_context,
                                     )
                                     .await
+                                    && !type_definitions.is_empty()
                                 {
-                                    return Some(type_definition);
+                                    return type_definitions;
                                 }
                                 if let Some(any_of_schema) = table_schema.any_of.as_deref()
-                                    && let Some(type_definition) = get_any_of_type_definition(
+                                    && let type_definitions = get_any_of_type_definition(
                                         self,
                                         position,
                                         keys,
@@ -225,11 +253,12 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                         schema_context,
                                     )
                                     .await
+                                    && !type_definitions.is_empty()
                                 {
-                                    return Some(type_definition);
+                                    return type_definitions;
                                 }
                                 if let Some(all_of_schema) = table_schema.all_of.as_deref()
-                                    && let Some(type_definition) = get_all_of_type_definition(
+                                    && let type_definitions = get_all_of_type_definition(
                                         self,
                                         position,
                                         keys,
@@ -241,8 +270,9 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                         schema_context,
                                     )
                                     .await
+                                    && !type_definitions.is_empty()
                                 {
-                                    return Some(type_definition);
+                                    return type_definitions;
                                 }
 
                                 if let Some(current_schema) =
@@ -280,14 +310,14 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                     key.range().start.line + 1
                                 )));
 
-                                Some(TypeDefinition {
+                                vec![TypeDefinition {
                                     schema_uri,
                                     schema_accessors: accessors
                                         .iter()
                                         .map(Into::into)
                                         .collect_vec(),
                                     range: tombi_text::Range::default(),
-                                })
+                                }]
                             }
                         } else {
                             let type_definition = table_schema
@@ -300,12 +330,12 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                 )
                                 .await;
 
-                            if type_definition.is_some() {
+                            if !type_definition.is_empty() {
                                 return type_definition;
                             }
 
                             if let Some(one_of_schema) = table_schema.one_of.as_deref()
-                                && let Some(type_definition) = get_one_of_type_definition(
+                                && let type_definitions = get_one_of_type_definition(
                                     self,
                                     position,
                                     keys,
@@ -317,11 +347,12 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                     schema_context,
                                 )
                                 .await
+                                && !type_definitions.is_empty()
                             {
-                                return Some(type_definition);
+                                return type_definitions;
                             }
                             if let Some(any_of_schema) = table_schema.any_of.as_deref()
-                                && let Some(type_definition) = get_any_of_type_definition(
+                                && let type_definitions = get_any_of_type_definition(
                                     self,
                                     position,
                                     keys,
@@ -333,11 +364,12 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                     schema_context,
                                 )
                                 .await
+                                && !type_definitions.is_empty()
                             {
-                                return Some(type_definition);
+                                return type_definitions;
                             }
                             if let Some(all_of_schema) = table_schema.all_of.as_deref()
-                                && let Some(type_definition) = get_all_of_type_definition(
+                                && let type_definitions = get_all_of_type_definition(
                                     self,
                                     position,
                                     keys,
@@ -349,11 +381,12 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                     schema_context,
                                 )
                                 .await
+                                && !type_definitions.is_empty()
                             {
-                                return Some(type_definition);
+                                return type_definitions;
                             }
 
-                            None
+                            Vec::new()
                         }
                     }
                     SchemaView::OneOf(one_of_schema) => {
@@ -398,17 +431,17 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                         )
                         .await
                     }
-                    _ => Some(TypeDefinition {
+                    _ => vec![TypeDefinition {
                         schema_uri: current_schema.schema_uri.as_ref().clone(),
                         schema_accessors: accessors.iter().map(Into::into).collect_vec(),
                         range: tombi_text::Range::default(),
-                    }),
+                    }],
                 }
             } else {
                 if let Some(key) = keys.first()
                     && let Some(value) = self.get(key)
                 {
-                    let accessor = Accessor::Key(key.value.clone());
+                    let accessor = Accessor::Key(key.value().to_owned());
 
                     return value
                         .get_type_definition(
@@ -424,7 +457,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                         )
                         .await;
                 }
-                None
+                Vec::new()
             }
         }
         .boxed()
@@ -435,21 +468,21 @@ impl GetTypeDefinition for TableSchema {
     fn get_type_definition<'a: 'b, 'b>(
         &'a self,
         _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree::Key],
+        _keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Option<TypeDefinition>> {
+    ) -> tombi_future::BoxFuture<'b, Vec<TypeDefinition>> {
         async move {
-            current_schema.map(|schema| {
+            current_schema.map_or_else(Vec::new, |schema| {
                 let mut schema_uri = schema.schema_uri.as_ref().clone();
                 schema_uri.set_fragment(Some(&format!("L{}", self.range.start.line + 1)));
 
-                TypeDefinition {
+                vec![TypeDefinition {
                     schema_uri,
                     schema_accessors: accessors.iter().map(Into::into).collect_vec(),
                     range: schema.schema_view.range(),
-                }
+                }]
             })
         }
         .boxed()

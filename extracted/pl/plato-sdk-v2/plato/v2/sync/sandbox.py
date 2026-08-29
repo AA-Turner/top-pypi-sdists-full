@@ -1787,9 +1787,20 @@ class SandboxClient:
             x_api_key=self.api_key,
         )
 
-    def _build_checkpoint_request(self, mode: str | None, dataset: str | None) -> CreateCheckpointRequest:
-        """Build the checkpoint payload; config mode packs local plato-config.yml + flows."""
+    def _build_checkpoint_request(
+        self, mode: str | None, dataset: str | None, target: str | None = None
+    ) -> CreateCheckpointRequest:
+        """Build the checkpoint payload; config mode packs local plato-config.yml + flows.
+
+        ``target`` is the routing domain stored on the artifact (e.g.
+        ``grist.web.plato.so``); the proxy serves the artifact under it instead
+        of the sims.plato.so fallback. Independent of ``mode``; when omitted the
+        backend inherits the parent artifact's target.
+        """
         checkpoint_request = CreateCheckpointRequest()
+        if target:
+            checkpoint_request.target = target
+            self.console.print(f"[dim]Artifact target: {target}[/dim]")
 
         if mode == "config":
             if not dataset:
@@ -1845,8 +1856,9 @@ class SandboxClient:
         session_id: str,
         mode: str,
         dataset: str,
+        target: str | None = None,
     ) -> AppApiV2SchemasSessionCreateSnapshotResponse:
-        checkpoint_request = self._build_checkpoint_request(mode, dataset)
+        checkpoint_request = self._build_checkpoint_request(mode, dataset, target)
 
         response = sessions_snapshot.sync(
             client=self._http,
@@ -1908,6 +1920,7 @@ class SandboxClient:
         job_id: str,
         mode: str | None = None,
         dataset: str | None = None,
+        target: str | None = None,
     ) -> CreateSnapshotResult:
         """Full snapshot (disk + memory) of a single job — the per-job
         analog of the session-level snapshot.
@@ -1919,7 +1932,7 @@ class SandboxClient:
         ``mode="config"`` packs the local plato-config.yml + flows just like
         the session-level snapshot.
         """
-        checkpoint_request = self._build_checkpoint_request(mode, dataset)
+        checkpoint_request = self._build_checkpoint_request(mode, dataset, target)
         snapshot_request = AppApiV2SchemasSessionCreateSnapshotRequest(
             **checkpoint_request.model_dump(exclude_none=True)
         )
@@ -1940,6 +1953,7 @@ class SandboxClient:
         job_id: str,
         mode: str | None = None,
         dataset: str | None = None,
+        target: str | None = None,
     ) -> CreateCheckpointResult:
         """Checkpoint a single job (one env in a multi-env session).
 
@@ -1952,7 +1966,7 @@ class SandboxClient:
         response = jobs_checkpoint.sync(
             client=self._http,
             job_id=job_id,
-            body=self._build_checkpoint_request(mode, dataset),
+            body=self._build_checkpoint_request(mode, dataset, target),
             x_api_key=self.api_key,
         )
 

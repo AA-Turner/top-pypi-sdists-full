@@ -1,15 +1,37 @@
+import sys
 from dataclasses import fields
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TypeVar
 from warnings import simplefilter, warn
 
 import toml
 
 from .client_generators.scalars import ScalarData
 from .exceptions import ConfigFileNotFound, MissingConfiguration
-from .settings import ClientSettings, CommentsStrategy, GraphQLSchemaSettings
+from .settings import (
+    BaseSettings,
+    ClientSettings,
+    CommentsStrategy,
+    GeneratorSettings,
+    GraphQLSchemaSettings,
+    ModelsOnlySettings,
+)
 
-simplefilter("default", DeprecationWarning)
+# Python hides deprecation warnings by default, so opt into showing them - unless
+# the user configured warnings themselves. `sys.warnoptions` is populated by both
+# `PYTHONWARNINGS` and `-W`.
+if not sys.warnoptions:
+    simplefilter("default", DeprecationWarning)
+
+GeneratorSettingsType = TypeVar("GeneratorSettingsType", bound=GeneratorSettings)
+
+
+def apply_warning_settings(settings: BaseSettings) -> None:
+    """Apply the `show_deprecation_warnings` setting, unless the user set filters."""
+    if sys.warnoptions or settings.show_deprecation_warnings:
+        return
+
+    simplefilter("ignore", DeprecationWarning)
 
 
 def get_config_file_path(file_name: str = "pyproject.toml") -> Path:
@@ -34,8 +56,19 @@ def get_config_dict(config_file_name: Optional[str] = None) -> dict:
 
 def get_client_settings(config_dict: dict) -> ClientSettings:
     """Parse configuration dict and return ClientSettings instance."""
+    return _get_generator_settings(config_dict, ClientSettings)
+
+
+def get_models_only_settings(config_dict: dict) -> ModelsOnlySettings:
+    """Parse configuration dict and return ModelsOnlySettings instance."""
+    return _get_generator_settings(config_dict, ModelsOnlySettings)
+
+
+def _get_generator_settings(
+    config_dict: dict, settings_class: type[GeneratorSettingsType]
+) -> GeneratorSettingsType:
     section = get_section(config_dict).copy()
-    settings_fields_names = {f.name for f in fields(ClientSettings)}
+    settings_fields_names = {f.name for f in fields(settings_class)}
     try:
         section["scalars"] = {
             name: ScalarData(
@@ -69,7 +102,7 @@ def get_client_settings(config_dict: dict) -> ClientSettings:
                 stacklevel=2,
             )
 
-        return ClientSettings(
+        settings = settings_class(
             **{
                 key: value
                 for key, value in section.items()
@@ -81,6 +114,9 @@ def get_client_settings(config_dict: dict) -> ClientSettings:
         raise MissingConfiguration(
             f"Missing configuration fields: {', '.join(missing_fields)}"
         ) from exc
+
+    apply_warning_settings(settings)
+    return settings
 
 
 def get_section(config_dict: dict) -> dict:
@@ -108,7 +144,7 @@ def get_graphql_schema_settings(config_dict: dict) -> GraphQLSchemaSettings:
     section = get_section(config_dict)
     settings_fields_names = {f.name for f in fields(GraphQLSchemaSettings)}
     try:
-        return GraphQLSchemaSettings(
+        settings = GraphQLSchemaSettings(
             **{
                 key: value
                 for key, value in section.items()
@@ -120,3 +156,6 @@ def get_graphql_schema_settings(config_dict: dict) -> GraphQLSchemaSettings:
         raise MissingConfiguration(
             f"Missing configuration fields: {', '.join(missing_fields)}"
         ) from exc
+
+    apply_warning_settings(settings)
+    return settings

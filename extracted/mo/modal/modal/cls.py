@@ -27,6 +27,7 @@ from ._utils.async_utils import synchronize_api, synchronizer
 from ._utils.deprecation import (
     deprecation_warning,
     handle_deprecated_parameters,
+    with_deprecation_warning,
 )
 from .client import _Client
 from .cloud_bucket_mount import _CloudBucketMount
@@ -82,8 +83,8 @@ def _bind_instance_method(cls: "_Cls", service_function: _Function, method_name:
     assert service_function._obj
 
     def hydrate_from_instance_service_function(new_function: _Function):
-        assert service_function.is_hydrated
-        assert cls.is_hydrated
+        assert service_function._is_hydrated
+        assert cls._is_hydrated
 
         method_metadata = service_function._method_handle_metadata[method_name]
         new_function._hydrate(service_function.object_id, service_function.client, method_metadata)
@@ -101,9 +102,9 @@ def _bind_instance_method(cls: "_Cls", service_function: _Function, method_name:
         unhydrated_deps = []
         # without this check, the common service_function will be reloaded by all methods
         # TODO(elias): Investigate if we can fix this multi-loader in the resolver - feels like a bug?
-        if not cls.is_hydrated:
+        if not cls._is_hydrated:
             unhydrated_deps.append(cls)
-        if not service_function.is_hydrated:
+        if not service_function._is_hydrated:
             unhydrated_deps.append(service_function)
         return unhydrated_deps
 
@@ -118,15 +119,15 @@ def _bind_instance_method(cls: "_Cls", service_function: _Function, method_name:
         hydrate_lazily=True,
         load_context_overrides=cls._load_context_overrides,
     )
-    if service_function.is_hydrated:
+    if service_function._is_hydrated:
         # Eager hydration (skip load) if the instance service function is already loaded
         hydrate_from_instance_service_function(fun)
 
     if cls._is_local():
         partial_function = cls._method_partials[method_name]
-        from modal._utils.function_utils import FunctionInfo
+        from modal._utils.function_utils import FunctionSourceInfo
 
-        fun._info = FunctionInfo(
+        fun._source_info = FunctionSourceInfo(
             # ugly - needed for .local()  TODO (elias): Clean up!
             partial_function.raw_f,
             user_cls=cls._user_cls,
@@ -181,7 +182,7 @@ class _Obj:
     def _cached_service_function(self) -> _Function:
         # Returns a service function for this _Obj, serving all its methods
         # In case of methods without parameters or options, this is simply proxying to the class service function
-        if not self._cls.is_hydrated and not self._cls._is_local():
+        if not self._cls._is_hydrated and not self._cls._is_local():
             raise ExecutionError("Class is not hydrated - this is probably a bug in the Modal client. Contact support")
 
         if not self._instance_service_function:
@@ -230,7 +231,7 @@ class _Obj:
                     load_context: LoadContext,
                     existing_object_id: str | None,
                 ):
-                    if not parent.is_hydrated:
+                    if not parent._is_hydrated:
                         await parent.hydrate(load_context.client)
                     function._hydrate_from_other(parent)
 
@@ -241,7 +242,7 @@ class _Obj:
                     load_context_overrides=parent._load_context_overrides,
                 )
                 fun._obj = self
-                fun._info = parent._info
+                fun._source_info = parent._source_info
                 fun._spec = parent._spec
 
             self._instance_service_function = fun
@@ -324,7 +325,7 @@ class _Obj:
             ```
 
         """
-        if not self._cls.is_hydrated and not self._cls._is_local():
+        if not self._cls._is_hydrated and not self._cls._is_local():
             await self._cls.hydrate()
 
         return await self._cached_service_function().update_autoscaler(
@@ -397,7 +398,7 @@ class _Obj:
             if self._cls._is_local():
                 if k not in self._cls._method_partials:
                     return None
-            elif self._cls.is_hydrated:
+            elif self._cls._is_hydrated:
                 if k not in self._cls._method_metadata:
                     return None
             else:
@@ -407,7 +408,7 @@ class _Obj:
 
             return _bind_instance_method(self._cls, self._cached_service_function(), k)
 
-        if self._cls.is_hydrated or self._cls._is_local():
+        if self._cls._is_hydrated or self._cls._is_local():
             # Class is hydrated or local so we know which methods exist
             if maybe_method := _get_maybe_method():
                 return maybe_method
@@ -522,7 +523,7 @@ class _Cls(_Object, type_prefix="cs"):
         combined_options = self._options.merge_options(new_options)
 
         async def _load_from_base(new_cls, resolver, load_context, existing_object_id):
-            if not self.is_hydrated:
+            if not self._is_hydrated:
                 await resolver.load(self, load_context)
 
             new_cls._initialize_from_other(self)
@@ -548,7 +549,7 @@ class _Cls(_Object, type_prefix="cs"):
     def _hydrate_metadata(self, metadata: Message):
         assert isinstance(metadata, api_pb2.ClassHandleMetadata)
         class_service_function = self._get_class_service_function()
-        assert class_service_function.is_hydrated
+        assert class_service_function._is_hydrated
 
         if class_service_function._method_handle_metadata and len(class_service_function._method_handle_metadata):
             # If we have the metadata on the class service function
@@ -563,7 +564,7 @@ class _Cls(_Object, type_prefix="cs"):
         self._method_metadata = method_metadata
 
     @staticmethod
-    def validate_construction_mechanism(user_cls):
+    def _validate_construction_mechanism(user_cls):
         """mdmd:hidden"""
         params = {k: v for k, v in user_cls.__dict__.items() if is_parameter(v)}
         has_custom_constructor = user_cls.__init__ != object.__init__
@@ -600,11 +601,17 @@ More information on class parameterization can be found here: https://modal.com/
             except TypeError as exc:
                 raise InvalidError(f"Class parameter '{k}': {exc}")
 
+    validate_construction_mechanism = with_deprecation_warning(
+        (2026, 8, 26),
+        "`Cls.validate_construction_mechanism` is deprecated and will be removed in `modal` version 1.6.0",
+    )(_validate_construction_mechanism)
+    """mdmd:hidden"""
+
     @staticmethod
-    def from_local(user_cls, app: "modal.app._App", class_service_function: _Function) -> "_Cls":
+    def _from_local(user_cls, app: "modal.app._App", class_service_function: _Function) -> "_Cls":
         """mdmd:hidden"""
         # validate signature
-        _Cls.validate_construction_mechanism(user_cls)
+        _Cls._validate_construction_mechanism(user_cls)
 
         lifecycle_method_partials = _find_partial_methods_for_user_cls(
             user_cls, ~_PartialFunctionFlags.interface_flags()
@@ -641,6 +648,12 @@ More information on class parameterization can be found here: https://modal.com/
         cls._callables = callables
         cls._name = user_cls.__name__
         return cls
+
+    from_local = with_deprecation_warning(
+        (2026, 8, 26),
+        "`Cls.from_local` is deprecated and will be removed in `modal` version 1.6.0",
+    )(_from_local)
+    """mdmd:hidden"""
 
     @classmethod
     def from_name(

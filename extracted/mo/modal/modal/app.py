@@ -33,12 +33,9 @@ from ._partial_function import (
 from ._server import _Server, validate_http_server_config
 from ._supports_logs import _LogQueryData
 from ._utils.async_utils import synchronize_api
-from ._utils.deprecation import (
-    deprecation_warning,
-    handle_deprecated_parameters,
-)
+from ._utils.deprecation import deprecation_warning, handle_deprecated_parameters, with_deprecation_warning
 from ._utils.function_utils import (
-    FunctionInfo,
+    FunctionSourceInfo,
     is_flash_object,
     is_global_object,
     is_method_fn,
@@ -65,10 +62,10 @@ _default_image: _Image = _Image.debian_slim()
 
 
 class _LocalEntrypoint:
-    _info: FunctionInfo
+    _info: FunctionSourceInfo
     _app: "_App"
 
-    def __init__(self, info: FunctionInfo, app: "_App") -> None:
+    def __init__(self, info: FunctionSourceInfo, app: "_App") -> None:
         self._info = info
         self._app = app
 
@@ -76,7 +73,7 @@ class _LocalEntrypoint:
         return self._info.raw_f(*args, **kwargs)
 
     @property
-    def info(self) -> FunctionInfo:
+    def info(self) -> FunctionSourceInfo:
         return self._info
 
     @property
@@ -274,7 +271,16 @@ class _App:
         return self._name
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`App.is_interactive` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def is_interactive(self) -> bool:
+        """mdmd:hidden"""
+        return self._is_interactive_
+
+    @property
+    def _is_interactive_(self) -> bool:
         """mdmd:hidden
         Whether the current app for the app is running in interactive mode.
 
@@ -304,6 +310,11 @@ class _App:
             Human-readable description string for the app.
         """
         return self._description
+
+    @description.setter
+    def description(self, value):
+        """mdmd:hidden"""
+        self._description = value
 
     @staticmethod
     async def lookup(
@@ -373,19 +384,28 @@ class _App:
             raise InvalidError("App is not running")
         return f"https://modal.com/id/{self._app_id}"
 
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`App.set_description` is deprecated and will be removed in `modal` version 1.6.0. "
+        "Set `App.description` directly instead",
+    )
     def set_description(self, description: str):
         """mdmd:hidden
         Set the description of the App before it starts running.
 
         Note: we don't recommend using the method and may deprecate it in the future.
         """
-        self._description = description
+        self.description = description
 
     def _validate_blueprint_value(self, key: str, value: Any):
         if not isinstance(value, _Object):
             raise InvalidError(f"App attribute `{key}` with value {value!r} is not a valid Modal object")
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`App.image` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def image(self) -> _Image:
         """mdmd:hidden
         Retrieve the Image that will be used as the default for any Functions registered to the App.
@@ -589,14 +609,14 @@ class _App:
             raise ExecutionError("`_get_watch_mounts` requires a running app.")
 
         all_mounts = []
-        for function in self.registered_functions.values():
+        for function in self._local_state.functions.values():
             all_mounts.extend(function._serve_mounts)
 
         return [m for m in all_mounts if m.is_local()]
 
     def _add_function(self, function: _Function, is_web_endpoint: bool):
         local_state = self._local_state
-        if old_function := local_state.functions.get(function.tag, None):
+        if old_function := local_state.functions.get(function._tag_, None):
             if old_function is function:
                 return  # already added the same exact instance, ignore
 
@@ -605,25 +625,25 @@ class _App:
             # and we don't want to warn about a collision in that case.
             if not is_interactive_ipython():
                 logger.warning(
-                    f"Warning: function name '{function.tag}' collision!"
+                    f"Warning: function name '{function._tag_}' collision!"
                     " Overriding existing function "
-                    f"[{old_function._info.module_name}].{old_function._info.function_name}"
-                    f" with new function [{function._info.module_name}].{function._info.function_name}"
+                    f"[{old_function._source_info.module_name}].{old_function._source_info.function_name}"
+                    f" with new function [{function._source_info.module_name}].{function._source_info.function_name}"
                 )
-        if function.tag in local_state.classes:
-            logger.warning(f"Warning: tag {function.tag} exists but is overridden by function")
+        if function._tag_ in local_state.classes:
+            logger.warning(f"Warning: tag {function._tag_} exists but is overridden by function")
 
         if self._running_app:
             # If this is inside a container, then objects can be defined after app initialization.
             # So we may have to initialize objects once they get bound to the app.
-            if function.tag in self._running_app.function_ids:
-                object_id: str = self._running_app.function_ids[function.tag]
+            if function._tag_ in self._running_app.function_ids:
+                object_id: str = self._running_app.function_ids[function._tag_]
                 metadata: Message = self._running_app.object_handle_metadata[object_id]
                 function._hydrate(object_id, self._client, metadata)
 
-        local_state.functions[function.tag] = function
+        local_state.functions[function._tag_] = function
         if is_web_endpoint:
-            local_state.web_endpoints.append(function.tag)
+            local_state.web_endpoints.append(function._tag_)
 
     def _add_class(self, tag: str, cls: _Cls):
         if self._running_app:
@@ -658,6 +678,10 @@ class _App:
                 obj._hydrate(object_id, client, handle_metadata)
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`App.registered_functions` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def registered_functions(self) -> dict[str, _Function]:
         """mdmd:hidden
         All modal.Function objects registered on the app.
@@ -670,6 +694,10 @@ class _App:
         return self._local_state.functions
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`App.registered_classes` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def registered_classes(self) -> dict[str, _Cls]:
         """mdmd:hidden
         All modal.Cls objects registered on the app.
@@ -682,6 +710,10 @@ class _App:
         return self._local_state.classes
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`App.registered_entrypoints` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def registered_entrypoints(self) -> dict[str, _LocalEntrypoint]:
         """mdmd:hidden
         All local CLI entrypoints registered on the app.
@@ -693,6 +725,10 @@ class _App:
         return self._local_state.local_entrypoints
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`App.registered_web_endpoints` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def registered_web_endpoints(self) -> list[str]:
         """mdmd:hidden
         Names of Web Functions registered on the app.
@@ -767,7 +803,7 @@ class _App:
             raise InvalidError("Invalid value for `name`: Must be string.")
 
         def wrapped(raw_f: Callable[..., Any]) -> _LocalEntrypoint:
-            info = FunctionInfo(raw_f)
+            info = FunctionSourceInfo(raw_f)
             tag = name if name is not None else raw_f.__qualname__
             local_state = self._local_state
             if tag in local_state.local_entrypoints:
@@ -926,7 +962,7 @@ class _App:
                 rdma = f.params.rdma
                 fabric_size = f.params.fabric_size
 
-                info = FunctionInfo(f.raw_f, serialized=serialized, name_override=name)
+                info = FunctionSourceInfo(f.raw_f, serialized=serialized, name_override=name)
                 raw_f = f.raw_f
                 webhook_config = f.params.webhook_config
                 is_generator = f.params.is_generator
@@ -969,7 +1005,7 @@ class _App:
                         )
                     )
 
-                info = FunctionInfo(f, serialized=serialized, name_override=name)
+                info = FunctionSourceInfo(f, serialized=serialized, name_override=name)
                 raw_f = f
                 webhook_config = None
                 batch_max_size = None
@@ -985,7 +1021,7 @@ class _App:
             if is_generator is None:
                 is_generator = inspect.isgeneratorfunction(raw_f) or inspect.isasyncgenfunction(raw_f)
 
-            function = _Function.from_local(
+            function = _Function._from_local(
                 info,
                 app=self,
                 image=image,
@@ -1218,10 +1254,10 @@ class _App:
                 ).values():
                     raise InvalidError("Callable decorators cannot be combined with web interface decorators.")
 
-            info = FunctionInfo(None, serialized=serialized, user_cls=user_cls)
+            info = FunctionSourceInfo(None, serialized=serialized, user_cls=user_cls)
 
             i6pn_enabled = i6pn or cluster_size is not None
-            cls_func = _Function.from_local(
+            cls_func = _Function._from_local(
                 info,
                 app=self,
                 image=image or self._get_default_image(),
@@ -1264,7 +1300,7 @@ class _App:
 
             self._add_function(cls_func, is_web_endpoint=False)
 
-            cls: _Cls = _Cls.from_local(user_cls, self, cls_func)
+            cls: _Cls = _Cls._from_local(user_cls, self, cls_func)
 
             for method_name, partial_function in cls._method_partials.items():
                 if partial_function.params.webhook_config is not None:
@@ -1430,9 +1466,11 @@ class _App:
             local_state = self._local_state
 
             # Create the FunctionInfo for the server, note we treat FunctionInfo as a class for servers
-            info = FunctionInfo(None, serialized=serialized, user_cls=user_cls, name_override=name or user_cls.__name__)
+            info = FunctionSourceInfo(
+                None, serialized=serialized, user_cls=user_cls, name_override=name or user_cls.__name__
+            )
             # Create the service function
-            service_function = _Function.from_local(
+            service_function = _Function._from_local(
                 info,
                 app=self,
                 image=image or self._get_default_image(),
@@ -1579,33 +1617,6 @@ class _App:
         resp = await client.stub.AppGetTags(req)
         return dict(resp.tags)
 
-    async def _logs(self, client: _Client | None = None) -> AsyncGenerator[str, None]:
-        """Stream logs from the app.
-
-        This method is considered private and its interface may change - use at your own risk!
-        """
-        if not self._app_id:
-            raise InvalidError("`app._logs` requires a running/stopped app.")
-
-        client = client or self._client or await _Client.from_env()
-
-        last_log_batch_entry_id: str | None = None
-        while True:
-            request = api_pb2.AppGetLogsRequest(
-                app_id=self._app_id,
-                timeout=55,
-                last_entry_id=last_log_batch_entry_id,
-            )
-            async for log_batch in client.stub.AppGetLogs.unary_stream(request):
-                if log_batch.entry_id:
-                    # log_batch entry_id is empty for fd="server" messages from AppGetLogs
-                    last_log_batch_entry_id = log_batch.entry_id
-                if log_batch.app_done:
-                    return
-                for log in log_batch.items:
-                    if log.data:
-                        yield log.data
-
     @classmethod
     def _get_container_app(cls) -> "_App | None":
         """Returns the `App` running inside a container.
@@ -1621,7 +1632,7 @@ class _App:
     async def _get_log_query_data(self) -> _LogQueryData:
         """Get the data needed to query logs for this app."""
         if not self._app_id:
-            raise InvalidError("`app._logs` requires a running/stopped app.")
+            raise InvalidError("`app.logs` requires a running/stopped app.")
         client = self._client or await _Client.from_env()
         filters = LogsFilters()
         return _LogQueryData(client=client, app_id=self._app_id, filters=filters, source_object_id=self._app_id)

@@ -204,16 +204,34 @@ def gen_schema(state: State) -> int:
                     "prefix": {"type": "string"},
                     "start": {"type": "integer"},
                     "stop": {"type": "integer"},
+                    "default": {"type": "string"},
                 },
                 "additionalProperties": False,
                 "description": "range factor group: expands to prefix+N for N in [start, stop]",
+            },
+            "factor_values_dict": {
+                "type": "object",
+                "required": ["values"],
+                "properties": {
+                    "values": {"type": "array", "items": {"type": "string"}},
+                    "default": {"type": "string"},
+                },
+                "additionalProperties": False,
+                "description": "factor group with an explicit list and a default used when none of it is active",
             },
             "factor_labeled_dict": {
                 "type": "object",
                 "minProperties": 1,
                 "maxProperties": 1,
-                "not": {"required": ["prefix"]},
-                "additionalProperties": {"type": "array", "items": {"type": "string"}},
+                # ``properties`` declares the key so ajv strict mode can see it; ``{}`` adds no constraint of its own
+                "not": {"properties": {"prefix": {}}, "required": ["prefix"]},
+                "additionalProperties": {
+                    "oneOf": [
+                        {"type": "array", "items": {"type": "string"}},
+                        {"$ref": "#/definitions/factor_range_dict"},
+                        {"$ref": "#/definitions/factor_values_dict"},
+                    ]
+                },
                 "description": "labeled factor group for {factor:label} substitution",
             },
             "product_factor_group": {

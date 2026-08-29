@@ -1,6 +1,6 @@
 [project]
 name = "redlines"
-version = "0.6.1"
+version = "0.6.2"
 description = "Compare text, and produce human-readable differences or deltas which look like track changes in Microsoft Word."
 readme = "README.md"
 authors = [
@@ -30,13 +30,14 @@ dependencies = [
 Homepage = "https://houfu.github.io/redlines/"
 Documentation = "https://houfu.github.io/redlines/"
 Repository = "https://github.com/houfu/redlines"
-"Agent Guide" = "https://github.com/houfu/redlines/blob/main/AGENT_GUIDE.md"
+"Agent Guide" = "https://houfu.github.io/redlines/guides/agent-guide/"
 
 [project.optional-dependencies]
 nupunkt = [
     "nupunkt>=0.6.0; python_version>='3.11'",
 ]
 levenshtein = ["Levenshtein>=0.27.1"]
+pdf = ["pdfplumber>=0.10.0"]
 
 [project.scripts]
 redlines = 'redlines.cli:cli'
@@ -58,7 +59,7 @@ build-backend = "hatchling.build"
 [tool.mypy]
 python_version = "3.11"
 strict = true
-disable_error_code = "misc"
+disable_error_code = ["misc", "unused-ignore"]
 
 ignore_missing_imports = false
 follow_untyped_imports = true
@@ -80,4 +81,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "click_default_group"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pdfplumber"
 ignore_missing_imports = true

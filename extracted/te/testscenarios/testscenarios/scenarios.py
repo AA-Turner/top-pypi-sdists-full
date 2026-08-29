@@ -23,16 +23,23 @@ __all__ = [
     "multiply_scenarios",
 ]
 
+import sys
+import unittest
+from collections.abc import Iterable, Iterator
 from itertools import (
     product,
 )
-import sys
+from typing import Any
 
-from testtools.testcase import clone_test_with_new_id
 from testtools import iterate_tests
+from testtools.testcase import clone_test_with_new_id
+
+# A scenario is a (name, parameters) pair. The parameter values are injected
+# onto test instances as attributes, so they are intentionally arbitrary.
+Scenario = tuple[str, dict[str, Any]]
 
 
-def apply_scenario(scenario, test):
+def apply_scenario(scenario: Scenario, test: unittest.TestCase) -> unittest.TestCase:
     """Apply scenario to test.
 
     :param scenario: A tuple (name, parameters) to apply to the test. The test
@@ -46,14 +53,16 @@ def apply_scenario(scenario, test):
     newtest = clone_test_with_new_id(test, test.id() + scenario_suffix)
     test_desc = test.shortDescription()
     if test_desc is not None:
-        newtest_desc = "%(test_desc)s %(scenario_suffix)s" % vars()
-        newtest.shortDescription = lambda: newtest_desc
+        newtest_desc = f"{test_desc} {scenario_suffix}"
+        newtest.shortDescription = lambda: newtest_desc  # type: ignore[method-assign]
     for key, value in parameters.items():
         setattr(newtest, key, value)
     return newtest
 
 
-def apply_scenarios(scenarios, test):
+def apply_scenarios(
+    scenarios: Iterable[Scenario], test: unittest.TestCase
+) -> Iterator[unittest.TestCase]:
     """Apply many scenarios to a test.
 
     :param scenarios: An iterable of scenarios.
@@ -64,7 +73,9 @@ def apply_scenarios(scenarios, test):
         yield apply_scenario(scenario, test)
 
 
-def generate_scenarios(test_or_suite):
+def generate_scenarios(
+    test_or_suite: unittest.TestCase | unittest.TestSuite,
+) -> Iterator[unittest.TestCase]:
     """Yield the tests in test_or_suite with scenario multiplication done.
 
     TestCase objects with no scenarios specified are yielded unaltered. Tests
@@ -78,13 +89,13 @@ def generate_scenarios(test_or_suite):
         scenarios = getattr(test, "scenarios", None)
         if scenarios:
             for newtest in apply_scenarios(scenarios, test):
-                newtest.scenarios = None
+                newtest.scenarios = None  # type: ignore[attr-defined]
                 yield newtest
         else:
             yield test
 
 
-def load_tests_apply_scenarios(*params):
+def load_tests_apply_scenarios(*params: Any) -> unittest.TestSuite:
     """Adapter test runner load hooks to call generate_scenarios.
 
     If this is referenced by the `load_tests` attribute of a module, then
@@ -101,15 +112,15 @@ def load_tests_apply_scenarios(*params):
         multiplication.
     """
     if getattr(params[0], "suiteClass", None) is not None:
-        loader, standard_tests, pattern = params
+        loader, standard_tests, _ = params
     else:
-        standard_tests, module, loader = params
-    result = loader.suiteClass()
+        standard_tests, _, loader = params
+    result: unittest.TestSuite = loader.suiteClass()
     result.addTests(generate_scenarios(standard_tests))
     return result
 
 
-def multiply_scenarios(*scenarios):
+def multiply_scenarios(*scenarios: Iterable[Scenario]) -> list[Scenario]:
     """Multiply two or more iterables of scenarios.
 
     It is safe to pass scenario generators or iterators.
@@ -118,19 +129,21 @@ def multiply_scenarios(*scenarios):
         scenarios, with the names concatenated and the parameters
         merged together.
     """
-    result = []
+    result: list[Scenario] = []
     scenario_lists = map(list, scenarios)
     for combination in product(*scenario_lists):
         names, parameters = zip(*combination)
         scenario_name = ",".join(names)
-        scenario_parameters = {}
+        scenario_parameters: dict[str, Any] = {}
         for parameter in parameters:
             scenario_parameters.update(parameter)
         result.append((scenario_name, scenario_parameters))
     return result
 
 
-def per_module_scenarios(attribute_name, modules):
+def per_module_scenarios(
+    attribute_name: str, modules: Iterable[tuple[str, str]]
+) -> list[Scenario]:
     """Generate scenarios for available implementation modules.
 
     This is typically used when there is a subsystem implemented, for
@@ -152,8 +165,9 @@ def per_module_scenarios(attribute_name, modules):
         scenario name, and the long name is a fully-qualified Python module
         name.
     """
-    scenarios = []
+    scenarios: list[Scenario] = []
     for short_name, module_name in modules:
+        mod: Any
         try:
             mod = __import__(module_name, {}, {}, [""])
         except BaseException:

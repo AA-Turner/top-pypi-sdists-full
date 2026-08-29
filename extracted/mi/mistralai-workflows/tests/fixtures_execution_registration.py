@@ -5,6 +5,7 @@ Kept separate from the test module to avoid sandbox import issues.
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel
@@ -172,4 +173,58 @@ class MixedScalarModelSearchKeyWorkflow:
 class SingleBaseModelSearchKeyWorkflow:
     @workflow.entrypoint
     async def run(self, payload: SearchKeyInput) -> str:
+        return await capture_token()
+
+
+class DefaultPayload(BaseModel):
+    id: str = "hey"
+
+
+class DefaultPayloadWithNote(BaseModel):
+    id: str = "hey"
+    note: str | None = "default-note"
+
+
+@workflow.define(
+    name="test-registration-search-keys-defaults-multi",
+    search_keys=["id", "payload.id"],
+)
+class DefaultMultiParamSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, payload: DefaultPayload = DefaultPayload(), id: str = "hi") -> str:
+        return await capture_token()
+
+
+@workflow.define(
+    name="test-registration-search-keys-defaults-single",
+    search_keys=["id", "note"],
+)
+class DefaultSingleParamSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, payload: DefaultPayloadWithNote = DefaultPayloadWithNote()) -> str:
+        return await capture_token()
+
+
+@workflow.define(
+    name="test-registration-search-keys-defaults-scalar",
+    search_keys=["city"],
+)
+class DefaultScalarSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, city: str = "paris") -> str:
+        return await capture_token()
+
+
+class CoercedPayload(BaseModel):
+    ratio: float = 1.0
+    when: datetime | None = None
+
+
+@workflow.define(
+    name="test-registration-search-keys-coercion",
+    search_keys=["ratio", "when"],
+)
+class CoercedSearchKeyWorkflow:
+    @workflow.entrypoint
+    async def run(self, payload: CoercedPayload) -> str:
         return await capture_token()

@@ -2,6 +2,7 @@ import asyncio
 import enum
 import hashlib
 import importlib.util
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -32,6 +33,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pyodide.webloop import WebLoop
 from starlette.background import BackgroundTask
+from starlette.middleware.gzip import GZipMiddleware
 
 import asgi
 
@@ -51,16 +53,40 @@ class PlatformResource:
         self.closed = False
 
 
+_platform_events: list[str] = []
+_platform_shutdown_complete = asyncio.Event()
+
+
+def reset_platform_events():
+    _platform_events.clear()
+    _platform_shutdown_complete.clear()
+
+
 @asynccontextmanager
 async def _platform_lifespan(_app):
     resource = PlatformResource()
+    _platform_events.append("lifespan-startup")
     try:
         yield {"platform_resource": resource}
     finally:
         resource.closed = True
+        _platform_events.append("lifespan-shutdown")
+        _platform_shutdown_complete.set()
 
 
 app = FastAPI(lifespan=_platform_lifespan)
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+_platform_concurrency_ready = asyncio.Event()
+_platform_concurrency_count = 0
+
+
+def reset_platform_concurrency():
+    global _platform_concurrency_count
+
+    _platform_concurrency_count = 0
+    _platform_concurrency_ready.clear()
+
 
 # --------------------------------------------------------------------------- #
 # Shared mutable state used to verify side-effects (e.g. background tasks).
@@ -461,6 +487,91 @@ async def platform_upload_spooled(file: UploadFile = File(...)):  # noqa: B008
         "reread_matches": first == second,
         "rolled_to_disk": bool(getattr(file.file, "_rolled", False)),
     }
+
+
+@app.post("/platform/chunked-json")
+async def platform_chunked_json(request: Request):
+    chunks = [chunk async for chunk in request.stream() if chunk]
+    body = b"".join(chunks)
+    return {
+        "chunk_sizes": [len(chunk) for chunk in chunks],
+        "sha256": hashlib.sha256(body).hexdigest(),
+        "data": json.loads(body),
+    }
+
+
+@app.post("/platform/concurrent-env")
+async def platform_concurrent_env(
+    request: Request,
+    bindings=asgi.env,  # noqa: B008
+):
+    global _platform_concurrency_count
+
+    _platform_concurrency_count += 1
+    if _platform_concurrency_count == 2:
+        _platform_concurrency_ready.set()
+    await asyncio.wait_for(_platform_concurrency_ready.wait(), timeout=5)
+    body = await request.body()
+    return {
+        "binding": bindings["marker"],
+        "header": request.headers["x-request-marker"],
+        "body": body.decode(),
+    }
+
+
+@app.get("/platform/multiple-cookies")
+async def platform_multiple_cookies():
+    response = JSONResponse({"ok": True})
+    response.set_cookie("first", "1")
+    response.set_cookie("second", "two")
+    response.set_cookie("dated", "3", expires="Wed, 21 Oct 2037 07:28:00 GMT")
+    return response
+
+
+@app.get("/platform/gzip-binary")
+async def platform_gzip_binary():
+    return FastAPIResponse(
+        content=(bytes(range(256)) * 32),
+        media_type="application/octet-stream",
+    )
+
+
+def _stream_resource():
+    resource = PlatformResource()
+    _platform_events.append("dependency-open")
+    try:
+        yield resource
+    finally:
+        resource.closed = True
+        _platform_events.append("dependency-close")
+
+
+async def _platform_background_task():
+    await asyncio.sleep(0)
+    _platform_events.append("background-task")
+
+
+@app.get("/platform/lifecycle-stream")
+async def platform_lifecycle_stream(
+    request: Request,
+    resource: PlatformResource = Depends(_stream_resource),  # noqa: B008
+):
+    lifespan_resource = request.state.platform_resource
+    _platform_events.append("handler")
+
+    async def chunks():
+        for index in range(3):
+            assert not resource.closed
+            assert not lifespan_resource.closed
+            _platform_events.append(f"chunk-{index}")
+            yield f"chunk-{index}\n"
+            await asyncio.sleep(0)
+
+    return StreamingResponse(
+        chunks(),
+        media_type="text/plain",
+        background=BackgroundTask(_platform_background_task),
+    )
 
 
 @app.get("/native-file")

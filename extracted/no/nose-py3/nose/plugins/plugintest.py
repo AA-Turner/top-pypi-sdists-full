@@ -20,7 +20,7 @@ __all__ = ['PluginTester', 'run']
 from os import getpid
 
 
-class MultiProcessFile(object):
+class MultiProcessFile:
     """
     helper for testing multiprocessing
 
@@ -98,7 +98,7 @@ except ImportError:
     Buffer = StringIO
 
 
-class PluginTester(object):
+class PluginTester:
     """A mixin for testing nose plugins in their runtime environment.
 
     Subclass this and mix in unittest.TestCase to run integration/functional
@@ -165,13 +165,15 @@ class PluginTester(object):
         """
         from nose.config import Config
         from nose.core import TestProgram
-        from nose.plugins.manager import PluginManager
+        from nose.plugins.manager import DefaultPluginManager
 
         suite = None
         stream = Buffer()
+        plugins = DefaultPluginManager(plugins=self.plugins)
+        plugins.loadPlugins()
         conf = Config(env=self.env,
                       stream=stream,
-                      plugins=PluginManager(plugins=self.plugins))
+                      plugins=plugins)
         if self.ignoreFiles is not None:
             conf.ignoreFiles = self.ignoreFiles
         if not self.suitepath:
@@ -194,7 +196,7 @@ class PluginTester(object):
         self._execPlugin()
 
 
-class AccessDecorator(object):
+class AccessDecorator:
     stream = None
     _buf = None
 

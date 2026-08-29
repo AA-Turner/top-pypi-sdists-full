@@ -7,6 +7,7 @@ from typing import (
 )
 
 import opentelemetry
+import opentelemetry.baggage
 import opentelemetry.context
 import opentelemetry.trace
 import structlog
@@ -28,7 +29,9 @@ from mistralai.workflows.core.tracing._otel_config import (
 from mistralai.workflows.core.tracing.utils import (
     CUSTOM_TRACING_ATTRIBUTES,
     USER_TRACEPARENT_HEADER,
+    WORKFLOW_EXECUTION_ID_ATTRIBUTE,
     get_span_attributes,
+    workflow_execution_span_attributes,
 )
 from mistralai.workflows.models import EventAttributes, EventSpanType
 
@@ -50,7 +53,7 @@ def _carrier_has_valid_span(
     propagator: Any,
     carrier: Mapping[str, Any],
 ) -> bool:
-    context = propagator.extract(carrier)
+    context = propagator.extract(carrier, context=opentelemetry.context.Context())
     return opentelemetry.trace.get_current_span(context).get_span_context().is_valid
 
 
@@ -93,6 +96,25 @@ def _traceparent_is_sampled(traceparent: str) -> bool:
     return flags is not None and bool(flags & 0x01)
 
 
+def _carrier_with_workflow_execution_baggage(
+    propagator: Any,
+    carrier: Mapping[str, Any],
+    execution_id: str | None,
+) -> dict[str, Any]:
+    if not execution_id:
+        return dict(carrier)
+
+    context = propagator.extract(carrier, context=opentelemetry.context.Context())
+    context = opentelemetry.baggage.set_baggage(
+        WORKFLOW_EXECUTION_ID_ATTRIBUTE,
+        execution_id,
+        context=context,
+    )
+    enriched_carrier = dict(carrier)
+    propagator.inject(enriched_carrier, context=context)
+    return enriched_carrier
+
+
 class _MistralTracingWorkflowInboundInterceptor(TracingWorkflowInboundInterceptor):
     def _load_workflow_context_carrier(self) -> dict[str, Any] | None:
         carrier = super()._load_workflow_context_carrier()
@@ -104,18 +126,22 @@ class _MistralTracingWorkflowInboundInterceptor(TracingWorkflowInboundIntercepto
             user_provided = USER_TRACEPARENT_HEADER in info.headers
             if is_root_first_run and not user_provided:
                 carrier = _apply_sample_rate(carrier, config.common.otel_sample_rate)
-                self._workflow_context_carrier = carrier
-            return carrier
+        else:
+            carrier = _apply_sample_rate(
+                {
+                    **(carrier or {}),
+                    "traceparent": _deterministic_workflow_traceparent(info.namespace, info.workflow_id, info.run_id),
+                },
+                config.common.otel_sample_rate,
+            )
 
-        fallback_carrier = _apply_sample_rate(
-            {
-                **(carrier or {}),
-                "traceparent": _deterministic_workflow_traceparent(info.namespace, info.workflow_id, info.run_id),
-            },
-            config.common.otel_sample_rate,
+        carrier = _carrier_with_workflow_execution_baggage(
+            self.text_map_propagator,
+            carrier,
+            info.workflow_id,
         )
-        self._workflow_context_carrier = fallback_carrier
-        return fallback_carrier
+        self._workflow_context_carrier = carrier
+        return carrier
 
     async def execute_workflow(self, input: temporalio.worker.ExecuteWorkflowInput) -> Any:
         self._maybe_emit_workflow_root_span()
@@ -153,7 +179,7 @@ class _MistralTracingWorkflowInboundInterceptor(TracingWorkflowInboundIntercepto
                 additional_attributes={
                     FORCE_TRACE_ID_ATTRIBUTE: trace_id_hex,
                     FORCE_SPAN_ID_ATTRIBUTE: span_id_hex,
-                    "temporalWorkflowID": info.workflow_id,
+                    **workflow_execution_span_attributes(info.workflow_id),
                     "temporalRunID": info.run_id,
                 },
                 kind=opentelemetry.trace.SpanKind.SERVER,

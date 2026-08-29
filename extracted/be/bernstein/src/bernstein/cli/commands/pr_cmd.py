@@ -73,6 +73,9 @@ def _run_git(args: list[str], *, cwd: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
+_GIT_ERROR_MAX_CHARS = 200
+
+
 def _current_branch(cwd: Path) -> str:
     """Return the current git branch, or ``"HEAD"`` when detached."""
     result = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
@@ -81,16 +84,64 @@ def _current_branch(cwd: Path) -> str:
     return result.stdout.strip() or "HEAD"
 
 
-def _diff_stat(cwd: Path, base: str, head: str) -> str:
-    """Return ``git diff --stat base..head`` (empty string on failure)."""
-    result = _run_git(["diff", "--stat", f"{base}..{head}"], cwd=cwd)
-    if result.returncode != 0:
+def _base_rev(cwd: Path, base: str) -> str:
+    """Return the revision to diff the branch against.
+
+    ``base`` names the branch the pull request will merge onto -- a name on
+    the hosting side. Inside the workspace that name is a local branch that
+    nothing maintains: a single-branch clone does not have it at all, and a
+    clone that has fetched since it was created has a stale one. Both were
+    published: a description composed where ``main`` did not resolve went
+    out under "the diff could not be read", and a stale ``main`` composes
+    the description against commits the pull request does not touch. The
+    remote-tracking ref is the branch the pull request actually merges
+    onto, so it wins whenever it exists; the local name is the fallback for
+    a workspace with no remote at all.
+    """
+    result = _run_git(["rev-parse", "--verify", "-q", f"refs/remotes/origin/{base}"], cwd=cwd)
+    if result.returncode == 0:
+        return f"origin/{base}"
+    return base
+
+
+def _git_error(
+    result: subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes],
+) -> str:
+    """Summarise a failed git invocation in one line.
+
+    A description is written from what git answers.  When git does not
+    answer, the description must say so rather than describe the silence:
+    an unanswered query is not a negative answer.  This returns the line
+    the caller reports; ``""`` means the invocation succeeded.
+
+    Both stream types are accepted on purpose: the diff is captured as bytes
+    so its hash does not depend on this process's decoding, everything else
+    is captured as text, and both go through this one reporter.
+    """
+    if result.returncode == 0:
         return ""
-    return result.stdout
+    stderr = result.stderr
+    if isinstance(stderr, bytes):
+        stderr = stderr.decode("utf-8", "replace")
+    message = " ".join((stderr or "").split()) or f"git exited {result.returncode}"
+    return message[:_GIT_ERROR_MAX_CHARS]
 
 
-def _diff_bytes(cwd: Path, base: str, head: str) -> bytes:
-    """Return ``git diff base..head`` as raw bytes (empty on failure).
+def _diff_stat(cwd: Path, base: str, head: str) -> tuple[str, str]:
+    """Return ``(git diff --stat base..head, error)``.
+
+    ``error`` is non-empty when git could not answer.  It is kept separate
+    from the output so an unreadable diff is never rendered as an empty one
+    -- the two are indistinguishable to a reader and only one of them means
+    the branch changed nothing.
+    """
+    result = _run_git(["diff", "--stat", f"{base}..{head}"], cwd=cwd)
+    error = _git_error(result)
+    return ("" if error else result.stdout), error
+
+
+def _diff_bytes(cwd: Path, base: str, head: str) -> tuple[bytes, str]:
+    """Return ``(git diff base..head as raw bytes, error)``.
 
     Bytes, not text: the diff is hashed, and decoding it would make the hash
     depend on this process's error handling rather than on the diff.
@@ -102,20 +153,18 @@ def _diff_bytes(cwd: Path, base: str, head: str) -> bytes:
         timeout=60,
         check=False,
     )
-    if result.returncode != 0:
-        return b""
-    return result.stdout
+    error = _git_error(result)
+    return (b"" if error else result.stdout), error
 
 
-def _commit_log(cwd: Path, base: str, head: str) -> str:
-    """Return the branch's commits with per-file churn, for ranking."""
+def _commit_log(cwd: Path, base: str, head: str) -> tuple[str, str]:
+    """Return ``(the branch's commits with per-file churn, error)``."""
     result = _run_git(
         ["log", f"--format={COMMIT_LOG_FORMAT}", "--numstat", "--no-color", f"{base}..{head}"],
         cwd=cwd,
     )
-    if result.returncode != 0:
-        return ""
-    return result.stdout
+    error = _git_error(result)
+    return ("" if error else result.stdout), error
 
 
 def _enrich_summary_with_git(summary: SessionSummary, cwd: Path) -> SessionSummary:
@@ -134,14 +183,53 @@ def _enrich_summary_with_git(summary: SessionSummary, cwd: Path) -> SessionSumma
         when they were missing from the original.
     """
     branch = summary.branch if summary.branch not in ("", "HEAD") else _current_branch(cwd)
-    diff_stat = summary.diff_stat or _diff_stat(cwd, summary.base_branch, branch)
-    commits = summary.commits or parse_commit_log(_commit_log(cwd, summary.base_branch, branch))
-    provenance = summary.provenance or build_provenance(
-        diff=_diff_bytes(cwd, summary.base_branch, branch),
-        journal_head=summary.journal_head,
-    )
+    base_rev = _base_rev(cwd, summary.base_branch)
+    errors: list[str] = []
 
-    return replace(summary, branch=branch, diff_stat=diff_stat, commits=commits, provenance=provenance)
+    diff_stat = summary.diff_stat
+    if not diff_stat:
+        diff_stat, error = _diff_stat(cwd, base_rev, branch)
+        if error:
+            errors.append(f"diff --stat: {error}")
+
+    commits = summary.commits
+    if not commits:
+        raw, error = _commit_log(cwd, base_rev, branch)
+        commits = parse_commit_log(raw)
+        if error:
+            errors.append(f"log: {error}")
+
+    # Provenance binds the description to a diff a verifier can recompute.
+    # An empty diff hashes to the SHA-256 of the empty string, which is a
+    # well-formed digest of nothing: published under a "verify this" command
+    # it is a receipt that cannot be honoured. Bind only a diff that exists.
+    provenance = summary.provenance
+    if provenance is None:
+        diff, error = _diff_bytes(cwd, base_rev, branch)
+        if error:
+            errors.append(f"diff: {error}")
+        if diff:
+            provenance = build_provenance(diff=diff, journal_head=summary.journal_head)
+
+    git_error = summary.git_error or "; ".join(errors)
+    if git_error:
+        # The publish log is where this gets diagnosed. Without the line, a
+        # description written from an unanswered git reads as a run that
+        # changed nothing, and nothing in the log says otherwise.
+        click.echo(
+            f"warning: git could not describe {base_rev}..{branch} ({git_error}); "
+            "the description says so instead of claiming the branch is empty",
+            err=True,
+        )
+
+    return replace(
+        summary,
+        branch=branch,
+        diff_stat=diff_stat,
+        commits=commits,
+        provenance=provenance,
+        git_error=git_error,
+    )
 
 
 def _push_branch(branch: str, cwd: Path) -> tuple[bool, str]:
@@ -454,7 +542,10 @@ def _attest_description(
     if not pr_url or summary.provenance is None:
         return
     try:
-        diff = _diff_bytes(cwd, summary.base_branch, summary.branch)
+        diff, diff_error = _diff_bytes(cwd, _base_rev(cwd, summary.base_branch), summary.branch)
+        if diff_error:
+            click.echo(f"note: could not re-read the diff to anchor it: {diff_error}", err=True)
+            return
         recomputed = build_provenance(diff=diff, journal_head=summary.journal_head)
         if recomputed.diff_hash != summary.provenance.diff_hash:
             click.echo(
@@ -473,5 +564,12 @@ def _attest_description(
             journal_head=summary.journal_head,
             task_id=summary.session_id,
         )
-    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+    except Exception as exc:
+        # Deliberately every exception, not a named few. This step's whole
+        # contract is that it is optional, and a handler that names the errors
+        # it expects only honours that contract for failures someone thought
+        # of. The one that happened -- a TypeError from a mis-called helper --
+        # was not in the list, so it walked past the handler and failed a
+        # command whose pull request was already open and whose run had
+        # already passed its verification gate.
         click.echo(f"note: could not anchor the pull-request description: {exc}", err=True)

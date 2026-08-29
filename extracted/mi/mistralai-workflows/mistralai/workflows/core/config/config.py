@@ -1,8 +1,10 @@
 import os
 import socket
+from collections.abc import Mapping
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, Callable, Self, TypedDict
+from urllib.parse import urlsplit, urlunsplit
 
 import structlog
 from mistralai.extra.workflows.encoding.config import (
@@ -423,8 +425,65 @@ class DeploymentLocationConfig(BaseSettings):
     )
 
 
+class RemotelyOverridable:
+    """Annotation marker: the server may supply this field's default at worker startup.
+
+    The field name doubles as the feature-flag name the server sends, so it must be unique across
+    the settings tree.
+    """
+
+
+def _collect_remotely_overridable(root: BaseSettings) -> dict[str, BaseSettings]:
+    """Map each remotely overridable field name to the settings instance holding it."""
+    targets: dict[str, BaseSettings] = {}
+    pending = [root]
+    while pending:
+        settings = pending.pop()
+        for name, field_info in type(settings).model_fields.items():
+            value = getattr(settings, name)
+            if isinstance(value, BaseSettings):
+                pending.append(value)
+            if not any(isinstance(meta, RemotelyOverridable) for meta in field_info.metadata):
+                continue
+            if name in targets:
+                raise WorkflowsException(
+                    code=ErrorCode.WORKER_RUNTIME_CONFIG_ERROR,
+                    message=f"Feature flag {name!r} is declared on more than one settings field",
+                )
+            targets[name] = settings
+    return targets
+
+
+def apply_remote_defaults(root: BaseSettings, values: Mapping[str, bool | None]) -> dict[str, bool]:
+    """Apply server-resolved defaults to the marked fields, returning the values that won.
+
+    A `None` value is the server declining to have an opinion, which leaves the SDK default in
+    place. Otherwise `model_fields_set` separates a value an environment variable or dotenv entry
+    populated from one that fell through to the SDK default, giving the precedence order: explicit
+    local configuration, then the server value, then the SDK default.
+
+    Any write marks a field as set, including one from a `model_validator(mode="after")` that
+    assigns to `self`. A settings class holding a `RemotelyOverridable` field must therefore never
+    self-assign it, or the server value becomes permanently inert.
+    """
+    targets = _collect_remotely_overridable(root)
+    effective: dict[str, bool] = {}
+    for field, value in values.items():
+        settings = targets.get(field)
+        if settings is None:
+            raise WorkflowsException(
+                code=ErrorCode.WORKER_RUNTIME_CONFIG_ERROR,
+                message=f"Feature flag {field!r} has no field marked `RemotelyOverridable`",
+            )
+        if value is not None and field not in settings.model_fields_set:
+            setattr(settings, field, value)
+        effective[field] = bool(getattr(settings, field))
+    return effective
+
+
 class GraphConfig(BaseSettings):
-    upload_graph: bool = Field(
+    # upload_graph is remotely defaulted: never assign it in a validator.
+    upload_graph: Annotated[bool, RemotelyOverridable()] = Field(
         default=False,
         description="If True, workflow graphs are generated and uploaded to the API after registration.",
     )
@@ -492,6 +551,7 @@ class WorkerConfig(BaseSettings):
 
     max_workflow_task_pollers: int = Field(default=5, ge=2)
     max_activity_task_pollers: int = Field(default=5, ge=1)
+    max_concurrent_activities: int = Field(default=100, gt=0)
 
     health_server_host: str = "localhost"
     health_server_port: int | None = None
@@ -520,10 +580,91 @@ class WorkerConfig(BaseSettings):
         return self
 
 
+class HttpRoute(TypedDict, total=False):
+    """Per-pattern override of `HttpConfig`."""
+
+    proxy: str | None
+    verify: bool | None
+
+
+class HttpConfig(BaseSettings):
+    """Settings for the httpx clients the SDK builds."""
+
+    proxy: str | None = Field(
+        default=None,
+        description="Proxy every SDK HTTP client routes through, e.g. 'http://corp-proxy:3128'",
+    )
+    verify: bool = Field(
+        default=True,
+        description="Whether to check TLS certificates; ☢️ False checks nothing. The bundle is `common.ca_bundle`",
+    )
+    routes: dict[str, HttpRoute | None] = Field(
+        default_factory=dict,
+        description="Overrides of the above per httpx URL pattern, e.g. 'all://*.eu.corp'. None connects directly",
+    )
+    timeout: float = Field(
+        default=60.0,
+        gt=0,
+        description="Default timeout in seconds for the SDK HTTP clients",
+    )
+    retries: int = Field(
+        default=0,
+        ge=0,
+        description="Retries when the connection could not be established; httpx ignores it through a proxy",
+    )
+    max_connections: int | None = Field(
+        default=100,
+        description="Cap on concurrent connections per client; None is unlimited",
+    )
+    max_keepalive_connections: int | None = Field(
+        default=20,
+        description="Cap on idle keep-alive connections per client; None is unlimited",
+    )
+    transport_factory: Callable[[type], Any] | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+        description="Builds the transport for a given client class, replacing the one derived above",
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=env_file,
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_prefix="MISTRAL_WORKFLOWS_HTTP_",
+        env_parse_none_str="null",
+    )
+
+    def route_verify(self, route: "HttpRoute | None" = None) -> bool:
+        route_value = route.get("verify") if route is not None else None
+        if route_value is not None:
+            return route_value
+        return self.verify
+
+    def route_proxy(self, route: "HttpRoute | None" = None) -> str | None:
+        if route is None:
+            return None
+        return route.get("proxy", self.proxy)
+
+    @model_validator(mode="after")
+    def warn_tls_verification_disabled(self) -> Self:
+        unverified = [p for p, route in self.routes.items() if self.route_verify(route) is False]
+        if self.verify is False:
+            unverified.append("all://")
+        if unverified:
+            logger.warning(
+                "TLS certificate verification is disabled, traffic to these destinations can be "
+                "read and altered in transit",
+                patterns=sorted(set(unverified)),
+            )
+        return self
+
+
 class AppConfig(BaseSettings):
     common: CommonConfig = Field(default_factory=CommonConfig)
     worker: WorkerConfig = Field(default_factory=WorkerConfig)
     temporal: TemporalConfig = Field(default_factory=TemporalConfig)
+    http: HttpConfig = Field(default_factory=HttpConfig)
 
     model_config = SettingsConfigDict(
         env_file=env_file,
@@ -581,6 +722,29 @@ class AppConfig(BaseSettings):
         return self
 
 
+def _redact_proxy_url(url: str) -> str:
+    """Strip any user:password from a proxy URL so credentials never reach the logs."""
+    parts = urlsplit(url)
+    if not (parts.username or parts.password):
+        return url
+    host = parts.hostname or ""
+    netloc = f"***@{host}:{parts.port}" if parts.port else f"***@{host}"
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+
+
+def _loggable_config(config: AppConfig) -> dict[str, Any]:
+    """A config dump safe to log: proxy credentials are stripped from the config.http proxy URLs.
+    ``SecretStr`` fields are already masked by ``model_dump``."""
+    data = config.model_dump()
+    http = data.get("http") or {}
+    if http.get("proxy"):
+        http["proxy"] = _redact_proxy_url(http["proxy"])
+    for route in (http.get("routes") or {}).values():
+        if isinstance(route, dict) and route.get("proxy"):
+            route["proxy"] = _redact_proxy_url(route["proxy"])
+    return data
+
+
 def _get_or_load_config() -> AppConfig:
     """Read and initialize the application configuration."""
     # Load configuration from environment/file
@@ -626,7 +790,7 @@ def _get_or_load_config() -> AppConfig:
             ],
         )
 
-    logger.info("Configuration loaded", config=config.model_dump())
+    logger.info("Configuration loaded", config=_loggable_config(config))
     return config
 
 

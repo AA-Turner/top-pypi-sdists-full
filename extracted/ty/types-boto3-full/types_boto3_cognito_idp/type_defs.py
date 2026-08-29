@@ -101,6 +101,7 @@ __all__ = (
     "AdminCreateUserConfigTypeTypeDef",
     "AdminCreateUserRequestTypeDef",
     "AdminCreateUserResponseTypeDef",
+    "AdminDeleteSoftwareTokenRequestTypeDef",
     "AdminDeleteUserAttributesRequestTypeDef",
     "AdminDeleteUserRequestTypeDef",
     "AdminDisableProviderForUserRequestTypeDef",
@@ -149,6 +150,7 @@ __all__ = (
     "BlobTypeDef",
     "ChallengeResponseTypeTypeDef",
     "ChangePasswordRequestTypeDef",
+    "ClientAuthenticationResultTypeTypeDef",
     "ClientSecretDescriptorTypeTypeDef",
     "CloudWatchLogsConfigurationTypeTypeDef",
     "CodeDeliveryDetailsTypeTypeDef",
@@ -210,6 +212,8 @@ __all__ = (
     "DescribeResourceServerResponseTypeDef",
     "DescribeRiskConfigurationRequestTypeDef",
     "DescribeRiskConfigurationResponseTypeDef",
+    "DescribeTermsByClientRequestTypeDef",
+    "DescribeTermsByClientResponseTypeDef",
     "DescribeTermsRequestTypeDef",
     "DescribeTermsResponseTypeDef",
     "DescribeUserImportJobRequestTypeDef",
@@ -239,6 +243,8 @@ __all__ = (
     "ForgotPasswordResponseTypeDef",
     "GetCSVHeaderRequestTypeDef",
     "GetCSVHeaderResponseTypeDef",
+    "GetClientTokenRequestTypeDef",
+    "GetClientTokenResponseTypeDef",
     "GetDeviceRequestTypeDef",
     "GetDeviceResponseTypeDef",
     "GetGroupRequestTypeDef",
@@ -477,6 +483,11 @@ class AttributeTypeTypeDef(TypedDict):
     Value: NotRequired[str]
 
 
+class AdminDeleteSoftwareTokenRequestTypeDef(TypedDict):
+    UserPoolId: str
+    Username: str
+
+
 class AdminDeleteUserAttributesRequestTypeDef(TypedDict):
     UserPoolId: str
     Username: str
@@ -691,6 +702,12 @@ class ChangePasswordRequestTypeDef(TypedDict):
     ProposedPassword: str
     AccessToken: str
     PreviousPassword: NotRequired[str]
+
+
+class ClientAuthenticationResultTypeTypeDef(TypedDict):
+    AccessToken: NotRequired[str]
+    ExpiresIn: NotRequired[int]
+    TokenType: NotRequired[str]
 
 
 class CloudWatchLogsConfigurationTypeTypeDef(TypedDict):
@@ -984,6 +1001,12 @@ class DescribeRiskConfigurationRequestTypeDef(TypedDict):
     ClientId: NotRequired[str]
 
 
+class DescribeTermsByClientRequestTypeDef(TypedDict):
+    ClientId: str
+    UserPoolId: str
+    TermsName: str
+
+
 class DescribeTermsRequestTypeDef(TypedDict):
     TermsId: str
     UserPoolId: str
@@ -1038,6 +1061,13 @@ class ForgetDeviceRequestTypeDef(TypedDict):
 
 class GetCSVHeaderRequestTypeDef(TypedDict):
     UserPoolId: str
+
+
+class GetClientTokenRequestTypeDef(TypedDict):
+    ClientId: str
+    Secret: str
+    Scopes: NotRequired[Sequence[str]]
+    ClientMetadata: NotRequired[Mapping[str, str]]
 
 
 class GetDeviceRequestTypeDef(TypedDict):
@@ -1723,6 +1753,11 @@ class AuthenticationResultTypeTypeDef(TypedDict):
     NewDeviceMetadata: NotRequired[NewDeviceMetadataTypeTypeDef]
 
 
+class GetClientTokenResponseTypeDef(TypedDict):
+    ClientAuthenticationResult: ClientAuthenticationResultTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ForgotPasswordResponseTypeDef(TypedDict):
     CodeDeliveryDetails: CodeDeliveryDetailsTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1891,6 +1926,11 @@ class UpdateResourceServerRequestTypeDef(TypedDict):
 
 
 class CreateTermsResponseTypeDef(TypedDict):
+    Terms: TermsTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeTermsByClientResponseTypeDef(TypedDict):
     Terms: TermsTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

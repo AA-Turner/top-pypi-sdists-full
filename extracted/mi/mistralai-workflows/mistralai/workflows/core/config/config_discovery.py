@@ -8,7 +8,7 @@ from httpx import HTTPStatusError
 
 from mistralai.workflows.client import translate_model
 from mistralai.workflows.core.auth import get_token_provider
-from mistralai.workflows.core.config.config import config
+from mistralai.workflows.core.config.config import apply_remote_defaults, config
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.worker import WorkerInfo
@@ -17,10 +17,12 @@ logger = structlog.get_logger(__name__)
 
 
 class WorkerRuntimeConfig(WorkerInfo):
-    def apply(self) -> None:
+    def apply(self) -> dict[str, bool]:
+        """Apply the resolved configuration, returning the feature values that won."""
         config.temporal.namespace = self.namespace
         config.temporal.server_url = normalize_temporal_url(self.scheduler_url)
         config.temporal.tls = self.tls
+        return apply_remote_defaults(config, self.features.model_dump())
 
 
 async def _fetch_worker_runtime_config() -> WorkerRuntimeConfig:
@@ -45,12 +47,14 @@ async def apply_worker_runtime_config(api_key: str | None = None) -> WorkerRunti
         )
     try:
         runtime_config = await _fetch_worker_runtime_config()
-        runtime_config.apply()
+        effective_features = runtime_config.apply()
         logger.info(
             "Applied worker runtime config",
             namespace=runtime_config.namespace,
             scheduler_url=runtime_config.scheduler_url,
             tls=runtime_config.tls,
+            server_features=runtime_config.features.model_dump(),
+            effective_features=effective_features,
         )
         return runtime_config
     except HTTPStatusError as exc:

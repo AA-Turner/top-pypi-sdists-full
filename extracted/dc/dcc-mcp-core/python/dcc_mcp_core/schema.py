@@ -27,12 +27,15 @@ See ``docs/guide/skills.md`` for usage examples.
 
 from __future__ import annotations
 
+import ast
 from dataclasses import MISSING
 from dataclasses import fields as dataclass_fields
 from dataclasses import is_dataclass
 import datetime
 import enum
+import importlib.util
 import inspect
+import json
 import pathlib
 import sys
 import types
@@ -41,6 +44,17 @@ from typing import Any
 from typing import Callable
 from typing import get_type_hints as _typing_get_type_hints
 import uuid
+
+try:
+    from dcc_mcp_core._typing import Literal as _LITERAL_TYPE
+except ImportError:  # pragma: no cover - standalone adapter bundle loading
+    _typing_path = pathlib.Path(__file__).with_name("_typing.py")
+    _typing_spec = importlib.util.spec_from_file_location("_dcc_mcp_core_local_typing", _typing_path)
+    if _typing_spec is None or _typing_spec.loader is None:
+        raise ImportError(f"cannot load local typing compatibility boundary from {_typing_path}") from None
+    _typing_module = importlib.util.module_from_spec(_typing_spec)
+    _typing_spec.loader.exec_module(_typing_module)
+    _LITERAL_TYPE = _typing_module.Literal
 
 try:
     from typing import get_args
@@ -59,17 +73,22 @@ _union_type = getattr(types, "UnionType", None)
 if _union_type is not None:  # pragma: no cover - Python 3.10+
     _UNION_ORIGINS = (*_UNION_ORIGINS, _union_type)
 
-_LITERAL_TYPE = getattr(typing, "Literal", None)
 _TYPEDDICT_META = getattr(typing, "_TypedDictMeta", None)
 
 
+def _require_json(value: Any, error: str, *, scalars: bool = False) -> Any:
+    if scalars and not all(item is None or type(item) in (bool, float, int, str) for item in value):
+        raise TypeError(error)
+    try:
+        json.dumps(value, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise TypeError(error) from exc
+    return value
+
+
 def _literal_origins() -> tuple[Any, ...]:
-    """Return known Literal origins by identity without importing packages."""
+    """Return Core's local Literal origins by identity."""
     candidates = [_LITERAL_TYPE]
-    for module_name in ("typing_extensions", "dcc_mcp_core._typing"):
-        module = sys.modules.get(module_name)
-        if module is not None:
-            candidates.append(getattr(module, "Literal", None))
 
     origins: list[Any] = []
     for candidate in candidates:
@@ -156,6 +175,7 @@ def _literal_schema(tp: Any) -> dict[str, Any] | None:
     origin = get_origin(tp)
     if any(origin is literal_origin for literal_origin in _literal_origins()):
         values = list(get_args(tp))
+        _require_json(values, "Literal values must be JSON scalars", scalars=True)
         types_seen = {type(v) for v in values}
         # If all values share a single primitive type, pin it — this helps
         # validators short-circuit.
@@ -173,6 +193,7 @@ def _enum_schema(tp: Any) -> dict[str, Any] | None:
     """Return a schema for an ``Enum`` subclass or ``None``."""
     if isinstance(tp, type) and issubclass(tp, enum.Enum):
         values = [member.value for member in tp]
+        _require_json(values, "Enum values must be JSON scalars", scalars=True)
         schema: dict[str, Any] = {"enum": values, "title": tp.__name__}
         types_seen = {type(v) for v in values}
         if types_seen == {str}:
@@ -206,9 +227,9 @@ def _container_schema(tp: Any, defs: dict[str, dict[str, Any]]) -> dict[str, Any
             }
         return {"type": "array"}
     if origin is dict:
-        # JSON objects only accept string keys.  We don't enforce the key type
-        # in the schema because JSON pointers make that explicit anyway.
         if len(args) == 2:
+            if args[0] is not str:
+                raise TypeError("JSON object mappings require string keys")
             return {"type": "object", "additionalProperties": _derive(args[1], defs)}
         return {"type": "object"}
     return None
@@ -397,12 +418,12 @@ def derive_schema(tp: type, *, allow_additional: bool = False) -> dict[str, Any]
         if defs:
             body["$defs"] = defs
         body.setdefault("$schema", _JSON_SCHEMA_DRAFT)
-        return body
+        return _require_json(body, "derived schema contains a non-JSON value")
 
     # Primitive / container top-level.
     if defs:
         top = {**top, "$defs": defs}
-    return top
+    return _require_json(top, "derived schema contains a non-JSON value")
 
 
 def derive_parameters_schema(fn: Callable[..., Any]) -> dict[str, Any]:
@@ -464,7 +485,268 @@ def derive_parameters_schema(fn: Callable[..., Any]) -> dict[str, Any]:
         schema["required"] = required
     if defs:
         schema["$defs"] = defs
-    return schema
+    return _require_json(schema, "derived schema contains a non-JSON value")
+
+
+_SCRIPT_ANNOTATION_ATOMS: dict[str, Any] = {
+    "Any": Any,
+    "None": type(None),
+    "bool": bool,
+    "float": float,
+    "int": int,
+    "str": str,
+}
+_SCRIPT_ANNOTATION_MODULES = frozenset({"typing", "typing_extensions"})
+_SCRIPT_LITERAL_MISSING = object()
+
+
+def _script_literal_value(node: ast.AST) -> Any:
+    """Read a literal AST value across the supported Python versions."""
+    if isinstance(node, ast.Constant):
+        return node.value
+    if sys.version_info >= (3, 8):
+        return _SCRIPT_LITERAL_MISSING
+    for node_name, attribute in (
+        ("Str", "s"),
+        ("Num", "n"),
+        ("NameConstant", "value"),
+        ("Bytes", "s"),
+        ("Ellipsis", None),
+    ):
+        node_type = getattr(ast, node_name, None)
+        if node_type is not None and isinstance(node, node_type):
+            return Ellipsis if attribute is None else getattr(node, attribute)
+    return _SCRIPT_LITERAL_MISSING
+
+
+class _ScriptModuleBindingVisitor(ast.NodeVisitor):
+    """Collect names bound while executing a module without entering scopes."""
+
+    def __init__(self) -> None:
+        self.bindings: list[tuple[str, ast.AST]] = []
+        self.has_wildcard_import = False
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self.bindings.append((node.name, node))
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self.bindings.append((node.name, node))
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.bindings.append((node.name, node))
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            self.bindings.append((alias.asname or alias.name.split(".", 1)[0], node))
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        for alias in node.names:
+            if alias.name == "*":
+                self.has_wildcard_import = True
+            else:
+                self.bindings.append((alias.asname or alias.name, node))
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if isinstance(node.name, str):
+            self.bindings.append((node.name, node))
+        self.generic_visit(node)
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, (ast.Store, ast.Del)):
+            self.bindings.append((node.id, node))
+
+    def visit_MatchAs(self, node: ast.AST) -> None:
+        name = getattr(node, "name", None)
+        if isinstance(name, str):
+            self.bindings.append((name, node))
+        self.generic_visit(node)
+
+    def visit_MatchStar(self, node: ast.AST) -> None:
+        name = getattr(node, "name", None)
+        if isinstance(name, str):
+            self.bindings.append((name, node))
+
+    def visit_MatchMapping(self, node: ast.AST) -> None:
+        rest = getattr(node, "rest", None)
+        if isinstance(rest, str):
+            self.bindings.append((rest, node))
+        self.generic_visit(node)
+
+
+def _script_annotation_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _script_annotation_name(node.value)
+        return f"{parent}.{node.attr}" if parent else node.attr
+    return None
+
+
+def _script_subscript_args(node: ast.Subscript) -> list[ast.AST]:
+    slice_node = node.slice
+    index_type = getattr(ast, "Index", None)
+    if index_type is not None and isinstance(slice_node, index_type):
+        slice_node = slice_node.value
+    if isinstance(slice_node, ast.Tuple):
+        return list(slice_node.elts)
+    return [slice_node]
+
+
+def _script_annotation(node: ast.AST | None) -> Any:
+    """Resolve a safe annotation AST without importing or executing source."""
+    if node is None:
+        return inspect.Parameter.empty
+    literal_value = _script_literal_value(node)
+    if literal_value is not _SCRIPT_LITERAL_MISSING:
+        if literal_value is None:
+            return type(None)
+        if isinstance(literal_value, str):
+            return _script_annotation(ast.parse(literal_value, mode="eval").body)
+    if isinstance(node, (ast.Name, ast.Attribute)):
+        name = _script_annotation_name(node)
+        short_name = name.rsplit(".", 1)[-1] if name else ""
+        module_name = name.split(".", 1)[0] if name and "." in name else None
+        if short_name in _SCRIPT_ANNOTATION_ATOMS and (
+            module_name is None or module_name in _SCRIPT_ANNOTATION_MODULES
+        ):
+            return _SCRIPT_ANNOTATION_ATOMS[short_name]
+        raise TypeError(f"unsupported script annotation: {name or ast.dump(node)}")
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return typing.Union[(_script_annotation(node.left), _script_annotation(node.right))]
+    if not isinstance(node, ast.Subscript):
+        raise TypeError(f"unsupported script annotation: {ast.dump(node)}")
+
+    name = _script_annotation_name(node.value)
+    short_name = name.rsplit(".", 1)[-1] if name else ""
+    module_name = name.split(".", 1)[0] if name and "." in name else None
+    if module_name is not None and module_name not in _SCRIPT_ANNOTATION_MODULES:
+        raise TypeError(f"unsupported script annotation: {name}")
+    if short_name in {"list", "dict", "tuple"}:
+        raise TypeError(f"script annotation requires Python 3.9+: {short_name}")
+    args = _script_subscript_args(node)
+    if short_name == "List" and len(args) == 1:
+        return typing.List[_script_annotation(args[0])]
+    if short_name == "Dict" and len(args) == 2:
+        return typing.Dict[_script_annotation(args[0]), _script_annotation(args[1])]
+    if short_name == "Tuple" and args:
+        resolved = tuple(
+            Ellipsis if _script_literal_value(arg) is Ellipsis else _script_annotation(arg) for arg in args
+        )
+        return typing.Tuple[resolved]
+    if short_name == "Optional" and len(args) == 1:
+        return typing.Optional[_script_annotation(args[0])]
+    if short_name == "Union" and args:
+        return typing.Union[tuple(_script_annotation(arg) for arg in args)]
+    if short_name == "Literal" and args and _LITERAL_TYPE is not None:
+        values: list[Any] = []
+        for arg in args:
+            value = _script_literal_value(arg)
+            if value is _SCRIPT_LITERAL_MISSING:
+                raise TypeError("Literal values must be constants")
+            values.append(value)
+        return _LITERAL_TYPE[tuple(values)]
+    if short_name == "Annotated" and args:
+        return _script_annotation(args[0])
+    raise TypeError(f"unsupported script annotation: {name or ast.dump(node.value)}")
+
+
+def derive_script_parameters_schema(
+    source: str,
+    *,
+    function_name: str = "main",
+) -> dict[str, Any] | None:
+    """Derive ``main(**params)`` input schema without executing the script.
+
+    Only a deliberately small, JSON-compatible annotation subset is accepted.
+    Unsupported or partially untyped signatures return ``None`` so callers can
+    keep legacy script semantics without presenting an unsafe inferred contract.
+    """
+    if not isinstance(source, str):
+        raise TypeError("source must be a string")
+    try:
+        module = ast.parse(source)
+    except SyntaxError:
+        return None
+    binding_visitor = _ScriptModuleBindingVisitor()
+    binding_visitor.visit(module)
+    if binding_visitor.has_wildcard_import:
+        return None
+    matching_bindings = [node for name, node in binding_visitor.bindings if name == function_name]
+    if len(matching_bindings) != 1:
+        return None
+    function = matching_bindings[0]
+    if not isinstance(function, ast.FunctionDef) or function not in module.body or function.decorator_list:
+        return None
+    if getattr(function.args, "posonlyargs", ()):
+        return None
+
+    try:
+        positional = [*getattr(function.args, "posonlyargs", ()), *function.args.args]
+        positional_defaults = [inspect.Parameter.empty] * (len(positional) - len(function.args.defaults)) + [
+            object() for _ in function.args.defaults
+        ]
+        parameters: list[inspect.Parameter] = []
+        positional_only = len(getattr(function.args, "posonlyargs", ()))
+        for index, (argument, default) in enumerate(zip(positional, positional_defaults)):
+            kind = (
+                inspect.Parameter.POSITIONAL_ONLY
+                if index < positional_only
+                else inspect.Parameter.POSITIONAL_OR_KEYWORD
+            )
+            parameters.append(
+                inspect.Parameter(
+                    argument.arg,
+                    kind,
+                    default=default,
+                    annotation=_script_annotation(argument.annotation),
+                )
+            )
+        for argument, default_node in zip(function.args.kwonlyargs, function.args.kw_defaults):
+            parameters.append(
+                inspect.Parameter(
+                    argument.arg,
+                    inspect.Parameter.KEYWORD_ONLY,
+                    default=inspect.Parameter.empty if default_node is None else object(),
+                    annotation=_script_annotation(argument.annotation),
+                )
+            )
+
+        defs: dict[str, dict[str, Any]] = {}
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+        descriptions: dict[str, str] = {}
+        doc = ast.get_docstring(function)
+        if doc:
+
+            def _documented_main() -> None:
+                return None
+
+            _documented_main.__doc__ = doc
+            descriptions = schema_from_doc(_documented_main)
+        for parameter in parameters:
+            is_opt, inner = _is_optional(parameter.annotation)
+            prop = _derive(inner, defs)
+            if is_opt:
+                prop = {"anyOf": [prop, {"type": "null"}]}
+            description = descriptions.get(parameter.name)
+            if description:
+                prop = {**prop, "description": description}
+            properties[parameter.name] = prop
+            if parameter.default is inspect.Parameter.empty:
+                required.append(parameter.name)
+        schema: dict[str, Any] = {
+            "$schema": _JSON_SCHEMA_DRAFT,
+            "type": "object",
+            "properties": properties,
+            "additionalProperties": False,
+        }
+        if required:
+            schema["required"] = required
+        if defs:
+            schema["$defs"] = defs
+        return _require_json(schema, "derived schema contains a non-JSON value")
+    except (SyntaxError, TypeError, ValueError):
+        return None
 
 
 def schema_from_doc(fn: Callable[..., Any]) -> dict[str, str]:
@@ -711,6 +993,7 @@ def tool_spec_from_callable(
 __all__ = [
     "derive_parameters_schema",
     "derive_schema",
+    "derive_script_parameters_schema",
     "schema_from_doc",
     "tool_spec_from_callable",
 ]

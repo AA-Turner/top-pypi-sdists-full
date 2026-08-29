@@ -20,10 +20,10 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -67,7 +67,30 @@ jobs:
         with:
           test_service_port: 9000
           token: ${{ secrets.GITHUB_TOKEN }}
-          version: v3.0.0-alpha.6
+          version: v3
+          enable_persistence_tests: "true"
+
+        #
+        # Async SDK contract tests
+        #
+
+      - name: start async contract test service
+        run: make start-async-contract-test-service-bg
+
+      - name: Run async contract tests v2
+        uses: launchdarkly/gh-actions/actions/contract-tests@contract-tests-v1
+        with:
+          test_service_port: 9001
+          token: ${{ secrets.GITHUB_TOKEN }}
+          stop_service: "false"
+          enable_persistence_tests: "true"
+
+      - name: Run async contract tests v3
+        uses: launchdarkly/gh-actions/actions/contract-tests@contract-tests-v1
+        with:
+          test_service_port: 9001
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: v3
           enable_persistence_tests: "true"
 
   windows:
@@ -83,10 +106,10 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           python-version: ${{ matrix.python-version }}
 

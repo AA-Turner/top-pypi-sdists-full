@@ -18,7 +18,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n)chalk/server/v1/offline_wide_tables.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xa5\x06\n\x13OfflineWideTableRun\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12(\n\rdeployment_id\x18\x03 \x01(\tH\x00R\x0c\x64\x65ploymentId\x88\x01\x01\x12<\n\x04kind\x18\x04 \x01(\x0e\x32(.chalk.server.v1.OfflineWideTableRunKindR\x04kind\x12\x1c\n\tnamespace\x18\x05 \x01(\tR\tnamespace\x12\x42\n\x06status\x18\x06 \x01(\x0e\x32*.chalk.server.v1.OfflineWideTableRunStatusR\x06status\x12;\n\x17watermark_before_micros\x18\x07 \x01(\x03H\x01R\x15watermarkBeforeMicros\x88\x01\x01\x12\x39\n\x16watermark_after_micros\x18\x08 \x01(\x03H\x02R\x14watermarkAfterMicros\x88\x01\x01\x12$\n\x0brows_filled\x18\t \x01(\x03H\x03R\nrowsFilled\x88\x01\x01\x12(\n\rerror_message\x18\n \x01(\tH\x04R\x0c\x65rrorMessage\x88\x01\x01\x12\x39\n\ncreated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n\nstarted_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x05R\tstartedAt\x88\x01\x01\x12@\n\x0b\x66inished_at\x18\r \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x06R\nfinishedAt\x88\x01\x01\x42\x10\n\x0e_deployment_idB\x1a\n\x18_watermark_before_microsB\x19\n\x17_watermark_after_microsB\x0e\n\x0c_rows_filledB\x10\n\x0e_error_messageB\r\n\x0b_started_atB\x0e\n\x0c_finished_at"\xa0\x02\n\x1fListOfflineWideTableRunsRequest\x12\x16\n\x06\x63ursor\x18\x01 \x01(\tR\x06\x63ursor\x12\x14\n\x05limit\x18\x02 \x01(\x05R\x05limit\x12!\n\tnamespace\x18\x03 \x01(\tH\x00R\tnamespace\x88\x01\x01\x12G\n\x06status\x18\x04 \x01(\x0e\x32*.chalk.server.v1.OfflineWideTableRunStatusH\x01R\x06status\x88\x01\x01\x12\x41\n\x04kind\x18\x05 \x01(\x0e\x32(.chalk.server.v1.OfflineWideTableRunKindH\x02R\x04kind\x88\x01\x01\x42\x0c\n\n_namespaceB\t\n\x07_statusB\x07\n\x05_kind"t\n ListOfflineWideTableRunsResponse\x12\x38\n\x04runs\x18\x01 \x03(\x0b\x32$.chalk.server.v1.OfflineWideTableRunR\x04runs\x12\x16\n\x06\x63ursor\x18\x02 \x01(\tR\x06\x63ursor"6\n\x1dGetOfflineWideTableRunRequest\x12\x15\n\x06run_id\x18\x01 \x01(\tR\x05runId"X\n\x1eGetOfflineWideTableRunResponse\x12\x36\n\x03run\x18\x01 \x01(\x0b\x32$.chalk.server.v1.OfflineWideTableRunR\x03run"\xb4\x01\n\x18OfflineWideTableSchedule\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n\tnamespace\x18\x03 \x01(\tR\tnamespace\x12\x18\n\x07\x63rontab\x18\x04 \x01(\tR\x07\x63rontab\x12<\n\x04kind\x18\x05 \x01(\x0e\x32(.chalk.server.v1.OfflineWideTableRunKindR\x04kind"\xbe\x01\n\x1cOfflineWideTableScheduleInfo\x12\x45\n\x08schedule\x18\x01 \x01(\x0b\x32).chalk.server.v1.OfflineWideTableScheduleR\x08schedule\x12H\n\nlatest_run\x18\x02 \x01(\x0b\x32$.chalk.server.v1.OfflineWideTableRunH\x00R\tlatestRun\x88\x01\x01\x42\r\n\x0b_latest_run"+\n)GetActiveOfflineWideTableSchedulesRequest"y\n*GetActiveOfflineWideTableSchedulesResponse\x12K\n\tschedules\x18\x01 \x03(\x0b\x32-.chalk.server.v1.OfflineWideTableScheduleInfoR\tschedules"B\n"TriggerOfflineWideTableFillRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace"]\n#TriggerOfflineWideTableFillResponse\x12\x36\n\x03run\x18\x01 \x01(\x0b\x32$.chalk.server.v1.OfflineWideTableRunR\x03run*l\n\x17OfflineWideTableRunKind\x12+\n\'OFFLINE_WIDE_TABLE_RUN_KIND_UNSPECIFIED\x10\x00\x12$\n OFFLINE_WIDE_TABLE_RUN_KIND_FILL\x10\x01*\xa2\x02\n\x19OfflineWideTableRunStatus\x12-\n)OFFLINE_WIDE_TABLE_RUN_STATUS_UNSPECIFIED\x10\x00\x12(\n$OFFLINE_WIDE_TABLE_RUN_STATUS_QUEUED\x10\x01\x12)\n%OFFLINE_WIDE_TABLE_RUN_STATUS_RUNNING\x10\x02\x12+\n\'OFFLINE_WIDE_TABLE_RUN_STATUS_COMPLETED\x10\x03\x12(\n$OFFLINE_WIDE_TABLE_RUN_STATUS_FAILED\x10\x04\x12*\n&OFFLINE_WIDE_TABLE_RUN_STATUS_CANCELED\x10\x05\x32\xe0\x04\n\x18OfflineWideTablesService\x12\x87\x01\n\x18ListOfflineWideTableRuns\x12\x30.chalk.server.v1.ListOfflineWideTableRunsRequest\x1a\x31.chalk.server.v1.ListOfflineWideTableRunsResponse"\x06\x90\x02\x01\x80}\x10\x12\x81\x01\n\x16GetOfflineWideTableRun\x12..chalk.server.v1.GetOfflineWideTableRunRequest\x1a/.chalk.server.v1.GetOfflineWideTableRunResponse"\x06\x90\x02\x01\x80}\x10\x12\xa5\x01\n"GetActiveOfflineWideTableSchedules\x12:.chalk.server.v1.GetActiveOfflineWideTableSchedulesRequest\x1a;.chalk.server.v1.GetActiveOfflineWideTableSchedulesResponse"\x06\x90\x02\x01\x80}\x10\x12\x8d\x01\n\x1bTriggerOfflineWideTableFill\x12\x33.chalk.server.v1.TriggerOfflineWideTableFillRequest\x1a\x34.chalk.server.v1.TriggerOfflineWideTableFillResponse"\x03\x80}\x11\x42\x9f\x01\n\x13\x63om.chalk.server.v1B\x16OfflineWideTablesProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n)chalk/server/v1/offline_wide_tables.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xdd\x06\n\x13OfflineWideTableRun\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12%\n\x0e\x65nvironment_id\x18\x02 \x01(\tR\renvironmentId\x12(\n\rdeployment_id\x18\x03 \x01(\tH\x00R\x0c\x64\x65ploymentId\x88\x01\x01\x12<\n\x04kind\x18\x04 \x01(\x0e\x32(.chalk.server.v1.OfflineWideTableRunKindR\x04kind\x12\x1c\n\tnamespace\x18\x05 \x01(\tR\tnamespace\x12\x42\n\x06status\x18\x06 \x01(\x0e\x32*.chalk.server.v1.OfflineWideTableRunStatusR\x06status\x12;\n\x17watermark_before_micros\x18\x07 \x01(\x03H\x01R\x15watermarkBeforeMicros\x88\x01\x01\x12\x39\n\x16watermark_after_micros\x18\x08 \x01(\x03H\x02R\x14watermarkAfterMicros\x88\x01\x01\x12$\n\x0brows_filled\x18\t \x01(\x03H\x03R\nrowsFilled\x88\x01\x01\x12(\n\rerror_message\x18\n \x01(\tH\x04R\x0c\x65rrorMessage\x88\x01\x01\x12\x39\n\ncreated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n\nstarted_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x05R\tstartedAt\x88\x01\x01\x12@\n\x0b\x66inished_at\x18\r \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x06R\nfinishedAt\x88\x01\x01\x12%\n\x0cjob_queue_id\x18\x0e \x01(\x05H\x07R\njobQueueId\x88\x01\x01\x42\x10\n\x0e_deployment_idB\x1a\n\x18_watermark_before_microsB\x19\n\x17_watermark_after_microsB\x0e\n\x0c_rows_filledB\x10\n\x0e_error_messageB\r\n\x0b_started_atB\x0e\n\x0c_finished_atB\x0f\n\r_job_queue_id"\xa0\x02\n\x1fListOfflineWideTableRunsRequest\x12\x16\n\x06\x63ursor\x18\x01 \x01(\tR\x06\x63ursor\x12\x14\n\x05limit\x18\x02 \x01(\x05R\x05limit\x12!\n\tnamespace\x18\x03 \x01(\tH\x00R\tnamespace\x88\x01\x01\x12G\n\x06status\x18\x04 \x01(\x0e\x32*.chalk.server.v1.OfflineWideTableRunStatusH\x01R\x06status\x88\x01\x01\x12\x41\n\x04kind\x18\x05 \x01(\x0e\x32(.chalk.server.v1.OfflineWideTableRunKindH\x02R\x04kind\x88\x01\x01\x42\x0c\n\n_namespaceB\t\n\x07_statusB\x07\n\x05_kind"t\n ListOfflineWideTableRunsResponse\x12\x38\n\x04runs\x18\x01 \x03(\x0b\x32$.chalk.server.v1.OfflineWideTableRunR\x04runs\x12\x16\n\x06\x63ursor\x18\x02 \x01(\tR\x06\x63ursor"6\n\x1dGetOfflineWideTableRunRequest\x12\x15\n\x06run_id\x18\x01 \x01(\tR\x05runId"X\n\x1eGetOfflineWideTableRunResponse\x12\x36\n\x03run\x18\x01 \x01(\x0b\x32$.chalk.server.v1.OfflineWideTableRunR\x03run"\xb4\x01\n\x18OfflineWideTableSchedule\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n\tnamespace\x18\x03 \x01(\tR\tnamespace\x12\x18\n\x07\x63rontab\x18\x04 \x01(\tR\x07\x63rontab\x12<\n\x04kind\x18\x05 \x01(\x0e\x32(.chalk.server.v1.OfflineWideTableRunKindR\x04kind"\xbe\x01\n\x1cOfflineWideTableScheduleInfo\x12\x45\n\x08schedule\x18\x01 \x01(\x0b\x32).chalk.server.v1.OfflineWideTableScheduleR\x08schedule\x12H\n\nlatest_run\x18\x02 \x01(\x0b\x32$.chalk.server.v1.OfflineWideTableRunH\x00R\tlatestRun\x88\x01\x01\x42\r\n\x0b_latest_run"+\n)GetActiveOfflineWideTableSchedulesRequest"y\n*GetActiveOfflineWideTableSchedulesResponse\x12K\n\tschedules\x18\x01 \x03(\x0b\x32-.chalk.server.v1.OfflineWideTableScheduleInfoR\tschedules"B\n"TriggerOfflineWideTableFillRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace"]\n#TriggerOfflineWideTableFillResponse\x12\x36\n\x03run\x18\x01 \x01(\x0b\x32$.chalk.server.v1.OfflineWideTableRunR\x03run"H\n(TriggerOfflineWideTableCompactionRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace"N\n)TriggerOfflineWideTableCompactionResponse\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId*l\n\x17OfflineWideTableRunKind\x12+\n\'OFFLINE_WIDE_TABLE_RUN_KIND_UNSPECIFIED\x10\x00\x12$\n OFFLINE_WIDE_TABLE_RUN_KIND_FILL\x10\x01*\xa2\x02\n\x19OfflineWideTableRunStatus\x12-\n)OFFLINE_WIDE_TABLE_RUN_STATUS_UNSPECIFIED\x10\x00\x12(\n$OFFLINE_WIDE_TABLE_RUN_STATUS_QUEUED\x10\x01\x12)\n%OFFLINE_WIDE_TABLE_RUN_STATUS_RUNNING\x10\x02\x12+\n\'OFFLINE_WIDE_TABLE_RUN_STATUS_COMPLETED\x10\x03\x12(\n$OFFLINE_WIDE_TABLE_RUN_STATUS_FAILED\x10\x04\x12*\n&OFFLINE_WIDE_TABLE_RUN_STATUS_CANCELED\x10\x05\x32\x82\x06\n\x18OfflineWideTablesService\x12\x87\x01\n\x18ListOfflineWideTableRuns\x12\x30.chalk.server.v1.ListOfflineWideTableRunsRequest\x1a\x31.chalk.server.v1.ListOfflineWideTableRunsResponse"\x06\x90\x02\x01\x80}\x10\x12\x81\x01\n\x16GetOfflineWideTableRun\x12..chalk.server.v1.GetOfflineWideTableRunRequest\x1a/.chalk.server.v1.GetOfflineWideTableRunResponse"\x06\x90\x02\x01\x80}\x10\x12\xa5\x01\n"GetActiveOfflineWideTableSchedules\x12:.chalk.server.v1.GetActiveOfflineWideTableSchedulesRequest\x1a;.chalk.server.v1.GetActiveOfflineWideTableSchedulesResponse"\x06\x90\x02\x01\x80}\x10\x12\x8d\x01\n\x1bTriggerOfflineWideTableFill\x12\x33.chalk.server.v1.TriggerOfflineWideTableFillRequest\x1a\x34.chalk.server.v1.TriggerOfflineWideTableFillResponse"\x03\x80}\x11\x12\x9f\x01\n!TriggerOfflineWideTableCompaction\x12\x39.chalk.server.v1.TriggerOfflineWideTableCompactionRequest\x1a:.chalk.server.v1.TriggerOfflineWideTableCompactionResponse"\x03\x80}\x11\x42\x9f\x01\n\x13\x63om.chalk.server.v1B\x16OfflineWideTablesProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -45,32 +45,40 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_OFFLINEWIDETABLESSERVICE"].methods_by_name[
         "TriggerOfflineWideTableFill"
     ]._serialized_options = b"\200}\021"
-    _globals["_OFFLINEWIDETABLERUNKIND"]._serialized_start = 2198
-    _globals["_OFFLINEWIDETABLERUNKIND"]._serialized_end = 2306
-    _globals["_OFFLINEWIDETABLERUNSTATUS"]._serialized_start = 2309
-    _globals["_OFFLINEWIDETABLERUNSTATUS"]._serialized_end = 2599
+    _globals["_OFFLINEWIDETABLESSERVICE"].methods_by_name["TriggerOfflineWideTableCompaction"]._options = None
+    _globals["_OFFLINEWIDETABLESSERVICE"].methods_by_name[
+        "TriggerOfflineWideTableCompaction"
+    ]._serialized_options = b"\200}\021"
+    _globals["_OFFLINEWIDETABLERUNKIND"]._serialized_start = 2408
+    _globals["_OFFLINEWIDETABLERUNKIND"]._serialized_end = 2516
+    _globals["_OFFLINEWIDETABLERUNSTATUS"]._serialized_start = 2519
+    _globals["_OFFLINEWIDETABLERUNSTATUS"]._serialized_end = 2809
     _globals["_OFFLINEWIDETABLERUN"]._serialized_start = 129
-    _globals["_OFFLINEWIDETABLERUN"]._serialized_end = 934
-    _globals["_LISTOFFLINEWIDETABLERUNSREQUEST"]._serialized_start = 937
-    _globals["_LISTOFFLINEWIDETABLERUNSREQUEST"]._serialized_end = 1225
-    _globals["_LISTOFFLINEWIDETABLERUNSRESPONSE"]._serialized_start = 1227
-    _globals["_LISTOFFLINEWIDETABLERUNSRESPONSE"]._serialized_end = 1343
-    _globals["_GETOFFLINEWIDETABLERUNREQUEST"]._serialized_start = 1345
-    _globals["_GETOFFLINEWIDETABLERUNREQUEST"]._serialized_end = 1399
-    _globals["_GETOFFLINEWIDETABLERUNRESPONSE"]._serialized_start = 1401
-    _globals["_GETOFFLINEWIDETABLERUNRESPONSE"]._serialized_end = 1489
-    _globals["_OFFLINEWIDETABLESCHEDULE"]._serialized_start = 1492
-    _globals["_OFFLINEWIDETABLESCHEDULE"]._serialized_end = 1672
-    _globals["_OFFLINEWIDETABLESCHEDULEINFO"]._serialized_start = 1675
-    _globals["_OFFLINEWIDETABLESCHEDULEINFO"]._serialized_end = 1865
-    _globals["_GETACTIVEOFFLINEWIDETABLESCHEDULESREQUEST"]._serialized_start = 1867
-    _globals["_GETACTIVEOFFLINEWIDETABLESCHEDULESREQUEST"]._serialized_end = 1910
-    _globals["_GETACTIVEOFFLINEWIDETABLESCHEDULESRESPONSE"]._serialized_start = 1912
-    _globals["_GETACTIVEOFFLINEWIDETABLESCHEDULESRESPONSE"]._serialized_end = 2033
-    _globals["_TRIGGEROFFLINEWIDETABLEFILLREQUEST"]._serialized_start = 2035
-    _globals["_TRIGGEROFFLINEWIDETABLEFILLREQUEST"]._serialized_end = 2101
-    _globals["_TRIGGEROFFLINEWIDETABLEFILLRESPONSE"]._serialized_start = 2103
-    _globals["_TRIGGEROFFLINEWIDETABLEFILLRESPONSE"]._serialized_end = 2196
-    _globals["_OFFLINEWIDETABLESSERVICE"]._serialized_start = 2602
-    _globals["_OFFLINEWIDETABLESSERVICE"]._serialized_end = 3210
+    _globals["_OFFLINEWIDETABLERUN"]._serialized_end = 990
+    _globals["_LISTOFFLINEWIDETABLERUNSREQUEST"]._serialized_start = 993
+    _globals["_LISTOFFLINEWIDETABLERUNSREQUEST"]._serialized_end = 1281
+    _globals["_LISTOFFLINEWIDETABLERUNSRESPONSE"]._serialized_start = 1283
+    _globals["_LISTOFFLINEWIDETABLERUNSRESPONSE"]._serialized_end = 1399
+    _globals["_GETOFFLINEWIDETABLERUNREQUEST"]._serialized_start = 1401
+    _globals["_GETOFFLINEWIDETABLERUNREQUEST"]._serialized_end = 1455
+    _globals["_GETOFFLINEWIDETABLERUNRESPONSE"]._serialized_start = 1457
+    _globals["_GETOFFLINEWIDETABLERUNRESPONSE"]._serialized_end = 1545
+    _globals["_OFFLINEWIDETABLESCHEDULE"]._serialized_start = 1548
+    _globals["_OFFLINEWIDETABLESCHEDULE"]._serialized_end = 1728
+    _globals["_OFFLINEWIDETABLESCHEDULEINFO"]._serialized_start = 1731
+    _globals["_OFFLINEWIDETABLESCHEDULEINFO"]._serialized_end = 1921
+    _globals["_GETACTIVEOFFLINEWIDETABLESCHEDULESREQUEST"]._serialized_start = 1923
+    _globals["_GETACTIVEOFFLINEWIDETABLESCHEDULESREQUEST"]._serialized_end = 1966
+    _globals["_GETACTIVEOFFLINEWIDETABLESCHEDULESRESPONSE"]._serialized_start = 1968
+    _globals["_GETACTIVEOFFLINEWIDETABLESCHEDULESRESPONSE"]._serialized_end = 2089
+    _globals["_TRIGGEROFFLINEWIDETABLEFILLREQUEST"]._serialized_start = 2091
+    _globals["_TRIGGEROFFLINEWIDETABLEFILLREQUEST"]._serialized_end = 2157
+    _globals["_TRIGGEROFFLINEWIDETABLEFILLRESPONSE"]._serialized_start = 2159
+    _globals["_TRIGGEROFFLINEWIDETABLEFILLRESPONSE"]._serialized_end = 2252
+    _globals["_TRIGGEROFFLINEWIDETABLECOMPACTIONREQUEST"]._serialized_start = 2254
+    _globals["_TRIGGEROFFLINEWIDETABLECOMPACTIONREQUEST"]._serialized_end = 2326
+    _globals["_TRIGGEROFFLINEWIDETABLECOMPACTIONRESPONSE"]._serialized_start = 2328
+    _globals["_TRIGGEROFFLINEWIDETABLECOMPACTIONRESPONSE"]._serialized_end = 2406
+    _globals["_OFFLINEWIDETABLESSERVICE"]._serialized_start = 2812
+    _globals["_OFFLINEWIDETABLESSERVICE"]._serialized_end = 3582
 # @@protoc_insertion_point(module_scope)

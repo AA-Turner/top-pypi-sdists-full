@@ -18,9 +18,35 @@ from magnumclient import exceptions
 from magnumclient.v1 import baseunit
 
 
+NODEGROUP_ATTRIBUTES = [
+    'uuid',
+    'name',
+    'cluster_id',
+    'project_id',
+    'docker_volume_size',
+    'labels',
+    'labels_overridden',
+    'labels_skipped',
+    'labels_added',
+    'flavor_id',
+    'image_id',
+    'node_addresses',
+    'node_count',
+    'role',
+    'max_node_count',
+    'min_node_count',
+    'is_default',
+    'stack_id',
+    'status',
+    'status_reason',
+    'node_labels',
+    'node_taints',
+]
+
 CREATION_ATTRIBUTES = ['docker_volume_size', 'labels', 'flavor_id', 'image_id',
                        'project_id', 'node_count', 'name', 'role',
-                       'min_node_count', 'max_node_count', 'merge_labels']
+                       'min_node_count', 'max_node_count', 'merge_labels',
+                       'node_labels', 'node_taints']
 
 
 class NodeGroup(baseunit.BaseTemplate):

@@ -155,16 +155,13 @@ def api_fetch(url: str, headers: dict, request_from: Optional[str] = None) -> di
     return {}
 
 
-def _get_classic_workspace_branches(client: TinyB, workspace_id: str) -> list[dict[str, Any]]:
-    branches: list[dict[str, Any]] = client.user_workspace_branches(version="v0").get("workspaces", [])
-    return [branch for branch in branches if str(branch.get("main")) == workspace_id]
+def _get_classic_workspace_branches(client: TinyB) -> list[dict[str, Any]]:
+    return client.branches(version="v0").get("environments", [])
 
 
-def _cleanup_classic_migration_blockers(client: TinyB, config: Dict[str, Any]) -> None:
-    workspace_id = str(config["id"])
-
+def _cleanup_classic_migration_blockers(client: TinyB) -> None:
     try:
-        branches = _get_classic_workspace_branches(client, workspace_id)
+        branches = _get_classic_workspace_branches(client)
         if not branches:
             return
 
@@ -488,7 +485,7 @@ def migrate_to_forward(ctx: click.Context, allow_destructive_operations: bool) -
         click.echo(FeedbackManager.info(message="Migration cancelled."))
         return
 
-    _cleanup_classic_migration_blockers(client, config)
+    _cleanup_classic_migration_blockers(client)
     _persist_migrate_to_forward_config(project)
     migrate_to_forward_workspace(client=client, output=output, dry_run=False)
     create_deployment(

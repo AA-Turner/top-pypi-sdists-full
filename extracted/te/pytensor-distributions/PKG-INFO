@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytensor-distributions
-Version: 0.2.0
+Version: 0.3.0
 Summary: PyTensor powered distributions.
 Author-email: pymc-devs <pymc.devs@gmail.com>
 Requires-Python: >=3.12

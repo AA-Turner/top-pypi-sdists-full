@@ -56,9 +56,23 @@ class MaterializedFeatureView:
     Args:
         namespace: The feature class (decorated with ``@features``) or its namespace string.
         time_resolution: Bucket duration for time-series materialization, e.g. ``"1s"``.
-        update_cadence: How often to refresh materialized data — a cron expression or duration.
-        lower_bound: Earliest timestamp to materialize from. Defaults to ``None``, which materializes from the beginning of time.
-        lookback_retention_period: How far back to retain materialized data. Defaults to ``None``, which retains data indefinitely.
+        update_cadence: How often to refresh materialized data, as a cron expression or
+            duration. Any finite cadence must be at least 10 minutes; more frequent
+            updates are not supported.
+        lower_bound: Fixed, inclusive lower bound on the feature times of observations
+            included in the materialized feature view. Observations with earlier feature
+            times continue to be retained in the observation tables, but are not copied
+            to the view. Queries using wide table acceleration are therefore not aware
+            of these observations. Defaults to ``None``, which applies no fixed lower
+            bound.
+        lookback_retention_period: Moving retention window on the feature times of
+            observations included in the materialized feature view, measured back from
+            the current execution time. Observations outside this window are deleted
+            from the view. As with observations earlier than ``lower_bound``, they
+            continue to be retained in the observation tables, but queries using wide
+            table acceleration are not aware of them. When both retention parameters
+            are set, the later lower bound applies. Defaults to ``None``, which applies
+            no moving retention window, and therefore retains data indefinitely.
     """
 
     def __init__(

@@ -17,7 +17,7 @@
 
 namespace py = pybind11;
 
-#ifndef PIQP_WITH_CPP_17
+#ifndef PIQP_STD_OPTIONAL
 template<typename T>
 struct py::detail::type_caster<tl::optional<T>> : public py::detail::optional_caster<tl::optional<T>> {};
 template<>

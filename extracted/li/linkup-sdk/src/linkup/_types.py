@@ -119,6 +119,7 @@ class LinkupFetchResponse(_LinkupBaseModel):
         content_type: The type of the raw page content, if returned.
         raw_html: The optional raw HTML content. Deprecated; use raw_content instead.
         images: The optional list of extracted images.
+        data: Structured data extracted from the webpage, if a schema was provided.
     """
 
     markdown: str
@@ -127,6 +128,7 @@ class LinkupFetchResponse(_LinkupBaseModel):
     content_type: str | None = pydantic.Field(default=None, validation_alias="contentType")
     raw_html: str | None = pydantic.Field(default=None, validation_alias="rawHtml")
     images: list[LinkupFetchImageExtraction] | None = pydantic.Field(default=None)
+    data: JSONObject | None = None
 
 
 class LinkupSearchTaskInput(_LinkupBaseModel):
@@ -170,14 +172,6 @@ class LinkupSearchTaskInput(_LinkupBaseModel):
         pydantic.Field(default=None, validation_alias="structuredOutputSchema")
     )
 
-    @pydantic.model_validator(mode="after")
-    def _validate_structured_output_schema(self) -> LinkupSearchTaskInput:
-        if self.output_type == "structured" and self.structured_output_schema is None:
-            raise ValueError(
-                "structured_output_schema must be provided when output_type is 'structured'"
-            )
-        return self
-
 
 class LinkupResearchTaskInput(_LinkupBaseModel):
     """Input for creating or retrieving a research task.
@@ -214,14 +208,6 @@ class LinkupResearchTaskInput(_LinkupBaseModel):
         pydantic.Field(default=None, validation_alias="structuredOutputSchema")
     )
 
-    @pydantic.model_validator(mode="after")
-    def _validate_structured_output_schema(self) -> LinkupResearchTaskInput:
-        if self.output_type == "structured" and self.structured_output_schema is None:
-            raise ValueError(
-                "structured_output_schema must be provided when output_type is 'structured'"
-            )
-        return self
-
 
 class LinkupFetchTaskInput(_LinkupBaseModel):
     """Input for creating or retrieving a fetch task.
@@ -234,6 +220,8 @@ class LinkupFetchTaskInput(_LinkupBaseModel):
         render_js: Whether JavaScript rendering should be enabled.
         extract_images: Whether image extraction should be enabled.
         mode: The fetch strategy to use.
+        schema_: The object JSON schema describing the data to extract, if any.
+        instructions: Instructions guiding structured data extraction, if any.
     """
 
     url: str
@@ -244,6 +232,10 @@ class LinkupFetchTaskInput(_LinkupBaseModel):
     render_js: bool | None = pydantic.Field(default=None, validation_alias="renderJs")
     extract_images: bool | None = pydantic.Field(default=None, validation_alias="extractImages")
     mode: Literal["standard", "pro"] | None = None
+    schema_: type[pydantic.BaseModel] | str | dict[str, Any] | None = pydantic.Field(
+        default=None, validation_alias="schema"
+    )
+    instructions: str | None = None
 
 
 LinkupTaskInput = LinkupSearchTaskInput | LinkupFetchTaskInput | LinkupResearchTaskInput

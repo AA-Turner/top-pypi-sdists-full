@@ -1,26 +1,27 @@
 Metadata-Version: 2.4
 Name: python-magnumclient
-Version: 4.11.0
+Version: 5.0.0
 Summary: Client library for Magnum API
-Home-page: https://docs.openstack.org/python-magnumclient/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/python-magnumclient/latest/
+Project-URL: Repository, https://opendev.org/openstack/python-magnumclient
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pbr!=2.1.0,>=2.0.0
+Requires-Dist: pbr>=6.1.1
 Requires-Dist: keystoneauth1>=3.4.0
 Requires-Dist: stevedore>=1.20.0
 Requires-Dist: requests>=2.14.2
@@ -33,27 +34,14 @@ Requires-Dist: osc-lib>=1.8.0
 Requires-Dist: PrettyTable>=0.7.2
 Requires-Dist: cryptography>=3.0
 Requires-Dist: decorator>=3.4.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
 Dynamic: license-file
 Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/python-magnumclient.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
-
+=================================
 Python bindings to the Magnum API
 =================================
+
+.. image:: https://governance.openstack.org/tc/badges/python-magnumclient.svg
 
 .. image:: https://img.shields.io/pypi/v/python-magnumclient.svg
     :target: https://pypi.org/project/python-magnumclient/
@@ -74,13 +62,10 @@ in the `developer guide
 * License: Apache License, Version 2.0
 * `PyPi`_ - package installation
 * `Online Documentation`_
-* `Storyboard project`_ - story and task management
 * `Bugs`_ - issue tracking
 * `Source`_
 
 .. _PyPi: https://pypi.org/project/python-magnumclient
 .. _Online Documentation: https://docs.openstack.org/python-magnumclient/latest/
-.. _Storyboard project: https://storyboard.openstack.org/#!/project/openstack/python-magnumclient
-.. _Bugs: https://storyboard.openstack.org/#!/project/openstack/python-magnumclient
+.. _Bugs: https://bugs.launchpad.net/magnum
 .. _Source: https://opendev.org/openstack/python-magnumclient
-

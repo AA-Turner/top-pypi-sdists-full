@@ -432,6 +432,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def FunctionGetTimeRangeStats(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionGetTimeRangeStatsRequest, modal_proto.api_pb2.FunctionGetTimeRangeStatsResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def FunctionMap(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionMapRequest, modal_proto.api_pb2.FunctionMapResponse]') -> None:
         pass
 
@@ -613,6 +617,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def SandboxGetExitSnapshot(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetExitSnapshotRequest, modal_proto.api_pb2.SandboxGetExitSnapshotResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxGetExitSnapshotV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetExitSnapshotRequest, modal_proto.api_pb2.SandboxGetExitSnapshotResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -1595,6 +1603,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.FunctionGetSerializedRequest,
                 modal_proto.api_pb2.FunctionGetSerializedResponse,
             ),
+            '/modal.client.ModalClient/FunctionGetTimeRangeStats': grpclib.const.Handler(
+                self.FunctionGetTimeRangeStats,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.FunctionGetTimeRangeStatsRequest,
+                modal_proto.api_pb2.FunctionGetTimeRangeStatsResponse,
+            ),
             '/modal.client.ModalClient/FunctionMap': grpclib.const.Handler(
                 self.FunctionMap,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1867,6 +1881,12 @@ class ModalClientBase(abc.ABC):
             ),
             '/modal.client.ModalClient/SandboxGetExitSnapshot': grpclib.const.Handler(
                 self.SandboxGetExitSnapshot,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
+                modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
+            ),
+            '/modal.client.ModalClient/SandboxGetExitSnapshotV2': grpclib.const.Handler(
+                self.SandboxGetExitSnapshotV2,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
                 modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
@@ -3035,6 +3055,12 @@ class ModalClientStub:
             modal_proto.api_pb2.FunctionGetSerializedRequest,
             modal_proto.api_pb2.FunctionGetSerializedResponse,
         )
+        self.FunctionGetTimeRangeStats = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/FunctionGetTimeRangeStats',
+            modal_proto.api_pb2.FunctionGetTimeRangeStatsRequest,
+            modal_proto.api_pb2.FunctionGetTimeRangeStatsResponse,
+        )
         self.FunctionMap = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/FunctionMap',
@@ -3308,6 +3334,12 @@ class ModalClientStub:
         self.SandboxGetExitSnapshot = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SandboxGetExitSnapshot',
+            modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
+            modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
+        )
+        self.SandboxGetExitSnapshotV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxGetExitSnapshotV2',
             modal_proto.api_pb2.SandboxGetExitSnapshotRequest,
             modal_proto.api_pb2.SandboxGetExitSnapshotResponse,
         )

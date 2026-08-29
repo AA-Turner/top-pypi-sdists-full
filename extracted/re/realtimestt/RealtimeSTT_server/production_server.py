@@ -48,7 +48,7 @@ LOGGER = logging.getLogger("realtimestt.production_server")
 API_VERSION = "v1"
 PROTOCOL_VERSION = "realtimestt.remote.v1"
 SERVER_NAME = "RealtimeSTT production server"
-_PACKAGE_VERSION_FALLBACK = "1.1.0"
+_PACKAGE_VERSION_FALLBACK = "1.1.1"
 
 
 def _package_version() -> str:
@@ -3104,6 +3104,7 @@ class ProductionSessionProtocol:
                                         cancelled,
                                     ),
                                     admission_lock=self._lock,
+                                    cancel_event=cancelled,
                                 )
                         finally:
                             attempt_completed_at = time.monotonic()
@@ -4562,6 +4563,7 @@ def _service_turn_transcription(
     *,
     admission_check=None,
     admission_lock=None,
+    cancel_event=None,
 ):
     """Submit one cancellable authoritative WebSocket turn final."""
 
@@ -4609,9 +4611,27 @@ def _service_turn_transcription(
             raise RuntimeError(
                 submitted.reason or "final transcription queue rejected the request"
             )
-        if not holder["event"].wait(timeout=timeout):
+        if cancel_event is None:
+            if not holder["event"].wait(timeout=timeout):
+                service.scheduler.cancel_request(request_id)
+                raise TimeoutError("final transcription timed out")
+        else:
+            deadline = time.monotonic() + timeout
+            while True:
+                if cancel_event.is_set():
+                    service.scheduler.cancel_request(request_id)
+                    raise _PreviewAdmissionCancelled()
+                remaining = deadline - time.monotonic()
+                if remaining <= 0.0:
+                    service.scheduler.cancel_request(request_id)
+                    raise TimeoutError("final transcription timed out")
+                if holder["event"].wait(timeout=min(0.005, remaining)):
+                    break
+        # Cancellation wins a completion race: a stale result must neither be
+        # treated as a Preview failure nor keep the newer snapshot waiting.
+        if cancel_event is not None and cancel_event.is_set():
             service.scheduler.cancel_request(request_id)
-            raise TimeoutError("final transcription timed out")
+            raise _PreviewAdmissionCancelled()
         if holder["error"]:
             raise RuntimeError(holder["error"])
         result = holder["result"]

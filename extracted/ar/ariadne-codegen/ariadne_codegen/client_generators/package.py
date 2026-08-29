@@ -1,4 +1,6 @@
 import ast
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -9,14 +11,15 @@ from graphql import (
     OperationType,
 )
 
-from ..codegen import generate_import_from
+from ..codegen import collect_class_forward_ref_names, generate_import_from
 from ..exceptions import ParsingError
 from ..plugins.manager import PluginManager
-from ..settings import ClientSettings, CommentsStrategy
+from ..settings import ClientSettings, CommentsStrategy, ModelsOnlySettings
 from ..utils import (
-    add_extra_to_base_model,
-    ast_to_str,
+    ast_to_raw_str,
+    format_many,
     process_name,
+    rewrite_base_model,
     str_to_pascal_case,
 )
 from .arguments import ArgumentsGenerator
@@ -27,9 +30,14 @@ from .constants import (
     BASE_MODEL_CLASS_NAME,
     BASE_MODEL_FILE_PATH,
     BASE_MODEL_IMPORT,
+    BASE_MODEL_NO_UPLOAD_FILE_PATH,
     BASE_OPERATION_FILE_PATH,
+    DEFAULT_ASYNC_BASE_CLIENT_NO_UPLOAD_PATH,
+    DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_NO_UPLOAD_PATH,
     DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_PATH,
     DEFAULT_ASYNC_BASE_CLIENT_PATH,
+    DEFAULT_BASE_CLIENT_NO_UPLOAD_PATH,
+    DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_NO_UPLOAD_PATH,
     DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_PATH,
     DEFAULT_BASE_CLIENT_PATH,
     EXCEPTIONS_FILE_PATH,
@@ -49,27 +57,28 @@ from .result_types import ResultTypesGenerator
 from .scalars import ScalarData
 
 
-class PackageGenerator:
+@dataclass
+class _PendingFile:
+    """A generated module awaiting formatting and a write to disk."""
+
+    path: Path
+    code: str
+    remove_unused_imports: bool
+    comment_source: Optional[str] = None
+    plugin_hook: Optional[Callable[[str], str]] = None
+
+
+class BasePackageGenerator:
     def __init__(
         self,
         package_name: str,
         target_path: str,
         schema: GraphQLSchema,
         init_generator: InitFileGenerator,
-        client_generator: ClientGenerator,
         enums_generator: EnumsGenerator,
         input_types_generator: InputTypesGenerator,
         fragments_generator: FragmentsGenerator,
-        custom_fields_generator: Optional[CustomFieldsGenerator] = None,
-        custom_fields_typing_generator: Optional[CustomFieldsTypingGenerator] = None,
-        custom_query_generator: Optional[CustomOperationGenerator] = None,
-        custom_mutation_generator: Optional[CustomOperationGenerator] = None,
         fragments_definitions: Optional[dict[str, FragmentDefinitionNode]] = None,
-        client_name: str = "Client",
-        async_client: bool = True,
-        base_client_name: str = "AsyncBaseClient",
-        base_client_file_path: str = DEFAULT_ASYNC_BASE_CLIENT_PATH.as_posix(),
-        client_file_name: str = "client",
         enums_module_name: str = "enums",
         input_types_module_name: str = "input_types",
         fragments_module_name: str = "fragments",
@@ -83,7 +92,6 @@ class PackageGenerator:
         base_model_file_path: str = BASE_MODEL_FILE_PATH.as_posix(),
         base_schema_root_file_path: str = BASE_OPERATION_FILE_PATH.as_posix(),
         base_model_import: ast.ImportFrom = BASE_MODEL_IMPORT,
-        upload_import: ast.ImportFrom = UPLOAD_IMPORT,
         unset_import: ast.ImportFrom = UNSET_IMPORT,
         files_to_include: Optional[list[str]] = None,
         custom_scalars: Optional[dict[str, ScalarData]] = None,
@@ -92,6 +100,8 @@ class PackageGenerator:
         default_optional_fields_to_none: bool = False,
         include_typename: bool = True,
         ignore_extra_fields: bool = True,
+        defer_model_build: bool = False,
+        use_alias_generator: bool = False,
     ) -> None:
         self.package_path = Path(target_path) / package_name
 
@@ -101,22 +111,11 @@ class PackageGenerator:
         )
 
         self.init_generator = init_generator
-        self.client_generator = client_generator
         self.enums_generator = enums_generator
         self.input_types_generator = input_types_generator
         self.fragments_generator = fragments_generator
-        self.custom_fields_generator = custom_fields_generator
-        self.custom_query_generator = custom_query_generator
-        self.custom_mutation_generator = custom_mutation_generator
-        self.custom_fields_typing_generator = custom_fields_typing_generator
         self.custom_help_field_module_name = custom_help_field_module_name
 
-        self.client_name = client_name
-        self.async_client = async_client
-        self.base_client_name = base_client_name
-        self.base_client_file_path = Path(base_client_file_path)
-
-        self.client_file_name = client_file_name
         self.enums_module_name = enums_module_name
         self.input_types_module_name = input_types_module_name
         self.fragments_module_name = fragments_module_name
@@ -131,7 +130,6 @@ class PackageGenerator:
 
         self.base_model_file_path = Path(base_model_file_path)
         self.base_model_import = base_model_import
-        self.upload_import = upload_import
         self.unset_import = unset_import
 
         self.base_schema_root_file_path = Path(base_schema_root_file_path)
@@ -144,48 +142,90 @@ class PackageGenerator:
         self.default_optional_fields_to_none = default_optional_fields_to_none
         self.include_typename = include_typename
         self.ignore_extra_fields = ignore_extra_fields
+        self.defer_model_build = defer_model_build
+        self.use_alias_generator = use_alias_generator
 
         self._result_types_files: dict[str, ast.Module] = {}
         self._generated_files: list[str] = []
+        self._pending_files: list[_PendingFile] = []
         self._unpacked_fragments: set[str] = set()
         self._used_enums: list[str] = []
+        self._fragments_module: Optional[ast.Module] = None
+        # For each fragment class, the forward-referenced names a subclass of it
+        # must be able to resolve. Populated for every client, regardless of
+        # `defer_model_build` (the bug it guards against affects both modes).
+        self._fragment_mixin_forward_refs: dict[str, set[str]] = {}
 
         self.enable_custom_operations = enable_custom_operations
         if self.enable_custom_operations:
             self.files_to_include.append(self.base_schema_root_file_path)
 
     def generate(self) -> list[str]:
-        """Generate package with graphql client."""
-        self._include_exceptions()
-        self._validate_unique_file_names()
-        if not self.package_path.exists():
-            self.package_path.mkdir()
-        self._generate_input_types()
-        self._generate_result_types()
-        self._generate_fragments()
-        self._copy_files()
-        if self.enable_custom_operations:
-            self._generate_custom_fields_typing()
-            self._generate_custom_fields()
-            self.client_generator.add_execute_custom_operation_method(self.async_client)
-            if self.custom_query_generator:
-                self._generate_custom_queries()
-                self.client_generator.create_custom_operation_method(
-                    "query", OperationType.QUERY.value.upper(), self.async_client
-                )
-            if self.custom_mutation_generator:
-                self._generate_custom_mutations()
-                self.client_generator.create_custom_operation_method(
-                    "mutation", OperationType.MUTATION.value.upper(), self.async_client
-                )
+        raise NotImplementedError()
 
-        self._generate_client()
-        self._generate_enums()
-        self._generate_init()
+    def _queue_module(
+        self,
+        path: Path,
+        module: ast.Module,
+        remove_unused_imports: bool = True,
+        multiline_strings: bool = False,
+        comment_source: Optional[str] = None,
+        plugin_hook: Optional[str] = None,
+        prepend_code: str = "",
+    ) -> None:
+        """Unparse a module now, format and write it once generation is done.
 
-        return sorted(self._generated_files)
+        `plugin_hook` names a `PluginManager` method; it is resolved here so the
+        `plugin_manager is None` case is handled in one place. `prepend_code` is
+        raw source inserted before the unparsed module, since `ast.unparse` cannot
+        carry the `# noqa` comment that keeps forward-reference-only imports.
+        """
+        hook: Optional[Callable[[str], str]] = None
+        if plugin_hook and self.plugin_manager:
+            hook = getattr(self.plugin_manager, plugin_hook)
+        self._pending_files.append(
+            _PendingFile(
+                path=path,
+                code=prepend_code
+                + ast_to_raw_str(module, multiline_strings=multiline_strings),
+                remove_unused_imports=remove_unused_imports,
+                comment_source=comment_source,
+                plugin_hook=hook,
+            )
+        )
+        self._generated_files.append(path.name)
 
-    def add_operation(self, definition: OperationDefinitionNode):
+    def _write_pending_files(self) -> None:
+        """Format every queued module, then apply comments, plugins and write.
+
+        Modules are batched by their ruff rule selection so that ruff is spawned
+        a fixed number of times rather than twice per generated file. Plugins
+        still see formatted code, as they did when each file formatted alone.
+        """
+        for remove_unused_imports in (True, False):
+            group = [
+                pending_file
+                for pending_file in self._pending_files
+                if pending_file.remove_unused_imports is remove_unused_imports
+            ]
+            formatted = format_many(
+                [pending_file.code for pending_file in group],
+                remove_unused_imports=remove_unused_imports,
+            )
+            for pending_file, code in zip(group, formatted, strict=True):
+                if code:
+                    code = self._add_comments_to_code(code, pending_file.comment_source)
+                    if pending_file.plugin_hook:
+                        code = pending_file.plugin_hook(code)
+                    pending_file.path.write_text(code)
+                else:
+                    self._generated_files.remove(pending_file.path.name)
+
+        self._pending_files.clear()
+
+    def _add_operation(
+        self, definition: OperationDefinitionNode
+    ) -> tuple[str, str, str, str]:
         name = definition.name
         if not name:
             raise ParsingError("Query without name.")
@@ -212,6 +252,8 @@ class PackageGenerator:
             plugin_manager=self.plugin_manager,
             default_optional_fields_to_none=self.default_optional_fields_to_none,
             include_typename=self.include_typename,
+            defer_model_build=self.defer_model_build,
+            use_alias_generator=self.use_alias_generator,
         )
         self._unpacked_fragments = self._unpacked_fragments.union(
             query_types_generator.get_unpacked_fragments()
@@ -222,65 +264,18 @@ class PackageGenerator:
         self.init_generator.add_import(
             query_types_generator.get_generated_public_names(), module_name, 1
         )
-
-        self.client_generator.add_method(
-            definition=definition,
-            name=method_name,
-            return_type=return_type_name,
-            return_type_module=module_name,
-            operation_str=operation_str,
-            async_=self.async_client,
-        )
-
-    def _include_exceptions(self):
-        if self.base_client_file_path in (
-            DEFAULT_ASYNC_BASE_CLIENT_PATH,
-            DEFAULT_BASE_CLIENT_PATH,
-            DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_PATH,
-            DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_PATH,
-        ):
-            self.files_to_include.append(EXCEPTIONS_FILE_PATH)
-            self.init_generator.add_import(
-                names=GRAPHQL_CLIENT_EXCEPTIONS_NAMES,
-                from_=EXCEPTIONS_FILE_PATH.stem,
-                level=1,
-            )
+        return method_name, return_type_name, module_name, operation_str
 
     def _validate_unique_file_names(self):
-        file_names = (
-            [
-                f"{self.client_file_name}.py",
-                self.base_client_file_path.name,
-                self.base_model_file_path.name,
-                f"{self.enums_module_name}.py",
-                f"{self.input_types_module_name}.py",
-                f"{self.fragments_module_name}.py",
-            ]
-            + list(self._result_types_files.keys())
-            + [f.name for f in self.files_to_include]
-        )
+        file_names = self._get_generated_file_names()
 
         if len(file_names) != len(set(file_names)):
             seen = set()
             duplicated_files = {n for n in file_names if n in seen or seen.add(n)}
             raise ParsingError(f"Duplicated file names: {','.join(duplicated_files)}")
 
-    def _generate_client(self):
-        client_file_path = self.package_path / f"{self.client_file_name}.py"
-        client_module = self.client_generator.generate()
-        code = self._add_comments_to_code(
-            ast_to_str(client_module, multiline_strings=True), self.queries_source
-        )
-        if self.plugin_manager:
-            code = self.plugin_manager.generate_client_code(code)
-        client_file_path.write_text(code)
-        self._generated_files.append(client_file_path.name)
-        self._used_enums.extend(
-            self.client_generator.arguments_generator.get_used_enums()
-        )
-        self.init_generator.add_import(
-            names=[self.client_generator.name], from_=self.client_file_name, level=1
-        )
+    def _get_generated_file_names(self) -> list[str]:
+        return []
 
     def _add_comments_to_code(self, code: str, source: Optional[str] = None) -> str:
         comment = get_comment(strategy=self.comments_strategy, source=source)
@@ -299,12 +294,13 @@ class PackageGenerator:
         else:
             module = self.enums_generator.generate(types_to_include=self._used_enums)
 
-        code = self._add_comments_to_code(ast_to_str(module), self.schema_source)
-        if self.plugin_manager:
-            code = self.plugin_manager.generate_enums_code(code)
         enums_file_path = self.package_path / f"{self.enums_module_name}.py"
-        enums_file_path.write_text(code)
-        self._generated_files.append(enums_file_path.name)
+        self._queue_module(
+            enums_file_path,
+            module,
+            comment_source=self.schema_source,
+            plugin_hook="generate_enums_code",
+        )
         self.init_generator.add_import(
             self.enums_generator.get_generated_public_names(), self.enums_module_name, 1
         )
@@ -313,15 +309,17 @@ class PackageGenerator:
         if self.include_all_inputs:
             module = self.input_types_generator.generate()
         else:
-            used_inputs = self.client_generator.arguments_generator.get_used_inputs()
-            module = self.input_types_generator.generate(types_to_include=used_inputs)
+            module = self.input_types_generator.generate(
+                types_to_include=self._get_used_inputs()
+            )
 
         input_types_file_path = self.package_path / f"{self.input_types_module_name}.py"
-        code = self._add_comments_to_code(ast_to_str(module), self.schema_source)
-        if self.plugin_manager:
-            code = self.plugin_manager.generate_inputs_code(code)
-        input_types_file_path.write_text(code)
-        self._generated_files.append(input_types_file_path.name)
+        self._queue_module(
+            input_types_file_path,
+            module,
+            comment_source=self.schema_source,
+            plugin_hook="generate_inputs_code",
+        )
         self._used_enums.extend(self.input_types_generator.get_used_enums())
         self.init_generator.add_import(
             self.input_types_generator.get_generated_public_names(),
@@ -329,28 +327,112 @@ class PackageGenerator:
             1,
         )
 
+    def _get_used_inputs(self) -> list[str]:
+        return []
+
     def _generate_result_types(self):
         for file_name, module in self._result_types_files.items():
-            file_path = self.package_path / file_name
-            code = self._add_comments_to_code(ast_to_str(module), self.queries_source)
-            if self.plugin_manager:
-                code = self.plugin_manager.generate_result_types_code(code)
-            file_path.write_text(code)
-            self._generated_files.append(file_path.name)
+            self._queue_module(
+                self.package_path / file_name,
+                module,
+                comment_source=self.queries_source,
+                plugin_hook="generate_result_types_code",
+                prepend_code=self._mixin_forward_ref_import(module),
+            )
 
-    def _generate_fragments(self):
+    def _build_fragments_module(self):
+        """Generate the fragments module once (it has side effects) and map every
+        fragment class to the forward references a subclass needs.
+        """
         if not set(self.fragments_definitions.keys()).difference(
             self._unpacked_fragments
         ):
             return
 
-        module = self.fragments_generator.generate(
+        self._fragments_module = self.fragments_generator.generate(
             exclude_names=self._unpacked_fragments
         )
+        self._fragment_mixin_forward_refs = self._map_fragment_forward_refs(
+            self._fragments_module
+        )
+
+    @staticmethod
+    def _map_fragment_forward_refs(module: ast.Module) -> dict[str, set[str]]:
+        """For each fragment class, the forward-referenced names a subclass must
+        resolve: its own field forward references plus those it inherits from any
+        fragment base class."""
+        class_defs = {
+            node.name: node for node in module.body if isinstance(node, ast.ClassDef)
+        }
+        needed: dict[str, set[str]] = {}
+
+        def resolve(name: str, seen: set[str]) -> set[str]:
+            if name in needed:
+                return needed[name]
+            if name in seen or name not in class_defs:
+                return set()
+            seen.add(name)
+            class_def = class_defs[name]
+            names = collect_class_forward_ref_names(class_def)
+            for base in class_def.bases:
+                if isinstance(base, ast.Name):
+                    names = names | resolve(base.id, seen)
+            needed[name] = names
+            return names
+
+        for class_name in class_defs:
+            resolve(class_name, set())
+        return needed
+
+    def _mixin_forward_ref_import(self, module: ast.Module) -> str:
+        """Raw import keeping the fragment forward references a module's mixin
+        subclasses need in scope.
+
+        A class like `class OpNode(SomeFragment): pass` resolves the fragment's
+        inherited forward references against its *own* module. The referenced
+        classes live in the fragments module, so they must be importable here.
+        This holds regardless of `defer_model_build`: with the deferred build
+        Pydantic resolves them lazily on first use, and without it the eager
+        `OpNode.model_rebuild()` re-evaluates the inherited references in this
+        module too (observably on Python 3.10). They only appear inside the
+        inherited annotations, hence the `# noqa: F401`.
+        """
+        if not self._fragment_mixin_forward_refs:
+            return ""
+
+        already_present = {
+            alias.name
+            for node in module.body
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+        }
+        already_present |= {
+            node.name for node in module.body if isinstance(node, ast.ClassDef)
+        }
+
+        needed: set[str] = set()
+        for node in module.body:
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for base in node.bases:
+                if isinstance(base, ast.Name):
+                    needed |= self._fragment_mixin_forward_refs.get(base.id, set())
+
+        needed -= already_present
+        if not needed:
+            return ""
+
+        names = ", ".join(sorted(needed))
+        return f"from .{self.fragments_module_name} import {names}  # noqa: F401\n"
+
+    def _generate_fragments(self):
+        if self._fragments_module is None:
+            return
+
         file_path = self.package_path / f"{self.fragments_module_name}.py"
-        code = self._add_comments_to_code(ast_to_str(module), self.queries_source)
-        file_path.write_text(code)
-        self._generated_files.append(file_path.name)
+        self._queue_module(
+            file_path, self._fragments_module, comment_source=self.queries_source
+        )
         self._used_enums.extend(self.fragments_generator.get_used_enums())
         self.init_generator.add_import(
             self.fragments_generator.get_generated_public_names(),
@@ -359,110 +441,451 @@ class PackageGenerator:
         )
 
     def _copy_files(self):
-        files_to_copy = self.files_to_include + [
-            self.base_client_file_path,
-            self.base_model_file_path,
-        ]
-        for source_path in files_to_copy:
+        files_to_copy = self._get_files_to_copy()
+        for source_path, target_name in files_to_copy.items():
             code = self._add_comments_to_code(source_path.read_text(encoding="utf-8"))
-            if not self.ignore_extra_fields and source_path.name == "base_model.py":
-                code = add_extra_to_base_model(code)
+            if source_path == self.base_model_file_path:
+                code = self._rewrite_base_model(code)
             if self.plugin_manager:
                 code = self.plugin_manager.copy_code(code)
-            target_path = self.package_path / source_path.name
+            target_path = self.package_path / target_name
             target_path.write_text(code)
             self._generated_files.append(target_path.name)
 
-        self.init_generator.add_import(
-            names=[self.base_client_name],
-            from_=self.base_client_file_path.stem,
-            level=1,
-        )
-        self.init_generator.add_import(
-            names=[BASE_MODEL_CLASS_NAME, UPLOAD_CLASS_NAME],
-            from_=self.base_model_file_path.stem,
-            level=1,
+    def _get_files_to_copy(self) -> dict[Path, str]:
+        return {}
+
+    def _rewrite_base_model(self, code: str) -> str:
+        return rewrite_base_model(
+            code,
+            forbid_extra=not self.ignore_extra_fields,
+            defer_build=self.defer_model_build,
+            alias_generator=self.use_alias_generator,
         )
 
     def _generate_init(self):
         init_file_path = self.package_path / "__init__.py"
         init_module = self.init_generator.generate()
-        code = self._add_comments_to_code(ast_to_str(init_module, False))
+        self._queue_module(
+            init_file_path,
+            init_module,
+            remove_unused_imports=False,
+            plugin_hook="generate_init_code",
+        )
+
+
+class PackageGenerator(BasePackageGenerator):
+    def __init__(
+        self,
+        package_name: str,
+        target_path: str,
+        schema: GraphQLSchema,
+        init_generator: InitFileGenerator,
+        client_generator: ClientGenerator,
+        enums_generator: EnumsGenerator,
+        input_types_generator: InputTypesGenerator,
+        fragments_generator: FragmentsGenerator,
+        custom_fields_generator: Optional[CustomFieldsGenerator] = None,
+        custom_fields_typing_generator: Optional[CustomFieldsTypingGenerator] = None,
+        custom_query_generator: Optional[CustomOperationGenerator] = None,
+        custom_mutation_generator: Optional[CustomOperationGenerator] = None,
+        fragments_definitions: Optional[dict[str, FragmentDefinitionNode]] = None,
+        client_name: str = "Client",
+        async_client: bool = True,
+        base_client_name: str = "AsyncBaseClient",
+        base_client_file_path: str = DEFAULT_ASYNC_BASE_CLIENT_PATH.as_posix(),
+        base_client_module_name: str = "",
+        client_file_name: str = "client",
+        enums_module_name: str = "enums",
+        input_types_module_name: str = "input_types",
+        fragments_module_name: str = "fragments",
+        custom_help_field_module_name: str = "custom_typing_fields",
+        comments_strategy: CommentsStrategy = CommentsStrategy.STABLE,
+        queries_source: str = "",
+        schema_source: str = "",
+        convert_to_snake_case: bool = True,
+        include_all_inputs: bool = True,
+        include_all_enums: bool = True,
+        base_model_file_path: str = BASE_MODEL_FILE_PATH.as_posix(),
+        base_schema_root_file_path: str = BASE_OPERATION_FILE_PATH.as_posix(),
+        base_model_import: ast.ImportFrom = BASE_MODEL_IMPORT,
+        unset_import: ast.ImportFrom = UNSET_IMPORT,
+        multipart_uploads: bool = True,
+        files_to_include: Optional[list[str]] = None,
+        custom_scalars: Optional[dict[str, ScalarData]] = None,
+        plugin_manager: Optional[PluginManager] = None,
+        enable_custom_operations: bool = False,
+        default_optional_fields_to_none: bool = False,
+        include_typename: bool = True,
+        ignore_extra_fields: bool = True,
+        defer_model_build: bool = False,
+        use_alias_generator: bool = False,
+    ) -> None:
+        super().__init__(
+            package_name,
+            target_path,
+            schema,
+            init_generator,
+            enums_generator,
+            input_types_generator,
+            fragments_generator,
+            fragments_definitions,
+            enums_module_name,
+            input_types_module_name,
+            fragments_module_name,
+            custom_help_field_module_name,
+            comments_strategy,
+            queries_source,
+            schema_source,
+            convert_to_snake_case,
+            include_all_inputs,
+            include_all_enums,
+            base_model_file_path,
+            base_schema_root_file_path,
+            base_model_import,
+            unset_import,
+            files_to_include,
+            custom_scalars,
+            plugin_manager,
+            enable_custom_operations,
+            default_optional_fields_to_none,
+            include_typename,
+            ignore_extra_fields,
+            defer_model_build,
+            use_alias_generator,
+        )
+
+        self.client_generator = client_generator
+        self.client_name = client_name
+        self.async_client = async_client
+        self.base_client_name = base_client_name
+        self.base_client_file_path = Path(base_client_file_path)
+        self.base_client_module_name = (
+            base_client_module_name or self.base_client_file_path.stem
+        )
+        self.multipart_uploads = multipart_uploads
+
+        self.client_file_name = client_file_name
+
+        self.custom_fields_generator = custom_fields_generator
+        self.custom_query_generator = custom_query_generator
+        self.custom_mutation_generator = custom_mutation_generator
+        self.custom_fields_typing_generator = custom_fields_typing_generator
+
+    def generate(self) -> list[str]:
+        """Generate package with graphql client."""
+        self._include_exceptions()
+        self._validate_unique_file_names()
+        if not self.package_path.exists():
+            self.package_path.mkdir()
+        self._generate_input_types()
+        self._build_fragments_module()
+        self._generate_result_types()
+        self._generate_fragments()
+        self._copy_files()
+        if self.enable_custom_operations:
+            self._generate_custom_fields_typing()
+            self._generate_custom_fields()
+            self.client_generator.add_execute_custom_operation_method(self.async_client)
+            if self.custom_query_generator:
+                self._generate_custom_queries()
+                self.client_generator.create_custom_operation_method(
+                    "query", OperationType.QUERY.value.upper(), self.async_client
+                )
+            if self.custom_mutation_generator:
+                self._generate_custom_mutations()
+                self.client_generator.create_custom_operation_method(
+                    "mutation", OperationType.MUTATION.value.upper(), self.async_client
+                )
+
+        self._generate_client()
+        self._generate_enums()
+        self._generate_init()
+        self._write_pending_files()
+
+        generated_files = sorted(self._generated_files)
         if self.plugin_manager:
-            code = self.plugin_manager.generate_init_code(code)
-        init_file_path.write_text(code)
-        self._generated_files.append(init_file_path.name)
+            generated_files = self.plugin_manager.generate_files(generated_files)
+
+        return generated_files
+
+    def add_operation(self, definition: OperationDefinitionNode):
+        method_name, return_type_name, module_name, operation_str = self._add_operation(
+            definition
+        )
+        self.client_generator.add_method(
+            definition=definition,
+            name=method_name,
+            return_type=return_type_name,
+            return_type_module=module_name,
+            operation_str=operation_str,
+            async_=self.async_client,
+        )
+
+    def _include_exceptions(self):
+        if self.base_client_file_path in (
+            DEFAULT_ASYNC_BASE_CLIENT_PATH,
+            DEFAULT_ASYNC_BASE_CLIENT_NO_UPLOAD_PATH,
+            DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_PATH,
+            DEFAULT_ASYNC_BASE_CLIENT_OPEN_TELEMETRY_NO_UPLOAD_PATH,
+            DEFAULT_BASE_CLIENT_PATH,
+            DEFAULT_BASE_CLIENT_NO_UPLOAD_PATH,
+            DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_PATH,
+            DEFAULT_BASE_CLIENT_OPEN_TELEMETRY_NO_UPLOAD_PATH,
+        ):
+            self.files_to_include.append(EXCEPTIONS_FILE_PATH)
+            self.init_generator.add_import(
+                names=GRAPHQL_CLIENT_EXCEPTIONS_NAMES,
+                from_=EXCEPTIONS_FILE_PATH.stem,
+                level=1,
+            )
+
+    def _get_used_inputs(self) -> list[str]:
+        return self.client_generator.arguments_generator.get_used_inputs()
+
+    def _get_generated_file_names(self) -> list[str]:
+        return (
+            [
+                f"{self.client_file_name}.py",
+                f"{self.base_client_module_name}.py",
+                "base_model.py",
+                f"{self.enums_module_name}.py",
+                f"{self.input_types_module_name}.py",
+                f"{self.fragments_module_name}.py",
+            ]
+            + list(self._result_types_files.keys())
+            + [f.name for f in self.files_to_include]
+        )
+
+    def _generate_client(self):
+        client_file_path = self.package_path / f"{self.client_file_name}.py"
+        client_module = self.client_generator.generate()
+        self._queue_module(
+            client_file_path,
+            client_module,
+            multiline_strings=True,
+            comment_source=self.queries_source,
+            plugin_hook="generate_client_code",
+        )
+        self._used_enums.extend(
+            self.client_generator.arguments_generator.get_used_enums()
+        )
+        self.init_generator.add_import(
+            names=[self.client_generator.name], from_=self.client_file_name, level=1
+        )
+
+    def _copy_files(self):
+        super()._copy_files()
+        base_model_names = [BASE_MODEL_CLASS_NAME]
+        if self.multipart_uploads:
+            base_model_names.append(UPLOAD_CLASS_NAME)
+        self.init_generator.add_import(
+            names=base_model_names,
+            from_="base_model",
+            level=1,
+        )
+        self.init_generator.add_import(
+            names=[self.base_client_name],
+            from_=self.base_client_module_name,
+            level=1,
+        )
+
+    def _get_files_to_copy(self) -> dict[Path, str]:
+        return {
+            **{source_path: source_path.name for source_path in self.files_to_include},
+            self.base_client_file_path: f"{self.base_client_module_name}.py",
+            self.base_model_file_path: "base_model.py",
+        }
 
     def _generate_custom_queries(self):
         assert self.custom_query_generator is not None
-        file_path = self.package_path / "custom_queries.py"
-        module = self.custom_query_generator.generate()
-        code = self._add_comments_to_code(ast_to_str(module, False))
-        file_path.write_text(code)
-        self._generated_files.append(file_path.name)
+        self._queue_module(
+            self.package_path / "custom_queries.py",
+            self.custom_query_generator.generate(),
+            remove_unused_imports=False,
+        )
 
     def _generate_custom_mutations(self):
         assert self.custom_mutation_generator is not None
-        file_path = self.package_path / "custom_mutations.py"
-        module = self.custom_mutation_generator.generate()
-        code = self._add_comments_to_code(ast_to_str(module, False))
-        file_path.write_text(code)
-        self._generated_files.append(file_path.name)
+        self._queue_module(
+            self.package_path / "custom_mutations.py",
+            self.custom_mutation_generator.generate(),
+            remove_unused_imports=False,
+        )
 
     def _generate_custom_fields_typing(self):
         assert self.custom_fields_typing_generator is not None
-        file_path = self.package_path / "custom_typing_fields.py"
-        module = self.custom_fields_typing_generator.generate()
-        code = self._add_comments_to_code(ast_to_str(module, False))
-        file_path.write_text(code)
-        self._generated_files.append(file_path.name)
+        self._queue_module(
+            self.package_path / "custom_typing_fields.py",
+            self.custom_fields_typing_generator.generate(),
+            remove_unused_imports=False,
+        )
 
     def _generate_custom_fields(self):
         assert self.custom_fields_generator is not None
-        file_path = self.package_path / "custom_fields.py"
-        module = self.custom_fields_generator.generate()
-        code = self._add_comments_to_code(ast_to_str(module, False))
-        file_path.write_text(code)
-        self._generated_files.append(file_path.name)
+        self._queue_module(
+            self.package_path / "custom_fields.py",
+            self.custom_fields_generator.generate(),
+            remove_unused_imports=False,
+        )
+
+
+class ModelsOnlyPackageGenerator(BasePackageGenerator):
+    def __init__(
+        self,
+        package_name: str,
+        target_path: str,
+        schema: GraphQLSchema,
+        init_generator: InitFileGenerator,
+        enums_generator: EnumsGenerator,
+        input_types_generator: InputTypesGenerator,
+        fragments_generator: FragmentsGenerator,
+        arguments_generator: ArgumentsGenerator,
+        fragments_definitions: Optional[dict[str, FragmentDefinitionNode]] = None,
+        enums_module_name: str = "enums",
+        input_types_module_name: str = "input_types",
+        fragments_module_name: str = "fragments",
+        custom_help_field_module_name: str = "custom_typing_fields",
+        comments_strategy: CommentsStrategy = CommentsStrategy.STABLE,
+        queries_source: str = "",
+        schema_source: str = "",
+        convert_to_snake_case: bool = True,
+        include_all_inputs: bool = True,
+        include_all_enums: bool = True,
+        base_model_file_path: str = BASE_MODEL_FILE_PATH.as_posix(),
+        base_schema_root_file_path: str = BASE_OPERATION_FILE_PATH.as_posix(),
+        base_model_import: ast.ImportFrom = BASE_MODEL_IMPORT,
+        unset_import: ast.ImportFrom = UNSET_IMPORT,
+        files_to_include: Optional[list[str]] = None,
+        custom_scalars: Optional[dict[str, ScalarData]] = None,
+        plugin_manager: Optional[PluginManager] = None,
+        enable_custom_operations: bool = False,
+        default_optional_fields_to_none: bool = False,
+        include_typename: bool = True,
+        ignore_extra_fields: bool = True,
+        defer_model_build: bool = False,
+        use_alias_generator: bool = False,
+    ) -> None:
+        super().__init__(
+            package_name,
+            target_path,
+            schema,
+            init_generator,
+            enums_generator,
+            input_types_generator,
+            fragments_generator,
+            fragments_definitions,
+            enums_module_name,
+            input_types_module_name,
+            fragments_module_name,
+            custom_help_field_module_name,
+            comments_strategy,
+            queries_source,
+            schema_source,
+            convert_to_snake_case,
+            include_all_inputs,
+            include_all_enums,
+            base_model_file_path,
+            base_schema_root_file_path,
+            base_model_import,
+            unset_import,
+            files_to_include,
+            custom_scalars,
+            plugin_manager,
+            enable_custom_operations,
+            default_optional_fields_to_none,
+            include_typename,
+            ignore_extra_fields,
+            defer_model_build,
+            use_alias_generator,
+        )
+        self.arguments_generator = arguments_generator
+
+    def generate(self) -> list[str]:
+        """Generate package with graphql client."""
+        self._validate_unique_file_names()
+        if not self.package_path.exists():
+            self.package_path.mkdir()
+        self._generate_input_types()
+        self._build_fragments_module()
+        self._generate_result_types()
+        self._generate_fragments()
+        self._copy_files()
+
+        self._generate_enums()
+        self._generate_init()
+        self._write_pending_files()
+
+        generated_files = sorted(self._generated_files)
+        if self.plugin_manager:
+            generated_files = self.plugin_manager.generate_files(generated_files)
+
+        return generated_files
+
+    def add_operation(self, definition: OperationDefinitionNode):
+        self._add_operation(definition)
+
+        # Generate arguments to register used input types
+        self.arguments_generator.generate(definition.variable_definitions)
+
+    def _get_used_inputs(self) -> list[str]:
+        return self.arguments_generator.get_used_inputs()
+
+    def _get_generated_file_names(self) -> list[str]:
+        return (
+            [
+                "base_model.py",
+                f"{self.enums_module_name}.py",
+                f"{self.input_types_module_name}.py",
+                f"{self.fragments_module_name}.py",
+            ]
+            + list(self._result_types_files.keys())
+            + [f.name for f in self.files_to_include]
+        )
+
+    def _copy_files(self):
+        super()._copy_files()
+        base_model_names = [BASE_MODEL_CLASS_NAME]
+        self.init_generator.add_import(
+            names=base_model_names,
+            from_="base_model",
+            level=1,
+        )
+
+    def _get_files_to_copy(self) -> dict[Path, str]:
+        return {
+            **{source_path: source_path.name for source_path in self.files_to_include},
+            self.base_model_file_path: "base_model.py",
+        }
 
 
 def get_package_generator(
     schema: GraphQLSchema,
     fragments: list[FragmentDefinitionNode],
-    settings: ClientSettings,
+    settings: ClientSettings | ModelsOnlySettings,
     plugin_manager: PluginManager,
-) -> PackageGenerator:
-    init_generator = InitFileGenerator(plugin_manager=plugin_manager)
-    client_generator = ClientGenerator(
-        base_client_import=generate_import_from(
-            names=[settings.base_client_name],
-            from_=Path(settings.base_client_file_path).stem,
-            level=1,
-        ),
-        arguments_generator=ArgumentsGenerator(
-            schema=schema,
-            convert_to_snake_case=settings.convert_to_snake_case,
-            custom_scalars=settings.scalars,
-            plugin_manager=plugin_manager,
-        ),
-        name=settings.client_name,
-        base_client=settings.base_client_name,
-        enums_module_name=settings.enums_module_name,
-        input_types_module_name=settings.input_types_module_name,
-        unset_import=UNSET_IMPORT,
-        upload_import=UPLOAD_IMPORT,
-        custom_scalars=settings.scalars,
-        plugin_manager=plugin_manager,
+) -> PackageGenerator | ModelsOnlyPackageGenerator:
+    base_model_path = (
+        BASE_MODEL_FILE_PATH
+        if isinstance(settings, ClientSettings) and settings.multipart_uploads
+        else BASE_MODEL_NO_UPLOAD_FILE_PATH
+    )
+    upload_import = UPLOAD_IMPORT if base_model_path == BASE_MODEL_FILE_PATH else None
+
+    init_generator = InitFileGenerator(
+        plugin_manager=plugin_manager, lazy_imports=settings.lazy_imports
     )
     enums_generator = EnumsGenerator(schema=schema, plugin_manager=plugin_manager)
     input_types_generator = InputTypesGenerator(
         schema=schema,
         enums_module=settings.enums_module_name,
         base_model_import=BASE_MODEL_IMPORT,
-        upload_import=UPLOAD_IMPORT,
+        upload_import=upload_import,
         convert_to_snake_case=settings.convert_to_snake_case,
         custom_scalars=settings.scalars,
         plugin_manager=plugin_manager,
+        defer_model_build=settings.defer_model_build,
+        use_alias_generator=settings.use_alias_generator,
     )
     fragments_definitions = {f.name.value: f for f in fragments or []}
     fragments_generator = FragmentsGenerator(
@@ -475,7 +898,49 @@ def get_package_generator(
         plugin_manager=plugin_manager,
         default_optional_fields_to_none=settings.default_optional_fields_to_none,
         include_typename=settings.include_typename,
+        defer_model_build=settings.defer_model_build,
+        use_alias_generator=settings.use_alias_generator,
     )
+
+    if isinstance(settings, ModelsOnlySettings):
+        return ModelsOnlyPackageGenerator(
+            package_name=settings.target_package_name,
+            target_path=settings.target_package_path,
+            schema=schema,
+            init_generator=init_generator,
+            enums_generator=enums_generator,
+            input_types_generator=input_types_generator,
+            fragments_generator=fragments_generator,
+            arguments_generator=ArgumentsGenerator(
+                schema=schema,
+                convert_to_snake_case=settings.convert_to_snake_case,
+                custom_scalars=settings.scalars,
+                plugin_manager=plugin_manager,
+            ),
+            fragments_definitions=fragments_definitions,
+            enums_module_name=settings.enums_module_name,
+            input_types_module_name=settings.input_types_module_name,
+            fragments_module_name=settings.fragments_module_name,
+            comments_strategy=settings.include_comments,
+            queries_source=settings.queries_path,
+            schema_source=settings.schema_source,
+            convert_to_snake_case=settings.convert_to_snake_case,
+            include_all_inputs=settings.include_all_inputs,
+            include_all_enums=settings.include_all_enums,
+            base_model_file_path=base_model_path.as_posix(),
+            base_model_import=BASE_MODEL_IMPORT,
+            unset_import=UNSET_IMPORT,
+            files_to_include=settings.files_to_include,
+            custom_scalars=settings.scalars,
+            plugin_manager=plugin_manager,
+            enable_custom_operations=settings.enable_custom_operations,
+            default_optional_fields_to_none=settings.default_optional_fields_to_none,
+            include_typename=settings.include_typename,
+            ignore_extra_fields=settings.ignore_extra_fields,
+            defer_model_build=settings.defer_model_build,
+            use_alias_generator=settings.use_alias_generator,
+        )
+
     custom_fields_generator = CustomFieldsGenerator(
         schema=schema,
         custom_scalars=settings.scalars,
@@ -518,6 +983,31 @@ def get_package_generator(
             ),
         )
 
+    client_generator = ClientGenerator(
+        base_client_import=generate_import_from(
+            names=[settings.base_client_name],
+            from_=(
+                settings.base_client_module_name
+                or Path(settings.base_client_file_path).stem
+            ),
+            level=1,
+        ),
+        arguments_generator=ArgumentsGenerator(
+            schema=schema,
+            convert_to_snake_case=settings.convert_to_snake_case,
+            custom_scalars=settings.scalars,
+            plugin_manager=plugin_manager,
+        ),
+        name=settings.client_name,
+        base_client=settings.base_client_name,
+        enums_module_name=settings.enums_module_name,
+        input_types_module_name=settings.input_types_module_name,
+        unset_import=UNSET_IMPORT,
+        upload_import=upload_import,
+        custom_scalars=settings.scalars,
+        plugin_manager=plugin_manager,
+    )
+
     return PackageGenerator(
         package_name=settings.target_package_name,
         target_path=settings.target_package_path,
@@ -546,10 +1036,11 @@ def get_package_generator(
         convert_to_snake_case=settings.convert_to_snake_case,
         include_all_inputs=settings.include_all_inputs,
         include_all_enums=settings.include_all_enums,
-        base_model_file_path=BASE_MODEL_FILE_PATH.as_posix(),
+        base_client_module_name=settings.base_client_module_name,
+        base_model_file_path=base_model_path.as_posix(),
         base_model_import=BASE_MODEL_IMPORT,
-        upload_import=UPLOAD_IMPORT,
         unset_import=UNSET_IMPORT,
+        multipart_uploads=settings.multipart_uploads,
         files_to_include=settings.files_to_include,
         custom_scalars=settings.scalars,
         plugin_manager=plugin_manager,
@@ -557,4 +1048,6 @@ def get_package_generator(
         default_optional_fields_to_none=settings.default_optional_fields_to_none,
         include_typename=settings.include_typename,
         ignore_extra_fields=settings.ignore_extra_fields,
+        defer_model_build=settings.defer_model_build,
+        use_alias_generator=settings.use_alias_generator,
     )

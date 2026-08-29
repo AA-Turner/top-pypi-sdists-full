@@ -12,7 +12,7 @@ from mistralai.workflows.core._events.event_activities import (
     _emit_waiting_for_input_failed,
     _emit_waiting_for_input_started,
 )
-from mistralai.workflows.core._registration.search_key_ingestion import ingest_search_keys
+from mistralai.workflows.core._registration.search_key_ingestion import discard_search_keys, ingest_search_keys
 from mistralai.workflows.core.workflow import workflow
 
 logger = structlog.get_logger(__name__)
@@ -21,7 +21,10 @@ T = TypeVar("T", bound=BaseModel)
 
 WAITING_FOR_INPUT_SEARCH_KEY = "internal.execution.state"
 WAITING_FOR_INPUT_STATE = "waiting_for_input"
-RUNNING_STATE = "running"
+
+# Histories predating the patch recorded an upsert here, so they must keep overwriting.
+_LEGACY_RUNNING_STATE = "running"
+_CLEAR_WAITING_STATE_VIA_DELETE = "clear-waiting-state-via-delete"
 
 
 class _SubmitInputParams(BaseModel):
@@ -183,7 +186,7 @@ class InteractiveWorkflow:
                 args=[task_id, schema_dict, label],
                 start_to_close_timeout=timedelta(seconds=10),
             )
-            await self._write_waiting_state(WAITING_FOR_INPUT_STATE)
+            await self._set_waiting_state(WAITING_FOR_INPUT_STATE)
             await temporalio.workflow.wait_condition(check_received, timeout=timeout)
             validated_input = schema.model_validate(pending_request.input)
         except BaseException as e:
@@ -197,7 +200,10 @@ class InteractiveWorkflow:
             self._pending_inputs.pop(task_id, None)
             self._pending_wait_count -= 1
             if self._pending_wait_count == 0:
-                await self._write_waiting_state(RUNNING_STATE)
+                if temporalio.workflow.patched(_CLEAR_WAITING_STATE_VIA_DELETE):
+                    await self._clear_waiting_state()
+                else:
+                    await self._set_waiting_state(_LEGACY_RUNNING_STATE)
 
         await temporalio.workflow.execute_local_activity(
             _emit_waiting_for_input_completed,
@@ -207,13 +213,26 @@ class InteractiveWorkflow:
 
         return validated_input
 
-    async def _write_waiting_state(self, state: str) -> None:
+    async def _set_waiting_state(self, state: str) -> None:
         try:
-            await ingest_search_keys({WAITING_FOR_INPUT_SEARCH_KEY: state}, _allow_reserved=True)
+            await ingest_search_keys(
+                {WAITING_FOR_INPUT_SEARCH_KEY: state},
+                _allow_reserved=True,
+            )
         except Exception as e:
             logger.warning(
                 "Could not write the wait-state search key; the execution continues without it",
                 state=state,
+                error=str(e),
+            )
+
+    async def _clear_waiting_state(self) -> None:
+        # Deleting rather than overwriting frees the key's slot in the execution's 20-key budget.
+        try:
+            await discard_search_keys([WAITING_FOR_INPUT_SEARCH_KEY], _allow_reserved=True)
+        except Exception as e:
+            logger.warning(
+                "Could not clear the wait-state search key; the execution continues with it set",
                 error=str(e),
             )
 

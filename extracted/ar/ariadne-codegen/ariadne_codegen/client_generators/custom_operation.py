@@ -95,6 +95,11 @@ class CustomOperationGenerator:
             self._class_def.body.append(ast.Pass())
 
         self.argument_generator.add_custom_scalar_imports()
+        # Pull in the argument generator's imports (scalars, input types, enums).
+        # Must run after `add_custom_scalar_imports` above, or scalars used in
+        # operation-argument annotations are never imported.
+        for import_ in self.argument_generator.imports:
+            self._add_import(import_)
 
         self._class_def.lineno = len(self._imports) + 3
 
@@ -103,6 +108,8 @@ class CustomOperationGenerator:
             + cast(list[ast.stmt], self._type_imports)
             + [self._class_def],
         )
+        if self.plugin_manager:
+            return self.plugin_manager.generate_custom_module(module)
         return module
 
     def _add_import(self, import_: Optional[ast.ImportFrom] = None):
@@ -133,9 +140,6 @@ class CustomOperationGenerator:
             return_arguments_values,
         ) = self.argument_generator.generate_arguments(operation_args)
 
-        for import_ in self.argument_generator.imports:
-            self._add_import(import_)
-
         if operation_args:
             for arg in operation_args.values():
                 if not is_non_null_type(arg.type):
@@ -155,7 +159,7 @@ class CustomOperationGenerator:
                 return_arguments_keys, return_arguments_values
             )
 
-        return generate_method_definition(
+        method = generate_method_definition(
             name=process_name(
                 operation_name,
                 convert_to_snake_case=self.convert_to_snake_case,
@@ -182,6 +186,10 @@ class CustomOperationGenerator:
             ],
             decorator_list=[generate_name("classmethod")],
         )
+
+        if self.plugin_manager:
+            return self.plugin_manager.generate_custom_method(method)
+        return method
 
     def _get_return_type_and_from(self, final_type):
         """

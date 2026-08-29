@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphframes-py
-Version: 0.12.1
+Version: 0.12.2
 Summary: GraphFrames: Graph Processing Framework for Apache Spark
 License: Apache 2.0
 Keywords: pyspark,network-analysis,pagerank,pregel,graph
@@ -20,6 +20,14 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Database :: Front-Ends
 Classifier: Topic :: Scientific/Engineering
+Provides-Extra: all
+Provides-Extra: tutorials
+Requires-Dist: click (>=8.1.8,<9.0.0) ; extra == "all"
+Requires-Dist: click (>=8.1.8,<9.0.0) ; extra == "tutorials"
+Requires-Dist: py7zr (>=1.1.3,<2.0) ; extra == "all"
+Requires-Dist: py7zr (>=1.1.3,<2.0) ; extra == "tutorials"
+Requires-Dist: requests (>=2.33.0,<3.0.0) ; extra == "all"
+Requires-Dist: requests (>=2.33.0,<3.0.0) ; extra == "tutorials"
 Project-URL: Bug Tracker, https://github.com/graphframes/graphframes/issues
 Project-URL: Code Repository, https://github.com/graphframes/graphframes
 Project-URL: Project Homepage, https://graphframes.io

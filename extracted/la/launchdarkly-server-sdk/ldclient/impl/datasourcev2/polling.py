@@ -7,7 +7,6 @@ import json
 from abc import abstractmethod
 from collections import namedtuple
 from threading import Event
-from time import time
 from typing import Generator, Mapping, Optional, Protocol, Tuple
 from urllib import parse
 
@@ -19,38 +18,29 @@ from ldclient.config import (
     HTTPConfig
 )
 from ldclient.impl.datasource.feature_requester import FDV1_POLLING_ENDPOINT
-from ldclient.impl.datasystem.protocolv2 import (
-    DeleteObject,
-    EventName,
-    PutObject
+from ldclient.impl.datasourcev2.polling_common import (
+    PollAction,
+    fdv1_polling_payload_to_changeset,
+    map_polling_result,
+    polling_payload_to_changeset,
+    polling_result_to_basis
 )
 from ldclient.impl.http import HTTPFactory, _base_headers
 from ldclient.impl.util import (
-    _LD_ENVID_HEADER,
-    _LD_FD_FALLBACK_HEADER,
     UnsuccessfulResponseException,
     _Fail,
     _headers,
     _Result,
     _Success,
-    http_error_message,
-    is_http_error_recoverable,
     log
 )
 from ldclient.interfaces import (
-    Basis,
     BasisResult,
     ChangeSet,
     ChangeSetBuilder,
-    DataSourceErrorInfo,
-    DataSourceErrorKind,
-    DataSourceState,
     Initializer,
-    IntentCode,
-    ObjectKind,
     Selector,
     SelectorStore,
-    ServerIntent,
     Synchronizer,
     Update
 )
@@ -121,82 +111,14 @@ class PollingDataSource(Initializer, Synchronizer):
         self._stop.clear()
         while self._stop.is_set() is False:
             result = self._requester.fetch(ss.selector())
-            if isinstance(result, _Fail):
-                fallback = None
-                envid = None
+            decision = map_polling_result(result)
+            yield decision.update
 
-                if result.headers is not None:
-                    fallback = result.headers.get(_LD_FD_FALLBACK_HEADER) == 'true'
-                    envid = result.headers.get(_LD_ENVID_HEADER)
-
-                if isinstance(result.exception, UnsuccessfulResponseException):
-                    error_info = DataSourceErrorInfo(
-                        kind=DataSourceErrorKind.ERROR_RESPONSE,
-                        status_code=result.exception.status,
-                        time=time(),
-                        message=http_error_message(
-                            result.exception.status, "polling request"
-                        ),
-                    )
-
-                    if fallback:
-                        yield Update(
-                            state=DataSourceState.OFF,
-                            error=error_info,
-                            fallback_to_fdv1=True,
-                            environment_id=envid,
-                        )
-                        break
-
-                    status_code = result.exception.status
-                    if is_http_error_recoverable(status_code):
-                        yield Update(
-                            state=DataSourceState.INTERRUPTED,
-                            error=error_info,
-                            environment_id=envid,
-                        )
-                        self._interrupt_event.wait(self._poll_interval)
-                        continue
-
-                    yield Update(
-                        state=DataSourceState.OFF,
-                        error=error_info,
-                        environment_id=envid,
-                    )
-                    break
-
-                error_info = DataSourceErrorInfo(
-                    kind=DataSourceErrorKind.NETWORK_ERROR,
-                    time=time(),
-                    status_code=0,
-                    message=result.error,
-                )
-
-                # Even a non-HTTP error (e.g. malformed JSON) can carry the fallback
-                # header. If so, halt rather than retrying the FDv2 endpoint.
-                if fallback:
-                    yield Update(
-                        state=DataSourceState.OFF,
-                        error=error_info,
-                        fallback_to_fdv1=True,
-                        environment_id=envid,
-                    )
-                    break
-
-                yield Update(
-                    state=DataSourceState.INTERRUPTED,
-                    error=error_info,
-                    environment_id=envid,
-                )
-            else:
-                (change_set, headers) = result.value
-                yield Update(
-                    state=DataSourceState.VALID,
-                    change_set=change_set,
-                    environment_id=headers.get(_LD_ENVID_HEADER),
-                    fallback_to_fdv1=headers.get(_LD_FD_FALLBACK_HEADER) == 'true'
-                )
-
+            if decision.control is PollAction.BREAK:
+                break
+            if decision.control is PollAction.WAIT_CONTINUE:
+                self._interrupt_event.wait(self._poll_interval)
+                continue
             if self._interrupt_event.wait(self._poll_interval):
                 break
 
@@ -209,44 +131,7 @@ class PollingDataSource(Initializer, Synchronizer):
     def _poll(self, ss: SelectorStore) -> BasisResult:
         try:
             result = self._requester.fetch(ss.selector())
-
-            if isinstance(result, _Fail):
-                if isinstance(result.exception, UnsuccessfulResponseException):
-                    status_code = result.exception.status
-                    http_error_message_result = http_error_message(
-                        status_code, "polling request"
-                    )
-                    if is_http_error_recoverable(status_code):
-                        log.warning(http_error_message_result)
-
-                    # Forward any response headers so callers (e.g. FDv2 datasystem)
-                    # can read the X-LD-FD-Fallback directive even on error.
-                    return _Fail(
-                        error=http_error_message_result,
-                        exception=result.exception,
-                        headers=result.headers,
-                    )
-
-                return _Fail(
-                    error=result.error or "Failed to request payload",
-                    exception=result.exception,
-                    headers=result.headers,
-                )
-
-            (change_set, headers) = result.value
-
-            env_id = headers.get(_LD_ENVID_HEADER)
-            if not isinstance(env_id, str):
-                env_id = None
-
-            basis = Basis(
-                change_set=change_set,
-                persist=change_set.selector.is_defined(),
-                environment_id=env_id,
-                fallback_to_fdv1=headers.get(_LD_FD_FALLBACK_HEADER) == 'true',
-            )
-
-            return _Success(value=basis)
+            return polling_result_to_basis(result)
         except Exception as e:  # pylint: disable=broad-except
             msg = f"Error: Exception encountered when updating flags. {e}"
             log.exception(msg)
@@ -280,7 +165,7 @@ class Urllib3PollingRequester(Requester):
             query_params["filter"] = self._config.payload_filter_key
 
         if selector is not None and selector.is_defined():
-            query_params["selector"] = selector.state
+            query_params["basis"] = selector.state
 
         uri = self._poll_uri
         if len(query_params) > 0:
@@ -336,63 +221,6 @@ class Urllib3PollingRequester(Requester):
             exception=changeset_result.exception,
             headers=headers,  # type: ignore
         )
-
-
-# pylint: disable=too-many-branches,too-many-return-statements
-def polling_payload_to_changeset(data: dict) -> _Result[ChangeSet, str]:
-    """
-    Converts a polling payload into a ChangeSet.
-    """
-    if "events" not in data or not isinstance(data["events"], list):
-        return _Fail(error="Invalid payload: 'events' key is missing or not a list")
-
-    builder = ChangeSetBuilder()
-
-    for event in data["events"]:
-        if not isinstance(event, dict):
-            return _Fail(error="Invalid payload: 'events' must be a list of objects")
-
-        if "event" not in event:
-            continue
-
-        if event["event"] == EventName.SERVER_INTENT:
-            try:
-                server_intent = ServerIntent.from_dict(event["data"])
-            except ValueError as err:
-                return _Fail(error="Invalid JSON in server intent", exception=err)
-
-            if server_intent.payload.code == IntentCode.TRANSFER_NONE:
-                return _Success(ChangeSetBuilder.no_changes())
-
-            builder.start(server_intent.payload.code)
-        elif event["event"] == EventName.PUT_OBJECT:
-            try:
-                put = PutObject.from_dict(event["data"])
-            except ValueError as err:
-                return _Fail(error="Invalid JSON in put object", exception=err)
-
-            builder.add_put(put.kind, put.key, put.version, put.object)
-        elif event["event"] == EventName.DELETE_OBJECT:
-            try:
-                delete_object = DeleteObject.from_dict(event["data"])
-            except ValueError as err:
-                return _Fail(error="Invalid JSON in delete object", exception=err)
-
-            builder.add_delete(
-                delete_object.kind, delete_object.key, delete_object.version
-            )
-        elif event["event"] == EventName.PAYLOAD_TRANSFERRED:
-            try:
-                selector = Selector.from_dict(event["data"])
-                changeset = builder.finish(selector)
-
-                return _Success(value=changeset)
-            except ValueError as err:
-                return _Fail(
-                    error="Invalid JSON in payload transferred object", exception=err
-                )
-
-    return _Fail(error="didn't receive any known protocol events in polling payload")
 
 
 class PollingDataSourceBuilder(DataSourceBuilder):
@@ -564,40 +392,3 @@ class Urllib3FDv1PollingRequester(Requester):
             exception=changeset_result.exception,
             headers=headers,
         )
-
-
-# pylint: disable=too-many-branches,too-many-return-statements
-def fdv1_polling_payload_to_changeset(data: dict) -> _Result[ChangeSet, str]:
-    """
-    Converts a fdv1 polling payload into a ChangeSet.
-    """
-    builder = ChangeSetBuilder()
-    builder.start(IntentCode.TRANSFER_FULL)
-    selector = Selector.no_selector()
-
-    # FDv1 uses "flags" instead of "features", so we need to map accordingly
-    # Map FDv1 JSON keys to ObjectKind enum values
-    kind_mappings = [
-        (ObjectKind.FLAG, "flags"),
-        (ObjectKind.SEGMENT, "segments")
-    ]
-
-    for kind, fdv1_key in kind_mappings:
-        kind_data = data.get(fdv1_key)
-        if kind_data is None:
-            continue
-        if not isinstance(kind_data, dict):
-            return _Fail(error=f"Invalid format: {fdv1_key} is not a dictionary")
-
-        for key in kind_data:
-            flag_or_segment = kind_data.get(key)
-            if flag_or_segment is None or not isinstance(flag_or_segment, dict):
-                return _Fail(error=f"Invalid format: {key} is not a dictionary")
-
-            version = flag_or_segment.get('version')
-            if version is None:
-                return _Fail(error=f"Invalid format: {key} does not have a version set")
-
-            builder.add_put(kind, key, version, flag_or_segment)
-
-    return _Success(builder.finish(selector))

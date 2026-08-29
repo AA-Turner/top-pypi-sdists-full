@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.7.61
+Version: 0.7.62
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
@@ -22,7 +22,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.39.0,<2.0.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.39.0,<2.0.0
 Requires-Dist: opentelemetry-instrumentation>=0.54b0,<1.0.0
 Requires-Dist: opentelemetry-instrumentation-threading>=0.54b0,<1.0.0
-Requires-Dist: opentelemetry-semantic-conventions==0.65b0
+Requires-Dist: opentelemetry-semantic-conventions>=0.62b1,<1.0.0
 Requires-Dist: opentelemetry-semantic-conventions-ai==0.4.13
 Requires-Dist: orjson>=3.0.0,<4.0.0
 Requires-Dist: packaging>=22.0,<27.0

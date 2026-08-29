@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: wcwidth
-Version: 0.8.2
+Version: 0.8.3
 Summary: Measures the displayed width of unicode strings in a terminal
 Project-URL: Homepage, https://github.com/jquast/wcwidth
 Author-email: Jeff Quast <contact@jeffquast.com>
@@ -176,7 +176,7 @@ width()
 -------
 
 Use function `width()`_ to measure a string with improved handling of ``control_codes`` and
-measurement Corrections_ through ``term_program``:.
+measurement Corrections_ through ``term_program``:
 
 .. code-block:: python
 
@@ -511,8 +511,7 @@ recognized names:
 .. END_LIST_TERM_PROGRAMS
 
 ``term_program=False`` (the default for `width()`_, `ljust()`_, `rjust()`_, `center()`_,
-`wrap()`_, and `clip()`_) disables terminal corrections.  `wcstwidth()`_ defaults to
-``term_program=True`` for auto-detection.
+`wrap()`_, and `clip()`_) disables terminal corrections.
 
 For automatic tests and other purposes that require cross-environment consistency, set static values
 or unset ``TERM`` and ``TERM_PROGRAM`` environment values, such as in ``conftest.py`` with pytest:
@@ -587,16 +586,6 @@ To upgrade requirements for testing, run::
 To upgrade requirements for building documentation, run::
 
    tox -e update_requirements_docs
-
-Utilities
----------
-
-Supplementary tools for browsing and testing terminals for wide unicode
-characters are found in the `bin/`_ of this project's source code.  Just ensure
-to first ``pip install -r requirements-develop.txt`` from this projects main
-folder. For example, an interactive browser for testing::
-
-  python ./bin/wcwidth-browser.py
 
 ====
 Uses
@@ -685,9 +674,15 @@ languages:
 History
 =======
 
+0.8.3 *2026-08-28*
+  * **Bugfix** Do not hang on `wrap()`_ calls of width 1 with text containing OSC8 hyperlinks and
+    wide characters, `PR #231`_.
+  * **Bugfix** `clip()`_ with ``propagate_sgr=True``, should match behavior of `propagate_sgr()`_,
+    `PR #235`_.
+
 0.8.2 *2026-06-29*
-  * **Bugfix** Do not raise IndexError when given legacy POSIX ``n`` argument to `wcswidth()`_ or
-    `wcstwidth()`_ exceed string length without raising IndexError
+  * **Bugfix** Do not raise IndexError when legacy POSIX ``n`` argument to `wcswidth()`_ or
+    `wcstwidth()`_ exceeds the given string length. `PR #230`_
 
 0.8.1 *2026-06-08*
   * **Improved** `wcstwidth()`_ with new ``zeroer``, ``narrow_wider``, and ``narrow_zeroer``
@@ -942,6 +937,9 @@ https://www.cl.cam.ac.uk/~mgk25/ucs/wcwidth.c::
 .. _`PR #223`: https://github.com/jquast/wcwidth/pull/223
 .. _`PR #224`: https://github.com/jquast/wcwidth/pull/224
 .. _`PR #226`: https://github.com/jquast/wcwidth/pull/226
+.. _`PR #230`: https://github.com/jquast/wcwidth/pull/230
+.. _`PR #231`: https://github.com/jquast/wcwidth/pull/231
+.. _`PR #235`: https://github.com/jquast/wcwidth/pull/235
 .. _`Issue #101`: https://github.com/jquast/wcwidth/issues/101
 .. _`Issue #155`: https://github.com/jquast/wcwidth/issues/155
 .. _`Issue #190`: https://github.com/jquast/wcwidth/issues/190

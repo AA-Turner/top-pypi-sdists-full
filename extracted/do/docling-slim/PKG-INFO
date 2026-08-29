@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: docling-slim
-Version: 2.123.0
+Version: 2.123.1
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -39,7 +39,7 @@ Requires-Dist: arelle-release<3.0.0,>=2.38.17; extra == 'all'
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'all'
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == 'all'
 Requires-Dist: docling-core[chunking]<3.0.0,>=2.73.0; extra == 'all'
-Requires-Dist: docling-ibm-models<4,>=3.13.0; extra == 'all'
+Requires-Dist: docling-ibm-models<5,>=3.13.0; extra == 'all'
 Requires-Dist: docling-parse<8.0.0,>=7.16.0; extra == 'all'
 Requires-Dist: easyocr<2.0,>=1.7; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28; extra == 'all'
@@ -182,7 +182,7 @@ Requires-Dist: arelle-release<3.0.0,>=2.38.17; extra == 'format-xml-xbrl'
 Provides-Extra: models-local
 Requires-Dist: accelerate<2,>=1.0.0; extra == 'models-local'
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == 'models-local'
-Requires-Dist: docling-ibm-models<4,>=3.13.0; extra == 'models-local'
+Requires-Dist: docling-ibm-models<5,>=3.13.0; extra == 'models-local'
 Requires-Dist: huggingface-hub<2,>=0.23; extra == 'models-local'
 Requires-Dist: torch<3.0.0,>=2.2.2; extra == 'models-local'
 Requires-Dist: torchvision<1,>=0; extra == 'models-local'
@@ -213,7 +213,7 @@ Requires-Dist: accelerate<2,>=1.0.0; extra == 'standard'
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'standard'
 Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == 'standard'
 Requires-Dist: docling-core[chunking]<3.0.0,>=2.73.0; extra == 'standard'
-Requires-Dist: docling-ibm-models<4,>=3.13.0; extra == 'standard'
+Requires-Dist: docling-ibm-models<5,>=3.13.0; extra == 'standard'
 Requires-Dist: docling-parse<8.0.0,>=7.16.0; extra == 'standard'
 Requires-Dist: httpx<1.0.0,>=0.28; extra == 'standard'
 Requires-Dist: huggingface-hub<2,>=0.23; extra == 'standard'

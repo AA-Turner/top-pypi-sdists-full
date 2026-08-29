@@ -9,12 +9,13 @@ comes through the same ``.model()`` API; filters pick what lands on disk.
 
 Usage:
     client = AnacondaModelClient()
-    model = client.model("Qwen2.5-0.5B", quant_method="q4_k_m",
+    model = client.model("Qwen/Qwen2.5-0.5B",
+                         filename="Qwen_Qwen2.5-0.5B-q4_k_m.gguf",
                          root_dir="/tmp/models")
     model.pull()
     print(model.path)   # /tmp/models/Qwen2.5-0.5B/Qwen_Qwen2.5-0.5B-q4_k_m.gguf
 
-    model = client.model("Qwen2.5-0.5B", format="safetensors",
+    model = client.model("Qwen/Qwen2.5-0.5B", format="safetensors",
                          root_dir="/tmp/models")
     model.pull()
     print(model.path)   # /tmp/models/Qwen2.5-0.5B/  (HuggingFace-layout dir)
@@ -32,7 +33,6 @@ import tempfile
 import requests
 
 from .exceptions import ModelAccessDenied
-
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB
 
@@ -108,7 +108,7 @@ class AnacondaModelClient:
         limit : int
             Max models to return.
         **filters
-            Query params: name, search, model_type, quant_method, etc.
+            Query params: name, search, source_name, model_type, quant_method, etc.
 
         Returns
         -------
@@ -120,7 +120,7 @@ class AnacondaModelClient:
 
     def get_model(self, model_name):
         """
-        Look up a single model by exact name.
+        Look up a single model by name.
 
         Raises
         ------
@@ -128,13 +128,20 @@ class AnacondaModelClient:
             If the model is not found.
         """
         models = self.list_models(name=model_name, limit=5) or []
-        for m in models:
-            if m["name"] == model_name:
-                return m
-        available = [m["name"] for m in models]
-        raise LookupError(
-            "Model %r not found. Closest matches: %s" % (model_name, available)
-        )
+        if models:
+            if len(models) == 1:
+                return models[0]
+            raise LookupError(
+                f"Found multiple matches for {model_name}: {[_hfname(m) for m in models]}"
+            )
+        else:
+            # Lookup potential name matches
+            possible_matches = self.list_models(search=model_name, limit=5)
+            if possible_matches:
+                raise LookupError(
+                    f"Model {model_name} not found. Closest matches: {[_hfname(m) for m in possible_matches]}"
+                )
+            raise LookupError(f"Model {model_name} not found.")
 
     def resolve(self, model_name, **filters):
         """
@@ -238,6 +245,7 @@ class AnacondaModelClient:
                         {
                             "format": f.get("format"),
                             "quant_method": f.get("quant_method"),
+                            "filename": f.get("filename"),
                             "collection_type": f.get("collection_type"),
                             "is_collection": f.get("is_collection", False),
                         }
@@ -322,7 +330,7 @@ class AnacondaModelClient:
         Parameters
         ----------
         model_name : str
-            Exact name in the catalog.
+            Huggingface-style model name in the catalog (e.g. meta-llama/Llama-3.2-1B-Instruct).
         root_dir : str, optional
             Root directory for the download.  A subdirectory per model
             is created underneath.  Defaults to a new temp directory.
@@ -980,3 +988,9 @@ def _validate_manifest_filename(filename):
         raise ValueError("Unsafe collection filename (absolute path): %r" % filename)
     if ".." in normalized.split("/"):
         raise ValueError("Unsafe collection filename (path traversal): %r" % filename)
+
+
+def _hfname(model):
+    source = model.get("source", {}).get("name", "<NO SOURCE>")
+    name = model.get("name", "<NO NAME>")
+    return f"{source}/{name}"

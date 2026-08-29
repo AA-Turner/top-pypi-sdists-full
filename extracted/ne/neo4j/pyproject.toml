@@ -60,12 +60,12 @@ pandas = [
     "pandas[timezone] >= 1.1.0, < 4.0.0",
     "numpy >= 1.21.2, < 3.0.0",
 ]
-pyarrow = ["pyarrow >= 6.0.0, < 25.0.0"]
+pyarrow = ["pyarrow >= 6.0.0, < 26.0.0"]
 
 
 [build-system]
 requires = [
-    "setuptools == 82.0.1",
+    "setuptools == 84.0.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -110,11 +110,14 @@ test = [
     "pytest-benchmark >= 5.1.0",
     "pytest-cov >= 7.0.0",
     "pytest-mock >= 3.15.1",
-    "mock >= 5.2.0"
+    "pytest-timeout >= 2.4.0",
+    "mock >= 5.2.0",
+    "tzdata >= 2026.2",
 ]
 # type checker and type stubs for static type checking
 typing = [
     "mypy >= 1.18.2",
+    "ty >= 0.0.32",
     "types-pytz >= 2025.2.0.20250809",
     "pandas-stubs >= 1.0.0, < 4.0.0",
     "types-mock >= 5.2.0.20260408",
@@ -157,7 +160,7 @@ dep-project-dependencies = [
     "pytz",
     "numpy >= 1.7.0, < 3.0.0",
     "pandas[timezone] >= 1.1.0, < 4.0.0",
-    "pyarrow >= 6.0.0, < 25.0.0",
+    "pyarrow >= 6.0.0, < 26.0.0",
 ]
 
 [tool.setuptools.dynamic]
@@ -211,6 +214,7 @@ use_parentheses = true
 mock_use_standalone_module = true
 asyncio_mode = "strict"
 asyncio_default_fixture_loop_scope="function"
+timeout = 120
 
 
 [tool.mypy]
@@ -222,6 +226,13 @@ module = [
     "neo4j._rust.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# https://github.com/apache/arrow/issues/50123
+module = [
+    "pyarrow.*",
+]
+follow_imports = "skip"
 
 [tool.ruff]
 line-length = 79

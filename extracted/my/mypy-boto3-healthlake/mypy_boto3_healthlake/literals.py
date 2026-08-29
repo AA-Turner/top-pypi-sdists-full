@@ -27,6 +27,8 @@ __all__ = (
     "AgentOutputMessageTypeType",
     "AnalyticsStatusType",
     "AuthorizationStrategyType",
+    "BackupStatusType",
+    "BackupTypeType",
     "CmkTypeType",
     "DataTransformationJobCompletedWaiterName",
     "DatastoreStatusType",
@@ -61,6 +63,8 @@ AgentOutputMessageTypeType = Literal[
 ]
 AnalyticsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "PAUSED", "PAUSING"]
 AuthorizationStrategyType = Literal["AWS_AUTH", "SMART_ON_FHIR", "SMART_ON_FHIR_V1"]
+BackupStatusType = Literal["DISABLED", "ENABLED"]
+BackupTypeType = Literal["CONTINUOUS"]
 CmkTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 DataTransformationJobCompletedWaiterName = Literal["data_transformation_job_completed"]
 DatastoreStatusType = Literal[
@@ -101,6 +105,7 @@ HealthLakeServiceName = Literal["healthlake"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",
@@ -279,6 +284,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",

@@ -7,6 +7,10 @@ from requests import HTTPError
 from pycarlo.common import get_logger
 from pycarlo.common.errors import InvalidSessionError
 from pycarlo.core import Client
+from pycarlo.features.ingestion.bi import (
+    BiAsset,
+    build_bi_metadata_payload,
+)
 from pycarlo.features.ingestion.etl import (
     EtlAsset,
     EtlRunEvent,
@@ -19,6 +23,7 @@ from pycarlo.features.ingestion.models import (
     LineageEventType,
     QueryLogEntry,
     RelationalAsset,
+    _check_batch_size,
     build_lineage_payload,
     build_metadata_payload,
     build_query_log_payload,
@@ -31,6 +36,7 @@ _LINEAGE_PATH = "/ingest/v1/lineage"
 _QUERY_LOG_PATH = "/ingest/v1/querylogs"
 _ETL_METADATA_PATH = "/ingest/v1/etl/metadata"
 _ETL_RUNS_PATH = "/ingest/v1/etl/runs"
+_BI_METADATA_PATH = "/ingest/v1/bi/metadata"
 
 
 class IngestionService:
@@ -120,8 +126,9 @@ class IngestionService:
         Extract the invocation ID returned by the ingest API.
 
         The Integration Gateway returns ``{"invocation_id": "<uuid>"}`` for
-        successful ingest metadata, query-log, and lineage requests. This helper keeps SDK
-        callers from needing to reach into the raw response payload directly.
+        successful ingest requests across all endpoints (metadata, lineage,
+        query-log, ETL, and BI). This helper keeps SDK callers from needing to
+        reach into the raw response payload directly.
 
         :param response: The JSON response returned by one of the public send
             methods on this service.
@@ -333,7 +340,7 @@ class IngestionService:
         :raises IngestionError: If the API returns an HTTP error.
         :raises ValueError: If the payload fails shape or batch-size validation.
         """
-        self._validate_etl_raw_payload(payload, expected_event_type="ETL_METADATA")
+        self._validate_raw_payload(payload, expected_event_type="ETL_METADATA")
         return self._post_etl_metadata(payload)
 
     # ------------------------------------------------------------------
@@ -384,17 +391,20 @@ class IngestionService:
         :raises IngestionError: If the API returns an HTTP error.
         :raises ValueError: If the payload fails shape or batch-size validation.
         """
-        self._validate_etl_raw_payload(payload, expected_event_type="ETLRUN")
+        self._validate_raw_payload(payload, expected_event_type="ETLRUN")
         return self._post_etl_runs(payload)
 
     @staticmethod
-    def _validate_etl_raw_payload(payload: dict, expected_event_type: str) -> None:
+    def _validate_raw_payload(payload: dict, expected_event_type: str) -> None:
         """
-        Validate the shape of a raw ETL payload before posting.
+        Validate the shape of a raw ingest payload before posting.
+
+        Shared across ingest features (ETL, BI) — checks the ``event_type``,
+        the ``resource`` block, and the 1–100 batch size.
 
         :param payload: The raw payload dict to validate.
         :param expected_event_type: The ``event_type`` value the payload must
-            carry (e.g. ``"ETL_METADATA"`` or ``"ETLRUN"``).
+            carry (e.g. ``"ETL_METADATA"``, ``"ETLRUN"``, ``"BI_METADATA"``).
         :raises ValueError: If the payload fails any validation check.
         """
         if not isinstance(payload, dict):
@@ -415,10 +425,7 @@ class IngestionService:
         events = payload.get("events")
         if not isinstance(events, list):
             raise ValueError(f"payload['events'] must be a list, got {type(events).__name__!r}.")
-        if not (1 <= len(events) <= 100):
-            raise ValueError(
-                f"payload['events'] must contain between 1 and 100 items, got {len(events)}."
-            )
+        _check_batch_size(events, "payload['events']")
 
     def _post_etl_metadata(self, payload: dict) -> dict | None:
         return self._post(
@@ -432,4 +439,58 @@ class IngestionService:
             path=_ETL_RUNS_PATH,
             payload=payload,
             label="ETL runs",
+        )
+
+    # ------------------------------------------------------------------
+    # BI — metadata
+    # ------------------------------------------------------------------
+
+    def send_bi_metadata(
+        self,
+        resource_uuid: str,
+        resource_type: str,
+        events: list[BiAsset],
+    ) -> dict | None:
+        """
+        Send BI asset metadata to Monte Carlo.
+
+        Maps to ``POST /ingest/v1/bi/metadata``.
+
+        :param resource_uuid: UUID of the ``custom-bi-connector`` container.
+        :param resource_type: Resource type identifier (e.g.
+            ``"custom-bi-connector"``).
+        :param events: One or more :class:`BiAsset` objects describing the BI
+            assets to ingest. Batch size: 1–100.
+        :return: The JSON response from the API, or ``None`` if the response
+            body was empty.
+        :raises IngestionError: If the API returns an HTTP error.
+        :raises ValueError: If the batch is empty or exceeds 100 events.
+        """
+        payload = build_bi_metadata_payload(
+            resource_uuid=resource_uuid,
+            resource_type=resource_type,
+            events=events,
+        )
+        return self._post_bi_metadata(payload)
+
+    def send_bi_metadata_raw(self, payload: dict) -> dict | None:
+        """
+        Send a raw BI metadata payload dictionary to the ingest API.
+
+        Use this when you already have a pre-built payload that conforms to the
+        ``POST /ingest/v1/bi/metadata`` schema.
+
+        :param payload: The full request body as a dictionary.
+        :return: The JSON response from the API, or ``None``.
+        :raises IngestionError: If the API returns an HTTP error.
+        :raises ValueError: If the payload fails shape or batch-size validation.
+        """
+        self._validate_raw_payload(payload, expected_event_type="BI_METADATA")
+        return self._post_bi_metadata(payload)
+
+    def _post_bi_metadata(self, payload: dict) -> dict | None:
+        return self._post(
+            path=_BI_METADATA_PATH,
+            payload=payload,
+            label="BI metadata",
         )

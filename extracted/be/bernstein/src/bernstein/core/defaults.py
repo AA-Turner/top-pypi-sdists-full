@@ -136,6 +136,16 @@ class OrchestratorDefaults:
     stalled_run_grace_s: float = 1800.0  # 30 min of zero forward progress
     stalled_run_ticks: int = 10  # consecutive no-progress quiescent ticks
 
+    # Planning window: if the planner fails and no tasks are ever spawned,
+    # terminate the run after this many seconds of an empty ledger (no tasks
+    # in any state) *after* having seen at least one task (i.e., planning
+    # ran and failed). This prevents idling indefinitely when the planning
+    # task fails and the ledger stays empty. Tunable via
+    # ``tuning.orchestrator.planning_window_s`` or the
+    # ``BERNSTEIN_PLANNING_WINDOW_S`` env var, which takes precedence and is
+    # read at the use site by ``run_stall.resolve_planning_window_s``.
+    planning_window_s: float = 300.0  # 5 minutes
+
     max_dead_agents_kept: int = 20  # bounded dead-agent history for debugging
     max_processed_done: int = 500  # bounded done-task cache to limit memory
 
@@ -156,6 +166,13 @@ class OrchestratorDefaults:
     # only the initial value before any extension. Tunable via
     # ``tuning.orchestrator.max_agent_runtime_s``.
     max_agent_runtime_s: int = 1800  # 30 min
+
+    # Fair scheduling priority age-boost tuning (#4675).
+    # Tasks waiting longer than priority_age_threshold_s receive a priority
+    # boost of priority_boost_step per elapsed block, capped at max_priority_age_boost.
+    priority_age_threshold_s: float = 300.0  # 5 minutes
+    priority_boost_step: int = 1  # priority step boosted per threshold period
+    max_priority_age_boost: int = 2  # maximum cumulative boost allowed from aging
 
 
 # ---------------------------------------------------------------------------

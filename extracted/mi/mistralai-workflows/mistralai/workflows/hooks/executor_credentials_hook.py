@@ -11,6 +11,7 @@ import httpx
 import structlog
 
 from mistralai.workflows._version import USER_AGENT
+from mistralai.workflows.core import _http_transport as http_transport
 from mistralai.workflows.core.auth import StaticTokenProvider, TokenProvider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
@@ -126,10 +127,13 @@ class AsyncExecutorCredentialsHook(ExecutorCredentialsHook):
         self._worker_client = PrivateWorkerClient(
             server_url=self._server_url,
             async_client=httpx.AsyncClient(
-                verify=config.common.ca_bundle or True,
+                verify=http_transport.verify(),
                 headers=self._client_headers,
                 event_hooks={"request": [AsyncTokenProviderHook(self._token_provider)]},
                 follow_redirects=False,
+                transport=http_transport.async_transport(),
+                mounts=http_transport.async_mounts(),
+                limits=http_transport.limits(),
             ),
         )
 
@@ -166,10 +170,13 @@ class SyncExecutorCredentialsHook(ExecutorCredentialsHook):
         self._worker_client = PrivateWorkerClient(
             server_url=self._server_url,
             client=httpx.Client(
-                verify=config.common.ca_bundle or True,
+                verify=http_transport.verify(),
                 headers=self._client_headers,
                 event_hooks={"request": [TokenProviderHook(self._token_provider)]},
                 follow_redirects=False,
+                transport=http_transport.sync_transport(),
+                mounts=http_transport.sync_mounts(),
+                limits=http_transport.limits(),
             ),
         )
 

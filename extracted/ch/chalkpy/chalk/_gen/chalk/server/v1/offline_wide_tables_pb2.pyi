@@ -52,6 +52,7 @@ class OfflineWideTableRun(_message.Message):
         "created_at",
         "started_at",
         "finished_at",
+        "job_queue_id",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -66,6 +67,7 @@ class OfflineWideTableRun(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     FINISHED_AT_FIELD_NUMBER: _ClassVar[int]
+    JOB_QUEUE_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     deployment_id: str
@@ -79,6 +81,7 @@ class OfflineWideTableRun(_message.Message):
     created_at: _timestamp_pb2.Timestamp
     started_at: _timestamp_pb2.Timestamp
     finished_at: _timestamp_pb2.Timestamp
+    job_queue_id: int
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -94,6 +97,7 @@ class OfflineWideTableRun(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         finished_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        job_queue_id: _Optional[int] = ...,
     ) -> None: ...
 
 class ListOfflineWideTableRunsRequest(_message.Message):
@@ -195,3 +199,15 @@ class TriggerOfflineWideTableFillResponse(_message.Message):
     RUN_FIELD_NUMBER: _ClassVar[int]
     run: OfflineWideTableRun
     def __init__(self, run: _Optional[_Union[OfflineWideTableRun, _Mapping]] = ...) -> None: ...
+
+class TriggerOfflineWideTableCompactionRequest(_message.Message):
+    __slots__ = ("namespace",)
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    def __init__(self, namespace: _Optional[str] = ...) -> None: ...
+
+class TriggerOfflineWideTableCompactionResponse(_message.Message):
+    __slots__ = ("operation_id",)
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    def __init__(self, operation_id: _Optional[str] = ...) -> None: ...

@@ -33,20 +33,19 @@ from graphql import (
 
 from ..codegen import (
     generate_ann_assign,
+    generate_assign,
     generate_class_def,
     generate_constant,
-    generate_expr,
     generate_import_from,
-    generate_method_call,
+    generate_model_rebuild_calls,
     generate_module,
     generate_name,
     generate_pass,
     generate_pydantic_field,
-    model_has_forward_refs,
 )
 from ..exceptions import NotSupported, ParsingError
 from ..plugins.manager import PluginManager
-from ..utils import process_name, str_to_pascal_case
+from ..utils import needs_explicit_alias, process_name, str_to_pascal_case
 from .constants import (
     ALIAS_KEYWORD,
     ANNOTATED,
@@ -60,7 +59,6 @@ from .constants import (
     MIXIN_FROM_NAME,
     MIXIN_IMPORT_NAME,
     MIXIN_NAME,
-    MODEL_REBUILD_METHOD,
     OPTIONAL,
     PYDANTIC_MODULE,
     TYPENAME_ALIAS,
@@ -87,6 +85,8 @@ class ResultTypesGenerator:
         plugin_manager: Optional[PluginManager] = None,
         default_optional_fields_to_none: bool = False,
         include_typename: bool = True,
+        defer_model_build: bool = False,
+        use_alias_generator: bool = False,
     ) -> None:
         self.schema = schema
         self.operation_definition = operation_definition
@@ -103,13 +103,15 @@ class ResultTypesGenerator:
         self.plugin_manager = plugin_manager
         self.default_optional_fields_to_none = default_optional_fields_to_none
         self.include_typename = include_typename
+        self.defer_model_build = defer_model_build
+        self.use_alias_generator = use_alias_generator
 
         self._imports: list[ast.ImportFrom] = [
             generate_import_from(
                 [OPTIONAL, UNION, ANY, LITERAL, ANNOTATED], TYPING_MODULE
             ),
             generate_import_from([FIELD_CLASS, BEFORE_VALIDATOR], PYDANTIC_MODULE),
-            base_model_import
+            deepcopy(base_model_import)
             or generate_import_from([BASE_MODEL_CLASS_NAME], PYDANTIC_MODULE),
         ]
         self._public_names: list[str] = []
@@ -162,15 +164,15 @@ class ResultTypesGenerator:
         raise NotSupported(f"Not supported operation type: {definition}")
 
     def generate(self) -> ast.Module:
-        model_rebuild_calls = [
-            generate_expr(generate_method_call(class_def.name, MODEL_REBUILD_METHOD))
-            for class_def in self._class_defs
-            if model_has_forward_refs(class_def)
-        ]
+        definitions = self._collapse_fragment_only_classes(self._class_defs)
+        model_rebuild_calls = generate_model_rebuild_calls(
+            [node for node in definitions if isinstance(node, ast.ClassDef)],
+            self.defer_model_build,
+        )
 
         module_body = (
             cast(list[ast.stmt], self._imports)
-            + cast(list[ast.stmt], self._class_defs)
+            + definitions
             + cast(list[ast.stmt], model_rebuild_calls)
         )
 
@@ -180,6 +182,48 @@ class ResultTypesGenerator:
                 module, operation_definition=self.operation_definition
             )
         return module
+
+    def _collapse_fragment_only_classes(
+        self, class_defs: list[ast.ClassDef]
+    ) -> list[ast.stmt]:
+        """Bind a name that only spreads one fragment straight to that fragment.
+
+        `class OpNode(Fragment): pass` adds only a name, and the name is not free:
+        Pydantic resolves the forward references `OpNode` *inherits* against its
+        own module, so every nested class of the fragment must be imported here to
+        be found (see `PackageGenerator._mixin_forward_ref_import`). `OpNode =
+        Fragment` needs neither those imports nor a second model, and stays correct
+        however a Python version evaluates inherited annotations.
+        """
+        mixin_bases = {
+            str_to_pascal_case(name) for name in self._fragments_used_as_mixins
+        }
+        return [
+            (
+                generate_assign(
+                    targets=[class_def.name],
+                    value=generate_name(cast(ast.Name, class_def.bases[0]).id),
+                )
+                if self._only_spreads_fragment(class_def, mixin_bases)
+                else class_def
+            )
+            for class_def in class_defs
+        ]
+
+    @staticmethod
+    def _only_spreads_fragment(class_def: ast.ClassDef, mixin_bases: set[str]) -> bool:
+        """True for `class X(SomeFragment): pass` and nothing else.
+
+        More than one base (merged fragments or a `@mixin`) or a non-empty body
+        (fields of its own) means a real subclass is needed.
+        """
+        return (
+            len(class_def.bases) == 1
+            and isinstance(class_def.bases[0], ast.Name)
+            and class_def.bases[0].id in mixin_bases
+            and len(class_def.body) == 1
+            and isinstance(class_def.body[0], ast.Pass)
+        )
 
     def get_imports(self) -> list[ast.ImportFrom]:
         return self._imports
@@ -257,13 +301,7 @@ class ResultTypesGenerator:
             field_name = self._get_field_name(field)
             name = self._process_field_name(field_name, field=field)
             field_definition = self._get_field_from_schema(type_name, field.name.value)
-            if field_definition.deprecation_reason:
-                warn(
-                    f"Field '{field.name.value}' on type '{type_name}' is "
-                    f"deprecated: {field_definition.deprecation_reason}",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
+            self._warn_about_deprecations(field, field_definition, type_name)
             annotation, default_value, field_context = parse_operation_field(
                 schema=self.schema,
                 field=field,
@@ -424,6 +462,30 @@ class ResultTypesGenerator:
             handle_pydantic_resrved_field_names=True,
         )
 
+    def _warn_about_deprecations(
+        self, field: FieldNode, field_definition: GraphQLField, type_name: str
+    ) -> None:
+        """Warn about the deprecated parts of the schema this selection uses."""
+        if field_definition.deprecation_reason:
+            warn(
+                f"Field '{field.name.value}' on type '{type_name}' is "
+                f"deprecated: {field_definition.deprecation_reason}",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        # Nodes built in code rather than parsed can carry no arguments at all.
+        for argument in field.arguments or ():
+            definition = field_definition.args.get(argument.name.value)
+            if definition and definition.deprecation_reason:
+                warn(
+                    f"Argument '{argument.name.value}' on field "
+                    f"'{field.name.value}' of type '{type_name}' is "
+                    f"deprecated: {definition.deprecation_reason}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+
     def _get_field_from_schema(self, type_name: str, field_name: str) -> GraphQLField:
         try:
             return cast(GraphQLObjectType, self.schema.type_map[type_name]).fields[
@@ -431,7 +493,11 @@ class ResultTypesGenerator:
             ]
         except KeyError as exc:
             if field_name == TYPENAME_FIELD_NAME:
-                return GraphQLField(type_=GraphQLNonNull(type_=GraphQLString))
+                return GraphQLField(
+                    type_=GraphQLNonNull(
+                        type_=GraphQLString,  # ty: ignore[invalid-argument-type]
+                    ),
+                )
             raise ParsingError(
                 f"Field {field_name} not found in type {type_name}."
             ) from exc
@@ -444,9 +510,8 @@ class ResultTypesGenerator:
     ) -> ast.AnnAssign:
         keywords: dict[str, ast.expr] = {}
 
-        if (
-            isinstance(field_implementation.target, ast.Name)
-            and field_implementation.target.id != field_schema_name
+        if isinstance(field_implementation.target, ast.Name) and needs_explicit_alias(
+            field_implementation.target.id, field_schema_name, self.use_alias_generator
         ):
             keywords[ALIAS_KEYWORD] = generate_constant(field_schema_name)
 

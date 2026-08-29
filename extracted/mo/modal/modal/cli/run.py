@@ -23,7 +23,7 @@ from ..functions import Function
 from ..output import OutputManager
 from ..runner import DEPLOYMENT_STRATEGY_TYPE, deploy_app, run_app
 from ..serving import serve_app
-from ._help import ModalCommand, ModalGroup
+from ._help import ModalCommand, ModalGroup, _consume_global_options, _global_option_token_length
 from .import_refs import (
     CLICommand,
     MethodReference,
@@ -260,12 +260,12 @@ def _get_signature(func: typing.Any) -> inspect.Signature:
 
 
 def _get_click_command_for_function(app: App, function: Function, ctx: click.Context):
-    if function.is_generator:
+    if function._is_generator_:
         raise InvalidError("`modal run` is not supported for generator functions")
 
-    assert function.info.raw_f
-    sig: inspect.Signature = _get_signature(function.info.raw_f)
-    type_hints = safe_get_type_hints(function.info.raw_f)
+    assert function._source_info_.raw_f
+    sig: inspect.Signature = _get_signature(function._source_info_.raw_f)
+    type_hints = safe_get_type_hints(function._source_info_.raw_f)
     signature: CliRunnableSignature = _get_cli_runnable_signature(sig, type_hints)
 
     def _inner(args, click_kwargs):
@@ -411,6 +411,33 @@ def _get_runnable_list(all_usable_commands: list[CLICommand]) -> str:
 class RunGroup(ModalGroup):
     """Click group that resolves subcommands dynamically from a file/module ref."""
 
+    defer_global_option_parsing = True
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        option_params: dict[str, click.Option] = {}
+        for param in self.get_params(ctx):
+            if isinstance(param, click.Option):
+                for option in (*param.opts, *param.secondary_opts):
+                    option_params[option] = param
+
+        func_ref_index = 0
+        while func_ref_index < len(args):
+            arg = args[func_ref_index]
+            if global_option_length := _global_option_token_length(ctx, args, func_ref_index):
+                func_ref_index += global_option_length
+            elif arg == "--":
+                func_ref_index += 1
+                break
+            elif param := option_params.get(arg.split("=", 1)[0]):
+                func_ref_index += 1 if "=" in arg or param.is_flag else param.nargs + 1
+            elif arg.startswith("-"):
+                func_ref_index += 1
+            else:
+                break
+
+        args[:] = _consume_global_options(ctx, args[:func_ref_index]) + args[func_ref_index:]
+        return click.Group.parse_args(self, ctx, args)
+
     def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
         # note: get_command here is run before the "group logic" in the `run` logic below
         # so to ensure that `env` has been globally populated before user code is loaded, it
@@ -439,9 +466,8 @@ class RunGroup(ModalGroup):
             raise ClickException(f"{help_header}\n\n{help_footer}")
 
         app = _get_runnable_app(runnable)
-
         if app.description is None:
-            app.set_description(_get_clean_app_description(func_ref))
+            app.description = _get_clean_app_description(func_ref)
 
         if isinstance(runnable, LocalEntrypoint):
             click_command = _get_click_command_for_local_entrypoint(app, runnable)
@@ -645,8 +671,9 @@ def serve(
 
     OutputManager.get().set_timestamps(timestamps)
     app = import_app_from_ref(import_ref, base_cmd="modal serve")
+
     if app.description is None:
-        app.set_description(_get_clean_app_description(app_ref))
+        app.description = _get_clean_app_description(app_ref)
     with serve_app(app, import_ref, name=name, environment_name=env):
         if timeout is None:
             timeout = config["serve_timeout"]

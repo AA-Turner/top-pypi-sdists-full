@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import Mock, call, patch
 
@@ -394,6 +394,49 @@ class TestLock:
         assert ac._notification.notification_id == f"<user-id>_{ac.access_code_id}"
         assert ac.notify_on_use
 
+    def test_add_access_code(
+        self,
+        mock_auth: Mock,
+        wifi_lock: Lock,
+        notification_json: dict[str, Any],
+    ) -> None:
+        code = AccessCode(name="New Code", code="4321")
+        mock_auth.request.side_effect = [
+            Mock(json=Mock(return_value={"accesscodeId": "__new_access_code_uuid__"})),
+            Mock(json=Mock(return_value=notification_json)),
+        ]
+        wifi_lock.add_access_code(code)
+        assert code._auth == mock_auth
+        assert code._device == wifi_lock
+        assert code.access_code_id == "__new_access_code_uuid__"
+        mock_auth.request.assert_any_call(
+            "post",
+            "devices/__wifi_uuid__/commands",
+            json={
+                "data": {
+                    "friendlyName": "New Code",
+                    "accessCode": 4321,
+                    "accessCodeLength": 4,
+                    "notificationEnabled": 0,
+                    "disabled": 0,
+                    "activationSecs": 0,
+                    "expirationSecs": 4294967295,
+                    "schedule1": {
+                        "daysOfWeek": "7F",
+                        "startHour": 0,
+                        "startMinute": 0,
+                        "endHour": 23,
+                        "endMinute": 59,
+                    },
+                },
+                "name": "addaccesscode",
+            },
+        )
+
+    def test_set_beeper_not_authenticated(self) -> None:
+        with pytest.raises(NotAuthenticatedError):
+            Lock().set_beeper(True)
+
     def test_set_beeper(
         self, mock_auth: Mock, wifi_lock_json: dict[str, Any], wifi_lock: Lock
     ) -> None:
@@ -442,11 +485,11 @@ class TestKeypadDisabled:
     def test_true(self, wifi_lock: Lock) -> None:
         logs = [
             LockLog(
-                created_at=datetime(2023, 1, 1, 0, 0, 0),
+                created_at=datetime(2023, 1, 1, 0, 0, 0, tzinfo=UTC),
                 message="Unlocked by keypad",
             ),
             LockLog(
-                created_at=datetime(2023, 1, 1, 1, 0, 0),
+                created_at=datetime(2023, 1, 1, 1, 0, 0, tzinfo=UTC),
                 message="Keypad disabled invalid code",
             ),
         ]
@@ -455,11 +498,11 @@ class TestKeypadDisabled:
     def test_true_unsorted(self, wifi_lock: Lock) -> None:
         logs = [
             LockLog(
-                created_at=datetime(2023, 1, 1, 1, 0, 0),
+                created_at=datetime(2023, 1, 1, 1, 0, 0, tzinfo=UTC),
                 message="Keypad disabled invalid code",
             ),
             LockLog(
-                created_at=datetime(2023, 1, 1, 0, 0, 0),
+                created_at=datetime(2023, 1, 1, 0, 0, 0, tzinfo=UTC),
                 message="Unlocked by keypad",
             ),
         ]
@@ -468,11 +511,11 @@ class TestKeypadDisabled:
     def test_false(self, wifi_lock: Lock) -> None:
         logs = [
             LockLog(
-                created_at=datetime(2023, 1, 1, 0, 0, 0),
+                created_at=datetime(2023, 1, 1, 0, 0, 0, tzinfo=UTC),
                 message="Keypad disabled invalid code",
             ),
             LockLog(
-                created_at=datetime(2023, 1, 1, 1, 0, 0),
+                created_at=datetime(2023, 1, 1, 1, 0, 0, tzinfo=UTC),
                 message="Unlocked by keypad",
             ),
         ]
@@ -482,11 +525,11 @@ class TestKeypadDisabled:
         with patch.object(wifi_lock, "logs") as logs_mock:
             logs_mock.return_value = [
                 LockLog(
-                    created_at=datetime(2023, 1, 1, 0, 0, 0),
+                    created_at=datetime(2023, 1, 1, 0, 0, 0, tzinfo=UTC),
                     message="Unlocked by keypad",
                 ),
                 LockLog(
-                    created_at=datetime(2023, 1, 1, 1, 0, 0),
+                    created_at=datetime(2023, 1, 1, 1, 0, 0, tzinfo=UTC),
                     message="Keypad disabled invalid code",
                 ),
             ]

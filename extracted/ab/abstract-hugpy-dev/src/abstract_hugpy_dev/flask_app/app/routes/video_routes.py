@@ -2830,6 +2830,50 @@ _PRODUCER_SYSTEM = (
     "ONLY one JSON object — no preamble, no markdown fences, no commentary."
 )
 
+# k120 landmine (STUDIO min_rank_floor): the writer chain's resolve fallthrough
+# bottoms out at the 3B, which the operator ruled "no good" for script work.
+# The registry cannot express a rank floor (a group's member order IS its order
+# of operations, k119 — there is no per-stage floor field), so the STUDIO
+# dispatch route enforces it here: a plan authored by a below-floor chain
+# member is refused err-as-data (503, retryable) — queueing beats shipping a
+# bad screenplay. Rank = 1-based position in the writer group's member order.
+_STUDIO_WRITER_GROUP = "hugpy-agent-brains"
+_STUDIO_MIN_RANK_FLOOR = 3
+
+
+def _studio_floor_violation(resolved_model):
+    """Error text when ``resolved_model`` sits below STUDIO's rank floor in the
+    writer chain, else None. Fail-open on registry trouble and on models
+    outside the group: the floor guards the KNOWN low-rank fallthrough, not an
+    explicitly pinned outside model (a caller's pin is their choice)."""
+    if not resolved_model:
+        return None
+    try:
+        from abstract_hugpy_dev.comms import priority_groups
+        group = priority_groups.get_group(_STUDIO_WRITER_GROUP)
+        if not group:
+            return None
+        members = priority_groups.expand_members(group)
+    except Exception:  # noqa: BLE001 — registry trouble must not kill the plan
+        return None
+    for rank, member in enumerate(members or [], start=1):
+        try:
+            matched = priority_groups.keys_match(member, resolved_model)
+        except Exception:  # noqa: BLE001
+            matched = member == resolved_model
+        if matched:
+            if rank > _STUDIO_MIN_RANK_FLOOR:
+                return (
+                    f"script authoring resolved to {resolved_model!r} — rank "
+                    f"{rank} in the {_STUDIO_WRITER_GROUP!r} chain, below "
+                    f"STUDIO's min_rank_floor of {_STUDIO_MIN_RANK_FLOOR} "
+                    f"(k120: the chain's low-rank fallthrough is not "
+                    f"acceptable for script work). Retry when a higher-rank "
+                    f'member is servable, or pin "model" explicitly.'
+                )
+            return None
+    return None
+
 
 def _producer_messages(premise, segment_count, target_seconds, global_negative):
     schema = (
@@ -2963,6 +3007,17 @@ def video_producer_plan():
                 "raw": (payload2.get("raw") or "")[:4000],
             }), 502
         payload = payload2
+
+    floor_err = _studio_floor_violation(payload.get("model_resolved"))
+    if floor_err:
+        logger.warning("producer: floor refusal (%s)", floor_err)
+        return jsonify({
+            "error": floor_err,
+            "model_requested": model_key,
+            "model_resolved": payload.get("model_resolved"),
+            "route_reason": route_reason,
+            "run_id": payload.get("run_id"),
+        }), 503
 
     warnings: list = []
     segments = []

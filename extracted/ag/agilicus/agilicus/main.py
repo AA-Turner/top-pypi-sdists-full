@@ -9329,6 +9329,27 @@ def list_org_upstream_user_identities(ctx, **kwargs):
     print(format_table(ctx, org_upstreams, columns))
 
 
+@cli.command()
+@click.option("--limit", type=int, default=None)
+@click.option("--org-id", default=None)
+@click.option("--previous-guid", default=None)
+@click.option(
+    "--resource-type", type=click.Choice(resources.resource_types), default=None
+)
+@click.pass_context
+def list_resource_guids(ctx, **kwargs):
+    results = resources.list_resource_guids(ctx, **kwargs)
+    columns = make_columns(
+        ctx,
+        results,
+        """
+          - guid
+          - name
+        """,
+    )
+    print(format_table(ctx, results, columns))
+
+
 def main():
     trusted_certs_main.add_commands(cli)
     hosts_main.add_commands(cli)

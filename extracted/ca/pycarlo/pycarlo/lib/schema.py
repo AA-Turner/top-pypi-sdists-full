@@ -6171,6 +6171,8 @@ class Permission(pycarlo.lib.types.Enum):
     * `SettingsAuthorizationGroupsManageOwners`None
     * `SettingsBillingAccess`None
     * `SettingsBillingEdit`None
+    * `SettingsDeploymentsAccess`None
+    * `SettingsDeploymentsEdit`None
     * `SettingsDomainsAccess`None
     * `SettingsDomainsEdit`None
     * `SettingsDomainsList`None
@@ -6296,6 +6298,8 @@ class Permission(pycarlo.lib.types.Enum):
         "SettingsAuthorizationGroupsManageOwners",
         "SettingsBillingAccess",
         "SettingsBillingEdit",
+        "SettingsDeploymentsAccess",
+        "SettingsDeploymentsEdit",
         "SettingsDomainsAccess",
         "SettingsDomainsEdit",
         "SettingsDomainsList",
@@ -7347,6 +7351,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
     * `SettingsBillingPropose`None
     * `SettingsBillingRead`None
     * `SettingsBillingWrite`None
+    * `SettingsDeploymentsAll`None
+    * `SettingsDeploymentsPropose`None
+    * `SettingsDeploymentsRead`None
+    * `SettingsDeploymentsWrite`None
     * `SettingsDomainsAll`None
     * `SettingsDomainsPropose`None
     * `SettingsDomainsRead`None
@@ -7561,6 +7569,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
         "SettingsBillingPropose",
         "SettingsBillingRead",
         "SettingsBillingWrite",
+        "SettingsDeploymentsAll",
+        "SettingsDeploymentsPropose",
+        "SettingsDeploymentsRead",
+        "SettingsDeploymentsWrite",
         "SettingsDomainsAll",
         "SettingsDomainsPropose",
         "SettingsDomainsRead",
@@ -9754,6 +9766,8 @@ class AgentEvalInput(sgqlc.types.Input):
         "filters",
         "segment_fields",
         "segment_sql",
+        "clustering_space_uuid",
+        "cluster_keys",
         "alert_conditions",
         "sensitivity",
         "schedule",
@@ -9806,6 +9820,12 @@ class AgentEvalInput(sgqlc.types.Input):
 
     segment_sql = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentSql"
+    )
+
+    clustering_space_uuid = sgqlc.types.Field(String, graphql_name="clusteringSpaceUuid")
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
     )
 
     alert_conditions = sgqlc.types.Field(
@@ -9953,6 +9973,8 @@ class AgentMetricInput(sgqlc.types.Input):
         "filters",
         "segment_fields",
         "segment_sql",
+        "clustering_space_uuid",
+        "cluster_keys",
         "alert_conditions",
         "sensitivity",
         "schedule",
@@ -10003,6 +10025,12 @@ class AgentMetricInput(sgqlc.types.Input):
 
     segment_sql = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segmentSql"
+    )
+
+    clustering_space_uuid = sgqlc.types.Field(String, graphql_name="clusteringSpaceUuid")
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
     )
 
     alert_conditions = sgqlc.types.Field(
@@ -11417,6 +11445,18 @@ class ClassifiedAssetScopeInput(sgqlc.types.Input):
     """Limit results to this schema."""
 
 
+class ClusterFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("clustering_space_uuid", "cluster_keys")
+    clustering_space_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="clusteringSpaceUuid"
+    )
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
+    )
+
+
 class ClusteringConfigInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -12537,6 +12577,7 @@ class CustomRuleSqlBlocksInput(sgqlc.types.Input):
         "where_condition",
         "group_by",
         "agent_span",
+        "cluster_filter",
         "agent_span_alert_condition",
         "collection_lag_hours",
     )
@@ -12549,6 +12590,8 @@ class CustomRuleSqlBlocksInput(sgqlc.types.Input):
     )
 
     agent_span = sgqlc.types.Field("FilterGroupInput", graphql_name="agentSpan")
+
+    cluster_filter = sgqlc.types.Field(ClusterFilterInput, graphql_name="clusterFilter")
 
     agent_span_alert_condition = sgqlc.types.Field(
         AgentSpanConditionInput, graphql_name="agentSpanAlertCondition"
@@ -18424,6 +18467,11 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
         "tenant_id",
         "client_id",
         "client_secret",
+        "auth_type",
+        "realm",
+        "kdc",
+        "principal",
+        "keytab_base64",
     )
     db_name = sgqlc.types.Field(String, graphql_name="dbName")
     """Name of database to add connection for"""
@@ -18479,6 +18527,28 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
     client_secret = sgqlc.types.Field(String, graphql_name="clientSecret")
     """Client Secret for Azure Service Principal auth"""
 
+    auth_type = sgqlc.types.Field(String, graphql_name="authType")
+    """Authentication method. "kerberos" selects Windows Authentication
+    (SQL Server only); omitted or "sql" uses a SQL login.
+    """
+
+    realm = sgqlc.types.Field(String, graphql_name="realm")
+    """Kerberos realm, normally the uppercased AD domain"""
+
+    kdc = sgqlc.types.Field(String, graphql_name="kdc")
+    """Kerberos KDC hostname, optionally with a port
+    (dc1.corp.example.com or dc1.corp.example.com:88)
+    """
+
+    principal = sgqlc.types.Field(String, graphql_name="principal")
+    """Kerberos client principal, e.g. svc-montecarlo@CORP.EXAMPLE.COM"""
+
+    keytab_base64 = sgqlc.types.Field(String, graphql_name="keytabBase64")
+    """Base64-encoded Kerberos keytab for the service principal. Mutually
+    exclusive with password. Omit both when the credential is self-
+    hosted -- the agent reads the keytab from your secret store.
+    """
+
 
 class TransactionalDbConnectionSettings(sgqlc.types.Input):
     __schema__ = schema
@@ -18518,6 +18588,11 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
         "domain",
         "dataspaces",
         "dataspace",
+        "auth_type",
+        "realm",
+        "kdc",
+        "principal",
+        "keytab_base64",
         "tenant_id",
         "client_id",
         "client_secret",
@@ -18562,6 +18637,28 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
     dataspace = sgqlc.types.Field(String, graphql_name="dataspace")
     """Single data space name to scope query connections for Salesforce
     Data Cloud.
+    """
+
+    auth_type = sgqlc.types.Field(String, graphql_name="authType")
+    """Authentication method. "kerberos" selects Windows Authentication
+    (SQL Server only); omitted or "sql" uses a SQL login.
+    """
+
+    realm = sgqlc.types.Field(String, graphql_name="realm")
+    """Kerberos realm, normally the uppercased AD domain"""
+
+    kdc = sgqlc.types.Field(String, graphql_name="kdc")
+    """Kerberos KDC hostname, optionally with a port
+    (dc1.corp.example.com or dc1.corp.example.com:88)
+    """
+
+    principal = sgqlc.types.Field(String, graphql_name="principal")
+    """Kerberos client principal, e.g. svc-montecarlo@CORP.EXAMPLE.COM"""
+
+    keytab_base64 = sgqlc.types.Field(String, graphql_name="keytabBase64")
+    """Base64-encoded Kerberos keytab for the service principal. Mutually
+    exclusive with password. Omit both when the credential is self-
+    hosted -- the agent reads the keytab from your secret store.
     """
 
     tenant_id = sgqlc.types.Field(String, graphql_name="tenantId")
@@ -19710,6 +19807,8 @@ class IMetricsMonitor(sgqlc.types.Interface):
         "agent_span_filters",
         "sampling_config",
         "filters",
+        "clustering_space_uuid",
+        "cluster_keys",
     )
     monitor_fields = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="monitorFields")
     """Field/s to monitor"""
@@ -19833,6 +19932,18 @@ class IMetricsMonitor(sgqlc.types.Interface):
 
     filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
     """Filters used on the monitor"""
+
+    clustering_space_uuid = sgqlc.types.Field(UUID, graphql_name="clusteringSpaceUuid")
+    """Conversation clustering space whose membership filters or segments
+    the monitor (agent conversation monitors only).
+    """
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
+    )
+    """Clusters the monitor filters to (any-of); empty when the space is
+    referenced as a segment instead.
+    """
 
 
 class IMonitor(sgqlc.types.Interface):
@@ -20479,6 +20590,7 @@ class Account(sgqlc.types.Type):
         "enable_platform_agent_domain_filtering",
         "enable_pr_agent_paid_tier",
         "enable_pr_agent_metering",
+        "enable_cost_agent_paid_tier",
         "agent_monitor_default_collection_lag_hours",
         "validate_monitor_domains",
         "custom_dashboard_domain_validation",
@@ -21114,6 +21226,12 @@ class Account(sgqlc.types.Type):
     """Whether PR Agent usage is metered and billed for the account. When
     false, reviews are not recorded for billing and the paid-tier
     setting has no billing effect.
+    """
+
+    enable_cost_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enableCostAgentPaidTier")
+    """Whether the cost agent is unrestricted for the account: the full
+    set of cost and performance insights. When false, the account has
+    reduced features.
     """
 
     agent_monitor_default_collection_lag_hours = sgqlc.types.Field(
@@ -22316,6 +22434,8 @@ class AgentEvalOutput(sgqlc.types.Type):
         "filters",
         "segment_fields",
         "segment_sql",
+        "clustering_space_uuid",
+        "cluster_keys",
         "alert_conditions",
         "sensitivity",
         "schedule",
@@ -22371,6 +22491,12 @@ class AgentEvalOutput(sgqlc.types.Type):
     segment_sql = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="segmentSql",
+    )
+
+    clustering_space_uuid = sgqlc.types.Field(String, graphql_name="clusteringSpaceUuid")
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
     )
 
     alert_conditions = sgqlc.types.Field(
@@ -23472,6 +23598,8 @@ class AgentMetricOutput(sgqlc.types.Type):
         "filters",
         "segment_fields",
         "segment_sql",
+        "clustering_space_uuid",
+        "cluster_keys",
         "alert_conditions",
         "sensitivity",
         "schedule",
@@ -23525,6 +23653,12 @@ class AgentMetricOutput(sgqlc.types.Type):
     segment_sql = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="segmentSql",
+    )
+
+    clustering_space_uuid = sgqlc.types.Field(String, graphql_name="clusteringSpaceUuid")
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
     )
 
     alert_conditions = sgqlc.types.Field(
@@ -27943,6 +28077,19 @@ class ClusterAssignmentType(sgqlc.types.Type):
     """Classifier self-reported confidence for the assignment."""
 
 
+class ClusterFilter(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("clustering_space_uuid", "cluster_keys")
+    clustering_space_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="clusteringSpaceUuid"
+    )
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="clusterKeys",
+    )
+
+
 class ClusteringConfig(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -32249,6 +32396,7 @@ class CustomRuleSqlBlocks(sgqlc.types.Type):
         "where_condition",
         "group_by",
         "agent_span",
+        "cluster_filter",
         "agent_span_alert_condition",
         "collection_lag_hours",
     )
@@ -32266,6 +32414,8 @@ class CustomRuleSqlBlocks(sgqlc.types.Type):
     )
 
     agent_span = sgqlc.types.Field(sgqlc.types.non_null("FilterGroup"), graphql_name="agentSpan")
+
+    cluster_filter = sgqlc.types.Field(ClusterFilter, graphql_name="clusterFilter")
 
     agent_span_alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null(AgentSpanCondition), graphql_name="agentSpanAlertCondition"
@@ -34598,6 +34748,20 @@ class DeleteAzureDevopsInstallation(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """True if deleting the installation was successful"""
+
+
+class DeleteBiAssets(sgqlc.types.Type):
+    """Delete pushed BI assets by MCON. Only assets in the requestor's
+    account; max 1000 MCONs per request.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success", "deleted_count")
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """True if the operation completed without error."""
+
+    deleted_count = sgqlc.types.Field(Int, graphql_name="deletedCount")
+    """Number of BI assets deleted."""
 
 
 class DeleteBitbucketInstallation(sgqlc.types.Type):
@@ -44613,7 +44777,13 @@ class MonitorScoreTrendType(sgqlc.types.Type):
 
 class MonitorSqlBlocks(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("alert_condition", "where_condition", "group_by", "agent_span")
+    __field_names__ = (
+        "alert_condition",
+        "where_condition",
+        "group_by",
+        "agent_span",
+        "cluster_filter",
+    )
     alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null("FilterGroup"), graphql_name="alertCondition"
     )
@@ -44628,6 +44798,8 @@ class MonitorSqlBlocks(sgqlc.types.Type):
     )
 
     agent_span = sgqlc.types.Field(sgqlc.types.non_null("FilterGroup"), graphql_name="agentSpan")
+
+    cluster_filter = sgqlc.types.Field(ClusterFilter, graphql_name="clusterFilter")
 
 
 class MonitorSummary(sgqlc.types.Type):
@@ -45930,6 +46102,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_data_sampling_restrictions",
         "remove_data_sampling_restrictions",
         "delete_push_ingested_tables",
+        "delete_bi_assets",
         "update_troubleshooting_agent_config",
         "create_shared_query",
         "create_or_update_user_settings",
@@ -62213,6 +62386,18 @@ class Mutation(sgqlc.types.Type):
                 ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
                 (
+                    "cluster_keys",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="clusterKeys",
+                        default=None,
+                    ),
+                ),
+                (
+                    "clustering_space_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="clusteringSpaceUuid", default=None),
+                ),
+                (
                     "collection_lag_hours",
                     sgqlc.types.Arg(Int, graphql_name="collectionLagHours", default=0),
                 ),
@@ -62364,6 +62549,13 @@ class Mutation(sgqlc.types.Type):
       Because omitting the argument clears the override, an update
       call that does not send this field will reset any previously set
       override, including a deliberate false, back to inherit.
+    * `cluster_keys` (`[String!]`): Clusters to filter to (any-of)
+      within clusteringSpaceUuid. Omit when segmenting by cluster_key
+      — a segmented monitor covers every cluster in the space.
+    * `clustering_space_uuid` (`UUID`): Conversation clustering space
+      whose membership filters or segments the monitor. Requires
+      isAgentConversationAggregation. Filter by naming clusters in
+      clusterKeys, or segment by adding 'cluster_key' to segments.
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp). When 0 or omitted, the account-level
       default collection lag applies (if one is configured). (default:
@@ -62481,6 +62673,18 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 ("auto_tuning", sgqlc.types.Arg(Boolean, graphql_name="autoTuning", default=None)),
+                (
+                    "cluster_keys",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="clusterKeys",
+                        default=None,
+                    ),
+                ),
+                (
+                    "clustering_space_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="clusteringSpaceUuid", default=None),
+                ),
                 (
                     "collection_lag_hours",
                     sgqlc.types.Arg(Int, graphql_name="collectionLagHours", default=0),
@@ -62637,6 +62841,13 @@ class Mutation(sgqlc.types.Type):
       Because omitting the argument clears the override, an update
       call that does not send this field will reset any previously set
       override, including a deliberate false, back to inherit.
+    * `cluster_keys` (`[String!]`): Clusters to filter to (any-of)
+      within clusteringSpaceUuid. Omit when segmenting by cluster_key
+      — a segmented monitor covers every cluster in the space.
+    * `clustering_space_uuid` (`UUID`): Conversation clustering space
+      whose membership filters or segments the monitor. Requires
+      isAgentConversationAggregation. Filter by naming clusters in
+      clusterKeys, or segment by adding 'cluster_key' to segments.
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
       provided timestamp). When 0 or omitted, the account-level
       default collection lag applies (if one is configured). (default:
@@ -65109,6 +65320,31 @@ class Mutation(sgqlc.types.Type):
 
     * `mcons` (`[String!]!`): List of table MCONs to delete (max
       1000). Must all belong to the requestor's account; tables in
+      other accounts cannot be deleted.
+    """
+
+    delete_bi_assets = sgqlc.types.Field(
+        DeleteBiAssets,
+        graphql_name="deleteBiAssets",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete pushed BI assets by MCON (same account).
+
+    Arguments:
+
+    * `mcons` (`[String!]!`): List of BI-asset MCONs to delete (max
+      1000). Must all belong to the requestor's account; assets in
       other accounts cannot be deleted.
     """
 
@@ -84875,6 +85111,26 @@ class Query(sgqlc.types.Type):
                     "include_tool_calls",
                     sgqlc.types.Arg(Boolean, graphql_name="includeToolCalls", default=False),
                 ),
+                (
+                    "clustering_space_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="clusteringSpaceUuid", default=None),
+                ),
+                (
+                    "cluster_keys",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="clusterKeys",
+                        default=None,
+                    ),
+                ),
+                (
+                    "segments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(FilterValueUnionInput)),
+                        graphql_name="segments",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -84918,6 +85174,18 @@ class Query(sgqlc.types.Type):
       turns that triggered them. Also implied when any supplied
       transform has includeToolCalls set. False or omitted returns the
       plain transcript only. (default: `false`)
+    * `clustering_space_uuid` (`UUID`): Conversation clustering space
+      whose membership filters or segments the sample, mirroring the
+      monitor's cluster reference. Membership is resolved best-effort
+      — a sample taken during classification lag can differ from the
+      eventual datapoint.
+    * `cluster_keys` (`[String!]`): Clusters to filter the sample to
+      (any-of) within clusteringSpaceUuid. Omit when segmenting by
+      cluster_key via segments.
+    * `segments` (`[FilterValueUnionInput!]`): Segment fields matching
+      the monitor's segments input. Including 'cluster_key' together
+      with clusteringSpaceUuid previews the segmented shape: one row
+      per (conversation, cluster) with a cluster_key column.
     """
 
     evaluate_agent_monitor_data_source = sgqlc.types.Field(
@@ -84962,6 +85230,26 @@ class Query(sgqlc.types.Type):
                         Boolean, graphql_name="isAgentConversationAggregation", default=None
                     ),
                 ),
+                (
+                    "clustering_space_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="clusteringSpaceUuid", default=None),
+                ),
+                (
+                    "cluster_keys",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="clusterKeys",
+                        default=None,
+                    ),
+                ),
+                (
+                    "segments",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(FilterValueUnionInput)),
+                        graphql_name="segments",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -84982,6 +85270,17 @@ class Query(sgqlc.types.Type):
     * `is_agent_conversation_aggregation` (`Boolean`): If true,
       evaluate schema for conversation-level aggregation mode (accepts
       conversation-grain eval templates).
+    * `clustering_space_uuid` (`UUID`): Conversation clustering space
+      whose membership filters or segments the evaluated data source,
+      mirroring the monitor's cluster reference. Requires
+      isAgentConversationAggregation.
+    * `cluster_keys` (`[String!]`): Clusters to filter to (any-of)
+      within clusteringSpaceUuid. Omit when segmenting by cluster_key
+      via segments.
+    * `segments` (`[FilterValueUnionInput!]`): Segment fields matching
+      the monitor's segments input. Including 'cluster_key' together
+      with clusteringSpaceUuid evaluates the segmented shape, exposing
+      a cluster_key column on the returned schema.
     """
 
     get_job_execution_history_logs = sgqlc.types.Field(
@@ -106742,12 +107041,18 @@ class Trace(sgqlc.types.Type):
     ingest_start_time = sgqlc.types.Field(
         sgqlc.types.non_null(DateTime), graphql_name="ingestStartTime"
     )
-    """Earliest span ingest time in trace"""
+    """Start of the window that contains this trace's spans on every time
+    axis a span read may filter on — the earlier of the earliest span
+    start time and the earliest span ingest time. Use it to bound a
+    span-content fetch for this trace.
+    """
 
     ingest_end_time = sgqlc.types.Field(
         sgqlc.types.non_null(DateTime), graphql_name="ingestEndTime"
     )
-    """Latest span ingest time in trace"""
+    """End of the window described by ingestStartTime — the later of the
+    latest span end time and the latest span ingest time.
+    """
 
     duration_seconds = sgqlc.types.Field(
         sgqlc.types.non_null(Float), graphql_name="durationSeconds"
@@ -107329,8 +107634,9 @@ class TransformScoringAnchor(sgqlc.types.Type):
 
 
 class TriageAgentRunResult(sgqlc.types.Type):
-    """Latest triage outcome for an incident produced by the alert
-    assessment agent.
+    """Latest triage outcome for an incident. Produced by the alert
+    assessment agent, or copied from an earlier alert's verdict.
+    inheritedFrom says which.
     """
 
     __schema__ = schema
@@ -107344,6 +107650,7 @@ class TriageAgentRunResult(sgqlc.types.Type):
         "triaged_at",
         "triaged_by_user",
         "triaged_by_execution_id",
+        "inherited_from",
     )
     status = sgqlc.types.Field(sgqlc.types.non_null(TriageAgentRunStatus), graphql_name="status")
 
@@ -107363,18 +107670,32 @@ class TriageAgentRunResult(sgqlc.types.Type):
     """Populated when status is ERROR."""
 
     triaged_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="triagedAt")
-    """When the triage run was started."""
+    """When the triage run was started. For a verdict inherited from an
+    earlier alert, no run was started — this is when the verdict was
+    copied onto this alert. inheritedFrom.triagedAt is when the
+    original run was started.
+    """
 
     triaged_by_user = sgqlc.types.Field(
         sgqlc.types.non_null("UserOutput"), graphql_name="triagedByUser"
     )
-    """User that initiated this triage run."""
+    """User that initiated this triage run. For an inherited verdict, the
+    user of the originating alert's run.
+    """
 
     triaged_by_execution_id = sgqlc.types.Field(
         sgqlc.types.non_null(UUID), graphql_name="triagedByExecutionId"
     )
-    """UUID of the AgenticPlatformPipelineExecution that produced this
-    row.
+    """UUID of the AgenticPlatformPipelineExecution this verdict came
+    from. For a verdict inherited from an earlier alert, this is the
+    originating alert's execution, not one that produced this row.
+    """
+
+    inherited_from = sgqlc.types.Field("TriageVerdictOrigin", graphql_name="inheritedFrom")
+    """The earlier verdict this one was copied from, when the alert
+    repeated content already triaged recently. Null when an agent run
+    produced this verdict directly. The verdict fields are populated
+    either way.
     """
 
 
@@ -107656,6 +107977,19 @@ class TriageCostEstimateOutput(sgqlc.types.Type):
         sgqlc.types.non_null(Float), graphql_name="creditsPerAlert"
     )
     """Credits charged per automated triage past the free allowance."""
+
+
+class TriageVerdictOrigin(sgqlc.types.Type):
+    """The earlier verdict a triage outcome was copied from. Present only
+    on an inherited verdict.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("triaged_at",)
+    triaged_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="triagedAt")
+    """When the original triage run that produced this verdict was
+    started.
+    """
 
 
 class TriggerAgenticPlatformPipeline(sgqlc.types.Type):
@@ -117850,6 +118184,8 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "notify_rule_run_failure",
         "agent_span_filters",
         "filters",
+        "clustering_space_uuid",
+        "cluster_keys",
         "connection_id",
         "timeout",
         "domain_uuids",
@@ -118137,6 +118473,18 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     filters = sgqlc.types.Field(FilterGroup, graphql_name="filters")
     """filters used on the monitor"""
+
+    clustering_space_uuid = sgqlc.types.Field(UUID, graphql_name="clusteringSpaceUuid")
+    """Conversation clustering space whose membership filters or segments
+    the monitor (agent conversation monitors only).
+    """
+
+    cluster_keys = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="clusterKeys"
+    )
+    """Clusters the monitor filters to (any-of); empty when the space is
+    referenced as a segment instead.
+    """
 
     connection_id = sgqlc.types.Field(UUID, graphql_name="connectionId")
     """The connection UUID associated with the monitor"""

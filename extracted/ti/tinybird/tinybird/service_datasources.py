@@ -48,6 +48,7 @@ def get_tinybird_service_datasources() -> List[Dict[str, Any]]:
                 {"name": "client_ip", "type": "Nullable(String)"},
                 {"name": "resource_tags", "type": "Array(String)"},
                 {"name": "memory_usage", "type": "UInt64"},
+                {"name": "replica", "type": "String"},
             ],
         },
         {
@@ -334,6 +335,25 @@ def get_tinybird_service_datasources() -> List[Dict[str, Any]]:
             ],
         },
         {
+            "name": "tinybird.rate_limits_log",
+            "description": "Endpoint concurrency limiter transitions in your workspace.",
+            "dateColumn": "timestamp",
+            "engine": {
+                "engine": "MergeTree",
+                "sorting_key": "timestamp, pipe_name",
+                "partition_key": "toYYYYMM(timestamp)",
+            },
+            "columns": [
+                {"name": "timestamp", "type": "DateTime64(3)"},
+                {"name": "workspace_id", "type": "String"},
+                {"name": "workspace_name", "type": "String"},
+                {"name": "pipe_name", "type": "String"},
+                {"name": "rate_limit_type", "type": "LowCardinality(String)"},
+                {"name": "action", "type": "LowCardinality(String)"},
+                {"name": "limit_metadata", "type": "String"},
+            ],
+        },
+        {
             "name": "tinybird.hook_log",
             "description": "Log of hook executions and their results.",
             "dateColumn": "timestamp",
@@ -519,22 +539,6 @@ def get_organization_service_datasources() -> List[Dict[str, Any]]:
             ],
         },
         {
-            "name": "organization.processed_data",
-            "description": "Information related to all processed data per day per workspace.",
-            "dateColumn": "date",
-            "engine": {
-                "engine": "SummingMergeTree",
-                "sorting_key": "database, date",
-                "partition_key": "toYYYYMM(date)",
-            },
-            "columns": [
-                {"name": "date", "type": "Date"},
-                {"name": "database", "type": "String"},
-                {"name": "read_bytes", "type": "UInt64"},
-                {"name": "written_bytes", "type": "UInt64"},
-            ],
-        },
-        {
             "name": "organization.datasources_storage",
             "description": "Similar to tinybird.datasources_storage but with data for all Organization Workspaces.",
             "dateColumn": "timestamp",
@@ -683,6 +687,7 @@ def get_organization_service_datasources() -> List[Dict[str, Any]]:
                 {"name": "user_agent", "type": "Nullable(String)"},
                 {"name": "resource_tags", "type": "Array(String)"},
                 {"name": "memory_usage", "type": "UInt64"},
+                {"name": "replica", "type": "String"},
             ],
         },
         {
@@ -724,6 +729,25 @@ def get_organization_service_datasources() -> List[Dict[str, Any]]:
                 {"name": "started_at", "type": "Nullable(DateTime64(3))"},
                 {"name": "updated_at", "type": "DateTime64(3)"},
                 {"name": "job_metadata", "type": "String"},
+            ],
+        },
+        {
+            "name": "organization.rate_limits_log",
+            "description": "Endpoint concurrency limiter transitions across the organization.",
+            "dateColumn": "timestamp",
+            "engine": {
+                "engine": "MergeTree",
+                "sorting_key": "workspace_id, timestamp, pipe_name",
+                "partition_key": "toYYYYMM(timestamp)",
+            },
+            "columns": [
+                {"name": "timestamp", "type": "DateTime64(3)"},
+                {"name": "workspace_id", "type": "String"},
+                {"name": "workspace_name", "type": "String"},
+                {"name": "pipe_name", "type": "String"},
+                {"name": "rate_limit_type", "type": "LowCardinality(String)"},
+                {"name": "action", "type": "LowCardinality(String)"},
+                {"name": "limit_metadata", "type": "String"},
             ],
         },
         {

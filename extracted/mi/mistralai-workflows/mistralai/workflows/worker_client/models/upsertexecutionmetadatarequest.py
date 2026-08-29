@@ -2,36 +2,60 @@
 # @generated-id: c26fccbbaa3f
 
 from __future__ import annotations
-from mistralai.workflows.worker_client.types import BaseModel, UNSET_SENTINEL
+from mistralai.workflows.worker_client.types import (
+    BaseModel,
+    Nullable,
+    OptionalNullable,
+    UNSET,
+    UNSET_SENTINEL,
+)
 from pydantic import model_serializer
 from typing import Dict, Optional
 from typing_extensions import NotRequired, TypedDict
 
 
 class UpsertExecutionMetadataRequestTypedDict(TypedDict):
-    execution_token_hash: str
     search_key_metadata: NotRequired[Dict[str, str]]
     r"""Unencrypted key/value searchable metadata to upsert for this execution"""
+    temporal_run_id: NotRequired[Nullable[str]]
+    r"""Temporal run ID identifying the execution to write to"""
+    execution_token_hash: NotRequired[Nullable[str]]
+    r"""Superseded by temporal_run_id; accepted for workers that predate it"""
 
 
 class UpsertExecutionMetadataRequest(BaseModel):
-    execution_token_hash: str
-
     search_key_metadata: Optional[Dict[str, str]] = None
     r"""Unencrypted key/value searchable metadata to upsert for this execution"""
 
+    temporal_run_id: OptionalNullable[str] = UNSET
+    r"""Temporal run ID identifying the execution to write to"""
+
+    execution_token_hash: OptionalNullable[str] = UNSET
+    r"""Superseded by temporal_run_id; accepted for workers that predate it"""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["search_key_metadata"])
+        optional_fields = set(
+            ["search_key_metadata", "temporal_run_id", "execution_token_hash"]
+        )
+        nullable_fields = set(["temporal_run_id", "execution_token_hash"])
         serialized = handler(self)
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k, serialized.get(n))
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
             if val != UNSET_SENTINEL:
-                if val is not None or k not in optional_fields:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
                     m[k] = val
 
         return m

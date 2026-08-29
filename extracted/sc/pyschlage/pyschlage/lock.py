@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 import re
-from typing import Any, Iterable
+from typing import Any
 
 from .auth import Auth
 from .code import AccessCode
@@ -301,7 +302,7 @@ class Lock(Device):
             logs = self.logs()
         if not logs:
             return False
-        newest_log = sorted(logs, reverse=True, key=lambda log: log.created_at)[0]
+        newest_log = max(logs, key=lambda log: log.created_at)
         return newest_log.message == "Keypad disabled invalid code"
 
     def logs(self, limit: int | None = None, sort_desc: bool = False) -> list[LockLog]:
@@ -355,12 +356,11 @@ class Lock(Device):
         notifications: dict[str, Notification] = {}
         user_id_prefix_re = re.compile(rf"^{self._auth.user_id}_")
         for notification in self._get_notifications():
-            if notification.notification_type == ON_UNLOCK_ACTION:
-                if user_id_prefix_re.match(notification.notification_id):
-                    access_code_id = user_id_prefix_re.sub(
-                        "", notification.notification_id
-                    )
-                    notifications[access_code_id] = notification
+            if notification.notification_type == ON_UNLOCK_ACTION and (
+                user_id_prefix_re.match(notification.notification_id)
+            ):
+                access_code_id = user_id_prefix_re.sub("", notification.notification_id)
+                notifications[access_code_id] = notification
         path = AccessCode.request_path(self.device_id)
         resp = self._auth.request("get", path)
         access_codes = []
@@ -398,16 +398,36 @@ class Lock(Device):
         code.save()
 
     def set_beeper(self, enabled: bool):
-        """Sets the beeper_enabled setting."""
+        """Sets the beeper_enabled setting.
+
+        :param enabled: Whether the keypress beep should be enabled.
+        :type enabled: bool
+        :raise pyschlage.exceptions.NotAuthorizedError: When authentication fails.
+        :raise pyschlage.exceptions.UnknownError: On other errors.
+        """
         self._put_attributes({"beeperEnabled": 1 if enabled else 0})
 
     def set_lock_and_leave(self, enabled: bool):
-        """Sets the lock_and_leave setting."""
+        """Sets the lock_and_leave setting.
+
+        :param enabled: Whether lock-and-leave should be enabled.
+        :type enabled: bool
+        :raise pyschlage.exceptions.NotAuthorizedError: When authentication fails.
+        :raise pyschlage.exceptions.UnknownError: On other errors.
+        """
         self._put_attributes({"lockAndLeaveEnabled": 1 if enabled else 0})
 
     def set_auto_lock_time(self, auto_lock_time: int):
         """Sets the auto_lock_time setting. Setting it to `0` turns off the
-        auto-lock feature."""
+        auto-lock feature.
+
+        :param auto_lock_time: Number of seconds of inactivity before the lock
+            automatically locks itself. Must be one of :data:`AUTO_LOCK_TIMES`.
+        :type auto_lock_time: int
+        :raise ValueError: When auto_lock_time is not one of :data:`AUTO_LOCK_TIMES`.
+        :raise pyschlage.exceptions.NotAuthorizedError: When authentication fails.
+        :raise pyschlage.exceptions.UnknownError: On other errors.
+        """
         if auto_lock_time not in AUTO_LOCK_TIMES:
             raise ValueError(f"auto_lock_time must be one of: {AUTO_LOCK_TIMES}")
         self._put_attributes({"autoLockTime": auto_lock_time})

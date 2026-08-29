@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abxpkg
-Version: 1.12.97
+Version: 1.12.109
 Summary: System package manager interfaces with Python type hints
 Project-URL: Homepage, https://github.com/ArchiveBox/abxpkg
 Project-URL: Source, https://github.com/ArchiveBox/abxpkg

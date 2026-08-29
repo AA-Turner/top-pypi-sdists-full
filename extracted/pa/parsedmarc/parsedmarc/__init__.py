@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import binascii
 import email
+import email.errors
+import email.message
 import email.utils
 import functools
 import json
 import logging
 import mailbox
 import os
+import quopri
 import re
 import shutil
 import tempfile
@@ -78,7 +81,11 @@ from parsedmarc.utils import (
 
 logger.debug(f"parsedmarc v{__version__}")
 
-feedback_report_regex = re.compile(r"^([\w\-]+): (.+)$", re.MULTILINE)
+# A message/feedback-report part is a MIME body part, so its lines end with
+# CRLF per RFC 5322 §2.1. In re.MULTILINE, ``$`` matches before the LF but not
+# before the CR, so the value must exclude the line ending explicitly rather
+# than relying on ``.`` — otherwise every field value keeps a trailing CR.
+feedback_report_regex = re.compile(r"^([\w\-]+): ([^\r\n]+)\r?$", re.MULTILINE)
 xml_header_regex = re.compile(r"^<\?xml .*?>", re.MULTILINE)
 xml_schema_regex = re.compile(r"</??xs:schema.*>", re.MULTILINE)
 text_report_regex = re.compile(r"\s*([a-zA-Z\s]+):\s(.+)", re.MULTILINE)
@@ -760,8 +767,8 @@ def parse_smtp_tls_report_json(report: str | bytes) -> SMTPTLSReport:
 def parsed_smtp_tls_reports_to_csv_rows(
     reports: SMTPTLSReport | list[SMTPTLSReport],
 ) -> list[dict[str, Any]]:
-    """Converts one oor more parsed SMTP TLS reports into a list of single
-    layer dict objects suitable for use in a CSV"""
+    """Converts one or more parsed SMTP TLS reports into a list of
+    single-layer dict objects suitable for use in a CSV"""
     if isinstance(reports, dict):
         reports = [reports]
 
@@ -805,10 +812,10 @@ def parsed_smtp_tls_reports_to_csv(
     headers
 
     Args:
-        reports: A parsed aggregate report or list of parsed aggregate reports
+        reports: A parsed SMTP TLS report or list of parsed SMTP TLS reports
 
     Returns:
-        str: Parsed aggregate report data in flat CSV format, including headers
+        str: Parsed SMTP TLS report data in flat CSV format, including headers
     """
 
     fields = [
@@ -1147,16 +1154,16 @@ def parse_aggregate_report_xml(
 
 def extract_report(content: bytes | str | BinaryIO) -> str:
     """
-    Extracts text from a zip or gzip file, as a base64-encoded string,
-    file-like object, or bytes.
+    Extracts report text from zip- or gzip-compressed content, and returns
+    plain XML or JSON content decoded as-is.
 
     Args:
-        content: report file as a base64-encoded string, file-like object or
-        bytes.
+        content: The report as a base64-encoded string, file-like object,
+            or bytes. A string that is not valid base64 is returned
+            unchanged.
 
     Returns:
         str: The extracted text
-
     """
     file_object: BinaryIO | None = None
     header: bytes
@@ -1257,11 +1264,11 @@ def parse_aggregate_report_file(
     normalize_timespan_threshold_hours: float = 24.0,
     config: ParserConfig | None = None,
 ) -> AggregateReport:
-    """Parses a file at the given path, a file-like object. or bytes as an
+    """Parses a file at the given path, a file-like object, or bytes as an
     aggregate DMARC report
 
     Args:
-        _input (str | bytes | IO): A path to a file, a file like object, or bytes
+        _input (str | bytes | IO): A path to a file, a file-like object, or bytes
         offline (bool): Do not query online for geolocation or DNS
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
@@ -1539,12 +1546,13 @@ def parse_failure_report(
     Args:
         feedback_report (str): A message's feedback report as a string
         sample (str): The RFC 822 headers or RFC 822 message sample
+        msg_date (datetime): The message's date, used as the arrival date
+            when the feedback report has no ``Arrival-Date`` field
         ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
         reverse_dns_map_url (str): URL to a reverse DNS map file
         offline (bool): Do not query online for geolocation or DNS
-        msg_date (str): The message's date header
         nameservers (list): A list of one or more nameservers to use
             (Cloudflare's public DNS resolvers by default)
         dns_timeout (float): Sets the DNS timeout in seconds
@@ -1695,7 +1703,19 @@ def parse_failure_report(
         )
 
         if "reported_domain" not in parsed_report:
-            parsed_report["reported_domain"] = parsed_sample["from"]["domain"]
+            # reported_domain is a required str in the FailureReport contract
+            # (parsedmarc/types.py) and is read directly by the Elasticsearch
+            # and OpenSearch outputs, so it cannot be defaulted to None. When
+            # the report omits the Reported-Domain field and the sample's From
+            # header is missing or unparseable, the report is unusable.
+            sample_from = parsed_sample.get("from")
+            if not isinstance(sample_from, dict) or not sample_from.get("domain"):
+                raise InvalidFailureReport(
+                    "The failure report has no Reported-Domain field, and no "
+                    "domain could be parsed from the From header of the "
+                    "included sample message"
+                )
+            parsed_report["reported_domain"] = sample_from["domain"]
 
         sample_headers_only = False
         number_of_attachments = len(parsed_sample["attachments"])
@@ -1710,6 +1730,11 @@ def parse_failure_report(
         parsed_report["parsed_sample"] = parsed_sample
 
         return cast(FailureReport, parsed_report)
+
+    except InvalidFailureReport:
+        # Already a clear, specific message; do not re-wrap it as an
+        # "Unexpected error" below.
+        raise
 
     except KeyError as error:
         raise InvalidFailureReport(f"Missing value: {error.__str__()}") from error
@@ -1818,6 +1843,90 @@ def parsed_failure_reports_to_csv(
     return csv_file.getvalue()
 
 
+def _decode_mime_payload(part: email.message.Message, fallback: str) -> str:
+    """
+    Returns a MIME part's payload decoded per its ``Content-Transfer-Encoding``
+
+    Three non-obvious constraints shape this helper:
+
+    - Only ``quoted-printable`` and ``base64`` parts are touched at all. The
+      caller parses the message from a ``str``, so for a part with a 7bit,
+      8bit, or absent ``Content-Transfer-Encoding`` there is nothing to undo,
+      and ``compat32``'s ``get_payload(decode=True)`` would round-trip the
+      already-correct text through ``raw-unicode-escape`` bytes — re-decoding
+      those as the declared charset mangles every non-ASCII character. Such
+      parts return ``fallback``, which is the payload text as-is.
+    - The standard library's email parser nests **every** ``message/*``
+      subtype — including ``message/feedback-report`` and ``message/rfc822`` —
+      as a child ``Message`` object, so ``get_payload(decode=True)`` returns
+      ``None`` for those parts rather than decoded bytes. The caller's
+      re-serialization of that child message is passed in as ``fallback``, and
+      any transfer encoding is undone here instead.
+    - A composite part carrying a real ``Content-Transfer-Encoding`` of
+      ``quoted-printable`` or ``base64`` is illegal per RFC 2045 §6.4, but
+      real reporters send them anyway (issue
+      `#882 <https://github.com/domainaware/parsedmarc/issues/882>`_), and the
+      standard library nests the still-encoded text as-is. Parsing that text
+      as a message can insert a header/body separator that the encoded text
+      never had, which has to be undone before decoding; see below.
+
+    Any unexpected failure returns ``fallback`` unchanged, so a report that
+    parsed before cannot start failing because of this decoding step.
+
+    Args:
+        part: The MIME part
+        fallback: The payload text to use when the part carries no transfer
+            encoding to undo, or cannot be decoded with ``decode=True``
+            (i.e. nested ``message/*`` parts)
+
+    Returns:
+        str: The decoded payload
+    """
+    try:
+        cte = (part.get("Content-Transfer-Encoding") or "").strip().lower()
+        if cte not in ("quoted-printable", "base64"):
+            return fallback
+
+        payload_bytes = part.get_payload(decode=True)
+        if isinstance(payload_bytes, bytes):
+            charset = part.get_content_charset() or "utf-8"
+            try:
+                return payload_bytes.decode(charset, errors="replace")
+            except LookupError:
+                return payload_bytes.decode("utf-8", errors="replace")
+
+        # Nested message/* part: undo the transfer encoding by hand.
+        #
+        # The still-encoded text was parsed as a message first. A soft line
+        # break (RFC 2045 §6.7) splits a long field across lines, and the
+        # continuation line has neither a colon nor leading whitespace, so the
+        # parser records a MissingHeaderBodySeparatorDefect and treats the
+        # remainder as the body -- which makes the re-serialized `fallback`
+        # carry a blank line that the encoded text never had. Decoding then
+        # consumes the soft break and leaves that inserted newline in the
+        # middle of the value, truncating it. Drop exactly that one separator:
+        # a header value cannot contain a blank line, so the first "\n\n" is
+        # the inserted boundary. Text with a genuine separator raises no
+        # defect, and nothing is removed.
+        text = fallback
+        child = part.get_payload()
+        if isinstance(child, list) and child:
+            child = child[0]
+        if isinstance(child, email.message.Message) and any(
+            isinstance(defect, email.errors.MissingHeaderBodySeparatorDefect)
+            for defect in child.defects
+        ):
+            text = fallback.replace("\n\n", "\n", 1)
+
+        if cte == "quoted-printable":
+            return quopri.decodestring(text.encode("utf-8", errors="replace")).decode(
+                "utf-8", errors="replace"
+            )
+        return b64decode(text).decode("utf-8", errors="replace")
+    except Exception:
+        return fallback
+
+
 def parse_report_email(
     input_: bytes | str,
     *,
@@ -1835,7 +1944,7 @@ def parse_report_email(
     config: ParserConfig | None = None,
 ) -> ParsedReport:
     """
-    Parses a DMARC report from an email
+    Parses a DMARC or SMTP TLS report from an email
 
     Args:
         input_: An emailed DMARC report in RFC 822 format, as bytes or a string
@@ -1843,7 +1952,7 @@ def parse_report_email(
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map
         reverse_dns_map_url (str): URL to a reverse DNS map
-        offline (bool): Do not query online for geolocation on DNS
+        offline (bool): Do not query online for geolocation or DNS
         nameservers (list): A list of one or more nameservers to use
         dns_timeout (float): Sets the DNS timeout in seconds
         dns_retries (int): Number of times to retry DNS queries on timeout
@@ -1860,7 +1969,7 @@ def parse_report_email(
 
     Returns:
         dict:
-        * ``report_type``: ``aggregate`` or ``failure``
+        * ``report_type``: ``aggregate``, ``failure``, or ``smtp_tls``
         * ``report``: The parsed report
     """
     cfg = _resolve_config(
@@ -1926,18 +2035,19 @@ def parse_report_email(
             continue
         elif content_type == "message/feedback-report":
             is_feedback_report = True
+            decoded_payload = _decode_mime_payload(part, payload)
             try:
-                if "Feedback-Type" in payload:
-                    feedback_report = payload
+                if "Feedback-Type" in decoded_payload:
+                    feedback_report = decoded_payload
                 else:
-                    feedback_report = b64decode(payload).__str__()
+                    feedback_report = b64decode(decoded_payload).__str__()
                 feedback_report = feedback_report.lstrip("b'").rstrip("'")
                 feedback_report = feedback_report.replace("\\r", "")
                 feedback_report = feedback_report.replace("\\n", "\n")
             except (ValueError, TypeError, binascii.Error):
-                feedback_report = payload
+                feedback_report = decoded_payload
         elif is_feedback_report and content_type in EMAIL_SAMPLE_CONTENT_TYPES:
-            sample = payload
+            sample = _decode_mime_payload(part, payload)
         elif content_type == "application/tlsrpt+json":
             if not payload.strip().startswith("{"):
                 payload = b64decode(payload).decode("utf-8", errors="replace")
@@ -2093,8 +2203,8 @@ def parse_report_file(
     normalize_timespan_threshold_hours: float = 24.0,
     config: ParserConfig | None = None,
 ) -> ParsedReport:
-    """Parses a DMARC aggregate or failure file at the given path, a
-    file-like object. or bytes
+    """Parses a DMARC aggregate report, DMARC failure report, or SMTP TLS
+    report from a file at the given path, a file-like object, or bytes
 
     Args:
         input_ (str | os.PathLike | bytes | BinaryIO): A path to a file,
@@ -2320,7 +2430,7 @@ def get_dmarc_reports_from_mbox(
     config: ParserConfig | None = None,
 ) -> ParsingResults:
     """Parses a mailbox in mbox format containing e-mails with attached
-    DMARC reports
+    DMARC and SMTP TLS reports
 
     Args:
         input_ (str): A path to a mbox file
@@ -2516,7 +2626,7 @@ def get_dmarc_reports_from_mailbox(
     config: ParserConfig | None = None,
 ) -> ParsingResults:
     """
-    Fetches and parses DMARC reports from a mailbox
+    Fetches and parses DMARC and SMTP TLS reports from a mailbox
 
     Args:
         connection: A Mailbox connection object
@@ -2554,7 +2664,7 @@ def get_dmarc_reports_from_mailbox(
         results (dict): Results from the previous run
         batch_size (int): Number of messages to read and process before saving
             (use 0 for no limit)
-        since: Search for messages since certain time
+        since: Search for messages since a certain time
             (units - {"m":"minutes", "h":"hours", "d":"days", "w":"weeks"})
         create_folders (bool): Whether to create the destination folders
             (not used in watch)
@@ -3075,8 +3185,8 @@ def watch_inbox(
     config: ParserConfig | None = None,
 ):
     """
-    Watches the mailbox for new messages and
-      sends the results to a callback function
+    Watches the mailbox for new messages and sends the results to a
+    callback function
 
     Args:
         mailbox_connection: The mailbox connection object
@@ -3095,7 +3205,7 @@ def watch_inbox(
             then is backend-specific: the Microsoft Graph and Gmail backends
             let it propagate and end the watch, while mailsuite's IMAP and
             Maildir watch loops log it and keep checking.
-        reports_folder (str): The IMAP folder where reports can be found
+        reports_folder (str): The folder where reports can be found
         archive_folder (str): The folder to move processed mail to
         delete (bool): Delete messages after processing them
         delete_aggregate (bool | None): Delete aggregate report messages
@@ -3115,8 +3225,8 @@ def watch_inbox(
             can be inspected for debugging; ``None`` (the default) inherits
             the value of ``delete``
         test (bool): Do not move or delete messages after processing them
-        check_timeout (int): Number of seconds to wait for a IMAP IDLE response
-            or the number of seconds until the next mail check
+        check_timeout (int): Number of seconds to wait for an IMAP IDLE
+            response or the number of seconds until the next mail check
         ip_db_path (str): Path to a MMDB file from IPinfo, MaxMind, or DBIP
         always_use_local_files (bool): Do not download files
         reverse_dns_map_path (str): Path to a reverse DNS map file
@@ -3127,10 +3237,10 @@ def watch_inbox(
         dns_timeout (float): Set the DNS query timeout
         dns_retries (int): Number of times to retry DNS queries on timeout
             or other transient errors
-        strip_attachment_payloads (bool): Replace attachment payloads in
-            failure report samples with None
+        strip_attachment_payloads (bool): Remove attachment payloads from
+            failure report results
         batch_size (int): Number of messages to read and process before saving
-        since: Search for messages since certain time
+        since: Search for messages since a certain time
         normalize_timespan_threshold_hours (float): Normalize timespans beyond this
         config_reloading: Optional callable that returns True when a config
             reload (or shutdown) has been requested (e.g. via SIGHUP/SIGTERM).
@@ -3449,7 +3559,7 @@ def email_results(
         mail_from: The value of the message from header
         mail_to (list): A list of addresses to mail to
         mail_cc (list): A list of addresses to CC
-        mail_bcc (list): A list addresses to BCC
+        mail_bcc (list): A list of addresses to BCC
         port (int): Port to use
         require_encryption (bool): Require a secure connection from the start
         verify (bool): verify the SSL/TLS certificate
@@ -3508,7 +3618,7 @@ def email_results_via_msgraph(
             Graph mailbox connection
         mail_to (list): A list of addresses to mail to
         mail_cc (list): A list of addresses to CC
-        mail_bcc (list): A list addresses to BCC
+        mail_bcc (list): A list of addresses to BCC
         subject (str): Overrides the default message subject
         attachment_filename (str): Override the default attachment filename
         message (str): Override the default plain text body

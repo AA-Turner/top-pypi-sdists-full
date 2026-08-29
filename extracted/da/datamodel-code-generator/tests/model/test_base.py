@@ -69,12 +69,15 @@ from datamodel_code_generator.model.pydantic_base import DataModelField as Pydan
 from datamodel_code_generator.model.pydantic_v2 import BaseModel
 from datamodel_code_generator.model.pydantic_v2 import DataModelField as PydanticV2DataModelField
 from datamodel_code_generator.model.pydantic_v2.base_model import (
+    Constraints as PydanticV2Constraints,
+)
+from datamodel_code_generator.model.pydantic_v2.base_model import (
     _safe_config_dict_items,
     _strip_legacy_pydantic_extra_post_class_assignment,
 )
 from datamodel_code_generator.model.pydantic_v2.dataclass import DataClass as PydanticDataclassModel
 from datamodel_code_generator.model.pydantic_v2.dataclass import DataModelField as PydanticDataclassField
-from datamodel_code_generator.model.pydantic_v2.imports import IMPORT_FIELD, IMPORT_MISSING
+from datamodel_code_generator.model.pydantic_v2.imports import IMPORT_CONSTR, IMPORT_FIELD, IMPORT_MISSING
 from datamodel_code_generator.model.runtime_validation import (
     RequiredGroupsRule,
     SchemaRuntimeValidation,
@@ -981,6 +984,93 @@ def test_pydantic_v2_base_model_create_typed_extra_field() -> None:
     assert field.required is True
 
 
+@pytest.mark.parametrize(
+    ("dict_key", "is_supported"),
+    [
+        pytest.param(
+            DataType(type="constr", is_func=True, kwargs={"pattern": "^[a-z]+$"}, import_=IMPORT_CONSTR),
+            True,
+            id="constrained-string",
+        ),
+        pytest.param(DataType(literals=["named"]), True, id="string-literal"),
+        pytest.param(DataType(literals=[1]), False, id="non-string-literal"),
+        pytest.param(DataType(type="int", literals=["named"]), False, id="integer-with-string-literal"),
+        pytest.param(DataType(type="str"), False, id="plain-string"),
+        pytest.param(DataType(type="int"), False, id="integer"),
+        pytest.param(DataType(type="bool"), False, id="boolean"),
+        pytest.param(DataType(type="constr", import_=IMPORT_CONSTR), False, id="unconfigured-constr"),
+        pytest.param(DataType(enum_member_literals=[("Key", "member")]), False, id="enum-member-literal"),
+        pytest.param(DataType(is_optional=True), False, id="optional"),
+        pytest.param(DataType(is_dict=True), False, id="dict"),
+        pytest.param(DataType(is_list=True), False, id="list"),
+        pytest.param(DataType(is_set=True), False, id="set"),
+        pytest.param(DataType(is_frozen_set=True), False, id="frozen-set"),
+        pytest.param(DataType(is_mapping=True), False, id="mapping"),
+        pytest.param(DataType(is_sequence=True), False, id="sequence"),
+        pytest.param(DataType(is_tuple=True), False, id="tuple"),
+        pytest.param(
+            DataType(data_types=[DataType(type="str"), DataType(type="int")]),
+            False,
+            id="compound",
+        ),
+    ],
+)
+def test_pydantic_v2_base_model_typed_extra_dict_key_capability(
+    dict_key: DataType,
+    is_supported: bool,
+) -> None:
+    """Test Pydantic v2 keeps only supported typed-extra key types."""
+    data_type = DataType(data_types=[DataType(type="int")], is_dict=True, dict_key=dict_key)
+
+    field = BaseModel.create_typed_extra_field(
+        field_model=PydanticV2DataModelField,
+        data_type=data_type,
+    )
+
+    if not is_supported:
+        assert field.data_type.dict_key is None
+    else:
+        assert field.data_type.dict_key is dict_key
+
+
+def test_pydantic_v2_base_model_typed_extra_dict_key_capability_unregisters_references() -> None:
+    """Test discarded typed-extra key types leave no reverse-reference registration."""
+    reference = Reference(path="Key", original_name="Key", name="Key")
+    nested_data_type = DataType(reference=reference)
+    dict_key = DataType(data_types=[nested_data_type])
+    data_type = DataType(data_types=[DataType(type="int")], is_dict=True, dict_key=dict_key)
+
+    BaseModel.create_typed_extra_field(
+        field_model=PydanticV2DataModelField,
+        data_type=data_type,
+    )
+
+    assert data_type.dict_key is None
+    assert dict_key.parent is None
+    assert nested_data_type.parent is None
+    assert nested_data_type not in reference.children
+
+
+def test_pydantic_v2_base_model_typed_extra_dict_key_capability_fails_closed() -> None:
+    """Test typed-extra key constraints are discarded without a backend capability."""
+
+    class NoKeyCapabilityBaseModel(BaseModel):
+        _TYPED_EXTRA_DICT_KEY_CAPABILITY = None
+
+    data_type = DataType(
+        data_types=[DataType(type="int")],
+        is_dict=True,
+        dict_key=DataType(type="constr", is_func=True, kwargs={"pattern": "^[a-z]+$"}, import_=IMPORT_CONSTR),
+    )
+
+    field = NoKeyCapabilityBaseModel.create_typed_extra_field(
+        field_model=PydanticV2DataModelField,
+        data_type=data_type,
+    )
+
+    assert field.data_type.dict_key is None
+
+
 def test_data_model_dedup_key_uses_model_base_to_hashable_seam(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test DataModel deduplication resolves to_hashable through model.base."""
     calls: list[object] = []
@@ -1384,6 +1474,87 @@ def test_pydantic_v2_field_render_plan_preserves_explicit_null_default() -> None
     assert str(field) == "Field(None)"
     assert field.field == "Field(default=None)"
     assert field.annotated == "Annotated[None, Field(None)]"
+
+
+def test_pydantic_v2_empty_field_render_plan_is_shared_for_builtin_fields() -> None:
+    """Built-in fields without Field() syntax share one immutable empty plan."""
+    first = PydanticV2DataModelField(name="first", data_type=DataType(type="str"), required=True)
+    second = PydanticV2DataModelField(name="second", data_type=DataType(type="int"), required=True)
+    BaseModel(
+        fields=[first, second],
+        reference=Reference(path="Model", name="Model"),
+    )
+
+    first_plan = first._get_field_render_plan()
+
+    assert first_plan is second._get_field_render_plan()
+    assert not first_plan.rendered
+    assert first_plan.assignment is None
+    assert first_plan.arguments == ()
+    assert first_plan.default_factory is None
+    assert first.imports == ()
+
+
+def test_pydantic_v2_empty_field_render_plan_falls_back_for_extensions_and_field_syntax() -> None:
+    """Custom templates, subclasses, and Field() features retain the conventional plan."""
+    plain = PydanticV2DataModelField(name="plain", data_type=DataType(type="str"), required=True)
+    BaseModel(fields=[plain], reference=Reference(path="Plain", name="Plain"))
+    shared_plan = plain._get_field_render_plan()
+
+    hook_calls = 0
+
+    class CustomField(PydanticV2DataModelField):
+        def _get_field_render_plan(self) -> Any:
+            nonlocal hook_calls
+            hook_calls += 1
+            return super()._get_field_render_plan()
+
+    custom_field = CustomField(name="custom", data_type=DataType(type="str"), required=True)
+    custom_template_field = PydanticV2DataModelField(
+        name="custom_template",
+        data_type=DataType(type="str"),
+        required=True,
+    )
+    constrained_field = PydanticV2DataModelField(
+        name="constrained",
+        data_type=DataType(type="str"),
+        required=False,
+        constraints=PydanticV2Constraints(minLength=1),
+    )
+    alias_field = PydanticV2DataModelField(
+        name="alias",
+        data_type=DataType(type="str"),
+        required=False,
+        alias="alias-value",
+    )
+    for field, model in (
+        (
+            custom_field,
+            BaseModel(fields=[custom_field], reference=Reference(path="Custom", name="Custom")),
+        ),
+        (
+            custom_template_field,
+            BaseModel(
+                fields=[custom_template_field],
+                reference=Reference(path="CustomTemplate", name="CustomTemplate"),
+                custom_template_dir=Path(__file__).parents[1] / "data" / "templates_extensions",
+            ),
+        ),
+        (
+            constrained_field,
+            BaseModel(fields=[constrained_field], reference=Reference(path="Constrained", name="Constrained")),
+        ),
+        (
+            alias_field,
+            BaseModel(fields=[alias_field], reference=Reference(path="Alias", name="Alias")),
+        ),
+    ):
+        assert field.parent is model
+        assert field._get_field_render_plan() is not shared_plan
+
+    assert hook_calls == 1
+    assert str(constrained_field) == "Field(None, min_length=1)"
+    assert str(alias_field) == "Field(None, alias='alias-value')"
 
 
 def test_pydantic_field_render_plan_preserves_required_nullable_marker() -> None:

@@ -15,6 +15,7 @@ from temporalio.testing import WorkflowEnvironment
 from mistralai.workflows.core._registration.execution_registration_interceptor import (
     ExecutionRegistrationInterceptor,
     _hash_token,
+    _resolve_search_key_metadata,
 )
 from mistralai.workflows.core._registration.registration_activity import (
     _register_execution,
@@ -34,7 +35,11 @@ from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 from . import fixtures_execution_registration as _fixtures
 from .fixtures_execution_registration import (
     ChildWorkflow,
+    CoercedSearchKeyWorkflow,
     ContinueAsNewWorkflow,
+    DefaultMultiParamSearchKeyWorkflow,
+    DefaultScalarSearchKeyWorkflow,
+    DefaultSingleParamSearchKeyWorkflow,
     IterationInput,
     MixedScalarModelSearchKeyWorkflow,
     MultiParamSearchKeyWorkflow,
@@ -434,3 +439,65 @@ class TestExecutionRegistration:
         payload = SearchKeyInput(id="sbm-1", customer=SearchKeyCustomer(name="acme", tier=2)).model_dump()
         metadata = await _run_and_get_search_key_metadata(SingleBaseModelSearchKeyWorkflow, payload)
         assert metadata == {"id": "sbm-1", "customer.name": "acme", "customer.tier": "2"}
+
+
+class TestSearchKeyResolution:
+    """Metadata reflects the validated input, not the raw caller JSON.
+
+    The registration interceptor validates against the input model before extracting,
+    so omitted defaults are filled in and values are coerced to their declared types —
+    matching what the workflow actually runs with.
+    """
+
+    @pytest.mark.asyncio
+    async def test_multi_param_all_defaults_omitted_yields_defaults(self) -> None:
+        # Caller passes {} → id="hi" and payload.id="hey" are resolved from defaults.
+        metadata = await _run_and_get_search_key_metadata(DefaultMultiParamSearchKeyWorkflow, {})
+        assert metadata == {"id": "hi", "payload.id": "hey"}
+
+    @pytest.mark.asyncio
+    async def test_multi_param_partial_default_supplied_overrides_default(self) -> None:
+        # Caller supplies payload.id but omits top-level "id" default →
+        # payload.id from caller, id from default.
+        metadata = await _run_and_get_search_key_metadata(DefaultMultiParamSearchKeyWorkflow, {"payload": {"id": "x"}})
+        assert metadata == {"id": "hi", "payload.id": "x"}
+
+    @pytest.mark.asyncio
+    async def test_multi_param_all_supplied_extracts_both(self) -> None:
+        # Both supplied → both extracted (sanity check that the paths work).
+        metadata = await _run_and_get_search_key_metadata(
+            DefaultMultiParamSearchKeyWorkflow, {"id": "y", "payload": {"id": "x"}}
+        )
+        assert metadata == {"id": "y", "payload.id": "x"}
+
+    @pytest.mark.asyncio
+    async def test_single_param_default_field_omitted_yields_defaults(self) -> None:
+        # Single BaseModel param: paths root at fields. Caller passes {} →
+        # the model default resolves id="hey" and note="default-note".
+        metadata = await _run_and_get_search_key_metadata(DefaultSingleParamSearchKeyWorkflow, {})
+        assert metadata == {"id": "hey", "note": "default-note"}
+
+    @pytest.mark.asyncio
+    async def test_single_param_default_field_partially_supplied(self) -> None:
+        # Caller supplies id but omits note → id from caller, note from default.
+        metadata = await _run_and_get_search_key_metadata(DefaultSingleParamSearchKeyWorkflow, {"id": "z"})
+        assert metadata == {"id": "z", "note": "default-note"}
+
+    @pytest.mark.asyncio
+    async def test_scalar_param_default_omitted_yields_default(self) -> None:
+        # Caller passes {} → city default "paris" is resolved from the input model.
+        metadata = await _run_and_get_search_key_metadata(DefaultScalarSearchKeyWorkflow, {})
+        assert metadata == {"city": "paris"}
+
+    @pytest.mark.asyncio
+    async def test_values_are_coerced_to_declared_types(self) -> None:
+        # int 1 → float 1.0, and the timestamp is normalized to ISO 8601 with an offset.
+        metadata = await _run_and_get_search_key_metadata(
+            CoercedSearchKeyWorkflow, {"ratio": 1, "when": "2024-01-01T00:00:00Z"}
+        )
+        assert metadata == {"ratio": "1.0", "when": "2024-01-01T00:00:00+00:00"}
+
+    def test_unvalidatable_input_yields_no_metadata(self) -> None:
+        # Registration must survive input the model rejects; the run wrapper reports the real error.
+        wf = get_workflow_definition(CoercedSearchKeyWorkflow)
+        assert _resolve_search_key_metadata(wf.name, [{"ratio": "not-a-number"}]) == {}

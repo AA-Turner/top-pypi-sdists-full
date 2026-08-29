@@ -1,12 +1,12 @@
 Metadata-Version: 2.5
 Name: airbyte
-Version: 0.58.0
+Version: 0.58.1
 Summary: PyAirbyte
 Author-email: Airbyte <contact@airbyte.io>
 License-File: LICENSE.md
 Requires-Python: <3.13,>=3.10
 Requires-Dist: airbyte-api<1.0,>=0.53.0
-Requires-Dist: airbyte-cdk<8.0.0,>=7.21.1
+Requires-Dist: airbyte-cdk<8.0.0,>=7.28.3
 Requires-Dist: airbyte-protocol-models-pdv2<1.0,>=0.13.0
 Requires-Dist: cryptography!=45.0.0,!=45.0.1,<47.0.0,>=44.0.0
 Requires-Dist: cyclopts<5.0,>=4.0

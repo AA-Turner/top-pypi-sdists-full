@@ -34,6 +34,7 @@ __all__ = (
     "ListMicrovmImageVersionsPaginatorName",
     "ListMicrovmImagesPaginatorName",
     "ListMicrovmsPaginatorName",
+    "ManagedMicrovmImageVersionStatusType",
     "MicrovmImageStateType",
     "MicrovmImageVersionStateType",
     "MicrovmImageVersionStatusType",
@@ -55,6 +56,7 @@ ListMicrovmImageBuildsPaginatorName = Literal["list_microvm_image_builds"]
 ListMicrovmImageVersionsPaginatorName = Literal["list_microvm_image_versions"]
 ListMicrovmImagesPaginatorName = Literal["list_microvm_images"]
 ListMicrovmsPaginatorName = Literal["list_microvms"]
+ManagedMicrovmImageVersionStatusType = Literal["AVAILABLE", "DEPRECATED"]
 MicrovmImageStateType = Literal[
     "CREATED",
     "CREATE_FAILED",

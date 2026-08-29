@@ -21579,6 +21579,41 @@ class InsufficientExecutionStackException(System.SystemException):
         ...
 
 
+class ArgIterator:
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self, arglist: System.RuntimeArgumentHandle) -> None:
+        ...
+
+    @overload
+    def __init__(self, arglist: System.RuntimeArgumentHandle, ptr: typing.Any) -> None:
+        ...
+
+    def end(self) -> None:
+        ...
+
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def get_next_arg(self) -> System.TypedReference:
+        ...
+
+    @overload
+    def get_next_arg(self, rth: System.RuntimeTypeHandle) -> System.TypedReference:
+        ...
+
+    def get_next_arg_type(self) -> System.RuntimeTypeHandle:
+        ...
+
+    def get_remaining_count(self) -> int:
+        ...
+
+
 class UriTypeConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 

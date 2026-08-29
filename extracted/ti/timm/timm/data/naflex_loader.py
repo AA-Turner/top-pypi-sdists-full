@@ -208,6 +208,11 @@ class NaFlexPrefetchLoader:
         return self.loader.sampler
 
     @property
+    def batch_sampler(self):
+        """Get batch sampler from underlying loader."""
+        return self.loader.batch_sampler
+
+    @property
     def dataset(self):
         """Get dataset from underlying loader.
 
@@ -311,7 +316,7 @@ def create_naflex_loader(
         pin_memory: Whether to pin memory.
         img_dtype: Image data type.
         device: Device to move tensors to.
-        persistent_workers: Whether to use persistent workers.
+        persistent_workers: Whether to use persistent workers when ``num_workers`` is greater than zero.
         worker_seeding: Worker seeding mode.
         patchify_channels_last: Per-patch flat layout. ``True`` (default):
             channel index varies fastest (NaFlex default). ``False``: C-P-P
@@ -387,7 +392,7 @@ def create_naflex_loader(
             sampler=None,
             pin_memory=pin_memory,
             worker_init_fn=partial(_worker_init, worker_seeding=worker_seeding),
-            persistent_workers=persistent_workers
+            persistent_workers=persistent_workers and num_workers > 0,
         )
 
         if use_prefetcher:
@@ -438,6 +443,7 @@ def create_naflex_loader(
             collate_fn=collate_fn,
             pin_memory=pin_memory,
             drop_last=False,
+            persistent_workers=persistent_workers and num_workers > 0,
         )
 
         if use_prefetcher:

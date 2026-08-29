@@ -208,6 +208,44 @@ def _query_meta(worker: dict, model_key: str, payload: Any, *,
     return tok_s, meta
 
 
+def _record_model_metrics(worker: dict, model_key: str,
+                          tok_s: Optional[float], meta: Dict[str, Any]) -> None:
+    """Fold one completed relay into comms.model_metrics (the EMA store behind
+    group-member ranking). Fail-open like everything on this path.
+
+    Two records, each only when its facts are actually present:
+    ``record_call`` needs just the completion token count; the tok/s half of
+    ``record_load`` additionally needs a MEASURED rate (an ``estimate``-source
+    rate is a guess, not a measurement — never EMA'd), a derivable variant
+    (from the worker row's serving-contract fields, when it carries them), and
+    a known warm/cold at pick. Missing any of those, that record is silently
+    skipped: unrecorded beats misfiled. The upload_time_s half is the load
+    path's to record, not this seam's.
+    """
+    try:
+        from ...comms.model_metrics import derive_variant, model_metrics_store
+        completion_tokens = meta.get("completion_tokens")
+        if completion_tokens:
+            model_metrics_store.record_call(model_key, float(completion_tokens))
+        if tok_s is None or meta.get("estimated"):
+            return
+        warm = meta.get("warm_at_pick")
+        if warm is None:
+            return
+        variant = derive_variant(
+            worker.get("n_gpu_layers"), worker.get("total_layers"),
+            moe_capable=bool(worker.get("moe_capable")))
+        if variant is None:
+            return
+        card = f"{worker.get('name') or worker.get('id')}:0"
+        model_metrics_store.record_load(
+            model_key, variant, card, "hot" if warm else "cold",
+            tok_per_s=float(tok_s))
+    except Exception:  # noqa: BLE001 — recording must never fail a request
+        logger.debug("model-metrics recording skipped for %s", model_key,
+                     exc_info=True)
+
+
 def _record_serve_metrics(worker: Optional[dict], model_key: str,
                           payload: Any, **ctx: Any) -> None:
     """Extract tok/s from a worker reply and stamp the ledger + query log.
@@ -222,14 +260,18 @@ def _record_serve_metrics(worker: Optional[dict], model_key: str,
     ``_query_meta``; an old-style call with only the payload still records the
     engine rate exactly as before.
     """
-    if _serve_metrics_sink is None or not worker:
+    if not worker:
         return
     try:
         wid = worker.get("id")
         if not wid:
             return
         tok_s, meta = _query_meta(worker, model_key, payload, **ctx)
-        if tok_s is None:
+        # model_metrics rides every completed relay, sink or no sink — its
+        # record_call half only needs the token count, which _query_meta
+        # extracts even when no rate was derivable.
+        _record_model_metrics(worker, model_key, tok_s, meta)
+        if _serve_metrics_sink is None or tok_s is None:
             return
         _serve_metrics_sink(wid, model_key, tok_s, **meta)
     except Exception:  # noqa: BLE001 — recording must never fail a request
@@ -402,7 +444,13 @@ def _select(model_key: str, pool: Optional[str] = None,
                         model_key, plan["worker"].get("id"),
                         (plan.get("spill") or {}).get("rpc_servers"))
             return plan["worker"], (plan.get("spill") or None)
-    return _pick_worker(model_key, pool, task, require_comfy_id_lock), None
+    _w = _pick_worker(model_key, pool, task, require_comfy_id_lock)
+    if _w is not None:
+        # WARNING for the placement audit trail (2026-08-28): the chosen box,
+        # so a mis-landed request can be traced to ITS selection, not guessed.
+        logger.warning("select: %s -> %s", model_key,
+                       _w.get("name") or _w.get("id"))
+    return _w, None
 
 
 def _requested_worker_name(req) -> Optional[str]:
@@ -721,14 +769,22 @@ def _reserve_once(model_key: str, pool: Optional[str], primary_worker: dict,
     if slot is not None:
         return slot
     primary_id = (primary_worker or {}).get("id")
-    for alt in _candidates(model_key, pool, task):
+    alts = _candidates(model_key, pool, task)
+    # WARNING on purpose (say-why, coder-next/computron 2026-08-28): a reroute
+    # off the primary is a PLACEMENT decision the operator reads post-hoc, and
+    # the alternates list is the fact that explains it.
+    if alts and any(a.get("id") != primary_id for a in alts):
+        logger.warning("relay reroute walk for %s: primary=%s at cap, "
+                       "alternates=%s", model_key, primary_id,
+                       [a.get("name") or a.get("id") for a in alts])
+    for alt in alts:
         if alt.get("id") == primary_id:
             continue
         slot = _try_reserve(alt, _spill_for(alt.get("id"), model_key),
                             model_key, viable)
         if slot is not None:
-            logger.info("relay reroute: %s at cap for %s -> %s (cap-aware)",
-                        primary_id, model_key, alt.get("id"))
+            logger.warning("relay reroute: %s at cap for %s -> %s (cap-aware)",
+                           primary_id, model_key, alt.get("id"))
             return slot
     return None
 

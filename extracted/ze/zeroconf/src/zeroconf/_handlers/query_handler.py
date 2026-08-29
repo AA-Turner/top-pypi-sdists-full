@@ -61,6 +61,8 @@ _IPVersion_ALL = IPVersion.All
 
 _int = int
 _str = str
+_ServiceInfo = ServiceInfo
+_DNSIncoming = DNSIncoming
 
 _ANSWER_STRATEGY_SERVICE_TYPE_ENUMERATION = 0
 _ANSWER_STRATEGY_POINTER = 1
@@ -212,7 +214,7 @@ class QueryHandler:
 
     def _add_service_type_enumeration_query_answers(
         self,
-        types: list[str],
+        types: list[_str],
         answer_set: _AnswerWithAdditionalsType,
         known_answers: DNSRRSet,
     ) -> None:
@@ -234,7 +236,7 @@ class QueryHandler:
 
     def _add_pointer_answers(
         self,
-        services: list[ServiceInfo],
+        services: list[_ServiceInfo],
         answer_set: _AnswerWithAdditionalsType,
         known_answers: DNSRRSet,
     ) -> None:
@@ -253,7 +255,7 @@ class QueryHandler:
 
     def _add_address_answers(
         self,
-        services: list[ServiceInfo],
+        services: list[_ServiceInfo],
         answer_set: _AnswerWithAdditionalsType,
         known_answers: DNSRRSet,
         type_: _int,
@@ -262,30 +264,31 @@ class QueryHandler:
         for service in services:
             answers: list[DNSAddress] = []
             additionals: set[DNSRecord] = set()
-            seen_types: set[int] = set()
+            type_seen = False
             for dns_address in service._dns_addresses(None, _IPVersion_ALL):
-                seen_types.add(dns_address.type)
                 if dns_address.type != type_:
                     additionals.add(dns_address)
-                elif not known_answers.suppresses(dns_address):
-                    answers.append(dns_address)
-            missing_types: set[int] = _ADDRESS_RECORD_TYPES - seen_types
+                else:
+                    type_seen = True
+                    if not known_answers.suppresses(dns_address):
+                        answers.append(dns_address)
             if answers:
-                if missing_types:
-                    assert service.server is not None, "Service server must be set for NSEC record."
-                    additionals.add(service._dns_nsec(list(missing_types), None))
+                nsec = service._dns_address_nsec(None)
+                if nsec is not None:
+                    additionals.add(nsec)
                 for answer in answers:
                     answer_set[answer] = additionals
-            elif type_ in missing_types:
-                assert service.server is not None, "Service server must be set for NSEC record."
-                answer_set[service._dns_nsec(list(missing_types), None)] = set()
+            elif not type_seen and type_ in _ADDRESS_RECORD_TYPES:
+                nsec = service._dns_address_nsec(None)
+                if nsec is not None:
+                    answer_set[nsec] = set()
 
     def _answer_question(
         self,
         question: DNSQuestion,
         strategy_type: _int,
-        types: list[str],
-        services: list[ServiceInfo],
+        types: list[_str],
+        services: list[_ServiceInfo],
         known_answers: DNSRRSet,
     ) -> _AnswerWithAdditionalsType:
         """Answer a question."""
@@ -313,7 +316,7 @@ class QueryHandler:
         return answer_set
 
     def async_response(  # pylint: disable=unused-argument
-        self, msgs: list[DNSIncoming], ucast_source: bool
+        self, msgs: list[_DNSIncoming], ucast_source: bool
     ) -> QuestionAnswers | None:
         """Deal with incoming query packets. Provides a response if possible.
 
@@ -435,7 +438,7 @@ class QueryHandler:
 
     def handle_assembled_query(
         self,
-        packets: list[DNSIncoming],
+        packets: list[_DNSIncoming],
         addr: _str,
         port: _int,
         transport: _WrappedTransport,

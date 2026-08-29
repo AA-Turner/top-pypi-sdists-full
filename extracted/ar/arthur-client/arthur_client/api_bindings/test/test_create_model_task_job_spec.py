@@ -47,7 +47,6 @@ class TestCreateModelTaskJobSpec(unittest.TestCase):
                         apply_to_response = True, 
                         config = null, )
                     ],
-                task_type = 'traditional',
                 initial_metrics = [
                     arthur_client.api_bindings.models.new_metric_request.NewMetricRequest(
                         type = 'QueryRelevance', 
@@ -75,15 +74,6 @@ class TestCreateModelTaskJobSpec(unittest.TestCase):
                         apply_to_prompt = True, 
                         apply_to_response = True, 
                         config = null, )
-                    ],
-                initial_metrics = [
-                    arthur_client.api_bindings.models.new_metric_request.NewMetricRequest(
-                        type = 'QueryRelevance', 
-                        name = '', 
-                        metric_metadata = '', 
-                        config = arthur_client.api_bindings.models.relevance_metric_config.RelevanceMetricConfig(
-                            relevance_threshold = 1.337, 
-                            use_llm_judge = True, ), )
                     ],
         )
         """

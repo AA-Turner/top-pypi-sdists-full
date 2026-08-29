@@ -7,20 +7,18 @@ from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
     Generic,
-    TypeAlias,
     TypeGuard,
     cast,
     get_origin,
 )
 
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, deprecated
 
 from xdsl.ir import (
     Attribute,
     AttributeCovT,
     AttributeInvT,
     ParametrizedAttribute,
-    TypedAttribute,
 )
 from xdsl.utils.exceptions import PyRDLError, VerifyException
 from xdsl.utils.runtime_final import is_runtime_final
@@ -82,11 +80,6 @@ class ConstraintContext:
 _AttributeCovT = TypeVar(
     "_AttributeCovT", bound=Attribute, default=Attribute, covariant=True
 )
-
-ConstraintVariableType: TypeAlias = Attribute | Sequence[Attribute] | int
-"""
-Possible types that a constraint variable can have.
-"""
 
 
 @dataclass(frozen=True)
@@ -179,15 +172,6 @@ class AttrConstraint(ABC, Generic[AttributeCovT]):
         raise NotImplementedError(
             "Custom constraints must map type vars in nested constraints, if any."
         )
-
-
-ConstraintVariableTypeT = TypeVar(
-    "ConstraintVariableTypeT", bound=ConstraintVariableType
-)
-
-
-TypedAttributeCovT = TypeVar("TypedAttributeCovT", bound=TypedAttribute, covariant=True)
-TypedAttributeT = TypeVar("TypedAttributeT", bound=TypedAttribute)
 
 
 @dataclass(frozen=True)
@@ -327,6 +311,57 @@ class EqAttrConstraint(AttrConstraint[AttributeCovT], Generic[AttributeCovT]):
     def get_bases(self) -> set[type[Attribute]] | None:
         return {type(self.attr)}
 
+    def relax_constraint(
+        self, other: AttrConstraint[AttributeCovT]
+    ) -> AttrConstraint[AttributeCovT] | None:
+        if isinstance(other, AttrSetConstraint):
+            return AttrSetConstraint.get(self.attr, *other.values)
+        if isinstance(other, EqAttrConstraint):
+            return AttrSetConstraint.get(self.attr, other.attr)
+
+    def mapping_type_vars(
+        self, type_var_mapping: Mapping[TypeVar, AttrConstraint | IntConstraint]
+    ) -> AttrConstraint[AttributeCovT]:
+        return self
+
+
+@dataclass(frozen=True)
+class AttrSetConstraint(AttrConstraint[AttributeCovT], Generic[AttributeCovT]):
+    """Constrain an attribute to be one of a set of attributes."""
+
+    values: frozenset[AttributeCovT]
+
+    def __repr__(self) -> str:
+        return f"AttrSetConstraint({{{', '.join(sorted(str(value) for value in self.values))}}})"
+
+    @staticmethod
+    def get(*values: AttributeInvT) -> AttrConstraint[AttributeInvT]:
+        s = frozenset(values)
+        if len(s) == 1:
+            return EqAttrConstraint(values[0])
+        return AttrSetConstraint(s)
+
+    def verify(
+        self,
+        attr: Attribute,
+        constraint_context: ConstraintContext,
+    ) -> None:
+        if attr not in self.values:
+            raise VerifyException(
+                f"Expected one of {', '.join(sorted(str(value) for value in self.values))}, but got {attr}"
+            )
+
+    def get_bases(self) -> set[type[Attribute]] | None:
+        return {type(attr) for attr in self.values}
+
+    def relax_constraint(
+        self, other: AttrConstraint[AttributeCovT]
+    ) -> AttrConstraint[AttributeCovT] | None:
+        if isinstance(other, AttrSetConstraint):
+            return AttrSetConstraint.get(*self.values, *other.values)
+        if isinstance(other, EqAttrConstraint):
+            return AttrSetConstraint.get(*self.values, other.attr)
+
     def mapping_type_vars(
         self, type_var_mapping: Mapping[TypeVar, AttrConstraint | IntConstraint]
     ) -> AttrConstraint[AttributeCovT]:
@@ -403,7 +438,6 @@ class AnyOf(AttrConstraint[AttributeCovT], Generic[AttributeCovT]):
     This abstract attribute type is not runtime-final (i.e., does not have the `@irdl_attr_definition` decorator).
     """
 
-    _eq_constrs: set[Attribute] = field(hash=False, repr=False)
     _based_constrs: dict[type[Attribute], AttrConstraint[AttributeCovT]] = field(
         hash=False, repr=False
     )
@@ -446,10 +480,7 @@ class AnyOf(AttrConstraint[AttributeCovT], Generic[AttributeCovT]):
         self,
         attr_constrs: tuple[AttrConstraint[AttributeCovT], ...],
     ):
-        eq_constrs = set[Attribute]()
         based_constrs = dict[type[Attribute], AttrConstraint[AttributeCovT]]()
-
-        eq_bases = set[type[Attribute]]()
         abstr_constr: AttrConstraint[AttributeCovT] | None = None
         for i, c in enumerate(attr_constrs):
             b = c.get_bases()
@@ -469,36 +500,20 @@ class AnyOf(AttrConstraint[AttributeCovT], Generic[AttributeCovT]):
 
             if not b.isdisjoint(based_constrs.keys()):
                 raise PyRDLError(
-                    f"Constraint {c} shares a base with a non-equality constraint "
+                    f"Constraint {c} shares a base with a constraint "
                     f"in {set(attr_constrs[0:i])} in `AnyOf` constraint."
                 )
 
-            if isinstance(c, EqAttrConstraint):
-                eq_constrs.add(c.attr)
-                eq_bases |= b
-            else:
-                if not b.isdisjoint(eq_bases):
-                    raise PyRDLError(
-                        f"Non-equality constraint {c} shares a base with a constraint "
-                        f"in {set(attr_constrs[0:i])} in `AnyOf` constraint."
-                    )
-                for base in b:
-                    based_constrs[base] = c
+            for base in b:
+                based_constrs[base] = c
 
         # check for overlaps with the abstract constraint
         if abstr_constr is not None:
-            # equality constraints should not overlap
-            for attr in eq_constrs:
-                if isinstance(attr, abstr_constr.attr):
-                    raise PyRDLError(
-                        f"Equality constraint {EqAttrConstraint(attr)} overlaps with the "
-                        f"constraint {abstr_constr} in `AnyOf` constraint."
-                    )
             # bases should not overlap via issubclass
             for base in based_constrs.keys():
                 if issubclass(base, abstr_constr.attr):
                     raise PyRDLError(
-                        f"Non-equality constraint {based_constrs[base]} overlaps with "
+                        f"Constraint {based_constrs[base]} overlaps with "
                         f"the constraint {abstr_constr} in `AnyOf` constraint."
                     )
 
@@ -509,19 +524,12 @@ class AnyOf(AttrConstraint[AttributeCovT], Generic[AttributeCovT]):
         )
         object.__setattr__(
             self,
-            "_eq_constrs",
-            eq_constrs,
-        )
-        object.__setattr__(
-            self,
             "_based_constrs",
             based_constrs,
         )
         object.__setattr__(self, "_abstr_constr", abstr_constr)
 
     def verify(self, attr: Attribute, constraint_context: ConstraintContext) -> None:
-        if attr in self._eq_constrs:
-            return
         constr = self._based_constrs.get(attr.__class__)
         if constr is not None:
             constr.verify(attr, constraint_context)
@@ -919,14 +927,18 @@ class IntSetConstraint(IntConstraint):
 
     values: frozenset[int]
 
+    def __repr__(self) -> str:
+        return f"IntSetConstraint({{{', '.join(str(x) for x in sorted(self.values))}}})"
+
     def verify(
         self,
         i: int,
         constraint_context: ConstraintContext,
     ) -> None:
         if i not in self.values:
-            set_str = set(self.values) if self.values else "{}"
-            raise VerifyException(f"Invalid value {i}, expected one of {set_str}")
+            raise VerifyException(
+                f"Invalid value {i}, expected one of {{{', '.join(str(x) for x in sorted(self.values))}}}"
+            )
 
     def can_infer(self, var_constraint_names: AbstractSet[str]) -> bool:
         return len(self.values) == 1
@@ -1175,6 +1187,26 @@ class RangeConstraint(ABC, Generic[AttributeCovT]):
 
 
 @dataclass(frozen=True)
+class AnyRange(RangeConstraint):
+    """
+    A constraint allowing any range.
+    """
+
+    def verify(
+        self, attrs: Sequence[Attribute], constraint_context: ConstraintContext
+    ) -> None:
+        return
+
+    def verify_length(self, length: int, constraint_context: ConstraintContext) -> None:
+        return
+
+    def mapping_type_vars(
+        self, type_var_mapping: Mapping[TypeVar, AttrConstraint | IntConstraint]
+    ) -> RangeConstraint:
+        return self
+
+
+@dataclass(frozen=True)
 class RangeLengthConstraint(RangeConstraint[AttributeCovT]):
     """
     Constrain an attribute range with the given length.
@@ -1344,6 +1376,7 @@ class RangeOf(RangeConstraint[AttributeCovT]):
         return RangeOf(self.constr.mapping_type_vars(type_var_mapping))
 
 
+@deprecated("Use `RangeOf(attr).of_length(1)` instead.")
 @dataclass(frozen=True)
 class SingleOf(RangeConstraint[AttributeCovT]):
     """
@@ -1380,5 +1413,5 @@ class SingleOf(RangeConstraint[AttributeCovT]):
 
     def mapping_type_vars(
         self, type_var_mapping: Mapping[TypeVar, AttrConstraint | IntConstraint]
-    ) -> SingleOf[AttributeCovT]:
-        return SingleOf(self.constr.mapping_type_vars(type_var_mapping))
+    ) -> RangeConstraint[AttributeCovT]:
+        return SingleOf(self.constr.mapping_type_vars(type_var_mapping))  # pyright: ignore [reportDeprecated]

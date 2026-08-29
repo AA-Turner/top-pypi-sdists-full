@@ -41,13 +41,28 @@ class TestAgentCreationSource(unittest.TestCase):
                 gcp_reasoning_engine_id = '',
                 service_names = [
                     ''
-                    ]
+                    ],
+                mdm = 'jamf_pro',
+                software_key = '',
+                device_key = '',
+                device_name = '',
+                device_group = '',
+                assigned_user = '',
+                os_version = '',
+                process_cmdline = '',
+                parent_process = '',
+                install_path = '',
+                version = '',
+                first_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                classification = ''
             )
         else:
             return AgentCreationSource(
                 gcp_project_id = '',
                 gcp_region = '',
                 gcp_reasoning_engine_id = '',
+                software_key = '',
+                device_key = '',
         )
         """
 

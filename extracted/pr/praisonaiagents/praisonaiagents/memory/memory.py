@@ -18,6 +18,7 @@ from .core import MemoryCoreMixin
 from .protocols import MemoryProtocol
 from .adapters import get_memory_adapter, get_first_available_memory_adapter
 from .adapters.sqlite_adapter import SqliteMemoryAdapter
+from .adapters.factories import sanitize_chroma_metadata
 
 # Disable litellm telemetry before any imports
 os.environ["LITELLM_TELEMETRY"] = "False"
@@ -979,19 +980,8 @@ class Memory(SearchMixin, MemoryCoreMixin):
     # -------------------------------------------------------------------------
     def _sanitize_metadata(self, metadata: Dict) -> Dict:
         """Sanitize metadata for ChromaDB - convert to acceptable types"""
-        sanitized = {}
-        for k, v in metadata.items():
-            if v is None:
-                continue
-            if isinstance(v, (str, int, float, bool)):
-                sanitized[k] = v
-            elif isinstance(v, dict):
-                # Convert dict to string representation
-                sanitized[k] = str(v)
-            else:
-                # Convert other types to string
-                sanitized[k] = str(v)
-        return sanitized
+        from .adapters.factories import sanitize_chroma_metadata
+        return sanitize_chroma_metadata(metadata)
 
     def store_long_term(
         self,
@@ -1549,13 +1539,17 @@ class Memory(SearchMixin, MemoryCoreMixin):
         elif memory_type == "long_term":
             return self.delete_long_term(memory_id)
         
-        # Search both types
-        if self.delete_short_term(memory_id):
-            return True
-        if self.delete_long_term(memory_id):
-            return True
-        
-        return False
+        # No tier given: delete from BOTH tiers, never short-circuit on the first
+        # hit. The SQLite adapter gives each tier its own AUTOINCREMENT sequence
+        # (sqlite_adapter.py:83 and :107), so the Nth short-term row and the Nth
+        # long-term row always share an id -- collision is the norm, not an edge
+        # case. Returning on the first hit therefore deleted an unrelated
+        # short-term row and left the caller's actual target in place, while
+        # reporting success. `forget()` exposes no tier argument at all, so a
+        # caller has no way to disambiguate.
+        deleted_short = self.delete_short_term(memory_id)
+        deleted_long = self.delete_long_term(memory_id)
+        return deleted_short or deleted_long
     
     def delete_memories(self, memory_ids: List[str]) -> int:
         """
@@ -2294,6 +2288,26 @@ class Memory(SearchMixin, MemoryCoreMixin):
 
     def get_all_memories(self) -> List[Dict[str, Any]]:
         """Get all memories from both short-term and long-term storage"""
+        # Delegate to the active adapter whenever one is configured, mirroring
+        # delete_short_term/reset_short_term. Data written through the adapter
+        # lives in short_term_memory/long_term_memory; the legacy SELECTs below
+        # target short_mem/long_mem, which nothing in the codebase creates, so
+        # they raise OperationalError, get swallowed, and return [] every time.
+        if (getattr(self, "memory_adapter", None)
+                and hasattr(self.memory_adapter, "get_all_memories")):
+            # Adapters expose the tier under different keys (the SQLite adapter
+            # uses `memory_type`, others may use `type`). The legacy path below
+            # returns `type`, so normalize to keep that public field populated
+            # for backward compatibility while retaining any adapter-specific
+            # keys the record already carries.
+            return [
+                {
+                    **record,
+                    "type": record.get("type") or record.get("memory_type"),
+                }
+                for record in self.memory_adapter.get_all_memories()
+            ]
+
         all_memories = []
         
         try:

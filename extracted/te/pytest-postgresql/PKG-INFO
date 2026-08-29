@@ -1,40 +1,41 @@
 Metadata-Version: 2.4
 Name: pytest-postgresql
-Version: 8.1.0
+Version: 9.0.0
 Summary: Postgresql fixtures and fixture factories for Pytest.
+Keywords: fixture,postgresql,pytest,tests
+Author: Grzegorz Śliwiński
 Author-email: Grzegorz Śliwiński <fizyk+pypi@fizyk.dev>
-Project-URL: Source, https://github.com/dbfixtures/pytest-postgresql
-Project-URL: Bug Tracker, https://github.com/dbfixtures/pytest-postgresql/issues
-Project-URL: Changelog, https://github.com/dbfixtures/pytest-postgresql/blob/v8.1.0/CHANGES.rst
-Keywords: tests,pytest,fixture,postgresql
+License-Expression: LGPL-3.0-or-later
+License-File: COPYING.lesser
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
+Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Classifier: Framework :: Pytest
-Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
-License-File: COPYING
-License-File: COPYING.lesser
-License-File: AUTHORS.rst
-Requires-Dist: pytest>=8.2
-Requires-Dist: port-for>=0.7.3
 Requires-Dist: mirakuru>=2.6.0
 Requires-Dist: packaging
+Requires-Dist: port-for>=0.7.3
 Requires-Dist: psycopg>=3.0.0
-Dynamic: license-file
+Requires-Dist: pytest>=8.2
+Requires-Dist: aiofiles>=23.0 ; extra == 'async'
+Requires-Dist: pytest-asyncio>=1.4 ; extra == 'async'
+Requires-Python: >=3.10
+Project-URL: Source, https://github.com/dbfixtures/pytest-postgresql
+Project-URL: Bug Tracker, https://github.com/dbfixtures/pytest-postgresql/issues
+Project-URL: Changelog, https://github.com/dbfixtures/pytest-postgresql/blob/v9.0.0/CHANGES.rst
+Provides-Extra: async
+Description-Content-Type: text/x-rst
 
 .. image:: https://raw.githubusercontent.com/dbfixtures/pytest-postgresql/main/logo.png
     :width: 100px
@@ -76,6 +77,57 @@ Quick Start
 
    You will also need to install ``psycopg`` (version 3). See `its installation instructions <https://www.psycopg.org/psycopg3/docs/basic/install.html>`_.
 
+   For async tests with ``psycopg.AsyncConnection``, install the optional async extra:
+
+   .. code-block:: sh
+
+       pip install pytest-postgresql[async]
+
+   This installs:
+
+   * ``pytest-asyncio`` (>= 1.4) — required for ``@pytest.mark.asyncio`` and
+     ``postgresql_async`` fixtures.
+   * ``aiofiles`` (>= 23.0) — required only when loading SQL files via the
+     async loader (``sql_async``).
+
+   On Windows, the plugin configures a ``SelectorEventLoop`` automatically for
+   asyncio tests when no earlier pytest-asyncio loop factory is registered.  This
+   is required because ``psycopg`` async is incompatible with the default
+   ``ProactorEventLoop`` on Windows (`documented by
+   psycopg <https://www.psycopg.org/psycopg3/docs/advanced/async.html>`_).  Without
+   it, ``postgresql_async`` tests fail with ``Psycopg cannot use the
+   'ProactorEventLoop' to run in async mode``.  No extra configuration is needed
+   when you install ``pytest-postgresql[async]``.
+
+   With ``pytest-asyncio`` >= 1.4 on Windows, the plugin registers a selector loop
+   factory via pytest-asyncio's loop-factory hook for **all** asyncio tests when
+   no prior factory is provided.  On Python 3.14+, the legacy ``asyncio`` policy
+   fallback is not used because that API is deprecated.
+
+   When an earlier hook implementation already supplies loop factories, those are
+   preserved unchanged.  Tests that use a prior factory may show different loop
+   names in pytest IDs (for example ``test_example[custom]`` instead of
+   ``test_example[selector]``).
+
+   If you use an older ``pytest-asyncio`` (< 1.4) on Windows with Python < 3.14,
+   the plugin falls back to setting a global ``WindowsSelectorEventLoopPolicy`` for
+   the **entire test session** — not only for postgresql async tests.  That can change
+   event-loop behaviour for unrelated asyncio tests in the same run.  Install
+   ``pytest-postgresql[async]`` (which pulls ``pytest-asyncio`` >= 1.4) to avoid
+   that legacy path.
+
+   **pytest-asyncio configuration**
+
+   pytest-asyncio 1.x defaults to ``asyncio_mode = strict``, so each async test must
+   be marked with ``@pytest.mark.asyncio``.  If you set ``asyncio_mode = auto`` in
+   ``pytest.ini`` or ``pyproject.toml``, unmarked async test functions are detected
+   automatically — ``postgresql_async`` still requires the ``[async]`` extra.
+
+   .. code-block:: ini
+
+       [pytest]
+       asyncio_mode = strict
+
    .. note::
 
        While this plugin requires ``psycopg`` 3 to manage the database, your application code can still use ``psycopg`` 2.
@@ -92,6 +144,21 @@ Quick Start
                cur.execute("CREATE TABLE test (id serial PRIMARY KEY, num integer, data varchar);")
                postgresql.commit()
 
+   For async code, use ``postgresql_async`` with ``pytest.mark.asyncio``:
+
+   .. code-block:: python
+
+       import pytest
+
+       @pytest.mark.asyncio
+       async def test_example_async(postgresql_async):
+           """Check main async postgresql fixture."""
+           async with postgresql_async.cursor() as cur:
+               await cur.execute(
+                   "CREATE TABLE test (id serial PRIMARY KEY, num integer, data varchar);"
+               )
+               await postgresql_async.commit()
+
 How to use
 ==========
 
@@ -103,7 +170,11 @@ How does it work
 ----------------
 
 .. image:: https://raw.githubusercontent.com/dbfixtures/pytest-postgresql/main/docs/images/architecture.svg
-    :alt: Project Architecture Diagram
+    :alt: Project Architecture Diagram (sync fixtures)
+    :align: center
+
+.. image:: https://raw.githubusercontent.com/dbfixtures/pytest-postgresql/main/docs/images/architecture_async.svg
+    :alt: Project Architecture Diagram (async fixtures)
     :align: center
 
 The plugin provides two main types of fixtures:
@@ -113,6 +184,42 @@ The plugin provides two main types of fixtures:
 
     * **postgresql** - A function-scoped fixture. It returns a connected ``psycopg.Connection``.
       After each test, it terminates leftover connections and drops the test database to ensure isolation.
+    * **postgresql_async** - The async counterpart. It returns a connected ``psycopg.AsyncConnection``.
+      Requires ``pytest-postgresql[async]`` (``pytest-asyncio`` >= 1.4), and each test must be
+      marked with ``@pytest.mark.asyncio``.
+
+**Async fixtures**
+    ``postgresql_async`` and custom factories created with ``factories.postgresql_async`` are
+    async generator fixtures using ``pytest_asyncio.fixture``.
+
+    Minimum versions when installing manually instead of via ``[async]``:
+
+    .. code-block:: text
+
+        pytest-asyncio >= 1.4
+        aiofiles >= 23.0        # only for async SQL file loading
+
+    If ``pytest-asyncio`` is missing, fixture setup raises ``ImportError``.
+
+    **Async SQL file loading**
+
+    Process and noproc fixtures always populate their template database
+    synchronously during session setup (via ``DatabaseJanitor.load()``), even when
+    you use ``postgresql_async`` as the client fixture.  SQL ``Path`` entries in a
+    process fixture ``load`` list are executed with the sync ``sql()`` loader.
+
+    Use ``sql_async`` (requires ``aiofiles`` from the ``[async]`` extra) when you
+    call ``AsyncDatabaseJanitor.load()`` directly with a ``Path``.  Callable loaders
+    passed to ``AsyncDatabaseJanitor.load()`` may be sync or async; return values
+    that are awaitable are awaited automatically.
+
+    .. code-block:: python
+
+        from pathlib import Path
+        from pytest_postgresql import factories
+
+        postgresql_my_proc = factories.postgresql_proc(load=[Path("schema.sql")])
+        postgresql_my_async = factories.postgresql_async("postgresql_my_proc")
 
 **2. Process Fixtures**
     These manage the PostgreSQL server lifecycle.
@@ -135,6 +242,9 @@ You can create additional fixtures using factories:
 
     # Create a client fixture that uses the custom process
     postgresql_my = factories.postgresql('postgresql_my_proc')
+
+    # Async client fixture (requires pytest-postgresql[async], pytest-asyncio >= 1.4)
+    postgresql_my_async = factories.postgresql_async('postgresql_my_proc')
 
 .. note::
 
@@ -171,18 +281,56 @@ Defining pre-population on the command line:
 
 .. code-block:: sh
 
-    pytest --postgresql-populate-template=path/to/file.sql --postgresql-populate-template=path.to.function
+    pytest --postgresql-load=path/to/file.sql --postgresql-load=path.to.function
+
+If a loaded ``.sql`` file contains statements that cannot run inside a transaction
+block (for example ``CREATE DATABASE``), enable autocommit on the loader connection.
+This can be set without writing a custom loader, via the factory argument, the command
+line, or ``pytest.ini``:
+
+.. code-block:: python
+
+    postgresql_my_proc = factories.postgresql_proc(load=[Path("with_create_db.sql")], load_autocommit=True)
+
+.. code-block:: sh
+
+    pytest --postgresql-load-autocommit
 
 Connecting to an existing PostgreSQL database
 ----------------------------------------------
 
 To connect to an external server (e.g., running in Docker), use the ``postgresql_noproc`` fixture.
 
+For async tests against an external server, create a client fixture with
+``factories.postgresql_async("postgresql_noproc")`` (see
+``tests/examples/test_drop_test_database_async.py``).
+
 .. code-block:: python
 
     postgresql_external = factories.postgresql('postgresql_noproc')
 
 By default, it connects to ``127.0.0.1:5432``.
+
+Using a maintenance database other than ``postgres``
+----------------------------------------------------
+
+Creating and dropping the test databases requires a connection to a database that already
+exists - by default ``postgres``. If the test role merely lacks the privilege,
+``GRANT CONNECT ON DATABASE postgres TO myuser`` is the simpler fix. When ``postgres`` is
+not reachable at all - behind a connection pooler with a fixed database list, or on a
+managed server that does not expose it - point the noproc fixture at another database:
+
+.. code-block:: sh
+
+    pytest --postgresql-maintenance-dbname=my_existing_db
+
+.. code-block:: python
+
+    postgresql_external = factories.postgresql_noproc(maintenance_dbname="my_existing_db")
+
+The database is only connected to, never created, modified or dropped. Avoid ``template1``:
+``CREATE DATABASE`` clones it when no template is given, and PostgreSQL does not expect the
+source database to be in use while it is being copied.
 
 Chaining fixtures
 -----------------
@@ -223,94 +371,130 @@ You can define settings via fixture factory arguments, command line options, or 
 .. list-table:: Configuration options
    :header-rows: 1
 
-   * - PostgreSQL option
-     - Fixture factory argument
+   * - Setting
+     - ``postgresql_proc`` argument
+     - ``postgresql_noproc`` argument
      - Command line option
      - pytest.ini option
-     - Noop process fixture
      - Default
    * - Path to executable
      - executable
+     - n/a
      - --postgresql-exec
      - postgresql_exec
-     - -
      - ``pg_config --bindir`` + ``pg_ctl``
    * - host
      - host
+     - host
      - --postgresql-host
      - postgresql_host
-     - yes
      - 127.0.0.1
    * - port
      - port
+     - port
      - --postgresql-port
      - postgresql_port
-     - yes (5432)
-     - random
+     - random (proc), 5432 (noproc)
    * - Port search count
-     -
+     - —
+     - n/a
      - --postgresql-port-search-count
      - postgresql_port_search_count
-     - -
      - 5
    * - postgresql user
      - user
+     - user
      - --postgresql-user
      - postgresql_user
-     - yes
      - postgres
    * - password
      - password
+     - password
      - --postgresql-password
      - postgresql_password
-     - yes
      -
    * - Starting parameters (extra pg_ctl arguments)
      - startparams
+     - n/a
      - --postgresql-startparams
      - postgresql_startparams
-     - -
      - -w
    * - Postgres exe extra arguments (passed via pg_ctl's -o argument)
      - postgres_options
+     - n/a
      - --postgresql-postgres-options
      - postgresql_postgres_options
-     - -
      -
    * - Location for unixsockets
      - unixsocket
+     - n/a
      - --postgresql-unixsocketdir
      - postgresql_unixsocketdir
-     - -
      - $TMPDIR
    * - Database name
      - dbname
+     - dbname (handles xdist)
      - --postgresql-dbname
      - postgresql_dbname
-     - yes (handles xdist)
-     - test
+     - tests
+   * - Maintenance database name
+     - n/a
+     - maintenance_dbname
+     - --postgresql-maintenance-dbname
+     - postgresql_maintenance_dbname
+     - postgres
    * - Default Schema (load list)
+     - load
      - load
      - --postgresql-load
      - postgresql_load
-     - yes
      -
+   * - Autocommit for the SQL loader connection
+     - load_autocommit
+     - load_autocommit
+     - --postgresql-load-autocommit
+     - postgresql_load_autocommit
+     - False
    * - PostgreSQL connection options
+     - options
      - options
      - --postgresql-options
      - postgresql_options
-     - yes
      -
    * - Drop test database on start
-     -
+     - —
+     - —
      - --postgresql-drop-test-database
      -
-     - -
      - false
+   * - Fixture to layer the template database on
+     - n/a
+     - depends_on
+     -
+     -
+     -
+
+``—`` means the setting applies to that fixture but has no factory argument;
+``n/a`` means the setting does not apply to that fixture at all.
 
 .. note::
 
-    If the ``executable`` is not provided, the plugin attempts to find it by calling ``pg_config``. If that fails, it fallbacks to a common path like ``/usr/lib/postgresql/13/bin/pg_ctl``.
+    If the ``executable`` factory argument is not provided, the plugin looks for ``pg_ctl`` first at
+    the configured path (``--postgresql-exec`` / the ``postgresql_exec`` ini option,
+    ``/usr/lib/postgresql/14/bin/pg_ctl`` by default), then in the directory reported by
+    ``pg_config --bindir``.
+
+    Only the ``executable`` factory argument is taken at face value; the other two are
+    verified to exist before being used. If neither is there, an ``ExecutableMissingException``
+    is raised listing the locations that were checked.
+
+.. note::
+
+    ``postgresql_proc`` starts and manages a PostgreSQL server for you, so it needs the
+    PostgreSQL **server** installed locally. Installing only the client libraries
+    (``libpq-dev`` on Debian/Ubuntu) provides ``pg_config`` but no ``pg_ctl``, and the plugin
+    will refuse to start. To test against a server you run yourself — a dockerised one, for
+    instance — use the ``postgresql_noproc`` fixture instead.
 
 Examples
 ========
@@ -366,7 +550,6 @@ Advanced Usage: DatabaseJanitor
             host=postgresql_proc.host,
             port=postgresql_proc.port,
             dbname="my_custom_db",
-            version=postgresql_proc.version,
             password="secret_password",
         ):
             with psycopg.connect(
@@ -377,6 +560,40 @@ Advanced Usage: DatabaseJanitor
                 password="secret_password",
             ) as conn:
                 # use connection
+                pass
+
+Advanced Usage: AsyncDatabaseJanitor
+------------------------------------
+
+``AsyncDatabaseJanitor`` is the async counterpart to ``DatabaseJanitor``.  Use it
+when managing database state with ``psycopg.AsyncConnection`` outside of standard
+fixtures.  It requires ``psycopg`` (a core dependency).  Install
+``pytest-postgresql[async]`` when you need ``aiofiles`` for SQL file loading via
+``sql_async``, or ``pytest-asyncio`` for pytest async tests.
+
+.. code-block:: python
+
+    import pytest
+    import psycopg
+    from pytest_postgresql.janitor import AsyncDatabaseJanitor
+
+    @pytest.mark.asyncio
+    async def test_manual_async_janitor(postgresql_proc):
+        async with AsyncDatabaseJanitor(
+            user=postgresql_proc.user,
+            host=postgresql_proc.host,
+            port=postgresql_proc.port,
+            dbname="my_custom_db",
+            password="secret_password",
+        ):
+            async with await psycopg.AsyncConnection.connect(
+                dbname="my_custom_db",
+                user=postgresql_proc.user,
+                host=postgresql_proc.host,
+                port=postgresql_proc.port,
+                password="secret_password",
+            ) as conn:
+                # use async connection
                 pass
 
 Connecting to PostgreSQL in Docker
@@ -432,12 +649,3 @@ You can define a ``load`` function and pass it to your process fixture factory:
             assert cur.fetchone()[0] == 2
 
 The process fixture populates the **template database** once, and the client fixture clones it for every test. This is fast, clean, and ensures no dangling transactions. This approach works with both ``postgresql_proc`` and ``postgresql_noproc``.
-
-Release
-=======
-
-Install ``pipenv`` and dev dependencies, then run:
-
-.. code-block:: sh
-
-    pipenv run tbump [NEW_VERSION]

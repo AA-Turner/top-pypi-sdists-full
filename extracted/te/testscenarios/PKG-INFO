@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: testscenarios
-Version: 0.6.2
+Version: 0.7.0
 Summary: Testscenarios, a unittest extension for dependency injection
 Project-URL: Homepage, https://github.com/testing-cabal/testscenarios
 Project-URL: Bug Tracker, https://github.com/testing-cabal/testscenarios/issues
@@ -22,7 +22,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
+Provides-Extra: dev
+Requires-Dist: mypy>=1.20.0; extra == 'dev'
+Requires-Dist: ruff==0.16.4; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: testtools>=2.8.7; extra == 'test'
 Description-Content-Type: text/x-rst

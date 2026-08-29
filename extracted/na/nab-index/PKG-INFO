@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nab-index
-Version: 0.0.14
+Version: 0.0.15
 Summary: PyPI Simple-API client and on-disk cache for nab
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: nab-provider==0.0.14
+Requires-Dist: nab-provider==0.0.15
 Requires-Dist: packaging>=24.0
 Requires-Dist: truststore>=0.10
 Requires-Dist: typing-extensions>=4.6
@@ -42,7 +42,7 @@ It provides:
 - A Simple-API client with JSON and HTML decoders.
 - A disk cache for project listings and file metadata responses.
 - A multi-index router (ordered named indexes plus per-package
-  overrides guarded by PEP 508 markers).
+  overrides that pin a package to one index).
 - A small VCS clone helper used by the higher-level VCS policy.
 
 ## When to use it

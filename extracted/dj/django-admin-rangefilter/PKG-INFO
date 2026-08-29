@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-admin-rangefilter
-Version: 0.14.0
+Version: 0.15.0
 Summary: django-admin-rangefilter app, add the filter by a custom date range on the admin UI.
 Home-page: https://github.com/silentsokolov/django-admin-rangefilter
 Author: Dmitriy Sokolov

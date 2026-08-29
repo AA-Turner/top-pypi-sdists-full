@@ -5,10 +5,29 @@ from unittest.mock import Mock, call, create_autospec
 
 import pytest
 
-from pyschlage.code import AccessCode, DaysOfWeek, MultiRecurringSchedule, RecurringSchedule, TemporarySchedule
+from pyschlage.code import (
+    AccessCode,
+    DaysOfWeek,
+    MultiRecurringSchedule,
+    RecurringSchedule,
+    TemporarySchedule,
+)
 from pyschlage.device import Device
 from pyschlage.exceptions import NotAuthenticatedError
 from pyschlage.notification import Notification
+
+
+class TestMultiRecurringSchedule:
+    def test_schedule2_without_schedule1_raises(self):
+        sched2 = RecurringSchedule(days_of_week=DaysOfWeek(mon=False))
+        with pytest.raises(ValueError):
+            MultiRecurringSchedule(None, sched2)
+
+    def test_schedule1_only_is_valid(self):
+        sched1 = RecurringSchedule(days_of_week=DaysOfWeek(mon=False))
+        sched = MultiRecurringSchedule(sched1, None)
+        assert sched.schedule1 == sched1
+        assert sched.schedule2 is None
 
 
 class TestAccessCode:

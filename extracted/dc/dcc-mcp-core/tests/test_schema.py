@@ -1,6 +1,6 @@
 """Tests for dcc_mcp_core.schema — zero-dep type → JSON Schema derivation (#242)."""
 
-# ruff: noqa: UP006, UP045
+# ruff: noqa: UP006, UP037, UP045
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from dataclasses import field
 import datetime
 import enum
 from pathlib import Path
+import subprocess
 import sys
 from typing import Any
 from typing import Dict
@@ -23,18 +24,58 @@ import uuid
 import pytest
 
 try:
-    from typing import Literal
     from typing import TypedDict
 except ImportError:  # pragma: no cover - exercised by the Python 3.7 LTS gate
-    from typing_extensions import Literal
     from typing_extensions import TypedDict
 
+from dcc_mcp_core._typing import Literal
 from dcc_mcp_core.schema import derive_parameters_schema
 from dcc_mcp_core.schema import derive_schema
+from dcc_mcp_core.schema import derive_script_parameters_schema
 from dcc_mcp_core.schema import schema_from_doc
 from dcc_mcp_core.schema import tool_spec_from_callable
 
 # ── Primitives ─────────────────────────────────────────────────────────────
+
+
+def test_schema_module_loads_standalone_without_package_import() -> None:
+    schema_path = Path(__file__).parents[1] / "python" / "dcc_mcp_core" / "schema.py"
+    script = """
+import importlib.util
+import json
+import pathlib
+import sys
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
+# Blender can load this module directly from an adapter bundle where the
+# dcc_mcp_core package is not importable.  Make accidental package imports
+# fail even when the test runner itself uses an editable installation.
+sys.modules["dcc_mcp_core"] = None
+
+spec = importlib.util.spec_from_file_location("dcc_mcp_schema", pathlib.Path(sys.argv[1]))
+schema = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(schema)
+
+@dataclass
+class BlenderExportInput:
+    object_names: List[str]
+    frame_range: Tuple[int, int]
+    collection: Optional[str] = None
+
+derived = schema.derive_schema(BlenderExportInput)
+print(json.dumps(derived, sort_keys=True))
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-I", "-c", script, str(schema_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert '"object_names": {"items": {"type": "string"}, "type": "array"}' in completed.stdout
+    assert '"prefixItems": [{"type": "integer"}, {"type": "integer"}]' in completed.stdout
 
 
 class TestPrimitiveTypes:
@@ -160,13 +201,27 @@ class TestUnionAndLiterals:
         assert result["enum"] == ["on", 1, True]
         assert "type" not in result  # mixed types → no `type` pin
 
-    def test_typing_extensions_literal(self) -> None:
+    def test_json_literal_scalars_include_null(self) -> None:
+        result = derive_schema(Literal["on", 1, True, None])
+        assert result["enum"] == ["on", 1, True, None]
+
+    @pytest.mark.parametrize("value", [b"x", ...])
+    def test_non_json_literal_values_fail_closed(self, value: Any) -> None:
+        if sys.version_info[:2] == (3, 7):
+            with pytest.raises(TypeError, match="Literal values must be JSON-preserving scalars"):
+                Literal[value]
+            return
+
+        annotation = Literal[value]
+        with pytest.raises(TypeError, match="Literal values must be JSON scalars"):
+            derive_schema(annotation)
+
+    @pytest.mark.skipif(sys.version_info[:2] != (3, 7), reason="exercises the Python 3.7 boundary")
+    def test_typing_extensions_literal_is_not_an_alternate_runtime_boundary(self) -> None:
         typing_extensions = pytest.importorskip("typing_extensions")
 
-        assert derive_schema(typing_extensions.Literal["fbx", "usd"]) == {
-            "enum": ["fbx", "usd"],
-            "type": "string",
-        }
+        with pytest.raises(TypeError, match="derive_schema: unsupported type"):
+            derive_schema(typing_extensions.Literal["fbx", "usd"])
 
     def test_generic_named_literal_is_not_treated_as_typing_literal(self) -> None:
         item_type = TypeVar("item_type")
@@ -196,6 +251,13 @@ class TestUnionAndLiterals:
         schema = derive_schema(Status)
         assert schema["enum"] == [0, 1]
         assert schema["type"] == "integer"
+
+    def test_non_json_enum_values_fail_closed(self) -> None:
+        class Binary(enum.Enum):
+            VALUE = b"x"
+
+        with pytest.raises(TypeError, match="Enum values must be JSON scalars"):
+            derive_schema(Binary)
 
 
 # ── Dataclasses ────────────────────────────────────────────────────────────
@@ -323,6 +385,58 @@ class TestUnsupported:
 
 
 # ── derive_parameters_schema ───────────────────────────────────────────────
+
+
+def test_derive_script_parameters_schema_is_static_and_typed(tmp_path: Path) -> None:
+    marker = tmp_path / "must-not-run"
+    source = f'''\
+from pathlib import Path
+from typing import Optional
+
+Path({str(marker)!r}).write_text("ran")
+
+def main(radius: float, segments: int = 16, label: Optional[str] = None):
+    """Build an asset.
+
+    Args:
+        radius: Asset radius.
+        segments: Segment count.
+        label: Optional label.
+    """
+    return {{"radius": radius, "segments": segments, "label": label}}
+'''
+
+    schema = derive_script_parameters_schema(source)
+
+    assert schema is not None
+    assert schema["required"] == ["radius"]
+    assert schema["properties"]["radius"] == {
+        "type": "number",
+        "description": "Asset radius.",
+    }
+    assert schema["properties"]["segments"]["type"] == "integer"
+    assert schema["properties"]["label"]["anyOf"] == [
+        {"type": "string"},
+        {"type": "null"},
+    ]
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "def main(value: int):\n    return value\ndef main(name: str):\n    return name\n",
+        "def main(value: int):\n    return value\nmain = lambda name: name\n",
+        "from package import helper as main\ndef main(value: int):\n    return value\n",
+        "if True:\n    def main(value: int):\n        return value\n",
+        "def main(value: int):\n    return value\ndel main\n",
+        "from package import *\ndef main(value: int):\n    return value\n",
+        "@decorate\ndef main(value: int):\n    return value\n",
+        "def main(value: int):\n    return value\nmatch 1:\n    case main:\n        pass\n",
+    ],
+)
+def test_derive_script_parameters_schema_rejects_ambiguous_main_bindings(source: str) -> None:
+    assert derive_script_parameters_schema(source) is None
 
 
 class TestDeriveParametersSchema:

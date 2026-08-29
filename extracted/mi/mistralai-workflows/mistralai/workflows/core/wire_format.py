@@ -133,8 +133,8 @@ class AtlasWireFormat(BaseModel):
 
     ``sources`` is populated by the builder functions (``build_graph_dynamically``
     / ``build_graph_statically``) and excluded from ``to_dict()`` by default so
-    that user source code is not sent over the API.  ``node_summaries`` is added
-    by the worker after LLM summarisation.
+    that user source code is not sent over the API.  ``node_summaries`` and
+    ``workflow_summary`` are added by the worker after LLM summarisation.
     """
 
     model_config = ConfigDict(populate_by_name=True)
@@ -160,6 +160,10 @@ class AtlasWireFormat(BaseModel):
     node_summaries: dict[str, dict[str, str]] | None = Field(
         default=None,
         description="LLM-generated summaries keyed by node ID",
+    )
+    workflow_summary: dict[str, str] | None = Field(
+        default=None,
+        description="LLM-generated summary of the workflow as a whole",
     )
 
     def to_dict(self, *, include_sources: bool = False) -> dict[str, Any]:
@@ -208,6 +212,10 @@ _SUMMARIES_EXAMPLE = """\
 {
   "file": "workflows/billing.py",
   "status": "ready",
+  "workflow_summary": {
+    "short": "Customer billing run",
+    "long": "Charges a customer's saved card and emails them a receipt."
+  },
   "summaries": {
     "charge_card": {
       "short": "charge customer card",
@@ -288,7 +296,7 @@ def generate_wire_format_docs() -> str:
         "",
         "## Top-level fields",
         "",
-        _model_table(AtlasWireFormat, skip={"node_summaries"}),
+        _model_table(AtlasWireFormat, skip={"node_summaries", "workflow_summary"}),
         "",
         "## Node types (`WireFlatNode.type`)",
         "",
@@ -317,8 +325,14 @@ def generate_wire_format_docs() -> str:
         "`failed` when all LLM attempts fail; `ready` on success |",
         "| `summaries` | `Record<string, { short: string; long: string }>` | Keyed by node ID; "
         "empty when `status` is not `ready` |",
+        "| `workflow_summary` | `{ short: string; long: string } \\| null` | Describes the workflow "
+        "as a whole; `null` when the model omitted it or `status` is not `ready` |",
         "",
         "Node IDs with types `workflow`, `entrypoint`, and `output` are excluded from summaries.",
+        "",
+        "Both fields are also persisted on the graph payload itself, as the top-level "
+        "`node_summaries` and `workflow_summary` keys, so a stored graph carries its summaries "
+        "without a second event.",
         "",
         "## `WireFlatEdge` fields",
         "",

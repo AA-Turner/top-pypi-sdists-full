@@ -11,7 +11,46 @@ import synchronicity.combined_types
 import typing
 import typing_extensions
 
-def _get_metadata(client_type: int, credentials: typing.Optional[tuple[str, str]], version: str) -> dict[str, str]: ...
+class _OAuthCredentials:
+    """_OAuthCredentials(refresh_token: str, client_id: str, client_secret: str)"""
+
+    refresh_token: str
+    client_id: str
+    client_secret: str
+
+    def __init__(self, refresh_token: str, client_id: str, client_secret: str) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
+    def __getstate__(self): ...
+    def __setstate__(self, state): ...
+
+def _get_metadata(
+    client_type: int,
+    credentials: typing.Optional[tuple[str, str]],
+    version: str,
+    oauth_credentials: typing.Optional[_OAuthCredentials] = None,
+) -> dict[str, str]: ...
 
 T = typing.TypeVar("T")
 
@@ -34,7 +73,13 @@ class _Client:
     server_url: str
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.4"
+        self,
+        server_url: str,
+        client_type: int,
+        credentials: typing.Optional[tuple[str, str]],
+        version: str = "1.5.5",
+        *,
+        oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -131,6 +176,33 @@ class _Client:
         ...
 
     @classmethod
+    async def from_oauth_credentials(
+        cls, refresh_token: str, *, oauth_client_id: str, oauth_client_secret: str
+    ) -> _Client:
+        """Constructor based on OAuth credentials; useful for managing Modal on behalf of third-party users.
+
+        Args:
+            refresh_token: OAuth refresh token returned by Modal's token endpoint.
+            oauth_client_id: Modal-issued OAuth client ID, with an `oc-` prefix.
+            oauth_client_secret: Modal-issued OAuth client secret, with an `ov-` prefix.
+
+        Returns:
+            An authenticated `Client` with its connection opened.
+
+        Examples:
+            ```python notest
+            client = modal.Client.from_oauth_credentials(
+                refresh_token,
+                oauth_client_id=oauth_client_id,
+                oauth_client_secret=oauth_client_secret,
+            )
+
+            modal.Sandbox.create("echo", "hi", client=client, app=app)
+            ```
+        """
+        ...
+
+    @classmethod
     async def verify(cls, server_url: str, credentials: tuple[str, str]) -> None:
         """mdmd:hidden
         Check whether can the client can connect to this server with these credentials; raise if not.
@@ -201,7 +273,13 @@ class Client:
     server_url: str
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.4"
+        self,
+        server_url: str,
+        client_type: int,
+        credentials: typing.Optional[tuple[str, str]],
+        version: str = "1.5.5",
+        *,
+        oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -378,6 +456,57 @@ class Client:
             ...
 
     from_credentials: typing.ClassVar[__from_credentials_spec]
+
+    class __from_oauth_credentials_spec(typing_extensions.Protocol):
+        def __call__(self, /, refresh_token: str, *, oauth_client_id: str, oauth_client_secret: str) -> Client:
+            """Constructor based on OAuth credentials; useful for managing Modal on behalf of third-party users.
+
+            Args:
+                refresh_token: OAuth refresh token returned by Modal's token endpoint.
+                oauth_client_id: Modal-issued OAuth client ID, with an `oc-` prefix.
+                oauth_client_secret: Modal-issued OAuth client secret, with an `ov-` prefix.
+
+            Returns:
+                An authenticated `Client` with its connection opened.
+
+            Examples:
+                ```python notest
+                client = modal.Client.from_oauth_credentials(
+                    refresh_token,
+                    oauth_client_id=oauth_client_id,
+                    oauth_client_secret=oauth_client_secret,
+                )
+
+                modal.Sandbox.create("echo", "hi", client=client, app=app)
+                ```
+            """
+            ...
+
+        async def aio(self, /, refresh_token: str, *, oauth_client_id: str, oauth_client_secret: str) -> Client:
+            """Constructor based on OAuth credentials; useful for managing Modal on behalf of third-party users.
+
+            Args:
+                refresh_token: OAuth refresh token returned by Modal's token endpoint.
+                oauth_client_id: Modal-issued OAuth client ID, with an `oc-` prefix.
+                oauth_client_secret: Modal-issued OAuth client secret, with an `ov-` prefix.
+
+            Returns:
+                An authenticated `Client` with its connection opened.
+
+            Examples:
+                ```python notest
+                client = modal.Client.from_oauth_credentials(
+                    refresh_token,
+                    oauth_client_id=oauth_client_id,
+                    oauth_client_secret=oauth_client_secret,
+                )
+
+                modal.Sandbox.create("echo", "hi", client=client, app=app)
+                ```
+            """
+            ...
+
+    from_oauth_credentials: typing.ClassVar[__from_oauth_credentials_spec]
 
     class __verify_spec(typing_extensions.Protocol):
         def __call__(self, /, server_url: str, credentials: tuple[str, str]) -> None:

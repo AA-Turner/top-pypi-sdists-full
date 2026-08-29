@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.37.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-25T23:04:30.448985                                                            #
+# MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-08-28T18:11:58.444669                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -38,6 +38,10 @@ class AnacondaStepDecorator(metaflow.plugins.pypi.conda_decorator.CondaStepDecor
         If set to True, disables @anaconda.
     channels : List[str], default ["https://repo.anaconda.com/pkgs/main"]
         Conda channels to use for package resolution.
+    extra_configs : Dict[str, str], default {}
+        Additional key-value configuration passed through to the environment
+        solver/builder. Merged with any ``extra_configs`` set in
+        ``@anaconda_base``, with step-level values taking precedence.
     """
     ...
 
@@ -63,6 +67,10 @@ class AnacondaFlowDecorator(metaflow.plugins.pypi.conda_decorator.CondaFlowDecor
         If set to True, disables Anaconda.
     channels : List[str], default ["anaconda"]
         Conda channels to use for package resolution.
+    extra_configs : Dict[str, str], default {}
+        Additional key-value configuration passed through to the environment
+        solver/builder for all steps. Step-level ``@anaconda(extra_configs=...)``
+        values take precedence on key conflicts.
     """
     ...
 

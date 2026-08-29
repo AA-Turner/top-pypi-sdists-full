@@ -28,6 +28,8 @@ from datamodel_code_generator import DataModelType, Formatter, InputFileType, Mo
 from datamodel_code_generator.model.msgspec import DataModelField as MsgspecDataModelField
 from datamodel_code_generator.model.msgspec import DataTypeManager as MsgspecDataTypeManager
 from datamodel_code_generator.model.msgspec import Struct as MsgspecStruct
+from datamodel_code_generator.model.pydantic_v2.base_model import BaseModel as PydanticV2BaseModel
+from datamodel_code_generator.model.pydantic_v2.base_model import DataModelField as PydanticV2DataModelField
 from datamodel_code_generator.model.pydantic_v2.base_model import _construct_parser_simple_field
 from datamodel_code_generator.reference import PydanticFieldNameResolver, Reference
 from datamodel_code_generator.types import DataType
@@ -53,6 +55,20 @@ EXPECTED_STARTUP_MEASUREMENT_CASES = {
 def simple_pydantic_v2_data_types() -> list[DataType]:
     """Prepare normalized types outside the field-construction benchmark."""
     return [DataType(type="str") for _ in range(5000)]
+
+
+@pytest.fixture(scope="module")
+def plain_pydantic_v2_fields(simple_pydantic_v2_data_types: list[DataType]) -> list[PydanticV2DataModelField]:
+    """Prepare parser-style plain Pydantic v2 fields outside render-plan timing."""
+    fields = [
+        _construct_parser_simple_field(name=f"field_{index}", data_type=data_type, required=True)
+        for index, data_type in enumerate(simple_pydantic_v2_data_types)
+    ]
+    PydanticV2BaseModel(
+        reference=Reference(path="PydanticFieldRenderPlanPerformance", name="PydanticFieldRenderPlanPerformance"),
+        fields=fields,
+    )
+    return fields
 
 
 @pytest.fixture(scope="module")
@@ -97,6 +113,48 @@ def false_reference_performance_schema() -> dict[str, YamlValue]:
             "Never": False,
             "Value": {"type": "string"},
         },
+    }
+
+
+@pytest.fixture(scope="module")
+def local_reference_file_cache_performance_input(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Prepare repeated local file fragments outside CodSpeed's measured call."""
+    schema_directory = tmp_path_factory.mktemp("local-reference-file-cache")
+    (schema_directory / "shared.json").write_text(
+        json.dumps({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {
+                "First": {"type": "object", "properties": {"name": {"type": "string"}}},
+                "Second": {"type": "object", "properties": {"count": {"type": "integer"}}},
+            },
+        }),
+        encoding="utf-8",
+    )
+    (schema_directory / "root.json").write_text(
+        json.dumps({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "title": "LocalReferenceFileCachePerformance",
+            "type": "object",
+            "properties": {
+                f"value_{index}": {"$ref": f"shared.json#/$defs/{'First' if index % 2 else 'Second'}"}
+                for index in range(500)
+            },
+            "required": [f"value_{index}" for index in range(500)],
+        }),
+        encoding="utf-8",
+    )
+    return schema_directory / "root.json"
+
+
+@pytest.fixture(scope="module")
+def ordinary_array_constraint_performance_schema() -> dict[str, object]:
+    """Prepare ordinary arrays without derived item constraints outside CodSpeed's measured call."""
+    field_count = 4000
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "OrdinaryArrayConstraintPerformance",
+        "type": "object",
+        "properties": {f"value_{index}": {"type": "array"} for index in range(field_count)},
     }
 
 
@@ -393,6 +451,41 @@ def test_perf_false_reference_validation(
 
 @pytest.mark.perf
 @pytest.mark.benchmark
+def test_perf_local_reference_file_resolution(local_reference_file_cache_performance_input: Path) -> None:
+    """Track repeated local file fragment resolution without formatter work."""
+    result = generate(
+        local_reference_file_cache_performance_input,
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        formatters=[],
+        disable_timestamp=True,
+    )
+    assert isinstance(result, str)
+    assert "class LocalReferenceFileCachePerformance(BaseModel):" in result
+    assert result.endswith("    value_499: First")
+
+
+@pytest.mark.perf
+@pytest.mark.benchmark
+def test_perf_ordinary_array_constraint_generation(
+    ordinary_array_constraint_performance_schema: dict[str, object],
+) -> None:
+    """Track ordinary arrays that do not need derived item constraints."""
+    result = generate(
+        ordinary_array_constraint_performance_schema,
+        input_file_type=InputFileType.JsonSchema,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        formatters=[],
+        disable_timestamp=True,
+    )
+
+    assert isinstance(result, str)
+    assert "class OrdinaryArrayConstraintPerformance(BaseModel):" in result
+    assert result.endswith("    value_3999: list[Any] | None = None")
+
+
+@pytest.mark.perf
+@pytest.mark.benchmark
 def test_perf_unique_items_schema_validators(
     unique_items_performance_schema: dict[str, object],
 ) -> None:
@@ -516,6 +609,16 @@ def test_perf_simple_pydantic_v2_field_construction(simple_pydantic_v2_data_type
     ]
     assert len(fields) == len(simple_pydantic_v2_data_types)
     assert fields[-1].name == "field_4999"
+
+
+@pytest.mark.perf
+@pytest.mark.benchmark
+def test_perf_empty_pydantic_v2_field_render_plans(plain_pydantic_v2_fields: list[PydanticV2DataModelField]) -> None:
+    """Benchmark shared empty Field() plans for parser-created Pydantic v2 fields."""
+    rendered_fields = [str(field) for field in plain_pydantic_v2_fields]
+
+    assert len(rendered_fields) == len(plain_pydantic_v2_fields)
+    assert not rendered_fields[-1]
 
 
 @pytest.mark.perf

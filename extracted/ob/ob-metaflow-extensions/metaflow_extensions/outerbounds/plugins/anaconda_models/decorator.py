@@ -18,7 +18,6 @@ from metaflow.user_decorators.user_step_decorator import StepMutator
 
 from .exceptions import ModelAccessDenied
 
-
 # ------------------------------------------------------------------
 # Card painting — translates AnacondaModel state into card components
 # ------------------------------------------------------------------

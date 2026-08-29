@@ -20,11 +20,11 @@ use crate::{
     schema_resolver::resolve_array_item_schema,
 };
 
-impl GetHoverContent for tombi_document_tree::Array {
+impl GetHoverContent for tombi_document_tree_syntax::Array {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -91,7 +91,7 @@ impl GetHoverContent for tombi_document_tree::Array {
                                         HoverContent::Value(mut hover_value_content) => {
                                             if keys.is_empty()
                                                 && self.kind()
-                                                    == tombi_document_tree::ArrayKind::ArrayOfTable
+                                                    == tombi_document_tree_syntax::ArrayKind::ArrayOfTable
                                                 && let Some(constraints) =
                                                     &mut hover_value_content.constraints
                                             {
@@ -285,6 +285,7 @@ impl GetHoverContent for tombi_document_tree::Array {
                             constraints: None,
                             schema_uri: None,
                             range: Some(self.range()),
+                            schema_tooltip: None,
                         }));
                     }
                     _ => {}
@@ -318,6 +319,7 @@ impl GetHoverContent for tombi_document_tree::Array {
                 constraints: None,
                 schema_uri: None,
                 range: Some(self.range()),
+                schema_tooltip: None,
             }))
         }
         .boxed()
@@ -325,7 +327,7 @@ impl GetHoverContent for tombi_document_tree::Array {
 }
 
 fn comment_directive_array_values_order(
-    array: &tombi_document_tree::Array,
+    array: &tombi_document_tree_syntax::Array,
 ) -> Option<tombi_schema_store::ArrayOrderOverride> {
     let comment_directive = get_comment_directive_content::<
         ArrayCommonFormatRules,
@@ -348,7 +350,7 @@ impl GetHoverContent for ArraySchema {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree::Key],
+        _keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
@@ -379,8 +381,9 @@ impl GetHoverContent for ArraySchema {
                     values_order: self.values_order.clone().map(Into::into),
                     ..Default::default()
                 }),
-                schema_uri: current_schema.map(|cs| cs.schema_uri.as_ref().clone()),
+                schema_uri: super::super::current_schema_link_uri(current_schema),
                 range: None,
+                schema_tooltip: None,
             }))
         }
         .boxed()

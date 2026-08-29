@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from itertools import product
 from typing import TYPE_CHECKING
 
@@ -9,6 +10,14 @@ from tox.config.loader.ini.factor import LATEST_PYTHON_MINOR_MAX, LATEST_PYTHON_
 
 if TYPE_CHECKING:
     from tox.config.loader.toml._api import TomlTypes
+
+
+@dataclass(frozen=True)
+class FactorGroup:
+    """``default`` stands in wherever an environment name carries none of ``values``."""
+
+    values: list[str]
+    default: str | None = None
 
 
 def expand_product(value: dict[str, TomlTypes]) -> list[str]:
@@ -55,22 +64,51 @@ def expand_factor_group(group: TomlTypes) -> list[str]:
         if "prefix" in group:
             return _expand_range(group)
         if len(group) == 1:
-            label, values = next(iter(group.items()))
-            if label in _RESERVED_LABELS:
-                msg = f"'{label}' is reserved and cannot be used as a factor label"
-                raise TypeError(msg)
-            if not isinstance(values, list):
-                msg = f"labeled factor group '{label}' must map to a list, got {type(values).__name__}"
-                raise TypeError(msg)
-            return [str(v) for v in values]
+            return _expand_labeled(*next(iter(group.items())))
     msg = f"factor group must be a list, a range dict, or a labeled dict, got {type(group).__name__}"
     raise TypeError(msg)
+
+
+def extract_default(group: TomlTypes, values: list[str]) -> str | None:
+    if not isinstance(group, dict):
+        return None
+    table = group if "prefix" in group else next(iter(group.values()), None)
+    if not isinstance(table, dict) or (default := table.get("default")) is None:
+        return None
+    if not isinstance(default, str):
+        msg = f"factor group 'default' must be a string, got {type(default).__name__}"
+        raise TypeError(msg)
+    if default not in values:
+        msg = f"factor group 'default' {default!r} is not one of its factors: {', '.join(values)}"
+        raise TypeError(msg)
+    return default
 
 
 def extract_label(group: TomlTypes) -> str | None:
     if isinstance(group, dict) and "prefix" not in group and len(group) == 1:
         return str(next(iter(group)))
     return None
+
+
+def _expand_labeled(label: str, values: TomlTypes) -> list[str]:
+    if label in _RESERVED_LABELS:
+        msg = f"'{label}' is reserved and cannot be used as a factor label"
+        raise TypeError(msg)
+    if isinstance(values, dict):
+        if "prefix" in values:
+            return _expand_range(values)
+        if (listed := values.get("values")) is not None:
+            if not isinstance(listed, list):
+                msg = f"labeled factor group '{label}' 'values' must be a list, got {type(listed).__name__}"
+                raise TypeError(msg)
+            return [str(v) for v in listed]
+        msg = f"labeled factor group '{label}' maps to a dict with neither a 'prefix' nor a 'values' key"
+        raise TypeError(msg)
+    if not isinstance(values, list):
+        msg = f"labeled factor group '{label}' must map to a list, a range dict, or a values dict, "
+        msg += f"got {type(values).__name__}"
+        raise TypeError(msg)
+    return [str(v) for v in values]
 
 
 def _expand_range(range_dict: dict[str, TomlTypes]) -> list[str]:
@@ -93,7 +131,9 @@ def _expand_range(range_dict: dict[str, TomlTypes]) -> list[str]:
 
 __all__ = [
     "_RESERVED_LABELS",
+    "FactorGroup",
     "expand_factor_group",
     "expand_product",
+    "extract_default",
     "extract_label",
 ]

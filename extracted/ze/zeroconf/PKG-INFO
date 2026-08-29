@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zeroconf
-Version: 0.150.0
+Version: 0.151.1
 Summary: A pure python implementation of multicast DNS service discovery
 License-Expression: LGPL-2.1-or-later
 License-File: COPYING

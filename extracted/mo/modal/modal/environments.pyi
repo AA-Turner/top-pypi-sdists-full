@@ -23,6 +23,7 @@ class EnvironmentManager:
             name: str,
             *,
             restricted: bool = False,
+            default_role: typing.Optional[str] = None,
             experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None:
@@ -42,6 +43,7 @@ class EnvironmentManager:
             name: str,
             *,
             restricted: bool = False,
+            default_role: typing.Optional[str] = None,
             experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None:
@@ -120,8 +122,13 @@ class EnvironmentRolesManager:
         ...
 
     class __list_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> dict[typing.Literal["users", "service_users"], dict[str, str]]:
+        def __call__(
+            self, /, *, exclude_default: bool = False
+        ) -> dict[typing.Literal["users", "service_users"], dict[str, str]]:
             """Enumerate the Environment Role for each user and service user in the workspace.
+
+            Args:
+                exclude_default: If `True`, only include roles that are directly assigned.
 
             **Examples:**
 
@@ -136,8 +143,13 @@ class EnvironmentRolesManager:
             """
             ...
 
-        async def aio(self, /) -> dict[typing.Literal["users", "service_users"], dict[str, str]]:
+        async def aio(
+            self, /, *, exclude_default: bool = False
+        ) -> dict[typing.Literal["users", "service_users"], dict[str, str]]:
             """Enumerate the Environment Role for each user and service user in the workspace.
+
+            Args:
+                exclude_default: If `True`, only include roles that are directly assigned.
 
             **Examples:**
 

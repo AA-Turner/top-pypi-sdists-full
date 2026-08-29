@@ -72,10 +72,26 @@ def list_(json: bool = False):
 @environment_cli.command("create", help="Create a new environment in the current workspace.", no_args_is_help=True)
 @click.argument("name")
 @click.option("--restricted", is_flag=True, default=False, help="Enable RBAC restrictions on the new environment")
+@click.option(
+    "--default-role",
+    type=str,
+    default=None,
+    help="Default member Role for the Restricted Environment",
+)
 @click.option("--public", is_flag=True, default=False, hidden=True)
-def create(name: str, restricted: bool = False, public: bool = False):
+def create(
+    name: str,
+    restricted: bool = False,
+    default_role: str | None = None,
+    public: bool = False,
+):
     check_environment_name(name)
-    Environment.objects.create(name, restricted=restricted, experimental_options={"is_public": public})
+    Environment.objects.create(
+        name,
+        restricted=restricted,
+        default_role=default_role,
+        experimental_options={"is_public": public},
+    )
     prefix = "Public " if public else "Restricted " if restricted else ""
     rich.print(f"[green]✓[/green] {prefix}Environment created: {name}")
 
@@ -131,8 +147,8 @@ service_user_option = click.option(
 )
 
 
-def _render_roles_list(environment: str, json: bool) -> None:
-    roles = Environment.from_name(environment).roles.list()
+def _render_roles_list(environment: str, json: bool, exclude_default: bool = False) -> None:
+    roles = Environment.from_name(environment).roles.list(exclude_default=exclude_default)
     if json:
         # Mirror the API output shape: a nested dict keyed by users / service_users.
         OutputManager.get().print_json(json_mod.dumps(roles))
@@ -184,9 +200,15 @@ environment_cli.add_command(roles_cli)
 
 @roles_cli.command("list", help="List the roles of each user and service user in an Environment", no_args_is_help=True)
 @click.argument("environment")
+@click.option(
+    "--exclude-default",
+    is_flag=True,
+    default=False,
+    help="Only list roles that are directly assigned",
+)
 @click.option("--json", is_flag=True, default=False)
-def roles_list(environment: str, json: bool = False):
-    _render_roles_list(environment, json)
+def roles_list(environment: str, json: bool = False, exclude_default: bool = False):
+    _render_roles_list(environment, json, exclude_default=exclude_default)
 
 
 @roles_cli.command("update", help="Update a user's or service user's role in an Environment", no_args_is_help=True)
@@ -242,7 +264,7 @@ def members_update(environment: str, principal: str, role: str, service_user: bo
 def members_remove(environment: str, principal: str, service_user: bool = False):
     deprecation_warning(
         (2026, 7, 23),
-        "`modal environment members remove` is deprecated; roles are now explicit — set a role "
+        "`modal environment members remove` is deprecated; assign a role "
         "(e.g. `--role no-access`) with `modal environment roles update` instead.",
         show_source=False,
     )

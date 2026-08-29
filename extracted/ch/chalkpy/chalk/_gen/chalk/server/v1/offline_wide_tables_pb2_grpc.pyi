@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.offline_wide_tables_pb2 import (
     GetOfflineWideTableRunResponse,
     ListOfflineWideTableRunsRequest,
     ListOfflineWideTableRunsResponse,
+    TriggerOfflineWideTableCompactionRequest,
+    TriggerOfflineWideTableCompactionResponse,
     TriggerOfflineWideTableFillRequest,
     TriggerOfflineWideTableFillResponse,
 )
@@ -42,6 +44,10 @@ class OfflineWideTablesServiceStub:
         TriggerOfflineWideTableFillRequest,
         TriggerOfflineWideTableFillResponse,
     ]
+    TriggerOfflineWideTableCompaction: UnaryUnaryMultiCallable[
+        TriggerOfflineWideTableCompactionRequest,
+        TriggerOfflineWideTableCompactionResponse,
+    ]
 
 class OfflineWideTablesServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -68,6 +74,12 @@ class OfflineWideTablesServiceServicer(metaclass=ABCMeta):
         request: TriggerOfflineWideTableFillRequest,
         context: ServicerContext,
     ) -> TriggerOfflineWideTableFillResponse: ...
+    @abstractmethod
+    def TriggerOfflineWideTableCompaction(
+        self,
+        request: TriggerOfflineWideTableCompactionRequest,
+        context: ServicerContext,
+    ) -> TriggerOfflineWideTableCompactionResponse: ...
 
 def add_OfflineWideTablesServiceServicer_to_server(
     servicer: OfflineWideTablesServiceServicer, server: Server

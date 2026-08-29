@@ -41,6 +41,7 @@ from .literals import (
     DataDeletionPolicyType,
     DataSourceStatusType,
     DataSourceTypeType,
+    DayOfWeekType,
     DocumentStatusType,
     EmbeddingDataTypeType,
     EmbeddingModelTypeType,
@@ -172,6 +173,8 @@ __all__ = (
     "DataSourceConfigurationUnionTypeDef",
     "DataSourceSummaryTypeDef",
     "DataSourceTypeDef",
+    "DayOfMonthOutputTypeDef",
+    "DayOfMonthTypeDef",
     "DeleteAgentActionGroupRequestTypeDef",
     "DeleteAgentAliasRequestTypeDef",
     "DeleteAgentAliasResponseTypeDef",
@@ -375,6 +378,8 @@ __all__ = (
     "MissingNodeOutputFlowValidationDetailsTypeDef",
     "MongoDbAtlasConfigurationTypeDef",
     "MongoDbAtlasFieldMappingTypeDef",
+    "MonthlyScheduleOutputTypeDef",
+    "MonthlyScheduleTypeDef",
     "MultipleLoopControllerNodesFlowValidationDetailsTypeDef",
     "MultipleLoopInputNodesFlowValidationDetailsTypeDef",
     "MultipleNodeInputConnectionsFlowValidationDetailsTypeDef",
@@ -495,6 +500,8 @@ __all__ = (
     "SupplementalDataStorageConfigurationOutputTypeDef",
     "SupplementalDataStorageConfigurationTypeDef",
     "SupplementalDataStorageLocationTypeDef",
+    "SyncScheduleOutputTypeDef",
+    "SyncScheduleTypeDef",
     "SystemContentBlockTypeDef",
     "TagResourceRequestTypeDef",
     "TextContentDocTypeDef",
@@ -575,6 +582,7 @@ __all__ = (
     "WebDataSourceConfigurationTypeDef",
     "WebSourceConfigurationOutputTypeDef",
     "WebSourceConfigurationTypeDef",
+    "WeeklyScheduleTypeDef",
 )
 
 
@@ -786,6 +794,16 @@ class DataSourceSummaryTypeDef(TypedDict):
     status: DataSourceStatusType
     updatedAt: datetime
     description: NotRequired[str]
+
+
+class DayOfMonthOutputTypeDef(TypedDict):
+    dayNumber: NotRequired[int]
+    lastDayOfMonth: NotRequired[dict[str, Any]]
+
+
+class DayOfMonthTypeDef(TypedDict):
+    dayNumber: NotRequired[int]
+    lastDayOfMonth: NotRequired[Mapping[str, Any]]
 
 
 class DeleteAgentActionGroupRequestTypeDef(TypedDict):
@@ -1580,6 +1598,10 @@ class StorageFlowNodeS3ConfigurationTypeDef(TypedDict):
     bucketName: str
 
 
+class WeeklyScheduleTypeDef(TypedDict):
+    dayOfWeek: DayOfWeekType
+
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
@@ -2016,6 +2038,14 @@ class ListDataSourcesResponseTypeDef(TypedDict):
     dataSourceSummaries: list[DataSourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class MonthlyScheduleOutputTypeDef(TypedDict):
+    dayOfMonth: DayOfMonthOutputTypeDef
+
+
+class MonthlyScheduleTypeDef(TypedDict):
+    dayOfMonth: DayOfMonthTypeDef
 
 
 class DocumentIdentifierTypeDef(TypedDict):
@@ -2604,6 +2634,18 @@ class ListFlowAliasesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class SyncScheduleOutputTypeDef(TypedDict):
+    daily: NotRequired[dict[str, Any]]
+    weekly: NotRequired[WeeklyScheduleTypeDef]
+    monthly: NotRequired[MonthlyScheduleOutputTypeDef]
+
+
+class SyncScheduleTypeDef(TypedDict):
+    daily: NotRequired[Mapping[str, Any]]
+    weekly: NotRequired[WeeklyScheduleTypeDef]
+    monthly: NotRequired[MonthlyScheduleTypeDef]
+
+
 class DeleteKnowledgeBaseDocumentsRequestTypeDef(TypedDict):
     knowledgeBaseId: str
     dataSourceId: str
@@ -2718,18 +2760,6 @@ class StartIngestionJobResponseTypeDef(TypedDict):
 class StopIngestionJobResponseTypeDef(TypedDict):
     ingestionJob: IngestionJobTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ManagedKnowledgeBaseConnectorConfigurationOutputTypeDef(TypedDict):
-    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
-    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
-    connectorParameters: NotRequired[dict[str, Any]]
-
-
-class ManagedKnowledgeBaseConnectorConfigurationTypeDef(TypedDict):
-    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
-    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
-    connectorParameters: NotRequired[Mapping[str, Any]]
 
 
 MemoryConfigurationUnionTypeDef = Union[
@@ -2880,6 +2910,20 @@ class CustomContentTypeDef(TypedDict):
 
 
 MessageUnionTypeDef = Union[MessageTypeDef, MessageOutputTypeDef]
+
+
+class ManagedKnowledgeBaseConnectorConfigurationOutputTypeDef(TypedDict):
+    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
+    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
+    connectorParameters: NotRequired[dict[str, Any]]
+    syncSchedule: NotRequired[SyncScheduleOutputTypeDef]
+
+
+class ManagedKnowledgeBaseConnectorConfigurationTypeDef(TypedDict):
+    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
+    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
+    connectorParameters: NotRequired[Mapping[str, Any]]
+    syncSchedule: NotRequired[SyncScheduleTypeDef]
 
 
 class DeleteKnowledgeBaseDocumentsResponseTypeDef(TypedDict):

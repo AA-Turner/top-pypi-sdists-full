@@ -17,6 +17,7 @@ import copy
 from unittest import mock
 from unittest.mock import call
 
+from magnumclient import exceptions
 from magnumclient.osc.v1 import nodegroups as osc_nodegroups
 from magnumclient.tests.osc.unit.v1 import fakes as magnum_fakes
 
@@ -109,6 +110,42 @@ class TestNodeGroupCreate(TestNodeGroup):
         self.ng_mock.create.assert_called_with(self.nodegroup.cluster_id,
                                                **expected_args)
 
+    def test_nodegroup_create_with_node_labels(self):
+        """Node labels are forwarded as the node_labels API field."""
+
+        expected_args = self._default_args
+        expected_args['node_labels'] = {'workload': 'gpu'}
+
+        arglist = [
+            '--node-labels', 'workload=gpu',
+            self.nodegroup.cluster_id,
+            self.nodegroup.name,
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, [])
+        self.cmd.take_action(parsed_args)
+        self.ng_mock.create.assert_called_with(self.nodegroup.cluster_id,
+                                               **expected_args)
+
+    def test_nodegroup_create_with_node_taints(self):
+        """Node taints are parsed and forwarded as a list of dicts."""
+
+        expected_args = self._default_args
+        expected_args['node_taints'] = [
+            {'key': 'workload', 'value': 'gpu', 'effect': 'NoSchedule'},
+            {'key': 'dedicated', 'value': '', 'effect': 'NoExecute'},
+        ]
+
+        arglist = [
+            '--node-taints',
+            'workload=gpu:NoSchedule,dedicated=:NoExecute',
+            self.nodegroup.cluster_id,
+            self.nodegroup.name,
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, [])
+        self.cmd.take_action(parsed_args)
+        self.ng_mock.create.assert_called_with(self.nodegroup.cluster_id,
+                                               **expected_args)
+
 
 class TestNodeGroupDelete(TestNodeGroup):
 
@@ -169,33 +206,119 @@ class TestNodeGroupUpdate(TestNodeGroup):
         # Get the command object to test
         self.cmd = osc_nodegroups.UpdateNodeGroup(self.app, None)
 
-    def test_nodegroup_update_pass(self):
-        arglist = ['foo', 'ng1', 'remove', 'bar']
+    def test_nodegroup_update_min_nodes(self):
+        arglist = ['foo', 'ng1', '--min-nodes', '2']
+        verifylist = [('cluster', 'foo'), ('nodegroup', 'ng1'),
+                      ('min_node_count', 2)]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.cmd.take_action(parsed_args)
+        self.ng_mock.update.assert_called_with(
+            'foo', 'ng1',
+            [{'op': 'replace', 'path': '/min_node_count', 'value': 2}])
+
+    def test_nodegroup_update_max_nodes(self):
+        arglist = ['foo', 'ng1', '--max-nodes', '10']
+        verifylist = [('cluster', 'foo'), ('nodegroup', 'ng1'),
+                      ('max_node_count', 10)]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.cmd.take_action(parsed_args)
+        self.ng_mock.update.assert_called_with(
+            'foo', 'ng1',
+            [{'op': 'replace', 'path': '/max_node_count', 'value': 10}])
+
+    def test_nodegroup_update_both(self):
+        arglist = ['foo', 'ng1', '--min-nodes', '1', '--max-nodes', '5']
+        parsed_args = self.check_parser(self.cmd, arglist, [])
+
+        self.cmd.take_action(parsed_args)
+        self.ng_mock.update.assert_called_with(
+            'foo', 'ng1',
+            [{'op': 'replace', 'path': '/min_node_count', 'value': 1},
+             {'op': 'replace', 'path': '/max_node_count', 'value': 5}])
+
+    def test_nodegroup_update_node_labels(self):
+        arglist = ['foo', 'ng1', '--node-labels', 'workload=gpu']
         verifylist = [
             ('cluster', 'foo'),
             ('nodegroup', 'ng1'),
-            ('op', 'remove'),
-            ('attributes', [['bar']])
+            ('node_labels', ['workload=gpu']),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
         self.cmd.take_action(parsed_args)
         self.ng_mock.update.assert_called_with(
             'foo', 'ng1',
-            [{'op': 'remove', 'path': '/bar'}]
+            [{'op': 'replace', 'path': '/node_labels',
+              'value': str({'workload': 'gpu'})}]
         )
 
-    def test_nodegroup_update_bad_op(self):
-        arglist = ['cluster', 'ng1', 'foo', 'bar']
+    def test_nodegroup_update_node_taints(self):
+        arglist = ['foo', 'ng1',
+                   '--node-taints', 'workload=gpu:NoSchedule,dedicated=:'
+                                    'NoExecute']
         verifylist = [
-            ('cluster', 'cluster'),
+            ('cluster', 'foo'),
             ('nodegroup', 'ng1'),
-            ('op', 'foo'),
-            ('attributes', ['bar'])
+            ('node_taints', ['workload=gpu:NoSchedule,dedicated=:NoExecute']),
         ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-        self.assertRaises(magnum_fakes.MagnumParseException,
-                          self.check_parser, self.cmd, arglist, verifylist)
+        self.cmd.take_action(parsed_args)
+        self.ng_mock.update.assert_called_with(
+            'foo', 'ng1',
+            [{'op': 'replace', 'path': '/node_taints',
+              'value': str([
+                  {'key': 'workload', 'value': 'gpu', 'effect': 'NoSchedule'},
+                  {'key': 'dedicated', 'value': '', 'effect': 'NoExecute'},
+              ])}]
+        )
+
+    def test_nodegroup_update_node_labels_and_taints(self):
+        arglist = ['foo', 'ng1',
+                   '--node-labels', 'workload=gpu',
+                   '--node-taints', 'workload=gpu:NoSchedule']
+        verifylist = [
+            ('cluster', 'foo'),
+            ('nodegroup', 'ng1'),
+            ('node_labels', ['workload=gpu']),
+            ('node_taints', ['workload=gpu:NoSchedule']),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.cmd.take_action(parsed_args)
+        self.ng_mock.update.assert_called_with(
+            'foo', 'ng1',
+            [{'op': 'replace', 'path': '/node_labels',
+              'value': str({'workload': 'gpu'})},
+             {'op': 'replace', 'path': '/node_taints',
+              'value': str([{'key': 'workload', 'value': 'gpu',
+                             'effect': 'NoSchedule'}])}]
+        )
+
+    def test_nodegroup_update_empty_node_labels_clears_field(self):
+        # Passing an empty value replaces the field with an empty collection.
+        arglist = ['foo', 'ng1', '--node-labels', '']
+        verifylist = [
+            ('cluster', 'foo'),
+            ('nodegroup', 'ng1'),
+            ('node_labels', ['']),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.cmd.take_action(parsed_args)
+        self.ng_mock.update.assert_called_with(
+            'foo', 'ng1',
+            [{'op': 'replace', 'path': '/node_labels', 'value': str({})}]
+        )
+
+    def test_nodegroup_update_nothing_raises(self):
+        arglist = ['foo', 'ng1']
+        parsed_args = self.check_parser(self.cmd, arglist, [])
+        self.assertRaises(exceptions.CommandError,
+                          self.cmd.take_action, parsed_args)
+        self.ng_mock.update.assert_not_called()
 
 
 class TestNodeGroupShow(TestNodeGroup):

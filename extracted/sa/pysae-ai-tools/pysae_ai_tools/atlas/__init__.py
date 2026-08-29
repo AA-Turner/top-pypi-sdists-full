@@ -1,1 +1,0 @@
-"""MongoDB Atlas tooling commands."""

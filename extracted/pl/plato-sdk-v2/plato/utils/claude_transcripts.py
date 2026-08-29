@@ -429,6 +429,9 @@ class ClaudeTranscriptEmitter:
         # the final ``result`` event — so this gates the result-step
         # aggregate-usage fallback in ``emit_event``.
         self._stream_usage_seen = False
+        # message.ids whose streamed usage already landed on a step; later
+        # envelopes of the same turn repeat the snapshot and must stay bare.
+        self._usage_attributed_message_ids: set[str] = set()
 
     def compute_cost(
         self,
@@ -702,7 +705,25 @@ class ClaudeTranscriptEmitter:
                 cache_write_tokens = None
                 cost_usd = None
 
-            usage_unattributed = prompt_tokens is None
+            # Claude Code emits one assistant envelope per content block
+            # (thinking, then text / tool_use) and every envelope of the turn
+            # repeats the SAME running usage snapshot (see
+            # StreamUsageAccountant). Only the first envelope of a turn may
+            # carry that usage onto a step, or step sums double-count.
+            message_id = message.get("id")
+            usage_repeated = False
+            if prompt_tokens is not None and isinstance(message_id, str) and message_id:
+                if message_id in self._usage_attributed_message_ids:
+                    usage_repeated = True
+                    prompt_tokens = None
+                    completion_tokens = None
+                    cache_read_tokens = None
+                    cache_write_tokens = None
+                    cost_usd = None
+                elif text or reasoning or tool_uses:
+                    self._usage_attributed_message_ids.add(message_id)
+
+            usage_unattributed = prompt_tokens is None and not usage_repeated
 
             if text or reasoning:
                 self.spans_emitted += 1

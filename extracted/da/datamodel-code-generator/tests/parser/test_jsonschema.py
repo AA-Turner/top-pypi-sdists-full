@@ -81,7 +81,7 @@ from tests.conftest import assert_output
 from tests.main.conftest import assert_generated_model_json_validation
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from pytest_mock import MockerFixture
 
@@ -1261,6 +1261,158 @@ def test_parse_id_traverses_property_names_schema() -> None:
     assert parser.model_resolver.ids[""]["urn:property-name"] == "#/propertyNames"
 
 
+def test_traverse_schema_objects_preserves_builtin_callback_order() -> None:
+    """Visit built-in child schema fields in their established order."""
+    parser = JsonSchemaParser("", generate_schema_validators=True)
+    obj = JsonSchemaObject.model_validate({
+        "items": {"type": "string"},
+        "prefixItems": [{"type": "integer"}],
+        "additionalProperties": {"type": "number"},
+        "unevaluatedProperties": {"type": "boolean"},
+        "unevaluatedItems": {"type": "null"},
+        "patternProperties": {"^value": {"type": "string"}},
+        "propertyNames": {"type": "string"},
+        "anyOf": [{"type": "string"}],
+        "allOf": [{"type": "integer"}],
+        "oneOf": [{"type": "number"}],
+        "if": {"type": "object"},
+        "then": {"type": "array"},
+        "else": {"type": "null"},
+        "properties": {"property": {"type": "boolean"}},
+    })
+    visited: list[str] = []
+
+    parser._traverse_schema_objects(obj, ["#"], lambda _, path: visited.append("/".join(path)))
+
+    assert_output(
+        "\n".join(visited) + "\n",
+        DATA_PATH / "schema_traversal_all_child_fields.snapshot",
+    )
+
+
+def test_traverse_schema_objects_handles_conditional_schemas_without_child_fields() -> None:
+    """Traverse conditional extras only when schema validators are enabled."""
+    obj = JsonSchemaObject.model_validate({
+        "if": {"type": "object"},
+        "then": {"type": "array"},
+        "else": {"type": "null"},
+    })
+    validators_visited: list[str] = []
+    JsonSchemaParser("", generate_schema_validators=True)._traverse_schema_objects(
+        obj,
+        ["#"],
+        lambda _, path: validators_visited.append("/".join(path)),
+    )
+    no_validators_visited: list[str] = []
+    JsonSchemaParser("")._traverse_schema_objects(
+        obj,
+        ["#"],
+        lambda _, path: no_validators_visited.append("/".join(path)),
+    )
+
+    assert_output(
+        "[schema-validators]\n"
+        + "\n".join(validators_visited)
+        + "\n[without-schema-validators]\n"
+        + "\n".join(no_validators_visited)
+        + "\n",
+        DATA_PATH / "schema_traversal_conditional_fields.snapshot",
+    )
+
+
+def test_traverse_schema_objects_keeps_explicit_empty_child_fields_on_regular_path() -> None:
+    """Do not classify explicitly empty or null child fields as unprovided leaves."""
+    parser = JsonSchemaParser("")
+    obj = JsonSchemaObject.model_validate({
+        "items": None,
+        "prefixItems": [],
+        "additionalProperties": None,
+        "unevaluatedProperties": None,
+        "unevaluatedItems": None,
+        "patternProperties": {},
+        "propertyNames": None,
+        "anyOf": [],
+        "allOf": [],
+        "oneOf": [],
+        "properties": {},
+    })
+    visited: list[str] = []
+
+    parser._traverse_schema_objects(obj, ["#"], lambda _, path: visited.append("/".join(path)))
+
+    assert_output(
+        "\n".join(visited) + "\n",
+        DATA_PATH / "schema_traversal_explicit_empty_child_fields.snapshot",
+    )
+
+
+def test_traverse_schema_objects_skips_builtin_leaf_children() -> None:
+    """Stop after the callback for a built-in primitive leaf schema."""
+    parser = JsonSchemaParser("")
+    visited: list[str] = []
+
+    parser._traverse_schema_objects(
+        JsonSchemaObject.model_validate({"type": "string"}),
+        ["#"],
+        lambda _, path: visited.append("/".join(path)),
+    )
+
+    assert_output(
+        "\n".join(visited) + "\n",
+        DATA_PATH / "schema_traversal_explicit_empty_child_fields.snapshot",
+    )
+
+
+def test_traverse_schema_objects_falls_back_for_parser_subclass_children() -> None:
+    """Keep subclass-defined child traversal reachable for schemas with no built-in children."""
+
+    class ExtensionSchema(JsonSchemaObject):
+        children: list[JsonSchemaObject] = pydantic.Field(default_factory=list)
+
+    class ExtensionParser(JsonSchemaParser):
+        SCHEMA_OBJECT_TYPE = ExtensionSchema
+
+        def _traverse_schema_objects(
+            self,
+            obj: JsonSchemaObject,
+            path: list[str],
+            callback: Callable[[JsonSchemaObject, list[str]], None],
+            *,
+            include_one_of: bool = True,
+        ) -> None:
+            super()._traverse_schema_objects(obj, path, callback, include_one_of=include_one_of)
+            if isinstance(obj, ExtensionSchema):
+                for index, child in enumerate(obj.children):
+                    self._traverse_schema_objects(
+                        child,
+                        [*path, "children", str(index)],
+                        callback,
+                        include_one_of=include_one_of,
+                    )
+
+    parser = ExtensionParser("")
+    obj = ExtensionSchema.model_validate({"children": [{"type": "string"}]})
+    visited: list[str] = []
+
+    parser._traverse_schema_objects(obj, ["#"], lambda _, path: visited.append("/".join(path)))
+
+    builtin_parser_visited: list[str] = []
+    JsonSchemaParser("")._traverse_schema_objects(
+        ExtensionSchema.model_validate({"type": "string"}),
+        ["#"],
+        lambda _, path: builtin_parser_visited.append("/".join(path)),
+    )
+
+    assert_output(
+        "[parser-subclass-child]\n"
+        + "\n".join(visited)
+        + "\n[exact-parser-schema-subclass]\n"
+        + "\n".join(builtin_parser_visited)
+        + "\n",
+        DATA_PATH / "schema_traversal_parser_subclass_child.snapshot",
+    )
+
+
 def test_parse_obj_returns_when_merged_ref_still_has_ref(mocker: MockerFixture) -> None:
     """Test parse_obj stops after parsing a schema-keyword ref that still resolves as a ref."""
     parser = JsonSchemaParser("")
@@ -1612,6 +1764,38 @@ def test_local_ref_false_schema_fast_path_matches_validation_path() -> None:
     source = (DATA_PATH / "false_reference_fast_path.json").read_text()
     outputs: list[str] = []
     for parser_type in (ValidationPathParser, JsonSchemaParser):
+        parser = parser_type(source)
+        parser.parse(format_=False)
+        outputs.append(dump_templates(list(parser.results)))
+
+    assert outputs[0] == outputs[1]
+
+
+def test_array_items_constraints_fast_path_falls_back_for_subclasses() -> None:
+    """Keep parser and schema subclasses on the conventional constraint path."""
+
+    class ConstraintParser(JsonSchemaParser):
+        @classmethod
+        def _get_array_max_items_constraints(cls, _obj: JsonSchemaObject) -> list[int]:
+            return [2]
+
+    class ConstraintSchema(JsonSchemaObject):
+        def model_post_init(self, _context: Any, /) -> None:
+            self.items = False
+
+    assert ConstraintParser._get_array_items_constraints(JsonSchemaObject.model_validate({})) == {"maxItems": 2}
+    assert JsonSchemaParser._get_array_items_constraints(ConstraintSchema.model_validate({})) == {"maxItems": 0}
+
+
+def test_array_items_constraints_fast_path_matches_conventional_large_schema() -> None:
+    """Keep large-schema output byte-identical to the conventional path."""
+
+    class ConventionalArrayConstraintParser(JsonSchemaParser):
+        pass
+
+    source = (DATA_PATH.parent / "performance" / "large_models.json").read_text()
+    outputs: list[str] = []
+    for parser_type in (ConventionalArrayConstraintParser, JsonSchemaParser):
         parser = parser_type(source)
         parser.parse(format_=False)
         outputs.append(dump_templates(list(parser.results)))

@@ -8,9 +8,24 @@ from worker import (
     STREAMING_NUM_CHUNKS,
     crash_app,
     example_hdr,
+    header_echo_app,
 )
 
-from workers import Request, env, wsgi
+from workers import Request, WorkerEntrypoint, env, wsgi
+
+
+@pytest.mark.asyncio
+async def test_generated_entrypoint_serves_wsgi_app():
+    default = wsgi.entrypoint(header_echo_app)
+    assert default.__name__ == "Default"
+    assert issubclass(default, WorkerEntrypoint)
+
+    entrypoint = object.__new__(default)
+    entrypoint.env = {}
+    response = await entrypoint.fetch(js.Request.new("http://example.com/"))
+
+    assert response.status == 200
+    assert await response.text() == "Hello, World"
 
 
 @pytest.mark.asyncio
@@ -62,9 +77,10 @@ async def test_cookies():
     assert "b=2" in cookies
 
 
+@pytest.mark.parametrize("endpoint", ("stream", "stream-stack-switch"))
 @pytest.mark.asyncio
-async def test_streaming():
-    response = await env.SELF.fetch("http://example.com/stream")
+async def test_streaming(endpoint):
+    response = await env.SELF.fetch("http://example.com/" + endpoint)
     assert response.status == 200
     assert response.headers.get("content-type") == "application/octet-stream"
 

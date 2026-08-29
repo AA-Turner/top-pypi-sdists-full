@@ -104,6 +104,7 @@ from lusid.api.transaction_fee_types_api import TransactionFeeTypesApi
 from lusid.api.transaction_fees_api import TransactionFeesApi
 from lusid.api.transaction_portfolios_api import TransactionPortfoliosApi
 from lusid.api.transfer_agency_api import TransferAgencyApi
+from lusid.api.transfers_api import TransfersApi
 from lusid.api.translation_api import TranslationApi
 from lusid.api.workspace_api import WorkspaceApi
 
@@ -213,6 +214,7 @@ from lusid.models.basket_identifier import BasketIdentifier
 from lusid.models.batch_adjust_holdings_response import BatchAdjustHoldingsResponse
 from lusid.models.batch_amend_custom_data_model_membership_response import BatchAmendCustomDataModelMembershipResponse
 from lusid.models.batch_amend_transaction_settlement_instruction_response import BatchAmendTransactionSettlementInstructionResponse
+from lusid.models.batch_create_closed_periods_request import BatchCreateClosedPeriodsRequest
 from lusid.models.batch_delete_relational_data_response import BatchDeleteRelationalDataResponse
 from lusid.models.batch_manage_comment_request import BatchManageCommentRequest
 from lusid.models.batch_manage_comment_response import BatchManageCommentResponse
@@ -243,6 +245,8 @@ from lusid.models.bond_conversion_entry import BondConversionEntry
 from lusid.models.bond_conversion_schedule import BondConversionSchedule
 from lusid.models.bond_coupon_event import BondCouponEvent
 from lusid.models.bond_default_event import BondDefaultEvent
+from lusid.models.bond_default_suppression_details import BondDefaultSuppressionDetails
+from lusid.models.bond_lookup_model_options import BondLookupModelOptions
 from lusid.models.bond_option import BondOption
 from lusid.models.bond_option_termination_event import BondOptionTerminationEvent
 from lusid.models.bond_principal_event import BondPrincipalEvent
@@ -450,6 +454,8 @@ from lusid.models.create_timeline_request import CreateTimelineRequest
 from lusid.models.create_trade_tickets_response import CreateTradeTicketsResponse
 from lusid.models.create_transaction_fee_type_request import CreateTransactionFeeTypeRequest
 from lusid.models.create_transaction_portfolio_request import CreateTransactionPortfolioRequest
+from lusid.models.create_transfer_request import CreateTransferRequest
+from lusid.models.create_transfer_response import CreateTransferResponse
 from lusid.models.create_unit_definition import CreateUnitDefinition
 from lusid.models.create_valuation_point_request import CreateValuationPointRequest
 from lusid.models.credit_default_swap import CreditDefaultSwap
@@ -519,6 +525,9 @@ from lusid.models.delete_modes import DeleteModes
 from lusid.models.delete_relation_request import DeleteRelationRequest
 from lusid.models.delete_relational_data_point_request import DeleteRelationalDataPointRequest
 from lusid.models.delete_relationship_request import DeleteRelationshipRequest
+from lusid.models.delete_transfer_agency_order_request import DeleteTransferAgencyOrderRequest
+from lusid.models.delete_transfer_agency_order_result import DeleteTransferAgencyOrderResult
+from lusid.models.delete_transfer_agency_orders_response import DeleteTransferAgencyOrdersResponse
 from lusid.models.deleted_entity_response import DeletedEntityResponse
 from lusid.models.delisting_event import DelistingEvent
 from lusid.models.dependency_source_filter import DependencySourceFilter
@@ -635,6 +644,7 @@ from lusid.models.fund_definition_request import FundDefinitionRequest
 from lusid.models.fund_details import FundDetails
 from lusid.models.fund_estimate_valuation_point import FundEstimateValuationPoint
 from lusid.models.fund_id_list import FundIdList
+from lusid.models.fund_instrument import FundInstrument
 from lusid.models.fund_journal_entry_line import FundJournalEntryLine
 from lusid.models.fund_pnl_breakdown import FundPnlBreakdown
 from lusid.models.fund_previous_nav import FundPreviousNAV
@@ -745,6 +755,7 @@ from lusid.models.holding_ids_request import HoldingIdsRequest
 from lusid.models.holding_pricing_info import HoldingPricingInfo
 from lusid.models.holdings_adjustment import HoldingsAdjustment
 from lusid.models.holdings_adjustment_header import HoldingsAdjustmentHeader
+from lusid.models.hull_white_model_options import HullWhiteModelOptions
 from lusid.models.i_unit_definition_dto import IUnitDefinitionDto
 from lusid.models.id_selector_definition import IdSelectorDefinition
 from lusid.models.identifier_definition import IdentifierDefinition
@@ -1295,6 +1306,7 @@ from lusid.models.resource_list_of_change import ResourceListOfChange
 from lusid.models.resource_list_of_change_history import ResourceListOfChangeHistory
 from lusid.models.resource_list_of_change_interval import ResourceListOfChangeInterval
 from lusid.models.resource_list_of_change_interval_with_order_management_detail import ResourceListOfChangeIntervalWithOrderManagementDetail
+from lusid.models.resource_list_of_closed_period import ResourceListOfClosedPeriod
 from lusid.models.resource_list_of_compliance_breached_order_info import ResourceListOfComplianceBreachedOrderInfo
 from lusid.models.resource_list_of_compliance_rule import ResourceListOfComplianceRule
 from lusid.models.resource_list_of_compliance_rule_result import ResourceListOfComplianceRuleResult
@@ -1514,6 +1526,7 @@ from lusid.models.transaction_currency_and_amount import TransactionCurrencyAndA
 from lusid.models.transaction_date_windows import TransactionDateWindows
 from lusid.models.transaction_diagnostics import TransactionDiagnostics
 from lusid.models.transaction_entity import TransactionEntity
+from lusid.models.transaction_entity_link import TransactionEntityLink
 from lusid.models.transaction_fee_capitalisation import TransactionFeeCapitalisation
 from lusid.models.transaction_fee_type import TransactionFeeType
 from lusid.models.transaction_field_map import TransactionFieldMap
@@ -1570,6 +1583,7 @@ from lusid.models.trial_balance import TrialBalance
 from lusid.models.trial_balance_query_parameters import TrialBalanceQueryParameters
 from lusid.models.trigger_event import TriggerEvent
 from lusid.models.typed_resource_id import TypedResourceId
+from lusid.models.unconfirm_closed_period_request import UnconfirmClosedPeriodRequest
 from lusid.models.unit_schema import UnitSchema
 from lusid.models.unitisation_data import UnitisationData
 from lusid.models.units_ratio import UnitsRatio
@@ -1835,6 +1849,7 @@ __all__ = [
     "TransactionFeesApi",
     "TransactionPortfoliosApi",
     "TransferAgencyApi",
+    "TransfersApi",
     "TranslationApi",
     "WorkspaceApi",
     "A2BBreakdown",
@@ -1934,6 +1949,7 @@ __all__ = [
     "BatchAdjustHoldingsResponse",
     "BatchAmendCustomDataModelMembershipResponse",
     "BatchAmendTransactionSettlementInstructionResponse",
+    "BatchCreateClosedPeriodsRequest",
     "BatchDeleteRelationalDataResponse",
     "BatchManageCommentRequest",
     "BatchManageCommentResponse",
@@ -1964,6 +1980,8 @@ __all__ = [
     "BondConversionSchedule",
     "BondCouponEvent",
     "BondDefaultEvent",
+    "BondDefaultSuppressionDetails",
+    "BondLookupModelOptions",
     "BondOption",
     "BondOptionTerminationEvent",
     "BondPrincipalEvent",
@@ -2171,6 +2189,8 @@ __all__ = [
     "CreateTradeTicketsResponse",
     "CreateTransactionFeeTypeRequest",
     "CreateTransactionPortfolioRequest",
+    "CreateTransferRequest",
+    "CreateTransferResponse",
     "CreateUnitDefinition",
     "CreateValuationPointRequest",
     "CreditDefaultSwap",
@@ -2240,6 +2260,9 @@ __all__ = [
     "DeleteRelationRequest",
     "DeleteRelationalDataPointRequest",
     "DeleteRelationshipRequest",
+    "DeleteTransferAgencyOrderRequest",
+    "DeleteTransferAgencyOrderResult",
+    "DeleteTransferAgencyOrdersResponse",
     "DeletedEntityResponse",
     "DelistingEvent",
     "DependencySourceFilter",
@@ -2356,6 +2379,7 @@ __all__ = [
     "FundDetails",
     "FundEstimateValuationPoint",
     "FundIdList",
+    "FundInstrument",
     "FundJournalEntryLine",
     "FundPnlBreakdown",
     "FundPreviousNAV",
@@ -2466,6 +2490,7 @@ __all__ = [
     "HoldingPricingInfo",
     "HoldingsAdjustment",
     "HoldingsAdjustmentHeader",
+    "HullWhiteModelOptions",
     "IUnitDefinitionDto",
     "IdSelectorDefinition",
     "IdentifierDefinition",
@@ -3016,6 +3041,7 @@ __all__ = [
     "ResourceListOfChangeHistory",
     "ResourceListOfChangeInterval",
     "ResourceListOfChangeIntervalWithOrderManagementDetail",
+    "ResourceListOfClosedPeriod",
     "ResourceListOfComplianceBreachedOrderInfo",
     "ResourceListOfComplianceRule",
     "ResourceListOfComplianceRuleResult",
@@ -3235,6 +3261,7 @@ __all__ = [
     "TransactionDateWindows",
     "TransactionDiagnostics",
     "TransactionEntity",
+    "TransactionEntityLink",
     "TransactionFeeCapitalisation",
     "TransactionFeeType",
     "TransactionFieldMap",
@@ -3291,6 +3318,7 @@ __all__ = [
     "TrialBalanceQueryParameters",
     "TriggerEvent",
     "TypedResourceId",
+    "UnconfirmClosedPeriodRequest",
     "UnitSchema",
     "UnitisationData",
     "UnitsRatio",

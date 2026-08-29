@@ -28,6 +28,7 @@ __all__ = (
     "CodeDeployServiceName",
     "ComputePlatformType",
     "DeploymentCreatorType",
+    "DeploymentModeType",
     "DeploymentOptionType",
     "DeploymentReadyActionType",
     "DeploymentStatusType",
@@ -90,6 +91,7 @@ DeploymentCreatorType = Literal[
     "codeDeployRollback",
     "user",
 ]
+DeploymentModeType = Literal["RESTART", "STANDARD"]
 DeploymentOptionType = Literal["WITHOUT_TRAFFIC_CONTROL", "WITH_TRAFFIC_CONTROL"]
 DeploymentReadyActionType = Literal["CONTINUE_DEPLOYMENT", "STOP_DEPLOYMENT"]
 DeploymentStatusType = Literal[

@@ -8,6 +8,8 @@ from .auth import SeamInvalidTokenError
 from .exceptions import (
     SeamError,
     SeamHttpApiError,
+    SeamHttpInvalidResponseError,
+    SeamInvalidWebhookPayloadError,
     SeamHttpUnauthorizedError,
     SeamHttpInvalidInputError,
     SeamValidationError,

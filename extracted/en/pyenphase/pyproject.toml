@@ -1,6 +1,6 @@
 [project]
 name = "pyenphase"
-version = "4.0.0"
+version = "4.0.1"
 description = "Library to control enphase envoy"
 authors = [{ name = "pyenphase", email = "cgarwood@gmail.com" }]
 license = "MIT"
@@ -10,7 +10,7 @@ dynamic = ["classifiers", "dependencies"]
 
 [tool.poetry]
 name = "pyenphase"
-version = "4.0.0"
+version = "4.0.1"
 description = "Library to control enphase envoy"
 authors = ["pyenphase <cgarwood@gmail.com>"]
 classifiers = [
@@ -60,6 +60,8 @@ myst-parser = ">=0.16"
 sphinx = ">=4.0"
 sphinx-rtd-theme = ">=1.0"
 sphinx-autodoc-typehints = ">=1.25.2,<4.0.0"
+
+
 
 [tool.semantic_release]
 branch = "main"

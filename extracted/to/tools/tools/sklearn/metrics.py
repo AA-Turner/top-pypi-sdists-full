@@ -1,9 +1,11 @@
-from collections.abc import Iterable
 from copy import deepcopy as dcopy
 import warnings
 
 import numpy as np
 import sklearn.metrics as sk_metrics
+
+from .. import numpy as tnp
+
 
 def squared_error(y_true, y_pred, axis=None):
     """
@@ -51,38 +53,13 @@ def absolute_error(y_true, y_pred, axis=None):
     score = np.mean(score, axis=axis)
     return score
 
-def axis_fix(axis, ndim):
-    """
-    Convert axis into a tuple of positive integers.
-    
-    Parameters
-    ----------
-    axis : int or iterable of int
-        Axis or axes to normalize.
-    
-    ndim : int
-        The maximum number of dimensions axis can have.
-        Used as reference for converting negative indices.
-    
-    Returns
-    -------
-    axis : tuple of int
-        Normalized axis as a tuple of non-negative integers.
-    """
-    if not isinstance(axis, Iterable): # axis is a single int
-        assert type(axis) is int, 'type(axis) should be integer'
-        axis = (axis,)
-    
-    axis = tuple(ax if ax>=0 else ndim+ax for ax in axis)
-    return axis
-
 def TSS_score(y_true, axis=None, axis_norm=None, axis_pool=None):
 
     # Axis fixing
     axis = tuple(range(y_true.ndim)) if axis is None else axis # Default to collapsing all dimensions
     axis_norm = axis if axis_norm is None else axis_norm
     axis_pool = axis_norm if axis_pool is None else axis_pool
-    axis, axis_norm, axis_pool = axis_fix(axis, y_true.ndim), axis_fix(axis_norm, y_true.ndim), axis_fix(axis_pool, y_true.ndim)
+    axis, axis_norm, axis_pool = tnp.axis_fix(axis, y_true.ndim), tnp.axis_fix(axis_norm, y_true.ndim), tnp.axis_fix(axis_pool, y_true.ndim)
 
     # axis trimming operations for computing TSS
     axis_set, axis_norm_set, axis_pool_set = set(axis), set(axis_norm), set(axis_pool)
@@ -144,7 +121,7 @@ def r2_score(y_true, y_pred, axis=None, axis_norm=None, axis_pool=None, force_fi
     axis = tuple(range(y_true.ndim)) if axis is None else axis # Default to collapsing all dimensions
     axis_norm = axis if axis_norm is None else axis_norm
     axis_pool = axis_norm if axis_pool is None else axis_pool
-    axis, axis_norm, axis_pool = axis_fix(axis, y_true.ndim), axis_fix(axis_norm, y_true.ndim), axis_fix(axis_pool, y_true.ndim)
+    axis, axis_norm, axis_pool = tnp.axis_fix(axis, y_true.ndim), tnp.axis_fix(axis_norm, y_true.ndim), tnp.axis_fix(axis_pool, y_true.ndim)
 
     # Residual Sum of Squares (RSS) 
     RS = (y_true - y_pred)**2 # Residual Square (RS)

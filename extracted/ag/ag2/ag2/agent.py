@@ -19,7 +19,8 @@ import asyncio
 import json
 import logging
 import types
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Mapping, Sequence
+import weakref
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable, Mapping, Sequence
 from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
 from functools import partial
@@ -62,8 +63,8 @@ from .events.lifecycle import (
     ObserverCompleted,
     ObserverStarted,
 )
-from .exceptions import ConfigNotProvidedError
-from .history import History
+from .exceptions import ConfigNotProvidedError, HumanInputError
+from .history import HUMAN_INPUT_ABANDONED_TOOL_RESULT, History, close_unanswered_tool_calls
 from .hitl import HumanHook, default_hitl_hook, wrap_hitl
 from .knowledge import DefaultBootstrap, EventLogWriter, KnowledgeStore
 from .knowledge.config import KnowledgeConfig
@@ -78,7 +79,7 @@ from .middleware.describe import DescribedMiddleware
 from .observers import Observer
 from .plugin import Plugin, PluginTarget, PromptType
 from .response import ResponseProto, ResponseSchema
-from .stream import MemoryStream, Stream
+from .stream import MemoryStream, Stream, StreamId
 from .task import CheckpointStore, Task, TaskSpec
 from .tools.builtin.tool_search import ToolSearchToolSchema
 from .tools.final import FunctionTool, FunctionToolSchema, Toolkit, tool
@@ -91,7 +92,6 @@ from .usage import UsageReport
 from .utils import AGENT_CONTEXT_DEPENDENCY_KEY, MODEL_CONFIG_CONTEXT_DEPENDENCY_KEY
 
 logger = logging.getLogger(__name__)
-
 
 TResult = TypeVar313("TResult", default=str)
 TAgent = TypeVar313("TAgent", default=str)
@@ -548,39 +548,52 @@ class AgentRun(Generic[TResult, TAgent]):
 
 _STREAM_TURN_LOCK_ATTR = "_ag2_turn_lock"
 
+# Registry mapping ``stream.id`` -> that stream's turn lock. Weak-valued: each
+# stream instance holds a strong reference to its own lock (see below), so an
+# entry lives exactly as long as some object for that id does, and is reclaimed
+# once the last one is collected.
+_stream_locks_by_id: "weakref.WeakValueDictionary[StreamId, asyncio.Lock]" = weakref.WeakValueDictionary()
 
-def _get_stream_turn_lock(stream: Any) -> asyncio.Lock:
+
+def _get_stream_turn_lock(stream: Stream) -> asyncio.Lock:
     """Return (creating if needed) a per-stream asyncio.Lock.
 
-    Attaching the lock to the stream object itself means:
+    A stream's identity is its ``id`` — that is the key ``History`` is built
+    on — not the Python object holding it. Two objects constructed from the
+    same ``(id, storage)`` pair (``persistent_stream()``, a session resumed
+    from storage, a stream reconstructed in user code) denote one stream and
+    take one lock, so:
       * A fresh stream per turn (the default subtask / subagent path)
         pays a trivial no-contention acquire — no behaviour change.
-      * A stream shared across concurrent ``Agent.ask`` calls
-        serializes those calls so subscribers registered by one turn
-        never fire for events of another.
+      * Concurrent ``Agent.ask`` calls on a stream, however each caller got
+        hold of it, serialize so subscribers registered by one turn never
+        fire for events of another.
+
+    The lock is cached on the stream instance, which keeps the common case a
+    single attribute read and keeps the registry entry alive.
 
     The lock is allocated lazily on first use so Agent instantiation
     outside an event loop (which would bind the lock to the wrong loop)
     still works.
     """
+    # ``_STREAM_TURN_LOCK_ATTR`` is ours, not part of the ``Stream`` protocol,
+    # so it has to be read defensively — unlike ``id``, which the protocol
+    # guarantees.
     lock = getattr(stream, _STREAM_TURN_LOCK_ATTR, None)
+    if lock is not None:
+        return lock
+
+    lock = _stream_locks_by_id.get(stream.id)
     if lock is None:
-        lock = asyncio.Lock()
-        try:
-            setattr(stream, _STREAM_TURN_LOCK_ATTR, lock)
-        except (AttributeError, TypeError):
-            # Stream uses __slots__ and doesn't declare our attr — fall
-            # back to a per-id registry so the lock still persists.
-            _stream_id_locks.setdefault(id(stream), lock)
-            lock = _stream_id_locks[id(stream)]
+        lock = _stream_locks_by_id[stream.id] = asyncio.Lock()
+
+    # Cache on the instance: keeps the common case a single getattr, and the
+    # strong reference keeps this stream's registry entry alive. A stream that
+    # rejects the assignment (``__slots__`` without our attr) still serializes
+    # via the registry, it just re-looks-up each turn.
+    with suppress(AttributeError, TypeError):
+        setattr(stream, _STREAM_TURN_LOCK_ATTR, lock)
     return lock
-
-
-# Fallback for streams that reject attribute assignment. Keyed by
-# ``id(stream)`` — asyncio.Lock has no weakref slot, so we can't key on
-# a weak reference. Only populated for slotted streams without the
-# turn-lock slot (MemoryStream declares it).
-_stream_id_locks: dict[int, asyncio.Lock] = {}
 
 
 class Agent(PluginTarget, Generic[TResult]):
@@ -1284,7 +1297,7 @@ class Agent(PluginTarget, Generic[TResult]):
         additional_middleware: Iterable[MiddlewareFactory] = (),
         additional_observers: Iterable[Observer] = (),
         response_schema: Omittable[ResponseProto[Any] | type | None] = omit,
-    ) -> "AsyncIterator[Callable[[], Awaitable[AgentReply[Any, Any]]]]":
+    ) -> "AsyncGenerator[Callable[[], Awaitable[AgentReply[Any, Any]]]]":
         """Open a turn scope and yield a ``drive`` callable that runs it once.
 
         Sets up everything a turn needs and keeps it live across the ``yield``:
@@ -1427,7 +1440,14 @@ class Agent(PluginTarget, Generic[TResult]):
                 ):
 
                     async def drive() -> "AgentReply[Any, Any]":
-                        message = await agent_turn(event, context)
+                        try:
+                            message = await agent_turn(event, context)
+                        except HumanInputError:
+                            await close_unanswered_tool_calls(
+                                context.stream.history,
+                                result=HUMAN_INPUT_ABANDONED_TOOL_RESULT,
+                            )
+                            raise
                         return AgentReply(
                             message,
                             context=context,
@@ -1527,7 +1547,7 @@ class _KnowledgeContext:
         self.__bootstrapped = None
 
     @asynccontextmanager
-    async def enter(self, context: "Context") -> AsyncIterator[None]:
+    async def enter(self, context: "Context") -> AsyncGenerator[None]:
         store = self.config.store
 
         if not self.__bootstrapped:
@@ -1564,7 +1584,7 @@ class _KnowledgeContext:
 
 class _FakeKnowledgeContext:
     @asynccontextmanager
-    async def enter(self, context: "Context") -> AsyncIterator[None]:
+    async def enter(self, context: "Context") -> AsyncGenerator[None]:
         yield
 
 
@@ -1630,7 +1650,7 @@ async def _observer_lifecycle(
     observers: Sequence[Observer],
     stack: ExitStack,
     context: Context,
-) -> AsyncIterator[None]:
+) -> AsyncGenerator[None]:
     """Register ``observers`` on ``stack`` and bracket the turn with lifecycle events.
 
     Observers subscribe to the stream under the caller's ``ExitStack``, then an
@@ -1691,12 +1711,20 @@ def _build_subtask_toolkit(agent: "Agent[Any]") -> Toolkit:
                 *(agent._spawn_subtask(t, ctx) for t in tasks),
                 return_exceptions=True,
             )
+            # One sub-task that could not reach a human sinks the whole call:
+            # rendering it as text would make it the tool's output, and the
+            # model would read an unaskable approval as a subtask that failed.
+            for r in raw:
+                if isinstance(r, HumanInputError):
+                    raise r
             results = [r if not isinstance(r, BaseException) else f"Error: {r}" for r in raw]
         else:
             results = []
             for t in tasks:
                 try:
                     results.append(await agent._spawn_subtask(t, ctx))
+                except HumanInputError:
+                    raise
                 except Exception as e:
                     results.append(f"Error: {e}")
 

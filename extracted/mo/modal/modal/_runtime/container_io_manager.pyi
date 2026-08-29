@@ -33,6 +33,7 @@ class IOContext:
     finalized_function: modal._runtime.user_code_imports.FinalizedFunction
     _cancel_issued: bool
     _cancel_callback: typing.Optional[collections.abc.Callable[[], None]]
+    _exited: bool
 
     def __init__(
         self,
@@ -202,7 +203,9 @@ class _ContainerIOManager:
         batch_max_size: int = 0,
         batch_wait_ms: int = 0,
     ) -> collections.abc.AsyncIterator[IOContext]: ...
-    async def _send_outputs(self, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+    async def _send_outputs(
+        self, io_context: IOContext, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]
+    ) -> None:
         """Send pre-built output items with retry and chunking."""
         ...
 
@@ -210,7 +213,7 @@ class _ContainerIOManager:
         """Handle an exception while processing a function input."""
         ...
 
-    def exit_context(self, input_ids: list[str]): ...
+    def exit_context(self, io_context: IOContext): ...
     async def push_outputs(self, io_context: IOContext, started_at: float, output_data: list[typing.Any]) -> None: ...
     def snapshot_context_manager(self) -> typing.AsyncContextManager[None]: ...
     async def interact(self, from_breakpoint: bool = False): ...
@@ -445,11 +448,13 @@ class ContainerIOManager:
     run_inputs_outputs: __run_inputs_outputs_spec
 
     class ___send_outputs_spec(typing_extensions.Protocol):
-        def __call__(self, /, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+        def __call__(self, /, io_context: IOContext, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
             """Send pre-built output items with retry and chunking."""
             ...
 
-        async def aio(self, /, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]) -> None:
+        async def aio(
+            self, /, io_context: IOContext, outputs: list[modal_proto.api_pb2.FunctionPutOutputsItem]
+        ) -> None:
             """Send pre-built output items with retry and chunking."""
             ...
 
@@ -468,7 +473,7 @@ class ContainerIOManager:
 
     handle_input_exception: __handle_input_exception_spec
 
-    def exit_context(self, input_ids: list[str]): ...
+    def exit_context(self, io_context: IOContext): ...
 
     class __push_outputs_spec(typing_extensions.Protocol):
         def __call__(self, /, io_context: IOContext, started_at: float, output_data: list[typing.Any]) -> None: ...

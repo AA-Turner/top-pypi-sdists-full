@@ -91,6 +91,18 @@ if TYPE_CHECKING:
         CustomTaskTimedOutAttributes,
         CustomTaskTimedOutAttributesTypedDict,
     )
+    from .delete_execution_metadata_v1_workflows_executions_search_keys_temporal_workflow_id_deleteop import (
+        DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequest,
+        DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequestTypedDict,
+    )
+    from .deleteexecutionmetadatarequest import (
+        DeleteExecutionMetadataRequest,
+        DeleteExecutionMetadataRequestTypedDict,
+    )
+    from .deleteexecutionmetadataresponse import (
+        DeleteExecutionMetadataResponse,
+        DeleteExecutionMetadataResponseTypedDict,
+    )
     from .deploymentauthorizedcredentiallistresponse import (
         DeploymentAuthorizedCredentialListResponse,
         DeploymentAuthorizedCredentialListResponseTypedDict,
@@ -183,6 +195,7 @@ if TYPE_CHECKING:
         ValidationError,
         ValidationErrorTypedDict,
     )
+    from .workerfeatures import WorkerFeatures, WorkerFeaturesTypedDict
     from .workerheartbeatrequest import (
         WorkerHeartbeatRequest,
         WorkerHeartbeatRequestTypedDict,
@@ -334,6 +347,12 @@ __all__ = [
     "CustomTaskTimedOutAttributesTypedDict",
     "CustomTaskTimedOutInput",
     "CustomTaskTimedOutInputTypedDict",
+    "DeleteExecutionMetadataRequest",
+    "DeleteExecutionMetadataRequestTypedDict",
+    "DeleteExecutionMetadataResponse",
+    "DeleteExecutionMetadataResponseTypedDict",
+    "DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequest",
+    "DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequestTypedDict",
     "DeploymentAuthorizedCredentialListResponse",
     "DeploymentAuthorizedCredentialListResponseTypedDict",
     "DeploymentAuthorizedCredentialRequest",
@@ -410,6 +429,8 @@ __all__ = [
     "ValidationErrorTypedDict",
     "Value",
     "ValueTypedDict",
+    "WorkerFeatures",
+    "WorkerFeaturesTypedDict",
     "WorkerHeartbeatRequest",
     "WorkerHeartbeatRequestTypedDict",
     "WorkerHeartbeatResponse",
@@ -513,6 +534,12 @@ _dynamic_imports: dict[str, str] = {
     "CustomTaskTimedOutInputTypedDict": ".customtasktimedout_input",
     "CustomTaskTimedOutAttributes": ".customtasktimedoutattributes",
     "CustomTaskTimedOutAttributesTypedDict": ".customtasktimedoutattributes",
+    "DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequest": ".delete_execution_metadata_v1_workflows_executions_search_keys_temporal_workflow_id_deleteop",
+    "DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequestTypedDict": ".delete_execution_metadata_v1_workflows_executions_search_keys_temporal_workflow_id_deleteop",
+    "DeleteExecutionMetadataRequest": ".deleteexecutionmetadatarequest",
+    "DeleteExecutionMetadataRequestTypedDict": ".deleteexecutionmetadatarequest",
+    "DeleteExecutionMetadataResponse": ".deleteexecutionmetadataresponse",
+    "DeleteExecutionMetadataResponseTypedDict": ".deleteexecutionmetadataresponse",
     "DeploymentAuthorizedCredentialListResponse": ".deploymentauthorizedcredentiallistresponse",
     "DeploymentAuthorizedCredentialListResponseTypedDict": ".deploymentauthorizedcredentiallistresponse",
     "DeploymentAuthorizedCredentialRequest": ".deploymentauthorizedcredentialrequest",
@@ -589,6 +616,8 @@ _dynamic_imports: dict[str, str] = {
     "LocTypedDict": ".validationerror",
     "ValidationError": ".validationerror",
     "ValidationErrorTypedDict": ".validationerror",
+    "WorkerFeatures": ".workerfeatures",
+    "WorkerFeaturesTypedDict": ".workerfeatures",
     "WorkerHeartbeatRequest": ".workerheartbeatrequest",
     "WorkerHeartbeatRequestTypedDict": ".workerheartbeatrequest",
     "WorkerHeartbeatResponse": ".workerheartbeatresponse",

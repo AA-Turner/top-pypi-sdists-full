@@ -41,7 +41,7 @@ from ._utils.docker_utils import (
     extract_copy_command_patterns,
     find_dockerignore_file,
 )
-from ._utils.function_utils import FunctionInfo, parse_gpu_config
+from ._utils.function_utils import FunctionSourceInfo, parse_gpu_config
 from ._utils.mount_utils import validate_only_modal_volumes, validate_volumes_by_object_id
 from ._utils.name_utils import check_object_name
 from .client import _Client
@@ -681,8 +681,8 @@ class _Image(_Object, type_prefix="im"):
 
             if build_function:
                 build_function_id = build_function.object_id
-                globals = build_function._get_info().get_globals()
-                attrs = build_function._get_info().get_cls_var_attrs()
+                globals = build_function._get_source_info().get_globals()
+                attrs = build_function._get_source_info().get_cls_var_attrs()
                 globals = {**globals, **attrs}
                 filtered_globals = {}
                 for k, v in globals.items():
@@ -694,7 +694,7 @@ class _Image(_Object, type_prefix="im"):
                         # Skip unserializable values for now.
                         logger.warning(
                             f"Skipping unserializable global variable {k} for "
-                            f"{build_function._get_info().function_name}. "
+                            f"{build_function._get_source_info().function_name}. "
                             "Changes to this variable won't invalidate the image."
                         )
                         continue
@@ -704,7 +704,7 @@ class _Image(_Object, type_prefix="im"):
                 # TODO: better way to filter out types that don't have a stable hash?
                 build_function_globals = serialize(filtered_globals) if filtered_globals else b""
                 _build_function = api_pb2.BuildFunction(
-                    definition=build_function.get_build_def(),
+                    definition=build_function._get_build_def(),
                     globals=build_function_globals,
                     input=build_function_input,
                 )
@@ -764,7 +764,10 @@ class _Image(_Object, type_prefix="im"):
                 if build_resp.HasField("metadata"):
                     metadata = build_resp.metadata
 
-            if result.status == api_pb2.GenericResult.GENERIC_STATUS_FAILURE:
+            if result.status in (
+                api_pb2.GenericResult.GENERIC_STATUS_FAILURE,
+                api_pb2.GenericResult.GENERIC_STATUS_MEMORY_MANAGER_EVICTION,
+            ):
                 if result.exception:
                     raise ImageBuildError(
                         f"Image build for {image_id} failed with the exception:\n{result.exception}", image_id
@@ -2751,9 +2754,9 @@ class _Image(_Object, type_prefix="im"):
             # It may be possible to support lambdas eventually, but for now we don't handle them well, so reject quickly
             raise InvalidError("Image.run_function does not support lambda functions.")
 
-        info = FunctionInfo(raw_f)
+        info = FunctionSourceInfo(raw_f)
 
-        function = _Function.from_local(
+        function = _Function._from_local(
             info,
             app=None,
             image=self,
@@ -2935,7 +2938,7 @@ class _Image(_Object, type_prefix="im"):
         try:
             yield
         except Exception as exc:
-            if not self.is_hydrated:
+            if not self._is_hydrated:
                 # Might be hydrated later (if it's the container's used image)
                 self.inside_exceptions.append(exc)
             elif env_image_id == self.object_id:
@@ -3048,7 +3051,7 @@ class _Image(_Object, type_prefix="im"):
         """mdmd:hidden"""
         # Image inherits hydrate() from Object but can't be hydrated on demand
         # Overriding the method lets us hide it from the docs and raise a better error message
-        if not self.is_hydrated:
+        if not self._is_hydrated:
             raise ExecutionError(
                 "Images cannot currently be hydrated on demand; you can build an Image by running an App that uses it."
             )

@@ -129,6 +129,7 @@ __all__ = (
     "ServiceDeploymentStatusType",
     "ServiceFieldType",
     "ServiceName",
+    "ServiceRevisionCleanupType",
     "ServicesInactiveWaiterName",
     "ServicesStableWaiterName",
     "SettingNameType",
@@ -347,6 +348,7 @@ ServiceDeploymentStatusType = Literal[
     "SUCCESSFUL",
 ]
 ServiceFieldType = Literal["TAGS"]
+ServiceRevisionCleanupType = Literal["BLOCKING", "DEFERRED"]
 ServicesInactiveWaiterName = Literal["services_inactive"]
 ServicesStableWaiterName = Literal["services_stable"]
 SettingNameType = Literal[

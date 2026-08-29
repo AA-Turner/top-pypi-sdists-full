@@ -33,6 +33,15 @@ FRAMEWORK_RUNNERS: Dict[Tuple[str, str], Type[Runner]] = {
     # delegation + the b64 artifact seam work unchanged.
     ("comfy", "text-to-image"):                       ComfyRunner,
     ("comfy", "image-to-image"):                      ComfyRunner,
+    # VIDEO (studio seat). The Wan/VACE registry rows are framework
+    # "transformers" because that is where their bytes live in the store, but
+    # they are SERVED by the studio spine: StudioVideoRunner lifts the request
+    # into render_clip, which delegates to a studio GPU worker
+    # (HUGPY_STUDIO_WORKER) when one resolves and the spec binds a real model.
+    # Before these rows, text-to-video could only refuse with "no runner
+    # registered" while the studio path rendered the same zoo one floor below.
+    ("transformers", "text-to-video"):                StudioVideoRunner,
+    ("transformers", "image-to-video"):               StudioVideoRunner,
     ("transformers", "keyword-extraction"):           KeywordRunner,
     # Vision-analysis family — ONE generic transformers-pipeline runner, a
     # subclass per task (see managers/vision_analysis). Adding the next HF

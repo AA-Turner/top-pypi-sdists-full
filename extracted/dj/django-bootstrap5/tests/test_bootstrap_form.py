@@ -1,8 +1,9 @@
 from bs4 import BeautifulSoup
 from django import forms
 from django.forms import formset_factory
+from django.test import override_settings
 
-from tests.base import DJANGO_VERSION, BootstrapTestCase
+from tests.base import BootstrapTestCase
 
 
 class FormTestForm(forms.Form):
@@ -36,8 +37,7 @@ class BootstrapFormTestCase(BootstrapTestCase):
             '{% bootstrap_form form exclude="optional_text" %}',
             {"form": FormTestForm()},
         )
-        if DJANGO_VERSION >= "5":  # TODO: Django 4.2
-            html = html.replace(' aria-describedby="id_required_text_helptext"', "")
+        html = html.replace(' aria-describedby="id_required_text_helptext"', "")
         self.assertHTMLEqual(
             html,
             (
@@ -97,6 +97,18 @@ class BootstrapFormTestCase(BootstrapTestCase):
 
         html = self.render('{% bootstrap_form form success_css_class="" %}', {"form": form})
         self.assertNotIn("django_bootstrap5-success", html)
+
+    def test_server_side_validation(self):
+        form = FormTestForm({"subject": "subject"})
+
+        html = self.render("{% bootstrap_form form %}", {"form": form})
+        self.assertIn("is-valid", html)
+
+        form = FormTestForm({"subject": "subject"})
+
+        html = self.render("{% bootstrap_form form server_side_validation=False %}", {"form": form})
+        self.assertNotIn("is-valid", html)
+        self.assertNotIn("is-invalid", html)
 
     def test_alert_error_type(self):
         form = NonFieldErrorTestForm({"subject": "subject"})
@@ -207,6 +219,80 @@ class HorizontalFormTestCase(BootstrapTestCase):
                 '<input class="form-check-input" id="id_test" name="test" required type="checkbox">'
                 '<label class="form-check-label" for="id_test">Test</label>'
                 "</div>"
+                "</div>"
+            ),
+        )
+
+
+class DefaultLayoutTestCase(BootstrapTestCase):
+    @override_settings(
+        BOOTSTRAP5={
+            "layout": "horizontal",
+        },
+    )
+    def test_horizontal_default_layout(self):
+        form = ShowLabelTestForm()
+        html = self.render(
+            "{% bootstrap_form form %}",
+            context={"form": form},
+        )
+        self.assertHTMLEqual(
+            html,
+            (
+                '<div class="mb-3 row">'
+                '<label class="col-form-label col-sm-2" for="id_subject">'
+                "Subject"
+                "</label>"
+                '<div class="col-sm-10">'
+                '<input class="form-control" id="id_subject" name="subject" placeholder="Subject" required type="text">'
+                "</div>"
+                "</div>"
+            ),
+        )
+
+    @override_settings(
+        BOOTSTRAP5={
+            "layout": "inline",
+            "inline_wrapper_class": "custom-inline-wrapper-class",
+        },
+    )
+    def test_inline_default_layout(self):
+        form = ShowLabelTestForm()
+        html = self.render(
+            "{% bootstrap_form form %}",
+            context={"form": form},
+        )
+        self.assertHTMLEqual(
+            html,
+            (
+                '<div class="col-12 custom-inline-wrapper-class">'
+                '<label class="visually-hidden" for="id_subject">'
+                "Subject"
+                "</label>"
+                '<input class="form-control" id="id_subject" name="subject" placeholder="Subject" required type="text">'
+                "</div>"
+            ),
+        )
+
+    @override_settings(
+        BOOTSTRAP5={
+            "layout": "floating",
+        },
+    )
+    def test_floating_default_layout(self):
+        form = ShowLabelTestForm()
+        html = self.render(
+            "{% bootstrap_form form %}",
+            context={"form": form},
+        )
+        self.assertHTMLEqual(
+            html,
+            (
+                '<div class="form-floating mb-3">'
+                '<input class="form-control" id="id_subject" name="subject" placeholder="Subject" required type="text">'
+                '<label class="form-label" for="id_subject">'
+                "Subject"
+                "</label>"
                 "</div>"
             ),
         )

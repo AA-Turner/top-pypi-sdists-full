@@ -162,7 +162,7 @@ x-documentation:
     - `message.received` - New inbound DM or SMS received (SMS arrives with `platform: "sms"`)
     - `conversation.started` - A new conversation opened between one of your accounts and a contact, in either direction (any DM platform, and SMS); fires only the first time the thread appears
     - `message.sent` - DM sent via the API
-    - `message.edited` - A sender edited a message (Instagram, Messenger, Telegram)
+    - `message.edited` - A sender edited a message (Instagram, Messenger, Telegram, WhatsApp)
     - `message.deleted` - A sender deleted ("unsent") a message (Instagram; WhatsApp in both directions, whether the business deleted a message it sent or the customer deleted one they sent). `message.direction` tells the two apart.
     - `message.delivered` - An outgoing message was delivered (WhatsApp, Messenger, SMS)
     - `message.read` - An outgoing message was read by the recipient (WhatsApp, Messenger, Instagram)
@@ -182,6 +182,7 @@ x-documentation:
     - `call.failed` - A call failed with a hard error before or during bridging
     - `call.permission_request` - A WhatsApp user accepted or rejected your call-permission request
     - `whatsapp.automatic_event` - Meta's automatic event identification detected a lead or purchase in a Click-to-WhatsApp conversation. Branch on `eventName` (`LeadSubmitted` | `Purchase`); carries the `ctwa_clid` Conversions API match key
+    - `phone_number.stock_available` - An out-of-stock country you watch (POST /v1/phone-numbers/stock-watches) has deliverable numbers again. Fires once per watch, then the watch is consumed. Carries the deliverable count per number type at sweep time (first come, first served).
     - `whatsapp.number.kyc_submitted` - An end customer completed a hosted KYC share link; the number entered regulatory review under your account
     - `whatsapp.number.activated` - A provisioned WhatsApp number finished setup and is ready to connect
     - `whatsapp.number.declined` - A regulated number order was declined in review; nothing activates and nothing is billed
@@ -430,7 +431,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, webhook.test.
       Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
 
       Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, whatsapp.number.* and verification.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
@@ -545,7 +546,7 @@ components:
     IdempotencyKeyInFlight:
       description: Same Idempotency-Key still processing; retry after a short backoff
     IdempotencyKeyReused:
-      description: Idempotency-Key reused with a different body
+      description: Idempotency-Key reused with a different request
     BadRequest:
       description: Invalid request
       content:
@@ -2430,7 +2431,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -2688,6 +2689,45 @@ components:
               type: string
             displayName:
               type: string
+        timestamp:
+          type: string
+          format: date-time
+          description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    PhoneNumberStockWatch:
+      type: object
+      required: [id, country, countryName, createdAt]
+      properties:
+        id: { type: string }
+        country: { type: string, description: 'ISO 3166-1 alpha-2.' }
+        countryName: { type: string }
+        createdAt: { type: string, format: date-time }
+    WebhookPayloadPhoneNumberStockAvailable:
+      type: object
+      description: Webhook payload for phone_number.stock_available events
+      required: [id, event, stock, timestamp]
+      properties:
+        id:
+          type: string
+          description: Stable webhook event ID
+        event:
+          type: string
+          enum: [phone_number.stock_available]
+        stock:
+          type: object
+          required: [country, types]
+          properties:
+            country:
+              type: string
+              description: 'ISO 3166-1 alpha-2 country code of the watched country.'
+            types:
+              type: array
+              description: 'Number types deliverable at sweep time. Only types with stock are listed.'
+              items:
+                type: object
+                required: [numberType, availableCount]
+                properties:
+                  numberType: { type: string, description: 'local, mobile, national or toll_free.' }
+                  availableCount: { type: integer, description: 'Deliverable numbers at sweep time; first come, first served.' }
         timestamp:
           type: string
           format: date-time
@@ -4098,7 +4138,7 @@ components:
       description: |
         Webhook payload for message.edited events. Fires when the sender
         edits a previously-sent message. Supported platforms: Instagram,
-        Facebook Messenger, Telegram. The message object reflects the
+        Facebook Messenger, Telegram, WhatsApp. The message object reflects the
         LATEST state; editHistory contains every prior version in order
         (oldest first), so the last entry is the version immediately before
         the current content.
@@ -9419,8 +9459,8 @@ webhooks:
       summary: Message edited event
       description: |
         Fired when a sender edits a previously-sent message. Supported on
-        Instagram, Facebook Messenger, and Telegram. The payload includes the
-        full editHistory so consumers can show prior versions.
+        Instagram, Facebook Messenger, Telegram, and WhatsApp. The payload
+        includes the full editHistory so consumers can show prior versions.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -10163,6 +10203,26 @@ webhooks:
                     phoneNumber: { type: string }
                     country: { type: string }
                     profileId: { type: string }
+      responses:
+        '200':
+          description: Webhook received successfully
+  phone_number.stock_available:
+    post:
+      operationId: onPhoneNumberStockAvailable
+      summary: Phone-number stock available event
+      description: |
+        Fired by the stock sweep (every 6h) the first time a country you watch
+        via POST /v1/phone-numbers/stock-watches has deliverable numbers again.
+        The watch is consumed, so the event fires once per watch; the stock
+        counts are a snapshot and numbers are sold first come, first served.
+        Buy with POST /v1/phone-numbers/purchase.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadPhoneNumberStockAvailable'
       responses:
         '200':
           description: Webhook received successfully
@@ -16589,6 +16649,80 @@ paths:
                 issues: []
                 recommendations: []
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/accounts/{accountId}/posts:
+    get:
+      x-resource-group: "accounts"
+      operationId: getAccountPosts
+      tags: [Accounts]
+      x-platforms: ["facebook", "instagram", "twitter", "bluesky", "threads", "youtube", "linkedin", "reddit", "tiktok", "pinterest"]
+      summary: List posts published on the platform
+      description: |
+        Returns the 25 most recent posts that exist on the platform for a connected account, read
+        live from the platform API. This covers everything on the account, including posts that
+        were never created through Zernio.
+
+        Use it to obtain the platform's own post id, which the analytics endpoints take as input.
+        On YouTube the returned `id` is the video ID that `GET /v1/analytics/youtube/daily-views`,
+        `/video-retention` and `/demographics` expect as `videoId`, so this endpoint is what backs
+        a video picker in your own UI.
+
+        Not every field applies to every platform: `reactionCount` is Facebook and LinkedIn,
+        `shareCount` is platform dependent, `cid` is the Bluesky content id needed to reply, and
+        `subreddit` is Reddit only. Absent fields are omitted from the response.
+
+        The account's token is refreshed before the call when it has expired. When the refresh
+        cannot recover it, the response is a 401 with code `TOKEN_EXPIRED` and the account has to
+        be reconnected.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Posts list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [success] }
+                  posts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: "The platform's own post id (the video ID on YouTube)" }
+                        platform: { type: string }
+                        message: { type: string, description: 'Caption or title, empty string when the post has no text' }
+                        createdTime: { type: string, format: date-time }
+                        permalink: { type: string, description: 'Public URL of the post on the platform' }
+                        picture: { type: string, description: 'Thumbnail or media URL' }
+                        mediaType: { type: string }
+                        commentCount: { type: integer }
+                        likeCount: { type: integer }
+                        reactionCount: { type: integer, description: 'Facebook and LinkedIn only' }
+                        shareCount: { type: integer }
+                        cid: { type: string, description: 'Bluesky content id, required to reply to the post' }
+                        subreddit: { type: string, description: 'Reddit only' }
+                  lastUpdated: { type: string, format: date-time }
+              example:
+                status: "success"
+                posts:
+                  - id: "dQw4w9WgXcQ"
+                    platform: "youtube"
+                    message: "How to schedule a post\n\nA short walkthrough."
+                    createdTime: "2026-08-21T09:14:03.000Z"
+                    permalink: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                    picture: "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
+                    mediaType: "video"
+                    commentCount: 12
+                    likeCount: 340
+                lastUpdated: "2026-08-28T11:02:44.512Z"
+        '400':
+          description: 'Invalid accountId, platform does not support posts listing, or the account has no access token'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
   /v1/accounts/{accountId}/follow-status/{userId}:
@@ -25030,7 +25164,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -25149,7 +25283,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -25811,7 +25945,7 @@ paths:
 
         Slack: pass a workspace member id as participantId (list them with GET /v1/accounts/{accountId}/slack-members). Zernio opens the DM channel with that member and sends the message; the thread then behaves like any other Slack conversation in the inbox. The member must belong to the connected workspace.
 
-        WhatsApp: this is the endpoint for sending an approved template message to a phone number. Provide templateName, templateLanguage, and templateParams (variable values for the text header, body and dynamic URL buttons, in that order), with the recipient phone in participantId. A template is required because WhatsApp does not permit freeform messages to open a conversation; a missing template returns TEMPLATE_REQUIRED. Templates with media headers (image, video, document) are handled automatically: Zernio reads the approved template definition and fills the header at send time with the template's approved sample asset. To send a DIFFERENT asset per message (e.g. a distinct invoice PDF for each recipient), pass the headerMedia field with a public link (or a Meta media id); it overrides the sample for that send. A button that carries its own value at send time (a copy-code button holding a Pix payment code or a coupon, a flow token) is sent with templateButtonParams, addressed by the button's index; templateParams covers text variables and dynamic URL buttons only. Calling this for a number you already have a thread with simply sends the template into that thread, which also makes it the way to re-engage a contact after the 24-hour customer-service window has closed. Once the recipient replies (opening the 24h window), send freeform messages with the send-message endpoint (POST /v1/inbox/conversations/{conversationId}/messages). Template fields are accepted on the JSON body only, not on multipart requests. Alternatively, WhatsApp Business Accounts eligible for Meta Direct Send can open a conversation with a business-initiated utility text message and no template: pass category: 'utility' together with message (and no templateName). See the category field below.
+        WhatsApp: this is the endpoint for sending an approved template message to a phone number. Provide templateName, templateLanguage, and templateParams (variable values for the text header, body and dynamic URL buttons, in that order), with the recipient phone in participantId. A template is required because WhatsApp does not permit freeform messages to open a conversation; a missing template returns TEMPLATE_REQUIRED. Templates with media headers (image, video, document) are handled automatically: Zernio reads the approved template definition and fills the header at send time with the template's approved sample asset. To send a DIFFERENT asset per message (e.g. a distinct invoice PDF for each recipient), pass the headerMedia field with a public link (or a Meta media id); it overrides the sample for that send. A template whose approved header format is LOCATION has no header asset to reconstruct at all: Meta only accepts the location at send time, so pass headerLocation (latitude and longitude required) whenever such a template is sent; headerMedia and headerLocation cannot both be supplied. A button that carries its own value at send time (a copy-code button holding a Pix payment code or a coupon, a flow token) is sent with templateButtonParams, addressed by the button's index; templateParams covers text variables and dynamic URL buttons only. Calling this for a number you already have a thread with simply sends the template into that thread, which also makes it the way to re-engage a contact after the 24-hour customer-service window has closed. Once the recipient replies (opening the 24h window), send freeform messages with the send-message endpoint (POST /v1/inbox/conversations/{conversationId}/messages). Template fields are accepted on the JSON body only, not on multipart requests. Alternatively, WhatsApp Business Accounts eligible for Meta Direct Send can open a conversation with a business-initiated utility text message and no template: pass category: 'utility' together with message (and no templateName). See the category field below.
 
         DM eligibility (X/Twitter): Before sending, the endpoint checks if the recipient accepts DMs from your account (via the receives_your_dm field). If not, a 422 error with code DM_NOT_ALLOWED is returned. You can skip this check with skipDmCheck: true if you have already verified eligibility.
 
@@ -25944,6 +26078,27 @@ paths:
                     filename:
                       type: string
                       description: 'Document display name shown to the recipient (e.g. "Factura 0001-123.pdf"). document type only; ignored for image/video.'
+                headerLocation:
+                  type: object
+                  description: >-
+                    WhatsApp only. Required to send a template whose approved header format is
+                    LOCATION: Meta only accepts the location's lat/long at send time, never at
+                    template creation, so there is nothing to fill in automatically. Cannot be
+                    combined with headerMedia (a template has exactly one header).
+                  required: [latitude, longitude]
+                  properties:
+                    latitude:
+                      type: number
+                      description: Latitude in decimal degrees.
+                    longitude:
+                      type: number
+                      description: Longitude in decimal degrees.
+                    name:
+                      type: string
+                      description: Location name shown to the recipient (e.g. a business name).
+                    address:
+                      type: string
+                      description: Location address shown to the recipient.
           multipart/form-data:
             schema:
               type: object
@@ -26569,6 +26724,13 @@ paths:
         buttons, templates, and message tags. Attachment and interactive message
         support varies by platform.
 
+        WhatsApp per-recipient rate limit: WhatsApp caps how many messages you may
+        send to the same recipient in a short window and rejects the excess with
+        error code `131056` ("Too many messages sent to this recipient"). Pace
+        sends to a single recipient at roughly 10 per minute; bursts above that
+        return a `400` with code `131056`. Sends to other recipients are
+        unaffected, so parallelise across recipients rather than flooding one.
+
         WhatsApp template messages: to send an approved template into this
         conversation (required when the 24-hour customer-service window is
         closed), use the `template` field with a single element carrying the
@@ -27182,6 +27344,24 @@ paths:
                           properties:
                             type: { type: string }
                             url: { type: string }
+                      messageIds:
+                        type: array
+                        description: 'Facebook/Instagram only. Present when an attachment and text were both requested: Meta has no single body shape for both, so the send is two Meta messages under the hood. First element === messageId (the attachment); second is the follow-up text.'
+                        items: { type: string }
+                      partialFailure:
+                        type: object
+                        description: 'Facebook/Instagram only. The attachment was delivered but the follow-up text message was rejected by Meta and was not stored; the response is still a 200 because the attachment send succeeded.'
+                        properties:
+                          part: { type: string, enum: [text] }
+                          error: { type: string }
+                          platformError:
+                            type: object
+                            description: "Meta's own diagnostic fields for the rejected follow-up, same shape as the 400 response's platformError."
+                            properties:
+                              code: { type: integer, description: "Meta error code" }
+                              subcode: { type: integer, description: "Meta error_subcode" }
+                              fbtraceId: { type: string, description: "Meta fbtrace_id, quote this in a Meta bug report" }
+                              type: { type: string, description: "Meta error type (e.g. OAuthException)" }
         '400':
           description: 'Bad request (e.g., attachment not supported for platform, validation error, category combined with a template or attachment, category used on a non-WhatsApp account, or the WhatsApp Business Account is not eligible for Direct Send)'
           content:
@@ -28202,7 +28382,24 @@ paths:
       x-resource-group: "engagement"
       operationId: replyToInboxPost
       summary: Reply to comment
-      description: Post a reply to a post or specific comment. Requires accountId in request body.
+      description: |
+        Post a reply to a post or specific comment. Requires accountId in request body.
+
+        **Idempotency:** send an `Idempotency-Key` header to make retries safe
+        (e.g. after a client-side timeout where delivery is unknown): same key +
+        same body replays the original response (with `Idempotent-Replayed: true`)
+        instead of posting the comment a second time; same key + different body
+        returns 422; a key still in flight returns 409. Keys are retained for 24
+        hours and are scoped to the credential and to this exact path, so reusing
+        a key against a different postId returns 422 rather than replaying the
+        other post's response.
+
+        Only successful (2xx) responses are stored for replay. If the request
+        throws or returns a non-2xx status the key is released, so the header
+        protects the "request succeeded but the response was lost" case. After an
+        ambiguous failure (a 5xx or a network timeout) list the post's comments
+        before retrying with the same key, and treat an empty result as
+        inconclusive rather than as proof nothing was posted.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -28211,6 +28408,7 @@ paths:
           required: true
           description: Zernio post ID or platform-specific post ID. LinkedIn third-party posts accept full activity URN or numeric ID.
           schema: { type: string }
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -28249,6 +28447,8 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: 'Inbox addon required, or the connected account is not permitted to comment on this post on the platform (code platform_api_error, type platform_error)'
+        '409': { $ref: '#/components/responses/IdempotencyKeyInFlight' }
+        '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '502':
           description: 'Upstream platform error (code platform_api_error, type platform_error)'
@@ -29624,7 +29824,24 @@ paths:
       x-resource-group: "engagement"
       operationId: replyToInboxReview
       summary: Reply to review
-      description: Post a reply to a review. Requires accountId in request body.
+      description: |
+        Post a reply to a review. Requires accountId in request body.
+
+        **Idempotency:** send an `Idempotency-Key` header to make retries safe
+        (e.g. after a client-side timeout where delivery is unknown): same key +
+        same body replays the original response (with `Idempotent-Replayed: true`)
+        instead of sending the reply to the platform again; same key + different
+        body returns 422; a key still in flight returns 409. Keys are retained for
+        24 hours and are scoped to the credential and to this exact path, so
+        reusing a key against a different reviewId returns 422 rather than
+        replaying the other review's response.
+
+        Only successful (2xx) responses are stored for replay. If the request
+        throws or returns a non-2xx status the key is released, so the header
+        protects the "request succeeded but the response was lost" case. After an
+        ambiguous failure (a 5xx or a network timeout) fetch the review before
+        retrying with the same key, and treat a missing reply as inconclusive
+        rather than as proof nothing was sent.
       tags: [Reviews]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -29633,6 +29850,7 @@ paths:
           required: true
           schema: { type: string }
           description: Review ID (URL-encoded for Google Business)
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -29662,6 +29880,8 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
+        '409': { $ref: '#/components/responses/IdempotencyKeyInFlight' }
+        '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
     delete:
       x-resource-group: "engagement"
       operationId: deleteInboxReviewReply
@@ -29713,8 +29933,9 @@ paths:
       tags: [WhatsApp]
       summary: List templates
       description: |
-        List all message templates for the WhatsApp Business Account (WABA) associated with the given account.
-        Templates are fetched directly from the WhatsApp Cloud API.
+        List message templates for the WhatsApp Business Account (WABA) associated with the given account.
+        Templates are fetched directly from the WhatsApp Cloud API. One entry per **name + language**:
+        a multi-language template appears once per language, each with its own Meta `id`.
       security:
         - bearerAuth: []
       parameters:
@@ -29724,6 +29945,24 @@ paths:
           description: WhatsApp social account ID
           schema:
             type: string
+        - name: name
+          in: query
+          required: false
+          description: 'Exact template name; returns every language variant of that family.'
+          schema:
+            type: string
+        - name: language
+          in: query
+          required: false
+          description: 'Exact language code (e.g. en_US).'
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [APPROVED, REJECTED, PENDING, PAUSED, DISABLED, IN_APPEAL, PENDING_DELETION]
       responses:
         '200':
           description: Templates retrieved successfully
@@ -29895,14 +30134,259 @@ paths:
       tags: [WhatsApp]
       summary: Get template
       description: |
-        Retrieve a single message template by name.
+        Retrieve one message template variant by name.
+
+        Meta stores one template per **name + language**, so a name identifies a family of variants,
+        each with its own Meta id. Pass `language` to address one variant. Without it, a name with a
+        single variant resolves to that variant; a name with several returns `409 ambiguous_template`
+        with `details.languages`. A bare language (`es`) matches a single regional variant (`es_ES`);
+        if the family has several regional variants for it, that is also a 409. A full code (`es_ES`)
+        must match exactly. Variants in `PENDING_DELETION` are not part of the family.
       security:
         - bearerAuth: []
       parameters:
         - name: templateName
           in: path
           required: true
-          description: Template name
+          description: Template name (the family).
+          schema:
+            type: string
+        - name: accountId
+          in: query
+          required: true
+          description: WhatsApp social account ID
+          schema:
+            type: string
+        - name: language
+          in: query
+          required: false
+          description: 'Language code of the variant (e.g. en_US, es, pt_BR). Required when the family has several languages.'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  template:
+                    type: object
+                    properties:
+                      id: { type: string, description: 'Meta template id. Unique per language variant; usable on /v1/whatsapp/templates/id/{templateId}.' }
+                      name: { type: string }
+                      status: { type: string }
+                      category: { type: string }
+                      language: { type: string, description: 'The variant actually returned.' }
+                      components:
+                        type: array
+                        items:
+                          type: object
+                      rejected_reason: { type: string, description: 'Only when status is REJECTED.' }
+                      quality_score: { type: object, description: 'Post-approval quality (GREEN/YELLOW/RED), when Meta reports one.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Account not found, or no template with that name (and language, when given). details.languages lists the family''s languages when the name exists (code template_not_found).' }
+        '409':
+          description: 'The template name exists in several languages and no language was given (code ambiguous_template). details.languages lists them.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  type: { type: string, enum: [invalid_request_error] }
+                  code: { type: string, enum: [ambiguous_template] }
+                  param: { type: string, enum: [language] }
+                  details:
+                    type: object
+                    properties:
+                      languages: { type: array, items: { type: string } }
+        '502': { description: Meta rejected the request or was unreachable. Meta 4xx statuses are forwarded as-is. }
+    patch:
+      x-resource-group: "accounts"
+      operationId: updateWhatsAppTemplate
+      tags: [WhatsApp]
+      summary: Update template
+      description: |
+        Update one variant's components. Name, language and category cannot change after creation.
+
+        Meta stores one template per **name + language**, so a name identifies a family of variants,
+        each with its own Meta id. Pass `language` to address one variant. Without it, a name with a
+        single variant resolves to that variant; a name with several returns `409 ambiguous_template`
+        with `details.languages`. A bare language (`es`) matches a single regional variant (`es_ES`);
+        if the family has several regional variants for it, that is also a 409. A full code (`es_ES`)
+        must match exactly. Variants in `PENDING_DELETION` are not part of the family.
+
+        Meta only allows editing templates in `APPROVED`, `REJECTED` or `PAUSED` state; an approved
+        template can be edited once per 24 hours and up to 10 times per 30 days. A successful update
+        sends the variant back to Meta for review, so the `status` returned here is normally `PENDING`.
+        The final outcome arrives on the `whatsapp.template.status_updated` webhook (which carries the
+        variant's `templateId` and `language`). A variant already in `PENDING` cannot be edited again
+        until Meta finishes reviewing it.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: templateName
+          in: path
+          required: true
+          description: Template name (the family).
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - components
+              properties:
+                accountId:
+                  type: string
+                  description: WhatsApp social account ID
+                language:
+                  type: string
+                  description: 'Language code of the variant to edit (e.g. en_US, es, pt_BR). Required when the family has several languages. Body only: a language query parameter on PATCH is a 400.'
+                components:
+                  type: array
+                  description: Updated template components
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/WhatsAppTemplateComponent'
+            example:
+              accountId: "507f1f77bcf86cd799439011"
+              language: "es"
+              components:
+                - type: "body"
+                  text: "Actualizado: tu pedido {{1}} está confirmado. Entrega el {{2}}"
+                  example:
+                    body_text: [["ORD-12345", "1 de abril"]]
+                - type: "buttons"
+                  buttons:
+                    - type: "quick_reply"
+                      text: "Seguir pedido"
+      responses:
+        '200':
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  template:
+                    type: object
+                    properties:
+                      id: { type: string, description: 'Meta id of the edited variant.' }
+                      name: { type: string }
+                      language: { type: string, description: 'The variant that was edited.' }
+                      status:
+                        type: string
+                        description: 'Approval state read back from Meta after the update, normally PENDING. If the state cannot be read back, the last known status is returned instead.'
+                        example: PENDING
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Account not found, or no template with that name (and language, when given) (code template_not_found).' }
+        '409':
+          description: 'The template name exists in several languages and no language was given (code ambiguous_template). details.languages lists them.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  type: { type: string, enum: [invalid_request_error] }
+                  code: { type: string, enum: [ambiguous_template] }
+                  param: { type: string, enum: [language] }
+                  details:
+                    type: object
+                    properties:
+                      languages: { type: array, items: { type: string } }
+        '502': { description: Meta rejected the update or was unreachable. Meta 4xx statuses are forwarded as-is. }
+    delete:
+      x-resource-group: "accounts"
+      operationId: deleteWhatsAppTemplate
+      tags: [WhatsApp]
+      summary: Delete template
+      description: |
+        Permanently delete a message template.
+
+        **Without `language` this deletes every language variant of the name** (Meta's own
+        contract for deletion by name). Pass `language` to delete one variant only; the response
+        `scope` says which happened. Meta keeps a deleted approved template in `PENDING_DELETION`
+        for a while and the name cannot be reused for 30 days.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: templateName
+          in: path
+          required: true
+          description: Template name (the family).
+          schema:
+            type: string
+        - name: accountId
+          in: query
+          required: true
+          description: WhatsApp social account ID
+          schema:
+            type: string
+        - name: language
+          in: query
+          required: false
+          description: 'Delete only this language variant (e.g. es). Omit to delete the whole family.'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  scope: { type: string, enum: [all_languages, language], description: 'Whether the whole family or one variant was deleted.' }
+                  language: { type: string, description: 'The deleted variant; only when scope is language.' }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Account not found, or (with language) no such variant (code template_not_found).' }
+        '409':
+          description: 'Only with language: a bare code (es) matched several regional variants (es_ES, es_MX), so nothing was deleted (code ambiguous_template). Without language there is no 409: the whole family is deleted.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  type: { type: string, enum: [invalid_request_error] }
+                  code: { type: string, enum: [ambiguous_template] }
+                  param: { type: string, enum: [language] }
+                  details:
+                    type: object
+                    properties:
+                      languages: { type: array, items: { type: string } }
+        '502': { description: Meta rejected the request or was unreachable. Meta 4xx statuses are forwarded as-is. }
+  /v1/whatsapp/templates/id/{templateId}:
+    get:
+      x-resource-group: "accounts"
+      operationId: getWhatsAppTemplateById
+      tags: [WhatsApp]
+      summary: Get template by id
+      description: |
+        Retrieve one template variant by its Meta id, the id every variant of a family has on its own
+        and the one the `whatsapp.template.status_updated` webhook carries.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          description: Meta template id (numeric).
           schema:
             type: string
         - name: accountId
@@ -29923,39 +30407,42 @@ paths:
                   template:
                     type: object
                     properties:
-                      id: { type: string }
+                      id: { type: string, description: 'Meta template id. Unique per language variant; usable on /v1/whatsapp/templates/id/{templateId}.' }
                       name: { type: string }
                       status: { type: string }
                       category: { type: string }
-                      language: { type: string }
+                      language: { type: string, description: 'The variant actually returned.' }
                       components:
                         type: array
                         items:
                           type: object
-        '400': { description: accountId is required }
+                      rejected_reason: { type: string, description: 'Only when status is REJECTED.' }
+                      quality_score: { type: object, description: 'Post-approval quality (GREEN/YELLOW/RED), when Meta reports one.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '502': { description: Meta rejected the request or was unreachable. Meta 4xx statuses are forwarded as-is. }
+        '404': { description: Account not found. }
+        '502': { description: 'Meta rejected the request (including an id the account cannot access) or was unreachable. Meta 4xx statuses are forwarded as-is.' }
     patch:
       x-resource-group: "accounts"
-      operationId: updateWhatsAppTemplate
+      operationId: updateWhatsAppTemplateById
       tags: [WhatsApp]
-      summary: Update template
+      summary: Update template by id
       description: |
-        Update a message template's components. Only certain fields can be updated depending on
-        the template's current approval state. Approved templates can only have components updated.
+        Update one variant's components by its Meta id. Name, language and category cannot change.
 
-        A successful update sends the template back to Meta for review, so the `status` returned
-        here is normally `PENDING`. The final outcome arrives later on the
-        `whatsapp.template.status_updated` webhook. A template already in `PENDING` cannot be
-        edited again until Meta finishes reviewing it.
+        Meta only allows editing templates in `APPROVED`, `REJECTED` or `PAUSED` state; an approved
+        template can be edited once per 24 hours and up to 10 times per 30 days. A successful update
+        sends the variant back to Meta for review, so the `status` returned here is normally `PENDING`.
+        The final outcome arrives on the `whatsapp.template.status_updated` webhook (which carries the
+        variant's `templateId` and `language`). A variant already in `PENDING` cannot be edited again
+        until Meta finishes reviewing it.
       security:
         - bearerAuth: []
       parameters:
-        - name: templateName
+        - name: templateId
           in: path
           required: true
-          description: Template name
+          description: Meta template id (numeric).
           schema:
             type: string
       requestBody:
@@ -29977,17 +30464,6 @@ paths:
                   minItems: 1
                   items:
                     $ref: '#/components/schemas/WhatsAppTemplateComponent'
-            example:
-              accountId: "507f1f77bcf86cd799439011"
-              components:
-                - type: "body"
-                  text: "Updated: Your order {{1}} is confirmed. Delivery by {{2}}"
-                  example:
-                    body_text: [["ORD-12345", "April 1"]]
-                - type: "buttons"
-                  buttons:
-                    - type: "quick_reply"
-                      text: "Track Order"
       responses:
         '200':
           description: Template updated successfully
@@ -30002,28 +30478,30 @@ paths:
                     properties:
                       id: { type: string }
                       name: { type: string }
+                      language: { type: string }
                       status:
                         type: string
                         description: 'Approval state read back from Meta after the update, normally PENDING. If the state cannot be read back, the last known status is returned instead.'
                         example: PENDING
-        '400': { description: Validation error (missing fields) }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '502': { description: Meta rejected the update or was unreachable. Meta 4xx statuses are forwarded as-is. }
+        '404': { description: Account not found. }
+        '502': { description: 'Meta rejected the update (including an id the account cannot access) or was unreachable. Meta 4xx statuses are forwarded as-is.' }
     delete:
       x-resource-group: "accounts"
-      operationId: deleteWhatsAppTemplate
+      operationId: deleteWhatsAppTemplateById
       tags: [WhatsApp]
-      summary: Delete template
+      summary: Delete template by id
       description: |
-        Permanently delete a message template by name.
+        Delete one language variant by its Meta id. Other languages of the same name are untouched.
+        The name cannot be reused for 30 days once its last variant is deleted.
       security:
         - bearerAuth: []
       parameters:
-        - name: templateName
+        - name: templateId
           in: path
           required: true
-          description: Template name
+          description: Meta template id (numeric).
           schema:
             type: string
         - name: accountId
@@ -30034,26 +30512,20 @@ paths:
             type: string
       responses:
         '200':
-          description: Template deleted successfully
+          description: Variant deleted successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   success: { type: boolean }
+                  scope: { type: string, enum: [language] }
+                  language: { type: string }
                   message: { type: string }
-              example:
-                success: true
-                message: "Template \"order_confirmation\" deleted successfully"
-        '400': { description: accountId or template name is required }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '502': { description: Meta rejected the delete or was unreachable. Meta 4xx statuses are forwarded as-is. }
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # WHATSAPP BUSINESS CALLING
-  # ──────────────────────────────────────────────────────────────────────────
-
+        '404': { description: Account not found. }
+        '502': { description: 'Meta rejected the request (including an id the account cannot access) or was unreachable. Meta 4xx statuses are forwarded as-is.' }
   /v1/whatsapp/calling:
     get:
       x-resource-group: "accounts"
@@ -35208,6 +35680,88 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Number not found }
 
+  /v1/phone-numbers/stock-watches:
+    post:
+      x-resource-group: "telephony"
+      operationId: createPhoneNumberStockWatch
+      tags: [Phone Numbers]
+      summary: Watch an out-of-stock country
+      description: |
+        Get notified the first time an out-of-stock country has deliverable
+        numbers again: an email to the account holder plus the
+        `phone_number.stock_available` webhook. Stock is re-checked every 6h.
+        One watch per country; a repeat request returns the existing watch
+        (200). The watch is consumed when it fires, so re-create it if you
+        miss the stock. Up to 20 countries can be watched at once.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [country]
+              properties:
+                country: { type: string, minLength: 2, maxLength: 2, description: 'ISO 3166-1 alpha-2 code of a country listed by GET /v1/phone-numbers/countries.' }
+      responses:
+        '201':
+          description: Watch created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumberStockWatch'
+        '200':
+          description: A watch for this country already existed; returned unchanged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneNumberStockWatch'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: 'The country is in stock right now (buy instead of watching), or the 20-country watch limit is reached (code invalid_resource_state).' }
+    get:
+      x-resource-group: "telephony"
+      operationId: listPhoneNumberStockWatches
+      tags: [Phone Numbers]
+      summary: List stock watches
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The caller's active watches, oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  watches:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PhoneNumberStockWatch'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /v1/phone-numbers/stock-watches/{id}:
+    delete:
+      x-resource-group: "telephony"
+      operationId: deletePhoneNumberStockWatch
+      tags: [Phone Numbers]
+      summary: Stop watching a country
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Watch deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Stock watch not found (code stock_watch_not_found).' }
   /v1/phone-numbers/sip-trunks:
     post:
       x-resource-group: "telephony"

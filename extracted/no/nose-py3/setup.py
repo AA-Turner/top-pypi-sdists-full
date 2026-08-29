@@ -1,7 +1,7 @@
 import os
 import sys
 
-VERSION = '1.9.0'
+VERSION = '1.9.1'
 py_vers_tag = '-%s.%s' % sys.version_info[:2]
 
 test_dirs = ['functional_tests', 'unit_tests', os.path.join('doc', 'doc_tests'), 'nose']
@@ -87,6 +87,7 @@ setup(
         the very latest, you may want the development version instead:
         https://github.com/atsb/nose-py3
         """,
+    long_description_content_type="text/markdown",
     license='GNU LGPL',
     keywords='test unittest doctest automatic discovery',
     url='https://github.com/atsb/nose-py3',

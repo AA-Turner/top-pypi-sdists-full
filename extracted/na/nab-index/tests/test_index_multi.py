@@ -46,6 +46,12 @@ class _RecordingClient:
     def served_unreadable_only(self, package: str) -> bool:
         return False
 
+    def served_all_yanked(self, package: str) -> bool:
+        return False
+
+    def served_zip_sdists(self, package: str) -> frozenset[str]:
+        return frozenset()
+
     async def get_sdist_archive(
         self,
         package: str,

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bernstein"
-version = "3.18.1"
+version = "3.18.2"
 description = "Deterministic orchestrator for CLI coding agents (Claude Code, Codex, Gemini CLI, and 40+ more). No model in the coordination loop, so parallel runs in per-task git worktrees replay byte-identically. Signed lineage plus an opt-in HMAC audit chain a reviewer checks offline, without rerunning it. Cluster mode, air-gap deploy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -192,6 +192,8 @@ dev = [
     # its own env. See docs/contributing/flake-handling.md.
     "pytest-xflaky>=1.0.3",
     "pytest-json-report>=1.5",
+    # TRACE 0.2 Trust Record emitter tests.
+    "agentrust-trace-tests>=0.5,<0.6",
     # Error-telemetry SDK for the operator-managed Sentry-protocol-compatible
     # error sink. Imported lazily in src/bernstein/cli/main.py and only
     # initialised when BERNSTEIN_TELEMETRY_DSN is set. Kept in dev so the
@@ -331,6 +333,10 @@ observability = [
 research-render = [
     "playwright>=1.62.0",
 ]
+# TRACE 0.2 Trust Record emitter (src/bernstein/core/observability/trust_record.py).
+# Optional so minimal installs stay dependency-free. Enable with:
+#   pip install 'bernstein[trace]'
+trace = ["agentrust-trace>=0.9,<0.10"]
 
 [project.scripts]
 bernstein = "bernstein.cli.main:cli"
@@ -877,7 +883,7 @@ ignore_missing_imports = true
 [tool.bernstein.readme-l10n]
 # Translated README variants gated by `bernstein readme-l10n verify`
 # (issue #3425). Adding a language is a data change: append its IETF tag
-# here and add README.<tag>.md carrying l10n bindings.
+# here and add docs/i18n/README.<tag>.md carrying l10n bindings.
 languages = ["zh-Hans", "zh-TW", "ja", "ko", "hi", "bn", "ru", "es", "pt", "de", "fr", "it", "nl", "pl", "sv", "fi", "uk", "tr", "ar", "he", "id", "vi", "th"]
 
 # Who keeps each translation current. `verify` names the owner when a

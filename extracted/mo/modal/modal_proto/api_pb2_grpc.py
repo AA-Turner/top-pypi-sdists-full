@@ -530,6 +530,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.FunctionGetSerializedRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.FunctionGetSerializedResponse.FromString,
                 )
+        self.FunctionGetTimeRangeStats = channel.unary_unary(
+                '/modal.client.ModalClient/FunctionGetTimeRangeStats',
+                request_serializer=modal__proto_dot_api__pb2.FunctionGetTimeRangeStatsRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.FunctionGetTimeRangeStatsResponse.FromString,
+                )
         self.FunctionMap = channel.unary_unary(
                 '/modal.client.ModalClient/FunctionMap',
                 request_serializer=modal__proto_dot_api__pb2.FunctionMapRequest.SerializeToString,
@@ -757,6 +762,11 @@ class ModalClientStub(object):
                 )
         self.SandboxGetExitSnapshot = channel.unary_unary(
                 '/modal.client.ModalClient/SandboxGetExitSnapshot',
+                request_serializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.FromString,
+                )
+        self.SandboxGetExitSnapshotV2 = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxGetExitSnapshotV2',
                 request_serializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.FromString,
                 )
@@ -1851,6 +1861,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def FunctionGetTimeRangeStats(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def FunctionMap(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2130,6 +2146,12 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SandboxGetExitSnapshot(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxGetExitSnapshotV2(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -3205,6 +3227,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.FunctionGetSerializedRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.FunctionGetSerializedResponse.SerializeToString,
             ),
+            'FunctionGetTimeRangeStats': grpc.unary_unary_rpc_method_handler(
+                    servicer.FunctionGetTimeRangeStats,
+                    request_deserializer=modal__proto_dot_api__pb2.FunctionGetTimeRangeStatsRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.FunctionGetTimeRangeStatsResponse.SerializeToString,
+            ),
             'FunctionMap': grpc.unary_unary_rpc_method_handler(
                     servicer.FunctionMap,
                     request_deserializer=modal__proto_dot_api__pb2.FunctionMapRequest.FromString,
@@ -3432,6 +3459,11 @@ def add_ModalClientServicer_to_server(servicer, server):
             ),
             'SandboxGetExitSnapshot': grpc.unary_unary_rpc_method_handler(
                     servicer.SandboxGetExitSnapshot,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.SerializeToString,
+            ),
+            'SandboxGetExitSnapshotV2': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxGetExitSnapshotV2,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.SerializeToString,
             ),
@@ -5647,6 +5679,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def FunctionGetTimeRangeStats(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionGetTimeRangeStats',
+            modal__proto_dot_api__pb2.FunctionGetTimeRangeStatsRequest.SerializeToString,
+            modal__proto_dot_api__pb2.FunctionGetTimeRangeStatsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def FunctionMap(request,
             target,
             options=(),
@@ -6423,6 +6472,23 @@ class ModalClient(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxGetExitSnapshot',
+            modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxGetExitSnapshotV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxGetExitSnapshotV2',
             modal__proto_dot_api__pb2.SandboxGetExitSnapshotRequest.SerializeToString,
             modal__proto_dot_api__pb2.SandboxGetExitSnapshotResponse.FromString,
             options, channel_credentials,

@@ -3259,43 +3259,69 @@ CONCISE SUMMARY:"""
             List of items, or [text] if no list found
         """
         import json
-        import re
         
         if not text or not text.strip():
             return []
         
         text = text.strip()
         
-        # 1. Try direct JSON parse (pure JSON array)
+        # 1. Try direct JSON parse (pure JSON array).
+        # RecursionError guards against deeply-nested bracket input, which the
+        # C/Python JSON scanner surfaces instead of JSONDecodeError (CWE-674).
         try:
             parsed = json.loads(text)
             if isinstance(parsed, list):
                 return parsed
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
             pass
         
-        # 2. Try to extract JSON array from text using regex
-        # Match JSON arrays like ["item1", "item2"] or ['item1', 'item2']
-        json_array_pattern = r'\[(?:[^\[\]]*(?:"[^"]*"|\'[^\']*\')?[^\[\]]*)*\]'
-        matches = re.findall(json_array_pattern, text)
+        # 2. Search for an embedded list without a backtracking regex.
+        # The previous nested-repeat pattern could take exponential time on
+        # adversarial bracket/quote input (CWE-1333/CWE-730). JSONDecoder
+        # validates each candidate using the JSON grammar. raw_decode is
+        # anchored with the ``idx`` argument so we never allocate an
+        # overlapping ``text[start:]`` copy per bracket. To bound the total
+        # work on bracket-dense adversarial output (e.g. deeply nested "[[[["
+        # where each raw_decode still rescans toward the end, giving O(n^2)),
+        # we cap both the input size and the number of decode attempts.
+        decoder = json.JSONDecoder()
+        max_scan_chars = 1_000_000
+        if len(text) > max_scan_chars:
+            logger.warning("Loop list text exceeds the safe parsing limit")
+            return [text]
+        max_decode_attempts = 10_000
         
-        for match in matches:
+        start = text.find('[')
+        attempts = 0
+        while start != -1 and attempts < max_decode_attempts:
+            attempts += 1
             try:
-                # Try parsing as JSON
-                parsed = json.loads(match)
-                if isinstance(parsed, list) and len(parsed) > 0:
-                    return parsed
-            except json.JSONDecodeError:
-                # Try replacing single quotes with double quotes
-                try:
-                    fixed = match.replace("'", '"')
-                    parsed = json.loads(fixed)
-                    if isinstance(parsed, list) and len(parsed) > 0:
-                        return parsed
-                except json.JSONDecodeError:
-                    continue
+                parsed, _ = decoder.raw_decode(text, start)
+            except (json.JSONDecodeError, RecursionError):
+                start = text.find('[', start + 1)
+                continue
+            if isinstance(parsed, list) and len(parsed) > 0:
+                return parsed
+            start = text.find('[', start + 1)
         
-        # 3. Fallback: wrap as single item
+        # 3. Fallback for Python-style lists with single quotes, e.g.
+        # "['topic1', 'topic2']", which strict JSON rejects. ast.literal_eval
+        # only evaluates literals (no code execution) so it is safe here and
+        # preserves the single-quoted parsing the previous regex supported.
+        # A single attempt on the outermost bracket span keeps this linear;
+        # LLM output places the list contiguously rather than fragmented.
+        import ast
+        first = text.find('[')
+        last = text.rfind(']')
+        if first != -1 and last > first:
+            try:
+                parsed = ast.literal_eval(text[first:last + 1])
+                if isinstance(parsed, (list, tuple)) and len(parsed) > 0:
+                    return list(parsed)
+            except (ValueError, SyntaxError, RecursionError):
+                pass
+        
+        # 4. Fallback: wrap as single item
         return [text]
     
     def _execute_repeat(
@@ -4710,6 +4736,94 @@ class WorkflowManager:
             else:
                 current_step_idx += 1
 
+    def _prepare_step_context(
+        self,
+        step: Task,
+        results: List[Dict[str, Any]],
+        all_variables: Dict[str, Any],
+        original_input: str,
+    ) -> Tuple[Optional["WorkflowContext"], Optional[Dict[str, Any]]]:
+        """Shared prep for the sync/async single-step runners.
+
+        Builds the handler ``WorkflowContext`` (only when a consumer exists) and
+        evaluates ``should_run``. Returns ``(context, early_result)`` where
+        ``early_result`` is the skip return-dict when ``should_run`` gates the
+        step out, otherwise ``None`` and ``context`` is ready for handler use.
+        """
+        # Get previous step output
+        previous_output = results[-1].get("output") if results else None
+
+        # Create context for step handlers (only when a consumer exists)
+        context = None
+        if step.should_run or step.handler:
+            context = WorkflowContext(
+                input=original_input,
+                previous_result=str(previous_output) if previous_output else None,
+                current_step=step.name,
+                variables=all_variables.copy()
+            )
+
+        # Check should_run condition if provided
+        if step.should_run:
+            try:
+                if not step.should_run(context):
+                    return context, {
+                        "success": True,
+                        "output": None,
+                        "skipped": True,
+                        "stop": False
+                    }
+            except Exception as e:
+                self._log(f"should_run check for step '{step.name}' failed: {e}")
+
+        return context, None
+
+    def _build_step_action(
+        self,
+        step: Task,
+        step_idx: int,
+        results: List[Dict[str, Any]],
+        all_variables: Dict[str, Any],
+    ) -> str:
+        """Shared prep: build step context, substitute variables, prepend context."""
+        # Build context from previous steps
+        context = self._build_step_context(step, step_idx, results, all_variables)
+
+        # Substitute variables in action
+        action = self._substitute_variables(step.action, all_variables)
+
+        # Prepend context to action if available
+        if context:
+            action = f"{context}# Current Task:\n{action}"
+
+        return action
+
+    def _finalize_step_result(
+        self,
+        step: Task,
+        output: Optional[str],
+        step_success: bool,
+        error: Optional[str],
+        all_variables: Dict[str, Any],
+        results: List[Dict[str, Any]],
+        on_result: Optional[Callable[[Task, str], None]],
+    ) -> Dict[str, Any]:
+        """Shared finalize for the sync/async single-step runners."""
+        # Update variables with step output
+        if output and step_success:
+            self._update_variables_with_output(step, output, all_variables, results)
+
+        # Callback after step
+        if on_result and output:
+            on_result(step, output)
+
+        return {
+            "success": step_success,
+            "output": output,
+            "stop": False,  # Normal execution doesn't request stop
+            "error": error
+        }
+
     def _execute_single_step(
         self,
         step: Task,
@@ -4727,32 +4841,13 @@ class WorkflowManager:
         original_input: str = ""
     ) -> Dict[str, Any]:
         """Execute a single workflow step."""
-        # Get previous step output
-        previous_output = results[-1].get("output") if results else None
-        
-        # Create context for step handlers (only when a consumer exists)
-        context = None
-        if step.should_run or step.handler:
-            context = WorkflowContext(
-                input=original_input,
-                previous_result=str(previous_output) if previous_output else None,
-                current_step=step.name,
-                variables=all_variables.copy()
-            )
-        
-        # Check should_run condition if provided
-        if step.should_run:
-            try:
-                if not step.should_run(context):
-                    return {
-                        "success": True,
-                        "output": None,
-                        "skipped": True,
-                        "stop": False
-                    }
-            except Exception as e:
-                self._log(f"should_run check for step '{step.name}' failed: {e}")
-        
+        # Shared prep: handler context + should_run gating
+        context, early_result = self._prepare_step_context(
+            step, results, all_variables, original_input
+        )
+        if early_result is not None:
+            return early_result
+
         # If step has a custom handler function
         if step.handler:
             try:
@@ -4783,15 +4878,8 @@ class WorkflowManager:
                     "error": str(e)
                 }
         
-        # Build context from previous steps
-        context = self._build_step_context(step, step_idx, results, all_variables)
-        
-        # Substitute variables in action
-        action = self._substitute_variables(step.action, all_variables)
-        
-        # Prepend context to action if available
-        if context:
-            action = f"{context}# Current Task:\n{action}"
+        # Shared prep: build step context + substitute variables
+        action = self._build_step_action(step, step_idx, results, all_variables)
         
         # Get or create executor for this step
         step_executor = executor
@@ -4844,20 +4932,10 @@ class WorkflowManager:
                 if retries <= step.max_retries:
                     self._log(f"Step '{step.name}' failed, retrying ({retries}/{step.max_retries})")
         
-        # Update variables with step output
-        if output and step_success:
-            self._update_variables_with_output(step, output, all_variables, results)
-        
-        # Callback after step
-        if on_result and output:
-            on_result(step, output)
-        
-        return {
-            "success": step_success,
-            "output": output,
-            "stop": False,  # Normal execution doesn't request stop
-            "error": error
-        }
+        # Shared finalize: variable propagation + on_result callback + return dict
+        return self._finalize_step_result(
+            step, output, step_success, error, all_variables, results, on_result
+        )
     
     async def aexecute(
         self,
@@ -4967,31 +5045,12 @@ class WorkflowManager:
         """
         import asyncio
 
-        # Get previous step output
-        previous_output = results[-1].get("output") if results else None
-
-        # Create context for step handlers (only when a consumer exists)
-        context = None
-        if step.should_run or step.handler:
-            context = WorkflowContext(
-                input=original_input,
-                previous_result=str(previous_output) if previous_output else None,
-                current_step=step.name,
-                variables=all_variables.copy()
-            )
-
-        # Check should_run condition if provided
-        if step.should_run:
-            try:
-                if not step.should_run(context):
-                    return {
-                        "success": True,
-                        "output": None,
-                        "skipped": True,
-                        "stop": False
-                    }
-            except Exception as e:
-                self._log(f"should_run check for step '{step.name}' failed: {e}")
+        # Shared prep: handler context + should_run gating
+        context, early_result = self._prepare_step_context(
+            step, results, all_variables, original_input
+        )
+        if early_result is not None:
+            return early_result
 
         # If step has a custom handler function
         if step.handler:
@@ -5024,15 +5083,8 @@ class WorkflowManager:
                     "error": str(e)
                 }
 
-        # Build context from previous steps
-        context = self._build_step_context(step, step_idx, results, all_variables)
-
-        # Substitute variables in action
-        action = self._substitute_variables(step.action, all_variables)
-
-        # Prepend context to action if available
-        if context:
-            action = f"{context}# Current Task:\n{action}"
+        # Shared prep: build step context + substitute variables
+        action = self._build_step_action(step, step_idx, results, all_variables)
 
         # Get or create executor for this step
         step_executor = executor
@@ -5094,20 +5146,10 @@ class WorkflowManager:
                 if retries <= step.max_retries:
                     self._log(f"Step '{step.name}' failed, retrying ({retries}/{step.max_retries})")
 
-        # Update variables with step output
-        if output and step_success:
-            self._update_variables_with_output(step, output, all_variables, results)
-
-        # Callback after step
-        if on_result and output:
-            on_result(step, output)
-
-        return {
-            "success": step_success,
-            "output": output,
-            "stop": False,
-            "error": error
-        }
+        # Shared finalize: variable propagation + on_result callback + return dict
+        return self._finalize_step_result(
+            step, output, step_success, error, all_variables, results, on_result
+        )
     
     def _create_step_agent(
         self,

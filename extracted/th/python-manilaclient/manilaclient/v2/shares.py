@@ -363,13 +363,27 @@ class ShareManager(base.MetadataCapableManager):
         """
         return self._action('migration_get_progress', share)
 
-    @api_versions.wraps(constants.SHARE_MIGRATION_GRADUATION_VERSION)  # noqa
+    @api_versions.wraps(
+        constants.SHARE_MIGRATION_GRADUATION_VERSION,
+        '2.97',
+    )  # noqa
     def migration_get_progress(self, share):  # noqa F811
         """Obtains progress of share migration for a given share.
 
         :param share: The :class:'share' to obtain migration progress
         """
         return self._action('migration_get_progress', share)
+
+    @api_versions.wraps(  # noqa
+        constants.SHARE_MIGRATION_PROGRESS_GET_VERSION
+    )
+    def migration_get_progress(self, share):  # noqa F811
+        """Obtains progress of share migration for a given share (GET).
+
+        :param share: The :class:'share' to obtain migration progress
+        """
+        share_id = base.getid(share)
+        return self.api.client.get(f'/shares/{share_id}/migration-progress')
 
     def _do_manage(
         self,
@@ -609,6 +623,7 @@ class ShareManager(base.MetadataCapableManager):
         search_opts.pop("export_location", None)
         search_opts.pop("is_soft_deleted", None)
         search_opts.pop("encryption_key_ref", None)
+        search_opts.pop("availability_zone", None)
         return self.do_list(
             detailed=detailed,
             search_opts=search_opts,
@@ -631,6 +646,7 @@ class ShareManager(base.MetadataCapableManager):
             search_opts = {}
         search_opts.pop("is_soft_deleted", None)
         search_opts.pop("encryption_key_ref", None)
+        search_opts.pop("availability_zone", None)
         return self.do_list(
             detailed=detailed,
             search_opts=search_opts,
@@ -651,6 +667,7 @@ class ShareManager(base.MetadataCapableManager):
         """Get a list of all shares."""
         search_opts = search_opts or {}
         search_opts.pop("encryption_key_ref", None)
+        search_opts.pop("availability_zone", None)
         return self.do_list(
             detailed=detailed,
             search_opts=search_opts,
@@ -659,7 +676,27 @@ class ShareManager(base.MetadataCapableManager):
             return_raw=return_raw,
         )
 
-    @api_versions.wraps("2.90")  # noqa
+    @api_versions.wraps("2.90", "2.96")  # noqa
+    def list(  # noqa
+        self,
+        detailed=True,
+        search_opts=None,
+        sort_key=None,
+        sort_dir=None,
+        return_raw=False,
+    ):
+        """Get a list of all shares."""
+        search_opts = search_opts or {}
+        search_opts.pop("availability_zone", None)
+        return self.do_list(
+            detailed=detailed,
+            search_opts=search_opts,
+            sort_key=sort_key,
+            sort_dir=sort_dir,
+            return_raw=return_raw,
+        )
+
+    @api_versions.wraps("2.97")  # noqa
     def list(  # noqa
         self,
         detailed=True,

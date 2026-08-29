@@ -14,20 +14,27 @@ logger = structlog.get_logger(__name__)
 _EXCLUDED_PREFIXES = (
     "mistralai.workflows.plugins.webhook.examples",
     "mistralai.workflows.plugins.mistralai.connectors.examples",
-    "mistralai.workflows.plugins.evaluation._orchestrator",
+    "mistralai.workflows.plugins.evaluations._orchestrator",
     "mistralai_workflow_tests",
 )
 
 _BASE_PASSTHROUGH_MODULES = (
     "mistralai.client.models",
-    "mistralai.observability.models",
-    "mistralai.observability.api_models",
-    "mistralai.observability.statistics",
-    "mistralai.observability.utils",
+    "mistralai.evaluations.models",
+    "mistralai.evaluations.api_models",
+    "mistralai.evaluations.statistics",
+    "mistralai.evaluations.utils",
     # Pure, sandbox-safe optimizer core so the evaluation plugin reuses the SDK's GEPA
     # engine (GEPA.search / pareto / objective) instead of reimplementing it.
-    "mistralai.observability.optimization",
-    "mistralai.observability.goal",
+    "mistralai.evaluations.optimization",
+    "mistralai.evaluations.goal",
+    # The agent SDK surface. It used to sit under mistralai.workflows.plugins.nuage_v2, which
+    # _discover_workflow_modules() walks, so it was passed through implicitly; it now lives outside
+    # that tree. Without these, workflow code that reaches the surface (the continue-as-new path
+    # loading a harness) re-imports the whole graph inside the sandbox on every run, and the
+    # duplicated classes no longer match the polymorphic registry built in the host interpreter.
+    "mistralai.vibe_agents",
+    "mistralai.agents",
 )
 
 

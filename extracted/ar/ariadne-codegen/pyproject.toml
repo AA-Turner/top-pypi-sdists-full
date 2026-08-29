@@ -30,7 +30,9 @@ dependencies = [
   "graphql-core>=3.2.7,<3.3",
   "toml~=0.10",
   "httpx~=0.28",
-  "pydantic>=2.0.0,<3.0.0",
+  # use_alias_generator relies on pydantic.alias_generators.to_camel, whose
+  # case handling was fixed in 2.8 (https://github.com/pydantic/pydantic/pull/9561)
+  "pydantic>=2.8.0,<3.0.0",
   "ruff>=0.15.0,<0.16.0",
 ]
 
@@ -77,22 +79,60 @@ features = ["dev", "types", "test", "subscriptions", "opentelemetry"]
 path = ".venv"
 
 [tool.hatch.envs.default.scripts]
-lint = ["hatch fmt --check", "hatch run types:check"]
+lint = ["hatch check code", "hatch check fmt", "hatch run types:check"]
 check = [
-  "hatch fmt",
+  "hatch check code --fix",
+  "hatch check fmt --fix",
   "hatch test -a -p",
   "hatch test --cover",
   "hatch run types:check",
 ]
+changelog-preview = "git cliff --unreleased --strip all"
+changelog-update = "git cliff --unreleased -o CHANGELOG.md"
+release-notes = "git cliff --latest --strip all"
 
 ## Types environment
 
 [tool.hatch.envs.types.scripts]
 check = ["ty check"]
 
+## Static analysis environments
+#
+# `config-path` stops hatch from injecting its own bundled ruff defaults, so the
+# `[tool.ruff]` config below is used verbatim, at the ruff version pinned here.
+# `hatch-static-analysis` backs the deprecated `hatch fmt`; it is pinned as well
+# so that running it does not reformat the tree with a different ruff version.
+
+[tool.hatch.envs.hatch-check-code]
+config-path = "none"
+dependencies = ["ruff>=0.15.0,<0.16.0"]
+
+[tool.hatch.envs.hatch-check-fmt]
+config-path = "none"
+dependencies = ["ruff>=0.15.0,<0.16.0"]
+
 [tool.hatch.envs.hatch-static-analysis]
 config-path = "none"
 dependencies = ["ruff>=0.15.0,<0.16.0"]
+
+## Type checking environment
+#
+# `hatch check types` runs pyrefly by default. Point it at ty instead, so that it
+# and `hatch run types:check` agree and `# ty: ignore[...]` stays the only
+# suppression syntax. `config-path` stops hatch writing a pyrefly.toml we ignore.
+
+[tool.hatch.envs.hatch-check-types]
+python = "3.10"
+config-path = "none"
+features = ["types", "test", "subscriptions", "opentelemetry"]
+dependencies = []
+
+[tool.hatch.envs.hatch-check-types.scripts]
+check = "ty check {args}"
+# ty has no summary-statistics or type-coverage report, so `--summarize` adds
+# nothing and `--cover` fails loudly rather than as `coverage: command not found`.
+check-summarize = "ty check {args}"
+coverage = "python -c \"raise SystemExit('ty has no type-coverage report, so --cover is unsupported')\""
 
 ## Test environments
 
@@ -198,3 +238,9 @@ mark-parentheses = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Timing guards compare wall-clock ratios, so they are too noisy for a shared CI
+# runner. A `-m` on the command line replaces this one: `hatch test -- -m performance`.
+addopts = "-m 'not performance'"
+markers = [
+  "performance: timing guards for generated code (may be slow; run with -m performance)",
+]

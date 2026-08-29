@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: readme_renderer
-Version: 45.0
+Version: 46.0
 Summary: readme_renderer is a library for rendering readme descriptions for Warehouse
 Author-email: The Python Packaging Authority <admin@mail.pypi.org>
 License-Expression: Apache-2.0
@@ -30,7 +30,7 @@ Requires-Dist: nh3>=0.2.14
 Requires-Dist: docutils>=0.21.2
 Requires-Dist: Pygments>=2.5.1
 Provides-Extra: md
-Requires-Dist: comrak>=0.0.11; extra == "md"
+Requires-Dist: comrak>=0.0.13; extra == "md"
 Dynamic: license-file
 
 Readme Renderer

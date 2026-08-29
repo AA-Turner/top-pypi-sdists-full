@@ -5,7 +5,7 @@ description = "Simple Management Protocol (SMP) Manager for remotely managing MC
 authors = [{ name = "JP Hutchins", email = "jp@intercreate.io" }]
 readme = "README.md"
 license = "Apache-2.0"
-version = "0.18.1"
+version = "0.19.0"
 
 [tool.poetry]
 packages = [{ include = "smpmgr" }]
@@ -30,7 +30,7 @@ format-jinja = "{% if distance == 0 %}{{ base }}{% if dirty %}+dirty{% endif %}{
 
 [tool.poetry.dependencies]
 python = ">=3.11, <4"
-smpclient = { extras = ["all"], version = "==7.0.1" }
+smpclient = { extras = ["all"], version = "==7.3.0" }
 typer = { extras = ["all"], version = "==0.24.1" }
 readchar = "==4.2.1"
 

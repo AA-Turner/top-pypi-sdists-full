@@ -21,21 +21,17 @@ multi-index router can treat local and remote indexes uniformly.
 from __future__ import annotations
 
 import errno
-import lzma
 import os
 import re
 import stat
 import sys
 import zipfile
-import zlib
 from email.parser import BytesParser, Parser
 from pathlib import Path
-from typing import TYPE_CHECKING
-from urllib.parse import unquote, urljoin, urlparse, urlsplit, urlunsplit
-from urllib.request import url2pathname
+from typing import TYPE_CHECKING, NamedTuple
+from urllib.parse import ParseResult, unquote, urljoin, urlparse, urlsplit
 
 from packaging.utils import canonicalize_name as _canonical
-from packaging.utils import parse_sdist_filename
 
 from nab_provider.errors import IndexAccessError, UnsupportedWheelError
 
@@ -44,15 +40,18 @@ from .client import (
     SdistFile,
     WheelFile,
     _extract_sdist_files,
+    _normalized_url,
     _parse_sdist_filename,
     _parse_wheel_filename,
     is_readable_filename,
+    zip_sdist_version,
 )
 
 if TYPE_CHECKING:
     from packaging.utils import NormalizedName
     from typing_extensions import Self
 
+    from ._html_page import Anchor
     from .lazy_wheel import RangeMetadataResult
 
 __all__ = [
@@ -123,10 +122,20 @@ def parse_file_url(url: str) -> Path:
     null character, which names no file on any platform, so it raises
     :class:`ValueError` here instead.
     """
-    parsed = urlparse(url)
+    return _parsed_file_url_path(urlparse(url), url)
+
+
+def _parsed_file_url_path(parsed: ParseResult, url: str) -> Path:
+    """:func:`parse_file_url` for a caller that already holds the parse.
+
+    ``url`` is the string ``parsed`` came from and is quoted in the errors.
+    """
     if parsed.scheme != "file":
         msg = f"expected file:// URL, got {url!r}"
         raise ValueError(msg)
+
+    # Deferred to keep urllib.request off the CLI's import path.
+    from urllib.request import url2pathname  # noqa: PLC0415
 
     netloc = parsed.netloc
     if not netloc or netloc == "localhost":
@@ -214,21 +223,37 @@ def _is_dir(path: Path) -> bool:
 _FLAT_EXTS = re.compile(r"\.(whl|tar\.gz)$", re.IGNORECASE)
 
 
+class _ScanResult(NamedTuple):
+    """What one scan of a local index found for a package.
+
+    The three fields beside ``files`` describe what the scan dropped, none of
+    which leaves a record.  ``unreadable`` says the listing offered a file in
+    a format nab does not read, which tells a page of ``.zip`` sdists from an
+    empty one; ``all_yanked`` says every anchor naming a file was yanked,
+    which tells a page of yanked releases from a package this index does not
+    carry; ``zip_sdists`` names the releases it offered as ``.zip`` sdists.
+    """
+
+    files: list[WheelFile | SdistFile]
+    unreadable: bool
+    all_yanked: bool
+    zip_sdists: frozenset[str]
+
+
 def _scan_pep503_directory(
     package_dir: Path,
     canonical: str,
-) -> tuple[list[WheelFile | SdistFile], bool]:
+) -> _ScanResult:
     """Parse ``<package>/index.html`` and return file records.
 
     ``package_dir`` has to be absolute, because the page's URI is the base
     for its relative links.
-
-    The second element says the page linked a file in a format nab does
-    not read, which tells a page of ``.zip`` sdists from an empty one.
     """
     index_html = package_dir / "index.html"
     if not _is_file(index_html):
-        return [], False
+        return _ScanResult(
+            [], unreadable=False, all_yanked=False, zip_sdists=frozenset()
+        )
 
     try:
         text = index_html.read_text(encoding="utf-8")
@@ -237,36 +262,31 @@ def _scan_pep503_directory(
         raise MalformedLocalListingError(msg) from exc
 
     anchors, base_href = read_page(text)
-
-    # RFC 3986 section 5.1.3: the base is the URI the page was read from, not
-    # its realpath.
-    base_url = index_html.as_uri()
-    if base_href is not None:
-        # A base href every relative anchor resolves against, so one that
-        # cannot be parsed leaves the whole page's targets unknown. Fail
-        # loudly rather than fall back to the page URL, which would resolve
-        # each link to a different file than the page names.
-        try:
-            base_url = urljoin(base_url, base_href)
-        except ValueError as exc:
-            msg = f"{index_html} has an unparseable <base href>: {exc}"
-            raise MalformedLocalListingError(msg) from exc
+    base_url = _page_base_url(index_html, base_href)
+    bases = _merging_bases(base_url, anchors)
 
     files: list[WheelFile | SdistFile] = []
     unreadable = False
+    yanked = 0
+    nameless = 0
+    zip_sdists: set[str] = set()
 
     for anchor in anchors:
         # PEP 592: a yanked link never reaches the listing.
         if anchor.yanked:
+            yanked += 1
             continue
 
         filename, file_url, local_path, hashes = _resolve_local_link(
-            anchor.href, base_url
+            anchor.href, base_url, bases
         )
         if filename is None:
+            nameless += 1
             continue
         if not is_readable_filename(filename):
             unreadable = True
+            if (version := zip_sdist_version(filename, canonical)) is not None:
+                zip_sdists.add(version)
             continue
 
         record = _make_record(
@@ -280,20 +300,51 @@ def _scan_pep503_directory(
         )
         if record is not None:
             files.append(record)
-    return files, unreadable
+
+    # A navigation link is not a release, so the all-yanked test counts only
+    # the anchors that name a file.
+    return _ScanResult(
+        files,
+        unreadable=unreadable,
+        all_yanked=yanked > 0 and yanked == len(anchors) - nameless,
+        zip_sdists=frozenset(zip_sdists),
+    )
+
+
+def _page_base_url(index_html: Path, base_href: str | None) -> str:
+    """Return the URI a page's relative anchors resolve against.
+
+    RFC 3986 section 5.1.3: the base is the URI the page was read from, not
+    its realpath.  A ``<base href>`` overrides it for every anchor, so one
+    that cannot be parsed leaves the whole page's targets unknown and fails
+    loudly rather than falling back to the page URL, which would resolve each
+    link to a different file than the page names.
+    """
+    page_url = index_html.as_uri()
+    if base_href is None:
+        return page_url
+
+    try:
+        return urljoin(page_url, base_href)
+    except ValueError as exc:
+        msg = f"{index_html} has an unparseable <base href>: {exc}"
+        raise MalformedLocalListingError(msg) from exc
 
 
 def _resolve_local_link(
     href: str,
     base_url: str,
+    bases: list[str] | None,
 ) -> tuple[str | None, str, Path | None, tuple[tuple[str, str], ...]]:
     """Resolve an anchor href to ``(filename, url, local_path, hashes)``.
 
+    ``filename`` is ``None`` when the href names no file.
+
     ``base_url`` is the page's ``<base href>`` when it carries one, else the
-    ``index.html`` URL.  An href is a URL reference, so only its path
-    component names the artefact, and the target may sit outside the package
-    directory: the standard mirror layout links to a shared
-    ``../../packages/`` tree.
+    ``index.html`` URL, and ``bases`` is :func:`_merging_bases` over the page.
+    An href is a URL reference, so only its path component names the artefact,
+    and the target may sit outside the package directory: the standard mirror
+    layout links to a shared ``../../packages/`` tree.
 
     The href's hash fragment is surfaced as the file record's ``hashes``
     tuple so the lockfile writer has something to round-trip.
@@ -305,51 +356,178 @@ def _resolve_local_link(
     href_no_frag, _, fragment = href.partition("#")
     hashes = hash_fragment(fragment)
 
+    absolute = None if bases is None else _merged_href(bases, href_no_frag)
+
     # A malformed authority (an unterminated IPv6 bracket) makes these raise,
     # so the drop guard has to start here rather than at the path resolution
     # below.  urljoin leaves an href alone when its scheme differs from the
     # page's, so the split round trip is what drops a tab, CR or LF.
     try:
-        url = urlunsplit(urlsplit(urljoin(base_url, href_no_frag)))
+        if absolute is None:
+            absolute = urljoin(base_url, href_no_frag)
+        url = _normalized_url(absolute)
         parsed = urlparse(url)
+        page = urlparse(base_url)
     except ValueError:
         return (None, href_no_frag, None, hashes)
 
+    # An autoindex's navigation links name no file: "../" leaves no last
+    # segment, and a sort link is a bare query ("?C=N;O=D") resolving back to
+    # the page.
+    last_segment = parsed.path.rsplit("/", 1)[-1]
+    points_at_page = (parsed.scheme, parsed.netloc, parsed.path) == (
+        page.scheme,
+        page.netloc,
+        page.path,
+    )
+
+    if not last_segment or points_at_page:
+        return (None, url, None, hashes)
+
     if parsed.scheme in {"http", "https"}:
-        filename = unquote(parsed.path.rsplit("/", 1)[-1]) or None
-        return (filename, url, None, hashes)
+        return (unquote(last_segment), url, None, hashes)
 
     # Drop an anchor naming no local file rather than fail the whole listing.
     try:
-        path = parse_file_url(url)
+        path = _parsed_file_url_path(parsed, url)
     except ValueError:
         return (None, url, None, hashes)
 
     return (path.name, url, path, hashes)
 
 
+# A mirror href climbs out of the package directory to the shared packages
+# tree, which is two steps.  Building a base per level costs the page whatever
+# its directory is deep, so the list stops here and a longer climb goes back to
+# urljoin.
+_MAX_CLIMB = 4
+
+
+def _listing_bases(base_url: str) -> list[str] | None:
+    """Return the page's directory URL and its nearest parents, deepest first.
+
+    ``bases[n]`` is what an href prefixed by ``n`` ``../`` steps resolves
+    against, so a listing splits its base once rather than once per anchor.
+
+    ``None`` puts every anchor back on :func:`urljoin`: a base whose
+    :func:`urlsplit` raises, one that is not ``file:``, one whose path is
+    relative (``file:relative/index.html``), and one whose directory holds an
+    empty or a dot segment, which reference resolution normalises away and a
+    string merge would keep.
+    """
+    try:
+        scheme, netloc, path, _, _ = urlsplit(base_url)
+    except ValueError:
+        return None
+    if scheme != "file" or not path.startswith("/"):
+        return None
+
+    # Every segment of the directory is bracketed by slashes, so these three
+    # substrings are the whole of the empty and dot segment test.
+    directory = path[: path.rindex("/") + 1]
+    if "//" in directory or "/./" in directory or "/../" in directory:
+        return None
+
+    # Every parent is a prefix of the deepest base, so they are sliced out of
+    # it rather than rebuilt segment by segment.
+    deepest = f"file://{netloc}{directory}"
+    root = len(deepest) - len(directory)
+    bases = [deepest]
+    cut = len(deepest)
+    while cut > root + 1 and len(bases) < _MAX_CLIMB:
+        cut = deepest.rindex("/", root, cut - 1) + 1
+        bases.append(deepest[:cut])
+    return bases
+
+
+_DOT_OR_EMPTY_SEGMENTS = frozenset(("", ".", ".."))
+
+
+def _merged_href(bases: list[str], href: str) -> str | None:
+    """Join ``href`` onto ``bases`` by string, or ``None`` to fall back.
+
+    A run of leading ``../`` steps followed by plain path segments is what a
+    PEP 503 listing emits, and concatenating it onto ``bases[steps]`` is what
+    RFC 3986 reference resolution gives.  Anything else returns ``None`` and
+    goes back to :func:`urljoin`; each guard below names the shape it turns
+    away.
+    """
+    steps = 0
+    while href.startswith("../", 3 * steps):
+        steps += 1
+
+    # ``bases`` stops at the root or at ``_MAX_CLIMB``, so a longer run has
+    # no entry to merge onto.
+    if steps >= len(bases):
+        return None
+
+    # An empty href resolves to the page's own URL, not to ``bases[0]``.  A
+    # bare ``../`` run lands here too, and names a directory, not an artefact.
+    tail = href[3 * steps :]
+    if not tail:
+        return None
+
+    # urlsplit strips a leading C0 control or space, which only an href with
+    # no ``../`` run can begin with.
+    if steps == 0 and tail[0] <= "\x20":
+        return None
+
+    # It also lifts a query or a fragment out of the path, and deletes a tab,
+    # CR or LF anywhere in a reference.
+    if "?" in tail or "#" in tail or "\t" in tail or "\r" in tail or "\n" in tail:
+        return None
+
+    # A ``:`` in the first segment can make the href a URL in its own right,
+    # so every one is declined.  Reference resolution normalises a dot or an
+    # empty segment away.
+    segments = tail.split("/")
+    if ":" in segments[0] or not _DOT_OR_EMPTY_SEGMENTS.isdisjoint(segments):
+        return None
+
+    return bases[steps] + tail
+
+
+def _merging_bases(base_url: str, anchors: list[Anchor]) -> list[str] | None:
+    """Return the bases this page's hrefs merge onto, or ``None`` for urljoin.
+
+    A page's hrefs come from one generator, so its first and last anchor
+    settle it, and a page that merges neither is spared the guards on top of
+    the :func:`urljoin` it still has to run.  Both ends are read because an
+    autoindex opens with links to its parent directory and to its own sort
+    orders, and none of those merge.
+    """
+    bases = _listing_bases(base_url)
+    if bases is None:
+        return None
+    for anchor in anchors[:1] + anchors[-1:]:
+        if _merged_href(bases, anchor.href.partition("#")[0]) is not None:
+            return bases
+    return None
+
+
 def _scan_flat_wheelhouse(
     root: Path,
     package: str,
-) -> tuple[list[WheelFile | SdistFile], bool]:
+) -> _ScanResult:
     """Find all dists for ``package`` in a flat directory of files.
 
     Entries are sorted because the listing order breaks ties between dists at
     one version, and ``iterdir`` order comes from the filesystem.
 
-    The second element says the directory holds a ``.zip`` sdist for
-    ``package``, a format nab does not read.  One directory serves every
-    package, so a file that does not name ``package`` says nothing about it.
+    One directory serves every package, so a file that does not name
+    ``package`` says nothing about it: only a ``.zip`` sdist of ``package``
+    makes the scan unreadable.  A flat directory has no yank marks.
     """
     canonical = _canonical(package)
     files: list[WheelFile | SdistFile] = []
-    unreadable = False
+    zip_sdists: set[str] = set()
 
     for entry in sorted(root.iterdir()):
         if not _is_file(entry):
             continue
         if _FLAT_EXTS.search(entry.name) is None:
-            unreadable = unreadable or _is_zip_sdist(entry.name, canonical)
+            if (version := zip_sdist_version(entry.name, canonical)) is not None:
+                zip_sdists.add(version)
             continue
         requires_python = _flat_requires_python(entry, canonical)
         record = _make_record(
@@ -363,19 +541,12 @@ def _scan_flat_wheelhouse(
         )
         if record is not None:
             files.append(record)
-    return files, unreadable
-
-
-def _is_zip_sdist(filename: str, canonical: str) -> bool:
-    """Whether ``filename`` is a ``.zip`` sdist belonging to ``canonical``."""
-    if not filename.endswith(".zip"):
-        return False
-    try:
-        name, _ = parse_sdist_filename(filename)
-    except ValueError:
-        # InvalidSdistFilename, or int() refusing a digit run past CPython's limit.
-        return False
-    return name == canonical
+    return _ScanResult(
+        files,
+        unreadable=bool(zip_sdists),
+        all_yanked=False,
+        zip_sdists=frozenset(zip_sdists),
+    )
 
 
 def _flat_requires_python(entry: Path, canonical: str) -> str | None:
@@ -407,21 +578,21 @@ def _read_sdist_requires_python(sdist_path: Path) -> str | None:
 
 
 def _read_wheel_requires_python(wheel_path: Path, expected: str) -> str | None:
-    """Return ``Requires-Python`` from a wheel's METADATA, or ``None``."""
+    """Return ``Requires-Python`` from a wheel's METADATA, or ``None``.
+
+    A wheel that cannot be opened, read or decompressed answers ``None``, so
+    one bad file does not fail the listing that carries the package's other
+    versions.
+    """
     try:
         with zipfile.ZipFile(wheel_path) as archive:
             member = wheel_metadata_member(archive.namelist(), expected)
             if member is None:
                 return None
             raw = archive.read(member)
-    except (
-        zipfile.BadZipFile,
-        OSError,
-        UnsupportedWheelError,
-        zlib.error,
-        lzma.LZMAError,
-        RuntimeError,
-    ):
+    except Exception:  # noqa: BLE001 - untrusted archive bytes
+        # Corrupt content raises a different type per compression method, and
+        # zstd's does not exist before 3.14, so an explicit list leaves holes.
         return None
 
     value = BytesParser().parsebytes(raw, headersonly=True).get("Requires-Python")
@@ -484,9 +655,10 @@ def read_wheel_metadata(wheel_path: Path) -> str | None:
     directories, or one naming a different distribution, raises
     :class:`UnsupportedWheelError` rather than reading another package's
     metadata.  Returns ``None`` when the archive cannot be parsed, its name is
-    not a wheel filename, or it carries no METADATA member.  A wheel that
-    cannot be opened raises :class:`UnreadableLocalIndexError` instead, so a
-    permission or mount fault is not read as a wheel that declares nothing.
+    not a wheel filename, it carries no METADATA member, or that member does
+    not decompress and decode.  A filesystem fault raises
+    :class:`UnreadableLocalIndexError` instead, so a permission or mount fault
+    is not read as a wheel that declares nothing.
     """
     parsed = _parse_wheel_filename(wheel_path.name)
     if parsed is None:
@@ -497,16 +669,20 @@ def read_wheel_metadata(wheel_path: Path) -> str | None:
             if member is None:
                 return None
             return zf.read(member).decode("utf-8")
+    except UnsupportedWheelError:
+        # Not corrupt content: the catch-all below would otherwise swallow it.
+        raise
     except OSError as exc:
+        # bz2 reports a corrupt member as a plain OSError; only a filesystem
+        # fault carries an errno.
+        if exc.errno is None:
+            return None
+
         msg = f"cannot read local wheel {wheel_path}: {exc}"
         raise UnreadableLocalIndexError(msg) from exc
-    except (
-        zipfile.BadZipFile,
-        UnicodeDecodeError,
-        zlib.error,
-        lzma.LZMAError,
-        RuntimeError,
-    ):
+    except Exception:  # noqa: BLE001 - untrusted archive bytes
+        # Corrupt content raises a different type per compression method, and
+        # zstd's does not exist before 3.14, so an explicit list leaves holes.
         return None
 
 
@@ -575,6 +751,8 @@ class LocalIndexClient:
         root = parse_file_url(index_url)
         self._root = Path(os.path.abspath(root))  # noqa: PTH100
         self._unreadable_only: set[str] = set()
+        self._all_yanked: set[str] = set()
+        self._zip_sdists: dict[str, frozenset[str]] = {}
 
     async def aclose(self) -> None:
         """No-op; nothing to release."""
@@ -599,22 +777,35 @@ class LocalIndexClient:
 
         try:
             if _is_file(package_dir / "index.html"):
-                files, unreadable = _scan_pep503_directory(package_dir, canonical)
+                scan = _scan_pep503_directory(package_dir, canonical)
             elif not _is_dir(self._root):
-                files, unreadable = [], False
+                scan = _ScanResult(
+                    [], unreadable=False, all_yanked=False, zip_sdists=frozenset()
+                )
             else:
-                files, unreadable = _scan_flat_wheelhouse(self._root, package)
+                scan = _scan_flat_wheelhouse(self._root, package)
         except OSError as exc:
             msg = f"cannot read local index {self._root}: {exc}"
             raise UnreadableLocalIndexError(msg) from exc
 
-        if not files and unreadable:
+        if not scan.files and scan.unreadable:
             self._unreadable_only.add(package)
-        return files
+        if not scan.files and scan.all_yanked:
+            self._all_yanked.add(package)
+        self._zip_sdists[package] = scan.zip_sdists
+        return scan.files
 
     def served_unreadable_only(self, package: str) -> bool:
         """Whether a listing for ``package`` held only files nab cannot read."""
         return package in self._unreadable_only
+
+    def served_all_yanked(self, package: str) -> bool:
+        """Whether a listing for ``package`` held file links and yanked every one."""
+        return package in self._all_yanked
+
+    def served_zip_sdists(self, package: str) -> frozenset[str]:
+        """Versions ``package`` was served as a ``.zip`` sdist."""
+        return self._zip_sdists.get(package, frozenset())
 
     async def get_metadata_text(
         self,

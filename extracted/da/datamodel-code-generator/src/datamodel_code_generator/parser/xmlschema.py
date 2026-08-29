@@ -23,18 +23,12 @@ from typing_extensions import Unpack
 
 from datamodel_code_generator import Error, YamlValue
 from datamodel_code_generator._format_types import DatetimeClassType
+from datamodel_code_generator._xmlschema_detection import XML_SCHEMA_NAMESPACE, XML_SCHEMA_TAG
+from datamodel_code_generator._xmlschema_detection import is_xml_schema_text as _is_xml_schema_text
 from datamodel_code_generator.enums import VersionMode, XMLSchemaVersion
 from datamodel_code_generator.parser import _xmlschema_literals
 from datamodel_code_generator.parser._convert_common import _copy_schema, _namespace_name, _unique_name
-from datamodel_code_generator.parser._xmlschema_detection import (
-    XML_SCHEMA_NAMESPACE,
-    XML_SCHEMA_TAG,
-)
-from datamodel_code_generator.parser._xmlschema_detection import (
-    is_xml_schema_text as _is_xml_schema_text,
-)
 from datamodel_code_generator.parser._xmlschema_literals import (
-    _collect_python_expression_imports,
     _PythonExpression,
     _safe_bool,
     _safe_date_expression,
@@ -45,6 +39,7 @@ from datamodel_code_generator.parser._xmlschema_literals import (
 )
 from datamodel_code_generator.parser.base import Source, title_to_class_name
 from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+from datamodel_code_generator.python_literal import runtime_expression_imports
 from datamodel_code_generator.util import record_watch_dependency
 
 if TYPE_CHECKING:
@@ -66,6 +61,7 @@ XML_DATE_PATTERN = _xmlschema_literals.XML_DATE_PATTERN
 XSD_WHITESPACE_CHARS = _xmlschema_literals.XSD_WHITESPACE_CHARS
 _datetime_expression = _xmlschema_literals._datetime_expression  # noqa: SLF001
 _normalize_timezone = _xmlschema_literals._normalize_timezone  # noqa: SLF001
+_collect_python_expression_imports = runtime_expression_imports
 
 _XMLSCHEMA_LITERAL_REEXPORTS: tuple[tuple[str, object], ...] = (
     ("DAY_TIME_DURATION_PATTERN", DAY_TIME_DURATION_PATTERN),
@@ -74,6 +70,7 @@ _XMLSCHEMA_LITERAL_REEXPORTS: tuple[tuple[str, object], ...] = (
     ("XSD_WHITESPACE_CHARS", XSD_WHITESPACE_CHARS),
     ("_datetime_expression", _datetime_expression),
     ("_normalize_timezone", _normalize_timezone),
+    ("_collect_python_expression_imports", _collect_python_expression_imports),
 )
 for _xmlschema_literal_reexport_name, _xmlschema_literal_reexport in _XMLSCHEMA_LITERAL_REEXPORTS:
     if globals()[_xmlschema_literal_reexport_name] is not _xmlschema_literal_reexport:  # pragma: no cover
@@ -1628,15 +1625,13 @@ class XMLSchemaParser(JsonSchemaParser):
                 source_safe_non_finite=True,
             )
         )
-        self._append_python_expression_imports()
+        self._register_runtime_expression_imports()
 
-    def _append_python_expression_imports(self) -> None:
+    def _register_runtime_expression_imports(self) -> None:
+        """Scan XML defaults once so repeated field import collection stays constant time."""
         for model in self.results:
-            imports = tuple(
-                import_ for field in model.fields for import_ in _collect_python_expression_imports(field.default)
-            )
-            if imports:
-                model._additional_imports.extend(imports)  # noqa: SLF001
+            for field in model.fields:
+                field._set_runtime_expression_imports(_collect_python_expression_imports(field.default))  # noqa: SLF001
 
 
 __all__ = ["XMLSchemaParser", "convert_xml_schema_data", "detect_xmlschema_version", "is_xml_schema_text"]

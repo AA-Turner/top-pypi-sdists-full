@@ -8,6 +8,7 @@ from mistralai.extra.observability.telemetry import configure_telemetry
 from pydantic import BaseModel
 
 from mistralai.workflows._version import USER_AGENT
+from mistralai.workflows.core import _http_transport as http_transport
 from mistralai.workflows.core.auth import TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.logging import extract_error_context
@@ -28,8 +29,6 @@ from mistralai.workflows.hooks.token_provider_hook import (
 )
 
 logger = structlog.get_logger(__name__)
-
-_HttpClientT = TypeVar("_HttpClientT", httpx.Client, httpx.AsyncClient)
 
 
 def _get_headers(
@@ -92,34 +91,8 @@ def _get_hooks(
     return {"request": request_hooks}
 
 
-def _get_client(
-    client_cls: type[_HttpClientT],
-    timeout: float = 60.0,
-    *,
-    token_provider: TokenProvider | None = None,
-    headers: httpx.Headers | dict[str, str] | None = None,
-    server_url: str | None = None,
-    use_executor_credentials: bool = False,
-    api_key: str | None = None,
-) -> _HttpClientT:
-    if token_provider is None:
-        token_provider = get_token_provider(api_key)
-    return client_cls(
-        timeout=timeout,
-        verify=config.common.ca_bundle or True,
-        headers=_get_headers(headers=headers),
-        follow_redirects=True,
-        event_hooks=_get_hooks(
-            client_cls,
-            server_url=server_url,
-            token_provider=token_provider,
-            use_executor_credentials=use_executor_credentials,
-        ),
-    )
-
-
 def _get_sync_client(
-    timeout: float = 60.0,
+    timeout: float | None = None,
     *,
     token_provider: TokenProvider | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
@@ -127,19 +100,27 @@ def _get_sync_client(
     use_executor_credentials: bool = False,
     api_key: str | None = None,
 ) -> httpx.Client:
-    return _get_client(
-        httpx.Client,
-        timeout=timeout,
-        token_provider=token_provider,
-        headers=headers,
-        server_url=server_url,
-        use_executor_credentials=use_executor_credentials,
-        api_key=api_key,
+    if token_provider is None:
+        token_provider = get_token_provider(api_key)
+    return httpx.Client(
+        timeout=timeout if timeout is not None else config.http.timeout,
+        verify=http_transport.verify(),
+        headers=_get_headers(headers=headers),
+        follow_redirects=True,
+        event_hooks=_get_hooks(
+            httpx.Client,
+            server_url=server_url,
+            token_provider=token_provider,
+            use_executor_credentials=use_executor_credentials,
+        ),
+        transport=http_transport.sync_transport(),
+        mounts=http_transport.sync_mounts(),
+        limits=http_transport.limits(),
     )
 
 
 def _get_async_client(
-    timeout: float = 60.0,
+    timeout: float | None = None,
     *,
     token_provider: TokenProvider | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
@@ -147,14 +128,22 @@ def _get_async_client(
     use_executor_credentials: bool = False,
     api_key: str | None = None,
 ) -> httpx.AsyncClient:
-    return _get_client(
-        httpx.AsyncClient,
-        timeout=timeout,
-        token_provider=token_provider,
-        headers=headers,
-        server_url=server_url,
-        use_executor_credentials=use_executor_credentials,
-        api_key=api_key,
+    if token_provider is None:
+        token_provider = get_token_provider(api_key)
+    return httpx.AsyncClient(
+        timeout=timeout if timeout is not None else config.http.timeout,
+        verify=http_transport.verify(),
+        headers=_get_headers(headers=headers),
+        follow_redirects=True,
+        event_hooks=_get_hooks(
+            httpx.AsyncClient,
+            server_url=server_url,
+            token_provider=token_provider,
+            use_executor_credentials=use_executor_credentials,
+        ),
+        transport=http_transport.async_transport(),
+        mounts=http_transport.async_mounts(),
+        limits=http_transport.limits(),
     )
 
 
@@ -188,7 +177,10 @@ def get_mistral_client(
 ) -> Mistral:
     provider = token_provider or get_token_provider(api_key)
     resolved_server_url = server_url or config.worker.server_url
-    timeout = timeout_ms / 1000 if timeout_ms is not None else 60.0
+    # Only the httpx client-level timeout tracks config.http.timeout. timeout_ms is left as the caller
+    # passed it (None -> the SDK's longer per-request default) so config.http.timeout (default 60s)
+    # does not cap long LLM completions. The LLM timeout is set via timeout_ms / agent.mistral_client_timeout_ms.
+    timeout = timeout_ms / 1000 if timeout_ms is not None else config.http.timeout
     # Auth is carried per-request by the token-provider hook on the httpx client below, so the SDK's
     # own api_key is left unset.
     client = Mistral(

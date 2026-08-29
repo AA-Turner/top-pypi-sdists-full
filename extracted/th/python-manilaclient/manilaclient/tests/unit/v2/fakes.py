@@ -456,8 +456,29 @@ class FakeHTTPClient(fakes.FakeHTTPClient):
         get_share_instances_1234_export_locations_fake_el_uuid
     )
 
+    def get_shares_1234_export_locations_fake_el_uuid_metadata(self, **kw):
+        return (200, {}, {"metadata": {"key1": "val1"}})
+
+    def post_shares_1234_export_locations_fake_el_uuid_metadata(self, **kw):
+        return (204, {}, {"metadata": {"test_key": "test_value"}})
+
+    def put_shares_1234_export_locations_fake_el_uuid_metadata(self, **kw):
+        return (200, {}, {"metadata": {"key1": "val1"}})
+
+    def delete_shares_1234_export_locations_fake_el_uuid_metadata_key1(
+        self, **kw
+    ):
+        return (204, {}, None)
+
     def get_shares_fake_instances(self, **kw):
         return self._share_instances()
+
+    def get_shares_fake_share_migration_progress(self, **kw):
+        _body = {
+            'total_progress': 50,
+            'task_state': 'fake_task_state',
+        }
+        return (200, {}, _body)
 
     def get_shares_1234_instances(self, **kw):
         return self._share_instances()

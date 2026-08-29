@@ -1,7 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-from ._abc import TimerRequest, InputStream, Context, Out
+from ._abc import Context, Out
+from ._blob import InputStream
 from ._eventhub import EventHubEvent
 from ._eventgrid import CloudEvent, EventGridEvent, EventGridOutputEvent
 from ._cosmosdb import Document, DocumentList
@@ -11,7 +12,7 @@ from .decorators import (FunctionApp, Function, Blueprint,
                          Cardinality, AccessRights, HttpMethod,
                          AsgiFunctionApp, WsgiFunctionApp,
                          ExternalHttpFunctionApp, BlobSource, McpPropertyType,
-                         PromptArgument)
+                         CosmosDBChangeFeedMode, PromptArgument)
 from .decorators.mcp import mcp_content
 from ._durable_functions import OrchestrationContext, EntityContext
 from .decorators.function_app import (FunctionRegister, TriggerApi,
@@ -22,11 +23,12 @@ from ._http_wsgi import WsgiMiddleware
 from ._http_asgi import AsgiMiddleware
 from .kafka import KafkaEvent, KafkaConverter, KafkaTriggerConverter
 from .mcp import MCPToolContext, PromptInvocationContext
-from .meta import get_binding_registry
+from .meta import get_binding_registry, register_converter
 from ._queue import QueueMessage
 from ._servicebus import ServiceBusMessage
 from ._sql import SqlRow, SqlRowList
 from ._mysql import MySqlRow, MySqlRowList
+from ._timer import TimerRequest
 
 # Import binding implementations to register them
 from . import blob  # NoQA
@@ -49,15 +51,17 @@ from . import connectors  # NoQA
 __all__ = (
     # Functions
     'get_binding_registry',
+    'register_converter',
 
     # Generics.
     'Context',
     'Out',
 
     # Binding rich types, sorted alphabetically.
+    'CloudEvent',
+    'CosmosDBChangeFeedMode',
     'Document',
     'DocumentList',
-    'CloudEvent',
     'EventGridEvent',
     'EventGridOutputEvent',
     'EventHubEvent',
@@ -113,4 +117,4 @@ __all__ = (
     'mcp_content',
 )
 
-__version__ = '2.2.0'
+__version__ = '2.3.0'

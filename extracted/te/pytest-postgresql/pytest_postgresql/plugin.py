@@ -17,11 +17,24 @@
 # along with pytest-postgresql.  If not, see <http://www.gnu.org/licenses/>.
 """Plugin module of pytest-postgresql."""
 
+import asyncio
+import platform
+import selectors
+from collections.abc import Callable, Generator
 from tempfile import gettempdir
+from typing import Any, cast
 
+import pytest
 from _pytest.config.argparsing import Parser
+from packaging.version import Version
 
 from pytest_postgresql import factories
+from pytest_postgresql._asyncio_compat import supports_loop_factories
+
+try:
+    import pytest_asyncio
+except ImportError:
+    pytest_asyncio = None  # type: ignore[assignment]
 
 _help_executable = "Path to PostgreSQL executable"
 _help_host = "Host at which PostgreSQL will accept connections"
@@ -33,6 +46,7 @@ _help_options = "PostgreSQL connection options"
 _help_startparams = "Starting parameters for the PostgreSQL"
 _help_unixsocketdir = "Location of the socket directory"
 _help_dbname = "Default database name"
+_help_maintenance_dbname = "Database used to create/drop test databases and read server version. Noproc fixture only"
 _help_load = "Dotted-style or entrypoint-style path to callable or path to SQL File"
 _help_postgres_options = "Postgres executable extra parameters. Passed via the -o option to pg_ctl"
 _help_drop_test_database = (
@@ -40,11 +54,97 @@ _help_drop_test_database = (
     "when database was not cleared due to errors in previous test runs. "
     "Use cautiously and not on CI."
 )
+_help_load_autocommit = (
+    "Run the SQL loader connection with autocommit enabled. "
+    "Required for statements that cannot run inside a transaction block, "
+    "e.g. CREATE DATABASE in a loaded .sql file."
+)
+
+# psycopg async cannot use Windows' default ProactorEventLoop (the default since
+# Python 3.8).  libpq socket I/O relies on selector APIs (add_reader / fileno)
+# that Proactor does not support.  See:
+# https://www.psycopg.org/psycopg3/docs/advanced/async.html
+#
+# pytest-asyncio does not switch event loops for us, so without the hook below
+# ``postgresql_async`` tests fail on Windows with:
+# "Psycopg cannot use the 'ProactorEventLoop' to run in async mode".
+#
+# We register a SelectorEventLoop via pytest-asyncio's official
+# ``pytest_asyncio_loop_factories`` hook (pytest-asyncio >= 1.4).  A legacy
+# ``WindowsSelectorEventLoopPolicy`` fallback in ``pytest_configure`` remains for
+# Windows + Python < 3.14 when the loop-factory hook is unavailable.
+
+
+def _windows_selector_event_loop() -> asyncio.AbstractEventLoop:
+    """Create a SelectorEventLoop for psycopg async on Windows."""
+    return asyncio.SelectorEventLoop(selectors.SelectSelector())
+
+
+def _is_windows() -> bool:
+    return platform.system() == "Windows"
+
+
+def _uses_deprecated_asyncio_policy_on_windows() -> bool:
+    return Version(platform.python_version()) < Version("3.14") and not supports_loop_factories(pytest_asyncio)
+
+
+def _windows_selector_event_loop_policy_cls() -> type[asyncio.AbstractEventLoopPolicy] | None:
+    """Return WindowsSelectorEventLoopPolicy when available (removed in Python 3.14)."""
+    policy_cls = getattr(asyncio, "WindowsSelectorEventLoopPolicy", None)
+    if policy_cls is None:
+        return None
+    return cast(type[asyncio.AbstractEventLoopPolicy], policy_cls)
+
+
+def _resolve_windows_loop_factories(
+    item: pytest.Item,
+    prior_result: dict[str, Callable[[], asyncio.AbstractEventLoop]] | None,
+) -> dict[str, Callable[[], asyncio.AbstractEventLoop]]:
+    """Choose loop factories for a test item on Windows."""
+    if prior_result is not None:
+        return prior_result
+    # psycopg async is incompatible with ProactorEventLoop on Windows.
+    return {"selector": _windows_selector_event_loop}
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Set legacy Windows selector policy when loop-factory hook is unavailable."""
+    if not _is_windows() or not config.pluginmanager.has_plugin("asyncio"):
+        return
+    if not _uses_deprecated_asyncio_policy_on_windows():
+        return
+    policy_cls = _windows_selector_event_loop_policy_cls()
+    if policy_cls is None:
+        return
+    asyncio.set_event_loop_policy(policy_cls())
+
+
+if _is_windows():
+
+    @pytest.hookimpl(hookwrapper=True, optionalhook=True)
+    def pytest_asyncio_loop_factories(
+        config: pytest.Config,
+        item: pytest.Item,
+    ) -> Generator[None, object, None]:
+        """Register a SelectorEventLoop factory for psycopg async on Windows.
+
+        psycopg async is incompatible with the default ProactorEventLoop; see
+        https://www.psycopg.org/psycopg3/docs/advanced/async.html .  pytest-asyncio
+        exposes this hook (>= 1.4) so plugins can supply a compatible loop without
+        requiring users to call ``asyncio.set_event_loop_policy`` themselves.
+
+        When no earlier hook implementation supplies loop factories, the selector
+        factory is used for all asyncio tests on Windows.  Tests that already have
+        factories from earlier hooks keep those unchanged (see README Windows notes).
+        """
+        outcome: Any = yield
+        result = outcome.get_result()
+        outcome.force_result(_resolve_windows_loop_factories(item, result))
 
 
 def pytest_addoption(parser: Parser) -> None:
     """Configure options for pytest-postgresql."""
-    parser.addini(name="postgresql_exec", help=_help_executable, default="/usr/lib/postgresql/13/bin/pg_ctl")
+    parser.addini(name="postgresql_exec", help=_help_executable, default="/usr/lib/postgresql/14/bin/pg_ctl")
 
     parser.addini(name="postgresql_host", help=_help_host, default="127.0.0.1")
 
@@ -67,8 +167,15 @@ def pytest_addoption(parser: Parser) -> None:
 
     parser.addini(name="postgresql_dbname", help=_help_dbname, default="tests")
 
+    parser.addini(
+        name="postgresql_maintenance_dbname",
+        help=_help_maintenance_dbname,
+        default="postgres",
+    )
+
     parser.addini(name="postgresql_load", type="pathlist", help=_help_load)
     parser.addini(name="postgresql_postgres_options", help=_help_postgres_options, default="")
+    parser.addini(name="postgresql_load_autocommit", type="bool", default=False, help=_help_load_autocommit)
 
     parser.addoption(
         "--postgresql-exec",
@@ -115,6 +222,13 @@ def pytest_addoption(parser: Parser) -> None:
 
     parser.addoption("--postgresql-dbname", action="store", dest="postgresql_dbname", help=_help_dbname)
 
+    parser.addoption(
+        "--postgresql-maintenance-dbname",
+        action="store",
+        dest="postgresql_maintenance_dbname",
+        help=_help_maintenance_dbname,
+    )
+
     parser.addoption("--postgresql-load", action="append", dest="postgresql_load", help=_help_load)
 
     parser.addoption(
@@ -131,7 +245,15 @@ def pytest_addoption(parser: Parser) -> None:
         help=_help_drop_test_database,
     )
 
+    parser.addoption(
+        "--postgresql-load-autocommit",
+        action="store_true",
+        dest="postgresql_load_autocommit",
+        help=_help_load_autocommit,
+    )
+
 
 postgresql_proc = factories.postgresql_proc()
 postgresql_noproc = factories.postgresql_noproc()
 postgresql = factories.postgresql("postgresql_proc")
+postgresql_async = factories.postgresql_async("postgresql_proc")

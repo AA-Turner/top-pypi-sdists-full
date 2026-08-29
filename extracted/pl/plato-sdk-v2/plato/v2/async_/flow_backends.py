@@ -64,19 +64,36 @@ class FlowBackend(Protocol):
 
 
 class PlaywrightBackend:
-    """FlowBackend wrapping a Playwright ``Page`` — historical executor behaviour."""
+    """FlowBackend wrapping a Playwright ``Page`` — historical executor behaviour.
 
-    def __init__(self, page: Page) -> None:
+    ``fast_mode`` removes per-action dead time without changing what a flow
+    does: ``navigate`` stops at ``domcontentloaded`` instead of blocking on
+    every image/stylesheet finishing (``load``), and ``click``/``fill`` rely
+    on Playwright's built-in auto-wait instead of issuing a redundant
+    ``wait_for_selector`` round-trip first.
+    """
+
+    def __init__(self, page: Page, *, fast_mode: bool = False) -> None:
         self.page = page
+        self.fast_mode = fast_mode
 
     async def navigate(self, url: str) -> None:
-        await self.page.goto(url)
+        if self.fast_mode:
+            await self.page.goto(url, wait_until="domcontentloaded")
+        else:
+            await self.page.goto(url)
 
     async def click(self, selector: str, timeout_ms: int | None) -> None:
+        if self.fast_mode:
+            await self.page.click(selector, timeout=timeout_ms)
+            return
         await self.page.wait_for_selector(selector, timeout=timeout_ms)
         await self.page.click(selector)
 
     async def fill(self, selector: str, value: str, timeout_ms: int | None) -> None:
+        if self.fast_mode:
+            await self.page.fill(selector, value, timeout=timeout_ms)
+            return
         await self.page.wait_for_selector(selector, timeout=timeout_ms)
         await self.page.fill(selector, value)
 

@@ -22,6 +22,10 @@ from mistralai.workflows.core.wire_format import AtlasWireFormat, EntrypointInfo
 
 _SR = SourceRange(begin=0, end=10, line=1)
 
+# A compliant response always carries the reserved whole-workflow entry alongside the
+# per-node ones; omitting it costs a corrective retry.
+_WF_SUMMARY = {"short": "Example workflow", "long": "Runs the example steps end to end."}
+
 
 def _node(id_: str, type_: str = "activity", name: str = "", **kwargs) -> FlatNode:
     return FlatNode(id=id_, type=type_, name=name or id_, source_range=_SR, line=1, **kwargs)
@@ -35,6 +39,19 @@ def _wire(*nodes: FlatNode, edges=None, workflow_name="MyWF") -> AtlasWireFormat
         files={},
         incomplete=False,
     )
+
+
+def _response(payload: dict | str) -> MagicMock:
+    response = MagicMock()
+    response.choices[0].message.content = payload if isinstance(payload, str) else json.dumps(payload)
+    return response
+
+
+def _sequence_client(*payloads: dict | str) -> MagicMock:
+    """A client returning one response per payload, in order."""
+    client = MagicMock()
+    client.chat.complete_async = AsyncMock(side_effect=[_response(p) for p in payloads])
+    return client
 
 
 def _mock_client(response_payload: dict | str | None = None) -> MagicMock:
@@ -264,6 +281,7 @@ async def test_summarise_workflow_returns_summaries():
     payload = {
         "node_0": {"short": "fetch data", "long": "Fetches data from the API."},
         "node_1": {"short": "send result", "long": "Sends the result downstream."},
+        "workflow": _WF_SUMMARY,
     }
     client = _mock_client(payload)
 
@@ -316,10 +334,15 @@ async def test_summarise_workflow_keeps_valid_nodes_when_one_is_malformed():
 async def test_summarise_workflow_corrective_retry_recovers_malformed_node():
     """A bare-string entry on attempt 1 is corrected on attempt 2 via corrective retry."""
     wire = _wire(_node("a", name="fetch_data"), _node("b", name="await_review"))
-    bad = {"node_0": {"short": "Fetch data", "long": "Fetches data."}, "node_1": "human_input"}
+    bad = {
+        "node_0": {"short": "Fetch data", "long": "Fetches data."},
+        "node_1": "human_input",
+        "workflow": _WF_SUMMARY,
+    }
     good = {
         "node_0": {"short": "Fetch data", "long": "Fetches data."},
         "node_1": {"short": "Await review", "long": "Waits."},
+        "workflow": _WF_SUMMARY,
     }
     bad_resp = MagicMock()
     bad_resp.choices[0].message.content = json.dumps(bad)
@@ -358,7 +381,7 @@ async def test_summarise_workflow_raises_on_api_error():
 
 async def test_summarise_workflow_passes_retry_config():
     wire = _wire(_node("a", name="fetch_data"))
-    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}}
+    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}, "workflow": _WF_SUMMARY}
     client = _mock_client(payload)
 
     await summarise_workflow(wire, client=client)
@@ -393,7 +416,7 @@ async def test_summarise_workflow_succeeds_on_retry_after_validation_error():
     bad_response = MagicMock()
     bad_response.choices[0].message.content = json.dumps(bad_payload)
 
-    good_payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}}
+    good_payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}, "workflow": _WF_SUMMARY}
     good_response = MagicMock()
     good_response.choices[0].message.content = json.dumps(good_payload)
 
@@ -407,12 +430,101 @@ async def test_summarise_workflow_succeeds_on_retry_after_validation_error():
     assert client.chat.complete_async.call_count == 2
 
 
+# ── workflow-wide summary ────────────────────────────────────────────────────
+
+
+async def test_summarise_workflow_returns_workflow_summary():
+    """The reserved "workflow" key lands on workflow_summary, never in node summaries."""
+    wire = _wire(_node("a", name="fetch_data"))
+    payload = {
+        "node_0": {"short": "fetch data", "long": "Fetches data."},
+        "workflow": {"short": "Data ingestion run", "long": "Pulls data and hands it downstream."},
+    }
+    client = _mock_client(payload)
+
+    result = await summarise_workflow(wire, client=client)
+
+    assert result.workflow_summary is not None
+    assert result.workflow_summary.short == "Data ingestion run"
+    assert result.workflow_summary.long == "Pulls data and hands it downstream."
+    assert "workflow" not in result.summaries
+    assert client.chat.complete_async.call_count == 1
+
+
+_NODE_ONLY = {"node_0": {"short": "fetch data", "long": "Fetches data."}}
+_VERBOSE_WORKFLOW = {**_NODE_ONLY, "workflow": {"short": "a b c d e f g h i", "long": "Runs."}}
+
+# Responses the model must be asked to correct: the workflow entry is unusable (absent or
+# the wrong shape) or usable but breaking a domain rule.
+_UNUSABLE_WORKFLOW_PAYLOADS = [
+    pytest.param(_NODE_ONLY, id="missing"),
+    pytest.param({**_NODE_ONLY, "workflow": "MyWF"}, id="malformed"),
+]
+_BAD_WORKFLOW_PAYLOADS = [*_UNUSABLE_WORKFLOW_PAYLOADS, pytest.param(_VERBOSE_WORKFLOW, id="verbose")]
+
+
+@pytest.mark.parametrize("bad", _BAD_WORKFLOW_PAYLOADS)
+async def test_summarise_workflow_recovers_bad_workflow_summary_on_retry(bad):
+    wire = _wire(_node("a", name="fetch_data"))
+    client = _sequence_client(bad, {**_NODE_ONLY, "workflow": _WF_SUMMARY})
+
+    result = await summarise_workflow(wire, client=client)
+
+    assert result.workflow_summary is not None
+    assert result.workflow_summary.short == _WF_SUMMARY["short"]
+    assert result.summaries["a"].short == "fetch data"
+    assert client.chat.complete_async.call_count == 2
+
+
+@pytest.mark.parametrize("bad", _UNUSABLE_WORKFLOW_PAYLOADS)
+async def test_summarise_workflow_soft_fails_on_unusable_workflow_summary(bad):
+    """Node summaries still ship when the workflow entry never becomes usable."""
+    wire = _wire(_node("a", name="fetch_data"))
+    client = _mock_client(bad)
+
+    result = await summarise_workflow(wire, client=client)
+
+    assert result.status == "ready"
+    assert result.workflow_summary is None
+    assert result.summaries["a"].short == "fetch data"
+    assert client.chat.complete_async.call_count == 3
+
+
+async def test_summarise_workflow_keeps_verbose_workflow_summary_best_effort():
+    """A summary that only breaks a domain rule is kept, like a node summary would be."""
+    wire = _wire(_node("a", name="fetch_data"))
+    client = _mock_client(_VERBOSE_WORKFLOW)
+
+    result = await summarise_workflow(wire, client=client)
+
+    assert result.status == "ready"
+    assert result.workflow_summary is not None
+    assert result.workflow_summary.short == "a b c d e f g h i"
+    assert client.chat.complete_async.call_count == 3
+
+
+async def test_summarise_workflow_keeps_workflow_summary_omitted_by_corrective_retry():
+    """A corrective retry returning only the fixed node must not drop the workflow summary."""
+    wire = _wire(_node("c", type_="conditional", name="check_empty"))
+    client = _sequence_client(
+        {"node_0": {"short": "Not a question", "long": "Checks."}, "workflow": _WF_SUMMARY},
+        {"node_0": {"short": "Is the list empty?", "long": "Checks."}},
+    )
+
+    result = await summarise_workflow(wire, client=client)
+
+    assert result.workflow_summary is not None
+    assert result.workflow_summary.short == _WF_SUMMARY["short"]
+    assert result.summaries["c"].short == "Is the list empty?"
+    assert client.chat.complete_async.call_count == 2
+
+
 # ── explicit client parameter ───────────────────────────────────────────────
 
 
 async def test_summarise_workflow_with_explicit_client_skips_config():
     wire = _wire(_node("a", name="fetch_data"))
-    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}}
+    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}, "workflow": _WF_SUMMARY}
 
     mock_response = MagicMock()
     mock_response.choices[0].message.content = json.dumps(payload)
@@ -433,7 +545,7 @@ async def test_summarise_workflow_with_explicit_client_skips_config():
 
 async def test_summarise_workflow_with_explicit_client_and_model():
     wire = _wire(_node("a", name="fetch_data"))
-    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}}
+    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}, "workflow": _WF_SUMMARY}
 
     mock_response = MagicMock()
     mock_response.choices[0].message.content = json.dumps(payload)
@@ -450,7 +562,7 @@ async def test_summarise_workflow_with_explicit_client_and_model():
 
 async def test_summarise_workflow_explicit_client_does_not_call_get_client():
     wire = _wire(_node("a", name="fetch_data"))
-    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}}
+    payload = {"node_0": {"short": "fetch data", "long": "Fetches data."}, "workflow": _WF_SUMMARY}
 
     mock_response = MagicMock()
     mock_response.choices[0].message.content = json.dumps(payload)
@@ -506,7 +618,7 @@ async def test_summarise_workflow_retries_on_domain_violation():
     """A conditional with a non-question short triggers a domain retry with corrective feedback."""
     wire = _wire(_node("c", type_="conditional", name="check_empty"))
     bad_payload = {"node_0": {"short": "Check for empty list", "long": "Checks the list."}}
-    good_payload = {"node_0": {"short": "Is the list empty?", "long": "Checks the list."}}
+    good_payload = {"node_0": {"short": "Is the list empty?", "long": "Checks the list."}, "workflow": _WF_SUMMARY}
 
     bad_response = MagicMock()
     bad_response.choices[0].message.content = json.dumps(bad_payload)
@@ -546,7 +658,7 @@ async def test_summarise_workflow_retries_conciseness_violation():
     bad_payload = {
         "node_0": {"short": "this is a very long summary with too many words indeed", "long": "Fetches data."}
     }
-    good_payload = {"node_0": {"short": "Fetch data", "long": "Fetches data."}}
+    good_payload = {"node_0": {"short": "Fetch data", "long": "Fetches data."}, "workflow": _WF_SUMMARY}
 
     bad_response = MagicMock()
     bad_response.choices[0].message.content = json.dumps(bad_payload)
@@ -594,6 +706,7 @@ async def test_summarise_workflow_merges_partial_retry_response():
     first = {
         "node_0": {"short": "Fetch data", "long": "Gets data."},
         "node_1": {"short": "Not a question", "long": "Checks."},
+        "workflow": _WF_SUMMARY,
     }
     first_resp = MagicMock()
     first_resp.choices[0].message.content = json.dumps(first)

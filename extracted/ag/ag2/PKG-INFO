@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.0.2
+Version: 1.0.3
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -26,47 +26,39 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Framework :: Pydantic
 Classifier: Framework :: Pydantic :: 2
-Requires-Dist: termcolor
-Requires-Dist: python-dotenv
-Requires-Dist: tiktoken
 Requires-Dist: pydantic>=2.6.1,<3
-Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: packaging
 Requires-Dist: httpx>=0.28.1,<1
 Requires-Dist: anyio>=4.0.0,<5.0.0
+Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: fast-depends[pydantic]>=3.0.8,<4.0.0
 Requires-Dist: a2a-sdk>=1.1.0,<2 ; extra == 'a2a'
 Requires-Dist: jsonschema>=4.18.0,<5 ; extra == 'a2ui'
 Requires-Dist: starlette>=0.40,<2 ; extra == 'a2ui'
-Requires-Dist: agent-client-protocol>=0.12.0,<0.13 ; extra == 'acp'
+Requires-Dist: agent-client-protocol>=0.12.1,<0.13 ; extra == 'acp'
 Requires-Dist: ag2[mcp] ; extra == 'acp'
 Requires-Dist: starlette>=0.40,<2 ; extra == 'acp'
 Requires-Dist: uvicorn>=0.51.0,<1 ; extra == 'acp'
 Requires-Dist: ag-ui-protocol>=0.1.15,<0.2 ; extra == 'ag-ui'
-Requires-Dist: anthropic[vertex]>=0.116.0,<1 ; extra == 'anthropic'
+Requires-Dist: anthropic>=0.116.0,<1 ; extra == 'anthropic'
 Requires-Dist: boto3>=1.34.149 ; extra == 'bedrock'
 Requires-Dist: dashscope>=1.25.13 ; extra == 'dashscope'
 Requires-Dist: ddgs>=9.0.0,<10 ; extra == 'ddgs'
 Requires-Dist: elevenlabs>=1.50.0,<3 ; extra == 'elevenlabs'
-Requires-Dist: google-api-core ; extra == 'gemini'
 Requires-Dist: google-genai>=1.68.0,<3.0 ; extra == 'gemini'
-Requires-Dist: google-cloud-aiplatform ; extra == 'gemini'
 Requires-Dist: google-auth ; extra == 'gemini'
-Requires-Dist: pillow ; extra == 'gemini'
-Requires-Dist: jsonschema ; extra == 'gemini'
-Requires-Dist: mcp>=1.11.0,<2 ; extra == 'mcp'
+Requires-Dist: mcp>=2.0.0,<3 ; extra == 'mcp'
+Requires-Dist: mcp-types>=2.0.0,<3 ; extra == 'mcp'
+Requires-Dist: jsonschema>=4.20.0,<5 ; extra == 'mcp'
 Requires-Dist: mcp-ui-server>=1.0.0 ; extra == 'mcp-ui'
-Requires-Dist: mcp>=1.11.0,<2 ; extra == 'mcp-ui'
+Requires-Dist: mcp>=2.0.0,<3 ; extra == 'mcp-ui'
 Requires-Dist: prometheus-client>=0.20.0,<0.30.0 ; extra == 'metrics'
 Requires-Dist: mistralai>=2.8.0,<3 ; extra == 'mistral'
 Requires-Dist: ollama>=0.4.7 ; extra == 'ollama'
-Requires-Dist: fix-busted-json>=0.0.18 ; extra == 'ollama'
 Requires-Dist: openai>=2.45.0,<3.0 ; extra == 'openai'
 Requires-Dist: perplexityai>=0.30.0,<1 ; extra == 'perplexity'
 Requires-Dist: redis>=5.0,<9 ; extra == 'redis'
 Requires-Dist: tavily-python>=0.7.4,<0.8 ; extra == 'tavily'
 Requires-Dist: opentelemetry-sdk>=1.20 ; extra == 'tracing'
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20 ; extra == 'tracing'
 Requires-Dist: xai-sdk>=1.12.2,<2 ; extra == 'xai'
 Requires-Dist: zai-sdk>=0.2.3,<1 ; extra == 'zai'
 Requires-Python: >=3.10

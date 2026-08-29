@@ -8,6 +8,7 @@ This file contains a number of ViT variants the utilise ROPE position embeddings
  * Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)
  * ROPE-ViT from Naver AI (https://arxiv.org/abs/2403.13298)
  * DINOv3 from META AI Research (https://arxiv.org/abs/2508.10104)
+ * LingBot-Vision from Robbyant (https://arxiv.org/abs/2607.05247)
 
 @article{EVA,
   title={EVA: Exploring the Limits of Masked Visual Representation Learning at Scale},
@@ -55,8 +56,17 @@ EVA-02: A Visual Representation for Neon Genesis - https://arxiv.org/abs/2303.11
   url={https://arxiv.org/abs/2508.10104},
 }
 
+@article{lingbot-vision2026,
+  title={Vision Pretraining for Dense Spatial Perception},
+  author={Fu, Zelin and Tan, Bin and Sun, Changjiang and Liu, Shaohui and Zheng, Kecheng and Xu, Yinghao
+    and Zhu, Xing and Shen, Yujun and Xue, Nan},
+  journal={arXiv preprint arXiv:2607.05247},
+  year={2026}
+}
+
 DINOv3 code was a modification of existing EVA model and support modules, so licensed under Apache-2.0 like timm.
 Weights from META remain under DINOv3 License (https://ai.meta.com/resources/models-and-libraries/dinov3-license/).
+LingBot-Vision code and weights are released under Apache-2.0 (https://github.com/robbyant/lingbot-vision).
 
 Modifications by / Copyright 2023 Ross Wightman, original copyrights below
 """
@@ -73,6 +83,7 @@ import torch.nn.functional as F
 
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, OPENAI_CLIP_MEAN, OPENAI_CLIP_STD
 from timm.layers import (
+    get_device_dtype,
     PatchEmbed,
     Mlp,
     GluMlp,
@@ -828,10 +839,12 @@ class Eva(nn.Module):
             num_classes: Number of output classes.
             global_pool: Global pooling type.
         """
+        dd = get_device_dtype(self)
         self.num_classes = num_classes
         if global_pool is not None:
             self.global_pool = global_pool
-        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+        self.head = nn.Linear(self.embed_dim, num_classes, **dd) if num_classes > 0 else nn.Identity()
+        self.head.train(self.training)
 
     def set_input_size(
             self,
@@ -1398,6 +1411,29 @@ def _eupe_cfg(url: str = '', **kwargs) -> Dict[str, Any]:
         'license': 'fair-noncommercial-research-license', **kwargs
     }
 
+
+def _lingbot_cfg(url: str = '', **kwargs) -> Dict[str, Any]:
+    """Generate default configuration for LingBot-Vision models.
+
+    LingBot-Vision uses CLS-token pooling for representations, which the model entrypoints use by default.
+
+    Args:
+        url: Model weights URL.
+        **kwargs: Additional configuration parameters.
+
+    Returns:
+        Model configuration dictionary.
+    """
+    return {
+        'url': url,
+        'num_classes': 0, 'input_size': (3, 512, 512), 'pool_size': None,
+        'crop_pct': 1.0, 'crop_mode': 'squash', 'interpolation': 'bilinear', 'fixed_input_size': True,
+        'mean': IMAGENET_DEFAULT_MEAN, 'std': IMAGENET_DEFAULT_STD,
+        'first_conv': 'patch_embed.proj', 'classifier': 'head',
+        'license': 'apache-2.0', 'origin_url': 'https://github.com/robbyant/lingbot-vision',
+        'paper_ids': 'arXiv:2607.05247', **kwargs
+    }
+
 default_cfgs = generate_default_cfgs({
 
     # EVA 01 CLIP fine-tuned on imagenet-1k
@@ -1807,6 +1843,21 @@ default_cfgs = generate_default_cfgs({
     'vit_7b_patch16_dinov3.sat493m': _dinov3_cfg(
         hf_hub_id='timm/',
         mean=(0.430, 0.411, 0.296), std=(0.213, 0.156, 0.143),
+    ),
+
+    # LingBot-Vision weights are released under Apache-2.0, please see
+    # https://github.com/robbyant/lingbot-vision/blob/main/LICENSE
+    'vit_small_patch16_lingbot.robbyant': _lingbot_cfg(
+        hf_hub_id='belfner/vit_small_patch16_lingbot.robbyant',
+    ),
+    'vit_base_patch16_lingbot.robbyant': _lingbot_cfg(
+        hf_hub_id='belfner/vit_base_patch16_lingbot.robbyant',
+    ),
+    'vit_large_patch16_lingbot.robbyant': _lingbot_cfg(
+        hf_hub_id='belfner/vit_large_patch16_lingbot.robbyant',
+    ),
+    'vit_giant_patch16_lingbot.robbyant': _lingbot_cfg(
+        hf_hub_id='belfner/vit_giant_patch16_lingbot.robbyant',
     ),
 
 })
@@ -3093,4 +3144,120 @@ def vit_7b_patch16_dinov3(pretrained: bool = False, **kwargs) -> Eva:
     )
 
     model = _create_eva('vit_7b_patch16_dinov3', pretrained=pretrained, **dict(model_args, **kwargs))
+    return model
+
+
+@register_model
+def vit_small_patch16_lingbot(pretrained: bool = False, **kwargs) -> Eva:
+    """LingBot-Vision S/16 https://arxiv.org/abs/2607.05247
+    Uses CLS-token pooling by default to match upstream LingBot-Vision.
+    """
+    model_args = dict(
+        patch_size=16,
+        dynamic_img_size=True,
+        embed_dim=384,
+        depth=12,
+        num_heads=6,
+        qkv_bias=True,
+        global_pool='token',
+        init_values=1.0e-05, # layer-scale
+        rope_type='dinov3',
+        rope_temperature=100,
+        #rope_rescale_coords=2,  # haven't added to interface
+        rope_rotate_half=True,
+        use_rot_pos_emb=True,
+        use_abs_pos_emb=False,
+        num_reg_tokens=4,
+        use_fc_norm=False,
+        norm_layer=partial(LayerNorm, eps=1e-5),
+    )
+    model = _create_eva('vit_small_patch16_lingbot', pretrained=pretrained, **dict(model_args, **kwargs))
+    return model
+
+
+@register_model
+def vit_base_patch16_lingbot(pretrained: bool = False, **kwargs) -> Eva:
+    """LingBot-Vision B/16 https://arxiv.org/abs/2607.05247
+    Uses CLS-token pooling by default to match upstream LingBot-Vision.
+    """
+    model_args = dict(
+        patch_size=16,
+        dynamic_img_size=True,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        qkv_bias=True,
+        global_pool='token',
+        init_values=1.0e-05, # layer-scale
+        rope_type='dinov3',
+        rope_temperature=100,
+        #rope_rescale_coords=2,  # haven't added to interface
+        rope_rotate_half=True,
+        use_rot_pos_emb=True,
+        use_abs_pos_emb=False,
+        num_reg_tokens=4,
+        use_fc_norm=False,
+        norm_layer=partial(LayerNorm, eps=1e-5),
+    )
+    model = _create_eva('vit_base_patch16_lingbot', pretrained=pretrained, **dict(model_args, **kwargs))
+    return model
+
+
+@register_model
+def vit_large_patch16_lingbot(pretrained: bool = False, **kwargs) -> Eva:
+    """LingBot-Vision L/16 https://arxiv.org/abs/2607.05247
+    Uses CLS-token pooling by default to match upstream LingBot-Vision.
+    """
+    model_args = dict(
+        patch_size=16,
+        dynamic_img_size=True,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        qkv_bias=True,
+        global_pool='token',
+        init_values=1.0e-05, # layer-scale
+        rope_type='dinov3',
+        rope_temperature=100,
+        #rope_rescale_coords=2,  # haven't added to interface
+        rope_rotate_half=True,
+        use_rot_pos_emb=True,
+        use_abs_pos_emb=False,
+        num_reg_tokens=4,
+        use_fc_norm=False,
+        norm_layer=partial(LayerNorm, eps=1e-5),
+    )
+    model = _create_eva('vit_large_patch16_lingbot', pretrained=pretrained, **dict(model_args, **kwargs))
+    return model
+
+
+@register_model
+def vit_giant_patch16_lingbot(pretrained: bool = False, **kwargs) -> Eva:
+    """LingBot-Vision G/16 https://arxiv.org/abs/2607.05247
+    Uses CLS-token pooling by default to match upstream LingBot-Vision.
+    """
+    model_args = dict(
+        patch_size=16,
+        dynamic_img_size=True,
+        embed_dim=1536,
+        depth=40,
+        num_heads=24,
+        qkv_bias=False,
+        global_pool='token',
+        mlp_ratio=4 * 2 / 3,
+        init_values=1.0e-5, # layer-scale
+        rope_type='dinov3',
+        rope_temperature=100,
+        use_rot_pos_emb=True,
+        use_abs_pos_emb=False,
+        rope_rotate_half=True,
+        swiglu_mlp=True,
+        swiglu_align_to=8,
+        #rope_rescale_coords=2,  # haven't added to interface
+        num_reg_tokens=4,
+        use_fc_norm=False,
+        norm_layer=partial(LayerNorm, eps=1e-5),
+    )
+
+    model = _create_eva('vit_giant_patch16_lingbot', pretrained=pretrained, **dict(model_args, **kwargs))
     return model

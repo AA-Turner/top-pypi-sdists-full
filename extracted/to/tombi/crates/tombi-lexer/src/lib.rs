@@ -1,6 +1,7 @@
 mod cursor;
 mod error;
 mod lexed;
+mod scanner;
 mod token;
 
 pub use cursor::Cursor;
@@ -8,7 +9,7 @@ use error::ErrorKind::*;
 pub use error::{Error, ErrorKind};
 pub use lexed::Lexed;
 pub use token::Token;
-use tombi_syntax::{SyntaxKind, T};
+use tombi_ast_syntax::{SyntaxKind, T};
 use tombi_text::LineEnding;
 
 macro_rules! regex {
@@ -35,6 +36,8 @@ regex!(
 );
 
 pub fn lex(source: &str) -> Lexed {
+    let source_len = tombi_text::Offset::try_from(source.len())
+        .expect("TOML source length exceeds the supported u32 offset range");
     let mut lexed = Lexed::default();
     let mut was_joint = false;
     let mut last_offset = tombi_text::Offset::default();
@@ -61,7 +64,7 @@ pub fn lex(source: &str) -> Lexed {
     lexed.tokens.push(crate::Token::new(
         SyntaxKind::EOF,
         (
-            tombi_text::Span::new(last_offset, tombi_text::Offset::new(source.len() as u32)),
+            tombi_text::Span::new(last_offset, source_len),
             tombi_text::Range::new(
                 last_position,
                 last_position + tombi_text::RelativePosition::of(&source[last_offset.into()..]),
@@ -187,7 +190,18 @@ impl Cursor<'_> {
     fn line_comment(&mut self) -> Result<Token, crate::Error> {
         debug_assert!(self.current() == '#');
 
-        self.eat_while(|c| !matches!(c, '\n' | '\r'));
+        if !scanner::is_long_line(self.remaining().as_bytes()) {
+            self.eat_while(|c| !matches!(c, '\n' | '\r'));
+            return Ok(Token::new(SyntaxKind::COMMENT, self.pop_span_range()));
+        }
+
+        let len = scanner::ascii_before_line_break(self.remaining().as_bytes());
+        if len > 0 {
+            self.eat_ascii_bytes(len);
+        }
+        if !self.is_eof() && !matches!(self.peek(1), '\n' | '\r') {
+            self.eat_while(|c| !matches!(c, '\n' | '\r'));
+        }
         Ok(Token::new(SyntaxKind::COMMENT, self.pop_span_range()))
     }
 

@@ -799,6 +799,13 @@ def sandbox_snapshot(
             help="Snapshot only this env's job (POST /api/v2/jobs/{job_id}/checkpoint) instead of the whole session.",
         ),
     ] = False,
+    target: Annotated[
+        str | None,
+        typer.Option(
+            "--target",
+            help="Routing target domain stored on the artifact, e.g. <sim>.web.plato.so; inherited from the parent artifact when omitted.",
+        ),
+    ] = None,
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):
@@ -810,6 +817,7 @@ def sandbox_snapshot(
         plato sandbox snapshot                    # Uses mode from state.json
         plato sandbox snapshot --mode config      # Override to pass local plato-config.yml, flows and login credentials to artifact
         plato sandbox snapshot --job              # Snapshot one env in a multi-env (unified) session
+        plato sandbox snapshot --target grist.web.plato.so   # Record the routing domain on the artifact
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
         _renew_lease()
@@ -821,14 +829,16 @@ def sandbox_snapshot(
             if not job_id:
                 raise SandboxStateError("job_id")
             out.console.print("[dim]Attached sandbox — full snapshot of only this env's job[/dim]")
-            full_response = client.snapshot_job_full(job_id=require(job_id, "job_id"), mode=mode, dataset=dataset)
+            full_response = client.snapshot_job_full(
+                job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target
+            )
             out.success(full_response, "Snapshot created")
             return
         if job:
             if not job_id:
                 raise SandboxStateError("job_id")
             out.console.print("Creating job checkpoint...")
-            response = client.snapshot_job(job_id=require(job_id, "job_id"), mode=mode, dataset=dataset)
+            response = client.snapshot_job(job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target)
             out.success(response, "Snapshot created")
             return
 
@@ -837,6 +847,7 @@ def sandbox_snapshot(
             session_id=require(session_id, "session_id"),
             mode=require(mode, "mode"),
             dataset=require(dataset, "dataset"),
+            target=target,
         )
         out.success(response, "Snapshot created")
 

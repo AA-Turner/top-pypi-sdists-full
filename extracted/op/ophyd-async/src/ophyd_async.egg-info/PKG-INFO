@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ophyd-async
-Version: 0.21.1
+Version: 0.21.2
 Summary: Asynchronous Bluesky hardware abstraction code, compatible with control systems like EPICS and Tango
 Author-email: Tom Cobb <tom.cobb@diamond.ac.uk>
 License: BSD 3-Clause License

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: home-connect-async
-Version: 0.8.6
+Version: 0.8.8
 Summary: Async SDK for BSH Home Connect API
 Home-page: https://github.com/ekutner/home-connect-async
 Author: Eran Kutner

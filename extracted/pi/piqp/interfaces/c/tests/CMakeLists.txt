@@ -11,7 +11,8 @@ cmake_minimum_required(VERSION 3.21)
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
     cmake_policy(SET CMP0135 NEW)
 endif()
-# Avoid warning about FetchContent_GetProperties in CMake 3.30:
+# Keep the explicit FetchContent populate/add_subdirectory flow for CMake 3.21
+# support while still excluding third-party install rules.
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
     cmake_policy(SET CMP0169 OLD)
 endif()
@@ -21,6 +22,7 @@ include(FetchContent)
 FetchContent_Declare(
         googletest
         URL https://github.com/google/googletest/archive/refs/tags/v1.16.0.zip
+        URL_HASH SHA256=a9607c9215866bd425a725610c5e0f739eeb50887a57903df48891446ce6fb3c
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -38,7 +40,7 @@ target_compile_options(piqp-c-interface-test INTERFACE ${compiler_flags})
 if(${CMAKE_CXX_COMPILER_ID} IN_LIST gcc_like_cxx)
     target_compile_options(piqp-c-interface-test INTERFACE -Wno-gnu-zero-variadic-macro-arguments -Wno-c++17-attribute-extensions)
 endif()
-target_link_options(piqp-c-interface-test INTERFACE ${compiler_flags})
+target_link_options(piqp-c-interface-test INTERFACE ${linker_flags})
 target_link_libraries(piqp-c-interface-test INTERFACE piqp_c gtest_main gtest)
 
 add_executable(c_interface_test src/c_interface_test.cpp)

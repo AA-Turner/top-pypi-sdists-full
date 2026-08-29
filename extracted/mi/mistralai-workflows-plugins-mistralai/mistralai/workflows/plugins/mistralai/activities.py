@@ -52,7 +52,7 @@ async def mistralai_create_agent(
     run_as: ConnectorRunAs = ConnectorRunAs.AUTO,
 ) -> mistralai_models.Agent:
     mistral_client = get_mistral_client(run_as)
-    agent = mistral_client.beta.agents.create(**params.model_dump(by_alias=True, exclude=EXCLUDED_FIELDS))
+    agent = await mistral_client.beta.agents.create_async(**params.model_dump(by_alias=True, exclude=EXCLUDED_FIELDS))
     return agent
 
 

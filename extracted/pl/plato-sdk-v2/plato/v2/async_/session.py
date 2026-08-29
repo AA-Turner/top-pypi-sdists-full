@@ -257,15 +257,19 @@ class Session:
         timeout: int,
         *,
         wait: bool = True,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Shared session creation: POST /make, check failures, wait for ready, start heartbeat.
 
         All creation paths (from_envs, from_testcase, from_artifacts) funnel through here.
 
         Args:
+            timeout: VM lifetime in seconds, sent to the backend in the /make body.
             wait: If False, return immediately after creation without waiting for ready.
                   The caller must ``await session.wait_until_ready()`` before using envs.
+            ready_timeout: Client-side ``wait_for_ready`` polling budget; defaults to ``timeout``.
         """
+        ready_budget = timeout if ready_timeout is None else ready_timeout
         response = await sessions_make.asyncio(
             client=http_client,
             body=request_body,
@@ -303,10 +307,10 @@ class Session:
                     timeout=per_call,
                     x_api_key=api_key,
                 ),
-                timeout=int(timeout),
+                timeout=int(ready_budget),
             )
             logger.info(f"wait_for_ready returned ready={ready_response.ready}")
-            context = cls._check_ready_response(ready_response, timeout)
+            context = cls._check_ready_response(ready_response, ready_budget)
         except (TimeoutError, RuntimeError):
             try:
                 await sessions_close.asyncio(
@@ -358,6 +362,7 @@ class Session:
         envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource],
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
         agent_artifact_id: str | None = None,
         wait: bool = True,
         shutdown_callback_url: str | None = None,
@@ -372,6 +377,10 @@ class Session:
             api_key: API key for authentication.
             envs: List of environment configurations (from Env.simulator() or Env.artifact()).
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
             agent_artifact_id: Optional agent artifact ID to associate with the session.
             wait: If True (default), wait for all environments to be ready before
                 returning. If False, return immediately after session creation — the
@@ -414,7 +423,9 @@ class Session:
             agent_artifact_id=agent_artifact_id,
             **extra_kwargs,
         )
-        return await cls._make_session(http_client, api_key, request_body, timeout, wait=wait)
+        return await cls._make_session(
+            http_client, api_key, request_body, timeout, wait=wait, ready_timeout=ready_timeout
+        )
 
     @classmethod
     async def from_testcase(
@@ -424,6 +435,7 @@ class Session:
         testcase_id: str,
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from a test case.
 
@@ -436,6 +448,10 @@ class Session:
             api_key: API key for authentication.
             testcase_id: Test case public ID.
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session with all environments ready and reset.
@@ -449,7 +465,7 @@ class Session:
             timeout=timeout,
             source=RunSessionSource.SDK,
         )
-        session = await cls._make_session(http_client, api_key, request_body, timeout)
+        session = await cls._make_session(http_client, api_key, request_body, timeout, ready_timeout=ready_timeout)
 
         await sessions_reset.asyncio(
             client=http_client,
@@ -468,6 +484,7 @@ class Session:
         artifact_ids: list[str],
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from artifact IDs.
 
@@ -480,6 +497,10 @@ class Session:
             api_key: API key for authentication.
             artifact_ids: List of simulator artifact public IDs.
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session with all environments ready (not reset).
@@ -489,7 +510,7 @@ class Session:
             TimeoutError: If environments don't become ready within timeout.
         """
         envs = [EnvFromArtifact(artifact_id=aid) for aid in artifact_ids]
-        return await cls.from_envs(http_client, api_key, envs, timeout=timeout)
+        return await cls.from_envs(http_client, api_key, envs, timeout=timeout, ready_timeout=ready_timeout)
 
     @staticmethod
     def _check_ready_response(response: WaitForReadyResponse, timeout: float) -> SessionContext:
@@ -1354,6 +1375,7 @@ class Session:
         context: BrowserContext | None = None,
         retries: int = 0,
         retry_delay_ms: int = 0,
+        fast_mode: bool = False,
     ) -> LoginResult:
         """Login to environments and return browser context with pages.
 
@@ -1377,6 +1399,11 @@ class Session:
             retries: Per-env retries on flow-execution failure. Between
                 attempts the page is re-navigated to the public URL.
             retry_delay_ms: Delay between retries in milliseconds.
+            fast_mode: Execute the login flow without its dead time — authored
+                ``wait`` sleeps and the trailing confirmation tail are skipped,
+                navigation stops at ``domcontentloaded``, and actions rely on
+                Playwright auto-wait. Returns as soon as the final action
+                lands; there is no post-login confirmation step.
 
         Returns:
             LoginResult containing the browser context and a dict mapping
@@ -1431,7 +1458,10 @@ class Session:
                     # Pre-authenticated sim (no flows defined): nothing to
                     # execute, but the page must still land on the sim URL —
                     # that is the same end state a successful login produces.
-                    await page.goto(public_url)
+                    if fast_mode:
+                        await page.goto(public_url, wait_until="domcontentloaded")
+                    else:
+                        await page.goto(public_url)
                     continue
 
                 flow_executor = FlowExecutor(
@@ -1439,12 +1469,16 @@ class Session:
                     login_flow,
                     log=logger,
                     screenshots_dir=screenshots_dir,
+                    fast_mode=fast_mode,
                 )
 
                 last_error: Exception | None = None
                 for attempt in range(1 + retries):
                     try:
-                        await page.goto(public_url)
+                        if fast_mode:
+                            await page.goto(public_url, wait_until="domcontentloaded")
+                        else:
+                            await page.goto(public_url)
                         await flow_executor.execute()
                         last_error = None
                         break
@@ -1561,6 +1595,8 @@ class Session:
         self,
         result: LoginResult,
         log: logging.Logger,
+        *,
+        fast_mode: bool = False,
     ) -> None:
         """Reload login pages at ``networkidle``, close stray tabs, surface login page.
 
@@ -1574,13 +1610,20 @@ class Session:
         steady state; closing leftover ``about:blank`` tabs keeps the
         consumer from picking one as the active page; ``bring_to_front``
         makes the login page the focused tab.
+
+        ``fast_mode`` skips only the settling (the fixed sleeps and the
+        ``networkidle`` reload). The tab hygiene is kept: both callers reuse
+        Chrome's default context, whose launch-time ``about:blank`` tab would
+        otherwise still be around for the consumer to attach to, and it costs
+        milliseconds.
         """
         login_pages = set(result.pages.values())
         for page in list(result.pages.values()):
-            await asyncio.sleep(2)
-            with contextlib.suppress(Exception):
-                await page.reload(wait_until="networkidle", timeout=15000)
-            await asyncio.sleep(1)
+            if not fast_mode:
+                await asyncio.sleep(2)
+                with contextlib.suppress(Exception):
+                    await page.reload(wait_until="networkidle", timeout=15000)
+                await asyncio.sleep(1)
             log.info("Post-login page URL: %s", page.url)
         for tab in list(result.context.pages):
             if tab not in login_pages and tab.url == "about:blank":
@@ -1601,6 +1644,7 @@ class Session:
         env_alias: str | None = None,
         retries: int = 0,
         retry_delay_ms: int = 0,
+        fast_mode: bool = False,
         ready_timeout: float = 60.0,
         log: logging.Logger | None = None,
     ) -> None:
@@ -1615,6 +1659,13 @@ class Session:
 
         For raw login without the post-login cleanup, use
         :meth:`connect_cdp` + :meth:`login` directly.
+
+        ``fast_mode`` forwards to :meth:`login` (skip authored waits and the
+        confirmation tail) and skips the post-login networkidle settling —
+        the consumer takes the browser right after the last action. Stray-tab
+        cleanup and ``bring_to_front`` still run in fast mode, so a consumer
+        attaching to the default context never lands on the launch-time
+        ``about:blank`` tab.
         """
         active_log = log or logger
         async with self.connect_cdp(cdp_url, ready_timeout=ready_timeout) as browser:
@@ -1627,8 +1678,9 @@ class Session:
                 env_alias=env_alias,
                 retries=retries,
                 retry_delay_ms=retry_delay_ms,
+                fast_mode=fast_mode,
             )
-            await self._stabilize_post_login(result, active_log)
+            await self._stabilize_post_login(result, active_log, fast_mode=fast_mode)
 
     async def login_via_agent_browser(
         self,
@@ -1643,6 +1695,7 @@ class Session:
         screenshots_dir: Path | None = None,
         retries: int = 0,
         retry_delay_ms: int = 0,
+        fast_mode: bool = False,
         log: logging.Logger | None = None,
     ) -> list[str]:
         """Log in to envs, then hand each browser to an agent-browser daemon.
@@ -1787,8 +1840,9 @@ class Session:
                                     env_alias=env.alias,
                                     retries=0,
                                     retry_delay_ms=0,
+                                    fast_mode=fast_mode,
                                 )
-                                await self._stabilize_post_login(result, active_log)
+                                await self._stabilize_post_login(result, active_log, fast_mode=fast_mode)
                             finally:
                                 # Disconnect the Playwright client only. The
                                 # remote chromium stays alive and the agent-

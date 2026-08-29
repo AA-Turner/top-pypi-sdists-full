@@ -7,7 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from mistralai.observability.api_models import (
+from mistralai.evaluations.api_models import (
     EvaluationRunGenerationResponse,
     EvaluationRunOutputRecordResponse,
     EvaluationRunRecordResponse,
@@ -18,9 +18,9 @@ from mistralai.observability.api_models import (
 from temporalio.client import WorkflowFailureError
 
 from mistralai.workflows import get_workflow_definition, workflow
-from mistralai.workflows.plugins.evaluation import GEPA, MutatorProposal, MutatorRequest, Tunable, evaluation
-from mistralai.workflows.plugins.evaluation._activities import optimize_fetch_records, optimize_mutate
-from mistralai.workflows.plugins.evaluation.types import Evaluator, Score, TaskContext, TunableSystem
+from mistralai.workflows.plugins.evaluations import GEPA, MutatorProposal, MutatorRequest, Tunable, evaluation
+from mistralai.workflows.plugins.evaluations._activities import optimize_fetch_records, optimize_mutate
+from mistralai.workflows.plugins.evaluations.types import Evaluator, Score, TaskContext, TunableSystem
 
 from .test_evaluation_plugin import (
     _EVAL_ACTIVITIES,

@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Literal, Union, overload
 
+from modal._logs_manager import _SandboxLogsManager
+from modal._supports_logs import LogsFilters, _LogQueryData
 from modal.secret import _split_env_dict_and_resolvable_secrets
 
 from ._output.pty import get_pty_info
@@ -38,6 +40,7 @@ from ._resolver import Resolver
 from ._resources import convert_fn_config_to_resources_config
 from ._utils.async_utils import TaskContext, synchronize_api, synchronizer
 from ._utils.deprecation import deprecation_warning
+from ._utils.grpc_utils import Retry
 from ._utils.mount_utils import (
     validate_network_file_systems,
     validate_only_modal_volumes,
@@ -51,12 +54,15 @@ from .container_process import _ContainerProcess
 from .exception import (
     ClientClosed,
     ConflictError,
+    ConnectionError,
     ExecutionError,
     InternalError,
     InvalidError,
     NotFoundError,
+    ResourceExhaustedError,
     SandboxTerminatedError,
     SandboxTimeoutError,
+    ServiceError,
     SnapshotCreationError,
     TimeoutError,
 )
@@ -81,6 +87,20 @@ from .types import FileWatchEvent, FileWatchEventType, SandboxConnectCredentials
 
 _default_image: _Image = _Image.debian_slim()
 _EXIT_SNAPSHOT_NOT_FOUND_ERROR_CODES = frozenset((api_pb2.SandboxGetExitSnapshotResponse.ERROR_CODE_TIMEOUT,))
+
+# Exit snapshot polling holds a server-side long poll for at most _EXIT_SNAPSHOT_LONG_POLL_TIMEOUT seconds and
+# then re-polls from the client, so a request is never held open indefinitely however long the caller waits.
+_EXIT_SNAPSHOT_LONG_POLL_TIMEOUT = 10.0
+# Margin added to each poll's network deadline over the server-side hold, covering the
+# response's return trip so an answer sent just before the hold expires isn't lost to the
+# client-side deadline.
+_EXIT_SNAPSHOT_POLL_DEADLINE_MARGIN = 5.0
+# The fetch loop absorbs transient poll failures and re-polls. It gives up once this many
+# polls fail in a row, so an extended outage still surfaces to the caller.
+_EXIT_SNAPSHOT_MAX_CONSECUTIVE_POLL_FAILURES = 3
+# Pause between failed polls, so failures that reject instantly (e.g. a refused connection)
+# don't burn through the failure budget in milliseconds.
+_EXIT_SNAPSHOT_POLL_FAILURE_BACKOFF = 1.0
 
 
 async def _gather_load_with_timings(
@@ -1387,13 +1407,15 @@ class _Sandbox(_Object, type_prefix="sb"):
         `modal.Sandbox._experimental_create`. A name may only be set once and
         only on a Sandbox that has never had one; afterwards the Sandbox can
         be looked up with `Sandbox._experimental_from_name(app_name, name)`.
+        Repeating the Sandbox's current name is idempotent and succeeds, so
+        the call is safe to retry.
 
         Args:
             name: Name to assign to the Sandbox. Must be unique within the App.
 
         Raises:
             AlreadyExistsError: If another running Sandbox in the App already holds the name.
-            ConflictError: If the Sandbox already has a name or is no longer running.
+            ConflictError: If the Sandbox already has a different name or is no longer running.
         """
         self._ensure_attached()
         if not self._is_v2:
@@ -1441,8 +1463,10 @@ class _Sandbox(_Object, type_prefix="sb"):
         """Get the exit filesystem snapshot image.
 
         Args:
-            timeout: Deadline in seconds. `None` polls until the snapshot reaches
-                a terminal state. `0` performs an immediate check.
+            timeout: Total time to wait in seconds, spread across repeated long
+                polls of at most `_EXIT_SNAPSHOT_LONG_POLL_TIMEOUT` seconds each.
+                `None` (the default) waits until the snapshot reaches a terminal
+                state; `0` performs an immediate check without waiting.
 
         Returns:
             The exit snapshot Image.
@@ -1456,8 +1480,6 @@ class _Sandbox(_Object, type_prefix="sb"):
             SnapshotCreationError: If no exit snapshot image will be produced.
             NotFoundError: If the sandbox does not exist.
             PermissionDeniedError: If the caller cannot access the sandbox.
-            InternalError: If persisted snapshot state is malformed.
-            ServiceError: If a transient client/server communication failure occurs.
         """
         if timeout is not None and timeout < 0:
             raise InvalidError("timeout must be non-negative or None")
@@ -1467,11 +1489,49 @@ class _Sandbox(_Object, type_prefix="sb"):
         # Use the private __client so the lookup works with a detached sandbox
         client = self.__client
 
+        consecutive_poll_failures = 0
         while True:
-            request_timeout = 10.0 if deadline is None else min(10.0, max(0.0, deadline - time.monotonic()))
-            resp: api_pb2.SandboxGetExitSnapshotResponse = await client.stub.SandboxGetExitSnapshot(
-                api_pb2.SandboxGetExitSnapshotRequest(sandbox_id=self.object_id, timeout=request_timeout)
-            )
+            if deadline is None:
+                request_timeout = _EXIT_SNAPSHOT_LONG_POLL_TIMEOUT
+            else:
+                request_timeout = min(_EXIT_SNAPSHOT_LONG_POLL_TIMEOUT, max(0.0, deadline - time.monotonic()))
+            req = api_pb2.SandboxGetExitSnapshotRequest(sandbox_id=self.object_id, timeout=request_timeout)
+            poll_budget = request_timeout + _EXIT_SNAPSHOT_POLL_DEADLINE_MARGIN
+            poll_retry = Retry(attempt_timeout=poll_budget, max_retries=0, total_timeout=poll_budget)
+            resp: api_pb2.SandboxGetExitSnapshotResponse
+            try:
+                if self._is_v2:
+                    assert client._auth_token_manager
+                    auth_token = await client._auth_token_manager.get_token()
+                    resp = await client.stub.SandboxGetExitSnapshotV2(
+                        req, retry=poll_retry, metadata=[("x-modal-auth-token", auth_token)]
+                    )
+                else:
+                    resp = await client.stub.SandboxGetExitSnapshot(req, retry=poll_retry)
+            except (ConnectionError, InternalError, ServiceError):
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(timeout_message)
+                consecutive_poll_failures += 1
+                if consecutive_poll_failures >= _EXIT_SNAPSHOT_MAX_CONSECUTIVE_POLL_FAILURES:
+                    raise
+                backoff = _EXIT_SNAPSHOT_POLL_FAILURE_BACKOFF
+                if deadline is not None:
+                    backoff = min(backoff, max(0.0, deadline - time.monotonic()))
+                await asyncio.sleep(backoff)
+                continue
+            except ResourceExhaustedError as exc:
+                retry_policy = next((d for d in exc._grpc_details or () if isinstance(d, api_pb2.RPCRetryPolicy)), None)
+                if retry_policy is None:
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(timeout_message)
+                consecutive_poll_failures = 0
+                throttle_delay = max(retry_policy.retry_after_secs, 0.1)
+                if deadline is not None:
+                    throttle_delay = min(throttle_delay, max(0.0, deadline - time.monotonic()))
+                await asyncio.sleep(throttle_delay)
+                continue
+            consecutive_poll_failures = 0
             outcome = resp.WhichOneof("outcome")
 
             if outcome == "success":
@@ -1930,6 +1990,27 @@ class _Sandbox(_Object, type_prefix="sb"):
             if not self._task_id:
                 await asyncio.sleep(0.5)
         return self._task_id
+
+    async def _resolve_task_id_for_logs(self) -> str:
+        """Try to resolve the task ID in one shot for historical log fetches.
+
+        For a historical log api, we should not wait for the task to be created.
+        If the Sandbox created logs worth fetching, the task ID should be available.
+        """
+        if self._task_id:
+            return self._task_id
+
+        req = api_pb2.SandboxGetTaskIdRequest(sandbox_id=self.object_id)
+        stub = self.__client.stub
+        if self._is_v2:
+            assert self.__client._auth_token_manager
+            auth_token = await self.__client._auth_token_manager.get_token()
+            resp = await stub.SandboxGetTaskIdV2(req, metadata=[("x-modal-auth-token", auth_token)])
+        else:
+            resp = await stub.SandboxGetTaskId(req)
+        if not resp.task_id:
+            raise ExecutionError("Sandbox task_id is not available yet.")
+        return resp.task_id
 
     async def _get_command_router_client(self, task_id: str) -> TaskCommandRouterClient:
         if self._command_router_client is None:
@@ -2605,6 +2686,36 @@ class _Sandbox(_Object, type_prefix="sb"):
             # Fetch the next batch starting from the end of the current one.
             before_timestamp = resp.sandboxes[-1].created_at
 
+    async def _get_log_query_data(self) -> _LogQueryData:
+        if not self._app_id:
+            if not self._attached:
+                raise ExecutionError("Cannot fetch logs for a detached Sandbox without hydrated app_id")
+            await self.hydrate()
+
+        if not self._app_id:
+            raise ExecutionError("app_id should have been set during sandbox hydration")
+
+        task_id = await self._resolve_task_id_for_logs()
+        return _LogQueryData(self.__client, self._app_id, LogsFilters(task_id=task_id), self.object_id)
+
+    @property
+    def logs(self) -> _SandboxLogsManager:
+        """Access logs for a `Sandbox` entrypoint.
+
+        Useful for inspecting logs after a Sandbox terminates.
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs.
+
+        Note that the logs from executed commands in the sandbox (via `exec()`) are not included in the
+        entrypoint logs.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+              CLI access to logs for an App.
+        """
+        return _SandboxLogsManager(self)
+
 
 class _SidecarContainer:
     """Handle to an additional container running in a Sandbox."""
@@ -2822,6 +2933,7 @@ class _SidecarManager:
         volumes: dict[str | os.PathLike, _Volume] | None = None,
         outbound_cidr_allowlist: Sequence[str] | None = None,
         outbound_domain_allowlist: Sequence[str] | None = None,
+        pty: bool = False,
     ) -> _SidecarContainer:
         """Create a sidecar container running alongside the Sandbox's main container.
 
@@ -2848,6 +2960,7 @@ class _SidecarManager:
                 main container.
             outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                 443) to these SNI domains. Supports wildcards like ``*.example.com``.
+            pty: Whether to enable PTY for the sidecar container.
 
         Returns:
             A `SidecarContainer` handle for the running container.
@@ -2903,6 +3016,7 @@ class _SidecarManager:
             secret_ids=[secret.object_id for secret in secrets],
             volume_mounts=volume_mounts,
             network_access=_build_outbound_network_access(False, outbound_cidr_allowlist, outbound_domain_allowlist),
+            pty_info=_Sandbox._default_pty_info() if pty else None,
         )
         create_resp = await command_router_client.container_create(create_req)
         container_id = create_resp.container_id

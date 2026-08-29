@@ -4,6 +4,7 @@ This submodule contains the :class:`Config` class for custom configuration of th
 Note that the same class can also be imported from the ``ldclient.client`` submodule.
 """
 
+import copy
 import warnings
 from dataclasses import dataclass
 from threading import Event
@@ -30,6 +31,10 @@ from ldclient.plugin import Plugin
 
 GET_LATEST_FEATURES_PATH = '/sdk/latest-flags'
 STREAM_FLAGS_PATH = '/flags'
+
+DEFAULT_BASE_URI = 'https://app.launchdarkly.com'
+DEFAULT_EVENTS_URI = 'https://events.launchdarkly.com'
+DEFAULT_STREAM_URI = 'https://stream.launchdarkly.com'
 
 
 class BigSegmentsConfig:
@@ -284,11 +289,11 @@ class Config(DataSourceBuilderConfig, PrivateAttributesConfig):
     def __init__(
         self,
         sdk_key: str,
-        base_uri: str = 'https://app.launchdarkly.com',
-        events_uri: str = 'https://events.launchdarkly.com',
+        base_uri: str = DEFAULT_BASE_URI,
+        events_uri: str = DEFAULT_EVENTS_URI,
         events_max_pending: int = 10000,
         flush_interval: float = 5,
-        stream_uri: str = 'https://stream.launchdarkly.com',
+        stream_uri: str = DEFAULT_STREAM_URI,
         stream: bool = True,
         initial_reconnect_delay: float = 1,
         defaults: dict = {},
@@ -467,6 +472,25 @@ class Config(DataSourceBuilderConfig, PrivateAttributesConfig):
             http=self.__http,
             big_segments=self.__big_segments,
         )
+
+    def with_wrapper_information(self, wrapper_name: Optional[str], wrapper_version: Optional[str] = None) -> 'Config':
+        """Returns a new ``Config`` instance that is the same as this one, except for having different wrapper information.
+
+        This is intended for use by wrapper libraries, such as the LaunchDarkly OpenFeature providers, which need to
+        identify themselves rather than the application that configured the client.
+
+        The new instance is a shallow copy: it shares the objects the original configuration references, such as the
+        feature store, the logger, and the HTTP configuration. Mutating one of those objects affects both
+        configurations.
+
+        :param wrapper_name: an identifying name for the wrapper being used; see :py:attr:`~wrapper_name`
+        :param wrapper_version: the version of the wrapper being used; see :py:attr:`~wrapper_version`
+        """
+        updated = copy.copy(self)
+        updated.__wrapper_name = wrapper_name
+        updated.__wrapper_version = wrapper_version
+
+        return updated
 
     # for internal use only - probably should be part of the client logic
     def get_default(self, key, default):

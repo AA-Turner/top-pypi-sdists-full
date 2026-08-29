@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any, Type, cast
 
 import structlog
@@ -13,7 +14,7 @@ logger = structlog.get_logger(__name__)
 
 def _normalize_params(
     params: Any,
-    user_params_dict: dict[str, Type],
+    param_names: Sequence[str],
     input_model: Type[BaseModel],
 ) -> Any:
     """Normalize raw Temporal input into a value suitable for model_validate.
@@ -35,11 +36,19 @@ def _normalize_params(
     if issubclass(input_model, RootModel):
         return params
 
-    if params is not None and len(user_params_dict) == 1:
-        param_name = next(iter(user_params_dict.keys()))
-        return {param_name: params}
+    if params is not None and len(param_names) == 1:
+        return {param_names[0]: params}
 
     return {}
+
+
+def resolve_params_with_defaults(
+    params: Any,
+    param_names: Sequence[str],
+    input_model: Type[BaseModel],
+) -> BaseModel:
+    """Validate raw Temporal input so callers see the same values the workflow runs with."""
+    return input_model.model_validate(_normalize_params(params, param_names, input_model))
 
 
 def convert_params_dict_to_user_args(
@@ -48,7 +57,7 @@ def convert_params_dict_to_user_args(
     input_model: Type[BaseModel],
 ) -> tuple[Any, ...]:
     """Convert Temporal's parameter dict to user function arguments."""
-    params_dict = _normalize_params(params_dict, user_params_dict, input_model)
+    params_dict = _normalize_params(params_dict, tuple(user_params_dict), input_model)
     validated_params = input_model.model_validate(params_dict)
 
     if not user_params_dict:
@@ -112,7 +121,7 @@ def convert_params_dict_to_user_args_and_kwargs(
     Used for handlers that accept **kwargs. Returns explicit params as positional
     args and any extra fields in params_dict as keyword arguments.
     """
-    params_dict = _normalize_params(params_dict, user_params_dict, input_model)
+    params_dict = _normalize_params(params_dict, tuple(user_params_dict), input_model)
     validated_params = input_model.model_validate(params_dict)
 
     extra_kwargs = (

@@ -1,27 +1,28 @@
 Metadata-Version: 2.4
 Name: affine
-Version: 3.0.0
+Version: 3.0.1
 Summary: Matrices describing affine transformation of the plane
 Keywords: affine,transformation,matrix
 Author-email: Sean Gillies <sean.gillies@gmail.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
+License-Expression: BSD-3-Clause
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Typing :: Typed
+License-File: AUTHORS.txt
 License-File: LICENSE.txt
-Requires-Dist: attrs
-Requires-Dist: coveralls>=3.0 ; extra == "dev"
-Requires-Dist: numpy>=1.20 ; extra == "test"
-Requires-Dist: pytest>=6.0 ; extra == "test"
-Requires-Dist: pytest-cov ; extra == "test"
+Requires-Dist: attrs>=21.3.0
 Project-URL: Source, https://github.com/rasterio/affine
-Provides-Extra: dev
-Provides-Extra: test
 
 Affine
 ======
@@ -77,21 +78,26 @@ Matrices can be created by passing the values ``a, b, c, d, e, f`` to the
          0.7071067811865475, 0.7071067811865476, 0.0)
 
 These matrices can be applied to ``(x, y)`` tuples using the
-``*`` operator (or the ``@`` matrix multiplier operator for
-future releases) to obtain transformed coordinates ``(x', y')``.
+``@`` matrix multiplier operator to obtain transformed
+coordinates ``(x', y')``.
 
 .. code-block:: pycon
 
-  >>> Affine.translation(1.0, 5.0) * (1.0, 1.0)
+  >>> Affine.translation(1.0, 5.0) @ (1.0, 1.0)
   (2.0, 6.0)
-  >>> Affine.rotation(45.0) * (1.0, 1.0)
+  >>> Affine.rotation(45.0) @ (1.0, 1.0)
   (1.1102230246251565e-16, 1.414213562373095)
+
+.. note::
+   Versions before 3.0.0 only supported the ``*`` operator for
+   matrix multiplication. To use these examples with previous
+   releases, replace ``@`` with ``*``.
 
 They may also be multiplied together to combine transformations.
 
 .. code-block:: pycon
 
-  >>> Affine.translation(1.0, 5.0) * Affine.rotation(45.0)
+  >>> Affine.translation(1.0, 5.0) @ Affine.rotation(45.0)
   Affine(0.7071067811865476, -0.7071067811865475, 1.0,
          0.7071067811865475, 0.7071067811865476, 5.0)
 
@@ -114,7 +120,7 @@ origin can be easily computed.
   >>> geotransform = (-237481.5, 425.0, 0.0, 237536.4, 0.0, -425.0)
   >>> fwd = Affine.from_gdal(*geotransform)
   >>> col, row = 0, 100
-  >>> fwd * (col, row)
+  >>> fwd @ (col, row)
   (-237481.5, 195036.4)
 
 The reverse transformation is obtained using the ``~`` inverse operator.
@@ -122,6 +128,6 @@ The reverse transformation is obtained using the ``~`` inverse operator.
 .. code-block:: pycon
 
   >>> rev = ~fwd
-  >>> rev * fwd * (col, row)
+  >>> rev @ fwd @ (col, row)
   (0.0, 99.99999999999999)
 

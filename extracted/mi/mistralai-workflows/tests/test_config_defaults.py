@@ -1,4 +1,9 @@
+import pytest
+from pydantic import ValidationError
+from temporalio.testing import WorkflowEnvironment
+
 from mistralai.workflows.core.config.config import AppConfig, PayloadCompressionConfig, WorkerConfig
+from mistralai.workflows.core.worker import _create_temporal_workers
 
 
 class TestAgentServerUrlDefault:
@@ -35,3 +40,26 @@ class TestAgentServerUrlDefault:
             min_size_bytes=4096,
             algorithm_config={"algorithm": "zstd", "level": 5},
         )
+
+    def test_max_concurrent_activities_defaults_to_the_temporal_default(self):
+        assert WorkerConfig().max_concurrent_activities == 100
+
+    def test_max_concurrent_activities_rejects_zero(self):
+        # Temporal's create_fixed treats a falsy slot count as "unset" and silently restores 100.
+        with pytest.raises(ValidationError):
+            WorkerConfig(max_concurrent_activities=0)
+
+    @pytest.mark.asyncio
+    async def test_max_concurrent_activities_reaches_every_temporal_worker(
+        self, temporal_env: WorkflowEnvironment, monkeypatch
+    ):
+        monkeypatch.setenv("MAX_CONCURRENT_ACTIVITIES", "1")
+
+        workers, _ = _create_temporal_workers(
+            temporal_client=temporal_env.client,
+            workflows=[],
+            config=AppConfig(),
+            task_queue="test-task-queue",
+        )
+
+        assert {worker.config()["max_concurrent_activities"] for worker in workers} == {1}

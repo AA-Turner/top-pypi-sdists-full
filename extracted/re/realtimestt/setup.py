@@ -6,7 +6,7 @@ import setuptools
 from setuptools.command.build_py import build_py as _build_py
 
 
-current_version = "1.1.0"
+current_version = "1.1.1"
 
 
 INSTALL_GUIDE = """
@@ -331,7 +331,14 @@ setuptools.setup(
     keywords="real-time, audio, transcription, speech-to-text, voice-activity-detection, VAD, real-time-transcription, ambient-noise-detection, microphone-input, faster_whisper, speech-recognition, voice-assistants, audio-processing, buffered-transcription, pyaudio, ambient-noise-level, voice-deactivity",
     package_data={
         "RealtimeSTT": ["assets/warmup_audio.wav"],
-        "RealtimeSTT_server": ["PRODUCTION_SERVER.md"],
+        "RealtimeSTT_server": ["PRODUCTION_SERVER.md", "README.md", "index.html"],
+        "example_fastapi_server": [
+            "MULTI_USER_IMPLEMENTATION_GUIDE.md",
+            "README.md",
+            "requirements.txt",
+            "run_multi_user_perf.cmd",
+            "static/index.html",
+        ],
     },
     include_package_data=True,
     cmdclass={"build_py": build_py},

@@ -118,21 +118,55 @@ def _get_migrate_to_forward_error_message(result: dict[str, Any]) -> str:
 def _is_first_deployment_with_seed_live(host: Optional[str], headers: dict) -> bool:
     """Best-effort check for first real deployment when seed deployment (id=0) is still live."""
     try:
-        response = requests.get(f"{host}/v1/deployments", headers=headers)
-        if response.status_code >= 300:
-            return False
-
-        result = response.json()
-        logging.debug(json.dumps(result, indent=2))
-        deployments = result.get("deployments") or []
-        if not deployments:
-            return False
-
-        live_deployment = next((deployment for deployment in deployments if deployment.get("live")), deployments[0])
-        return str(live_deployment.get("id")) == "0"
+        return _get_current_live_deployment_id(host, headers) == "0"
     except Exception:
-        # Hint calculation must never break deployment flow.
+        logging.exception("Error checking for live seed deployment while deciding first-deployment hint")
         return False
+
+
+def _list_deployments(host: Optional[str], headers: dict) -> list[dict]:
+    """Fetch the current deployments. Raises if the lookup fails."""
+    response = requests.get(f"{host}/v1/deployments", headers=headers)
+    response.raise_for_status()
+
+    result = response.json()
+    logging.debug(json.dumps(result, indent=2))
+    return result.get("deployments") or []
+
+
+def _get_current_live_deployment_id(host: Optional[str], headers: dict) -> Optional[str]:
+    deployments = _list_deployments(host, headers)
+    if not deployments:
+        return None
+
+    live_deployment = next((deployment for deployment in deployments if deployment.get("live")), deployments[0])
+    live_id = live_deployment.get("id")
+    return str(live_id) if live_id is not None else None
+
+
+def _get_lingering_old_deployment_id(host: Optional[str], headers: dict, new_deployment_id: str) -> Optional[str]:
+    """Look up a still-active deployment other than `new_deployment_id`, if any."""
+    deployments = _list_deployments(host, headers)
+    other_deployment = next((d for d in deployments if str(d.get("id")) != new_deployment_id), None)
+    return str(other_deployment["id"]) if other_deployment else None
+
+
+def _wait_for_deployment_deletion(
+    host: Optional[str],
+    headers: dict,
+    deployment_id: str,
+    request_from: Optional[str] = None,
+    poll_interval: int = 5,
+) -> bool:  # whether the deployment has been deleted successfully
+    url = f"{host}/v1/deployments/{deployment_id}"
+    while True:
+        result = api_fetch(url, headers, request_from=request_from)
+        old_deployment = result.get("deployment")
+        if not old_deployment or old_deployment.get("status") == "deleted":
+            return True
+        if old_deployment.get("status") == "failed":
+            return False
+        time.sleep(poll_interval)
 
 
 def _get_deployment_job(client: TinyB, deployment_id: Optional[Union[str, int]]) -> Optional[Dict[str, Any]]:
@@ -635,6 +669,42 @@ def create_deployment(
             click.echo(FeedbackManager.highlight(message="» Waiting for deployment to be promoted..."))
         click.echo(FeedbackManager.info(message="✓ Deployment promoted"))
         click.echo(FeedbackManager.success(message=f"✓ Deployment #{deployment.get('id')} is live!"))
+
+        old_deployment_id: Optional[str] = None
+        try:
+            old_deployment_id = _get_lingering_old_deployment_id(client.host, HEADERS, str(deployment.get("id")))
+        except Exception:
+            click.echo(
+                FeedbackManager.warning(
+                    message="Could not confirm if there's a previous deployment to remove. "
+                    f"If a follow-up `tb deploy` reports one already in progress, check `tb --{env} deployment ls`."
+                )
+            )
+
+        if old_deployment_id:
+            click.echo(FeedbackManager.highlight(message="» Removing old deployment..."))
+            try:
+                deleted = _wait_for_deployment_deletion(
+                    client.host, HEADERS, old_deployment_id, request_from=request_from
+                )
+            except KeyboardInterrupt:
+                click.echo(
+                    FeedbackManager.warning(
+                        message=f"\nDeployment is live, but the old deployment is still being removed. "
+                        f"Check its status with `tb --{env} deployment ls`."
+                    )
+                )
+                raise click.Abort()
+            if deleted:
+                click.echo(FeedbackManager.info(message="✓ Old deployment removed"))
+            else:
+                click.echo(
+                    FeedbackManager.warning(
+                        message="Deployment is live, but the old deployment failed to be removed. "
+                        f"Check its status with `tb --{env} deployment ls`."
+                    )
+                )
+
         if ingest_hint and len(deployment.get("new_data_connector_ids", [])) == 0 and is_first_deployment:
             click.echo(
                 FeedbackManager.info(

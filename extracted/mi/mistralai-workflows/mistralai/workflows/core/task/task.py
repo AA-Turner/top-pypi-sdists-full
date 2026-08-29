@@ -24,6 +24,7 @@ from mistralai.workflows.core._events.json_patch import make_json_patch
 from mistralai.workflows.core.temporal.utils import require_activity_context_value
 from mistralai.workflows.core.tracing._otel_config import _get_calling_module_name
 from mistralai.workflows.core.tracing._temporal_tracing_interceptor import TraceDataSerializer
+from mistralai.workflows.core.tracing.utils import workflow_execution_span_attributes
 from mistralai.workflows.core.utils.contextvars import unwrap_contextual_result
 from mistralai.workflows.models import EventSpanType
 from mistralai.workflows.protocol.v1.events import (
@@ -144,7 +145,7 @@ class Task[T]:
         if temporalio.workflow.in_workflow():
             workflow_info = temporalio.workflow.info()
             attributes["wf.workflow.type"] = workflow_info.workflow_type
-            attributes["wf.workflow.id"] = workflow_info.workflow_id
+            attributes.update(workflow_execution_span_attributes(workflow_info.workflow_id))
             attributes["wf.run.id"] = workflow_info.run_id
             attributes["wf.task_queue"] = workflow_info.task_queue
         elif temporalio.activity.in_activity():
@@ -153,10 +154,11 @@ class Task[T]:
                 activity_info.workflow_type,
                 field_name="workflow_type",
             )
-            attributes["wf.workflow.id"] = require_activity_context_value(
+            workflow_execution_id = require_activity_context_value(
                 activity_info.workflow_id,
                 field_name="workflow_id",
             )
+            attributes.update(workflow_execution_span_attributes(workflow_execution_id))
             attributes["wf.run.id"] = require_activity_context_value(
                 activity_info.workflow_run_id,
                 field_name="workflow_run_id",

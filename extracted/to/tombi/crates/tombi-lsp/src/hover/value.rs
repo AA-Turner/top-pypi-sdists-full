@@ -9,6 +9,7 @@ mod offset_date_time;
 mod string;
 mod table;
 
+use tombi_document_tree_syntax::ValueImpl;
 use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, CurrentSchema, SchemaType, SchemaView};
 
@@ -16,11 +17,11 @@ use crate::HoverContent;
 
 use super::GetHoverContent;
 
-impl GetHoverContent for tombi_document_tree::Value {
+impl GetHoverContent for tombi_document_tree_syntax::Value {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -46,32 +47,24 @@ impl GetHoverContent for tombi_document_tree::Value {
                     .await;
             }
 
-            let instance_type = match self {
-                Self::Boolean(_) => Some(SchemaType::Boolean),
-                Self::Integer(_) => Some(SchemaType::Integer),
-                Self::Float(_) => Some(SchemaType::Number),
-                Self::String(_)
-                | Self::OffsetDateTime(_)
-                | Self::LocalDateTime(_)
-                | Self::LocalDate(_)
-                | Self::LocalTime(_) => Some(SchemaType::String),
-                Self::Array(_) => Some(SchemaType::Array),
-                Self::Table(_) => Some(SchemaType::Object),
-                Self::Incomplete { .. } => None,
-            };
+            let instance_type = SchemaType::from_value_type(self.value_type());
             let projected_schema = current_schema.and_then(|schema| {
-                instance_type.and_then(|instance_type| {
-                    schema.for_instance_type(instance_type, schema_context.string_formats())
-                })
+                crate::schema_resolver::project_schema_for_concrete_value(
+                    self,
+                    schema,
+                    schema_context,
+                )
             });
             let current_schema = match current_schema {
                 Some(schema)
                     if schema.semantic_schema.is_some()
-                        && instance_type.is_some()
-                        && !schema
-                            .semantic_schema
-                            .as_deref()
-                            .is_some_and(|semantic| semantic.has_applicators()) =>
+                        && instance_type.is_some_and(|instance_type| {
+                            !schema
+                                .semantic_schema
+                                .as_deref()
+                                .is_some_and(|semantic| semantic.has_applicators())
+                                || schema.has_reference_projection_siblings(instance_type)
+                        }) =>
                 {
                     projected_schema.as_ref()
                 }
@@ -222,7 +215,7 @@ impl GetHoverContent for SchemaView {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,

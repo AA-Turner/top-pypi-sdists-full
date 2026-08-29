@@ -141,7 +141,7 @@ AwsClosedLostReasonType = Literal[
 ]
 AwsFundingUsedType = Literal["No", "Yes"]
 AwsMemberBusinessTitleType = Literal[
-    "AWSAccountOwner", "AWSSalesRep", "ISVSM", "PDM", "PSM", "WWPSPDM"
+    "AWSAccountOwner", "AWSSalesRep", "ISVSM", "PDM", "PSM", "Signatory", "WWPSPDM"
 ]
 AwsOpportunityStageType = Literal[
     "Building Integration",

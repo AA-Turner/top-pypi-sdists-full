@@ -15,6 +15,10 @@ from chalk._gen.chalk.engine.v2.feature_values_pb2 import (
     GetFeatureValuesRequest,
     GetFeatureValuesResponse,
 )
+from chalk._gen.chalk.engine.v2.offline_store_metrics_pb2 import (
+    GetMetricsRequest,
+    GetMetricsResponse,
+)
 from chalk._gen.chalk.engine.v2.query_log_pb2 import (
     GetQueryLogEntriesRequest,
     GetQueryLogEntriesResponse,
@@ -54,6 +58,10 @@ class OfflineStoreServiceStub:
         GetFeatureValuesRequest,
         GetFeatureValuesResponse,
     ]
+    GetMetrics: UnaryUnaryMultiCallable[
+        GetMetricsRequest,
+        GetMetricsResponse,
+    ]
 
 class OfflineStoreServiceServicer(metaclass=ABCMeta):
     """This service exposes endpoints for dealing with the offline store. It should never depend on the python graph.
@@ -86,5 +94,11 @@ class OfflineStoreServiceServicer(metaclass=ABCMeta):
         request: GetFeatureValuesRequest,
         context: ServicerContext,
     ) -> GetFeatureValuesResponse: ...
+    @abstractmethod
+    def GetMetrics(
+        self,
+        request: GetMetricsRequest,
+        context: ServicerContext,
+    ) -> GetMetricsResponse: ...
 
 def add_OfflineStoreServiceServicer_to_server(servicer: OfflineStoreServiceServicer, server: Server) -> None: ...

@@ -131,6 +131,8 @@ from .type_defs import (
     DescribeResourceServerResponseTypeDef,
     DescribeRiskConfigurationRequestTypeDef,
     DescribeRiskConfigurationResponseTypeDef,
+    DescribeTermsByClientRequestTypeDef,
+    DescribeTermsByClientResponseTypeDef,
     DescribeTermsRequestTypeDef,
     DescribeTermsResponseTypeDef,
     DescribeUserImportJobRequestTypeDef,
@@ -145,6 +147,8 @@ from .type_defs import (
     ForgetDeviceRequestTypeDef,
     ForgotPasswordRequestTypeDef,
     ForgotPasswordResponseTypeDef,
+    GetClientTokenRequestTypeDef,
+    GetClientTokenResponseTypeDef,
     GetCSVHeaderRequestTypeDef,
     GetCSVHeaderResponseTypeDef,
     GetDeviceRequestTypeDef,
@@ -1035,6 +1039,17 @@ class CognitoIdentityProviderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#describe_terms)
         """
 
+    def describe_terms_by_client(
+        self, **kwargs: Unpack[DescribeTermsByClientRequestTypeDef]
+    ) -> DescribeTermsByClientResponseTypeDef:
+        """
+        Returns details for the terms documents that are associated with an app client,
+        identified by the app client ID, user pool ID, and terms name.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/describe_terms_by_client.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#describe_terms_by_client)
+        """
+
     def describe_user_import_job(
         self, **kwargs: Unpack[DescribeUserImportJobRequestTypeDef]
     ) -> DescribeUserImportJobResponseTypeDef:
@@ -1106,6 +1121,16 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_csv_header.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#get_csv_header)
+        """
+
+    def get_client_token(
+        self, **kwargs: Unpack[GetClientTokenRequestTypeDef]
+    ) -> GetClientTokenResponseTypeDef:
+        """
+        Issues an access token for machine-to-machine (M2M) authorization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_client_token.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cognito_idp/client/#get_client_token)
         """
 
     def get_device(self, **kwargs: Unpack[GetDeviceRequestTypeDef]) -> GetDeviceResponseTypeDef:

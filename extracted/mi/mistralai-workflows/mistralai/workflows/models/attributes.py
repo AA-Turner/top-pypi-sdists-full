@@ -26,7 +26,6 @@ class EventAttributes(StrEnum):
     activity_schedule_to_start_ms = "wf.activity.schedule_to_start.ms"
     activity_execution_ms = "wf.activity.execution.ms"
 
-    workflow_id = "wf.workflow.id"
     workflow_execution_id = "wf.workflow.execution_id"
     workflow_type = "wf.workflow.type"
     workflow_duration_ms = "wf.workflow.duration.ms"

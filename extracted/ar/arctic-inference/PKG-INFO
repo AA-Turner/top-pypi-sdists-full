@@ -1,10 +1,14 @@
 Metadata-Version: 2.4
 Name: arctic_inference
-Version: 0.2.0
+Version: 0.3.0
 Summary: Snowflake LLM inference library
 License-File: LICENSE
 Provides-Extra: vllm
-Requires-Dist: vllm==0.18.0; extra == "vllm"
+Requires-Dist: vllm; extra == "vllm"
+Provides-Extra: vllm-26
+Requires-Dist: vllm==0.26.0; extra == "vllm-26"
+Provides-Extra: vllm-18
+Requires-Dist: vllm==0.18.0; extra == "vllm-18"
 Provides-Extra: docs
 Requires-Dist: sphinx>=8.1.3; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"

@@ -40,7 +40,7 @@ def _launch_program(
     entrypoint = module.main
 
     app = _get_runnable_app(entrypoint)
-    app.set_description(description if description else base_cmd)
+    app.description = description if description else base_cmd
 
     # `launch/` scripts must have a `local_entrypoint()` with no args, for simplicity here.
     func = entrypoint.info.raw_f

@@ -18,7 +18,7 @@ _NO_RUN_AS = object()
 
 def _client() -> MagicMock:
     client = MagicMock()
-    client.beta.agents.create.return_value = MagicMock()
+    client.beta.agents.create_async = AsyncMock(return_value=MagicMock())
     client.beta.agents.update_async = AsyncMock(return_value=MagicMock())
     client.beta.conversations.start_async = AsyncMock(return_value=MagicMock())
     client.beta.conversations.append_async = AsyncMock(return_value=MagicMock())

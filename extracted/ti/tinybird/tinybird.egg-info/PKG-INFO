@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.14
+Version: 4.6.15
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,10 +51,21 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.15
+********
+
+- `Fixed` ``tb deploy`` waits for the old deployment to delete to avoid clashing with a new deployment submission.
+
 4.6.14
 ********
 
 - `Changed` ``tb datasource append`` and ``tb datasource replace`` submit local CSV, NDJSON, and Parquet files through the v1 import endpoint by default. ``tb datasource append --events`` also submits its request body through v1. These asynchronous imports print the queued job ID; pass ``--wait`` to wait for completion. Remote URL imports continue to use their existing route.
+
+4.6.14
+********
+
+- `Fixed` `tb migrate-to-forward` correctly finds and offers to delete all branches, not just those created by the user running the migration.
 
 4.6.13
 ********

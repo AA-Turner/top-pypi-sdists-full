@@ -1447,6 +1447,13 @@ def workers_heartbeat(worker_id):
         from abstract_hugpy_dev.comms import calibration as _calib
         if body.calibration_samples:
             _calib.record_samples(worker_id, body.calibration_samples)
+            # Samples carrying a measured load_seconds ALSO feed the cold-load
+            # EMA (comms.model_metrics) — the calibration wire is the single
+            # upload_time_s producer; see record_loads_from_calibration.
+            from abstract_hugpy_dev.comms.model_metrics import (
+                record_loads_from_calibration)
+            record_loads_from_calibration(
+                worker.get("name") or worker_id, body.calibration_samples)
         relevant = sorted(set(worker.get("loaded_models") or [])
                           | set(worker.get("models") or []))
         corr = _calib.corrections_for(relevant or None)

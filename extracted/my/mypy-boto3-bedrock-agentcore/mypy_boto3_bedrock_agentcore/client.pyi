@@ -107,6 +107,8 @@ from .type_defs import (
     GetWorkloadAccessTokenForUserIdResponseTypeDef,
     GetWorkloadAccessTokenRequestTypeDef,
     GetWorkloadAccessTokenResponseTypeDef,
+    IngestDataInputTypeDef,
+    IngestDataOutputTypeDef,
     InvokeAgentRuntimeCommandRequestTypeDef,
     InvokeAgentRuntimeCommandResponseTypeDef,
     InvokeAgentRuntimeRequestTypeDef,
@@ -575,6 +577,15 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_workload_access_token_for_user_id.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#get_workload_access_token_for_user_id)
+        """
+
+    def ingest_data(self, **kwargs: Unpack[IngestDataInputTypeDef]) -> IngestDataOutputTypeDef:
+        """
+        Submits content directly for ingestion to generate long-term memory records in
+        a AgentCore Memory resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/ingest_data.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#ingest_data)
         """
 
     def invoke_agent_runtime(

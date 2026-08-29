@@ -27,6 +27,9 @@ class ProtectedContract(Contract):
                                 False, each of the modules passed in will be treated as a module
                                 rather than a package. Default behaviour is True (treat modules as
                                 packages).
+        - broken_contract_guidance:         Guidance explaining how to fix the contract if it's
+                                broken. These are displayed after the contract's violations.
+                                (Optional.)
     """
 
     type_name = "protected"
@@ -41,8 +44,10 @@ class ProtectedContract(Contract):
 
     as_packages = fields.BooleanField(required=False, default=True)
 
+    broken_contract_guidance = fields.TextField(required=False)
+
     def check(self, graph: grimp.ImportGraph, verbose: bool) -> ContractCheck:
-        warnings = contract_utils.remove_ignored_imports(
+        import_removal = contract_utils.remove_ignored_imports_and_report(
             graph=graph,
             ignore_imports=self.ignore_imports,  # type: ignore
             unmatched_alerting=self.unmatched_ignore_imports_alerting,  # type: ignore
@@ -113,7 +118,8 @@ class ProtectedContract(Contract):
 
         return ContractCheck(
             kept=not bool(illegal_imports_metadata),
-            warnings=warnings,
+            warnings=list(import_removal.warnings),
+            ignored_import_count=import_removal.ignored_import_count,
             metadata={"illegal_imports": illegal_imports_metadata},
         )
 
@@ -147,6 +153,8 @@ class ProtectedContract(Contract):
                 )
                 output.new_line()
         output.new_line()
+
+        contract_utils.render_broken_contract_guidance(self.broken_contract_guidance)  # type: ignore
 
 
 @dataclass

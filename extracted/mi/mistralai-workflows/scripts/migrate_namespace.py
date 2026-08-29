@@ -738,7 +738,7 @@ def main() -> int:
 
     # Migrate sibling directories (import rewrites + text files only)
     step = 11
-    for sibling in ["abraxas", "hydra"]:
+    for sibling in ["abraxas"]:
         sibling_root = sdk_root.parent / sibling
         if sibling_root.is_dir():
             update_sibling_directory(sibling_root, sibling, step, dry_run=args.dry_run)

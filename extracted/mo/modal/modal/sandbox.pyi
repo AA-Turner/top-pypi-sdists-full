@@ -3,7 +3,9 @@ import collections.abc
 import enum
 import google.protobuf.message
 import modal._image
+import modal._logs_manager
 import modal._object
+import modal._supports_logs
 import modal._tunnel
 import modal._utils.task_command_router_client
 import modal.app
@@ -562,13 +564,15 @@ class _Sandbox(modal._object._Object):
         `modal.Sandbox._experimental_create`. A name may only be set once and
         only on a Sandbox that has never had one; afterwards the Sandbox can
         be looked up with `Sandbox._experimental_from_name(app_name, name)`.
+        Repeating the Sandbox's current name is idempotent and succeeds, so
+        the call is safe to retry.
 
         Args:
             name: Name to assign to the Sandbox. Must be unique within the App.
 
         Raises:
             AlreadyExistsError: If another running Sandbox in the App already holds the name.
-            ConflictError: If the Sandbox already has a name or is no longer running.
+            ConflictError: If the Sandbox already has a different name or is no longer running.
         """
         ...
 
@@ -594,8 +598,10 @@ class _Sandbox(modal._object._Object):
         """Get the exit filesystem snapshot image.
 
         Args:
-            timeout: Deadline in seconds. `None` polls until the snapshot reaches
-                a terminal state. `0` performs an immediate check.
+            timeout: Total time to wait in seconds, spread across repeated long
+                polls of at most `_EXIT_SNAPSHOT_LONG_POLL_TIMEOUT` seconds each.
+                `None` (the default) waits until the snapshot reaches a terminal
+                state; `0` performs an immediate check without waiting.
 
         Returns:
             The exit snapshot Image.
@@ -609,8 +615,6 @@ class _Sandbox(modal._object._Object):
             SnapshotCreationError: If no exit snapshot image will be produced.
             NotFoundError: If the sandbox does not exist.
             PermissionDeniedError: If the caller cannot access the sandbox.
-            InternalError: If persisted snapshot state is malformed.
-            ServiceError: If a transient client/server communication failure occurs.
         """
         ...
 
@@ -808,6 +812,14 @@ class _Sandbox(modal._object._Object):
         ...
 
     async def _get_task_id(self, raise_if_task_complete=False) -> str: ...
+    async def _resolve_task_id_for_logs(self) -> str:
+        """Try to resolve the task ID in one shot for historical log fetches.
+
+        For a historical log api, we should not wait for the task to be created.
+        If the Sandbox created logs worth fetching, the task ID should be available.
+        """
+        ...
+
     async def _get_command_router_client(
         self, task_id: str
     ) -> modal._utils.task_command_router_client.TaskCommandRouterClient: ...
@@ -1052,6 +1064,25 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def _get_log_query_data(self) -> modal._supports_logs._LogQueryData: ...
+    @property
+    def logs(self) -> modal._logs_manager._SandboxLogsManager:
+        """Access logs for a `Sandbox` entrypoint.
+
+        Useful for inspecting logs after a Sandbox terminates.
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs.
+
+        Note that the logs from executed commands in the sandbox (via `exec()`) are not included in the
+        entrypoint logs.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+              CLI access to logs for an App.
+        """
+        ...
+
 class _SidecarContainer:
     """Handle to an additional container running in a Sandbox."""
 
@@ -1153,6 +1184,7 @@ class _SidecarManager:
         volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume._Volume]] = None,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        pty: bool = False,
     ) -> _SidecarContainer:
         """Create a sidecar container running alongside the Sandbox's main container.
 
@@ -1179,6 +1211,7 @@ class _SidecarManager:
                 main container.
             outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                 443) to these SNI domains. Supports wildcards like ``*.example.com``.
+            pty: Whether to enable PTY for the sidecar container.
 
         Returns:
             A `SidecarContainer` handle for the running container.
@@ -1406,6 +1439,7 @@ class SidecarManager:
             volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume.Volume]] = None,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            pty: bool = False,
         ) -> SidecarContainer:
             """Create a sidecar container running alongside the Sandbox's main container.
 
@@ -1432,6 +1466,7 @@ class SidecarManager:
                     main container.
                 outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                     443) to these SNI domains. Supports wildcards like ``*.example.com``.
+                pty: Whether to enable PTY for the sidecar container.
 
             Returns:
                 A `SidecarContainer` handle for the running container.
@@ -1450,6 +1485,7 @@ class SidecarManager:
             volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume.Volume]] = None,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            pty: bool = False,
         ) -> SidecarContainer:
             """Create a sidecar container running alongside the Sandbox's main container.
 
@@ -1476,6 +1512,7 @@ class SidecarManager:
                     main container.
                 outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                     443) to these SNI domains. Supports wildcards like ``*.example.com``.
+                pty: Whether to enable PTY for the sidecar container.
 
             Returns:
                 A `SidecarContainer` handle for the running container.
@@ -2286,13 +2323,15 @@ class Sandbox(modal.object.Object):
             `modal.Sandbox._experimental_create`. A name may only be set once and
             only on a Sandbox that has never had one; afterwards the Sandbox can
             be looked up with `Sandbox._experimental_from_name(app_name, name)`.
+            Repeating the Sandbox's current name is idempotent and succeeds, so
+            the call is safe to retry.
 
             Args:
                 name: Name to assign to the Sandbox. Must be unique within the App.
 
             Raises:
                 AlreadyExistsError: If another running Sandbox in the App already holds the name.
-                ConflictError: If the Sandbox already has a name or is no longer running.
+                ConflictError: If the Sandbox already has a different name or is no longer running.
             """
             ...
 
@@ -2303,13 +2342,15 @@ class Sandbox(modal.object.Object):
             `modal.Sandbox._experimental_create`. A name may only be set once and
             only on a Sandbox that has never had one; afterwards the Sandbox can
             be looked up with `Sandbox._experimental_from_name(app_name, name)`.
+            Repeating the Sandbox's current name is idempotent and succeeds, so
+            the call is safe to retry.
 
             Args:
                 name: Name to assign to the Sandbox. Must be unique within the App.
 
             Raises:
                 AlreadyExistsError: If another running Sandbox in the App already holds the name.
-                ConflictError: If the Sandbox already has a name or is no longer running.
+                ConflictError: If the Sandbox already has a different name or is no longer running.
             """
             ...
 
@@ -2361,8 +2402,10 @@ class Sandbox(modal.object.Object):
             """Get the exit filesystem snapshot image.
 
             Args:
-                timeout: Deadline in seconds. `None` polls until the snapshot reaches
-                    a terminal state. `0` performs an immediate check.
+                timeout: Total time to wait in seconds, spread across repeated long
+                    polls of at most `_EXIT_SNAPSHOT_LONG_POLL_TIMEOUT` seconds each.
+                    `None` (the default) waits until the snapshot reaches a terminal
+                    state; `0` performs an immediate check without waiting.
 
             Returns:
                 The exit snapshot Image.
@@ -2376,8 +2419,6 @@ class Sandbox(modal.object.Object):
                 SnapshotCreationError: If no exit snapshot image will be produced.
                 NotFoundError: If the sandbox does not exist.
                 PermissionDeniedError: If the caller cannot access the sandbox.
-                InternalError: If persisted snapshot state is malformed.
-                ServiceError: If a transient client/server communication failure occurs.
             """
             ...
 
@@ -2385,8 +2426,10 @@ class Sandbox(modal.object.Object):
             """Get the exit filesystem snapshot image.
 
             Args:
-                timeout: Deadline in seconds. `None` polls until the snapshot reaches
-                    a terminal state. `0` performs an immediate check.
+                timeout: Total time to wait in seconds, spread across repeated long
+                    polls of at most `_EXIT_SNAPSHOT_LONG_POLL_TIMEOUT` seconds each.
+                    `None` (the default) waits until the snapshot reaches a terminal
+                    state; `0` performs an immediate check without waiting.
 
             Returns:
                 The exit snapshot Image.
@@ -2400,8 +2443,6 @@ class Sandbox(modal.object.Object):
                 SnapshotCreationError: If no exit snapshot image will be produced.
                 NotFoundError: If the sandbox does not exist.
                 PermissionDeniedError: If the caller cannot access the sandbox.
-                InternalError: If persisted snapshot state is malformed.
-                ServiceError: If a transient client/server communication failure occurs.
             """
             ...
 
@@ -2840,6 +2881,25 @@ class Sandbox(modal.object.Object):
         async def aio(self, /, raise_if_task_complete=False) -> str: ...
 
     _get_task_id: ___get_task_id_spec
+
+    class ___resolve_task_id_for_logs_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> str:
+            """Try to resolve the task ID in one shot for historical log fetches.
+
+            For a historical log api, we should not wait for the task to be created.
+            If the Sandbox created logs worth fetching, the task ID should be available.
+            """
+            ...
+
+        async def aio(self, /) -> str:
+            """Try to resolve the task ID in one shot for historical log fetches.
+
+            For a historical log api, we should not wait for the task to be created.
+            If the Sandbox created logs worth fetching, the task ID should be available.
+            """
+            ...
+
+    _resolve_task_id_for_logs: ___resolve_task_id_for_logs_spec
 
     class ___get_command_router_client_spec(typing_extensions.Protocol):
         def __call__(self, /, task_id: str) -> modal._utils.task_command_router_client.TaskCommandRouterClient: ...
@@ -3348,6 +3408,30 @@ class Sandbox(modal.object.Object):
             ...
 
     _experimental_list: typing.ClassVar[___experimental_list_spec]
+
+    class ___get_log_query_data_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> modal._supports_logs._LogQueryData: ...
+        async def aio(self, /) -> modal._supports_logs._LogQueryData: ...
+
+    _get_log_query_data: ___get_log_query_data_spec
+
+    @property
+    def logs(self) -> modal._logs_manager.SandboxLogsManager:
+        """Access logs for a `Sandbox` entrypoint.
+
+        Useful for inspecting logs after a Sandbox terminates.
+        Use [`fetch()`](#logsfetch)
+        to read logs from a UTC time range, [`tail()`](#logstail)
+        to read the most recent logs.
+
+        Note that the logs from executed commands in the sandbox (via `exec()`) are not included in the
+        entrypoint logs.
+
+        See also:
+            - [`modal app logs`](https://modal.com/docs/cli/latest/app#modal-app-logs):
+              CLI access to logs for an App.
+        """
+        ...
 
 _default_image: modal._image._Image
 

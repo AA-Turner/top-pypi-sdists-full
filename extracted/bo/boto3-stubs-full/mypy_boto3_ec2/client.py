@@ -1654,6 +1654,8 @@ from .type_defs import (
     ReplaceIamInstanceProfileAssociationResultTypeDef,
     ReplaceImageCriteriaInAllowedImagesSettingsRequestTypeDef,
     ReplaceImageCriteriaInAllowedImagesSettingsResultTypeDef,
+    ReplaceImageInstanceTypeSpecificationRequestTypeDef,
+    ReplaceImageInstanceTypeSpecificationResultTypeDef,
     ReplaceNetworkAclAssociationRequestTypeDef,
     ReplaceNetworkAclAssociationResultTypeDef,
     ReplaceNetworkAclEntryRequestTypeDef,
@@ -9559,6 +9561,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/replace_image_criteria_in_allowed_images_settings.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#replace_image_criteria_in_allowed_images_settings)
+        """
+
+    def replace_image_instance_type_specification(
+        self, **kwargs: Unpack[ReplaceImageInstanceTypeSpecificationRequestTypeDef]
+    ) -> ReplaceImageInstanceTypeSpecificationResultTypeDef:
+        """
+        Replaces or removes the instance type specification for an AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/replace_image_instance_type_specification.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#replace_image_instance_type_specification)
         """
 
     def replace_network_acl_association(

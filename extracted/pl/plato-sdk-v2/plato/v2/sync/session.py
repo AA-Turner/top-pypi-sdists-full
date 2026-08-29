@@ -168,11 +168,18 @@ class Session:
         api_key: str,
         request_body,
         timeout: int,
+        *,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Shared session creation: POST /make, check failures, wait for ready, start heartbeat.
 
         All creation paths (from_envs, from_testcase, from_artifacts) funnel through here.
+
+        Args:
+            timeout: VM lifetime in seconds, sent to the backend in the /make body.
+            ready_timeout: Client-side ``wait_for_ready`` polling budget; defaults to ``timeout``.
         """
+        ready_budget = timeout if ready_timeout is None else ready_timeout
         response = sessions_make.sync(
             client=http_client,
             body=request_body,
@@ -201,9 +208,9 @@ class Session:
                     timeout=per_call,
                     x_api_key=api_key,
                 ),
-                timeout=int(timeout),
+                timeout=int(ready_budget),
             )
-            context = cls._check_ready_response(ready_response, timeout)
+            context = cls._check_ready_response(ready_response, ready_budget)
         except (TimeoutError, RuntimeError):
             try:
                 sessions_close.sync(
@@ -254,6 +261,7 @@ class Session:
         envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource],
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from environment configurations.
 
@@ -265,6 +273,10 @@ class Session:
             api_key: API key for authentication.
             envs: List of environment configurations (from Env.simulator() or Env.artifact()).
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session instance with all environments ready.
@@ -294,7 +306,7 @@ class Session:
             timeout=timeout,
             source=RunSessionSource.SDK,
         )
-        return cls._make_session(http_client, api_key, request_body, timeout)
+        return cls._make_session(http_client, api_key, request_body, timeout, ready_timeout=ready_timeout)
 
     @classmethod
     def from_testcase(
@@ -304,6 +316,7 @@ class Session:
         testcase_id: str,
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from a test case.
 
@@ -316,6 +329,10 @@ class Session:
             api_key: API key for authentication.
             testcase_id: Test case public ID.
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session with all environments ready and reset.
@@ -329,7 +346,7 @@ class Session:
             timeout=timeout,
             source=RunSessionSource.SDK,
         )
-        session = cls._make_session(http_client, api_key, request_body, timeout)
+        session = cls._make_session(http_client, api_key, request_body, timeout, ready_timeout=ready_timeout)
 
         sessions_reset.sync(
             client=http_client,
@@ -348,6 +365,7 @@ class Session:
         artifact_ids: list[str],
         *,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
     ) -> Session:
         """Create a new session from artifact IDs.
 
@@ -360,6 +378,10 @@ class Session:
             api_key: API key for authentication.
             artifact_ids: List of simulator artifact public IDs.
             timeout: VM timeout in seconds (default: 1800).
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
 
         Returns:
             A new Session with all environments ready (not reset).
@@ -369,7 +391,7 @@ class Session:
             TimeoutError: If environments don't become ready within timeout.
         """
         envs = [EnvFromArtifact(artifact_id=aid) for aid in artifact_ids]
-        return cls.from_envs(http_client, api_key, envs, timeout=timeout)
+        return cls.from_envs(http_client, api_key, envs, timeout=timeout, ready_timeout=ready_timeout)
 
     @staticmethod
     def _check_ready_response(response: WaitForReadyResponse, timeout: float) -> SessionContext:
@@ -1088,6 +1110,8 @@ class Session:
         dataset: str = "base",
         screenshots_dir: Path | None = None,
         port: int | None = None,
+        *,
+        fast_mode: bool = False,
     ) -> LoginResult:
         """Login to all environments and return browser context with pages.
 
@@ -1103,6 +1127,11 @@ class Session:
             dataset: Dataset name for login flow (default: "base" uses "login" flow).
             screenshots_dir: Optional directory to save screenshots during login.
             port: Optional port for public URL (default uses standard port).
+            fast_mode: Execute the login flow without its dead time — authored
+                ``wait`` sleeps and the trailing confirmation tail are skipped,
+                navigation stops at ``domcontentloaded``, and actions rely on
+                Playwright auto-wait. Returns as soon as the final action
+                lands; there is no post-login confirmation step.
 
         Returns:
             LoginResult containing the browser context and a dict mapping
@@ -1153,7 +1182,10 @@ class Session:
                 context.close()
                 raise RuntimeError(f"No public URL returned for {env.alias}")
 
-            page.goto(public_url_result.url)
+            if fast_mode:
+                page.goto(public_url_result.url, wait_until="domcontentloaded")
+            else:
+                page.goto(public_url_result.url)
 
             # Get flows for this environment using v2 endpoint.
             #
@@ -1207,6 +1239,7 @@ class Session:
                 login_flow,
                 log=logger,
                 screenshots_dir=screenshots_dir,
+                fast_mode=fast_mode,
             )
             try:
                 flow_executor.execute()

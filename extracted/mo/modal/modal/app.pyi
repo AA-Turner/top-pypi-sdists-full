@@ -27,10 +27,10 @@ import typing
 import typing_extensions
 
 class _LocalEntrypoint:
-    _info: modal._utils.function_utils.FunctionInfo
+    _info: modal._utils.function_utils.FunctionSourceInfo
     _app: _App
 
-    def __init__(self, info: modal._utils.function_utils.FunctionInfo, app: _App) -> None:
+    def __init__(self, info: modal._utils.function_utils.FunctionSourceInfo, app: _App) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -39,18 +39,18 @@ class _LocalEntrypoint:
         ...
 
     @property
-    def info(self) -> modal._utils.function_utils.FunctionInfo: ...
+    def info(self) -> modal._utils.function_utils.FunctionSourceInfo: ...
     @property
     def app(self) -> _App: ...
 
 class LocalEntrypoint:
-    _info: modal._utils.function_utils.FunctionInfo
+    _info: modal._utils.function_utils.FunctionSourceInfo
     _app: App
 
-    def __init__(self, info: modal._utils.function_utils.FunctionInfo, app: App) -> None: ...
+    def __init__(self, info: modal._utils.function_utils.FunctionSourceInfo, app: App) -> None: ...
     def __call__(self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any: ...
     @property
-    def info(self) -> modal._utils.function_utils.FunctionInfo: ...
+    def info(self) -> modal._utils.function_utils.FunctionSourceInfo: ...
     @property
     def app(self) -> App: ...
 
@@ -205,6 +205,11 @@ class _App:
 
     @property
     def is_interactive(self) -> bool:
+        """mdmd:hidden"""
+        ...
+
+    @property
+    def _is_interactive_(self) -> bool:
         """mdmd:hidden
         Whether the current app for the app is running in interactive mode.
 
@@ -228,6 +233,11 @@ class _App:
         Returns:
             Human-readable description string for the app.
         """
+        ...
+
+    @description.setter
+    def description(self, value):
+        """mdmd:hidden"""
         ...
 
     @staticmethod
@@ -898,13 +908,6 @@ class _App:
         """
         ...
 
-    def _logs(self, client: typing.Optional[modal.client._Client] = None) -> collections.abc.AsyncGenerator[str, None]:
-        """Stream logs from the app.
-
-        This method is considered private and its interface may change - use at your own risk!
-        """
-        ...
-
     @classmethod
     def _get_container_app(cls) -> typing.Optional[_App]:
         """Returns the `App` running inside a container.
@@ -1030,6 +1033,11 @@ class App:
 
     @property
     def is_interactive(self) -> bool:
+        """mdmd:hidden"""
+        ...
+
+    @property
+    def _is_interactive_(self) -> bool:
         """mdmd:hidden
         Whether the current app for the app is running in interactive mode.
 
@@ -1053,6 +1061,11 @@ class App:
         Returns:
             Human-readable description string for the app.
         """
+        ...
+
+    @description.setter
+    def description(self, value):
+        """mdmd:hidden"""
         ...
 
     class __lookup_spec(typing_extensions.Protocol):
@@ -1959,25 +1972,6 @@ class App:
             ...
 
     get_tags: __get_tags_spec
-
-    class ___logs_spec(typing_extensions.Protocol):
-        def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> typing.Generator[str, None, None]:
-            """Stream logs from the app.
-
-            This method is considered private and its interface may change - use at your own risk!
-            """
-            ...
-
-        def aio(
-            self, /, client: typing.Optional[modal.client.Client] = None
-        ) -> collections.abc.AsyncGenerator[str, None]:
-            """Stream logs from the app.
-
-            This method is considered private and its interface may change - use at your own risk!
-            """
-            ...
-
-    _logs: ___logs_spec
 
     @classmethod
     def _get_container_app(cls) -> typing.Optional[App]:

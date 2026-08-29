@@ -114,30 +114,43 @@ def test_parse_sync_inline_grounding_and_metadata(staging_client: LandingAIADE) 
 
 
 def test_parse_atomic_grounding_confidence(staging_client: LandingAIADE) -> None:
-    # `confidence` is an optional per-grounding probability in [0, 1]. On
-    # word-granularity models (`dpt-3-fast`) it is set at every level: each word
-    # `atomic_grounding` segment and each parent node-level `grounding` carry it.
-    # Line-granularity models (`dpt-3-pro`) omit it. Since no model is pinned here,
-    # tolerate either: assert every present value is a valid probability, wherever
-    # it appears (atomic segments and node-level grounding alike).
+    # `confidence` is an optional `[0, 1]` probability that lives ONLY on word
+    # `atomic_grounding` segments. Node-level `grounding` -- element, `table_cell`,
+    # `table`, page -- never carries it on ANY model: the weakest-link roll-up the
+    # gateway used to do was removed upstream.
+    #
+    # Only the node-level half is assertable here. It is a spec guarantee rather than
+    # an environment property, so it holds whatever staging is provisioned with --
+    # verified against both `dpt-3-pro` and `dpt-3-verity`. The positive half (words
+    # actually carrying a score) would need a pinned word-granularity model, which
+    # this file must never do; it is covered deterministically instead by the mocked
+    # `test_parse_structure_grounding_*` cases under tests/api_resources/ and
+    # tests/test_v2_types.py.
     pdf = Path(__file__).parent / "sample.pdf"
     resp = staging_client.v2.parse(document=pdf, options={"atomic_grounding": True})
     assert isinstance(resp, V2ParseResponse)
     assert resp.structure is not None
 
-    def _check(grounding: Optional[V2ParseNodeGrounding]) -> None:
-        if grounding is not None and grounding.confidence is not None:
-            assert 0.0 <= grounding.confidence <= 1.0
+    def _check_node(grounding: Optional[V2ParseNodeGrounding]) -> None:
+        # Absent, not merely in range: node-level grounding is unscored by contract.
+        if grounding is not None:
+            assert grounding.confidence is None
+
+    def _check_atomic(seg: V2ParseNodeGrounding) -> None:
+        # Absent-or-valid: line-granularity models score nothing, and even a
+        # word-granularity model leaves some segments unscored.
+        if seg.confidence is not None:
+            assert 0.0 <= seg.confidence <= 1.0
 
     def _walk(elements: List[V2ParseElement]) -> None:
         for el in elements:
-            _check(el.grounding)
+            _check_node(el.grounding)
             for seg in el.atomic_grounding or []:
-                _check(seg)
+                _check_atomic(seg)
             _walk(el.children or [])
 
     for page in resp.structure.children:
-        _check(page.grounding)
+        _check_node(page.grounding)
         _walk(page.children)
 
 

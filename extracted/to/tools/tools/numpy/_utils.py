@@ -1,7 +1,10 @@
+
+from collections.abc import Iterable
+import warnings
+
 import numpy as np
 
 import tools as T
-import warnings
 
 # %%
 __all__ = [
@@ -9,7 +12,8 @@ __all__ = [
 'isclose',
 'merge_dict',
 'Squeezer',
-'unique_isclose'
+'unique_isclose',
+'axis_fix',
 ]
 
 # %%
@@ -145,6 +149,32 @@ def merge_dict(ld):
         except ValueError:
             merged_d[k] = np.array(lv)
     return merged_d
+
+def axis_fix(axis, ndim):
+    """
+    Convert axis into a tuple of positive integers.
+    
+    Parameters
+    ----------
+    axis : int or iterable of int
+        Axis or axes to normalize.
+    
+    ndim : int
+        The maximum number of dimensions axis can have.
+        Used as reference for converting negative indices.
+    
+    Returns
+    -------
+    axis : tuple of int
+        Normalized axis as a tuple of non-negative integers.
+    """
+    if not isinstance(axis, Iterable): # axis is a single int
+        assert type(axis) is int, 'type(axis) should be integer'
+        axis = (axis,)
+    
+    axis = tuple(ax if ax>=0 else ndim+ax for ax in axis)
+    return axis
+
 
 class Squeezer(object):
     """

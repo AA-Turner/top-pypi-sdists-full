@@ -85,11 +85,11 @@ _DEDICATED_WORKSPACE_KEYS: dict[str, _DedicatedWorkspaceKey] = {
     ),
     "example-dev-worker-workload-identity": _DedicatedWorkspaceKey(
         env_var="WORKLOAD_IDENTITY_WORKER_API_KEY",
-        # Staging-only SA worker; no local run, so no local key file.
+        # Deployed-only SA worker (staging + production); no local run, so no local key file.
         local_key_file=None,
         error_lines=(
             "WORKLOAD_IDENTITY_WORKER_API_KEY is not set.",
-            "Set it to an API key minted in the SA worker's workspace (staging-only; no local run).",
+            "Set it to an API key minted in the SA worker's workspace (deployed-only; no local run).",
         ),
     ),
 }

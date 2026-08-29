@@ -28,6 +28,8 @@ tracer = trace.get_tracer(_get_calling_module_name())
 
 
 CUSTOM_TRACING_ATTRIBUTES = "custom_tracing_attributes"
+WORKFLOW_EXECUTION_ID_ATTRIBUTE = EventAttributes.workflow_execution_id.value
+TEMPORAL_WORKFLOW_ID_ATTRIBUTE = "temporalWorkflowID"
 
 # Temporal workflow header set by the API when the caller supplied an explicit traceparent.
 # Its presence tells the worker to reuse the caller's trace/sampling as-is instead of forcing sampling.
@@ -71,6 +73,13 @@ def _get_event_id() -> str:
     return uuid.uuid4().hex
 
 
+def workflow_execution_span_attributes(workflow_execution_id: str) -> dict[str, str]:
+    return {
+        WORKFLOW_EXECUTION_ID_ATTRIBUTE: workflow_execution_id,
+        TEMPORAL_WORKFLOW_ID_ATTRIBUTE: workflow_execution_id,
+    }
+
+
 def get_span_attributes(
     event_type: str,
     span_type: EventSpanType,
@@ -87,21 +96,24 @@ def get_span_attributes(
 
     if temporalio.activity.in_activity():
         activity_info = temporalio.activity.info()
+        workflow_execution_id = require_activity_context_value(
+            activity_info.workflow_id,
+            field_name="workflow_id",
+        )
         attributes[EventAttributes.workflow_type] = require_activity_context_value(
             activity_info.workflow_type,
             field_name="workflow_type",
         )
+        attributes.update(workflow_execution_span_attributes(workflow_execution_id))
         attributes[EventAttributes.activity_execution_id] = activity_info.activity_id
         attributes[EventAttributes.activity_attempt] = activity_info.attempt
         attributes[EventAttributes.activity_max_attempts] = config.worker.retry_policy_max_attempts
-        # Tag with the execution id so trace scoping keeps these (e.g. signal spans beside RunWorkflow).
-        attributes["temporalWorkflowID"] = activity_info.workflow_id
         attributes["temporalRunID"] = activity_info.workflow_run_id
 
     if temporalio.workflow.in_workflow():
         workflow_info = temporalio.workflow.info()
         attributes[EventAttributes.workflow_type] = workflow_info.workflow_type
-        attributes["temporalWorkflowID"] = workflow_info.workflow_id
+        attributes.update(workflow_execution_span_attributes(workflow_info.workflow_id))
         attributes["temporalRunID"] = workflow_info.run_id
 
     if custom_attributes:

@@ -1743,3 +1743,53 @@ def test_a_verified_member_spelling_wins_over_the_owner_table(tmp_path: Path):
     out = tmp_path / "en"
     translate_project(root, _dictionary({"Модуль": "Module", "Разобрать": "Parse", "Тело": "Body"}), out)
     assert "Body.CharAt(1)" in (out / "Module.xbsl").read_text(encoding="utf-8")
+
+
+def test_new_entry_in_the_same_file_keeps_the_removal(tmp_path: Path):
+    """A new entry aimed at the file the batch also edits does not undo those edits.
+
+    New entries are merged into the target file's text, corrections and removals into the
+    text of the file the entry lives in. When the two are the SAME file, the merge must lie
+    on top of the text already planned - otherwise the report announces a removal that never
+    reached the disk.
+    """
+    from xbsl.translation import entries
+
+    folder = _dict_dir(tmp_path)
+    plan = entries.plan_entries(folder, [
+        {"key": "строка комментария", "value": "", "kind": "phrase"},  # removed
+        {"key": "Шаги", "value": "Steps", "kind": "token"},             # added to the same file
+        {"key": "Задачи", "value": "Jobs", "kind": "token"},            # corrected in the same file
+    ], target="010-objects.yaml")
+    assert plan["added"] == 1 and plan["changed"] == 1 and plan["removed"] == 1
+    edited = plan["files"][str(folder / "010-objects.yaml")]
+    assert "    Шаги: Steps" in edited
+    assert "    Задачи: Jobs" in edited
+    assert "строка комментария" not in edited
+
+
+def test_the_dictionary_catalog_is_not_a_source_of_the_project(tmp_path: Path):
+    """A run rooted ABOVE the project sees the dictionary next to it - and must not read it.
+
+    Its files are yaml of the same shape as a project's, so the pass counted their own
+    comments as untranslated prose: a run from the repository root of the site project
+    reported 871 phrase gaps and 99.2% coverage where the project itself is at 100%. The
+    figure looks trustworthy and sends the reader after a hole that is not there.
+    """
+    from xbsl.translation import entries
+    from xbsl.translation.dictionary import DICTIONARY_DIR
+    from xbsl.translation.project import translate_project
+
+    root = tmp_path / "Acme"
+    _write(root / "Demo" / "Модуль.xbsl", "// пояснение\nметод Считать()\n    возврат 1\n;\n")
+    _write(root / DICTIONARY_DIR / "010-objects.yaml",
+           "version: 1\nlanguage: en\n\n# Записи, добавленные из редактора\ntokens:\n"
+           "    Считать: Read\n"
+           "phrases:\n"
+           '    "пояснение": "an explanation"\n')
+
+    report = translate_project(root, _dictionary({"Считать": "Read", "Модуль": "Module"},
+                                                {"пояснение": "an explanation"}), None)
+
+    assert report.merged_missing_phrases() == {}
+    assert [gap.key for gap in entries.gaps_of_report(report)] == []

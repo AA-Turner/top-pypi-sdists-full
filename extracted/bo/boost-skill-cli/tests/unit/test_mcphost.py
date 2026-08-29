@@ -1,3 +1,5 @@
+# Copyright the boost contributors.
+# SPDX-License-Identifier: GPL-3.0-only
 """Unit tests: core.mcphost — per-host MCP registration argv (mutation-gated).
 
 mcphost.py is a pure table: it never runs a command, it only decides what argv
@@ -7,11 +9,16 @@ the worst possible moment, silently, on a user's machine, and the failure looks
 like "boost's MCP server is broken" rather than "the flag order is wrong".
 
 So these assertions pin the two grammars token-for-token, and specifically pin
-the three places they disagree: where the server name sits relative to the
-variadic ``-e`` flags, whether a ``--`` separator appears, and whether the
-unregister side needs an explicit scope. All three are verified against the
-real CLIs (Gemini CLI 0.46.0); a change that "looks equivalent" to one of them
+the three places they diverge: where the server name sits relative to the
+``-e`` flags, whether a ``--`` separator appears, and whether the unregister
+side needs an explicit scope. A change that "looks equivalent" to one of them
 is a regression.
+
+Which CLI versions those argvs were last checked against, and how to repeat the
+check, live in :mod:`boost_cli.core.mcphost`'s own docstring — one home for the
+fact, so it cannot go stale in one file while staying current in the other. It
+did exactly that once: this file and the module both cited a version, and the
+``--`` rationale they shared was wrong at that version.
 """
 from __future__ import annotations
 
@@ -79,9 +86,10 @@ class TestRegisterArgvGemini:
         ]
 
     def test_no_separator(self):
-        # `gemini mcp add` takes <name> <commandOrUrl> [args...] as yargs
-        # positionals. A `--` would be captured as a literal argument and
-        # handed to boost, which would then reject it.
+        # `gemini mcp add` sets yargs `unknown-options-as-args`, so `--stdio`
+        # reaches [args...] on its own and a separator buys nothing. (Gemini
+        # does handle a `--` correctly — `populate--` strips it and appends the
+        # rest — so this pins the argv boost sends, not a hazard it dodges.)
         assert "--" not in mcphost.register_argv(mcphost.GEMINI, SHIM)
 
     def test_name_follows_the_flags_and_precedes_the_command(self):

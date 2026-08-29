@@ -46,10 +46,11 @@ from ._utils.async_utils import (
     warn_if_generator_is_not_consumed,
 )
 from ._utils.blob_utils import MAX_ASYNC_OBJECT_SIZE_BYTES, MAX_OBJECT_SIZE_BYTES
+from ._utils.deprecation import with_deprecation_warning
 from ._utils.function_utils import (
     ATTEMPT_TIMEOUT_GRACE_PERIOD,
     OUTPUTS_TIMEOUT,
-    FunctionInfo,
+    FunctionSourceInfo,
     _create_input,
     _parse_retries,
     _process_result,
@@ -603,7 +604,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
     """
 
     # TODO: more type annotations
-    _info: FunctionInfo | None
+    _source_info: FunctionSourceInfo | None
     _serve_mounts: frozenset[_Mount]  # set at load time, only by loader
     _app: "modal.app._App | None" = None
     # only set for InstanceServiceFunctions and bound instance methods
@@ -663,8 +664,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         return _FunctionLogsManager(self)
 
     @staticmethod
-    def from_local(
-        info: FunctionInfo,
+    def _from_local(
+        info: FunctionSourceInfo,
         app: "modal.app._App | None",  # App here should only be None in case of Image.run_function
         image: _Image,
         env: dict[str, str | None] | None = None,
@@ -937,7 +938,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             with FunctionCreationStatus(tag) as function_creation_status:
                 timeout_secs = timeout
 
-                if app and app.is_interactive and not is_builder_function:
+                if app and app._is_interactive_ and not is_builder_function:
                     pty_info = get_pty_info(shell=False)
                 else:
                     pty_info = None
@@ -1110,6 +1111,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                         http_config=http_config,
                         is_server=function_definition.is_server,
                         routing_region=function_definition.routing_region,
+                        is_sessioned=function_definition.is_sessioned,
                     )
 
                     ranked_functions = []
@@ -1163,10 +1165,12 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         # the only way to infer a LoadContext for an `@app.function`, and the App doesn't
         # get its client until *after* the Function is created.
         load_context = app._root_load_context if app else LoadContext.empty()
-        obj = _Function._from_loader(_load, rep, preload=_preload, deps=_deps, load_context_overrides=load_context)
+        obj: _Function = _Function._from_loader(
+            _load, rep, preload=_preload, deps=_deps, load_context_overrides=load_context
+        )
 
         obj._raw_f = info.raw_f
-        obj._info = info
+        obj._source_info = info
         obj._tag = tag
         obj._app = app  # needed for CLI right now
         obj._obj = None
@@ -1190,6 +1194,12 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             obj._build_args["scheduler_placement"] = repr(scheduler_placement)
 
         return obj
+
+    from_local = with_deprecation_warning(
+        (2026, 8, 26),
+        "`Function.from_local` is deprecated and will be removed in `modal` version 1.6.0",
+    )(_from_local)
+    """mdmd:hidden"""
 
     async def _update_autoscaler(
         self,
@@ -1383,8 +1393,16 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         )
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`Function.tag` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def tag(self) -> str:
         """mdmd:hidden"""
+        return self._tag_
+
+    @property
+    def _tag_(self) -> str:
         assert self._tag
         return self._tag
 
@@ -1397,20 +1415,40 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         return self._app
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`Function.stub` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def stub(self) -> "modal.app._App":
         """mdmd:hidden"""
         # Deprecated soon, only for backwards compatibility
         return self.app
 
     @property
-    def info(self) -> FunctionInfo:
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`Function.info` is deprecated and will be removed in `modal` version 1.6.0",
+    )
+    def info(self) -> FunctionSourceInfo:
         """mdmd:hidden"""
-        assert self._info
-        return self._info
+        return self._source_info_
 
     @property
+    def _source_info_(self) -> FunctionSourceInfo:
+        assert self._source_info
+        return self._source_info
+
+    @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`Function.spec` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def spec(self) -> _FunctionSpec:
         """mdmd:hidden"""
+        return self._spec_
+
+    @property
+    def _spec_(self) -> _FunctionSpec:
         assert self._spec
         return self._spec
 
@@ -1418,12 +1456,18 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         # only defined in definition scope/locally, and not for class methods at the moment
         return bool(self._webhook_config and self._webhook_config.type != api_pb2.WEBHOOK_TYPE_UNSPECIFIED)
 
-    def get_build_def(self) -> str:
+    def _get_build_def(self) -> str:
         """mdmd:hidden"""
         # Plaintext source and arg definition for the function, so it's part of the image
         # hash. We can't use the cloudpickle hash because it's not very stable.
         assert hasattr(self, "_raw_f") and hasattr(self, "_build_args") and self._raw_f is not None
         return f"{inspect.getsource(self._raw_f)}\n{repr(self._build_args)}"
+
+    get_build_def = with_deprecation_warning(
+        (2026, 8, 26),
+        "`Function.get_build_def` is deprecated and will be removed in `modal` version 1.6.0",
+    )(_get_build_def)
+    """mdmd:hidden"""
 
     # Live handle methods
 
@@ -1433,7 +1477,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         self._is_generator = None
         self._web_url = None
         self._function_name = None
-        self._info = None
+        self._source_info = None
         self._serve_mounts = frozenset()
         self._metadata = None
         self._experimental_flash_urls = None
@@ -1565,7 +1609,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         new_function._webhook_config = self._webhook_config
 
         # Other fields not necessarily initialized
-        if self._info is not None:
+        if self._source_info is not None:
             new_function._build_args = self._build_args
             new_function._is_method = self._is_method
             new_function._raw_f = self._raw_f
@@ -1672,8 +1716,16 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         return self._apply_dynamic_config(options, "with_batching")
 
     @property
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`Function.is_generator` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     async def is_generator(self) -> bool:
         """mdmd:hidden"""
+        return await self._is_generator_
+
+    @property
+    async def _is_generator_(self) -> bool:
         # hacky: kind of like @live_method, but not hydrating if we have the value already from local source
         # TODO(michael) use a common / lightweight method for handling unhydrated metadata properties
         if self._is_generator is not None:
@@ -1863,12 +1915,12 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             yield item
 
     def _is_local(self):
-        return self._info is not None
+        return self._source_info is not None
 
-    def _get_info(self) -> FunctionInfo:
-        if not self._info:
-            raise ExecutionError("Can't get info for a function that isn't locally defined")
-        return self._info
+    def _get_source_info(self) -> FunctionSourceInfo:
+        if not self._source_info:
+            raise ExecutionError("Can't get source info for a function that isn't locally defined")
+        return self._source_info
 
     def _get_obj(self) -> "modal.cls._Obj | None":
         if not self._is_method:
@@ -1903,13 +1955,13 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             )
             raise ExecutionError(msg)
 
-        info = self._get_info()
+        info = self._get_source_info()
         if not info.raw_f:
             # Here if calling .local on a service function itself which should never happen
             # TODO: check if we end up here in a container for a serialized function?
             raise ExecutionError("Can't call .local on service function")
 
-        if is_local() and self.spec.volumes or self.spec.network_file_systems:
+        if is_local() and self._spec_.volumes or self._spec_.network_file_systems:
             warnings.warn(
                 f"The {info.function_name} function is executing locally "
                 + "and will not have access to the mounted Volume or NetworkFileSystem data"
@@ -2007,12 +2059,20 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         fc._function_id = self.object_id
         return fc
 
+    @with_deprecation_warning(
+        (2026, 8, 26),
+        "`Function.get_raw_f` is deprecated and will be removed in `modal` version 1.6.0",
+    )
     def get_raw_f(self) -> Callable[..., Any]:
         """Return the inner Python object wrapped by this Modal Function.
 
         Returns:
             The original function object registered with Modal.
         """
+        return self._raw_f_
+
+    @property
+    def _raw_f_(self) -> Callable[..., Any]:
         assert self._raw_f is not None
         return self._raw_f
 

@@ -22,10 +22,9 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 import pytest
-from pytest import FixtureRequest
 
 from pytest_postgresql.config import get_config
-from pytest_postgresql.executor_noop import NoopExecutor
+from pytest_postgresql.executors import NoopExecutor
 from pytest_postgresql.janitor import DatabaseJanitor
 
 
@@ -43,10 +42,13 @@ def postgresql_noproc(
     user: str | None = None,
     password: str | None = None,
     dbname: str | None = None,
+    *,
+    maintenance_dbname: str | None = None,
     options: str = "",
     load: list[Callable | str | Path] | None = None,
+    load_autocommit: bool | None = None,
     depends_on: str | None = None,
-) -> Callable[[FixtureRequest], Iterator[NoopExecutor]]:
+) -> Callable[[pytest.FixtureRequest], Iterator[NoopExecutor]]:
     """Postgresql noprocess factory.
 
     :param host: hostname
@@ -54,14 +56,22 @@ def postgresql_noproc(
     :param user: postgresql username
     :param password: postgresql password
     :param dbname: postgresql database name
+    :param maintenance_dbname: database to connect to in order to read the server
+        version and to create/drop the test databases. Defaults to the
+        ``postgresql_maintenance_dbname`` setting, which itself defaults to
+        ``postgres``. Set it when ``postgres`` is unreachable, e.g. behind a
+        connection pooler with a fixed database list.
     :param options: Postgresql connection options
     :param load: List of functions used to initialize database's template.
+    :param load_autocommit: run the SQL loader connection with autocommit on.
+        Required for statements that cannot run inside a transaction block,
+        e.g. ``CREATE DATABASE`` in a loaded ``.sql`` file.
     :param depends_on: Optional name of the fixture to depend on.
     :returns: function which makes a postgresql process
     """
 
     @pytest.fixture(scope="session")
-    def postgresql_noproc_fixture(request: FixtureRequest) -> Iterator[NoopExecutor]:
+    def postgresql_noproc_fixture(request: pytest.FixtureRequest) -> Iterator[NoopExecutor]:
         """Noop Process fixture for PostgreSQL.
 
         :param request: fixture request object
@@ -76,6 +86,7 @@ def postgresql_noproc(
             pg_user = user or base.user
             pg_password = password or base.password
             pg_options = options or base.options
+            pg_maintenance_dbname = maintenance_dbname or base.maintenance_dbname
             base_template_dbname = base.template_dbname
         else:
             pg_host = host or config.host
@@ -83,6 +94,7 @@ def postgresql_noproc(
             pg_user = user or config.user
             pg_password = password or config.password
             pg_options = options or config.options
+            pg_maintenance_dbname = maintenance_dbname or config.maintenance_dbname
             base_template_dbname = None
 
         pg_dbname = xdistify_dbname(dbname or config.dbname)
@@ -96,6 +108,10 @@ def postgresql_noproc(
         else:
             noop_exec_dbname = pg_dbname
 
+        janitor_load_autocommit = config.load_autocommit
+        if load_autocommit is not None:
+            janitor_load_autocommit = load_autocommit
+
         noop_exec = NoopExecutor(
             host=pg_host,
             port=pg_port,
@@ -103,6 +119,7 @@ def postgresql_noproc(
             password=pg_password,
             dbname=noop_exec_dbname,
             options=pg_options,
+            maintenance_dbname=pg_maintenance_dbname,
         )
         janitor = DatabaseJanitor(
             user=noop_exec.user,
@@ -110,9 +127,10 @@ def postgresql_noproc(
             port=noop_exec.port,
             dbname=noop_exec.template_dbname,
             template_dbname=base_template_dbname,
+            maintenance_dbname=noop_exec.maintenance_dbname,
             as_template=True,
-            version=noop_exec.version,
             password=noop_exec.password,
+            autocommit=janitor_load_autocommit,
         )
         if drop_test_database:
             janitor.drop()

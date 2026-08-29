@@ -57,7 +57,7 @@ FEAT_INTER_FILTERS = [
     'tiny_vit', 'vovnet', 'tresnet', 'rexnet', 'resnetv2', 'repghost', 'repvit', 'pvt_v2', 'nextvit', 'nest',
     'mambaout', 'inception_next', 'inception_v4', 'hgnet', 'gcvit', 'focalnet', 'efficientformer_v2', 'edgenext',
     'davit', 'rdnet', 'convnext', 'pit', 'starnet', 'shvit', 'fasternet', 'swiftformer', 'ghostnet', 'naflexvit',
-    'csatv2'
+    'csatv2', 'cpubone', 'lcnetv2', 'lowformer'
 ]
 
 # transformer / hybrid models don't support full set of spatial / feature APIs and/or have spatial output.
@@ -136,21 +136,21 @@ def _get_input_size(model=None, model_name='', target=None):
 def test_model_inference(model_name, batch_size):
     """Run a single forward pass with each model"""
     from PIL import Image
-    from huggingface_hub import snapshot_download
-    import tempfile
+    from huggingface_hub import hf_hub_download
     import safetensors
 
     model = create_model(model_name, pretrained=True)
     model.eval()
     pp = timm.data.create_transform(**timm.data.resolve_data_config(model=model))
 
-    with tempfile.TemporaryDirectory()  as temp_dir:
-        snapshot_download(
-            repo_id='timm/' + model_name, repo_type='model', local_dir=temp_dir, allow_patterns='test/*'
-        )
-        rand_tensors = safetensors.torch.load_file(os.path.join(temp_dir, 'test', 'rand_tensors.safetensors'))
-        owl_tensors = safetensors.torch.load_file(os.path.join(temp_dir, 'test', 'owl_tensors.safetensors'))
-        test_owl = Image.open(os.path.join(temp_dir, 'test', 'test_owl.jpg'))
+    # fetch files individually instead of snapshot_download, it needs a repo_info() call to list
+    # them and those are rate limited far more aggressively than the file downloads themselves
+    def _hub_file(filename):
+        return hf_hub_download(repo_id='timm/' + model_name, filename='test/' + filename)
+
+    rand_tensors = safetensors.torch.load_file(_hub_file('rand_tensors.safetensors'))
+    owl_tensors = safetensors.torch.load_file(_hub_file('owl_tensors.safetensors'))
+    test_owl = Image.open(_hub_file('test_owl.jpg'))
 
     with torch.inference_mode():
         rand_output = model(rand_tensors['input'])
@@ -255,6 +255,29 @@ EARLY_POOL_MODELS = (
     timm.models.VGG,
 )
 
+
+def _assert_reset_classifier_preserves_parent_device_dtype(model):
+    reset_classifier = getattr(model, 'reset_classifier', None)
+    get_classifier = getattr(model, 'get_classifier', None)
+    if not callable(reset_classifier) or not callable(get_classifier):
+        return
+
+    model.to(device='meta', dtype=torch.float64)
+    expected = next(model.parameters())
+    expected_training = model.training
+
+    reset_classifier(0)
+    reset_classifier(2)
+
+    classifier = get_classifier()
+    classifiers = classifier if isinstance(classifier, (tuple, list)) else (classifier,)
+    parameters = [parameter for head in classifiers for parameter in head.parameters()]
+    assert parameters
+    assert all(parameter.device == expected.device for parameter in parameters)
+    assert all(parameter.dtype == expected.dtype for parameter in parameters)
+    assert all(module.training == expected_training for module in model.modules())
+
+
 @pytest.mark.cfg
 @pytest.mark.timeout(timeout360)
 @pytest.mark.parametrize('model_name', list_models(
@@ -333,6 +356,8 @@ def test_model_default_cfgs(model_name, batch_size):
     for fc in first_conv:
         assert fc + ".weight" in state_dict.keys(), f'{fc} not in model params'
 
+    _assert_reset_classifier_preserves_parent_device_dtype(model)
+
 
 @pytest.mark.cfg
 @pytest.mark.timeout(timeout360)
@@ -351,6 +376,7 @@ def test_model_default_cfgs_non_std(model_name, batch_size):
 
     input_size = _get_input_size(model=model)
     if max(input_size) > 320:  # FIXME const
+        _assert_reset_classifier_preserves_parent_device_dtype(model)
         pytest.skip("Fixed input size model > limit.")
 
     input_tensor = torch.randn((batch_size, *input_size), device=torch_device)
@@ -404,6 +430,8 @@ def test_model_default_cfgs_non_std(model_name, batch_size):
     for fc in first_conv:
         assert fc + ".weight" in state_dict.keys(), f'{fc} not in model params'
 
+    _assert_reset_classifier_preserves_parent_device_dtype(model)
+
 
 if 'GITHUB_ACTIONS' not in os.environ:
     @pytest.mark.timeout(240)
@@ -411,9 +439,8 @@ if 'GITHUB_ACTIONS' not in os.environ:
     @pytest.mark.parametrize('batch_size', [1])
     def test_model_load_pretrained(model_name, batch_size):
         """Create that pretrained weights load, verify support for in_chans != 3 while doing so."""
-        in_chans = 3 if 'pruned' in model_name else 1  # pruning not currently supported with in_chans change
-        create_model(model_name, pretrained=True, in_chans=in_chans, num_classes=5)
-        create_model(model_name, pretrained=True, in_chans=in_chans, num_classes=0)
+        create_model(model_name, pretrained=True, in_chans=1, num_classes=5)
+        create_model(model_name, pretrained=True, in_chans=1, num_classes=0)
 
     @pytest.mark.timeout(240)
     @pytest.mark.parametrize('model_name', list_models(pretrained=True, exclude_filters=NON_STD_FILTERS))
@@ -421,6 +448,19 @@ if 'GITHUB_ACTIONS' not in os.environ:
     def test_model_features_pretrained(model_name, batch_size):
         """Create that pretrained weights load when features_only==True."""
         create_model(model_name, pretrained=True, features_only=True)
+
+
+@pytest.mark.parametrize(
+    'model_name',
+    ['efficientnet_b1_pruned', 'efficientnet_b2_pruned', 'efficientnet_b3_pruned'],
+)
+def test_pruned_efficientnet_in_chans(model_name):
+    model = create_model(model_name, pretrained=False, in_chans=1)
+    model.eval()
+
+    assert model.conv_stem.in_channels == 1
+    with torch.no_grad():
+        assert model(torch.randn(1, 1, 32, 32)).shape == (1, 1000)
 
 
 @pytest.mark.torchscript
@@ -763,6 +803,120 @@ if 'GITHUB_ACTIONS' not in os.environ:
             assert tensor.shape[0] == batch_size
             assert not torch.isnan(tensor).any(), 'Output included NaNs'
 
+def _create_naflex_pos_embed_test_module(ar_preserving):
+    from timm.models.naflexvit import NaFlexEmbeds
+
+    return NaFlexEmbeds(
+        patch_size=2,
+        in_chans=3,
+        embed_dim=8,
+        proj_type='linear',
+        class_token=False,
+        pos_embed='learned',
+        pos_embed_grid_size=(5, 7),
+        pos_embed_ar_preserving=ar_preserving,
+        pos_embed_use_grid_sample=True,
+    )
+
+
+def _create_naflex_pos_embed_test_inputs():
+    patch_coord = torch.zeros(2, 12, 2, dtype=torch.long)
+    patch_coord[0, :6] = torch.cartesian_prod(torch.arange(2), torch.arange(3))
+    patch_coord[1] = torch.cartesian_prod(torch.arange(3), torch.arange(4))
+    patch_valid = torch.zeros(2, 12, dtype=torch.bool)
+    patch_valid[0, :6] = True
+    patch_valid[1] = True
+    patches = torch.randn(2, 12, 2 * 2 * 3)
+    return patches, patch_coord, patch_valid
+
+
+def _naflex_dense_grid_sample_reference(module, x, patch_coord):
+    """Previous dense-grid implementation used as a numerical and gradient reference."""
+    batch_size, _, channels = x.shape
+    shapes = patch_coord.amax(dim=1) + 1
+    if module.pos_embed_ar_preserving:
+        sample_lengths = shapes.amax(dim=1)
+        grid_height = grid_width = int(sample_lengths.amax())
+        scale_x = scale_y = sample_lengths.amax() / sample_lengths
+    else:
+        grid_height, grid_width = (int(v) for v in shapes.amax(dim=0))
+        scale_y = shapes[:, 0].amax() / shapes[:, 0]
+        scale_x = shapes[:, 1].amax() / shapes[:, 1]
+
+    theta = torch.zeros(batch_size, 2, 3, device=x.device, dtype=torch.float32)
+    theta[:, 0, 0] = scale_x
+    theta[:, 1, 1] = scale_y
+    theta[:, 0, 2] = scale_x - 1
+    theta[:, 1, 2] = scale_y - 1
+    grid = torch.nn.functional.affine_grid(
+        theta,
+        (batch_size, channels, grid_height, grid_width),
+        align_corners=False,
+    )
+    pos_embed = torch.nn.functional.grid_sample(
+        module.pos_embed.permute(0, 3, 1, 2).expand(batch_size, -1, -1, -1).float(),
+        grid,
+        mode=module.pos_embed_interp_mode,
+        align_corners=False,
+        padding_mode='border',
+    ).to(dtype=x.dtype)
+    batch_indices = torch.arange(batch_size, device=x.device, dtype=torch.long).unsqueeze(1)
+    return x + pos_embed[batch_indices, :, patch_coord[..., 0], patch_coord[..., 1]]
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('ar_preserving', [False, True])
+def test_naflexvit_direct_grid_sample_parity(ar_preserving):
+    module = _create_naflex_pos_embed_test_module(ar_preserving)
+    _, patch_coord, _ = _create_naflex_pos_embed_test_inputs()
+    x_actual = torch.randn(2, 12, 8, requires_grad=True)
+    x_reference = x_actual.detach().clone().requires_grad_()
+
+    actual = x_actual + 0.0  # make non-leaf for the in-place embedding method
+    module._apply_learned_naflex_pos_embed_grid_sample(actual, patch_coord)
+    reference = _naflex_dense_grid_sample_reference(module, x_reference, patch_coord)
+
+    torch.testing.assert_close(actual, reference, rtol=1e-5, atol=1e-6)
+    actual_grads = torch.autograd.grad(actual.square().mean(), (x_actual, module.pos_embed))
+    reference_grads = torch.autograd.grad(reference.square().mean(), (x_reference, module.pos_embed))
+    for actual_grad, reference_grad in zip(actual_grads, reference_grads):
+        torch.testing.assert_close(actual_grad, reference_grad, rtol=1e-5, atol=1e-6)
+
+
+@pytest.mark.base
+@pytest.mark.skipif(not hasattr(torch, 'compile'), reason='requires torch.compile')
+@pytest.mark.parametrize('ar_preserving', [False, True])
+def test_naflexvit_direct_grid_sample_fullgraph(ar_preserving):
+    module = _create_naflex_pos_embed_test_module(ar_preserving).eval()
+    inputs = _create_naflex_pos_embed_test_inputs()
+
+    with torch.inference_mode():
+        expected = module(*inputs)
+        actual = torch.compile(module, backend='eager', fullgraph=True)(*inputs)
+
+    torch.testing.assert_close(actual[0], expected[0])
+    assert actual[1] == expected[1]
+
+
+@pytest.mark.base
+@pytest.mark.skipif(
+    not hasattr(torch, 'export') or not hasattr(torch.export, 'export'),
+    reason='requires torch.export.export',
+)
+@pytest.mark.parametrize('ar_preserving', [False, True])
+def test_naflexvit_direct_grid_sample_export(ar_preserving):
+    module = _create_naflex_pos_embed_test_module(ar_preserving).eval()
+    inputs = _create_naflex_pos_embed_test_inputs()
+
+    with torch.inference_mode():
+        expected = module(*inputs)
+        exported = torch.export.export(module, inputs).module()
+        actual = exported(*inputs)
+
+    torch.testing.assert_close(actual[0], expected[0])
+    assert actual[1] == expected[1]
+
+
 def test_naflexvit_forward_intermediates_dict_input():
     """NaFlex (pre-patchified dict) inputs through forward_intermediates: NLC-only, final-feature
     parity with forward_features, patch_valid surfaced for downstream masking/scatter."""
@@ -798,6 +952,106 @@ def test_naflexvit_forward_intermediates_dict_input():
     model_pd.train()
     with pytest.raises(ValueError, match='patch dropout'):
         model_pd.forward_intermediates(batch, output_fmt='NLC')
+
+
+@pytest.mark.base
+def test_naflexvit_patch_interpolation_capability():
+    common_kwargs = dict(embed_dim=32, depth=1, num_heads=2)
+    fixed_model = create_model('naflexvit_base_patch16_gap', **common_kwargs)
+    variable_model = create_model(
+        'naflexvit_base_patch16_gap',
+        enable_patch_interpolator=True,
+        **common_kwargs,
+    )
+    conv_model = create_model(
+        'naflexvit_base_patch16_gap',
+        enable_patch_interpolator=True,
+        embed_proj_type='conv',
+        **common_kwargs,
+    )
+
+    assert not fixed_model.supports_patch_interpolation
+    assert variable_model.supports_patch_interpolation
+    assert not conv_model.supports_patch_interpolation
+    with pytest.raises(RuntimeError, match='not supported'):
+        fixed_model.prewarm_patch_interpolator([(8, 8)])
+
+    variable_model.prewarm_patch_interpolator([(8, 8)])
+    assert not any('pinv_' in name for name in variable_model.state_dict())
+
+    patches = torch.randn(1, 4, 8, 8, 3)
+    patch_coord = torch.tensor([[[0, 0], [0, 1], [1, 0], [1, 1]]])
+    patch_valid = torch.ones(1, 4, dtype=torch.bool)
+    output = variable_model(patches, patch_coord=patch_coord, patch_valid=patch_valid)
+    output.sum().backward()
+    assert variable_model.embeds.proj.weight.grad is not None
+
+
+@pytest.mark.base
+def test_naflexvit_key_only_attn_mask_is_opt_in_and_post_patch_dropout():
+    batch_size, num_patches = 2, 8
+    patches = torch.randn(batch_size, num_patches, 16 * 16 * 3)
+    coord = torch.zeros(batch_size, num_patches, 2, dtype=torch.long)
+    valid = torch.tensor([
+        [True, True, True, True, True, False, False, False],
+        [True, True, True, True, True, True, False, False],
+    ])
+
+    default_model = create_model(
+        'naflexvit_base_patch16_gap', embed_dim=32, depth=1, num_heads=2)
+    default_embeds = default_model._forward_embeds(patches, coord, valid, attn_mask=None)
+    default_seq_len = default_embeds['patches'].shape[1]
+    assert default_model.use_key_only_attn_mask is False
+    assert default_embeds['attn_mask'].shape == (batch_size, 1, default_seq_len, default_seq_len)
+
+    compact_model = create_model(
+        'naflexvit_base_patch16_gap', embed_dim=32, depth=1, num_heads=2,
+        patch_drop_rate=0.5, use_key_only_attn_mask=True)
+    compact_model.train()
+    compact_embeds = compact_model._forward_embeds(patches, coord, valid, attn_mask=None)
+    compact_seq_len = compact_embeds['patches'].shape[1]
+    assert compact_seq_len < default_seq_len
+    assert compact_embeds['attn_mask'].shape == (batch_size, 1, 1, compact_seq_len)
+
+    expected_valid = compact_embeds['patch_valid']
+    prefix_valid = torch.ones(batch_size, compact_model.num_prefix_tokens, dtype=torch.bool)
+    expected_valid = torch.cat([prefix_valid, expected_valid], dim=1)
+    expected_masked = ~expected_valid[:, None, None, :]
+    mask = compact_embeds['attn_mask']
+    assert torch.equal(mask == torch.finfo(mask.dtype).min, expected_masked)
+
+
+@pytest.mark.base
+@pytest.mark.parametrize('global_pool', ['avg', 'token', 'map'])
+def test_naflexvit_key_only_attn_mask_output_parity(global_pool):
+    common_kwargs = dict(
+        embed_dim=32,
+        depth=2,
+        num_heads=2,
+        global_pool=global_pool,
+        class_token=global_pool == 'token',
+        reg_tokens=0,
+        num_classes=7,
+    )
+    full_model = create_model('naflexvit_base_patch16_gap', **common_kwargs)
+    compact_model = create_model(
+        'naflexvit_base_patch16_gap', use_key_only_attn_mask=True, **common_kwargs)
+    compact_model.load_state_dict(full_model.state_dict())
+    full_model.eval()
+    compact_model.eval()
+
+    num_patches = 8
+    patches = torch.randn(2, num_patches, 16 * 16 * 3)
+    coord = torch.zeros(2, num_patches, 2, dtype=torch.long)
+    valid = torch.tensor([
+        [True, True, True, True, True, False, False, False],
+        [True, True, True, True, True, True, True, False],
+    ])
+    with torch.no_grad():
+        full_out = full_model(patches, patch_coord=coord, patch_valid=valid)
+        compact_out = compact_model(patches, patch_coord=coord, patch_valid=valid)
+
+    assert torch.equal(full_out, compact_out)
 
 def test_gemma4_forward_intermediates_dict_output():
     """gemma4_vit dict-output intermediates match the NaFlexVit contract (API symmetry):

@@ -14,6 +14,7 @@ from mistralai.workflows.core.definition.workflow_definition import (
     _get_workflow_entrypoint_method,
     get_workflow_definition,
 )
+from mistralai.workflows.core.execution.child_start_budget import charge_for, child_start_budget_var
 from mistralai.workflows.core.utils.contextvars import unwrap_contextual_result
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 
@@ -190,7 +191,22 @@ async def execute_workflow(
         parent_close_policy = ParentClosePolicy.TERMINATE if wait else ParentClosePolicy.ABANDON
 
     if temporalio.workflow.in_workflow():
-        if not wait:
+        # Ensure old and new child workflow batching strategies are used consistently:
+        # - workflows started under the old (ungated) code replay through
+        #   the old path and still match their history (all starts in one task)
+        # - new runs split large payloads in chunks (and ONLY run that new path)
+        # See https://ruby.temporal.io/Temporalio/Workflow.html#patched-class_method
+        if temporalio.workflow.patched("child-start-cumulative-budget"):
+            # Charge the pre-codec serialized size so safety does not depend on worker codec
+            # configuration. A single oversized input consumes the full budget and runs alone.
+            charge = charge_for(len(params.model_dump_json().encode()))
+            budget = child_start_budget_var.get()
+            if budget is not None:
+                await budget.acquire(charge)
+        else:
+            charge = 0
+            budget = None
+        try:
             handle = await temporalio.workflow.start_child_workflow(
                 workflow_definition.name,
                 params.model_dump(),
@@ -199,17 +215,14 @@ async def execute_workflow(
                 id=execution_id,
                 parent_close_policy=parent_close_policy,
             )
+        finally:
+            if budget is not None:
+                budget.release(charge)
+        if not wait:
             _patch_child_workflow_handle(handle, entrypoint_method)
             return handle
 
-        return_value = await temporalio.workflow.execute_child_workflow(
-            workflow_definition.name,
-            params.model_dump(),
-            execution_timeout=execution_timeout,
-            result_type=dict,
-            id=execution_id,
-            parent_close_policy=parent_close_policy,
-        )
+        return_value = await handle
 
         _, return_value = unwrap_contextual_result(return_value)
     else:

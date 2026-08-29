@@ -159,8 +159,28 @@ def _extract_template_variables(build_config_schema: dict | None) -> dict[str, s
 agent_app = typer.Typer(help="Manage and deploy agents")
 
 
-def _prefetch_agent_image(image_url: str, agent_name: str) -> None:
-    console.print("[cyan]Starting VM to prefetch image...[/cyan]")
+# Cold-image boot = docker pull + rootfs conversion + snapshot-store ingest,
+# which is the 10+ minute path this prefetch exists to absorb, so the client
+# polls wait_for_ready for up to 30 minutes (a timeout here blocks promotion
+# to :latest). The VM lifetime sent in the /make body must cover that same
+# window: the backend stamps job_start_time when the job is matched to a VM
+# slot — before the rootfs build — and the VM agent force-shuts the VM once
+# job_max_timeout elapses (plato: node_provider match callback +
+# vm_lifecycle.check_job_timeout), so a short lifetime would kill a slow
+# ingest mid-flight. The VM is closed the moment it is ready and the worker
+# heartbeat timeout (300s) reaps it if this CLI dies, so the long lifetime
+# never actually keeps a VM alive.
+_PREFETCH_TIMEOUT_S = 1800
+
+
+def _prefetch_agent_image(image_url: str, agent_name: str) -> bool:
+    """Boot one throwaway VM from ``image_url`` so its rootfs lands in the snapshot store.
+
+    Returns True only if the VM actually came up. This is the gate for promoting
+    the image to ``:latest``: a digest that has never booted must not become the
+    tag every launch resolves.
+    """
+    console.print(f"[cyan]Starting VM to prefetch {image_url}...[/cyan]")
 
     try:
         plato = Plato()
@@ -173,14 +193,58 @@ def _prefetch_agent_image(image_url: str, agent_name: str) -> None:
         )
         session = plato.sessions.create(
             envs=[env],
-            timeout=600,
+            timeout=_PREFETCH_TIMEOUT_S,
+            ready_timeout=_PREFETCH_TIMEOUT_S,
             connect_network=False,
         )
         console.print("[green]Prefetch complete - rootfs cached[/green]")
         session.close()
         plato.close()
+        return True
     except Exception as e:
-        console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
+        console.print(f"[red]Prefetch failed: {e}[/red]")
+        return False
+
+
+def _retag_agent_image(
+    package_name: str, repository: str, source_tag: str, target_tag: str, api_key: str | None
+) -> bool:
+    """Copy ``source_tag`` -> ``target_tag`` in the agent's ECR repo (manifest copy, same digest).
+
+    Prefers the server-side retag (Chronos uses its own ECS task creds, so the
+    author needs no local AWS access), falling back to local AWS credentials if
+    the endpoint is unavailable. The Chronos call needs an API key, which is
+    absent on dry runs — those go straight to the local fallback.
+    """
+    retagged = False
+    if api_key is not None:
+        retagged, retag_err = retag_agent_image_via_chronos(
+            get_chronos_settings().chronos_url, package_name, source_tag, target_tag, api_key
+        )
+        if not retagged:
+            console.print(
+                f"[dim]Chronos retag :{source_tag} -> :{target_tag} failed ({retag_err}); trying local AWS[/dim]"
+            )
+    if not retagged:
+        retagged = retag_image(repository, source_tag, target_tag)
+    return retagged
+
+
+def _retag_source_tags(previous_version: str, version: str) -> list[str]:
+    """Image tags a --skip-docker publish tries, in order, as the source for :<version>.
+
+    The version being bumped from comes first: it is the last thing this
+    checkout published, so a ``--dev --no-skip-docker`` rebuild (which never
+    moves :latest) chains forward into the python-only dev publishes that
+    follow it, and a fresh checkout starts from its release tag. :latest is the
+    fallback — it is also the only candidate when the version was bumped
+    externally so previous == new.
+    """
+    tags = []
+    if previous_version and previous_version != version:
+        tags.append(previous_version)
+    tags.append("latest")
+    return tags
 
 
 def _publish_agent_image(
@@ -191,15 +255,30 @@ def _publish_agent_image(
     dry_run: bool,
     build_args: dict[str, str] | None = None,
     no_cache: bool = False,
+    package_name: str | None = None,
+    api_key: str | None = None,
+    promote_latest: bool = True,
 ) -> None:
-    """Build and publish an agent Docker image to ECR."""
+    """Build and publish an agent Docker image to ECR, then (release only) promote it to :latest.
+
+    Ordered push :<version> -> prefetch :<version> -> retag :<version> as
+    :latest. :latest only ever moves to a digest that has already booted on a
+    node and seeded the snapshot store; a retag is a manifest copy, so the
+    promoted tag is warm the instant it flips. Anything that resolves :latest
+    (launches, the next --skip-docker retag) never pays the 10+ minute
+    cold-ingest path. With ``promote_latest=False`` (dev publishes) the image
+    is pushed and prefetched under :<version> only — :latest is prod's tag and
+    a laptop iteration has no business moving it; the next --dev --skip-docker
+    publish chains from :<version> via _retag_source_tags.
+    """
     # Check Docker is available
     if not shutil.which("docker"):
         console.print("[red]Error: docker not found[/red]")
         raise typer.Exit(1)
 
-    ecr_image = f"{ECR_REGISTRY}/vm/rootfs/plato-agents/{agent_name}:{version}"
-    latest_image = f"{ECR_REGISTRY}/vm/rootfs/plato-agents/{agent_name}:latest"
+    repository = f"vm/rootfs/plato-agents/{agent_name}"
+    ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
+    latest_image = f"{ECR_REGISTRY}/{repository}:latest"
 
     console.print(f"[cyan]Agent:[/cyan] {agent_name}")
     console.print(f"[cyan]Version:[/cyan] {version}")
@@ -208,12 +287,14 @@ def _publish_agent_image(
     if dry_run:
         console.print("[yellow]Dry run - would build and push:[/yellow]")
         console.print(f"  {ecr_image}")
-        console.print(f"  {latest_image}")
+        if promote_latest:
+            console.print(f"  then prefetch it and promote it to {latest_image}")
+        else:
+            console.print("  then prefetch it (dev publish: :latest is not moved)")
         return
 
-    # Get current :latest digest before pushing (to detect changes)
-    repository = f"vm/rootfs/plato-agents/{agent_name}"
-    old_digest = get_image_digest(repository, "latest")
+    # Current :latest digest, to detect a no-op rebuild below.
+    old_latest_digest = get_image_digest(repository, "latest")
 
     console.print("[cyan]Building and pushing Docker image...[/cyan]")
     result = publish_docker_image(
@@ -230,18 +311,37 @@ def _publish_agent_image(
         raise typer.Exit(1)
 
     console.print(f"[green]Published:[/green] {result.ecr_image}")
-    console.print(f"[green]Published:[/green] {result.latest_image}")
     console.print("\n[bold]Use in config:[/bold]")
     console.print(f'  "image": "{result.ecr_image}"')
 
-    # Prefetch if the Docker image digest changed
-    new_digest = get_image_digest(repository, "latest")
-    if new_digest != old_digest:
-        console.print()
-        console.print("[bold]Step 4: Prefetching image (digest changed)...[/bold]")
-        _prefetch_agent_image(latest_image, agent_name)
-    else:
-        console.print("\n[dim]Docker image digest unchanged - skipping prefetch[/dim]")
+    new_digest = get_image_digest(repository, version)
+    if new_digest is not None and new_digest == old_latest_digest:
+        console.print("\n[dim]Docker image digest unchanged - :latest already points at it, skipping prefetch[/dim]")
+        return
+
+    console.print()
+    console.print("[bold]Step 4: Prefetching image...[/bold]")
+    if not _prefetch_agent_image(ecr_image, agent_name):
+        console.print(
+            f"[red]Prefetch failed: {ecr_image} is pushed but has not booted"
+            + (" and :latest was NOT moved" if promote_latest else "")
+            + ". Fix the boot failure and re-run the publish.[/red]"
+        )
+        raise typer.Exit(1)
+    if not promote_latest:
+        console.print(
+            f"[dim]Dev publish - :latest not moved. Use the pinned image {ecr_image}; "
+            "later --dev publishes retag from it.[/dim]"
+        )
+        return
+    console.print("[cyan]Promoting to :latest...[/cyan]")
+    if not _retag_agent_image(package_name or agent_name, repository, version, "latest", api_key):
+        console.print(
+            f"[red]Failed to promote {ecr_image} to :latest (prefetch succeeded; :latest was NOT moved). "
+            "Re-run the publish.[/red]"
+        )
+        raise typer.Exit(1)
+    console.print(f"[green]Promoted:[/green] {latest_image}")
 
 
 def _publish_package(path: str, repo: str, dry_run: bool = False):
@@ -462,13 +562,15 @@ def agent_publish(
     skip_docker: bool = typer.Option(
         False,
         "--skip-docker",
-        help="Skip Docker build; retag the current :latest image with the new version tag instead",
+        help="Skip Docker build; retag the image of the version being bumped from (falling back to :latest) "
+        "as the new version tag instead",
     ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Build Docker image without cache"),
     no_skip_docker: bool = typer.Option(
         False,
         "--no-skip-docker",
-        help="Force Docker rebuild even with --dev (overrides the default skip behavior)",
+        help="Force Docker rebuild even with --dev (overrides the default skip behavior). "
+        "A dev rebuild pushes and prefetches :<version> only; :latest moves only on a release publish",
     ),
 ):
     """Build and publish an agent package to the Plato agents repository.
@@ -584,6 +686,7 @@ def _push_single_agent(
         console.print("[red]Error: No version in pyproject.toml[/red]")
         raise typer.Exit(1)
 
+    previous_version = version
     version = maybe_bump_package_version(
         pyproject_file,
         version,
@@ -701,26 +804,17 @@ def _push_single_agent(
         if skip_docker:
             console.print("[bold]Step 3: Retagging existing Docker image...[/bold]")
             repository = f"vm/rootfs/plato-agents/{short_name}"
-            # Prefer the server-side retag (Chronos uses its own ECS task creds,
-            # so the author needs no local AWS access), falling back to local AWS
-            # credentials if the endpoint is unavailable. The Chronos call needs
-            # an API key, which is absent on dry runs — those go straight to the
-            # local fallback.
-            retagged = False
-            if api_key is not None:
-                retagged, retag_err = retag_agent_image_via_chronos(
-                    get_chronos_settings().chronos_url, package_name, "latest", version, api_key
-                )
-                if not retagged:
-                    console.print(f"[yellow]Chronos retag failed:[/yellow] {retag_err}")
-                    console.print("[dim]Falling back to local AWS credentials...[/dim]")
-            if not retagged:
-                retagged = retag_image(repository, "latest", version)
-            if retagged:
-                ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
-                console.print(f"[green]Retagged:[/green] {ecr_image}")
+            ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
+            source_tags = _retag_source_tags(previous_version, version)
+            for source_tag in source_tags:
+                console.print(f"[cyan]Retagging :{source_tag} as :{version}...[/cyan]")
+                if _retag_agent_image(package_name, repository, source_tag, version, api_key):
+                    console.print(f"[green]Retagged:[/green] {ecr_image} (from :{source_tag})")
+                    break
             else:
-                console.print("[red]Failed to retag image. Is there an existing :latest?[/red]")
+                console.print(
+                    f"[red]Failed to retag image from any of {source_tags}. Is there an existing :latest?[/red]"
+                )
                 raise typer.Exit(1)
         else:
             console.print("[bold]Step 3: Building and pushing Docker image...[/bold]")
@@ -741,6 +835,11 @@ def _push_single_agent(
                 dry_run=dry_run,
                 build_args=docker_build_args,
                 no_cache=no_cache,
+                package_name=package_name,
+                api_key=api_key,
+                # A dev rebuild never moves :latest (prod's tag); it is
+                # launchable by its pinned :<version>.
+                promote_latest=not dev,
             )
     else:
         console.print()

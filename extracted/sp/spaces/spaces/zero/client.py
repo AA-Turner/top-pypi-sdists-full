@@ -28,6 +28,7 @@ from .gradio import supports_auth
 
 TOKEN_HEADER = 'X-IP-Token'
 DEFAULT_SCHEDULE_DURATION = 60
+PRO_QUOTA_MINUTES = 40  # TODO: Dynamic value from Spaces API
 
 UNUSED_MESSAGE = "GPU device not used"
 NO_GPU_MESSAGE_REGULAR = "No GPU was available"
@@ -163,6 +164,12 @@ def schedule(
                 f"The requested GPU duration ({requested}s) "
                 f"is larger than the maximum allowed"
             )
+            if _is_api_call(request):
+                if auth is None or auth == 'regular':
+                    message += (
+                        f"Subscribe to Hugging Face PRO to allow GPU tasks up to {PRO_QUOTA_MINUTES} min - "
+                        f"{SUBSCRIBE_TO_PRO_URL}"
+                    )
             raise error("ZeroGPU illegal duration", message)
         elif token is None:
             message = (
@@ -187,9 +194,8 @@ def schedule(
                         f"{TOKENS_SETTINGS_URL}"
                     )
                 elif auth == 'regular':
-                    pro_quota_minutes = 40  # TODO: Dynamic value from Spaces API
                     message += (
-                        f"Subscribe to Hugging Face PRO to get {pro_quota_minutes} min of ZeroGPU quota a day - "
+                        f"Subscribe to Hugging Face PRO to get {PRO_QUOTA_MINUTES} min of ZeroGPU quota a day - "
                         f"{SUBSCRIBE_TO_PRO_URL}"
                     )
                 elif auth == 'pro':

@@ -59,7 +59,7 @@ pub async fn handle_references(
     };
 
     let document_tree = document_source.document_tree();
-    let accessors = tombi_document_tree::get_accessors(&document_tree, &keys, position);
+    let accessors = tombi_document_tree_syntax::get_accessors(&document_tree, &keys, position);
 
     let locations = if config.cargo_extension_enabled()
         && let Some(locations) = tombi_extension_cargo::references(
@@ -68,6 +68,17 @@ pub async fn handle_references(
             &accessors,
             toml_version,
             config.cargo_extension_features(),
+        )
+        .await?
+    {
+        locations
+    } else if config.nagi_sql_extension_enabled()
+        && let Some(locations) = tombi_extension_nagi_sql::references(
+            &text_document_uri,
+            &document_tree,
+            &accessors,
+            toml_version,
+            config.nagi_sql_extension_features(),
         )
         .await?
     {
@@ -108,6 +119,17 @@ pub async fn handle_references(
                 &text_document_uri,
             ) {
                 location_set.insert(location);
+            }
+        } else if config.nagi_sql_extension_enabled()
+            && tombi_extension_nagi_sql::is_nagi_config(&text_document_uri)
+            && tombi_extension_nagi_sql::references_enabled(config.nagi_sql_extension_features())
+        {
+            if let Some(declaration_location) = tombi_extension_nagi_sql::get_current_declaration(
+                &text_document_uri,
+                &document_tree,
+                &accessors,
+            ) {
+                location_set.insert(declaration_location);
             }
         } else if config.pyproject_extension_enabled()
             && text_document_uri.path().ends_with("pyproject.toml")

@@ -681,6 +681,22 @@ def _extract_action_input_schema(action: Any) -> Any | None:
 
 
 def _validate_schema_value(schema: Mapping[str, Any], value: Any, *, path: str, errors: list[str]) -> None:
+    any_of = schema.get("anyOf")
+    if isinstance(any_of, list) and any_of:
+        branch_errors: list[list[str]] = []
+        for branch in any_of:
+            if not isinstance(branch, Mapping):
+                continue
+            candidate_errors: list[str] = []
+            _validate_schema_value(branch, value, path=path, errors=candidate_errors)
+            if not candidate_errors:
+                break
+            branch_errors.append(candidate_errors)
+        else:
+            detail = "; ".join(error for branch in branch_errors for error in branch)
+            errors.append(f"{path}: did not match anyOf ({detail})")
+            return
+
     schema_type = schema.get("type")
     if isinstance(schema_type, (list, tuple, set)):
         if not any(_schema_type_matches(str(expected), value) for expected in schema_type):
@@ -712,19 +728,40 @@ def _validate_schema_value(schema: Mapping[str, Any], value: Any, *, path: str, 
                 if name not in value:
                     errors.append(f"{path}.{name}: is required")
         properties = schema.get("properties")
+        property_names: set[Any] = set()
         if isinstance(properties, Mapping):
+            property_names = set(properties)
             for name, subschema in properties.items():
                 if name in value and isinstance(subschema, Mapping):
                     _validate_schema_value(subschema, value[name], path=f"{path}.{name}", errors=errors)
+        additional = schema.get("additionalProperties")
+        for name in sorted(set(value) - property_names):
+            if additional is False:
+                errors.append(f"{path}.{name}: additional property is not allowed")
+            elif isinstance(additional, Mapping):
+                _validate_schema_value(additional, value[name], path=f"{path}.{name}", errors=errors)
         return
 
     if schema_type == "array":
         if not isinstance(value, list):
             errors.append(f"{path}: expected array, got {type(value).__name__}")
             return
+        min_items = schema.get("minItems")
+        if isinstance(min_items, int) and len(value) < min_items:
+            errors.append(f"{path}: expected at least {min_items} items, got {len(value)}")
+        max_items = schema.get("maxItems")
+        if isinstance(max_items, int) and len(value) > max_items:
+            errors.append(f"{path}: expected at most {max_items} items, got {len(value)}")
+        prefix_items = schema.get("prefixItems")
+        prefix_count = 0
+        if isinstance(prefix_items, list):
+            prefix_count = len(prefix_items)
+            for index, subschema in enumerate(prefix_items):
+                if index < len(value) and isinstance(subschema, Mapping):
+                    _validate_schema_value(subschema, value[index], path=f"{path}[{index}]", errors=errors)
         items = schema.get("items")
         if isinstance(items, Mapping):
-            for index, item in enumerate(value):
+            for index, item in enumerate(value[prefix_count:], start=prefix_count):
                 _validate_schema_value(items, item, path=f"{path}[{index}]", errors=errors)
 
 
@@ -760,6 +797,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     "normalize_tool_meta": "dcc_mcp_core.wire",
     # Schema derivation helpers.
     "derive_parameters_schema": "dcc_mcp_core.schema",
+    "derive_script_parameters_schema": "dcc_mcp_core.schema",
     "derive_schema": "dcc_mcp_core.schema",
     "schema_from_doc": "dcc_mcp_core.schema",
     "tool_spec_from_callable": "dcc_mcp_core.schema",

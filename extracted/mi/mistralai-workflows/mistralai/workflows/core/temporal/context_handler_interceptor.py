@@ -12,6 +12,7 @@ from pydantic import TypeAdapter
 from pydantic_core import to_json
 from temporalio import workflow
 
+from mistralai.workflows.core.execution.child_start_budget import ChildStartBudget, child_start_budget_var
 from mistralai.workflows.core.temporal.utils import TEMPORAL_SCHEDULE_ID_SEARCH_KEY
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 from mistralai.workflows.core.utils.type_hints import get_type_hints
@@ -76,7 +77,7 @@ def _validate_activity_args(fn: Callable[..., Any], args: Sequence[Any]) -> Sequ
 
 def wrap_result_with_context(result: Any, workflow_context: WorkflowContext | None) -> Any:
     """Wrap result with workflow context if it exists"""
-    if workflow_context is None:
+    if workflow_context is None or isinstance(result, PayloadWithContext):
         return result
     return PayloadWithContext(payload=to_json(result), context=workflow_context)
 
@@ -159,7 +160,10 @@ class WorkflowContextWorkflowOutboundInterceptor(temporalio.worker.WorkflowOutbo
                 workflow_context = workflow_context.model_copy(update={"execution_token": None})
             contextualized_args = []
             for arg in args:
-                contextualized_args.append(PayloadWithContext(payload=to_json(arg), context=workflow_context))
+                if isinstance(arg, PayloadWithContext):
+                    contextualized_args.append(arg)
+                else:
+                    contextualized_args.append(PayloadWithContext(payload=to_json(arg), context=workflow_context))
             if len(contextualized_args) == 0:
                 contextualized_args.append(PayloadWithContext(payload=b"null", empty=True, context=workflow_context))
             return contextualized_args
@@ -206,6 +210,18 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
     def init(self, outbound: temporalio.worker.WorkflowOutboundInterceptor) -> None:
         self.next.init(WorkflowContextWorkflowOutboundInterceptor(outbound))
 
+    def _get_child_start_budget(self) -> ChildStartBudget:
+        # One budget per workflow run, shared across the entrypoint and signal/update
+        # handlers. Each handler runs in its own asyncio task with a copied context, so a
+        # ContextVar set in execute_workflow would not propagate to handle_signal — store
+        # the instance on the interceptor (one per run) and set it into the ContextVar in
+        # each handler so execute_workflow's fan-out gate also covers signal/update fan-outs.
+        budget = getattr(self, "_child_start_budget", None)
+        if budget is None:
+            budget = ChildStartBudget()
+            self._child_start_budget = budget
+        return budget
+
     async def execute_workflow(self, input: temporalio.worker.ExecuteWorkflowInput) -> Any:
         # Create fresh context from workflow.info() - single source of truth for identity
         workflow_context = create_workflow_context()
@@ -234,7 +250,11 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
 
         # Execute with context set for activities and streaming
         with define_context(workflow_context):
-            result = await super().execute_workflow(input)
+            budget_token = child_start_budget_var.set(self._get_child_start_budget())
+            try:
+                result = await super().execute_workflow(input)
+            finally:
+                reset_contextvar(child_start_budget_var, budget_token)
         # Strip token from result context — token should not leak in workflow results
         result_context = workflow_context.model_copy(update={"execution_token": None})
         return wrap_result_with_context(result, result_context)
@@ -243,7 +263,11 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
         _, input.args = unwrap_contextual_args(input.args)
         workflow_context = _create_workflow_context_with_token()
         with define_context(workflow_context):
-            await self.next.handle_signal(input)
+            budget_token = child_start_budget_var.set(self._get_child_start_budget())
+            try:
+                await self.next.handle_signal(input)
+            finally:
+                reset_contextvar(child_start_budget_var, budget_token)
 
     async def handle_query(self, input: temporalio.worker.HandleQueryInput) -> Any:
         _, input.args = unwrap_contextual_args(input.args)
@@ -263,7 +287,11 @@ class WorkflowContextWorkflowInboundInterceptor(temporalio.worker.WorkflowInboun
         _, input.args = unwrap_contextual_args(input.args)
         workflow_context = _create_workflow_context_with_token()
         with define_context(workflow_context):
-            result = await self.next.handle_update_handler(input)
+            budget_token = child_start_budget_var.set(self._get_child_start_budget())
+            try:
+                result = await self.next.handle_update_handler(input)
+            finally:
+                reset_contextvar(child_start_budget_var, budget_token)
         result_context = workflow_context.model_copy(update={"execution_token": None})
         return wrap_result_with_context(result, result_context)
 

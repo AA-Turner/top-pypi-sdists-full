@@ -145,3 +145,12 @@ class Plugin:
         self, comment: str, code: str, source: Optional[str] = None
     ) -> str:
         return comment
+
+    def generate_custom_module(self, module) -> ast.Module:
+        return module
+
+    def generate_custom_method(self, method_def: ast.FunctionDef) -> ast.FunctionDef:
+        return method_def
+
+    def generate_files(self, generated_files: list[str]) -> list[str]:
+        return generated_files

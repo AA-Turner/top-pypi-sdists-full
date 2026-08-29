@@ -175,6 +175,44 @@ class TestUploadWorkflowGraphs:
         }
         assert body["graph_data"]["version"] == _GRAPH_PAYLOAD_VERSION
 
+    async def test_workflow_summary_embedded_in_graph_data(self) -> None:
+        client = _make_client()
+        ref = _make_ref()
+        result = SummaryResult(
+            status="ready",
+            summaries={},
+            workflow_summary=NodeSummary(short="Data ingestion run", long="Pulls data and stores it."),
+        )
+
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=_fake_graph()),
+            patch(_SUMMARISE_PATH, AsyncMock(return_value=result)),
+            _MOCK_SUMMARY_CONFIG,
+        ):
+            await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
+
+        sent_request: httpx.Request = client.sdk_configuration.async_client.send.call_args[0][0]
+        body = json.loads(sent_request.content)
+        assert body["graph_data"]["workflow_summary"] == {
+            "short": "Data ingestion run",
+            "long": "Pulls data and stores it.",
+        }
+
+    async def test_workflow_summary_absent_when_not_generated(self) -> None:
+        client = _make_client()
+        ref = _make_ref()
+
+        with (
+            patch("mistralai.workflows.core._graph.build_graph_dynamically", return_value=_fake_graph()),
+            _NO_SUMMARIES,
+            _MOCK_SUMMARY_CONFIG,
+        ):
+            await _upload_workflow_graphs(refs=[ref], classes=[FakeWorkflow], client=client)
+
+        sent_request: httpx.Request = client.sdk_configuration.async_client.send.call_args[0][0]
+        body = json.loads(sent_request.content)
+        assert "workflow_summary" not in body["graph_data"]
+
     async def test_summary_failure_still_uploads_graph_with_error(self) -> None:
         client = _make_client()
         ref = _make_ref()

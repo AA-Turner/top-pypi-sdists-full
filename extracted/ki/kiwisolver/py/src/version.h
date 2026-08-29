@@ -9,5 +9,5 @@
 
 #pragma once
 
-#define PY_KIWI_VERSION "1.5.0"
+#define PY_KIWI_VERSION "1.5.1"
 

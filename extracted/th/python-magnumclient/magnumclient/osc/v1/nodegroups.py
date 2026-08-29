@@ -14,34 +14,12 @@
 #    under the License.
 
 from magnumclient.common import utils as magnum_utils
+from magnumclient import exceptions
 from magnumclient.i18n import _
+from magnumclient.v1.nodegroups import NODEGROUP_ATTRIBUTES  # noqa: F401
 
 from osc_lib.command import command
 from osc_lib import utils
-
-
-NODEGROUP_ATTRIBUTES = [
-    'uuid',
-    'name',
-    'cluster_id',
-    'project_id',
-    'docker_volume_size',
-    'labels',
-    'labels_overridden',
-    'labels_skipped',
-    'labels_added',
-    'flavor_id',
-    'image_id',
-    'node_addresses',
-    'node_count',
-    'role',
-    'max_node_count',
-    'min_node_count',
-    'is_default',
-    'stack_id',
-    'status',
-    'status_reason',
-]
 
 
 class CreateNodeGroup(command.Command):
@@ -110,6 +88,23 @@ class CreateNodeGroup(command.Command):
             default=False,
             help=_('The labels provided will be merged with the labels '
                    'configured in the specified cluster.'))
+        parser.add_argument(
+            '--node-labels',
+            dest='node_labels',
+            metavar='<KEY1=VALUE1,KEY2=VALUE2...>',
+            action='append',
+            help=_('Kubernetes node labels in the form of key=value pairs to '
+                   'apply to every node in this nodegroup. May be used '
+                   'multiple times.'))
+        parser.add_argument(
+            '--node-taints',
+            dest='node_taints',
+            metavar='<KEY1=VALUE1:EFFECT1,KEY2:EFFECT2...>',
+            action='append',
+            help=_('Kubernetes node taints to apply to every node in this '
+                   'nodegroup, as KEY[=VALUE]:EFFECT (VALUE is optional). '
+                   'EFFECT must be one of NoSchedule, PreferNoSchedule or '
+                   'NoExecute. May be used multiple times.'))
 
         return parser
 
@@ -141,6 +136,14 @@ class CreateNodeGroup(command.Command):
             # We are only sending this if it's True. This
             # way we avoid breaking older APIs.
             args["merge_labels"] = parsed_args.merge_labels
+
+        if parsed_args.node_labels is not None:
+            args['node_labels'] = magnum_utils.handle_labels(
+                parsed_args.node_labels)
+
+        if parsed_args.node_taints is not None:
+            args['node_taints'] = magnum_utils.handle_taints(
+                parsed_args.node_taints)
 
         cluster_id = parsed_args.cluster
         nodegroup = mag_client.nodegroups.create(cluster_id, **args)
@@ -266,24 +269,37 @@ class UpdateNodeGroup(command.Command):
         parser.add_argument(
             'nodegroup',
             metavar='<nodegroup>',
-            help=_('The name or UUID of cluster to update'))
-
+            help=_('The name or UUID of the nodegroup to update.'))
         parser.add_argument(
-            'op',
-            metavar='<op>',
-            choices=['add', 'replace', 'remove'],
-            help=_("Operations: one of 'add', 'replace' or 'remove'"))
-
+            '--min-nodes',
+            metavar='<min-nodes>',
+            type=int,
+            dest='min_node_count',
+            help=_('The minimum node count for the nodegroup.'))
         parser.add_argument(
-            'attributes',
-            metavar='<path=value>',
-            nargs='+',
+            '--max-nodes',
+            metavar='<max-nodes>',
+            type=int,
+            dest='max_node_count',
+            help=_('The maximum node count for the nodegroup.'))
+        parser.add_argument(
+            '--node-labels',
+            dest='node_labels',
+            metavar='<KEY1=VALUE1,KEY2=VALUE2...>',
             action='append',
-            default=[],
-            help=_(
-                "Attributes to add/replace or remove (only PATH is necessary "
-                "on remove)"))
-
+            help=_('Kubernetes node labels in the form of key=value pairs to '
+                   'apply to every node in this nodegroup. Replaces any '
+                   'existing node labels. May be used multiple times.'))
+        parser.add_argument(
+            '--node-taints',
+            dest='node_taints',
+            metavar='<KEY1=VALUE1:EFFECT1,KEY2:EFFECT2...>',
+            action='append',
+            help=_('Kubernetes node taints to apply to every node in this '
+                   'nodegroup, as KEY[=VALUE]:EFFECT (VALUE is optional). '
+                   'EFFECT must be one of NoSchedule, PreferNoSchedule or '
+                   'NoExecute. Replaces any existing node taints. May be '
+                   'used multiple times.'))
         return parser
 
     def take_action(self, parsed_args):
@@ -291,11 +307,40 @@ class UpdateNodeGroup(command.Command):
 
         mag_client = self.app.client_manager.container_infra
 
-        patch = magnum_utils.args_array_to_patch(parsed_args.op,
-                                                 parsed_args.attributes[0])
+        patch = []
 
-        cluster_id = parsed_args.cluster
-        mag_client.nodegroups.update(cluster_id, parsed_args.nodegroup,
-                                     patch)
+        if parsed_args.min_node_count is not None:
+            patch.append({'op': 'replace', 'path': '/min_node_count',
+                          'value': parsed_args.min_node_count})
+
+        if parsed_args.max_node_count is not None:
+            patch.append({'op': 'replace', 'path': '/max_node_count',
+                          'value': parsed_args.max_node_count})
+
+        # The Magnum API's JSON patch value field only accepts text or int,
+        # so dict/list values are sent as their string representation and
+        # deserialized server-side (see magnum.api.utils.apply_jsonpatch).
+        if parsed_args.node_labels is not None:
+            # An empty value (e.g. --node-labels '') clears the field.
+            labels = [x for x in parsed_args.node_labels if x]
+            patch.append({
+                'op': 'replace',
+                'path': '/node_labels',
+                'value': str(magnum_utils.handle_labels(labels)),
+            })
+
+        if parsed_args.node_taints is not None:
+            taints = [x for x in parsed_args.node_taints if x]
+            patch.append({
+                'op': 'replace',
+                'path': '/node_taints',
+                'value': str(magnum_utils.handle_taints(taints)),
+            })
+
+        if not patch:
+            raise exceptions.CommandError("Nothing to update.")
+
+        mag_client.nodegroups.update(parsed_args.cluster,
+                                     parsed_args.nodegroup, patch)
         print("Request to update nodegroup %s has been accepted." %
               parsed_args.nodegroup)

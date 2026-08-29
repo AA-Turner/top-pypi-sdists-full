@@ -18,11 +18,11 @@ use crate::{
 };
 use tombi_future::Boxable;
 
-impl GetHoverContent for tombi_document_tree::LocalDate {
+impl GetHoverContent for tombi_document_tree_syntax::LocalDate {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -126,6 +126,7 @@ impl GetHoverContent for tombi_document_tree::LocalDate {
                     constraints: None,
                     schema_uri: None,
                     range: Some(self.range()),
+                    schema_tooltip: None,
                 }))
             }
         }
@@ -137,7 +138,7 @@ impl GetHoverContent for LocalDateSchema {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree::Key],
+        _keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -180,9 +181,9 @@ impl GetHoverContent for LocalDateSchema {
                     },
                     ..Default::default()
                 }),
-                schema_uri: current_schema
-                    .map(|current_schema| current_schema.schema_uri.as_ref().clone()),
+                schema_uri: super::super::current_schema_link_uri(current_schema),
                 range: None,
+                schema_tooltip: None,
             }))
         }
         .boxed()

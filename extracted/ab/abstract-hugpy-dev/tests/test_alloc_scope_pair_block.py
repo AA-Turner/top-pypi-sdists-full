@@ -149,6 +149,33 @@ def test_pair_block_clears_when_the_verdict_changes(rig, monkeypatch):
     assert not BL.pair_blocked(PAIR_KEY, wild["id"])
 
 
+def test_assigned_but_infeasible_worker_is_gated_and_blocked(rig, monkeypatch):
+    """De-facto feasibility is MEASURED RESIDENCY, not assignment (2026-08-28,
+    35B-Distill x computron): an ASSIGNED worker whose static verdict is a
+    positive permanent-no is skipped AND pair-blocked — the ruling's "if
+    allocated, should be blocked; the user will be forced to acknowledge it"."""
+    small = _worker(rig, "computron", assign=True)   # assigned, can never fit
+    _worker(rig, "ae", assign=True)                  # the feasible allocation
+    monkeypatch.setattr(W, "_wildcard_map", lambda: {})
+    monkeypatch.setattr(
+        W, "worker_can_hold",
+        lambda w, mk: False if w.get("name") == "computron" else True)
+    got = _names(rig.workers_for_model(MK))
+    assert got == ["ae"], got
+    assert BL.pair_blocked(PAIR_KEY, small["id"])
+
+
+def test_resident_copy_stays_exempt_from_the_verdict(rig, monkeypatch):
+    """A box MEASURED holding the model is feasible by observation — the
+    verdict (even a stale False) never route-refuses a live resident."""
+    w = _worker(rig, "holder", assign=True)
+    rig.heartbeat(w["id"], pkg_version="0.1.241", loaded_models=[MK])
+    monkeypatch.setattr(W, "_wildcard_map", lambda: {})
+    monkeypatch.setattr(W, "worker_can_hold", lambda w, mk: False)
+    got = _names(rig.workers_for_model(MK))
+    assert got == ["holder"], got
+
+
 def test_missing_data_alone_never_records(rig, monkeypatch):
     wild = _worker(rig, "computron", assign=False)
     monkeypatch.setattr(W, "_wildcard_map", lambda: {wild["id"]: True})

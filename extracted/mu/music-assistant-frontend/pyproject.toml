@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "music-assistant-frontend"
-version = "2.17.296"
+version = "2.17.298"
 license = "Apache-2.0"
 description = "The Music Assistant frontend"
 readme = "README.md"

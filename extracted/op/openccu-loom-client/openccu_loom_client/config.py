@@ -50,6 +50,37 @@ class LoomConfig:
     # request load in audit logs. Override per deployment if running
     # multiple HA instances against one daemon.
     user_agent: str = "openccu-loom-client"
+    # Ask the daemon to withhold devices whose onboarding is unfinished
+    # (daemon ≥ 0.66.1). It answers `GET /snapshot?released_only=true` and a
+    # `released_only: true` subscribe frame by dropping every frame about a
+    # device the wizard has not released yet.
+    #
+    # Defaulted on because of what this package is: an ecosystem backend, and
+    # the whole point of the daemon's release step is that an operator names
+    # and places a device BEFORE an ecosystem adopts it — Home Assistant keeps
+    # the entity ids it first saw, so adopting early makes the naming stick to
+    # the wrong ones. A consumer building a configuration surface instead (the
+    # role the daemon's own Config UI has) sets this False and sees everything.
+    #
+    # One flag for both planes on purpose: the daemon's contract says to pair
+    # the REST query with the WS subscribe option "or the two drift" — a
+    # snapshot without the device but a live push about it, or the reverse.
+    # Older daemons ignore the unknown query parameter and the unknown frame
+    # field, so this is inert against them.
+    released_only: bool = True
+    # How long bootstrap waits for the daemon to finish its southbound
+    # bring-up before walking the snapshot anyway. Waiting matters because
+    # `GET /snapshot` answers 200 with empty lists while the central is still
+    # in `waiting_for_ccu` and never 5xx — bootstrapping early "succeeds" into
+    # an empty model, and a consumer spawns no entities at all.
+    #
+    # It is bounded, and a timeout is not an error: the walk runs regardless
+    # and the daemon's resync re-bootstraps once the CCU arrives. So the only
+    # thing this trades is how long a caller's own setup blocks — Home
+    # Assistant, for one, logs a config entry that takes minutes. Lower it
+    # where a fast, possibly-empty start beats a slow, complete one; 0 skips
+    # the wait entirely.
+    readiness_wait_seconds: float = 180.0
 
     def __post_init__(self) -> None:
         """Default the port from the TLS flag when not explicitly set."""

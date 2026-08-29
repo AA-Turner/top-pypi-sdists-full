@@ -7,7 +7,7 @@ helper strips that envelope using a heuristic (dict with exactly one
 ``"result"`` key).  It must NOT be reused outside that specific call site.
 """
 
-from mistralai.workflows.plugins.evaluation._record_workflow import _unwrap_sdk_result_wrapping
+from mistralai.workflows.plugins.evaluations._record_workflow import _unwrap_sdk_result_wrapping
 
 
 class TestUnwrapSdkResultWrapping:

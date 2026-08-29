@@ -15,47 +15,13 @@
 from magnumclient.common import utils as magnum_utils
 from magnumclient.exceptions import InvalidAttribute
 from magnumclient.i18n import _
+from magnumclient.v1.cluster_templates import (
+    CLUSTER_TEMPLATE_ATTRIBUTES
+)
 
 from osc_lib.command import command
 from osc_lib import utils as osc_utils
 from oslo_log import log as logging
-
-
-CLUSTER_TEMPLATE_ATTRIBUTES = [
-    'insecure_registry',
-    'labels',
-    'updated_at',
-    'floating_ip_enabled',
-    'fixed_subnet',
-    'master_flavor_id',
-    'uuid',
-    'no_proxy',
-    'https_proxy',
-    'tls_disabled',
-    'keypair_id',
-    'public',
-    'http_proxy',
-    'docker_volume_size',
-    'server_type',
-    'external_network_id',
-    'cluster_distro',
-    'image_id',
-    'volume_driver',
-    'registry_enabled',
-    'docker_storage_driver',
-    'apiserver_port',
-    'name',
-    'created_at',
-    'network_driver',
-    'fixed_network',
-    'coe',
-    'flavor_id',
-    'master_lb_enabled',
-    'dns_nameserver',
-    'project_id',
-    'hidden',
-    'tags',
-]
 
 
 def _show_cluster_template(cluster_template):
@@ -125,6 +91,12 @@ class CreateClusterTemplate(command.ShowOne):
             help=_('The volume driver name for instantiating container '
                    'volume.'))
         parser.add_argument(
+            '--driver',
+            dest='driver',
+            metavar='<driver>',
+            help=_('The name of the Magnum driver to use for this cluster '
+                   'template.'))
+        parser.add_argument(
             '--dns-nameserver',
             dest='dns_nameserver',
             metavar='<dns-nameserver>',
@@ -154,8 +126,7 @@ class CreateClusterTemplate(command.ShowOne):
             dest='docker_storage_driver',
             metavar='<docker-storage-driver>',
             default='overlay2',
-            help=_('Select a docker storage driver. Supported: devicemapper, '
-                   'overlay, overlay2. Default: overlay2'))
+            help=_('Select a docker storage driver. Default: overlay2'))
         parser.add_argument(
             '--http-proxy',
             dest='http_proxy',
@@ -262,6 +233,7 @@ class CreateClusterTemplate(command.ShowOne):
             'fixed_subnet': parsed_args.fixed_subnet,
             'network_driver': parsed_args.network_driver,
             'volume_driver': parsed_args.volume_driver,
+            'driver': parsed_args.driver,
             'dns_nameserver': parsed_args.dns_nameserver,
             'flavor_id': parsed_args.flavor,
             'master_flavor_id': parsed_args.master_flavor,
@@ -293,12 +265,6 @@ class CreateClusterTemplate(command.ShowOne):
                                    'should be specified only once.')
         elif len(parsed_args.floating_ip_enabled) == 1:
             args['floating_ip_enabled'] = parsed_args.floating_ip_enabled[0]
-
-        deprecated = ['devicemapper', 'overlay']
-        if args['docker_storage_driver'] in deprecated:
-            print("WARNING: Docker storage drivers %s are deprecated and will "
-                  "be removed in a future release. Use overlay2 instead." %
-                  deprecated)
 
         ct = mag_client.cluster_templates.create(**args)
         print("Request to create cluster template %s accepted"
@@ -422,56 +388,240 @@ class UpdateClusterTemplate(command.ShowOne):
         parser.add_argument(
             'cluster-template',
             metavar='<cluster-template>',
-            help=_('The name or UUID of cluster template to update'))
-
+            help=_('The name or UUID of the cluster template to update.'))
         parser.add_argument(
-            'op',
-            metavar='<op>',
-            nargs='?',
-            choices=['add', 'replace', 'remove'],
-            default=None,
-            help=_("Operations: one of 'add', 'replace' or 'remove'"))
-
+            '--name',
+            metavar='<name>',
+            help=_('New name for the cluster template.'))
         parser.add_argument(
-            'attributes',
-            metavar='<path=value>',
-            nargs='*',
+            '--image',
+            metavar='<image>',
+            help=_('The name or UUID of the base image to use.'))
+        parser.add_argument(
+            '--flavor',
+            metavar='<flavor>',
+            help=_('The nova flavor name or UUID for cluster nodes.'))
+        parser.add_argument(
+            '--master-flavor',
+            dest='master_flavor',
+            metavar='<master-flavor>',
+            help=_('The nova flavor name or UUID for master nodes.'))
+        parser.add_argument(
+            '--keypair',
+            metavar='<keypair>',
+            help=_('The name or UUID of the SSH keypair.'))
+        parser.add_argument(
+            '--external-network',
+            dest='external_network',
+            metavar='<external-network>',
+            help=_('The external Neutron network name or UUID.'))
+        parser.add_argument(
+            '--fixed-network',
+            dest='fixed_network',
+            metavar='<fixed-network>',
+            help=_('The private Neutron network name or UUID.'))
+        parser.add_argument(
+            '--fixed-subnet',
+            dest='fixed_subnet',
+            metavar='<fixed-subnet>',
+            help=_('The private Neutron subnet name or UUID.'))
+        parser.add_argument(
+            '--network-driver',
+            dest='network_driver',
+            metavar='<network-driver>',
+            help=_('The network driver name for container networks.'))
+        parser.add_argument(
+            '--volume-driver',
+            dest='volume_driver',
+            metavar='<volume-driver>',
+            help=_('The volume driver name for container volumes.'))
+        parser.add_argument(
+            '--driver',
+            metavar='<driver>',
+            help=_('The Magnum driver to use for this cluster template.'))
+        parser.add_argument(
+            '--dns-nameserver',
+            dest='dns_nameserver',
+            metavar='<dns-nameserver>',
+            help=_('The DNS nameserver for this cluster template.'))
+        parser.add_argument(
+            '--docker-volume-size',
+            dest='docker_volume_size',
+            metavar='<docker-volume-size>',
+            type=int,
+            help=_('Size in GB for the docker volume.'))
+        parser.add_argument(
+            '--docker-storage-driver',
+            dest='docker_storage_driver',
+            metavar='<docker-storage-driver>',
+            help=_('Docker storage driver (overlay2 recommended).'))
+        parser.add_argument(
+            '--http-proxy',
+            dest='http_proxy',
+            metavar='<http-proxy>',
+            help=_('The http_proxy address for cluster nodes.'))
+        parser.add_argument(
+            '--https-proxy',
+            dest='https_proxy',
+            metavar='<https-proxy>',
+            help=_('The https_proxy address for cluster nodes.'))
+        parser.add_argument(
+            '--no-proxy',
+            dest='no_proxy',
+            metavar='<no-proxy>',
+            help=_('The no_proxy address list for cluster nodes.'))
+        parser.add_argument(
+            '--insecure-registry',
+            dest='insecure_registry',
+            metavar='<insecure-registry>',
+            help=_('URL of a private insecure docker registry.'))
+        parser.add_argument(
+            '--label',
+            metavar='<key=value>',
             action='append',
+            dest='labels',
             default=[],
-            help=_(
-                "Attributes to add/replace or remove (only PATH is necessary "
-                "on remove)"))
-
-        parser.set_defaults(hidden=None)
+            help=_('Label to add or update on the cluster template '
+                   '(repeat to set multiple labels).'))
+        parser.add_argument(
+            '--no-label',
+            metavar='<key>',
+            action='append',
+            dest='no_labels',
+            default=[],
+            help=_('Label key to remove from the cluster template '
+                   '(repeat to remove multiple labels).'))
+        parser.add_argument(
+            '--tag',
+            metavar='<tag>',
+            action='append',
+            dest='tags',
+            default=[],
+            help=_('Tag to add to the cluster template '
+                   '(repeat to set multiple tags).'))
+        parser.set_defaults(hidden=None, public=None, tls_disabled=None,
+                            registry_enabled=None, master_lb_enabled=None,
+                            floating_ip_enabled=None)
+        parser.add_argument(
+            '--public',
+            dest='public',
+            action='store_true',
+            help=_('Make the cluster template public.'))
+        parser.add_argument(
+            '--private',
+            dest='public',
+            action='store_false',
+            help=_('Make the cluster template private.'))
+        parser.add_argument(
+            '--tls-disabled',
+            dest='tls_disabled',
+            action='store_true',
+            help=_('Disable TLS in the cluster.'))
+        parser.add_argument(
+            '--tls-enabled',
+            dest='tls_disabled',
+            action='store_false',
+            help=_('Enable TLS in the cluster.'))
+        parser.add_argument(
+            '--registry-enabled',
+            dest='registry_enabled',
+            action='store_true',
+            help=_('Enable docker registry in the cluster.'))
+        parser.add_argument(
+            '--registry-disabled',
+            dest='registry_enabled',
+            action='store_false',
+            help=_('Disable docker registry in the cluster.'))
+        parser.add_argument(
+            '--master-lb-enabled',
+            dest='master_lb_enabled',
+            action='store_true',
+            help=_('Enable load balancer for master nodes.'))
+        parser.add_argument(
+            '--master-lb-disabled',
+            dest='master_lb_enabled',
+            action='store_false',
+            help=_('Disable load balancer for master nodes.'))
+        parser.add_argument(
+            '--floating-ip-enabled',
+            dest='floating_ip_enabled',
+            action='store_true',
+            help=_('Enable floating IPs for cluster nodes.'))
+        parser.add_argument(
+            '--floating-ip-disabled',
+            dest='floating_ip_enabled',
+            action='store_false',
+            help=_('Disable floating IPs for cluster nodes.'))
         parser.add_argument(
             '--hidden',
             dest='hidden',
             action='store_true',
             help=_('Hide the cluster template.'))
-
         parser.add_argument(
             '--visible',
             dest='hidden',
             action='store_false',
             help=_('Make the cluster template visible.'))
-
         return parser
 
     def take_action(self, parsed_args):
         self.log.debug("take_action(%s)", parsed_args)
 
         mag_client = self.app.client_manager.container_infra
-        raw_attrs = parsed_args.attributes[0] if parsed_args.attributes else []
-        if parsed_args.op:
-            patch = magnum_utils.args_array_to_patch(parsed_args.op, raw_attrs)
-        else:
-            patch = []
-        if parsed_args.hidden is not None:
-            patch += [{'op': 'replace', 'path': '/hidden',
-                       'value': parsed_args.hidden}]
+
+        patch = []
+
+        str_fields = [
+            ('name', '/name'),
+            ('image', '/image_id'),
+            ('flavor', '/flavor_id'),
+            ('master_flavor', '/master_flavor_id'),
+            ('keypair', '/keypair_id'),
+            ('external_network', '/external_network_id'),
+            ('fixed_network', '/fixed_network'),
+            ('fixed_subnet', '/fixed_subnet'),
+            ('network_driver', '/network_driver'),
+            ('volume_driver', '/volume_driver'),
+            ('driver', '/driver'),
+            ('dns_nameserver', '/dns_nameserver'),
+            ('docker_storage_driver', '/docker_storage_driver'),
+            ('http_proxy', '/http_proxy'),
+            ('https_proxy', '/https_proxy'),
+            ('no_proxy', '/no_proxy'),
+            ('insecure_registry', '/insecure_registry'),
+        ]
+        for attr, path in str_fields:
+            value = getattr(parsed_args, attr, None)
+            if value is not None:
+                patch.append({'op': 'replace', 'path': path, 'value': value})
+
+        if parsed_args.docker_volume_size is not None:
+            patch.append({'op': 'replace', 'path': '/docker_volume_size',
+                          'value': parsed_args.docker_volume_size})
+
+        for boolean_attr in ('hidden', 'public', 'tls_disabled',
+                             'registry_enabled', 'master_lb_enabled',
+                             'floating_ip_enabled'):
+            value = getattr(parsed_args, boolean_attr)
+            if value is not None:
+                patch.append({'op': 'replace',
+                              'path': '/%s' % boolean_attr,
+                              'value': value})
+
+        for label in parsed_args.labels:
+            k, v = label.split('=', 1)
+            patch.append({'op': 'add', 'path': '/labels/%s' % k, 'value': v})
+
+        for key in parsed_args.no_labels:
+            patch.append({'op': 'remove', 'path': '/labels/%s' % key})
+
+        if parsed_args.tags:
+            patch.append({'op': 'replace', 'path': '/tags',
+                          'value': ','.join(parsed_args.tags)})
+
         if not patch:
-            raise InvalidAttribute('At least one of op/attributes or '
-                                   '--hidden/--visible must be specified.')
+            raise InvalidAttribute('Nothing to update.')
+
         name = getattr(parsed_args, 'cluster-template', None)
         ct = mag_client.cluster_templates.update(name, patch)
         return _show_cluster_template(ct)

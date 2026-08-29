@@ -8,17 +8,19 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(piqp
-    VERSION 0.6.3
+    VERSION 0.6.4
     LANGUAGES C CXX
 )
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
     cmake_policy(SET CMP0135 NEW)
 endif()
-# Avoid warning about FetchContent_GetProperties in CMake 3.30:
+# Keep the explicit FetchContent populate/add_subdirectory flow below for
+# CMake 3.21 support. CMake 3.28 added FetchContent_Declare(EXCLUDE_FROM_ALL),
+# which should replace this once the minimum version can be raised.
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.30.0")
     cmake_policy(SET CMP0169 OLD)
 endif()
@@ -64,9 +66,9 @@ endif()
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 if (BUILD_WITH_STD_OPTIONAL OR BUILD_WITH_STD_FILESYSTEM)
-    set(CMAKE_CXX_STANDARD 17)
+    set(PIQP_CXX_STANDARD_FEATURE cxx_std_17)
 else ()
-    set(CMAKE_CXX_STANDARD 14)
+    set(PIQP_CXX_STANDARD_FEATURE cxx_std_14)
 endif ()
 
 # Set build type to RELEASE by default
@@ -80,6 +82,8 @@ message(STATUS "Building ${CMAKE_BUILD_TYPE}")
 # Set compiler flags according to compiler ID
 set(gcc_like_cxx CXX ARMClang AppleClang Clang GNU LCC)
 set(msvc_like CXX MSVC)
+set(compiler_flags)
+set(linker_flags)
 if (${CMAKE_CXX_COMPILER_ID} IN_LIST gcc_like_cxx)
     list(APPEND compiler_flags -Wall -Wextra -Wconversion -pedantic)
 elseif ((${CMAKE_CXX_COMPILER_ID} IN_LIST msvc_like))
@@ -90,13 +94,19 @@ message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 # Set sanitizer flags
 if (ENABLE_SANITIZERS)
     if (${CMAKE_CXX_COMPILER_ID} IN_LIST gcc_like_cxx)
-        list(APPEND sanitizer_flags -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer)
+        list(APPEND sanitizer_compile_flags -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer)
+        list(APPEND sanitizer_link_flags -fsanitize=address -fsanitize=undefined)
     elseif ((${CMAKE_CXX_COMPILER_ID} IN_LIST msvc_like))
-        list(APPEND sanitizer_flags /fsanitize=address)
+        list(APPEND sanitizer_compile_flags /fsanitize=address)
     endif ()
-    list(APPEND compiler_flags ${sanitizer_flags})
-    message(STATUS "Building with sanitizers: ${sanitizer_flags}")
-    unset(sanitizer_flags)
+    list(APPEND compiler_flags ${sanitizer_compile_flags})
+    list(APPEND linker_flags ${sanitizer_link_flags})
+    message(STATUS "Building with sanitizer compile flags: ${sanitizer_compile_flags}")
+    if (sanitizer_link_flags)
+        message(STATUS "Building with sanitizer link flags: ${sanitizer_link_flags}")
+    endif ()
+    unset(sanitizer_compile_flags)
+    unset(sanitizer_link_flags)
 endif ()
 
 if (BUILD_PYTHON_INTERFACE OR BUILD_MATLAB_INTERFACE)
@@ -110,6 +120,7 @@ if (BUILD_PYTHON_INTERFACE OR BUILD_MATLAB_INTERFACE)
     FetchContent_Declare(
         cpu_features
         URL https://github.com/google/cpu_features/archive/refs/tags/v0.10.1.zip
+        URL_HASH SHA256=2aff2bd4ac555169bce671c7ecbf9ff6179bb4ebdbb3ee668ea7b519974fc392
     )
     set(BUILD_SHARED_LIBS_COPY ${BUILD_SHARED_LIBS})
     set(BUILD_SHARED_LIBS OFF)
@@ -148,6 +159,7 @@ macro(create_piqp_library library_name)
 
     if (CREATE_PIQP_LIBRARY_INTERFACE)
         add_library(${library_name} INTERFACE)
+        target_compile_features(${library_name} INTERFACE ${PIQP_CXX_STANDARD_FEATURE})
         target_include_directories(${library_name} INTERFACE
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
             $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>
@@ -155,6 +167,7 @@ macro(create_piqp_library library_name)
         target_link_libraries(${library_name} INTERFACE Eigen3::Eigen)
     else ()
         add_library(${library_name} ${TEMPLATE_SOURCES})
+        target_compile_features(${library_name} PUBLIC ${PIQP_CXX_STANDARD_FEATURE})
         target_include_directories(${library_name} PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
             $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>
@@ -178,7 +191,7 @@ if (BUILD_WITH_TEMPLATE_INSTANTIATION)
         endif ()
     endif ()
     target_compile_options(piqp PRIVATE ${compiler_flags})
-    target_link_options(piqp PRIVATE ${compiler_flags})
+    target_link_options(piqp PRIVATE ${linker_flags})
 
     create_piqp_library(piqp_header_only_no_blasfeo_linked INTERFACE)
     create_piqp_library(piqp_header_only INTERFACE)
@@ -266,6 +279,7 @@ if (BUILD_WITH_OPENMP)
 
     if (OpenMP_CXX_FOUND AND OpenMP_C_FOUND)
         message(STATUS "Found OpenMP with OpenMP_CXX_FLAGS: ${OpenMP_CXX_FLAGS}, OpenMP_C_FLAGS: ${OpenMP_C_FLAGS}")
+        set(PIQP_WITH_OPENMP_TARGET ON)
 
         if (BUILD_WITH_TEMPLATE_INSTANTIATION)
             target_compile_definitions(piqp PUBLIC PIQP_HAS_OPENMP)
@@ -279,6 +293,7 @@ if (BUILD_WITH_OPENMP)
         target_link_libraries(piqp_header_only_no_blasfeo_linked INTERFACE OpenMP::OpenMP_CXX)
     else ()
         message(STATUS "OpenMP NOT found.")
+        set(PIQP_WITH_OPENMP_TARGET OFF)
     endif ()
 endif ()
 
@@ -288,9 +303,10 @@ if (BUILD_WITH_TRACY)
     FetchContent_Declare(
         tracy
         URL https://github.com/wolfpld/tracy/archive/refs/tags/v0.12.2.zip
+        URL_HASH SHA256=226120487c293ef6911111fb2a78d60cb0dd6c3abddff5c14da053864c6b96c8
     )
-    set(TRACY_ENABLE ON)
-    set(TRACY_LTO ON)
+    set(TRACY_ENABLE ON CACHE BOOL "Enable Tracy profiling" FORCE)
+    set(TRACY_LTO ON CACHE BOOL "Enable Tracy link-time optimization" FORCE)
     FetchContent_GetProperties(tracy)
     if(NOT tracy_POPULATED)
         FetchContent_Populate(tracy)
@@ -315,7 +331,11 @@ if (BUILD_WITH_STD_OPTIONAL)
     target_compile_definitions(piqp_header_only_no_blasfeo_linked INTERFACE PIQP_STD_OPTIONAL)
 endif ()
 if (BUILD_WITH_STD_FILESYSTEM)
-    target_compile_definitions(piqp INTERFACE PIQP_STD_FILESYSTEM)
+    if (BUILD_WITH_TEMPLATE_INSTANTIATION)
+        target_compile_definitions(piqp PUBLIC PIQP_STD_FILESYSTEM)
+    else ()
+        target_compile_definitions(piqp INTERFACE PIQP_STD_FILESYSTEM)
+    endif ()
     target_compile_definitions(piqp_header_only_no_blasfeo_linked INTERFACE PIQP_STD_FILESYSTEM)
 endif ()
 

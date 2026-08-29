@@ -88,6 +88,7 @@ __all__ = (
     "AwsProductInsightsTypeDef",
     "AwsProductOptimizationTypeDef",
     "AwsProductsSpendInsightsBySourceTypeDef",
+    "AwsSoftwareRevenueTypeDef",
     "AwsSubmissionTypeDef",
     "AwsTeamMemberTypeDef",
     "ContactTypeDef",
@@ -367,6 +368,10 @@ class AwsTeamMemberTypeDef(TypedDict):
 class AwsProductOptimizationTypeDef(TypedDict):
     Description: str
     SavingsAmount: str
+
+class MonetaryValueTypeDef(TypedDict):
+    Amount: str
+    CurrencyCode: CurrencyCodeType
 
 class AwsSubmissionTypeDef(TypedDict):
     InvolvementType: SalesInvolvementTypeType
@@ -712,10 +717,6 @@ class MarketingTypeDef(TypedDict):
     Channels: NotRequired[Sequence[ChannelType]]
     AwsFundingUsed: NotRequired[AwsFundingUsedType]
 
-class MonetaryValueTypeDef(TypedDict):
-    Amount: str
-    CurrencyCode: CurrencyCodeType
-
 class SenderContactTypeDef(TypedDict):
     Email: str
     FirstName: NotRequired[str]
@@ -827,6 +828,18 @@ class AwsProductDetailsTypeDef(TypedDict):
     Amount: NotRequired[str]
     OptimizedAmount: NotRequired[str]
     PotentialSavingsAmount: NotRequired[str]
+
+class AwsSoftwareRevenueTypeDef(TypedDict):
+    Value: NotRequired[MonetaryValueTypeDef]
+    Discount: NotRequired[str]
+    EffectiveDate: NotRequired[str]
+    ExpirationDate: NotRequired[str]
+
+class SoftwareRevenueTypeDef(TypedDict):
+    DeliveryModel: NotRequired[RevenueModelType]
+    Value: NotRequired[MonetaryValueTypeDef]
+    EffectiveDate: NotRequired[str]
+    ExpirationDate: NotRequired[str]
 
 class CreateEngagementContextResponseTypeDef(TypedDict):
     EngagementId: str
@@ -1340,13 +1353,6 @@ class ListSolutionsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 MarketingUnionTypeDef = Union[MarketingTypeDef, MarketingOutputTypeDef]
-
-class SoftwareRevenueTypeDef(TypedDict):
-    DeliveryModel: NotRequired[RevenueModelType]
-    Value: NotRequired[MonetaryValueTypeDef]
-    EffectiveDate: NotRequired[str]
-    ExpirationDate: NotRequired[str]
-
 ProspectingResultCustomerUnionTypeDef = Union[
     ProspectingResultCustomerTypeDef, ProspectingResultCustomerOutputTypeDef
 ]
@@ -1636,6 +1642,7 @@ class AwsOpportunitySummaryFullViewTypeDef(TypedDict):
     Customer: NotRequired[AwsOpportunityCustomerTypeDef]
     Project: NotRequired[AwsOpportunityProjectTypeDef]
     CosellMotion: NotRequired[str]
+    SoftwareRevenue: NotRequired[AwsSoftwareRevenueTypeDef]
 
 class GetAwsOpportunitySummaryResponseTypeDef(TypedDict):
     RelatedOpportunityId: str
@@ -1650,6 +1657,7 @@ class GetAwsOpportunitySummaryResponseTypeDef(TypedDict):
     Customer: AwsOpportunityCustomerTypeDef
     Project: AwsOpportunityProjectTypeDef
     CosellMotion: str
+    SoftwareRevenue: AwsSoftwareRevenueTypeDef
     Catalog: str
     ResponseMetadata: ResponseMetadataTypeDef
 

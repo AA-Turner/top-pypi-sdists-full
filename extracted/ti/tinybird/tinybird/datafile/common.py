@@ -278,6 +278,12 @@ REQUIRED_DYNAMODB_PARAMS = {
 }
 DYNAMODB_PARAMS = REQUIRED_DYNAMODB_PARAMS
 
+REQUIRED_POSTGRES_PARAMS = {
+    "pg_connection_name",
+    "pg_table",
+}
+POSTGRES_PARAMS = REQUIRED_POSTGRES_PARAMS
+
 
 def extract_column_names_from_sorting_key_part(part: str) -> List[str]:
     """
@@ -602,6 +608,13 @@ class Datafile:
                     raise DatafileValidationError(
                         f"Invalid import schedule '{node['import_schedule']}'. Only {sorted(VALID_BLOB_STORAGE_CRON_VALUES)} values are allowed"
                     )
+            # Validate Postgres params
+            if any(param in node for param in POSTGRES_PARAMS) and (
+                missing := [param for param in REQUIRED_POSTGRES_PARAMS if param not in node]
+            ):
+                raise DatafileValidationError(
+                    f"Some Postgres params have been provided, but the following required ones are missing: {missing}"
+                )
 
         else:
             # We cannot validate a datafile whose kind is unknown
@@ -2068,6 +2081,8 @@ def parse(
             "import_query": assign_var("import_query"),  # Deprecated, BQ and SFK
             "import_table_arn": assign_var("import_table_arn"),  # Only for DynamoDB
             "import_export_bucket": assign_var("import_export_bucket"),  # For DynamoDB
+            "pg_connection_name": assign_var("pg_connection_name"),
+            "pg_table": assign_var("pg_table"),
             "shared_with": shared_with,
             "export_service": export_service,  # Deprecated
             "forward_query": forward_query,
@@ -2128,6 +2143,12 @@ def parse(
             "gcs_secret": assign_var("gcs_hmac_secret"),
             "gcs_hmac_access_id": assign_var("gcs_hmac_access_id"),
             "gcs_hmac_secret": assign_var("gcs_hmac_secret"),
+            "pg_host": assign_var("pg_host"),
+            "pg_port": assign_var("pg_port"),
+            "pg_database": assign_var("pg_database"),
+            "pg_user": assign_var("pg_user"),
+            "pg_password": assign_var("pg_password"),
+            "pg_ssl_mode": assign_var("pg_ssl_mode"),
             "include": include,
         },
     }

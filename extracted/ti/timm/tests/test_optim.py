@@ -635,6 +635,26 @@ def test_param_groups_layer_decay_with_min():
         assert group['lr_scale'] >= 0.5
 
 
+def test_registry_create_optimizer_layer_decay_default_min_scale():
+    # The registry create_optimizer must handle layer_decay when the min scale is left at its
+    # default: it used to default layer_decay_min_scale to None, which crashed in
+    # param_groups_layer_decay's max(min_scale, ...). create_optimizer_v2 passed 0.0 and was fine.
+    from timm.optim._optim_factory import default_registry
+
+    model = torch.nn.Sequential(
+        torch.nn.Linear(10, 5),
+        torch.nn.ReLU(),
+        torch.nn.Linear(5, 2),
+    )
+    optimizer = default_registry.create_optimizer(
+        model, 'adamw', lr=1e-3, weight_decay=0.05, layer_decay=0.75,
+    )
+    assert len(optimizer.param_groups) > 0
+    for group in optimizer.param_groups:
+        assert 'lr_scale' in group
+        assert 0.0 <= group['lr_scale'] <= 1.0
+
+
 def test_param_groups_layer_decay_with_matcher():
     class ModelWithMatcher(torch.nn.Module):
         def __init__(self):
@@ -761,3 +781,47 @@ def test_csgdw(optimizer):
         lambda params: create_optimizer_v2(params, optimizer, lr=5e-4)
     )
     _test_model(optimizer, dict(lr=5e-4))
+
+
+@pytest.mark.parametrize('shape', [(30, 20), (20, 30)])
+def test_adafactor_bv_factored_row_normalization(shape):
+    # AdafactorBigVision factorizes the second moment for 2D params, so the update must be
+    # transpose-equivariant: stepping W and W.T with transposed grads must give transposed updates.
+    # A wrong axis in the row-factor reduction silently collapsed row_factor to 1 (dropping the row
+    # normalization) for matrices whose larger dim comes first, breaking that invariance.
+    from timm.optim.adafactor_bv import AdafactorBigVision
+
+    generator = torch.Generator().manual_seed(0)
+    grad = torch.randn(shape, dtype=torch.double, generator=generator)
+
+    def one_step(g):
+        param = Parameter(torch.zeros(g.shape, dtype=torch.double))
+        opt = AdafactorBigVision([param], lr=1.0, momentum=None, eps=1e-30, weight_decay=0.0)
+        param.grad = g.clone()
+        opt.step()
+        return param.detach().clone()
+
+    param = one_step(grad)
+    param_t = one_step(grad.t().contiguous())
+    torch.testing.assert_close(param_t, param.t())
+
+
+def test_sgdw_multi_tensor_weight_decay_matches_single_tensor():
+    # The foreach path groups params by (device, dtype) and iterates the groups. Decoupled weight
+    # decay must be applied to each group's params, otherwise params spanning more than one partition
+    # (e.g. mixed dtypes) are decayed once per partition instead of once. Compare foreach against the
+    # single-tensor reference with two dtypes so there are two partitions.
+    from timm.optim.sgdw import SGDW
+
+    def run(foreach):
+        p32 = Parameter(torch.tensor([1.0, 2.0], dtype=torch.float32))
+        p64 = Parameter(torch.tensor([1.0, 2.0], dtype=torch.float64))
+        for p in (p32, p64):
+            p.grad = torch.ones_like(p)
+        SGDW([p32, p64], lr=0.1, momentum=0.0, weight_decay=0.5, foreach=foreach).step()
+        return p32.detach().clone(), p64.detach().clone()
+
+    multi32, multi64 = run(True)
+    single32, single64 = run(False)
+    torch.testing.assert_close(multi32, single32)
+    torch.testing.assert_close(multi64, single64)

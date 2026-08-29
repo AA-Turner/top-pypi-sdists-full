@@ -1,3 +1,10 @@
+from pycarlo.features.ingestion.bi import (
+    BI_RELATIONSHIP_TYPE_VALUES,
+    BiAsset,
+    BiAssetRef,
+    BiOwner,
+    build_bi_metadata_payload,
+)
 from pycarlo.features.ingestion.etl import (
     ASSET_REF_ASSET_TYPE_VALUES,
     ASSET_REF_ROLE_VALUES,
@@ -21,10 +28,14 @@ from pycarlo.features.ingestion.service import IngestionService
 __all__ = [
     "ASSET_REF_ASSET_TYPE_VALUES",
     "ASSET_REF_ROLE_VALUES",
+    "BI_RELATIONSHIP_TYPE_VALUES",
     "ETL_RUN_STATUS_VALUES",
     "ETL_RUN_TRIGGER_VALUES",
     "ETL_SCHEDULE_KIND_VALUES",
     "AssetRef",
+    "BiAsset",
+    "BiAssetRef",
+    "BiOwner",
     "EtlAsset",
     "EtlError",
     "EtlGroup",
@@ -34,6 +45,7 @@ __all__ = [
     "IngestionService",
     "Owner",
     "Schedule",
+    "build_bi_metadata_payload",
     "build_etl_metadata_payload",
     "build_etl_runs_payload",
 ]

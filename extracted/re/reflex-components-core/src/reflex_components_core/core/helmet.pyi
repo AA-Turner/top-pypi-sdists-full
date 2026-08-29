@@ -17,6 +17,7 @@ class Helmet(Component):
     def create(
         cls,
         *children,
+        defer: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -49,6 +50,7 @@ class Helmet(Component):
 
         Args:
             *children: The children of the component.
+            defer: Whether to batch client-side head updates via requestAnimationFrame.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

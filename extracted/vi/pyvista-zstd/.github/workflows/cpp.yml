@@ -1,0 +1,234 @@
+name: C++ Core
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: every job here only reads the repository.
+permissions:
+  contents: read
+
+env:
+  SHELLOPTS: "errexit:pipefail"
+
+jobs:
+  cmake:
+    name: CMake + parity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Configure
+        shell: bash
+        # Vendored zstd: another version emits different frames for the same input.
+        run: |
+          cmake -S cpp -B cpp/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPVZSTD_BUILD_SHARED=ON \
+            -DPVZSTD_BUILD_TOOLS=ON \
+            -DPVZSTD_ZSTD_PROVIDER=vendored
+
+      - name: Build
+        shell: bash
+        run: cmake --build cpp/build --config Release --parallel
+
+      - name: Locate the build artefacts
+        shell: bash
+        run: |
+          find_one() {
+            found=$(find cpp/build -name "$1" -type f | head -n 1)
+            if [ -z "$found" ]; then
+              echo "::error::did not find $1 in the build tree"
+              exit 1
+            fi
+            echo "$found"
+          }
+          case "${{ runner.os }}" in
+            Windows) libname=pvzstd.dll; suffix=.exe ;;
+            macOS)   libname=libpvzstd.dylib; suffix= ;;
+            *)       libname=libpvzstd.so; suffix= ;;
+          esac
+          {
+            echo "PVZSTD_LIBRARY=$(pwd)/$(find_one "$libname")"
+            echo "PVZSTD_DUMP=$(pwd)/$(find_one "pvzstd_dump$suffix")"
+            echo "PVZSTD_REWRITE=$(pwd)/$(find_one "pvzstd_rewrite$suffix")"
+            echo "PVZSTD_APPEND=$(pwd)/$(find_one "pvzstd_append$suffix")"
+            echo "PVZSTD_STREAM=$(pwd)/$(find_one "pvzstd_stream$suffix")"
+          } >> "$GITHUB_ENV"
+
+      - name: Install the package as pure Python
+        shell: bash
+        env:
+          PVZSTD_BUILD_CORE: "0"
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[tests]
+
+      - name: Confirm the tests will use the CMake build
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from pyvista_zstd import _capi
+
+          expected = os.environ["PVZSTD_LIBRARY"]
+          actual = _capi.library_path()
+          assert actual == expected, f"loaded {actual}, expected {expected}"
+          print(f"ABI {_capi.ABI_VERSION} from {actual}")
+          PY
+
+      - name: Conformance and parity
+        shell: bash
+        run: pytest tests -vv
+
+  wasm:
+    name: WebAssembly (${{ matrix.config }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # A browser consumer with SharedArrayBuffer and cross-origin
+          # isolation: pthreads stay on, so zstd keeps multithreaded mode and
+          # the writer can reproduce the reference writer's bytes at any
+          # worker count, including the one AUTO (-2) picks for it.
+          - config: threads
+            pvzstd_threads: "ON"
+            emcc_thread_flags: -DCMAKE_C_FLAGS=-pthread -DCMAKE_CXX_FLAGS=-pthread
+            emcc_linker_flags: -pthread -sPTHREAD_POOL_SIZE=4 -sALLOW_MEMORY_GROWTH=1 -sNODERAWFS=1 -sEXIT_RUNTIME=1
+            writer_threads: "-2"
+            writer_check_names: sphere bulk
+          # A single-threaded browser build: no SharedArrayBuffer, no
+          # cross-origin isolation, so no pthreads and PVZSTD_THREADS=OFF.
+          # Reads still match the host reader byte for byte. For writes,
+          # only "sphere" is checked here: it is well under the 2 MiB
+          # threshold where the reference writer's AUTO rule already resolves
+          # to 0 workers, so a 0-worker rewrite still reproduces its bytes.
+          # "bulk" sits at that threshold, so the reference used a non-zero
+          # worker count that this configuration cannot reproduce -- driving
+          # the writer with any non-zero count here returns PVZSTD_E_ZSTD by
+          # design, so "bulk" writer parity stays with the threaded lane.
+          - config: threads-off
+            pvzstd_threads: "OFF"
+            emcc_thread_flags: ""
+            emcc_linker_flags: -sALLOW_MEMORY_GROWTH=1 -sNODERAWFS=1 -sEXIT_RUNTIME=1
+            writer_threads: "0"
+            writer_check_names: sphere
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 4.0.20
+
+      - name: Build for the host
+        # Both arms take the pinned zstd: this job compares written bytes, and
+        # another zstd version emits different frames for the same input.
+        run: |
+          cmake -S cpp -B cpp/build-host \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPVZSTD_BUILD_TOOLS=ON \
+            -DPVZSTD_ZSTD_PROVIDER=vendored
+          cmake --build cpp/build-host --parallel
+
+      - name: Build for WebAssembly
+        # PVZSTD_THREADS and the pthread flags come from the matrix: the
+        # threaded lane needs -pthread or zstd loses multithreaded mode and
+        # the writer errors out; the threads-off lane needs neither.
+        run: |
+          emcmake cmake -S cpp -B cpp/build-wasm \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPVZSTD_BUILD_SHARED=OFF \
+            -DPVZSTD_BUILD_TOOLS=ON \
+            -DPVZSTD_ZSTD_PROVIDER=vendored \
+            -DPVZSTD_THREADS=${{ matrix.pvzstd_threads }} \
+            ${{ matrix.emcc_thread_flags }} \
+            -DCMAKE_EXE_LINKER_FLAGS="${{ matrix.emcc_linker_flags }}"
+          cmake --build cpp/build-wasm --parallel
+
+      - name: Write the containers to read back
+        run: |
+          python -m pip install --upgrade pip
+          PVZSTD_BUILD_CORE=0 pip install .[tests]
+          # Skip the build: the host build above already produced the core.
+          export PVZSTD_LIBRARY="$PWD/cpp/build-host/libpvzstd.so"
+          PYTHONPATH=tests/conformance python - <<'PY'
+          import numpy as np
+          import pyvista as pv
+          import ref_reader
+
+          import pyvista_zstd as pz
+
+          rng = np.random.default_rng(7)
+          sphere = pv.Sphere(theta_resolution=24, phi_resolution=24)
+          sphere.point_data["scal_f64"] = rng.random(sphere.n_points)
+          sphere.point_data["vec_f32"] = rng.random((sphere.n_points, 3)).astype(np.float32)
+          sphere.cell_data["ids_i64"] = np.arange(sphere.n_cells, dtype=np.int64)
+
+          # 2 MiB, above the threshold where threaded and unthreaded output differ.
+          bulk = pv.ImageData(dimensions=(64, 64, 64))
+          bulk.point_data["bulk_f64"] = np.random.default_rng(21).random(bulk.n_points)
+
+          for name, ds in (("sphere", sphere), ("bulk", bulk)):
+              path = f"{name}.pv"
+              pz.write(ds, path, shuffle=True, progress_bar=False)
+              container = ref_reader.read(path)
+              with open(f"{name}.args", "w") as fh:
+                  fh.write(
+                      "%s %s %s\n"
+                      % (
+                          container.file_metadata["compression_level"],
+                          "1" if container.ds_metadata.get("fixed_cell_sizes") else "0",
+                          container.file_metadata["frame_names"][0][:16],
+                      )
+                  )
+          PY
+
+      - name: The WASM reader must agree with the host reader, byte for byte
+        # The dump checksums every payload, so matching dumps mean matching bytes.
+        run: |
+          for name in sphere bulk; do
+            ./cpp/build-host/pvzstd_dump "$name.pv" > "$name.host.txt"
+            node cpp/build-wasm/pvzstd_dump.js "$name.pv" > "$name.wasm.txt"
+            diff "$name.host.txt" "$name.wasm.txt"
+          done
+
+      - name: The WASM writer must reproduce the reference writer's bytes
+        # Threaded: -2 is PVZSTD_THREADS_AUTO, exercising the reference's
+        # worker-count rule for both datasets. Threads-off: an explicit 0,
+        # valid only for "sphere" -- see the matrix comment above.
+        run: |
+          for name in ${{ matrix.writer_check_names }}; do
+            read -r level fixed uid < "$name.args"
+            node cpp/build-wasm/pvzstd_rewrite.js \
+              "$name.pv" "$name.wasm.pv" "$level" ${{ matrix.writer_threads }} 1 "$fixed" "$uid"
+            cmp "$name.pv" "$name.wasm.pv"
+          done

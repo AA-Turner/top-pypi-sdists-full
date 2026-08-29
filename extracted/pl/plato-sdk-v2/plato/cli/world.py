@@ -55,9 +55,28 @@ def _get_module_name(pkg_path: Path, package_name: str) -> str:
     return package_name.replace("-", "_")
 
 
-def _prefetch_world_image(image_url: str, world_name: str) -> None:
-    """Start a VM to prefetch and cache the world rootfs image."""
-    console.print("[cyan]Starting VM to prefetch image...[/cyan]")
+# Cold-image boot = docker pull + rootfs conversion + snapshot-store ingest,
+# which is the 10+ minute path this prefetch exists to absorb, so the client
+# polls wait_for_ready for up to 30 minutes (a timeout here blocks promotion
+# to :latest). The VM lifetime sent in the /make body must cover that same
+# window: the backend stamps job_start_time when the job is matched to a VM
+# slot — before the rootfs build — and the VM agent force-shuts the VM once
+# job_max_timeout elapses (plato: node_provider match callback +
+# vm_lifecycle.check_job_timeout), so a short lifetime would kill a slow
+# ingest mid-flight. The VM is closed the moment it is ready and the worker
+# heartbeat timeout (300s) reaps it if this CLI dies, so the long lifetime
+# never actually keeps a VM alive.
+_PREFETCH_TIMEOUT_S = 1800
+
+
+def _prefetch_world_image(image_url: str, world_name: str) -> bool:
+    """Boot one throwaway VM from ``image_url`` so its rootfs lands in the snapshot store.
+
+    Returns True only if the VM actually came up. This is the gate for promoting
+    the image to ``:latest``: a digest that has never booted must not become the
+    tag every launch resolves.
+    """
+    console.print(f"[cyan]Starting VM to prefetch {image_url}...[/cyan]")
 
     try:
         from plato.v2 import Env, Plato
@@ -73,14 +92,59 @@ def _prefetch_world_image(image_url: str, world_name: str) -> None:
         )
         session = plato.sessions.create(
             envs=[env],
-            timeout=600,
+            timeout=_PREFETCH_TIMEOUT_S,
+            ready_timeout=_PREFETCH_TIMEOUT_S,
             connect_network=False,
         )
         console.print("[green]Prefetch complete - rootfs cached[/green]")
         session.close()
         plato.close()
+        return True
     except Exception as e:
-        console.print(f"[yellow]Prefetch failed (non-fatal): {e}[/yellow]")
+        console.print(f"[red]Prefetch failed: {e}[/red]")
+        return False
+
+
+def _retag_world_image(
+    package_name: str, repository: str, source_tag: str, target_tag: str, api_key: str | None
+) -> bool:
+    """Copy ``source_tag`` -> ``target_tag`` in the world's ECR repo (manifest copy, same digest).
+
+    Prefers the Chronos retag endpoint (server-side creds); falls back to local
+    AWS credentials so an author without the endpoint deployed isn't stranded.
+    """
+    retagged = False
+    if api_key is not None:
+        retagged, retag_err = retag_image_via_chronos(
+            get_chronos_settings().chronos_url, package_name, source_tag, target_tag, api_key
+        )
+        if not retagged:
+            # TODO: remove this local-AWS fallback once the Chronos retag
+            # endpoint (POST /api/worlds/{package_name}/retag-image) is
+            # deployed everywhere.
+            console.print(
+                f"[dim]Chronos retag :{source_tag} -> :{target_tag} failed ({retag_err}); trying local AWS[/dim]"
+            )
+    if not retagged:
+        retagged = retag_image(repository, source_tag, target_tag)
+    return retagged
+
+
+def _retag_source_tags(previous_version: str, version: str) -> list[str]:
+    """Image tags a --skip-docker publish tries, in order, as the source for :<version>.
+
+    The version being bumped from comes first: it is the last thing this
+    checkout published, so a ``--dev --no-skip-docker`` rebuild (which never
+    moves :latest) chains forward into the python-only dev publishes that
+    follow it, and a fresh checkout starts from its release tag. :latest is the
+    fallback — it is also the only candidate when the version was bumped
+    externally (CI's version-bump.sh) so previous == new.
+    """
+    tags = []
+    if previous_version and previous_version != version:
+        tags.append(previous_version)
+    tags.append("latest")
+    return tags
 
 
 def _update_config_package_version(
@@ -153,12 +217,14 @@ def world_publish(
     skip_docker: bool = typer.Option(
         False,
         "--skip-docker",
-        help="Skip Docker build; retag the current :latest image with the new version tag instead",
+        help="Skip Docker build; retag the image of the version being bumped from (falling back to :latest) "
+        "as the new version tag instead",
     ),
     no_skip_docker: bool = typer.Option(
         False,
         "--no-skip-docker",
-        help="Force Docker rebuild even with --dev (overrides the default skip behavior)",
+        help="Force Docker rebuild even with --dev (overrides the default skip behavior). "
+        "A dev rebuild pushes and prefetches :<version> only; :latest moves only on a release publish",
     ),
     update_config: list[str] = typer.Option(
         None,
@@ -239,6 +305,7 @@ def world_publish(
         console.print("[red]Error: No version in pyproject.toml[/red]")
         raise typer.Exit(1)
 
+    previous_version = version
     version = maybe_bump_package_version(
         pyproject_file,
         version,
@@ -403,29 +470,33 @@ def world_publish(
         repository = f"vm/rootfs/plato-worlds/{short_name}"
         latest_image = f"{ECR_REGISTRY}/{repository}:latest"
 
+        version_image = f"{ECR_REGISTRY}/{repository}:{version}"
+
+        # A dev rebuild never moves :latest — it is prod's tag and a laptop
+        # iteration has no business moving it. The dev image is launchable
+        # by its pinned version (schema.json bakes :<version>), and the next
+        # --dev --skip-docker publish chains from it via _retag_source_tags.
+        promote_latest = not dev
+
         if dry_run:
-            ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
             console.print("[yellow]Dry run - would build and push Docker image:[/yellow]")
-            console.print(f"  {ecr_image}")
-            console.print(f"  {latest_image}")
-        elif skip_docker:
-            console.print("[cyan]Retagging existing :latest image...[/cyan]")
-            assert api_key is not None
-            retagged, retag_err = retag_image_via_chronos(
-                get_chronos_settings().chronos_url, package_name, "latest", version, api_key
-            )
-            if not retagged:
-                # TODO: remove this local-AWS fallback once the Chronos retag
-                # endpoint (POST /api/worlds/{package_name}/retag-image) is
-                # deployed everywhere.
-                console.print(f"[yellow]Chronos retag failed:[/yellow] {retag_err}")
-                console.print("[dim]Falling back to local AWS credentials...[/dim]")
-                retagged = retag_image(repository, "latest", version)
-            if retagged:
-                ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
-                console.print(f"[green]Retagged:[/green] {ecr_image}")
+            console.print(f"  {version_image}")
+            if promote_latest:
+                console.print(f"  then prefetch it and promote it to {latest_image}")
             else:
-                console.print("[red]Failed to retag image. Is there an existing :latest?[/red]")
+                console.print("  then prefetch it (dev publish: :latest is not moved)")
+        elif skip_docker:
+            assert api_key is not None
+            source_tags = _retag_source_tags(previous_version, version)
+            for source_tag in source_tags:
+                console.print(f"[cyan]Retagging :{source_tag} as :{version}...[/cyan]")
+                if _retag_world_image(package_name, repository, source_tag, version, api_key):
+                    console.print(f"[green]Retagged:[/green] {version_image} (from :{source_tag})")
+                    break
+            else:
+                console.print(
+                    f"[red]Failed to retag image from any of {source_tags}. Is there an existing :latest?[/red]"
+                )
                 raise typer.Exit(1)
         else:
             # Check Docker is available
@@ -433,8 +504,8 @@ def world_publish(
                 console.print("[red]Error: docker not found[/red]")
                 raise typer.Exit(1)
 
-            # Get current :latest digest before pushing (to detect changes)
-            old_digest = get_image_digest(repository, "latest")
+            # Current :latest digest, to detect a no-op rebuild below.
+            old_latest_digest = get_image_digest(repository, "latest")
 
             wait_for_pypi_version(package_name, version, repo="worlds", api_key=api_key)
             console.print("[cyan]Building and pushing Docker image...[/cyan]")
@@ -450,16 +521,42 @@ def world_publish(
                 raise typer.Exit(1)
 
             console.print(f"[green]Published:[/green] {result.ecr_image}")
-            console.print(f"[green]Published:[/green] {result.latest_image}")
 
-            # Prefetch if the Docker image digest changed
-            new_digest = get_image_digest(repository, "latest")
-            if new_digest != old_digest:
-                console.print()
-                console.print("[bold]Prefetching image (digest changed)...[/bold]")
-                _prefetch_world_image(latest_image, short_name)
+            # Promotion is ordered push :<version> -> prefetch :<version> ->
+            # retag :<version> as :latest. :latest only ever moves to a digest
+            # that has already booted on a node and seeded the snapshot store;
+            # a retag is a manifest copy, so the promoted tag is warm the
+            # instant it flips. Anything that resolves :latest (launches, the
+            # next --skip-docker retag) never pays the 10+ minute cold-ingest path.
+            new_digest = get_image_digest(repository, version)
+            if new_digest is not None and new_digest == old_latest_digest:
+                console.print(
+                    "\n[dim]Docker image digest unchanged - :latest already points at it, skipping prefetch[/dim]"
+                )
             else:
-                console.print("\n[dim]Docker image digest unchanged - skipping prefetch[/dim]")
+                console.print()
+                console.print("[bold]Prefetching image...[/bold]")
+                if not _prefetch_world_image(version_image, short_name):
+                    console.print(
+                        f"[red]Prefetch failed: {version_image} is pushed but has not booted"
+                        + (" and :latest was NOT moved" if promote_latest else "")
+                        + ". Fix the boot failure and re-run the publish.[/red]"
+                    )
+                    raise typer.Exit(1)
+                if promote_latest:
+                    console.print("[cyan]Promoting to :latest...[/cyan]")
+                    if not _retag_world_image(package_name, repository, version, "latest", api_key):
+                        console.print(
+                            f"[red]Failed to promote {version_image} to :latest (prefetch succeeded; "
+                            ":latest was NOT moved). Re-run the publish.[/red]"
+                        )
+                        raise typer.Exit(1)
+                    console.print(f"[green]Promoted:[/green] {latest_image}")
+                else:
+                    console.print(
+                        f"[dim]Dev publish - :latest not moved. Launch by pinned version {package_name}:{version}; "
+                        "later --dev publishes retag from it.[/dim]"
+                    )
     else:
         console.print("\n[dim]No Dockerfile found - skipping Docker image build[/dim]")
 

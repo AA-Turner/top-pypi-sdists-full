@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import hashlib
 import io
-import json
 import re
 import sys
 import tarfile
@@ -20,7 +19,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from packaging.utils import canonicalize_name, parse_sdist_filename
+from packaging.utils import canonicalize_name
 from packaging.version import Version
 
 from nab_provider.errors import (
@@ -29,13 +28,21 @@ from nab_provider.errors import (
     SdistHashMismatchError,
     WheelHashMismatchError,
 )
-from nab_provider.records import ACCEPTED_HASH_ALGORITHMS, SdistFile, WheelFile
+from nab_provider.records import (
+    ACCEPTED_HASH_ALGORITHMS,
+    SdistFile,
+    WheelFile,
+    defer_hashes,
+    defer_sidecar_hash,
+)
 from nab_provider.serialization import SimpleSerialization, simple_accept_header
 
+from ._json_decode import decode_json
 from ._pep503 import json_listing
 from .transport import IDENTITY_HEADERS, raise_unless_ok
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from packaging.utils import NormalizedName
@@ -57,6 +64,8 @@ __all__ = [
     "holds_unreadable_format",
     "is_readable_filename",
     "verify_sdist_hash",
+    "zip_sdist_version",
+    "zip_sdist_versions",
 ]
 
 # One decoded PEP 691 ``files`` entry.  Neither its keys nor its values
@@ -78,6 +87,10 @@ _WHEEL_NAME_RE = re.compile(r"^[\w._]+\Z", re.UNICODE)
 # A wheel filename has 4 dashes, or 5 when it carries a build tag.
 _WHEEL_DASHES = (4, 5)
 _WHEEL_DASHES_WITH_BUILD = 5
+
+# The pre-PEP 714 spelling.  PEP 714 blesses no ``data-`` prefixed key for JSON,
+# so that spelling is never read.
+_LEGACY_METADATA_KEY = "dist-info-metadata"
 
 
 @lru_cache(maxsize=65536)
@@ -109,28 +122,28 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
     """Parse a wheel filename per PEP 427.
 
     Returns ``(canonical_name, version_string)`` or ``None`` for any
-    filename packaging rejects (wrong extension, malformed, etc.) and
-    for a version digit run past CPython's int-from-string limit.
-    Never raises.
+    filename packaging rejects (wrong extension, malformed, etc.), for a
+    version digit run past CPython's int-from-string limit, and for a
+    filename holding a NUL or with no UTF-8 form.  Never raises.
     The version string is the canonical form produced by
     :class:`packaging.version.Version`, so trailing-zero handling
     matches what packaging records on the file; e.g. a wheel
     declaring ``2.0.0`` in its filename comes back as ``"2.0.0"``,
     not ``"2"``.
 
-    This accepts what nab-provider's vendored ``parse_wheel_filename`` accepts,
-    but discards the ``frozenset[Tag]`` the tag parser builds and nab does not
-    use. The vendored copy is the one to match, not the released ``packaging``
-    this package depends on, because the vendored tag parser ranks whatever is
-    admitted here; the two can differ on an empty project name, which releases
-    before 26.3 accept.
+    Those rejections aside, this accepts what nab-provider's vendored
+    ``parse_wheel_filename`` accepts, but discards the ``frozenset[Tag]`` the
+    tag parser builds and nab does not use. The vendored copy is the one to
+    match, not the released ``packaging`` this package depends on, because the
+    vendored tag parser ranks whatever is admitted here; the two can differ on
+    an empty project name, which releases before 26.3 accept.
 
     A build tag past that same digit limit is admitted rather than rejected:
     ``parse_wheel_filename`` raises ``ValueError`` out of ``int()`` on one, but
     nab reads a build tag only to sort by it and sorts an unconvertible run
     lowest.
     """
-    if not filename.endswith(".whl"):
+    if not filename.endswith(".whl") or "\x00" in filename:
         return None
 
     stem = filename[:-4]
@@ -144,9 +157,12 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
         return None
 
     try:
+        # Encode only to reject a string with no UTF-8 form.
+        filename.encode()
         version = _canonical_version(parts[1])
     except ValueError:
-        # InvalidVersion, or int() refusing a digit run past CPython's limit.
+        # UnicodeEncodeError, InvalidVersion, or int() refusing a digit run
+        # past CPython's limit.
         return None
 
     bad_build = (
@@ -164,33 +180,118 @@ def _parse_wheel_filename(filename: str) -> tuple[NormalizedName, str] | None:
 def _parse_sdist_filename(filename: str) -> tuple[NormalizedName, str] | None:
     """Parse a ``.tar.gz`` sdist filename to ``(canonical_name, version)``.
 
-    Returns ``None`` for anything packaging rejects, for a version digit
-    run past CPython's int-from-string limit, and for ``.zip`` sdists,
-    which nab does not support (gzip-tar only, and not part of the PEP 625
-    standard).  Never raises.
+    Accepts what nab-provider's vendored ``parse_sdist_filename`` accepts,
+    except ``.zip`` sdists, which nab does not support (gzip-tar only, and
+    not part of the PEP 625 standard), and filenames holding a NUL or with no
+    UTF-8 form.  Returns ``None`` for everything else, including a version digit
+    run past CPython's int-from-string limit, and never raises.  The vendored
+    copy is the one to match, not the released ``packaging`` this package
+    depends on; the two can differ on an empty project name, which releases
+    before 26.3 accept.
 
     Legacy filenames with embedded build tags (e.g. ``cffi-1.0.2-2.tar.gz``)
     parse to a surprising ``(name="cffi-1-0-2", version="2")``, so callers
     MUST drop files whose canonical name does not match the queried
     package.  See :func:`_parse_files`.
     """
-    if filename.endswith(".zip"):
+    if not filename.endswith(".tar.gz") or "\x00" in filename:
+        return None
+
+    stem = filename[: -len(".tar.gz")]
+    name_part, sep, version_part = stem.rpartition("-")
+    if not sep or not name_part:
         return None
 
     try:
-        name, version = parse_sdist_filename(filename)
+        # Encode only to reject a string with no UTF-8 form.
+        filename.encode()
+        version = _canonical_version(version_part)
     except ValueError:
-        # InvalidSdistFilename, or int() refusing a digit run past CPython's limit.
+        # UnicodeEncodeError, InvalidVersion, or int() refusing a digit run
+        # past CPython's limit.
         return None
-    return (name, str(version))
+
+    return (_intern_name(name_part), version)
+
+
+def zip_sdist_version(filename: str, canonical: str) -> str | None:
+    """Return the version when ``filename`` is ``canonical``'s ``.zip`` sdist.
+
+    nab reads gzip-tar sdists only, so a ``.zip`` never becomes a file
+    record and nothing else names the release it belongs to.  ``canonical``
+    is the queried package's already-canonicalized name.
+
+    Returns the canonical version string, and ``None`` for any other suffix,
+    a stem carrying no version, a version that will not parse (including a
+    digit run past CPython's int-from-string limit), and a file belonging to
+    another project.  Never raises.
+    """
+    if not filename.endswith(".zip"):
+        return None
+
+    stem = filename[: -len(".zip")]
+    name_part, sep, version_part = stem.rpartition("-")
+    if not sep or not name_part:
+        return None
+
+    try:
+        version = _canonical_version(version_part)
+    except ValueError:
+        # InvalidVersion, or int() refusing a digit run past CPython's limit.
+        return None
+
+    return version if _intern_name(name_part) == canonical else None
+
+
+def _listed_filenames(data: object) -> Iterator[str]:
+    """Yield the unyanked filenames a Simple-API body offers.
+
+    A body that is not a list of file entries yields nothing.
+    """
+    if not isinstance(data, dict):
+        return
+    raw_files = data.get("files")
+    if not isinstance(raw_files, list):
+        return
+
+    for file_info in raw_files:
+        if not isinstance(file_info, dict) or file_info.get("yanked"):
+            continue
+        filename = file_info.get("filename")
+        if isinstance(filename, str):
+            yield filename
 
 
 def holds_unreadable_format(data: object) -> bool:
     """Whether a Simple-API body offers a file nab cannot read.
 
     nab reads wheels and ``.tar.gz`` sdists, so a page of ``.zip`` sdists
-    or ``.exe`` installers parses to no files at all.  A body that is not
-    a list of file entries answers ``False``.
+    or ``.exe`` installers parses to no files at all.
+    """
+    return any(
+        not is_readable_filename(filename) for filename in _listed_filenames(data)
+    )
+
+
+def zip_sdist_versions(data: object, package: str) -> frozenset[str]:
+    """Versions of ``package`` a Simple-API body offers as ``.zip`` sdists.
+
+    :func:`_parse_files` drops a ``.zip``, so these releases reach a caller
+    only through this set.
+    """
+    canonical = canonicalize_name(package)
+    return frozenset(
+        version
+        for filename in _listed_filenames(data)
+        if (version := zip_sdist_version(filename, canonical)) is not None
+    )
+
+
+def holds_only_yanked(data: object) -> bool:
+    """Whether a Simple-API body served file entries and yanked every one.
+
+    :pep:`592` yanks are never admitted, so such a page parses to no files
+    and would otherwise read as a package no configured index carries.
     """
     if not isinstance(data, dict):
         return False
@@ -198,17 +299,12 @@ def holds_unreadable_format(data: object) -> bool:
     if not isinstance(raw_files, list):
         return False
 
-    for file_info in raw_files:
-        if not isinstance(file_info, dict) or file_info.get("yanked"):
-            continue
-        filename = file_info.get("filename")
-        if isinstance(filename, str) and not is_readable_filename(filename):
-            return True
-    return False
+    entries = [entry for entry in raw_files if isinstance(entry, dict)]
+    return bool(entries) and all(entry.get("yanked") for entry in entries)
 
 
 def is_readable_filename(filename: str) -> bool:
-    """Whether ``filename`` names a wheel or a ``.tar.gz`` sdist."""
+    """Whether ``filename`` names a wheel or ``.tar.gz`` sdist that nab can use."""
     return (
         _parse_wheel_filename(filename) is not None
         or _parse_sdist_filename(filename) is not None
@@ -220,8 +316,22 @@ _HTTP_NOT_FOUND = 404
 DEFAULT_INDEX = "https://pypi.org/simple/"
 
 
+# RFC 9112 5.2: a receiver replaces a line fold with a space before reading the
+# field value. h11 does it for httpx; http.client, which urllib3 uses, does not.
+_OBS_FOLD = re.compile(r"[\r\n]+[ \t]+")
+
+
+# RFC 9110 5.3: repeated field lines combine into one comma-separated value only
+# where the field is defined as a list. Cache-Control is the only such field read
+# here.
+_LIST_VALUED_FIELDS = frozenset({"cache-control"})
+
+
 def _header(response: HttpResponse, key: str) -> str | None:
-    """Case-insensitive header lookup.
+    """Case-insensitive header lookup, returning an unfolded field value.
+
+    Repeated lines of a list-valued field are joined in order; for any other
+    field the first line is the value.
 
     The :class:`HttpResponse` Protocol only promises a plain
     :class:`Mapping`. Both real transports (httpx, urllib3) return
@@ -230,10 +340,12 @@ def _header(response: HttpResponse, key: str) -> str | None:
     """
     headers = response.headers
     target = key.lower()
-    for name, value in headers.items():
-        if name.lower() == target:
-            return value
-    return None
+    lines = [value for name, value in headers.items() if name.lower() == target]
+    if not lines:
+        return None
+
+    value = ", ".join(lines) if target in _LIST_VALUED_FIELDS else lines[0]
+    return _OBS_FOLD.sub(" ", value)
 
 
 def _is_html_listing(content_type: str | None) -> bool:
@@ -341,7 +453,7 @@ class AsyncSimpleClient:
     async def get_files(self, package: str) -> list[WheelFile | SdistFile]:
         """Fetch all distribution files for a package.
 
-        A body ``json.loads`` rejects becomes a
+        A body that will not decode becomes a
         :class:`MalformedSimpleResponseError`, not a raw decode error.
         """
         url = f"{self._index_url}{package}/"
@@ -355,11 +467,11 @@ class AsyncSimpleClient:
         )
 
         try:
-            data = json.loads(body)
+            data = decode_json(body)
         except ValueError as exc:
             msg = (
                 f"{self._index_url} served a malformed Simple-API response for "
-                f"{package!r}: body is not valid JSON"
+                f"{package!r}: body is {exc}"
             )
             raise MalformedSimpleResponseError(msg) from exc
         return _parse_files(data, self._index_url, package, page_url=response.url)
@@ -385,11 +497,10 @@ def _parse_files(
     ``package`` is the package the index was queried for; files whose
     parsed canonical name does not match are dropped.  PyPI hosts a
     handful of legacy sdists with embedded build tags
-    (``cffi-1.0.2-2.tar.gz`` and similar) that
-    :func:`packaging.utils.parse_sdist_filename` interprets as a
-    different project (``cffi-1-0-2`` at version ``2``).  Without the
-    name check those leak into the listing as a phantom version, and
-    show up in the resolved lockfile as ``cffi==2``.
+    (``cffi-1.0.2-2.tar.gz`` and similar) that :func:`_parse_sdist_filename`
+    interprets as a different project (``cffi-1-0-2`` at version ``2``).
+    Without the name check those leak into the listing as a phantom
+    version, and show up in the resolved lockfile as ``cffi==2``.
 
     ``page_url`` is the URL the project page was retrieved from, the base a
     relative entry resolves against. ``None`` falls back to the page URL
@@ -440,6 +551,31 @@ def _parse_files(
     return files
 
 
+def _normalized_url(url: str) -> str:
+    """Return ``urlunsplit(urlsplit(url))``, skipping a rebuild that returns ``url``.
+
+    The parse still runs on every URL, so a malformed authority raises the
+    same ``ValueError`` as the round trip.  A nonempty netloc reassembles
+    as ``[scheme:]//netloc`` plus the remaining parts; when those parts and
+    their separators add back up to ``len(url)``, the parse stripped no
+    character and dropped no empty ``?``/``#`` marker, leaving an
+    upper-cased scheme as the one length-preserving rewrite to rule out.
+    """
+    parts = urlsplit(url)
+    scheme, netloc, path, query, fragment = parts
+    if netloc:
+        rebuilt_len = len(scheme) + len(netloc) + len(path) + 2
+        if scheme:
+            rebuilt_len += 1
+        if query:
+            rebuilt_len += 1 + len(query)
+        if fragment:
+            rebuilt_len += 1 + len(fragment)
+        if rebuilt_len == len(url) and url.startswith(scheme):
+            return url
+    return urlunsplit(parts)
+
+
 def _resolve_file_url(raw_url: str, base_url: str) -> str | None:
     """Return the entry's absolute URL, or None when it is not usable.
 
@@ -460,7 +596,7 @@ def _resolve_file_url(raw_url: str, base_url: str) -> str | None:
             if raw_url.startswith(("https://", "http://"))
             else urljoin(base_url, raw_url)
         )
-        file_url = urlunsplit(urlsplit(absolute))
+        file_url = _normalized_url(absolute)
 
         # Encode only to reject a string with no UTF-8 form.
         file_url.encode()
@@ -489,8 +625,16 @@ def _parse_file_entry(
     if file_url is None:
         return None
 
-    hashes = _parse_hashes(file_info.get("hashes"))
-    size = _parse_size(file_info.get("size"))
+    # bool is an int subclass, so reject it explicitly rather than read True as 1.
+    raw_size = file_info.get("size")
+    size = (
+        raw_size
+        if isinstance(raw_size, int)
+        and not isinstance(raw_size, bool)
+        and raw_size >= 0
+        else None
+    )
+
     # ``requires-python`` has only a few dozen distinct values across
     # all of PyPI (``>=3.7``, ``>=3.8`` etc.) but appears once per
     # wheel.  Interning collapses the duplicates into one shared
@@ -509,22 +653,33 @@ def _parse_file_entry(
     upload_time_raw = file_info.get("upload-time")
     upload_time = upload_time_raw if isinstance(upload_time_raw, str) else None
 
+    raw_hashes = file_info.get("hashes")
+
     wheel_parsed = _parse_wheel_filename(filename)
     if wheel_parsed is not None:
         parsed_name, version = wheel_parsed
         if parsed_name != expected:
             return None
-        return WheelFile(
+        # PEP 714: ``core-metadata`` wins when present, so ``false`` there
+        # means no sidecar even if a stale legacy entry lingers.  Its value is
+        # ``true`` or the digest table, and both promise ``<file>.metadata``.
+        sidecar = (
+            file_info["core-metadata"]
+            if "core-metadata" in file_info
+            else file_info.get(_LEGACY_METADATA_KEY)
+        )
+        wheel = WheelFile(
             filename=filename,
             url=file_url,
             version=version,
             requires_python=requires_python,
-            has_metadata=_has_metadata(file_info),
+            has_metadata=sidecar is True or isinstance(sidecar, dict),
             upload_time=upload_time,
-            hashes=hashes,
             size=size,
-            metadata_hash=_metadata_hash(file_info),
         )
+        defer_hashes(wheel, raw_hashes)
+        defer_sidecar_hash(wheel, sidecar)
+        return wheel
 
     sdist_parsed = _parse_sdist_filename(filename)
     if sdist_parsed is None:
@@ -532,93 +687,16 @@ def _parse_file_entry(
     parsed_name, version = sdist_parsed
     if parsed_name != expected:
         return None
-    return SdistFile(
+    sdist = SdistFile(
         filename=filename,
         url=file_url,
         version=version,
         requires_python=requires_python,
         upload_time=upload_time,
-        hashes=hashes,
         size=size,
     )
-
-
-def _parse_hashes(value: object) -> tuple[tuple[str, str], ...]:
-    # Algo names are a tiny fixed vocabulary, so interning dedups them.
-    # Both halves are lowercased: PEP 503/691 don't mandate a case, pip
-    # treats them case-insensitively, and the acceptable-algorithm filter
-    # and hashlib.hexdigest() both expect the lowercase form.
-    # An empty digest carries no integrity claim and can never match a real
-    # file, so it is dropped rather than recorded and later failed against.
-    if not isinstance(value, dict):
-        return ()
-
-    # The common case is a single hash; skip the list build.
-    if len(value) == 1:
-        ((algo, digest),) = value.items()
-        if isinstance(algo, str) and isinstance(digest, str) and digest:
-            return ((sys.intern(algo.lower()), digest.lower()),)
-        return ()
-
-    out: list[tuple[str, str]] = []
-    for algo, digest in value.items():
-        if isinstance(algo, str) and isinstance(digest, str) and digest:
-            out.append((sys.intern(algo.lower()), digest.lower()))
-
-    return tuple(out)
-
-
-def _parse_size(value: object) -> int | None:
-    # bool is an int subclass, so reject it explicitly rather than read True as 1.
-    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-        return value
-    return None
-
-
-_LEGACY_METADATA_KEY = "dist-info-metadata"
-
-
-def _metadata_value(file_info: _FileEntry) -> object:
-    """Return the metadata field, applying PEP 714 key precedence.
-
-    When ``core-metadata`` is present it wins and the legacy
-    ``dist-info-metadata`` key is ignored, so ``core-metadata: false``
-    means no sidecar even if a stale legacy entry lingers.  The legacy key
-    applies only when ``core-metadata`` is absent.  ``data-dist-info-metadata``
-    is the HTML attribute name and never appears in the JSON response.
-    """
-    if "core-metadata" in file_info:
-        return file_info.get("core-metadata")
-    return file_info.get(_LEGACY_METADATA_KEY)
-
-
-def _has_metadata(file_info: _FileEntry) -> bool:
-    """Return True when the file entry advertises a PEP 658/714 sidecar.
-
-    PEP 691 allows either a ``true`` boolean (sidecar exists but no
-    hashes published) or a mapping carrying the digest table.  Either
-    flavour means the index will serve ``<file>.metadata``.
-    """
-    value = _metadata_value(file_info)
-    return value is True or isinstance(value, dict)
-
-
-def _metadata_hash(file_info: _FileEntry) -> tuple[str, str] | None:
-    """Return the sidecar's published ``(algo, hex)`` to verify, or None.
-
-    A bare ``true`` (sidecar exists, no hash), an empty digest, or a table with
-    no accepted algorithm yields None, so no check runs.
-    """
-    value = _metadata_value(file_info)
-    if not isinstance(value, dict):
-        return None
-
-    published = tuple(
-        (algo, digest)
-        for algo, digest in value.items()
-        if isinstance(algo, str) and isinstance(digest, str)
-    )
-    return _select_artifact_hash(published)
+    defer_hashes(sdist, raw_hashes)
+    return sdist
 
 
 def _verify_metadata_hash(content: bytes, metadata_hash: tuple[str, str]) -> None:
@@ -628,23 +706,6 @@ def _verify_metadata_hash(content: bytes, metadata_hash: tuple[str, str]) -> Non
     if actual != expected:
         msg = f"metadata {algo} mismatch: expected {expected}, got {actual}"
         raise MetadataHashMismatchError(msg)
-
-
-def _select_artifact_hash(
-    hashes: tuple[tuple[str, str], ...],
-) -> tuple[str, str] | None:
-    """Pick the preferred ``(algo, hex)`` to verify, or ``None`` if none qualify.
-
-    Walks :data:`ACCEPTED_HASH_ALGORITHMS` in order, so sha256 is preferred,
-    then sha384, then sha512. An empty set, an empty digest, or only unaccepted
-    algorithms (md5) yields ``None``.
-    """
-    by_algo = {algo.lower(): digest.lower() for algo, digest in hashes}
-    for algo in ACCEPTED_HASH_ALGORITHMS:
-        digest = by_algo.get(algo)
-        if digest:
-            return (algo, digest)
-    return None
 
 
 def verify_sdist_hash(content: bytes, sdist_hash: tuple[str, str]) -> None:
@@ -668,12 +729,28 @@ def _extract_sdist_files(data: bytes) -> tuple[str | None, str | None]:
 
     .zip sdists are intentionally unsupported.
     """
+    files = _extract_sdist_files_if_readable(data)
+    return (None, None) if files is None else files
+
+
+def _extract_sdist_files_if_readable(
+    data: bytes,
+) -> tuple[str | None, str | None] | None:
+    """Extract the sdist pair, or ``None`` if the archive could not be read.
+
+    A readable archive answers ``(None, None)`` when
+    :func:`_select_sdist_root` takes no PKG-INFO from it.  Caching that
+    answer freezes that choice of root, so changing it means bumping
+    ``CACHE_VERSION_SDIST``.
+    """
     try:
         return _read_tar_sdist_files(data)
     except (
         tarfile.TarError,
         OSError,
-        UnicodeDecodeError,
+        # tarfile converts archive-controlled header text with int(), and a
+        # member's bad UTF-8 fails decode(); both surface as ValueError.
+        ValueError,
         KeyError,
         EOFError,
         zlib.error,
@@ -681,7 +758,7 @@ def _extract_sdist_files(data: bytes) -> tuple[str | None, str | None]:
         # cycle of links only ends at the recursion limit.
         RecursionError,
     ):
-        return (None, None)
+        return None
 
 
 def _read_tar_sdist_files(data: bytes) -> tuple[str | None, str | None]:
@@ -753,8 +830,9 @@ def extract_sdist_archive(
     """Extract a .tar.gz sdist into ``target_dir`` and return the source root.
 
     Anything the extractor cannot read raises :class:`ValueError`: a corrupt or
-    truncated stream, a tar that will not open, and a member the tar ``data``
-    filter (:pep:`706`) refuses.  The filter refuses any member that would write
+    truncated stream, a tar that will not open, a chain of link members long
+    enough to exhaust the stack, and a member the tar ``data`` filter
+    (:pep:`706`) refuses.  The filter refuses any member that would write
     outside ``target_dir`` (absolute paths, ``..``, escaping links), is a special
     file (device node, FIFO), or is a hard link whose target the archive does not
     carry.  A lone top-level directory that wraps every member is the source
@@ -781,10 +859,19 @@ def extract_sdist_archive(
     except KeyError as exc:
         msg = f"broken link in sdist member: {exc}"
         raise ValueError(msg) from exc
-    except (tarfile.TarError, OSError, EOFError, zlib.error) as exc:
+    except (
+        tarfile.TarError,
+        OSError,
+        EOFError,
+        zlib.error,
+        RecursionError,
+        ValueError,
+    ) as exc:
         # gzip raises BadGzipFile (an OSError) on a bad header, a bare EOFError on
         # a truncated stream, and zlib.error on a corrupt deflate block; none of
-        # them is a TarError.
+        # them is a TarError.  RecursionError comes from tarfile recursing once
+        # per link to resolve a chain of link members, and tarfile converts header
+        # text with int(), so a bad value arrives as ValueError.
         msg = f"unreadable sdist archive: {exc}"
         raise ValueError(msg) from exc
 

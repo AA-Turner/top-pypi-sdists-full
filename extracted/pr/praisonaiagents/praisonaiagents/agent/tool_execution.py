@@ -883,15 +883,36 @@ class ToolExecutionMixin:
                                     # the _outer_timeout clause above already does.
                                     and not self._tool_declares_not_idempotent(function_name))
                             )
+                            # A tool that *raised* is flattened into an error dict
+                            # tagged with ``_praison_retryable`` (see
+                            # _execute_tool_impl). A raised exception is a
+                            # framework-level tool FAILURE — it must surface as a
+                            # ToolExecutionError so the run is finalized failed and
+                            # a genuine RuntimeError/SMTP-down/rate-limit-text tool
+                            # is never silently downgraded to a success (parity with
+                            # the base behaviour and test_tool_failure_not_relabelled).
+                            # ``is_retryable`` above decides only whether the outer
+                            # loop retries, not whether it raises.
+                            raised_exception = "_praison_retryable" in result
                             # Strip the private control-plane tag before it can reach
                             # the model or be re-surfaced as the tool's payload.
                             result.pop("_praison_retryable", None)
-                            raise ToolExecutionError(
-                                result.get("error", f"Tool '{function_name}' failed"),
-                                tool_name=function_name,
-                                agent_id=self.name,
-                                is_retryable=is_retryable,
-                            )
+                            if is_retryable or raised_exception:
+                                raise ToolExecutionError(
+                                    result.get("error", f"Tool '{function_name}' failed"),
+                                    tool_name=function_name,
+                                    agent_id=self.name,
+                                    is_retryable=is_retryable,
+                                )
+                            # A plain tool-authored {"error": ...} with none of the
+                            # transient/denial markers and no raised-exception tag is
+                            # the tool's own documented way of *returning* a
+                            # recoverable failure (see tools/shell_tools.py and the
+                            # other bundled tools). It is the tool's answer, not a
+                            # framework-level crash — hand it back as a normal tool
+                            # result so the LLM can see it and self-correct, instead
+                            # of aborting the whole run.
+                            break
                         else:
                             # Success path - return the result
                             break
@@ -1626,6 +1647,12 @@ class ToolExecutionMixin:
                 or (trust_level == "external")  # External tools need approval
             )
             if needs_approval:
+                # Attach a rendered unified diff for file-mutating tools so the
+                # reviewer approves the actual change rather than a truncated
+                # argument dump. Non-edit tools get no diff (``None``) and keep
+                # the existing argument summary.
+                from ..approval.utils import build_diff_preview
+                diff_preview = build_diff_preview(tool_name, tool_args)
                 request = ApprovalRequest(
                     tool_name=tool_name,
                     arguments=tool_args,
@@ -1634,6 +1661,7 @@ class ToolExecutionMixin:
                         or DEFAULT_DANGEROUS_TOOLS.get(tool_name, "medium")
                     ),
                     agent_name=getattr(self, 'name', None),
+                    context={"diff": diff_preview} if diff_preview else {},
                 )
                 
                 if is_async:
@@ -1699,15 +1727,32 @@ class ToolExecutionMixin:
             # registry state (which leaked onto other agents when this agent had
             # no stable name), pass the intent per-call via ``force`` so the
             # registry prompts for *this* call only without side effects.
+            # Skill auto-approval grants are keyed by this agent's unique
+            # per-instance scope id (not the display name, which defaults to
+            # "Agent" for every unnamed agent), so a skill grant on one agent
+            # can never unlock the tool for an unrelated agent in the process.
+            auto_approve_scope = getattr(self, '_approval_scope_id', None)
+            # Pass the per-instance scope id as ``scope_id`` too, so the
+            # in-memory "this session" grant store is keyed per Agent instance
+            # rather than by the display name (every unnamed Agent() defaults to
+            # "Agent"). Without this, one worker's human-granted "[s] this
+            # session" approval silently unlocks the same tool for a distinct
+            # same-named worker. ``self.name`` remains the ``agent_name`` for the
+            # name-keyed lookups (per-agent backend, risk level, ask rules,
+            # durable "always" persistence).
             if is_async:
                 return get_approval_registry().approve_async(
                     getattr(self, 'name', None), tool_name, tool_args,
                     force=manager_forces_approval,
+                    auto_approve_scope=auto_approve_scope,
+                    scope_id=auto_approve_scope,
                 )
             else:
                 return get_approval_registry().approve_sync(
                     getattr(self, 'name', None), tool_name, tool_args,
                     force=manager_forces_approval,
+                    auto_approve_scope=auto_approve_scope,
+                    scope_id=auto_approve_scope,
                 )
 
     def _doom_loop_approved(self, function_name, arguments, verdict) -> bool:
@@ -1765,11 +1810,17 @@ class ToolExecutionMixin:
                     function_name, arguments
                 ),
             }
+            # Key the "this session" grant by the per-instance scope id so a
+            # doom-loop continue granted on one worker cannot silently authorise
+            # a same-named sibling worker, matching the per-instance scoping used
+            # for regular tool approvals above. ``self.name`` stays as agent_name
+            # for the name-keyed lookups.
             decision = registry.approve_sync(
                 getattr(self, "name", None),
                 DOOM_LOOP_TARGET,
                 request_args,
                 force=True,
+                scope_id=getattr(self, "_approval_scope_id", None),
             )
             return bool(getattr(decision, "approved", False))
         except Exception as e:  # noqa: BLE001 — fail closed to the block path
@@ -1958,7 +2009,7 @@ class ToolExecutionMixin:
         )
         return any(marker in name for marker in edit_markers)
 
-    def _check_permission_manager_deny(self, function_name):
+    def _check_permission_manager_deny(self, function_name, arguments=None):
         """Return an error dict if the PermissionManager hard-denies the tool.
 
         Ensures the pattern-based ``PermissionManager`` (rules from
@@ -1966,18 +2017,51 @@ class ToolExecutionMixin:
         uniformly — native functions **and** MCP tools — since both flow through
         ``_execute_tool_impl``. Returns ``None`` when no manager is attached or
         the tool is not denied, preserving backward compatibility.
+
+        Both the tool *name* and the argument-scoped target (e.g.
+        ``bash:rm -rf /tmp/x`` built from ``execute_command(command=...)``) are
+        checked so an argument-level ``deny`` rule — which the rule engine can
+        already match — actually fires. Without this the deny tier was a
+        name-only decision: once a shell tool was allowed by name, no rule could
+        narrow it. The argument target reuses ``build_permission_target`` so it
+        speaks the same vocabulary as the allow side's scoped grants.
         """
         manager = getattr(self, "_permission_manager", None)
         if manager is None:
             return None
-        try:
-            if manager.is_denied(function_name, getattr(self, "name", None)):
-                return {
-                    "error": f"Tool '{function_name}' blocked by permission policy",
-                    "permission_denied": True,
-                }
-        except Exception as e:
-            logging.debug("permission manager is_denied failed for %s: %s", function_name, e)
+        agent_name = getattr(self, "name", None)
+        targets = [function_name]
+        if arguments:
+            try:
+                from ..approval.utils import build_permission_target
+                # Normalise argument keys the same way ``_cast_arguments`` does
+                # before dispatch (strip trailing '='/whitespace LLMs hallucinate)
+                # so ``command=`` still resolves to the ``command`` command-key
+                # and an argument-scoped deny (``bash:rm *``) cannot be evaded by
+                # a malformed kwarg name that only normalises *after* this gate.
+                normalized_args = arguments
+                if isinstance(arguments, dict):
+                    normalized_args = {
+                        (k.strip().rstrip('=').strip() if isinstance(k, str) else k): v
+                        for k, v in arguments.items()
+                    }
+                scoped_target = build_permission_target(function_name, normalized_args)
+                if scoped_target and scoped_target != function_name:
+                    targets.append(scoped_target)
+            except Exception as e:  # noqa: BLE001
+                logging.debug(
+                    "could not build argument-scoped permission target for %s: %s",
+                    function_name, e,
+                )
+        for target in targets:
+            try:
+                if manager.is_denied(target, agent_name):
+                    return {
+                        "error": f"Tool '{function_name}' blocked by permission policy",
+                        "permission_denied": True,
+                    }
+            except Exception as e:
+                logging.debug("permission manager is_denied failed for %s: %s", target, e)
         return None
 
     def _is_bypass_mode(self) -> bool:
@@ -2012,7 +2096,7 @@ class ToolExecutionMixin:
         # Pattern-based PermissionManager deny gate (native + MCP, uniform).
         # BYPASS mode skips this gate as its contract requires.
         if not self._is_bypass_mode():
-            manager_denial = self._check_permission_manager_deny(function_name)
+            manager_denial = self._check_permission_manager_deny(function_name, arguments)
             if manager_denial is not None:
                 return manager_denial
 
@@ -2032,10 +2116,19 @@ class ToolExecutionMixin:
         if decision.modified_args:
             arguments = decision.modified_args
             logging.info(f"Using modified arguments: {arguments}")
+            # Re-authorize: an approval backend may have rewritten the arguments
+            # into a command that an argument-scoped deny rule prohibits. The
+            # earlier gate only saw the original args, so re-run it against the
+            # final ones before dispatch. BYPASS still opts out entirely.
+            if not self._is_bypass_mode():
+                manager_denial = self._check_permission_manager_deny(function_name, arguments)
+                if manager_denial is not None:
+                    return manager_denial
 
         from ..approval import get_approval_registry
         get_approval_registry().mark_approved(
-            function_name, arguments, agent_name=getattr(self, "name", None)
+            function_name, arguments, agent_name=getattr(self, "name", None),
+            scope_id=getattr(self, "_approval_scope_id", None),
         )
         return None, arguments
 
@@ -2050,7 +2143,7 @@ class ToolExecutionMixin:
         # Pattern-based PermissionManager deny gate (native + MCP, uniform).
         # BYPASS mode skips this gate as its contract requires.
         if not self._is_bypass_mode():
-            manager_denial = self._check_permission_manager_deny(function_name)
+            manager_denial = self._check_permission_manager_deny(function_name, arguments)
             if manager_denial is not None:
                 return manager_denial
 
@@ -2071,10 +2164,17 @@ class ToolExecutionMixin:
         if decision.modified_args:
             arguments = decision.modified_args
             logging.info(f"Using modified arguments: {arguments}")
+            # Re-authorize modified args against the deny gate — see the sync
+            # path for rationale. BYPASS still opts out entirely.
+            if not self._is_bypass_mode():
+                manager_denial = self._check_permission_manager_deny(function_name, arguments)
+                if manager_denial is not None:
+                    return manager_denial
 
         from ..approval import get_approval_registry
         get_approval_registry().mark_approved(
-            function_name, arguments, agent_name=getattr(self, "name", None)
+            function_name, arguments, agent_name=getattr(self, "name", None),
+            scope_id=getattr(self, "_approval_scope_id", None),
         )
         return None, arguments
 
@@ -2218,6 +2318,83 @@ class ToolExecutionMixin:
             )
         except Exception:
             pass
+
+    def _get_tool_circuit_breaker(self, function_name):
+        """Return this agent's circuit breaker for *function_name*, or None.
+
+        Shared between the sync tool path (_execute_tool_with_circuit_breaker_impl)
+        and the async tool path (_execute_tool_async_impl) so both engage the
+        same per-agent breaker. Uses the identical instance-scoped key so one
+        agent's failing tool cannot trip another agent's same-named tool.
+        Returns None when the circuit_breaker module is unavailable.
+        """
+        try:
+            from ..tools.circuit_breaker import get_circuit_breaker, CircuitBreakerConfig
+        except ImportError:
+            return None
+        breaker_name = f"tool_{id(self)}_{function_name}"
+        config = CircuitBreakerConfig(
+            failure_threshold=5,
+            recovery_timeout=60.0,
+            timeout=30.0,
+            graceful_degradation=True,
+        )
+        breaker = get_circuit_breaker(breaker_name, config)
+        self._register_breaker_finalizer(breaker_name)
+        return breaker
+
+    def _circuit_breaker_open_result(self, function_name):
+        """Return the standard ``circuit_open`` error dict for *function_name*."""
+        return {
+            "error": f"Tool '{function_name}' circuit breaker open - too many recent failures",
+            "circuit_open": True,
+            "agent_name": getattr(self, "name", None),
+            "session_id": getattr(self, "_session_id", None),
+            "remediation": "Wait for recovery_timeout (60s) or investigate recent tool failures.",
+        }
+
+    def _circuit_breaker_precheck(self, function_name):
+        """Short-circuit an OPEN breaker before running the tool body.
+
+        Mirrors the OPEN-state rejection logic of ``CircuitBreaker.call`` so the
+        async tool path gets the same protection as the sync path without needing
+        to funnel its async ``_invoke`` through the sync ``breaker.call``.
+
+        Returns a ``circuit_open`` error dict when the call must be rejected, or
+        None when the tool is allowed to run (and mutates the breaker into
+        HALF_OPEN when the recovery timeout has elapsed, exactly like ``call``).
+        """
+        breaker = self._get_tool_circuit_breaker(function_name)
+        if breaker is None:
+            return None
+        try:
+            from ..tools.circuit_breaker import CircuitState
+        except ImportError:
+            return None
+        with breaker._lock:
+            breaker._stats.total_requests += 1
+            if breaker._stats.state == CircuitState.OPEN:
+                if not breaker._should_attempt_reset():
+                    breaker._stats.rejected_requests += 1
+                    return self._circuit_breaker_open_result(function_name)
+                breaker._stats.state = CircuitState.HALF_OPEN
+                breaker._stats.success_count = 0
+        return None
+
+    def _circuit_breaker_record(self, function_name, is_success):
+        """Record a tool outcome against this agent's breaker.
+
+        Used by the async path after ``_invoke`` so repeated failures open the
+        breaker just as the sync path's ``breaker.call`` does. Treated as a
+        no-op when the breaker is unavailable.
+        """
+        breaker = self._get_tool_circuit_breaker(function_name)
+        if breaker is None:
+            return
+        if is_success:
+            breaker._on_success()
+        else:
+            breaker._on_failure()
 
     def _execute_tool_with_circuit_breaker_impl(self, function_name, arguments):
         """Execute tool with circuit breaker protection (internal implementation).
@@ -2805,12 +2982,15 @@ class ToolExecutionMixin:
 
         from ..approval.protocols import ApprovalRequest
         from ..approval.registry import DEFAULT_DANGEROUS_TOOLS
+        from ..approval.utils import build_diff_preview
 
+        diff_preview = build_diff_preview(function_name, arguments)
         request = ApprovalRequest(
             tool_name=function_name,
             arguments=arguments,
             risk_level=DEFAULT_DANGEROUS_TOOLS.get(function_name, "medium"),
             agent_name=getattr(self, 'name', None),
+            context={"diff": diff_preview} if diff_preview else {},
         )
 
         tracking_id = str(uuid.uuid4())[:8]
@@ -2996,7 +3176,7 @@ class ToolExecutionMixin:
         else:
             return f"Unknown bridge tool: {function_name}"
 
-    def _tool_declares_not_idempotent(self, tool_name):
+    def _tool_declares_not_idempotent(self, tool_name, tools_override=None):
         """True only when the tool *explicitly* declares itself unsafe to re-run.
 
         Deliberately narrower than ``_is_tool_idempotent``, which answers False
@@ -3008,10 +3188,19 @@ class ToolExecutionMixin:
         73-name list maintained for the escalation loop guard, and using it here
         silently removed the retry from any *undeclared* tool that happened to
         share a name with an entry (``write_file``, ``store_memory``, ``mkdir``...).
+
+        ``tools_override`` mirrors the resolution order in ``_execute_tool_impl`` /
+        ``_execute_tool_async_impl``: a task-scoped tool passed via ``tools_override``
+        shadows an agent-level tool of the same name, so its declaration must win.
+        Without this an override-only ``restart_safe=False`` tool would be missed
+        here and silently retried.
         """
         tools = getattr(self, 'tools', [])
         if not isinstance(tools, (list, tuple)):
             tools = []
+        if isinstance(tools_override, (list, tuple)):
+            # Override tools take precedence and are searched first.
+            tools = list(tools_override) + list(tools)
         for tool in tools:
             name_attr = getattr(tool, '__name__', None) or getattr(tool, 'name', None)
             if name_attr == tool_name:

@@ -223,12 +223,12 @@ from .utils.serializers import serializer
 from .vars import EMPTY_VAR_INT, EMPTY_VAR_STR, Field, RestProp, Var, field
 
 if sys.version_info < (3, 11):
-    from reflex_base.utils import console
+    import logging
 
-    console.warn(
+    logging.getLogger(__name__).warning(
         "Reflex support for Python 3.10 is deprecated and will be removed in a future release. Please upgrade to Python 3.11 or higher for continued support."
     )
-    del console
+    del logging
 del sys
 
 __all__ = [

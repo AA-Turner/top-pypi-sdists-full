@@ -10,19 +10,25 @@ from types import FrameType
 
 from django.conf import settings
 from django.core.exceptions import SuspiciousOperation
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
 from django.db.utils import OperationalError
 from django.utils.autoreload import DJANGO_AUTORELOAD_ENV, run_with_reloader
-from django_tasks import DEFAULT_TASK_BACKEND_ALIAS, task_backends
-from django_tasks.base import DEFAULT_TASK_QUEUE_NAME, TaskContext
-from django_tasks.exceptions import InvalidTaskBackendError
-from django_tasks.signals import task_finished, task_started
-from django_tasks.utils import get_random_id
+from django.utils.crypto import get_random_string
 
 from django_tasks_db.backend import DatabaseBackend
+from django_tasks_db.compat import (
+    DEFAULT_TASK_BACKEND_ALIAS,
+    DEFAULT_TASK_QUEUE_NAME,
+    TASKS_LOGGER,
+    InvalidTaskBackend,
+    TaskContext,
+    task_backends,
+    task_finished,
+    task_started,
+)
 from django_tasks_db.models import DBTaskResult
-from django_tasks_db.utils import exclusive_transaction
+from django_tasks_db.utils import exclusive_transaction, is_locked_database_exception
 
 logger = logging.getLogger("django_tasks_db")
 
@@ -38,9 +44,11 @@ class Worker:
         startup_delay: bool,
         max_tasks: int | None,
         worker_id: str,
+        excluded_queue_names: list[str],
     ):
         self.queue_names = queue_names
         self.process_all_queues = "*" in queue_names
+        self.excluded_queue_names = excluded_queue_names
         self.interval = interval
         self.batch = batch
         self.backend_name = backend_name
@@ -96,31 +104,37 @@ class Worker:
             time.sleep(random.random())  # noqa: S311
 
         while self.running:
+            # Check for dropped/expired connections right after waking up
+            close_old_connections()
+
             tasks = DBTaskResult.objects.ready().filter(backend_name=self.backend_name)
             if not self.process_all_queues:
                 tasks = tasks.filter(queue_name__in=self.queue_names)
+            if self.excluded_queue_names:
+                tasks = tasks.exclude(queue_name__in=self.excluded_queue_names)
 
-            # During this transaction, all "ready" tasks are locked. Therefore, it's important
-            # it be as efficient as possible.
             with exclusive_transaction(tasks.db):
                 try:
                     task_result = tasks.get_locked()
+                    retrieved_task_result = True
+
+                    if task_result is not None:
+                        # "claim" the task, so it isn't run by another worker process
+                        task_result.claim(self.worker_id)
                 except OperationalError as e:
+                    retrieved_task_result = False
+
                     # Ignore locked databases and keep trying.
                     # It should unlock eventually.
-                    if "is locked" in e.args[0]:
+                    if is_locked_database_exception(e):
                         task_result = None
                     else:
                         raise
 
-                if task_result is not None:
-                    # "claim" the task, so it isn't run by another worker process
-                    task_result.claim(self.worker_id)
-
             if task_result is not None:
                 self.run_task(task_result)
 
-            if self.batch and task_result is None:
+            if self.batch and retrieved_task_result and task_result is None:
                 # If we're running in "batch" mode, terminate the loop (and thus the worker)
                 logger.info(
                     "No more tasks to run for worker_id=%s - exiting gracefully.",
@@ -194,7 +208,7 @@ class Worker:
 def valid_backend_name(val: str) -> str:
     try:
         backend = task_backends[val]
-    except InvalidTaskBackendError as e:
+    except InvalidTaskBackend as e:
         raise ArgumentTypeError(e.args[0]) from e
     if not isinstance(backend, DatabaseBackend):
         raise ArgumentTypeError(f"Backend '{val}' is not a database backend")
@@ -206,13 +220,13 @@ def valid_interval(val: str) -> float:
     if not math.isfinite(num):
         raise ArgumentTypeError("Must be a finite floating point value")
     if num < 0:
-        raise ArgumentTypeError("Must be greater than zero")
+        raise ArgumentTypeError("Must be zero or greater")
     return num
 
 
 def valid_max_tasks(val: str) -> int:
     num = int(val)
-    if num < 0:
+    if num <= 0:
         raise ArgumentTypeError("Must be greater than zero")
     return num
 
@@ -235,6 +249,13 @@ class Command(BaseCommand):
             default=DEFAULT_TASK_QUEUE_NAME,
             type=str,
             help="The queues to process. Separate multiple with a comma. To process all queues, use '*' (default: %(default)r)",
+        )
+        parser.add_argument(
+            "--exclude-queues",
+            nargs="?",
+            default="",
+            type=str,
+            help="Queues to exclude. Separate multiple with a comma.",
         )
         parser.add_argument(
             "--interval",
@@ -280,11 +301,11 @@ class Command(BaseCommand):
             nargs="?",
             type=validate_worker_id,
             help="Worker id. MUST be unique across worker pool (default: auto-generate)",
-            default=get_random_id(),
+            default=get_random_string(32),
         )
 
     def configure_logging(self, verbosity: int) -> None:
-        tasks_logger = logging.getLogger("django_tasks")
+        tasks_logger = logging.getLogger(TASKS_LOGGER)
 
         if verbosity == 0:
             tasks_logger.setLevel(logging.CRITICAL)
@@ -316,6 +337,7 @@ class Command(BaseCommand):
         reload: bool,
         max_tasks: int | None,
         worker_id: str,
+        exclude_queues: str,
         **options: dict,
     ) -> None:
         self.configure_logging(verbosity)
@@ -326,14 +348,21 @@ class Command(BaseCommand):
             )
             reload = False
 
+        queue_names = queue_name.split(",")
+        excluded_queue_names = exclude_queues.split(",") if exclude_queues else []
+
+        if excluded_queue_names and "*" not in queue_names:
+            raise CommandError("--exclude-queues can only be used with --queue-name=*")
+
         worker = Worker(
-            queue_names=queue_name.split(","),
+            queue_names=queue_names,
             interval=interval,
             batch=batch,
             backend_name=backend_name,
             startup_delay=startup_delay,
             max_tasks=max_tasks,
             worker_id=worker_id,
+            excluded_queue_names=excluded_queue_names,
         )
 
         if reload:

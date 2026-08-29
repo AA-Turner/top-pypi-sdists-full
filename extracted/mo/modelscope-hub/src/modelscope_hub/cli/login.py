@@ -1,6 +1,6 @@
-"""``ms login`` and ``ms whoami`` commands.
+"""``ms login``, ``ms logout`` and ``ms whoami`` commands.
 
-The two flows share their HubApi construction but live in distinct
+The three flows share their HubApi construction but live in distinct
 :class:`CLICommand` classes so each can be registered, tested and evolved
 independently.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 import getpass
 from argparse import SUPPRESS
 
-from .base import CLICommand, SubParsers, error, info, make_api, success
+from .base import CLICommand, SubParsers, error, info, make_api, success, warn
 from .compat import add_subcmd_token_endpoint
 
 
@@ -57,6 +57,29 @@ class LoginCommand(CLICommand):
         success(f"Logged in as {identity}.")
 
 
+class LogoutCommand(CLICommand):
+    """Clear locally persisted ModelScope credentials."""
+
+    @staticmethod
+    def register(subparsers: SubParsers) -> None:
+        parser = subparsers.add_parser(
+            "logout",
+            help="Clear locally persisted ModelScope credentials.",
+            description="Removes saved cookies, git token and cached user identity.",
+        )
+        # Legacy compat: allow subcommand-level auth flags even though logout
+        # never contacts the server. This keeps `ms logout --token ...` from
+        # failing on argument parsing in scripts that pass shared auth flags to
+        # every command.
+        add_subcmd_token_endpoint(parser)
+        parser.set_defaults(_command=LogoutCommand)
+
+    def execute(self) -> None:
+        api = make_api(self.args)
+        api.logout()
+        success("Logged out.")
+
+
 class WhoamiCommand(CLICommand):
     """Show the currently authenticated user."""
 
@@ -77,3 +100,5 @@ class WhoamiCommand(CLICommand):
         info(f"id         : {user.id if user.id is not None else '-'}")
         if user.description:
             info(f"description: {user.description}")
+        if not user.username:
+            warn("Username is missing from the server response; showing '-' for username.")

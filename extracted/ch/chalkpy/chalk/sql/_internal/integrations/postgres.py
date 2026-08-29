@@ -226,6 +226,17 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
             engine_args.setdefault(k, v)
             async_engine_args.setdefault(k, v)
 
+        # RDS refuses IAM authentication over cleartext connections, so an IAM source must
+        # negotiate TLS. Default it here rather than making every config remember the connect
+        # arg; an explicit `sslmode` in `connect_args` still wins. Runs after the chalk
+        # defaults merge above so a source without user `connect_args` keeps the keepalive
+        # defaults alongside `sslmode`.
+        if self.aws_iam_auth:
+            for args in (engine_args, async_engine_args):
+                connect_args = args.setdefault("connect_args", {})
+                if isinstance(connect_args, dict):
+                    connect_args.setdefault("sslmode", "require")
+
         # We set the default isolation level to autocommit since the SQL sources are read-only, and thus
         # transactions are not needed
         # Setting the isolation level on the engine, instead of the connection, avoids

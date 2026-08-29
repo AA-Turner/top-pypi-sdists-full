@@ -1,3 +1,5 @@
+import warnings
+
 from django.forms import (
     BaseForm,
     BaseFormSet,
@@ -32,11 +34,11 @@ class BaseRenderer:
     form_errors_template = "django_bootstrap5/form_errors.html"
 
     def __init__(self, **kwargs):
-        self.layout = kwargs.get("layout", "")
+        self.layout = kwargs.get("layout", get_bootstrap_setting("layout"))
         self.wrapper_class = kwargs.get("wrapper_class", get_bootstrap_setting("wrapper_class"))
         self.inline_wrapper_class = kwargs.get("inline_wrapper_class", get_bootstrap_setting("inline_wrapper_class"))
         self.field_class = kwargs.get("field_class", "")
-        self.label_class = kwargs.get("label_class", "")
+        self.label_class = kwargs.get("label_class", get_bootstrap_setting("label_class"))
         self.show_help = kwargs.get("show_help", True)
         self.show_label = kwargs.get("show_label", True)
         self.exclude = kwargs.get("exclude", "")
@@ -99,6 +101,7 @@ class BaseRenderer:
             "checkbox_layout": self.checkbox_layout,
             "checkbox_style": self.checkbox_style,
             "inline_field_class": self.inline_field_class,
+            "server_side_validation": self.server_side_validation,
             "error_css_class": self.error_css_class,
             "success_css_class": self.success_css_class,
             "required_css_class": self.required_css_class,
@@ -108,7 +111,7 @@ class BaseRenderer:
 
     def render(self):
         """Render to string."""
-        EMPTY_SAFE_HTML
+        return EMPTY_SAFE_HTML
 
 
 class FormsetRenderer(BaseRenderer):
@@ -211,11 +214,17 @@ class FieldRenderer(BaseRenderer):
         self.initial_attrs = self.widget.attrs.copy()
         self.help_text = text_value(field.help_text) if self.show_help and field.help_text else ""
         self.field_errors = [conditional_escape(text_value(error)) for error in field.errors]
+        self.label = kwargs.get("label", field.label)
 
         self.placeholder = text_value(kwargs.get("placeholder", self.default_placeholder))
 
         self.addon_before = kwargs.get("addon_before", self.widget.attrs.pop("addon_before", ""))
         self.addon_after = kwargs.get("addon_after", self.widget.attrs.pop("addon_after", ""))
+        if self.layout == "floating" and (self.addon_before or self.addon_after):
+            warnings.warn(
+                'layout="floating" has no effect when addon_before or addon_after is set.',
+                stacklevel=2,
+            )
         self.addon_before_class = kwargs.get(
             "addon_before_class", self.widget.attrs.pop("addon_before_class", "input-group-text")
         )
@@ -247,6 +256,8 @@ class FieldRenderer(BaseRenderer):
             else success_css_class
         )
 
+        self.input_class = kwargs.get("input_class", "")
+
     @property
     def is_floating(self):
         return (
@@ -259,7 +270,7 @@ class FieldRenderer(BaseRenderer):
     @property
     def default_placeholder(self):
         """Return default placeholder for field."""
-        return self.field.label if get_bootstrap_setting("set_placeholder") else ""
+        return self.label if get_bootstrap_setting("set_placeholder") else ""
 
     def restore_widget_attrs(self):
         self.widget.attrs = self.initial_attrs.copy()
@@ -280,6 +291,8 @@ class FieldRenderer(BaseRenderer):
                 "date",
                 "time",
                 "password",
+                "month",
+                "datetime-local",
             ]
 
         return isinstance(widget, Textarea)
@@ -296,6 +309,13 @@ class FieldRenderer(BaseRenderer):
             return self.size == DEFAULT_SIZE and not isinstance(widget, (SelectMultiple, RadioSelect))
         return False
 
+    def can_widget_have_addons(self, widget=None):
+        """Return whether given widget can be rendered with addon_before/addon_after."""
+        widget = widget or self.widget
+        if self.is_form_control_widget(widget):
+            return True
+        return isinstance(widget, Select) and not isinstance(widget, (SelectMultiple, RadioSelect))
+
     def add_widget_class_attrs(self, widget=None):
         """Add class attribute to widget."""
         if widget is None:
@@ -303,7 +323,7 @@ class FieldRenderer(BaseRenderer):
         size_prefix = None
 
         before = []
-        classes = [widget.attrs.get("class", ""), text_value(self.field_class)]
+        classes = [widget.attrs.get("class", ""), text_value(self.field_class), text_value(self.input_class)]
 
         if ReadOnlyPasswordHashWidget is not None and isinstance(widget, ReadOnlyPasswordHashWidget):
             before.append("form-control-plaintext")
@@ -391,7 +411,7 @@ class FieldRenderer(BaseRenderer):
 
         label_for = self.field.id_for_label
         return render_label(
-            self.field.label,
+            self.label,
             label_for=label_for,
             label_class=self.get_label_class(horizontal=horizontal),
         )
@@ -498,7 +518,7 @@ class FieldRenderer(BaseRenderer):
         help = self.get_help_html()
         errors = self.get_errors_html()
 
-        if self.is_form_control_widget():
+        if self.can_widget_have_addons():
             if self.addon_before_class is None:
                 addon_before = self.addon_before
             else:

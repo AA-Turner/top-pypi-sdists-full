@@ -4,6 +4,7 @@ and end-to-end resolution with a simple in-memory provider."""
 from __future__ import annotations
 
 import sys
+from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
@@ -26,7 +27,7 @@ from nab_resolver.incompat_index import (
     maybe_merge_dependency,
 )
 from nab_resolver.partial_solution import Assignment, PartialSolution
-from nab_resolver.propagate import term_relation
+from nab_resolver.propagate import classify_relation, term_relation
 from nab_resolver.ranges import Range
 from nab_resolver.report import (
     explain_incompatibility,
@@ -40,6 +41,7 @@ from nab_resolver.resolver import (
     ResolutionError,
     Resolver,
     ResolverObserver,
+    ResolverStats,
     Solution,
 )
 from nab_resolver.root import ROOT
@@ -125,7 +127,11 @@ class DictProvider:
 
 
 class PromotingProvider(DictProvider):
-    """DictProvider that promotes packages with 5+ conflicts."""
+    """DictProvider that promotes packages with 5+ conflicts.
+
+    The threshold is the provider's own, not the resolver's restart
+    threshold.
+    """
 
     _CONFLICT_THRESHOLD = 5
 
@@ -1585,19 +1591,19 @@ class TestBackjumpToRoot:
 class TestRestart:
     """Verify the resolver restarts when a package causes many conflicts."""
 
-    def test_restart_reduces_decisions(self) -> None:
-        """Restart with conflict-driven promotion avoids re-deciding
-        downstream packages on every backtrack.
+    def test_restart_fires_on_repeated_conflicts(self) -> None:
+        """A package that keeps conflicting triggers a restart, and the
+        resolve still lands on the only solution.
 
         root -> a (any), b (any)
         a has versions 10..1, each requiring b >= v (so a@10 -> b>=10, etc.)
         b only has version 1.
         Only a@1 is compatible (b>=1 satisfied by b@1).
 
-        Without restart: resolver decides b first (fewer versions),
-        then tries a@10, conflict, backtracks, re-decides b, tries a@9, etc.
-        With restart: after 5 conflicts, a is promoted, decided first,
-        and b is only decided once at the end.
+        The resolver decides b first (fewer versions), then walks a down
+        from 10, conflicting on each version. Ten versions are too few
+        for a restart to pay for itself, so the decision count asserted
+        below is a ceiling rather than a saving.
         """
         a_versions = {}
         for v in range(10, 0, -1):
@@ -1619,12 +1625,12 @@ class TestRestart:
 
     def test_restarts_are_bounded(self) -> None:
         """Resolver stops restarting after _MAX_RESTARTS."""
-        # 50 versions of "a", each requiring b >= v. Only a@1 works.
-        # With threshold=5 and max_restarts=3, restarts fire at
-        # conflicts 5, 10, 20. After 3 restarts (exhausting the
-        # budget), resolution continues without further restarts.
+        # 70 versions of "a", each requiring b >= v. Only a@1 works.
+        # "a" takes every conflict and the threshold doubles per restart,
+        # so restarts fire at 8, 16 and 32. The corpus reaches the 64 a
+        # fourth would need, so the spent budget is what stops it.
         a_versions = {}
-        for v in range(50, 0, -1):
+        for v in range(70, 0, -1):
             a_versions[v] = {"b": Range.at_least(v)}
 
         provider = PromotingProvider(
@@ -3010,7 +3016,59 @@ class TestHashOrderIndependence:
         assert forward == backward
 
 
+class TestClassifyRelation:
+    @pytest.mark.parametrize(
+        ("positive", "subset", "disjoint", "expected"),
+        [
+            (True, True, False, SetRelation.SATISFIED),
+            (True, False, True, SetRelation.CONTRADICTED),
+            (True, False, False, SetRelation.UNDETERMINED),
+            (False, False, True, SetRelation.SATISFIED),
+            (False, True, False, SetRelation.CONTRADICTED),
+            (False, False, False, SetRelation.UNDETERMINED),
+        ],
+    )
+    def test_maps_each_relation_to_its_member(
+        self,
+        *,
+        positive: bool,
+        subset: bool,
+        disjoint: bool,
+        expected: SetRelation,
+    ) -> None:
+        term = Term("foo", Range.at_least(1), positive=positive)
+
+        result = classify_relation(term, subset=subset, disjoint=disjoint)
+
+        assert result is expected
+
+    @pytest.mark.parametrize("positive", [True, False])
+    def test_an_empty_assignment_reads_as_satisfied(self, *, positive: bool) -> None:
+        """An empty assignment is both a subset of and disjoint from anything.
+
+        Satisfied is tested first, so it wins for a term of either sign.
+        """
+        term = Term("foo", Range.at_least(1), positive=positive)
+
+        result = classify_relation(term, subset=True, disjoint=True)
+
+        assert result is SetRelation.SATISFIED
+
+
 class TestRelationCache:
+    @staticmethod
+    def _token_key(
+        resolver: Resolver[str, Any], term: Term[str, Any]
+    ) -> tuple[bool, int, int]:
+        """Return the relation-cache key a positive ``term`` probes for."""
+        assignment = resolver.solution.get(term.package)
+        assert assignment is not None
+        return (
+            True,
+            resolver.range_tokens[assignment],
+            resolver.range_tokens[term.constraint],
+        )
+
     def test_caches_relation_and_reuses_it(self) -> None:
         resolver: Resolver[str, int] = Resolver(DictProvider({}))
         resolver.solution.decide("foo", 2)
@@ -3018,25 +3076,188 @@ class TestRelationCache:
 
         assert resolver.relation_cache == {}
         first = term_relation(resolver, term)
-        key = (True, resolver.solution.get("foo"), term.constraint)
+        key = self._token_key(resolver, term)
         assert resolver.relation_cache == {key: first}
 
         assert term_relation(resolver, term) is first
         assert resolver.relation_cache == {key: first}
 
+    def test_equal_ranges_share_a_token(self) -> None:
+        resolver: Resolver[str, int] = Resolver(DictProvider({}))
+        resolver.solution.decide("foo", 2)
+        term = Term("foo", Range.at_least(1), positive=True)
+        equal_term = Term("foo", Range.at_least(1), positive=True)
+        assert equal_term.constraint is not term.constraint
+
+        first = term_relation(resolver, term)
+
+        assert term_relation(resolver, equal_term) is first
+        assert len(resolver.relation_cache) == 1
+
     def test_clears_cache_on_overflow(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(propagate, "RELATION_CACHE_MAX", 1)
         resolver: Resolver[str, int] = Resolver(DictProvider({}))
         resolver.solution.decide("foo", 2)
-        resolver.relation_cache[(False, Range.full(), Range.full())] = (
-            SetRelation.SATISFIED
-        )
+        # Filler for another range pair, to put the cache at its cap.
+        resolver.relation_cache[(False, 0, 0)] = SetRelation.SATISFIED
 
         term = Term("foo", Range.at_least(1), positive=True)
         result = term_relation(resolver, term)
 
-        key = (True, resolver.solution.get("foo"), term.constraint)
-        assert resolver.relation_cache == {key: result}
+        assert resolver.relation_cache == {self._token_key(resolver, term): result}
+
+    def test_wiped_token_table_does_not_reissue_tokens(self) -> None:
+        """A token is minted once, so a wipe cannot point it at another range."""
+        resolver: Resolver[str, int] = Resolver(DictProvider({}))
+        resolver.solution.decide("foo", 2)
+        term_relation(resolver, Term("foo", Range.at_least(1), positive=True))
+        minted = set(resolver.range_tokens.values())
+
+        resolver.range_tokens.clear()
+        resolver.range_token_by_id.clear()
+        term_relation(resolver, Term("foo", Range.at_least(3), positive=True))
+
+        assert minted
+        assert minted.isdisjoint(resolver.range_tokens.values())
+
+    def test_clears_address_memo_on_overflow(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(propagate, "RANGE_ID_MEMO_MAX", 1)
+        resolver: Resolver[str, int] = Resolver(DictProvider({}))
+        resolver.solution.decide("foo", 2)
+        term = Term("foo", Range.at_least(1), positive=True)
+
+        first = term_relation(resolver, term)
+        key = self._token_key(resolver, term)
+
+        assert len(resolver.range_token_by_id) == 1
+        assert len(resolver.interned_ranges) == 1
+
+        assert term_relation(resolver, term) is first
+        assert self._token_key(resolver, term) == key
+        assert resolver.relation_cache == {key: first}
+
+    @staticmethod
+    def _probe(resolver: Resolver[str, int], lower: int) -> None:
+        """Probe ``foo`` against ``>= lower``.
+
+        A ``lower`` not used before misses; a repeat hits while the memo is on.
+        """
+        term_relation(resolver, Term("foo", Range.at_least(lower), positive=True))
+
+    def test_gate_switches_the_memo_off_when_probes_mostly_miss(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Too few hits in a window switch the memo off and drop its entries."""
+        monkeypatch.setattr(propagate, "RELATION_GATE_WINDOW", 3)
+        resolver: Resolver[str, int] = Resolver(DictProvider({}))
+        resolver.solution.decide("foo", 2)
+        # Filler for another range pair, to show the whole memo is dropped.
+        resolver.relation_cache[(False, 0, 0)] = SetRelation.SATISFIED
+
+        # A distinct constraint each time, so no probe in the window hits.
+        for lower in (1, 3, 5):
+            self._probe(resolver, lower)
+
+        assert resolver.relation_cache_on is False
+        assert resolver.relation_cache == {}
+        assert resolver.relation_gate_probes_left == propagate.RELATION_GATE_RECHECK
+
+    def test_gate_keeps_the_memo_while_probes_hit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Enough hits keep the memo and its entries, and the next window opens.
+
+        A hit spends a probe of the window without recomputing anything, so the
+        third probe here closes a window of three on the second miss.
+        """
+        monkeypatch.setattr(propagate, "RELATION_GATE_WINDOW", 3)
+        monkeypatch.setattr(propagate, "RELATION_GATE_MIN_HITS", 1)
+        resolver: Resolver[str, int] = Resolver(DictProvider({}))
+        resolver.solution.decide("foo", 2)
+
+        self._probe(resolver, 1)
+        self._probe(resolver, 1)
+        assert resolver.relation_gate_hits == 1
+
+        self._probe(resolver, 3)
+
+        assert resolver.relation_cache_on is True
+        assert len(resolver.relation_cache) == 2
+
+        assert resolver.relation_gate_hits == 0
+        assert resolver.relation_gate_probes_left == propagate.RELATION_GATE_WINDOW
+
+    def test_a_hit_never_closes_the_window(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A hit fills a probe of the window but leaves the judging to a miss.
+
+        Two probes fill a window of two here, and it stays open because the
+        second of them was a hit.
+        """
+        monkeypatch.setattr(propagate, "RELATION_GATE_WINDOW", 2)
+        resolver: Resolver[str, int] = Resolver(DictProvider({}))
+        resolver.solution.decide("foo", 2)
+
+        self._probe(resolver, 1)
+        self._probe(resolver, 1)
+
+        assert resolver.relation_gate_probes_left == 1
+        assert resolver.relation_gate_hits == 1
+
+        # One hit is under the default threshold, so a window judged here would
+        # have switched the memo off.
+        assert resolver.relation_cache_on is True
+        assert len(resolver.relation_cache) == 1
+
+    def test_gate_tries_the_memo_again_after_the_recheck_window(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A switched-off memo comes back, and starts collecting again."""
+        monkeypatch.setattr(propagate, "RELATION_GATE_WINDOW", 2)
+        monkeypatch.setattr(propagate, "RELATION_GATE_RECHECK", 3)
+        resolver: Resolver[str, int] = Resolver(DictProvider({}))
+        resolver.solution.decide("foo", 2)
+
+        self._probe(resolver, 1)
+        self._probe(resolver, 3)
+        assert resolver.relation_cache_on is False
+
+        # The recheck window is longer than the one that judged the memo.
+        self._probe(resolver, 5)
+        self._probe(resolver, 7)
+        assert resolver.relation_cache_on is False
+
+        self._probe(resolver, 9)
+        assert resolver.relation_cache_on is True
+        assert resolver.relation_cache == {}
+
+        term = Term("foo", Range.at_least(11), positive=True)
+        result = term_relation(resolver, term)
+        assert resolver.relation_cache == {self._token_key(resolver, term): result}
+
+    def test_relation_is_unchanged_while_the_memo_is_off(self) -> None:
+        resolver: Resolver[str, int] = Resolver(DictProvider({}))
+        resolver.solution.decide("foo", 2)
+        term = Term("foo", Range.at_least(1), positive=True)
+        expected = term_relation(resolver, term)
+
+        resolver.relation_cache_on = False
+        resolver.relation_cache.clear()
+
+        assert term_relation(resolver, term) is expected
+        assert resolver.relation_cache == {}
+
+    def test_a_second_resolve_starts_with_the_memo_on(self) -> None:
+        resolver: Resolver[str, int] = Resolver(DictProvider({"foo": {1: {}}}))
+        resolver.resolve({"foo": Range.at_least(1)})
+        resolver.relation_cache_on = False
+
+        resolver.resolve({"foo": Range.at_least(1)})
+
+        assert resolver.relation_cache_on is True
 
 
 class LowestVersionProvider(DictProvider):
@@ -3213,3 +3434,104 @@ class TestSettledClauseSkip:
 
         assert restarted
         assert resolver.solution.contradiction_epoch > before
+
+
+class TestResolverStats:
+    def test_a_fresh_bag_starts_at_zero_with_its_own_counters(self) -> None:
+        """The two count maps are per-instance, not shared class state."""
+        stats: ResolverStats[str] = ResolverStats()
+        other: ResolverStats[str] = ResolverStats()
+
+        assert stats.rounds == 0
+        assert stats.incompatibilities_learned == 0
+        assert stats.package_conflict_counts == {}
+        assert stats.package_culprit_counts == {}
+
+        stats.package_conflict_counts["a"] += 1
+        assert other.package_conflict_counts == {}
+
+    def test_counters_can_be_supplied(self) -> None:
+        stats: ResolverStats[str] = ResolverStats(
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            defaultdict(int, {"a": 1}),
+            defaultdict(int, {"b": 2}),
+        )
+
+        assert (stats.rounds, stats.decisions, stats.conflicts) == (1, 2, 3)
+        assert (stats.derivations, stats.backjumps, stats.restarts) == (4, 5, 6)
+        assert (stats.targeted_backtracks, stats.incompatibilities_learned) == (7, 8)
+        assert stats.package_conflict_counts == {"a": 1}
+        assert stats.package_culprit_counts == {"b": 2}
+
+    def test_equality_covers_every_counter_and_declines_other_types(self) -> None:
+        """Vary one counter at a time, so none can drop out of __eq__."""
+        counters: dict[str, Any] = {
+            "rounds": 1,
+            "decisions": 2,
+            "conflicts": 3,
+            "derivations": 4,
+            "backjumps": 5,
+            "restarts": 6,
+            "targeted_backtracks": 7,
+            "incompatibilities_learned": 8,
+            "package_conflict_counts": defaultdict(int, {"a": 1}),
+            "package_culprit_counts": defaultdict(int, {"b": 2}),
+        }
+        assert tuple(sorted(counters)) == ResolverStats.__slots__
+
+        stats: ResolverStats[str] = ResolverStats(**counters)
+
+        assert stats == ResolverStats(**counters)
+        for name, value in counters.items():
+            other = value + 1 if isinstance(value, int) else defaultdict(int, {"z": 9})
+            assert stats != ResolverStats(**{**counters, name: other}), name
+
+        assert stats.__eq__("stats") is NotImplemented
+
+    def test_a_mutable_bag_of_counters_is_unhashable(self) -> None:
+        assert ResolverStats.__hash__ is None
+
+    def test_a_bag_of_counters_carries_no_instance_dict(self) -> None:
+        """The ten slots are the whole layout."""
+        stats: ResolverStats[str] = ResolverStats()
+
+        with pytest.raises(AttributeError):
+            _ = stats.__dict__
+
+    def test_pattern_matching_reads_every_counter_positionally(self) -> None:
+        """Ten sub-patterns, in declaration order rather than slot order."""
+        stats: ResolverStats[str] = ResolverStats(rounds=2, conflicts=5)
+
+        match stats:
+            case ResolverStats(
+                rounds,
+                decisions,
+                conflicts,
+                derivations,
+                backjumps,
+                restarts,
+                targeted_backtracks,
+                learned,
+                conflict_counts,
+                culprit_counts,
+            ):
+                assert (rounds, decisions, conflicts) == (2, 0, 5)
+                assert (derivations, backjumps, restarts) == (0, 0, 0)
+                assert (targeted_backtracks, learned) == (0, 0)
+                assert (conflict_counts, culprit_counts) == ({}, {})
+
+    def test_repr_names_the_class_and_every_counter(self) -> None:
+        assert repr(ResolverStats(rounds=2)) == (
+            "ResolverStats(rounds=2, decisions=0, conflicts=0, derivations=0,"
+            " backjumps=0, restarts=0, targeted_backtracks=0,"
+            " incompatibilities_learned=0,"
+            " package_conflict_counts=defaultdict(<class 'int'>, {}),"
+            " package_culprit_counts=defaultdict(<class 'int'>, {}))"
+        )

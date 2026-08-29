@@ -1,6 +1,8 @@
 import ast
 from collections import defaultdict
+from copy import deepcopy
 from typing import Optional, cast
+from warnings import warn
 
 from graphql import (
     GraphQLEnumType,
@@ -13,18 +15,16 @@ from ..codegen import (
     generate_ann_assign,
     generate_class_def,
     generate_constant,
-    generate_expr,
     generate_import_from,
     generate_keyword,
-    generate_method_call,
+    generate_model_rebuild_calls,
     generate_module,
     generate_name,
     generate_pass,
     generate_pydantic_field,
-    model_has_forward_refs,
 )
 from ..plugins.manager import PluginManager
-from ..utils import process_name
+from ..utils import needs_explicit_alias, process_name
 from .constants import (
     ALIAS_KEYWORD,
     ANNOTATED,
@@ -32,7 +32,6 @@ from .constants import (
     BASE_MODEL_CLASS_NAME,
     BASE_MODEL_IMPORT,
     FIELD_CLASS,
-    MODEL_REBUILD_METHOD,
     OPTIONAL,
     PLAIN_SERIALIZER,
     PYDANTIC_MODULE,
@@ -50,33 +49,41 @@ class InputTypesGenerator:
         schema: GraphQLSchema,
         enums_module: str = "enums",
         base_model_import: ast.ImportFrom = BASE_MODEL_IMPORT,
-        upload_import: ast.ImportFrom = UPLOAD_IMPORT,
+        upload_import: Optional[ast.ImportFrom] = UPLOAD_IMPORT,
         convert_to_snake_case: bool = True,
         custom_scalars: Optional[dict[str, ScalarData]] = None,
         plugin_manager: Optional[PluginManager] = None,
+        defer_model_build: bool = False,
+        use_alias_generator: bool = False,
     ) -> None:
         self.schema = schema
         self.convert_to_snake_case = convert_to_snake_case
         self.enums_module = enums_module
         self.custom_scalars = custom_scalars if custom_scalars else {}
         self.plugin_manager = plugin_manager
+        self.defer_model_build = defer_model_build
+        self.use_alias_generator = use_alias_generator
 
         self._imports = [
             generate_import_from([OPTIONAL, ANY, UNION, ANNOTATED], TYPING_MODULE),
             generate_import_from([FIELD_CLASS, PLAIN_SERIALIZER], PYDANTIC_MODULE),
-            base_model_import,
-            upload_import,
+            deepcopy(base_model_import),
+            *([] if upload_import is None else [deepcopy(upload_import)]),
         ]
         self._dependencies: dict[str, list[str]] = defaultdict(list)
         self._used_enums: dict[str, list[str]] = defaultdict(list)
         self._used_scalars: list[str] = []
-        self._class_defs: list[ast.ClassDef] = [
-            self._parse_input_definition(d) for d in self._filter_input_types()
-        ]
+        self._class_defs: list[ast.ClassDef] = []
+        self._input_definitions: dict[str, GraphQLInputObjectType] = {}
+        for definition in self._filter_input_types():
+            class_def = self._parse_input_definition(definition)
+            self._class_defs.append(class_def)
+            self._input_definitions[class_def.name] = definition
         self._generated_public_names: list[str] = []
 
     def generate(self, types_to_include: Optional[list[str]] = None) -> ast.Module:
         class_defs = self._filter_class_defs(types_to_include=types_to_include)
+        self._warn_about_deprecated_fields(class_defs)
         self._generated_public_names = [class_def.name for class_def in class_defs]
 
         if used_imports := self.get_used_enums():
@@ -88,11 +95,9 @@ class InputTypesGenerator:
             scalar_data = self.custom_scalars[scalar_name]
             self._imports.extend(generate_scalar_imports(scalar_data))
 
-        model_rebuild_calls = [
-            generate_expr(generate_method_call(class_def.name, MODEL_REBUILD_METHOD))
-            for class_def in class_defs
-            if model_has_forward_refs(class_def)
-        ]
+        model_rebuild_calls = generate_model_rebuild_calls(
+            class_defs, self.defer_model_build
+        )
 
         module_body = (
             cast(list[ast.stmt], self._imports)
@@ -113,6 +118,27 @@ class InputTypesGenerator:
         for input_name in self._generated_public_names:
             enums.extend(self._used_enums[input_name])
         return enums
+
+    def _warn_about_deprecated_fields(self, class_defs: list[ast.ClassDef]) -> None:
+        """Warn only about inputs included in the generated module.
+
+        A schema usually defines more inputs than the generated package uses.
+        """
+        for class_def in class_defs:
+            definition = self._input_definitions.get(class_def.name)
+            if not definition:
+                continue
+
+            for field_name, field in definition.fields.items():
+                if field.deprecation_reason:
+                    # stacklevel=2 keeps the warning attributed to this module.
+                    warn(
+                        f"Input field '{field_name}' on input "
+                        f"'{definition.name}' is deprecated: "
+                        f"{field.deprecation_reason}",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
 
     def _filter_input_types(self) -> list[GraphQLInputObjectType]:
         return [
@@ -181,7 +207,7 @@ class InputTypesGenerator:
                 ),
                 lineno=lineno,
             )
-            if name != org_name:
+            if needs_explicit_alias(name, org_name, self.use_alias_generator):
                 field_implementation.value = self._process_field_value(
                     field_implementation=field_implementation, alias=org_name
                 )

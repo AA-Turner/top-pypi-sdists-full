@@ -92,6 +92,7 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
+    InsufficientCapacityException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     InvalidParameterValueException: type[BotocoreClientError]
     ResourceConflictException: type[BotocoreClientError]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools_dso
-Version: 2.12.3
+Version: 2.12.4
 Summary: setuptools extension to build non-python shared libraries
 Home-page: https://github.com/mdavidsaver/setuptools_dso
 Author: Michael Davidsaver

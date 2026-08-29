@@ -188,6 +188,49 @@ def test_all_flags_returns_none_if_feature_store_throws_error(caplog):
     assert errlog == ['Unable to read flags for all_flag_state: NotImplementedError()']
 
 
+class RawDictFeatureStore(FeatureStore):
+    """A custom store that returns raw dicts instead of decoded model objects,
+    like a legacy integration. The read path must decode these."""
+
+    def __init__(self, flags):
+        self._flags = flags
+
+    def get(self, kind, key, callback=lambda x: x):
+        return callback(self._flags.get(key) if kind == FEATURES else None)
+
+    def all(self, kind, callback=lambda x: x):
+        return callback(dict(self._flags) if kind == FEATURES else {})
+
+    def upsert(self, kind, item):
+        pass
+
+    def delete(self, kind, key, version):
+        pass
+
+    def init(self, data):
+        pass
+
+    @property
+    def initialized(self):
+        return True
+
+
+def test_all_flags_state_decodes_dicts_from_custom_store():
+    # A custom store that hands back raw dicts must still yield decoded values
+    # through all_flags_state (the read path decodes).
+    store = RawDictFeatureStore({'key1': flag1, 'key2': flag2})
+    client = make_client(store)
+    state = client.all_flags_state(user)
+    assert state.valid
+    assert state.to_values_map() == {'key1': 'value1', 'key2': 'value2'}
+
+
+def test_variation_decodes_dicts_from_custom_store():
+    store = RawDictFeatureStore({'key1': flag1})
+    client = make_client(store)
+    assert client.variation('key1', user, default='default') == 'value1'
+
+
 def test_all_flags_state_returns_state():
     store = InMemoryFeatureStore()
     store.init({FEATURES: {'key1': flag1, 'key2': flag2}})
@@ -342,3 +385,43 @@ def test_all_flags_returns_empty_state_if_feature_store_throws_error(caplog):
     assert state.valid is False
     errlog = get_log_lines(caplog, 'ERROR')
     assert errlog == ['Unable to read flags for all_flag_state: NotImplementedError()']
+
+
+def test_all_flags_state_degrades_per_flag_on_evaluator_error():
+    # A flag whose evaluation raises degrades only that flag: the loop must not
+    # raise UnboundLocalError when the first flag raises, and a failed flag must
+    # not inherit a previous good flag's prerequisites.
+    from unittest.mock import MagicMock
+
+    store = InMemoryFeatureStore()
+    # Ordering matters: 'bad-first' raises on the first iteration (would
+    # UnboundLocalError if result were read unconditionally); 'bad-last' raises
+    # after a good flag set result (would reuse the good result's prerequisites).
+    store.init({FEATURES: {
+        'bad-first': {'key': 'bad-first', 'version': 1, 'on': True, 'fallthrough': {'variation': 0}, 'variations': ['x']},
+        'good': {'key': 'good', 'version': 1, 'on': True, 'fallthrough': {'variation': 0}, 'variations': ['y']},
+        'bad-last': {'key': 'bad-last', 'version': 1, 'on': True, 'fallthrough': {'variation': 0}, 'variations': ['z']},
+    }})
+    client = make_client(store)
+
+    good_result = MagicMock()
+    good_result.detail = EvaluationDetail('y', 0, {'kind': 'FALLTHROUGH'})
+    good_result.prerequisites = ['prereq-of-good']
+
+    def fake_evaluate(flag, context, event_factory):
+        if flag['key'] == 'good':
+            return good_result
+        raise RuntimeError("boom")
+
+    client._evaluator.evaluate = MagicMock(side_effect=fake_evaluate)
+
+    # This must not raise UnboundLocalError.
+    state = client.all_flags_state(user)
+    assert state.valid
+
+    metadata = state.to_json_dict()['$flagsState']
+    # The good flag carries its own prerequisites; the failed flags carry none
+    # (not a neighbor's).
+    assert metadata['good'].get('prerequisites') == ['prereq-of-good']
+    assert 'prerequisites' not in metadata['bad-first']
+    assert 'prerequisites' not in metadata['bad-last']

@@ -33,7 +33,7 @@ class Object:
     _load_context_overrides: modal._load_context.LoadContext
     _object_id: typing.Optional[str]
     _client: typing.Optional[modal.client.Client]
-    _is_hydrated: bool
+    _Object__is_hydrated: bool
     _is_rehydrated: bool
     _name: typing.Optional[str]
 
@@ -41,6 +41,10 @@ class Object:
         """mdmd:hidden"""
         ...
 
+    @property
+    def _is_hydrated(self) -> bool: ...
+    @_is_hydrated.setter
+    def _is_hydrated(self, value: bool): ...
     @classmethod
     def __init_subclass__(cls, type_prefix: typing.Optional[str] = None): ...
     def _init(
@@ -86,30 +90,18 @@ class Object:
     def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
     def _validate_is_hydrated(self): ...
 
-    class ___from_loader_spec(typing_extensions.Protocol):
+    class ___from_loader_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
             /,
             load: collections.abc.Callable[
-                [
-                    typing_extensions.Self,
-                    modal._resolver.Resolver,
-                    modal._load_context.LoadContext,
-                    typing.Optional[str],
-                ],
-                None,
+                [SUPERSELF, modal._resolver.Resolver, modal._load_context.LoadContext, typing.Optional[str]], None
             ],
             rep: str,
             skip_reload: bool = False,
             preload: typing.Optional[
                 collections.abc.Callable[
-                    [
-                        typing_extensions.Self,
-                        modal._resolver.Resolver,
-                        modal._load_context.LoadContext,
-                        typing.Optional[str],
-                    ],
-                    None,
+                    [SUPERSELF, modal._resolver.Resolver, modal._load_context.LoadContext, typing.Optional[str]], None
                 ]
             ] = None,
             hydrate_lazily: bool = False,
@@ -118,29 +110,19 @@ class Object:
             name: typing.Optional[str] = None,
             *,
             load_context_overrides: modal._load_context.LoadContext,
-        ): ...
+        ) -> SUPERSELF: ...
         def aio(
             self,
             /,
             load: collections.abc.Callable[
-                [
-                    typing_extensions.Self,
-                    modal._resolver.Resolver,
-                    modal._load_context.LoadContext,
-                    typing.Optional[str],
-                ],
+                [SUPERSELF, modal._resolver.Resolver, modal._load_context.LoadContext, typing.Optional[str]],
                 collections.abc.Awaitable[None],
             ],
             rep: str,
             skip_reload: bool = False,
             preload: typing.Optional[
                 collections.abc.Callable[
-                    [
-                        typing_extensions.Self,
-                        modal._resolver.Resolver,
-                        modal._load_context.LoadContext,
-                        typing.Optional[str],
-                    ],
+                    [SUPERSELF, modal._resolver.Resolver, modal._load_context.LoadContext, typing.Optional[str]],
                     collections.abc.Awaitable[None],
                 ]
             ] = None,
@@ -152,9 +134,9 @@ class Object:
             name: typing.Optional[str] = None,
             *,
             load_context_overrides: modal._load_context.LoadContext,
-        ): ...
+        ) -> SUPERSELF: ...
 
-    _from_loader: typing.ClassVar[___from_loader_spec]
+    _from_loader: typing.ClassVar[___from_loader_spec[typing_extensions.Self]]
 
     @staticmethod
     def _get_type_from_id(object_id: str) -> type[Object]: ...
@@ -173,6 +155,8 @@ class Object:
     ) -> typing_extensions.Self: ...
     def _hydrate_from_other(self, other: typing_extensions.Self): ...
     def __repr__(self): ...
+    @property
+    def _class_name(self): ...
     @property
     def local_uuid(self):
         """mdmd:hidden"""
@@ -208,6 +192,9 @@ class Object:
     def deps(self) -> collections.abc.Callable[..., collections.abc.Sequence[Object]]:
         """mdmd:hidden"""
         ...
+
+    @property
+    def _deps_(self) -> collections.abc.Callable[..., collections.abc.Sequence[Object]]: ...
 
     class __hydrate_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF:

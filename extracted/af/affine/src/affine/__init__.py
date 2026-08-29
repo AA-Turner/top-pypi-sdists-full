@@ -44,7 +44,7 @@ from attrs import astuple, define, field
 
 __all__ = ["Affine"]
 __author__ = "Sean Gillies"
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 
 EPSILON: float = 1e-5
 EPSILON2: float = 1e-10
@@ -615,13 +615,16 @@ class Affine:
         Returns
         -------
         Affine or a tuple of two items
+
+        .. deprecated:: 3.1.0
+            Use `@` matmul instead of `*` mul operator for matrix multiplication.
         """
-        # TODO: consider enabling this for 3.1
-        # warnings.warn(
-        #     "Use `@` matmul instead of `*` mul operator for matrix multiplication",
-        #     PendingDeprecationWarning,
-        #     stacklevel=2,
-        # )
+        # TODO: consider elevating to DeprecationWarning for 3.2
+        warnings.warn(
+            "Use `@` matmul instead of `*` mul operator for matrix multiplication",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
         if isinstance(other, Affine):
             return self.__matmul__(other)
         try:

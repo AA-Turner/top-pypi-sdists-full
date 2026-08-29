@@ -21,6 +21,7 @@ from datamodel_code_generator._format_types import (
     PythonVersion,
     PythonVersionMin,
 )
+from datamodel_code_generator._shared_types import LiteralType  # noqa: TC001 - used at runtime by Pydantic
 from datamodel_code_generator.enums import (
     DEFAULT_SHARED_MODULE_NAME,
     AliasGenerator,
@@ -33,6 +34,7 @@ from datamodel_code_generator.enums import (
     CustomFileHeaderMode,
     DataclassArguments,
     DataModelType,
+    DefaultValueType,
     FieldTypeCollisionStrategy,
     HTTPBackend,
     InputFileType,
@@ -45,7 +47,6 @@ from datamodel_code_generator.enums import (
     UnionMode,
     VersionMode,
 )
-from datamodel_code_generator.parser import LiteralType  # noqa: TC001 - used at runtime by Pydantic
 
 if TYPE_CHECKING:
     from datamodel_code_generator.preset_names import PresetName as PresetNameValue
@@ -126,6 +127,7 @@ class BaseGenerateConfig(BaseModel):
     use_inline_field_description: bool = False
     use_single_line_docstring: bool = False
     use_default_kwarg: bool = False
+    deserialize_default_values: Sequence[DefaultValueType] = ()
     use_missing_sentinel: bool = False
     reuse_model: bool = False
     reuse_scope: ReuseScope = ReuseScope.Module

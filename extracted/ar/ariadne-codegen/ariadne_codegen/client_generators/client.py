@@ -1,4 +1,5 @@
 import ast
+from copy import deepcopy
 from typing import Optional, Union, cast
 
 from graphql import OperationDefinitionNode, OperationType
@@ -74,7 +75,7 @@ class ClientGenerator:
         enums_module_name: str = "enums",
         input_types_module_name: str = "input_types",
         unset_import: ast.ImportFrom = UNSET_IMPORT,
-        upload_import: ast.ImportFrom = UPLOAD_IMPORT,
+        upload_import: Optional[ast.ImportFrom] = UPLOAD_IMPORT,
         custom_scalars: Optional[dict[str, ScalarData]] = None,
         plugin_manager: Optional[PluginManager] = None,
     ) -> None:
@@ -106,7 +107,8 @@ class ClientGenerator:
         )
         self._add_import(base_client_import)
         self._add_import(unset_import)
-        self._add_import(upload_import)
+        if upload_import is not None:
+            self._add_import(upload_import)
 
         self._class_def = generate_class_def(name=name, base_names=[base_client])
         self._gql_func_name = "gql"
@@ -818,6 +820,10 @@ class ClientGenerator:
     def _add_import(self, import_: Optional[ast.ImportFrom] = None):
         if not import_:
             return
+        # Shared module-level nodes (UNSET_IMPORT, UPLOAD_IMPORT, ...) must never
+        # reach a generated module: plugins rewrite imports in place, which would
+        # otherwise corrupt the constant for every later run in this process.
+        import_ = deepcopy(import_)
         if self.plugin_manager:
             import_ = self.plugin_manager.generate_client_import(import_)
         if import_.names and import_.module:

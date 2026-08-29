@@ -476,6 +476,9 @@ def engine_options(columns, options: List[EngineOption], args: Dict):
         if option_value:
             if o.sql.lower() == "settings":
                 engine_settings = f"{o.sql} {option_value}"
+            # Conditional TTLs fail if we wrap the value in parentheses
+            elif o.sql.lower() == "ttl":
+                options_values.append(f"{o.sql} {option_value}")
             else:
                 options_values.append(f"{o.sql} ({option_value})")
 
@@ -536,7 +539,9 @@ def engine_full_from_dict(
     >>> engine_full_from_dict('MergeTree', {'sorting_key': 'local_date, cod_store'}, schema=schema)
     'MergeTree() ORDER BY (local_date, cod_store)'
     >>> engine_full_from_dict('MergeTree', {'partition_key': 'toDate(timestamp)', 'sorting_key': 'local_date, cod_store', 'settings': 'index_granularity = 32, index_granularity_bytes = 2048', 'ttl': 'toDate(local_date) + INTERVAL 1 DAY'}, schema=schema)
-    'MergeTree() PARTITION BY (toDate(timestamp)) ORDER BY (local_date, cod_store) TTL (toDate(local_date) + INTERVAL 1 DAY) SETTINGS index_granularity = 32, index_granularity_bytes = 2048'
+    'MergeTree() PARTITION BY (toDate(timestamp)) ORDER BY (local_date, cod_store) TTL toDate(local_date) + INTERVAL 1 DAY SETTINGS index_granularity = 32, index_granularity_bytes = 2048'
+    >>> engine_full_from_dict('MergeTree', {'sorting_key': 'timestamp', 'ttl': 'timestamp + INTERVAL 1 DAY DELETE WHERE is_deleted = 1'}, schema=schema)
+    'MergeTree() ORDER BY (timestamp) TTL timestamp + INTERVAL 1 DAY DELETE WHERE is_deleted = 1'
 
     >>> schema = ''
     >>> engine_full_from_dict('CollapsingMergeTree', {'sign': 'sign_column'}, schema=schema)

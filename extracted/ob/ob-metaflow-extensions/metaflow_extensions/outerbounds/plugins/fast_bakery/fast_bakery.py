@@ -152,6 +152,11 @@ class FastBakery:
 
         self._payload["platforms"].append(platform)
 
+    def extra_configs(self, configs: Dict[str, str]):
+        if configs:
+            self._payload["extraConfigs"] = dict(configs)
+        return self
+
     def index_strategy(self, strategy: str):
         self._payload["pip_index_strategy"] = strategy
 

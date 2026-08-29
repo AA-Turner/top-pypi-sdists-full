@@ -9,11 +9,11 @@ from typing import ClassVar
 from google.protobuf.message import Message
 from typing_extensions import Self
 
-from modal._traceback import suppress_tb_frame
-
 from ._load_context import LoadContext
 from ._resolver import Resolver
+from ._traceback import suppress_tb_frame
 from ._utils.async_utils import TaskContext, aclosing
+from ._utils.deprecation import deprecation_warning
 from .client import _Client
 from .config import config, logger
 from .exception import ExecutionError, InvalidError
@@ -91,12 +91,20 @@ class _Object:
     # For hydrated objects
     _object_id: str | None
     _client: _Client | None
-    _is_hydrated: bool
+    __is_hydrated: bool
     _is_rehydrated: bool
 
     # Not all object subclasses have a meaningful "name" concept
     # So whether they expose this is a matter of having a name property
     _name: str | None
+
+    @property
+    def _is_hydrated(self) -> bool:
+        return self.__is_hydrated
+
+    @_is_hydrated.setter
+    def _is_hydrated(self, value: bool):
+        self.__is_hydrated = value
 
     @classmethod
     def __init_subclass__(cls, type_prefix: str | None = None):
@@ -209,7 +217,7 @@ class _Object:
         name: str | None = None,
         *,
         load_context_overrides: LoadContext,
-    ):
+    ) -> Self:
         # TODO(erikbern): flip the order of the two first arguments
         obj = _Object.__new__(cls)
         obj._init(
@@ -282,8 +290,17 @@ class _Object:
         return self._rep
 
     @property
+    def _class_name(self):
+        return self.__class__.__name__.removeprefix("_")
+
+    @property
     def local_uuid(self):
         """mdmd:hidden"""
+        deprecation_warning(
+            (2026, 8, 26),
+            f"`{self._class_name}.local_uuid` is deprecated and will be removed in `modal` version 1.6.0",
+        )
+
         return self._local_uuid
 
     @property
@@ -308,12 +325,25 @@ class _Object:
     @property
     def is_hydrated(self) -> bool:
         """mdmd:hidden"""
+        deprecation_warning(
+            (2026, 8, 26),
+            f"`{self._class_name}.is_hydrated` is deprecated and will be removed in `modal` version 1.6.0",
+        )
+
         return self._is_hydrated
 
     @property
     def deps(self) -> Callable[..., Sequence["_Object"]]:
         """mdmd:hidden"""
+        deprecation_warning(
+            (2026, 8, 26),
+            f"`{self._class_name}.deps` is deprecated and will be removed in `modal` version 1.6.0",
+        )
 
+        return self._deps_
+
+    @property
+    def _deps_(self) -> Callable[..., Sequence["_Object"]]:
         def default_deps(*args, **kwargs) -> Sequence["_Object"]:
             return []
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: slackblocks
-Version: 2.1.1
+Version: 2.2.0
 Summary: Python wrapper for the Slack Blocks API
 Project-URL: Homepage, https://github.com/nicklambourne/slackblocks
 Project-URL: Repository, https://github.com/nicklambourne/slackblocks

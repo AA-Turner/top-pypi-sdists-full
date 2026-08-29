@@ -1,0 +1,460 @@
+# Copyright (C) 2016-2020 by Clearcode <http://clearcode.cc>
+# and associates (see AUTHORS).
+
+# This file is part of pytest-postgresql.
+
+# pytest-postgresql is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# pytest-postgresql is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+
+# You should have received a copy of the GNU Lesser General Public License
+# along with pytest-postgresql.  If not, see <http://www.gnu.org/licenses/>.
+"""PostgreSQL executor crafter around pg_ctl."""
+
+import logging
+import os
+import os.path
+import platform
+import re
+import shlex
+import shutil
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+from typing import Any, Optional, TypeVar
+
+from mirakuru import TCPExecutor
+from mirakuru.exceptions import ProcessFinishedWithError, TimeoutExpired
+from packaging.version import parse
+
+from pytest_postgresql.exceptions import ExecutableMissingException, PostgreSQLUnsupported
+
+logger = logging.getLogger(__name__)
+
+_LOCALE = "C.UTF-8"
+
+if platform.system() == "Darwin":
+    # Darwin does not have C.UTF-8, but en_US.UTF-8 is always available
+    _LOCALE = "en_US.UTF-8"
+elif platform.system() == "Windows":
+    # Windows doesn't support C.UTF-8 or en_US.UTF-8, use plain "C" locale
+    _LOCALE = "C"
+
+
+T = TypeVar("T", bound="PostgreSQLExecutor")
+
+
+class PostgreSQLExecutor(TCPExecutor):
+    """PostgreSQL executor running on pg_ctl.
+
+    Based over an `pg_ctl program
+    <http://www.postgresql.org/docs/current/static/app-pg-ctl.html>`_
+    """
+
+    # Unix command template - uses single quotes for PostgreSQL config value quoting
+    # which protects paths with spaces in unix_socket_directories.
+    # On Unix, mirakuru uses shlex.split() with shell=False, so single quotes
+    # inside double-quoted strings are preserved and passed to PostgreSQL's config parser.
+    UNIX_PROC_START_COMMAND = (
+        '"{executable}" start -D "{datadir}" '
+        "-o \"-F -p {port} -c log_destination='stderr' "
+        "-c logging_collector=off "
+        "-c unix_socket_directories='{unixsocketdir}'{postgres_options}\" "
+        '-l "{logfile}" {startparams}'
+    )
+
+    # Windows command template - no single quotes (cmd.exe treats them as literals,
+    # not delimiters) and unix_socket_directories is omitted entirely since PostgreSQL
+    # ignores it on Windows. The -o payload is produced by _windows_pg_options() so
+    # both __init__ and start() always use identical arguments.
+    WINDOWS_PROC_START_COMMAND = '"{executable}" start -D "{datadir}" -o "{pg_options}" -l "{logfile}" {startparams}'
+
+    VERSION_RE = re.compile(r".* (?P<version>\d+(?:\.\d+)?)")
+    MIN_SUPPORTED_VERSION = parse("14")
+
+    @staticmethod
+    def _windows_pg_options(port: int, postgres_options: str) -> str:
+        """Return the -o argument value for the Windows pg_ctl start invocation.
+
+        Centralises the construction so __init__ (command string) and start()
+        (argv list) always produce identical payloads without risk of drift.
+        """
+        extra = f" {postgres_options}" if postgres_options else ""
+        return f"-F -p {port} -c log_destination=stderr -c logging_collector=off{extra}"
+
+    def __init__(
+        self,
+        executable: str,
+        host: str,
+        port: int,
+        datadir: str,
+        unixsocketdir: str,
+        logfile: str,
+        startparams: str,
+        dbname: str,
+        *,
+        shell: bool = False,
+        timeout: Optional[int] = 60,
+        sleep: float = 0.1,
+        user: str = "postgres",
+        password: str | None = None,
+        options: str = "",
+        postgres_options: str = "",
+    ):
+        """Initialize PostgreSQLExecutor executor.
+
+        :param executable: pg_ctl location
+        :param host: host under which process is accessible
+        :param port: port under which process is accessible
+        :param datadir: path to postgresql datadir
+        :param unixsocketdir: path to socket directory
+        :param logfile: path to logfile for postgresql
+        :param startparams: additional start parameters
+        :param shell: see `subprocess.Popen`
+        :param timeout: time to wait for process to start or stop.
+            if None, wait indefinitely.
+        :param sleep: how often to check for start/stop condition
+        :param user: postgresql's username used to manage
+            and access PostgreSQL
+        :param password: optional password for the user
+        :param dbname: database name (might not yet exist)
+        :param options:
+        :param postgres_options: extra arguments to `postgres start`
+        """
+        self._directory_initialised = False
+        self.executable = executable
+        self.user = user
+        self.password = password
+        self.dbname = dbname
+        self.options = options
+        self.datadir = datadir
+        self.unixsocketdir = unixsocketdir
+        self.logfile = logfile
+        self.startparams = startparams
+        self.postgres_options = postgres_options
+        if platform.system() == "Windows":
+            command = self.WINDOWS_PROC_START_COMMAND.format(
+                executable=self.executable,
+                datadir=self.datadir,
+                pg_options=PostgreSQLExecutor._windows_pg_options(port, self.postgres_options),
+                logfile=self.logfile,
+                startparams=self.startparams,
+            )
+        else:
+            # PostgreSQL GUC single-quoted strings double single-quotes to escape them
+            # (e.g. /tmp/o'hare → /tmp/o''hare).  Apply this before interpolation so
+            # the generated unix_socket_directories value is always syntactically valid.
+            escaped_unixsocketdir = self.unixsocketdir.replace("'", "''")
+            command = self.UNIX_PROC_START_COMMAND.format(
+                executable=self.executable,
+                datadir=self.datadir,
+                port=port,
+                unixsocketdir=escaped_unixsocketdir,
+                logfile=self.logfile,
+                startparams=self.startparams,
+                postgres_options=f" {self.postgres_options}" if self.postgres_options else "",
+            )
+        super().__init__(
+            command,
+            host,
+            port,
+            shell=shell,
+            timeout=timeout,
+            sleep=sleep,
+            envvars={
+                "LC_ALL": _LOCALE,
+                "LC_CTYPE": _LOCALE,
+                "LANG": _LOCALE,
+            },
+        )
+
+    @property
+    def template_dbname(self) -> str:
+        """Return the template database name."""
+        return f"{self.dbname}_tmpl"
+
+    @property
+    def maintenance_dbname(self) -> str:
+        """Return the database used for server-level work.
+
+        This executor initialises the cluster it manages, so ``postgres`` is
+        always present and reachable by the superuser it starts it with.
+        """
+        return "postgres"
+
+    def start(self: T) -> T:
+        """Add check for postgresql version before starting process."""
+        if self.version < self.MIN_SUPPORTED_VERSION:
+            raise PostgreSQLUnsupported(
+                f"Your version of PostgreSQL is not supported. "
+                f"Consider updating to PostgreSQL {self.MIN_SUPPORTED_VERSION} at least. "
+                f"The currently installed version of PostgreSQL: {self.version}."
+            )
+        self.init_directory()
+        if platform.system() == "Windows":
+            # On Windows, pg_ctl start -w exits as soon as the server is
+            # accepting connections.  mirakuru's polling loop calls
+            # check_subprocess() (our pg_ctl-status override) repeatedly
+            # while waiting for the launcher subprocess to indicate readiness,
+            # but by the time polling begins the launcher has already exited
+            # so the loop never sees a live process and times out.
+            # Run pg_ctl synchronously as an argv list (no shell) so quoting
+            # is handled safely by subprocess, mirroring the stop() approach.
+            pg_options = self._windows_pg_options(self.port, self.postgres_options)
+            args = [
+                self.executable,
+                "start",
+                "-D",
+                self.datadir,
+                "-o",
+                pg_options,
+                "-l",
+                self.logfile,
+                *shlex.split(self.startparams, posix=False),
+            ]
+            merged_env = os.environ.copy()
+            merged_env.update(self.envvars)
+            try:
+                result = subprocess.run(args, check=False, env=merged_env, timeout=self._timeout)
+            except subprocess.TimeoutExpired as exc:
+                # subprocess.run already killed the stuck pg_ctl process before
+                # re-raising, so no additional cleanup is required here.
+                raise TimeoutExpired(self, self._timeout) from exc
+            if result.returncode != 0:
+                raise ProcessFinishedWithError(self, result.returncode)
+            # pg_ctl start without -w returns before the server accepts connections.
+            # wait_for_postgres() polls self.running() when -w is absent; when -w is
+            # present pg_ctl has already waited so it returns immediately.
+            self.wait_for_postgres()
+            return self
+        return super().start()
+
+    def clean_directory(self) -> None:
+        """Remove directory created for postgresql run."""
+        if not os.path.isdir(self.datadir):
+            self._directory_initialised = False
+            return
+        if self.running():
+            logger.warning(
+                "Skipping removal of %s because PostgreSQL is still running",
+                self.datadir,
+            )
+            return
+        try:
+            shutil.rmtree(self.datadir)
+        except OSError:
+            logger.exception("Failed to remove PostgreSQL data directory %s", self.datadir)
+            return
+        self._directory_initialised = False
+
+    def _initdb_env(self) -> dict[str, str]:
+        """Build subprocess environment for initdb."""
+        merged_env = os.environ.copy()
+        merged_env.update(self.envvars)
+        merged_env.pop("PGDATA", None)
+        return merged_env
+
+    def _format_initdb_options(self, initdb_options: list[str]) -> str:
+        """Format initdb options for pg_ctl -o, preserving argument boundaries."""
+        if platform.system() == "Windows":
+            return subprocess.list2cmdline(initdb_options)
+        return " ".join(shlex.quote(opt) for opt in initdb_options)
+
+    def _build_initdb_command(self, initdb_options: list[str], pgdata: str | None = None) -> list[str]:
+        """Build the initdb invocation for the current platform."""
+        data_dir = pgdata or self.datadir
+        return [
+            self.executable,
+            "initdb",
+            "--pgdata",
+            data_dir,
+            "-o",
+            self._format_initdb_options(initdb_options),
+        ]
+
+    def _run_initdb(self, command: list[str]) -> None:
+        """Run initdb via pg_ctl and translate subprocess timeouts."""
+        try:
+            subprocess.check_output(command, env=self._initdb_env(), timeout=self._timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutExpired(self, self._timeout) from exc
+
+    def init_directory(self) -> None:
+        """Initialize postgresql data directory.
+
+        See `Initialize postgresql data directory
+            <www.postgresql.org/docs/9.5/static/app-initdb.html>`_
+        """
+        # only make sure it's removed if it's handled by this exact process
+        if self._directory_initialised:
+            return
+        # remove old one if exists first.
+        self.clean_directory()
+        pgdata = str(Path(self.datadir).resolve())
+        options = ["--username=%s" % self.user]
+
+        if self.password:
+            password_file = tempfile.NamedTemporaryFile(delete=False)
+            password_path = password_file.name
+            try:
+                options += ["--auth=password", "--pwfile=%s" % password_path]
+                if hasattr(self.password, "encode"):
+                    password = self.password.encode("utf-8")
+                else:
+                    password = self.password  # type: ignore[assignment]
+                password_file.write(password)
+                password_file.flush()
+                password_file.close()
+                init_directory = self._build_initdb_command(options, pgdata=pgdata)
+                self._run_initdb(init_directory)
+            finally:
+                password_file.close()
+                try:
+                    os.unlink(password_path)
+                except OSError as exc:
+                    logger.warning("Failed to remove password file %s: %s", password_path, exc)
+        else:
+            options += ["--auth=trust"]
+            init_directory = self._build_initdb_command(options, pgdata=pgdata)
+            self._run_initdb(init_directory)
+
+        self._directory_initialised = True
+
+    def wait_for_postgres(self) -> None:
+        """Wait for postgresql being started."""
+        if "-w" not in self.startparams:
+            return
+        # wait until server is running
+        while 1:
+            if self.running():
+                break
+            time.sleep(1)
+
+    @property
+    def version(self) -> Any:
+        """Detect postgresql version."""
+        try:
+            version_string = subprocess.check_output([self.executable, "--version"]).decode("utf-8")
+        except OSError as ex:
+            raise ExecutableMissingException(
+                f"Could not run {self.executable} to read the PostgreSQL version: {ex}. "
+                f"Is the PostgreSQL server installed at that location? "
+                f"Point the plugin at a working pg_ctl with the --postgresql-exec command line option, "
+                f"the postgresql_exec ini option, or the executable factory argument."
+            ) from ex
+        matches = self.VERSION_RE.search(version_string)
+        assert matches is not None
+        return parse(matches.groupdict()["version"])
+
+    def running(self) -> bool:
+        """Check if server is running."""
+        if not os.path.exists(self.datadir):
+            return False
+        try:
+            result = subprocess.run(
+                [self.executable, "status", "-D", self.datadir],
+                check=False,
+                capture_output=True,
+                timeout=self._timeout,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "pg_ctl status timed out after %s seconds for datadir %s",
+                self._timeout,
+                self.datadir,
+            )
+            return True
+        return result.returncode == 0
+
+    def check_subprocess(self) -> bool:
+        """Check whether the PostgreSQL server is ready.
+
+        On Windows the launcher (pg_ctl start -w) is invoked synchronously
+        in start(), so mirakuru's polling loop is never reached and this
+        method is called only from running()-style checks.  Returning
+        self.running() (pg_ctl status) is appropriate there.
+
+        On non-Windows, mirakuru's TCPExecutor.check_subprocess() is the
+        correct check: it verifies both that the launcher subprocess is still
+        alive (enabling fast ProcessFinishedWithError on pg_ctl failures) and
+        that the TCP port is accepting connections.  Delegating to super()
+        preserves that failure-detection behaviour.
+        """
+        if platform.system() == "Windows":
+            return self.running()
+        return super().check_subprocess()
+
+    def _windows_terminate_process(self, _sig: Optional[int] = None) -> None:
+        """Terminate process on Windows.
+
+        :param _sig: Signal parameter (unused on Windows but included for consistency)
+        """
+        if self.process is None:
+            return
+
+        try:
+            # On Windows, try to terminate gracefully first
+            self.process.terminate()
+            # Give it a chance to terminate gracefully
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                # If it doesn't terminate gracefully, force kill
+                self.process.kill()
+                try:
+                    self.process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    logger.warning(
+                        "Process %s could not be cleaned up after kill() and may be a zombie process",
+                        self.process.pid if self.process else "unknown",
+                    )
+        except (OSError, AttributeError) as e:
+            # Process might already be dead or other issues
+            logger.debug(
+                "Exception during Windows process termination: %s: %s",
+                type(e).__name__,
+                e,
+            )
+
+    def stop(self: T, sig: Optional[int] = None, exp_sig: Optional[int] = None) -> T:
+        """Issue a stop request to executable."""
+        try:
+            subprocess.check_output(
+                [self.executable, "stop", "-D", self.datadir, "-m", "f"],
+                timeout=self._timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutExpired(self, self._timeout) from exc
+        try:
+            if platform.system() == "Windows":
+                self._windows_terminate_process(sig)
+                # Clean up mirakuru's internal process reference so that
+                # the stopped() context manager can call start() again
+                self._process = None
+            else:
+                super().stop(sig, exp_sig)
+        except ProcessFinishedWithError:
+            # Finished, leftovers ought to be cleaned afterwards anyway
+            pass
+        except AttributeError:
+            # Fallback for edge cases where os.killpg doesn't exist (e.g., Windows)
+            if not hasattr(os, "killpg"):
+                self._windows_terminate_process(sig)
+                self._process = None
+            else:
+                raise
+        return self
+
+    def __del__(self) -> None:
+        """Make sure the directories are properly removed at the end."""
+        try:
+            super().__del__()
+        finally:
+            self.clean_directory()

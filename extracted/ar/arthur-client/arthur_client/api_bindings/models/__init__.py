@@ -140,6 +140,7 @@ from arthur_client.api_bindings.models.delete_group_membership import DeleteGrou
 from arthur_client.api_bindings.models.delete_model_task_job_spec import DeleteModelTaskJobSpec
 from arthur_client.api_bindings.models.dimension import Dimension
 from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
+from arthur_client.api_bindings.models.endpoint_agent_creation_source import EndpointAgentCreationSource
 from arthur_client.api_bindings.models.eval import Eval
 from arthur_client.api_bindings.models.eval_config import EvalConfig
 from arthur_client.api_bindings.models.eval_type import EvalType
@@ -402,7 +403,6 @@ from arthur_client.api_bindings.models.task_connection_info import TaskConnectio
 from arthur_client.api_bindings.models.task_mutation_response import TaskMutationResponse
 from arthur_client.api_bindings.models.task_read_response import TaskReadResponse
 from arthur_client.api_bindings.models.task_response import TaskResponse
-from arthur_client.api_bindings.models.task_type import TaskType
 from arthur_client.api_bindings.models.task_validation_api_key import TaskValidationAPIKey
 from arthur_client.api_bindings.models.task_validation_key_regeneration_response import TaskValidationKeyRegenerationResponse
 from arthur_client.api_bindings.models.test_custom_aggregation_job_spec import TestCustomAggregationJobSpec

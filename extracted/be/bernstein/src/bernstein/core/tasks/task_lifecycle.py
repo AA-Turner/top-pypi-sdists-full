@@ -46,6 +46,7 @@ from bernstein.core.git.merge_preview import (
 from bernstein.core.hook_events import HookEvent
 from bernstein.core.janitor import run_janitor
 from bernstein.core.metrics import get_collector
+from bernstein.core.persistence.task_resume import TaskResumeCheckpoint, save_checkpoint, scratchpad_sha256
 from bernstein.core.replay.review_board import (
     record_task_diff_captured,
     record_task_merged,
@@ -62,6 +63,7 @@ from bernstein.core.tasks.models import (
     Task,
     TaskStatus,
 )
+from bernstein.core.tasks.swarm_migration import mark_chunk_complete, mark_chunk_failed, maybe_reduce_swarm
 from bernstein.core.team_state import TeamStateStore
 from bernstein.core.tick_pipeline import (
     CompletionData,
@@ -75,6 +77,8 @@ if TYPE_CHECKING:
 
     from bernstein.core.git_ops import MergeResult
     from bernstein.core.wal import WALWriter
+else:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -2208,6 +2212,55 @@ def _batch_lineage_key(batch: list[Task]) -> frozenset[str]:
     return frozenset(_lineage_id(t) for t in batch)
 
 
+def _park_key(batch_key: frozenset[str]) -> str:
+    """Render a lineage key as the stable id the spawn supervisor parks on.
+
+    The supervisor budgets *respawns*, so its key has to survive the
+    retries it is counting. A spawn session id cannot: ``spawner_core``
+    mints a fresh ``f"{role}-{uuid4}"`` per attempt, so a session-keyed
+    budget would see every failure as a new session and never reach
+    exhaustion. The lineage key already solves exactly this problem for
+    the orchestrator's own consecutive-failure counter (#2806), so the
+    park reuses it rather than inventing a second notion of identity.
+
+    Sorted so the same batch always renders the same id, and prefixed so
+    an operator reading ``bernstein agents parked`` can tell a parked
+    work-unit from a live agent session id.
+    """
+    return "batch:" + ",".join(sorted(batch_key))
+
+
+def _spawn_supervisor_for(orch: Any) -> Any:
+    """Return the process supervisor, rooted at this orchestrator's workdir.
+
+    Rooting it is what makes a park survive the orchestrator process and
+    reach ``bernstein status`` and ``bernstein agents resume``, which run
+    separately (#3453).
+    """
+    from bernstein.core.agents.spawn_supervisor import get_supervisor
+
+    return get_supervisor(workdir=orch._workdir)
+
+
+def _spawn_respawn_budget(orch: Any) -> Any:
+    """Budget mirroring the orchestrator's own consecutive-failure ceiling.
+
+    ``max_respawns`` is one less than ``_MAX_SPAWN_FAILURES`` because the
+    supervisor parks on the failure that *exhausts* the budget, while the
+    orchestrator gives up on the ``_MAX_SPAWN_FAILURES``-th failure: with
+    a ceiling of 3, failures 1 and 2 consume budget and failure 3 parks.
+    The window matches the backoff ceiling that
+    ``agent_lifecycle`` uses to expire ``_spawn_failures``, so a batch
+    cannot age out of one counter while still counting against the other.
+    """
+    from bernstein.core.agents.spawn_supervisor import RespawnBudget
+
+    return RespawnBudget(
+        max_respawns=max(int(orch._MAX_SPAWN_FAILURES) - 1, 0),
+        window_seconds=float(orch._SPAWN_BACKOFF_MAX_S),
+    )
+
+
 def claim_and_spawn_batches(
     orch: Any,  # Orchestrator instance (avoids circular import)
     batches: list[list[Task]],
@@ -2853,6 +2906,18 @@ def claim_and_spawn_batches(
             session.heartbeat_ts = time.time()
             orch._spawn_failures.pop(batch_key, None)
             spawn_failure_history.pop(batch_key, None)
+            # Tell the supervisor the batch recovered, and leave evidence
+            # in the store that a supervisor ran here. Without this a
+            # healthy run writes nothing and its readers cannot tell
+            # "nothing parked" from "nobody was watching" (#3453).
+            try:
+                _spawn_supervisor_for(orch).note_spawn_success(_park_key(batch_key))
+            except Exception:
+                logger.warning(
+                    "Could not record a clean spawn with the supervisor for task %s",
+                    batch[0].id,
+                    exc_info=True,
+                )
             _spawned_per_role[batch[0].role] += 1
             # Track spawn rate in convergence guard
             _convergence = getattr(orch, "_convergence_guard", None)
@@ -2980,8 +3045,40 @@ def claim_and_spawn_batches(
                 continue
             new_count = fail_count + 1
             orch._spawn_failures[batch_key] = (new_count, time.time())
+            # Consume one respawn against the supervisor's budget. The
+            # orchestrator stays the authority on when to give up -- the
+            # budget is built from _MAX_SPAWN_FAILURES so the two agree by
+            # construction rather than by coincidence -- and the
+            # supervisor's job here is to make the give-up visible to
+            # `bernstein status`, the TUI and `agents resume` (#3453).
+            try:
+                _spawn_supervisor_for(orch).record_spawn_failure(
+                    _park_key(batch_key),
+                    exc,
+                    budget=_spawn_respawn_budget(orch),
+                )
+            except Exception:
+                logger.warning(
+                    "Could not record a spawn failure with the supervisor for task %s",
+                    batch[0].id,
+                    exc_info=True,
+                )
             should_retry, _ = spawn_analyzer.should_retry(batch_history, max_retries=orch._MAX_SPAWN_FAILURES)
             if new_count >= orch._MAX_SPAWN_FAILURES or not should_retry:
+                # The analyzer can call it quits before the budget is
+                # spent. Park explicitly so the two ways of giving up
+                # leave the same operator-visible state.
+                try:
+                    _spawn_supervisor_for(orch).park(
+                        _park_key(batch_key),
+                        reason=f"spawn failed {new_count} consecutive time(s): {exc}",
+                    )
+                except Exception:
+                    logger.warning(
+                        "Could not park task %s with the supervisor; the operator surfaces will not show it",
+                        batch[0].id,
+                        exc_info=True,
+                    )
                 for task in batch:
                     try:
                         fail_task(
@@ -3569,6 +3666,68 @@ def _notify_approval_pr_failed(orch: Any, task: Task, *, reason: str) -> None:
     )
 
 
+def _write_task_resume_checkpoint(
+    workdir: Path,
+    task_id: str,
+    session: AgentSession | None,
+    worktree_path: Path | None,
+    adapter_name: str | None = None,
+) -> None:
+    """Write a task resume checkpoint for a completed task.
+
+    This checkpoint captures the state after a successful step transition
+    (agent spawn -> task completion) so the task can be resumed later if
+    needed. The checkpoint is written atomically using a temp file and
+    rename to prevent corruption.
+
+    Raises rather than swallowing: the caller owns the fail-open decision, so
+    a failure gets logged once, at a level an operator sees.
+
+    Args:
+        workdir: Project root directory.
+        task_id: Task identifier.
+        session: Completed agent session, if available.
+        worktree_path: Absolute path to the preserved worktree.
+        adapter_name: Adapter that ran the session. ``bernstein resume`` reads
+            its resume strategy off this name (``resume_cmd.py``), so a
+            checkpoint written without one is readable but not resumable.
+    """
+    adapter = adapter_name or ""
+    adapter_session_id = session.id if session is not None else ""
+
+    # Get trace cursor (byte offset) - file size of trace JSONL
+    trace_cursor = 0
+    trace_path = workdir / ".sdd" / "traces" / f"{task_id}.jsonl"
+    if trace_path.exists():
+        with contextlib.suppress(OSError):
+            trace_cursor = trace_path.stat().st_size
+
+    # Get scratchpad info if available
+    scratchpad_path = None
+    scratchpad_sha = None
+    if worktree_path is not None:
+        scratchpad_path = str(worktree_path / ".scratchpad.md")
+        scratchpad_sha = scratchpad_sha256(Path(scratchpad_path))
+
+    checkpoint = TaskResumeCheckpoint(
+        task_id=task_id,
+        last_completed_step_id=task_id,  # task_id used as default step_id
+        trace_cursor=trace_cursor,
+        adapter=adapter,
+        adapter_session_id=adapter_session_id,
+        # ``TaskResumeCheckpoint.worktree_path`` is a ``str`` and the model
+        # forbids anything else; the spawner hands out a ``Path``. Passing the
+        # Path straight through raised a validation error that the old
+        # try/except here then swallowed at debug level, so no checkpoint was
+        # ever written and nothing said so.
+        worktree_path=str(worktree_path) if worktree_path is not None else None,
+        scratchpad_path=scratchpad_path,
+        scratchpad_sha256=scratchpad_sha,
+        meta=({"adapter_name": adapter} if adapter else {}),
+    )
+    save_checkpoint(workdir, checkpoint)
+
+
 def _reap_and_cleanup_session(
     orch: Any,
     task: Task,
@@ -3639,6 +3798,37 @@ def _reap_and_cleanup_session(
     # journal so the diff identity is a journal fact and the board can serve
     # and verify it against a detached run. Fail-open: never blocks completion.
     _capture_review_diff(orch, task, session)
+
+    # issue #4603: write task resume checkpoint after successful task completion
+    # (agent spawn -> task completion). This captures state so the task can be
+    # resumed later if needed. Write even for approval-gated tasks that skip merge.
+    if janitor_passed:
+        try:
+            from bernstein.adapters.registry import adapter_name_for_provider
+
+            worktree_path = orch._spawner.get_worktree_path(session.id)
+            # The session records the provider and model it actually ran on,
+            # and the registry maps that pair back to the adapter - the one
+            # field ``bernstein resume`` needs to pick a resume strategy. Fall
+            # back to the run-level adapter when the pair is not registered.
+            adapter_name = (
+                adapter_name_for_provider(session.provider, session.model_config.model)
+                or orch._spawner.default_adapter_name
+            )
+            _write_task_resume_checkpoint(
+                orch._workdir,
+                task.id,
+                session=session,
+                worktree_path=worktree_path,
+                adapter_name=adapter_name,
+            )
+        except Exception:
+            # Fail-open like the review-diff capture above: a missing
+            # checkpoint must not block completion. Warning, not debug -
+            # nothing else reports it, and the operator would otherwise only
+            # find out at the next ``bernstein resume``, which would simply
+            # say there is nothing to resume from.
+            logger.warning("Failed to write task resume checkpoint for %s", task.id, exc_info=True)
 
     # issue #2792: a merge-back that failed for a *non-conflict* reason (an
     # untracked operator-tree file, the forbidden-path guard, unrelated
@@ -4900,6 +5090,31 @@ def _janitor_reopen_max() -> int:
     return max(0, value)
 
 
+def _record_swarm_chunk_outcome(orch: Any, task: Task, *, passed: bool, reason: str = "") -> None:
+    """Advance a swarm-migration checkpoint when one of its chunk tasks lands.
+
+    Issue #4541: ``mark_chunk_complete``/``reduce_swarm`` had no caller
+    anywhere in the tree, so a swarm migration's checkpoint never learned
+    that a chunk finished. Every terminal outcome for a task carrying
+    ``swarm_plan_id``/``swarm_chunk_hash`` metadata (stamped by
+    :func:`bernstein.core.tasks.swarm_migration.spawn_swarm`) routes through
+    here. A task with no such metadata is not part of a swarm migration and
+    this is a no-op.
+    """
+    plan_id = task.metadata.get("swarm_plan_id")
+    chunk_hash = task.metadata.get("swarm_chunk_hash")
+    if not plan_id or not chunk_hash:
+        return
+    repo_root = orch._workdir
+    if passed:
+        mark_chunk_complete(plan_id, chunk_hash, repo_root)
+    else:
+        mark_chunk_failed(plan_id, chunk_hash, repo_root, files=tuple(task.owned_files), reason=reason)
+    report = maybe_reduce_swarm(plan_id, repo_root)
+    if report is not None:
+        orch._post_bulletin("status", report.to_bulletin_content())
+
+
 def _apply_janitor_verdict_action(orch: Any, task: Task, janitor_passed: bool) -> None:
     """Act on the janitor verdict for a completed task.
 
@@ -4922,6 +5137,7 @@ def _apply_janitor_verdict_action(orch: Any, task: Task, janitor_passed: bool) -
     """
     if janitor_passed:
         logger.debug("janitor_verdict_action: task=%s verdict=PASS action=none", task.id)
+        _record_swarm_chunk_outcome(orch, task, passed=True)
         return
 
     server_url: str | None = getattr(orch._config, "server_url", None)
@@ -4987,6 +5203,9 @@ def _apply_janitor_verdict_action(orch: Any, task: Task, janitor_passed: bool) -
         logger.info(
             "janitor_verdict_action: task=%s verdict=FAIL action=permanent_fail reason=reopen_budget_exhausted",
             task.id,
+        )
+        _record_swarm_chunk_outcome(
+            orch, task, passed=False, reason="reopen_budget_exhausted: janitor verification failed"
         )
 
 
@@ -5070,6 +5289,9 @@ def _apply_merge_failure_action(orch: Any, task: Task) -> None:
         logger.error(
             "merge_failure_action: task=%s action=permanent_fail reason=merge_back_failed_budget_exhausted",
             task.id,
+        )
+        _record_swarm_chunk_outcome(
+            orch, task, passed=False, reason="merge_back_failed: non-conflict merge-back failed"
         )
 
 

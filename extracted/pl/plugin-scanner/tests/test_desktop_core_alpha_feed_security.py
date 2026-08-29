@@ -163,6 +163,39 @@ def test_frozen_sidecar_stages_cloud_review_package_data() -> None:
     assert '--source-root "$SOURCE"' in text
 
 
+def test_frozen_sidecar_stages_attested_native_runtime() -> None:
+    text = workflow_text()
+    build = next(step for step in publish_job()["steps"] if step.get("name") == "Build standalone Core executable")
+    run = build["run"]
+    assert isinstance(run, str)
+    assert 'cp "$WHEEL" "$RUNNER_TEMP/attested-macos-arm64.whl"' in text
+    assert "python3 -I scripts/release/stage_native_runtime_for_desktop_core.py" in run
+    assert '--wheel "$RUNNER_TEMP/attested-macos-arm64.whl"' in run
+    assert '--expected-version "$CORE_VERSION"' in run
+    assert '--expected-target "$RELEASE_TARGET"' in run
+    assert "--refresh-identity" in run
+    assert run.index("stage_native_runtime_for_desktop_core.py") < run.index("uv run --no-sync pyinstaller")
+    assert run.index(
+        'codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$NATIVE_RUNTIME"'
+    ) < run.index("uv run --no-sync pyinstaller")
+    assert '--add-data "$NATIVE_RUNTIME:codex_plugin_scanner/_native"' in run
+    assert '--add-data "$NATIVE_MANIFEST:codex_plugin_scanner/_native"' in run
+    assert "--add-binary" not in run
+    assert "python3 -I scripts/release/seal_pyinstaller_native_manifest.py" in run
+    assert "python3 -I scripts/release/verify_pyinstaller_native_runtime.py" in run
+    assert 'codesign --remove-signature "$BUILT"' in run
+    assert "fix_pyinstaller_macos_exe_headers.py" in run
+    native_verify = run.index("verify_pyinstaller_native_runtime.py")
+    signing_verify = run.index("verify_pyinstaller_macos_signing.py")
+    seal = run.index("seal_pyinstaller_native_manifest.py")
+    strip_sign = run.index('codesign --remove-signature "$BUILT"')
+    repair_headers = run.index("fix_pyinstaller_macos_exe_headers.py")
+    outer_sign = run.index(
+        'codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$BUILT"'
+    )
+    assert strip_sign < seal < repair_headers < outer_sign < signing_verify < native_verify
+
+
 def test_existing_asset_set_is_all_or_nothing(tmp_path: Path, capsys) -> None:
     namespace = runpy.run_path(str(TOOL))
     assets = tmp_path / "assets.txt"

@@ -1,5 +1,7 @@
+import fnmatch
 import importlib
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 
@@ -8,11 +10,11 @@ def _patch_tools():
     from . import machotools as patched_tools
 
     for fn_name in [
-        "get_install_names",
-        "get_install_id",
+        "_get_install_names",
+        "_get_install_ids",
+        "_get_rpaths",
         "set_install_name",
         "set_install_id",
-        "get_rpaths",
         "get_archs",
         "replace_signature",
         "validate_signature",
@@ -28,9 +30,32 @@ def _patch_tools():
     importlib.reload(repairwheel._vendor.delocate.libsana)
 
 
-def repair(wheel: Path, output_path: Path, lib_path: list[Path], use_sys_paths: bool, verbosity: int = 0) -> None:
+def make_copy_filt_func(exclude: list[str] | None = None) -> Callable[[str], bool]:
+    from repairwheel._vendor.delocate.libsana import filter_system_libs
+
+    exclude_patterns = list(exclude or [])
+
+    def copy_filt_func(libname: str) -> bool:
+        if not filter_system_libs(libname):
+            return False
+        lib_basename = os.path.basename(libname)
+        return not any(fnmatch.fnmatch(lib_basename, pat) or fnmatch.fnmatch(libname, pat) for pat in exclude_patterns)
+
+    return copy_filt_func
+
+
+def repair(
+    wheel: Path,
+    output_path: Path,
+    lib_path: list[Path],
+    use_sys_paths: bool,
+    exclude: list[str] | None = None,
+    verbosity: int = 0,
+) -> None:
     _patch_tools()
     from repairwheel._vendor.delocate.delocating import delocate_wheel
+
+    copy_filt_func = make_copy_filt_func(exclude)
 
     # Set our path in DYLD_LIBRARY_PATH since that's where delocate looks.
     orig_env = {var: os.environ.get(var) for var in ["DYLD_LIBRARY_PATH", "DYLD_FALLBACK_LIBRARY_PATH"]}
@@ -50,6 +75,7 @@ def repair(wheel: Path, output_path: Path, lib_path: list[Path], use_sys_paths: 
         delocate_wheel(
             in_wheel=wheel,
             out_wheel=out_wheel,
+            copy_filt_func=copy_filt_func,
         )
     finally:
         # Restore os.environ

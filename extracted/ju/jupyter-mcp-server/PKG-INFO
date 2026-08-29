@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jupyter_mcp_server
-Version: 2.1.0
+Version: 2.1.1
 Project-URL: Home, https://github.com/datalayer/jupyter-mcp-server
 Author-email: Datalayer <info@datalayer.io>
 License: BSD 3-Clause License
@@ -90,7 +90,7 @@ Requires-Dist: jupyter-server<3,>=1.6; extra == 'test'
 Requires-Dist: jupyterlab; extra == 'test'
 Requires-Dist: pillow>=10.0.0; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
-Requires-Dist: pytest-timeout>=2.1.0; extra == 'test'
+Requires-Dist: pytest-timeout>=2.1.1; extra == 'test'
 Requires-Dist: pytest>=7.0; extra == 'test'
 Provides-Extra: typing
 Requires-Dist: mypy>=0.990; extra == 'typing'

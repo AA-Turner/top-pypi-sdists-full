@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import pytest
 from _pytest._py.path import LocalPath
-from pytest import FixtureRequest
 
 
 @dataclass(frozen=True)
@@ -17,17 +17,19 @@ class PostgreSQLConfig:
     port: str | None
     port_search_count: int
     user: str
-    password: str
+    password: str | None
     options: str
     startparams: str
     unixsocketdir: str
     dbname: str
+    maintenance_dbname: str
     load: list[Path | str]
+    load_autocommit: bool
     postgres_options: str
     drop_test_database: bool
 
 
-def get_config(request: FixtureRequest) -> PostgreSQLConfig:
+def get_config(request: pytest.FixtureRequest) -> PostgreSQLConfig:
     """Return a PostgreSQLConfig instance with configuration options."""
 
     def get_postgresql_option(option: str) -> Any:
@@ -48,7 +50,9 @@ def get_config(request: FixtureRequest) -> PostgreSQLConfig:
         startparams=get_postgresql_option("startparams"),
         unixsocketdir=get_postgresql_option("unixsocketdir"),
         dbname=get_postgresql_option("dbname"),
+        maintenance_dbname=get_postgresql_option("maintenance_dbname"),
         load=load_paths,
+        load_autocommit=bool(get_postgresql_option("load_autocommit")),
         postgres_options=get_postgresql_option("postgres_options"),
         drop_test_database=request.config.getoption("postgresql_drop_test_database"),
     )

@@ -95,8 +95,12 @@ class Knowledge:
         # Use deterministic collection name for persistence across restarts
         # Only generate unique name if explicitly requested via config
         default_collection = "praisonai_knowledge"
-        from ..paths import get_project_data_dir
-        persist_dir = str(get_project_data_dir())
+        # Default to an absolute, per-project ``.praisonai/knowledge/chroma``
+        # directory so unrelated projects/harnesses don't share one on-disk
+        # sqlite store (issue #4376). A user-supplied
+        # vector_store.config.path still overrides this default below.
+        from ..paths import get_project_knowledge_dir
+        persist_dir = str(get_project_knowledge_dir() / "chroma")
 
         # Create persistent client config (protocol-driven)
         base_config = {
@@ -512,7 +516,7 @@ class Knowledge:
             # Check if input is URL
             if isinstance(input_path, str) and (input_path.startswith('http://') or input_path.startswith('https://')):
                 self._log(f"Processing URL: {input_path}")
-                raise NotImplementedError("URL processing not yet implemented")
+                return self._process_url(input_path, user_id, agent_id, run_id, metadata)
             
             # CRITICAL FIX: Check if input is a directory - recursively process all files
             if os.path.isdir(input_path):
@@ -532,6 +536,24 @@ class Knowledge:
                                 all_results.extend(result.get('results', []))
                             except Exception as e:
                                 logger.warning(f"Failed to process file {file_path}: {e}")
+                            except (KeyboardInterrupt, SystemExit, GeneratorExit):
+                                # Interpreter control-flow signals must propagate
+                                # untouched so a Ctrl+C / interpreter shutdown is
+                                # not masked as a backend failure.
+                                raise
+                            except BaseException as e:
+                                # A native backend (e.g. Chroma's rust bindings)
+                                # can raise a pyo3 PanicException, which is a
+                                # BaseException and would otherwise unwind and
+                                # kill the process. Re-raise as a Python
+                                # RuntimeError so callers stay alive (issue #4376).
+                                logger.error(
+                                    "Knowledge backend crashed while indexing %s: %s",
+                                    file_path, e,
+                                )
+                                raise RuntimeError(
+                                    f"Knowledge indexing backend crashed on {file_path}"
+                                ) from e
                 
                 if not all_results:
                     logger.warning(f"No supported files found in directory: {input_path}")
@@ -626,7 +648,65 @@ class Knowledge:
         except Exception as e:
             logger.error(f"Error processing input {input_path}: {str(e)}", exc_info=True)
             raise
-    
+
+    def _process_url(self, url, user_id=None, agent_id=None, run_id=None, metadata=None):
+        """Fetch a URL, extract its content, and store it in memory.
+
+        Uses MarkItDown (already a dependency for document extraction) to fetch
+        and convert the remote resource, then chunks and stores it through the
+        same path as local files. Failures are surfaced to the caller so a
+        single bad URL in a batch is visible, matching local-file behaviour.
+        """
+        result = self.markdown.convert(url)
+        content = getattr(result, 'text_content', None)
+        if not content:
+            raise ValueError(f"No content could be extracted from URL: {url}")
+
+        chunks = self.chunker.chunk(content)
+        memories = [
+            chunk.text.strip() if hasattr(chunk, 'text') else str(chunk).strip()
+            for chunk in chunks if chunk
+        ]
+
+        if not metadata:
+            metadata = {}
+        metadata['source_type'] = 'url'
+        metadata['source'] = url
+
+        all_results = []
+        for memory in memories:
+            if not memory:
+                continue
+            memory_result = self.store(
+                memory, user_id=user_id, agent_id=agent_id,
+                run_id=run_id, metadata=metadata,
+            )
+            if not memory_result:
+                continue
+            if isinstance(memory_result, dict):
+                all_results.extend(memory_result.get('results', []))
+            elif isinstance(memory_result, list):
+                all_results.extend(memory_result)
+            else:
+                from .models import AddResult
+                if isinstance(memory_result, AddResult):
+                    if not memory_result.success:
+                        raise RuntimeError(
+                            memory_result.message or "Failed to store chunk"
+                        )
+                    all_results.append(memory_result.id)
+                elif hasattr(memory_result, 'results'):
+                    all_results.extend(memory_result.results)
+                elif isinstance(memory_result, str):
+                    # Some backends (e.g. MongoDB) return a bare document id.
+                    all_results.append(memory_result)
+
+        self._emit_knowledge_event(
+            "add", source=url, chunk_count=len(memories),
+            metadata=metadata, agent_id=agent_id,
+        )
+        return {'results': all_results, 'relations': []}
+
     def index(
         self,
         path: str,

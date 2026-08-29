@@ -296,7 +296,8 @@ def PostgreSQLSource(
         Authenticate to Amazon RDS with IAM instead of a password. Chalk mints a short-lived
         auth token for each connection, so no password is stored. The database user must have
         been granted `rds_iam`, and Chalk's IAM principal needs `rds-db:connect` on it.
-        RDS requires TLS for IAM connections.
+        RDS requires TLS for IAM connections, so Chalk defaults `connect_args["sslmode"]`
+        to `"require"`; set `sslmode` explicitly in `engine_args["connect_args"]` to override.
     aws_region
         AWS region of the RDS instance, used when signing IAM auth tokens. Defaults to the
         ambient AWS configuration chain. Only used when `aws_iam_auth` is set.

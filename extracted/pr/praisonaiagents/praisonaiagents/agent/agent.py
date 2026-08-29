@@ -197,75 +197,6 @@ def _validate_preset_params(params):
         validate_preset_string(name, value, _PRESET_STRING_PARAMS[name]())
 
 
-class ServerRegistry:
-    """Registry for API server state per-port."""
-    
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._server_started = {}  # Dict of port -> started boolean
-        self._registered_agents = {}  # Dict of port -> Dict of path -> agent_id  
-        self._shared_apps = {}  # Dict of port -> FastAPI app
-    
-    # Class-level lock for thread-safe singleton creation
-    _instance_lock = threading.Lock()
-    
-
-
-    @staticmethod
-    def get_default_instance():
-        """Get default global registry for backward compatibility."""
-        if not hasattr(ServerRegistry, '_default_instance'):
-            # Double-checked locking pattern with shared class-level lock
-            with ServerRegistry._instance_lock:
-                if not hasattr(ServerRegistry, '_default_instance'):
-                    ServerRegistry._default_instance = ServerRegistry()
-        return ServerRegistry._default_instance
-    
-    def is_server_started(self, port: int) -> bool:
-        with self._lock:
-            return self._server_started.get(port, False)
-    
-    def set_server_started(self, port: int, started: bool) -> None:
-        with self._lock:
-            self._server_started[port] = started
-    
-    def get_shared_app(self, port: int):
-        with self._lock:
-            return self._shared_apps.get(port)
-    
-    def set_shared_app(self, port: int, app) -> None:
-        with self._lock:
-            self._shared_apps[port] = app
-    
-    def register_agent(self, port: int, path: str, agent_id: str) -> None:
-        with self._lock:
-            if port not in self._registered_agents:
-                self._registered_agents[port] = {}
-            self._registered_agents[port][path] = agent_id
-    
-    def get_registered_agents(self, port: int) -> dict:
-        with self._lock:
-            return self._registered_agents.get(port, {}).copy()
-
-    def cleanup_agent_registrations(self, agent_id: str) -> None:
-        """Remove all registrations for an agent ID and clean empty port state."""
-        with self._lock:
-            ports_to_clean = []
-            for port, path_dict in self._registered_agents.items():
-                paths_to_remove = [path for path, registered_id in path_dict.items() if registered_id == agent_id]
-                for path in paths_to_remove:
-                    del path_dict[path]
-                if not path_dict:
-                    ports_to_clean.append(port)
-
-            for port in ports_to_clean:
-                self._registered_agents.pop(port, None)
-                self._server_started.pop(port, None)
-
-# Backward compatibility - use default instance
-def _get_default_server_registry() -> ServerRegistry:
-    return ServerRegistry.get_default_instance()
-
 # Don't import FastAPI dependencies here - use lazy loading instead
 
 if TYPE_CHECKING:
@@ -695,6 +626,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         message_steering: Optional[Union[bool, 'MessageSteeringProtocol']] = False,  # Real-time message steering during execution
         sandbox: Optional[Union[bool, 'SandboxConfig']] = None,  # Sandbox for safe code execution
         retry: Optional[Union[bool, Dict[str, Any], 'RetryBackoffConfig']] = None,  # Retry configuration with exponential backoff
+        reasoning_effort: Optional[str] = None,  # Provider-portable reasoning effort: off|minimal|low|medium|high (Issue #4452)
         **legacy_kwargs: Any,  # Deprecated params (see _LEGACY_AGENT_PARAMS) consolidated into config objects
     ):
         """Initialize an Agent instance.
@@ -868,11 +800,34 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # LLMConfig(fallback_models=[...])), so accept it here without exposing
         # it in the signature and seed the local below.
         _cloned_fallback_models = legacy_kwargs.pop("fallback_models", None)
+        # `thinking_budget` is a backward-compatible alias for `reasoning_effort`
+        # (Issue #4452); accept it here (like fallback_models) without exposing
+        # it in the signature so the unknown-kwarg guard below does not reject it.
+        _thinking_budget_alias = legacy_kwargs.pop("thinking_budget", None)
         _unknown = set(legacy_kwargs) - _legacy_defaults.keys()
         if _unknown:
+            # Unknown kwargs are rejected rather than swallowed, so a typo can
+            # never silently disable the behaviour it was meant to configure.
+            # Some names are near-universal in this ecosystem, though -- and
+            # `verbose` is accepted by six sibling classes here -- so name the
+            # supported alternative instead of leaving the user to search a
+            # 41-parameter signature for something that is not in it.
+            _HINTS = {
+                "verbose": (
+                    "verbosity moved into output=; use output='verbose' "
+                    "(or output=OutputConfig(verbose=True))."
+                ),
+                "stream": (
+                    "streaming moved into output=; use "
+                    "output=OutputConfig(stream=True)."
+                ),
+            }
+            _hint = "".join(
+                f"\n  {name}: {_HINTS[name]}" for name in sorted(_unknown) if name in _HINTS
+            )
             raise TypeError(
                 f"Agent.__init__() got unexpected keyword argument(s): "
-                f"{', '.join(sorted(_unknown))}"
+                f"{', '.join(sorted(_unknown))}{_hint}"
             )
         allow_delegation = legacy_kwargs.get("allow_delegation", _legacy_defaults["allow_delegation"])
         allow_code_execution = legacy_kwargs.get("allow_code_execution", _legacy_defaults["allow_code_execution"])
@@ -1076,7 +1031,11 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         planning_reasoning = False
         policy = None
         output_style = None
-        thinking_budget = None
+        # `thinking_budget` (popped above) is a backward-compatible alias for
+        # `reasoning_effort` (Issue #4452). Fold the legacy int budget / graded
+        # level into one internal effort value for the LLM request pipeline.
+        if reasoning_effort is None and _thinking_budget_alias is not None:
+            reasoning_effort = _thinking_budget_alias
         skills_dirs = None
         
         # ─────────────────────────────────────────────────────────────────────
@@ -1978,7 +1937,16 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             self.self_reflect = True if self_reflect is None else self_reflect
         
         self.instructions = instructions
-        
+
+        # Unique, per-instance scope id for skill auto-approval grants. The
+        # display ``name`` defaults to the literal "Agent" for every unnamed
+        # agent, so keying auto-approval by name alone would let one agent's
+        # skill grant leak onto every other unnamed agent in the same process
+        # (a cross-tenant privilege escalation). This id can never collide
+        # across unrelated instances.
+        import uuid as _uuid
+        self._approval_scope_id = f"{self.name}:{_uuid.uuid4().hex}"
+
         # Resolve tool_config for tool execution settings
         _tool_config = Agent._resolve_tool_config(
             tool_config=tool_config
@@ -2133,6 +2101,11 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             'claude_memory': claude_memory,
             **_retry_init_params,
         }
+        # Forward the unified reasoning-effort control to every LLM-construction
+        # branch (Issue #4452). Only set when provided so unset stays a no-op and
+        # older dict/string branches that don't spread these kwargs are unaffected.
+        if reasoning_effort is not None:
+            self._llm_option_kwargs['reasoning_effort'] = reasoning_effort
 
         # Panel (multi-model) descriptor: "panel:<name>" or {"provider": "panel"}.
         # Resolved lazily into a PanelLLM; composes with the normal tool loop.
@@ -2254,7 +2227,14 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 self._llm_init_params = llm_params
                 self._using_custom_llm = True
             self.llm = model_name
-        
+
+        # Thread the unified reasoning-effort control into whichever LLM-init
+        # params the branch chain above produced (Issue #4452), so it reaches the
+        # LLM request pipeline regardless of how the model was specified. Only set
+        # when provided and not already present, keeping unset a zero-cost no-op.
+        if reasoning_effort is not None and getattr(self, "_llm_init_params", None):
+            self._llm_init_params.setdefault('reasoning_effort', reasoning_effort)
+
         # Store fallback models for resilience (defensive copy to avoid external mutations)
         self.fallback_models = list(fallback_models) if fallback_models else []
         
@@ -2574,6 +2554,17 @@ Your Goal: {self.goal}
             # Store permissions if provided (for CI-safe declarative policies)
             self._approval_permissions = getattr(approval, 'permissions', None)
             self._permission_mode = getattr(approval, 'permission_mode', None)
+            # Configuring approval must never be a WEAKER posture than passing
+            # nothing. When no declarative ``permissions`` policy is supplied,
+            # fall back to the same env-driven default deny set the bare
+            # ``approval is None`` path uses, so e.g. ``ApprovalConfig(timeout=30)``
+            # keeps the default denials (execute_command, delete_file, …) instead
+            # of silently dropping all of them. ``is None`` (not falsiness) so an
+            # explicit empty policy (``permissions={}``) is still an intentional
+            # policy that owns denial — only a genuinely absent policy inherits
+            # the env-driven default deny set.
+            if self._approval_permissions is None:
+                self._perm_deny = self._resolve_default_deny_set()
         elif isinstance(approval, dict):
             # Dict config: convert to ApprovalConfig
             approval_config = ApprovalConfig(**approval)
@@ -2582,6 +2573,12 @@ Your Goal: {self.goal}
             self._approval_timeout = approval_config.timeout
             self._approval_permissions = getattr(approval_config, 'permissions', None)
             self._permission_mode = getattr(approval_config, 'permission_mode', None)
+            # See the ApprovalConfig branch above: never weaken the default
+            # posture just because a config object was passed. ``is None`` so an
+            # explicit empty policy (``approval={"permissions": {}}``) still owns
+            # denial rather than inheriting the default deny set.
+            if self._approval_permissions is None:
+                self._perm_deny = self._resolve_default_deny_set()
         else:
             # Plain backend object — dangerous tools only, backend default timeout
             self._approval_backend = approval
@@ -2776,7 +2773,28 @@ Your Goal: {self.goal}
         self._auto_memory = auto_memory
         self._policy = policy
         self._output_style = output_style
-        self._thinking_budget = thinking_budget
+        # Backward-compatible: `thinking_budget` property mirrors the legacy int
+        # budget when supplied via the alias (Issue #4452); the unified effort is
+        # what actually drives the request pipeline via `_llm_init_params`.
+        self._thinking_budget = (
+            _thinking_budget_alias
+            if isinstance(_thinking_budget_alias, int)
+            else None
+        )
+        # Store the resolved unified reasoning-effort as a canonical graded level
+        # (off|minimal|low|medium|high) for session persistence. A legacy int
+        # ``thinking_budget`` alias is normalised to its nearest level so the
+        # persisted/queried value is always provider-portable (Issue #4452). The
+        # LLM request pipeline still accepts the raw value too, so behaviour is
+        # unchanged when unset.
+        if reasoning_effort is not None:
+            try:
+                from ..thinking.effort import normalize_effort
+                self._reasoning_effort = normalize_effort(reasoning_effort)
+            except Exception:
+                self._reasoning_effort = reasoning_effort
+        else:
+            self._reasoning_effort = None
         
         # Context management (lazy loaded for zero overhead when disabled)
         # Smart default: auto-enable context when tools are present
@@ -3222,7 +3240,50 @@ Your Goal: {self.goal}
     
     @thinking_budget.setter
     def thinking_budget(self, value: Optional[int]) -> None:
-        self._thinking_budget = value
+        # `thinking_budget` is a backward-compatible alias for the unified
+        # `reasoning_effort` control (Issue #4452). Setting it must route through
+        # the same request-pipeline sync as `reasoning_effort`, otherwise the
+        # CLI's `--thinking` (which assigns this property after construction)
+        # stays dormant — the value would be stored but never emitted.
+        self._thinking_budget = value if isinstance(value, int) else None
+        self.reasoning_effort = value
+
+    @property
+    def reasoning_effort(self) -> Optional[str]:
+        """Unified, provider-portable reasoning-effort level (Issue #4452).
+
+        One of ``off|minimal|low|medium|high``. Core translates it to the
+        target provider's native parameter (OpenAI/xAI ``reasoning_effort``,
+        Anthropic/Gemini extended-thinking budget) on the request path.
+        """
+        return getattr(self, "_reasoning_effort", None)
+
+    @reasoning_effort.setter
+    def reasoning_effort(self, value: Optional[str]) -> None:
+        # Normalise to a canonical graded level so the stored/persisted value is
+        # always provider-portable, whether set as a level or a legacy int budget.
+        if value is not None:
+            try:
+                from ..thinking.effort import normalize_effort
+                value = normalize_effort(value)
+            except Exception:
+                pass
+        self._reasoning_effort = value
+        # Keep the live LLM-init params in sync so a post-construction change
+        # still reaches the request pipeline (mirrors thinking_budget aliasing).
+        if getattr(self, "_llm_init_params", None) is not None:
+            if value is None:
+                self._llm_init_params.pop('reasoning_effort', None)
+            else:
+                self._llm_init_params['reasoning_effort'] = value
+        # If an LLM instance has already been built (lazy cache), update it too so
+        # a post-construction change still takes effect without a rebuild.
+        instance = getattr(self, "_llm_instance", None)
+        if instance is not None:
+            try:
+                instance.reasoning_effort = value
+            except Exception:
+                pass
 
     @property
     def total_cost(self) -> float:
@@ -3682,10 +3743,21 @@ Summary:"""
 
         One of ``"completed"`` (task finished), ``"max_steps"`` (the unified
         step budget from ``ExecutionConfig.max_steps`` was reached and the run was
-        truncated) or ``"error"``. Lets CLI/CI callers branch on truncation
-        instead of parsing a magic string. Reads from whichever backend
-        (OpenAI-native or LiteLLM) executed the last turn.
+        truncated), a provider block/refusal/truncation
+        (``"content_filtered" | "refused" | "length_truncated"``) derived from the
+        LLM ``finish_reason``/refusal signal, or ``"error"``. Lets CLI/CI callers
+        branch on the terminal reason instead of parsing a magic string. Reads
+        from whichever backend (OpenAI-native or LiteLLM) executed the last turn.
         """
+        # OpenAI-native path records the finish-reason classification directly on
+        # the agent (see ``_extract_llm_response_content``); prefer it so a
+        # provider block/refusal isn't masked by a backend default of "completed".
+        own = getattr(self, '_last_stop_reason', None)
+        # Prefer a specific agent-owned provider block/refusal/truncation before
+        # any backend fallback so a stale backend reason (e.g. ``max_steps``)
+        # cannot mask the OpenAI-native classification recorded for this turn.
+        if own and own != "completed":
+            return own
         # Read from the already-instantiated backends only. ``__openai_client``
         # is the raw (name-mangled) attribute, never the lazy ``_openai_client``
         # property, so this never triggers OpenAI client creation for
@@ -3695,8 +3767,10 @@ Summary:"""
             if backend is None:
                 continue
             reason = getattr(backend, '_last_stop_reason', None)
-            if reason:
+            if reason and reason != "completed":
                 return reason
+        if own:
+            return own
         return "completed"
 
     @property
@@ -5833,6 +5907,14 @@ Summary:"""
                 logging.warning(f"Memory provider '{memory}' requires additional dependencies. Falling back to FileMemory.")
                 from ..memory.file_memory import FileMemory
                 self._memory_instance = FileMemory(user_id=mem_user_id)
+            except Exception as e:
+                # The backend package is installed but could not initialise
+                # (e.g. a SaaS backend like mem0 needs credentials/network).
+                # Honour the same "Falling back to FileMemory" contract used for
+                # missing dependencies so construction never hard-crashes.
+                logging.warning(f"Memory provider '{memory}' could not initialise ({e}). Falling back to FileMemory.")
+                from ..memory.file_memory import FileMemory
+                self._memory_instance = FileMemory(user_id=mem_user_id)
         elif isinstance(memory, dict):
             # Configuration dict
             provider = memory.get("provider", memory.get("backend", "file"))
@@ -6431,6 +6513,31 @@ Answer:"""
         except Exception:
             return False
 
+    @staticmethod
+    def _resolve_default_deny_set() -> frozenset:
+        """Return the env-driven default permission deny set.
+
+        Mirrors the ``approval is None`` path: honour ``PRAISONAI_TOOL_SAFETY``
+        (``off``/``full``/``none``/``0``/``false`` → no denials), otherwise use
+        the named preset (defaulting to ``"default"``, which blocks destructive
+        ops like ``execute_command``/``delete_file``/``kill_process``/
+        ``execute_code``). An unknown env value falls back to ``"default"``.
+
+        Shared by the ``ApprovalConfig``/``dict`` branches so configuring
+        approval never silently drops the default denials — passing a config
+        object must not be a weaker posture than passing nothing.
+        """
+        _raw_safety_env = os.environ.get("PRAISONAI_TOOL_SAFETY")
+        _safety_env = (_raw_safety_env or "").strip().lower()
+        if _safety_env in ("off", "full", "none", "0", "false"):
+            return frozenset()
+        from ..approval.registry import PERMISSION_PRESETS
+        _resolved = _safety_env or "default"
+        _preset = PERMISSION_PRESETS.get(_resolved)
+        if _preset is None:
+            _preset = PERMISSION_PRESETS.get("default")
+        return _preset if _preset is not None else frozenset()
+
     def _setup_guardrail(self):
         """Setup the guardrail function based on the provided guardrail parameter."""
         # ``tool_execution._check_tool_policy_and_guardrails`` reads
@@ -6648,7 +6755,7 @@ Answer:"""
         else:
             return False, None, guardrail_result.error
 
-    def _apply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None):
+    def _apply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None, cancel_token=None):
         """Apply guardrail validation with retry logic (sync version)."""
         retry_count = 0
         current_response = response_text
@@ -6689,7 +6796,7 @@ Answer:"""
             # Regenerate response for retry
             try:
                 retry_prompt = f"{prompt}\n\nNote: Previous response failed validation due to: {error}. Please provide an improved response."
-                response = self._chat_completion([{"role": "user", "content": retry_prompt}], temperature, tools, task_name=task_name, task_description=task_description, task_id=task_id)
+                response = self._chat_completion([{"role": "user", "content": retry_prompt}], temperature, tools, task_name=task_name, task_description=task_description, task_id=task_id, cancel_token=cancel_token)
                 if response and response.choices:
                     content = response.choices[0].message.content
                     current_response = content.strip() if content else ""
@@ -6707,7 +6814,23 @@ Answer:"""
         current_response = response_text
         
         while retry_count <= self.max_guardrail_retries:
-            success, result, error = self._validate_with_guardrail(current_response)
+            # A string/LLMGuardrail guardrail fires a *blocking* LLM call inside
+            # _validate_with_guardrail. Offload it to a thread so it does not
+            # stall the event loop (and every other concurrently-running task
+            # under asyncio.gather), mirroring async_memory_mixin's
+            # _run_memory_in_thread executor-offload pattern.
+            loop = asyncio.get_event_loop()
+            # Preserve contextvars (trace emission, session context) across the
+            # executor thread so a custom guardrail sees the same contextual
+            # state as the synchronous path, matching every other
+            # run_in_executor call site in the SDK.
+            from ..trace.context_events import copy_context_to_callable
+            success, result, error = await loop.run_in_executor(
+                None,
+                copy_context_to_callable(
+                    lambda: self._validate_with_guardrail(current_response)
+                ),
+            )
             
             if success:
                 logging.info(f"Agent {self.name}: Guardrail validation passed")
@@ -6864,8 +6987,12 @@ Answer:"""
         if AgentRuntimeConfig and isinstance(runtime, AgentRuntimeConfig):
             return runtime
         
-        # If already a RuntimeConfig instance, return as-is
+        # If already a RuntimeConfig instance, normalise its runtime name so a
+        # typo in preferred_runtime (e.g. "nativ") raises instead of silently
+        # dropping capabilities. resolve_runtime returns a normalised copy.
         if RuntimeConfig and hasattr(RuntimeConfig, '__name__') and isinstance(runtime, RuntimeConfig):
+            if resolve_runtime:
+                return resolve_runtime(runtime)
             return runtime
         
         # Handle capability validation style (bool, RuntimeConfig)
@@ -6874,8 +7001,13 @@ Answer:"""
                 result = resolve_runtime(runtime)
                 if result is not None:
                     return result
-            except (TypeError, ValueError):
-                pass  # Try AgentRuntimeConfig path
+            except ValueError:
+                # An invalid runtime *name* (e.g. a typo) must surface rather
+                # than falling through and being stored verbatim, which would
+                # silently drop most capabilities.
+                raise
+            except TypeError:
+                pass  # Not this style; try AgentRuntimeConfig path
         
         # Handle turn-based style (AgentRuntimeConfig)
         if AgentRuntimeConfig:
@@ -6930,16 +7062,17 @@ Answer:"""
             else:
                 raise TypeError(f"Invalid capability type: {type(cap)}")
         
-        # Determine runtime name
-        runtime_name = getattr(self._runtime_config, 'preferred_runtime', 'native')
+        # Determine runtime name. Normalise so spelling variants (NATIVE,
+        # " native ", native) map to the same matrix instead of silently
+        # dropping capabilities; an unknown name raises rather than degrading.
+        raw_runtime = getattr(self._runtime_config, 'preferred_runtime', None) or 'native'
+        from ..config.feature_configs import canonical_runtime_name
+        runtime_name = canonical_runtime_name(raw_runtime)
         
         # Get runtime capabilities based on runtime type
         if runtime_name == 'native':
             runtime_matrix = get_native_runtime_capabilities()
-        elif runtime_name in ('plugin-harness', 'harness', 'plugin', 'reduced'):
-            runtime_matrix = get_reduced_harness_capabilities()
         else:
-            # Unknown runtime, use reduced capabilities as safe default
             runtime_matrix = get_reduced_harness_capabilities()
         
         # Validate capabilities
@@ -7442,8 +7575,7 @@ Answer:"""
 
         try:
             # Tear down the routes launch() actually registered (module-level
-            # state in execution_mixin.py). ServerRegistry above is a separate,
-            # unpopulated structure and cleaning it up is a no-op.
+            # state in execution_mixin.py).
             from .execution_mixin import cleanup_launch_registration
             cleanup_launch_registration(self._agent_id)
 

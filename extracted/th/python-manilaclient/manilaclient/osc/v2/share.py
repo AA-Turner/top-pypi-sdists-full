@@ -164,7 +164,9 @@ class CreateShare(command.ShowOne):
             help=_(
                 'The share type to create the share with. If not '
                 'specified, unless creating from a snapshot, the default '
-                'share type will be used.'
+                'share type will be used. Note that share creation will '
+                'fail if no share type is specified and no default share '
+                'type is configured by the administrator.'
             ),
         )
         parser.add_argument(
@@ -617,6 +619,14 @@ class ListShare(command.Lister):
                 'Available for microversion >= 2.90'
             ),
         )
+        parser.add_argument(
+            '--availability-zone',
+            metavar="<availability_zone>",
+            help=_(
+                'Filter shares by their availability zone. '
+                'Available for microversion >= 2.97'
+            ),
+        )
 
         return parser
 
@@ -742,6 +752,14 @@ class ListShare(command.Lister):
                 "available with manila API version >= 2.90"
             )
 
+        if share_client.api_version >= api_versions.APIVersion('2.97'):
+            search_opts['availability_zone'] = parsed_args.availability_zone
+        elif getattr(parsed_args, 'availability_zone'):
+            raise exceptions.CommandError(
+                "Filtering shares by availability zone is only "
+                "available with manila API version >= 2.97"
+            )
+
         # NOTE(vkmc) We implemented sorting and filtering in manilaclient
         # but we will use the one provided by osc
         if share_client.api_version >= api_versions.APIVersion("2.36"):
@@ -804,10 +822,13 @@ class ShowShare(command.ShowOne):
         data['export_locations'] = export_locations
         # Special mapping for columns to make the output easier to read:
         # 'metadata' --> 'properties'
+        metadata = data.pop('metadata', {})
         data.update(
             {
-                'properties': format_columns.DictColumn(
-                    data.pop('metadata', {})
+                'properties': (
+                    format_columns.DictColumn(metadata)
+                    if parsed_args.formatter == 'table'
+                    else metadata
                 ),
             },
         )
@@ -1337,10 +1358,13 @@ class ShareExportLocationShow(command.ShowOne):
             share=share, export_location=parsed_args.export_location
         )
         data = export_location._info
+        metadata = data.pop('metadata', {})
         data.update(
             {
-                'properties': format_columns.DictColumn(
-                    data.pop('metadata', {})
+                'properties': (
+                    format_columns.DictColumn(metadata)
+                    if parsed_args.formatter == 'table'
+                    else metadata
                 ),
             },
         )

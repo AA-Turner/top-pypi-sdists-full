@@ -47,6 +47,7 @@ __all__ = (
     "DataDeletionPolicyType",
     "DataSourceStatusType",
     "DataSourceTypeType",
+    "DayOfWeekType",
     "DocumentStatusType",
     "EmbeddingDataTypeType",
     "EmbeddingModelTypeType",
@@ -169,6 +170,9 @@ DataSourceTypeType = Literal[
     "SALESFORCE",
     "SHAREPOINT",
     "WEB",
+]
+DayOfWeekType = Literal[
+    "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
 DocumentStatusType = Literal[
     "DELETE_IN_PROGRESS",

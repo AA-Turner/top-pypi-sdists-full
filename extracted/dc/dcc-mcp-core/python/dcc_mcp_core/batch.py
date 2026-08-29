@@ -54,13 +54,17 @@ return result
 """
 
 from __future__ import annotations
+import __future__
 
+import ast
 import json
 import logging
 from typing import Any
+from typing import Callable
 import uuid
 
 from dcc_mcp_core import json_dumps
+from dcc_mcp_core.schema import _SCRIPT_ANNOTATION_MODULES
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +73,79 @@ __all__ = [
     "batch_dispatch",
     "generate_batch_id",
 ]
+
+
+_REFLECTIVE_ACCESS_ERROR = "reflective dunder access is not allowed"
+
+
+class _SandboxCallable:
+    """Callable facade that does not expose a bound method or Python closure."""
+
+    __slots__ = ("_callback",)
+
+    def __init__(self, callback: Callable[..., Any]) -> None:
+        object.__setattr__(self, "_callback", callback)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        callback = object.__getattribute__(self, "_callback")
+        return callback(*args, **kwargs)
+
+    def __getattribute__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(_REFLECTIVE_ACCESS_ERROR)
+        return object.__getattribute__(self, name)
+
+
+class _SandboxNamespace:
+    """Read-only public-name facade for sandbox helper modules."""
+
+    __slots__ = ("_values",)
+
+    def __init__(self, values: dict[str, Any]) -> None:
+        object.__setattr__(self, "_values", dict(values))
+
+    def __getattribute__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(_REFLECTIVE_ACCESS_ERROR)
+        values = object.__getattribute__(self, "_values")
+        try:
+            return values[name]
+        except KeyError as exc:
+            raise AttributeError(name) from exc
+
+
+def _subscript_string_key(node: ast.Subscript) -> str | None:
+    slice_node = node.slice
+    index_type = getattr(ast, "Index", None)
+    if index_type is not None and isinstance(slice_node, index_type):
+        slice_node = slice_node.value
+    if isinstance(slice_node, ast.Constant) and isinstance(slice_node.value, str):
+        return slice_node.value
+    if type(slice_node).__name__ == "Str":  # pragma: no cover - Python 3.7 AST
+        return slice_node.s
+    return None
+
+
+def _validate_sandbox_source(source: str) -> None:
+    tree = ast.parse(source, mode="exec")
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+            raise ValueError(_REFLECTIVE_ACCESS_ERROR)
+        if isinstance(node, ast.Name) and node.id.startswith("__"):
+            raise ValueError(_REFLECTIVE_ACCESS_ERROR)
+        if isinstance(node, ast.Subscript):
+            key = _subscript_string_key(node)
+            if key is not None and key.startswith("__"):
+                raise ValueError(_REFLECTIVE_ACCESS_ERROR)
+
+
+def _sandbox_json() -> _SandboxNamespace:
+    return _SandboxNamespace(
+        {
+            "dumps": _SandboxCallable(json.dumps),
+            "loads": _SandboxCallable(json.loads),
+        },
+    )
 
 
 def generate_batch_id() -> str:
@@ -256,9 +333,10 @@ class EvalContext:
     ``__builtins__`` that removes dangerous built-ins (``open``, ``exec``,
     ``eval``, ``__import__``, ``compile``, ``getattr``, ``setattr``,
     ``delattr``, ``vars``, ``dir``, ``globals``, ``locals``).  This is a
-    *best-effort* sandbox — it does not provide OS-level isolation.  For
-    untrusted user input, combine with ``SandboxPolicy`` and run inside
-    a subprocess or container.
+    *best-effort* sandbox — helper modules and dispatch are exposed through
+    narrow facades, and reflective private/dunder traversal fails closed, but
+    this does not provide OS-level isolation.  For untrusted user input,
+    combine with ``SandboxPolicy`` and run inside a subprocess or container.
 
     Args:
         dispatcher: ``ToolDispatcher`` instance.
@@ -323,6 +401,20 @@ class EvalContext:
         for name in dir(builtins):
             if name not in self._BLOCKED_BUILTINS:
                 safe[name] = getattr(builtins, name)
+
+        # Both execution paths postpone annotations. These are inert names for
+        # the schema-supported subset, not runtime typing objects or backports.
+        annotation_symbols = {
+            name: name for name in ("Annotated", "Any", "Dict", "List", "Literal", "Optional", "Tuple", "Union")
+        }
+        typing_proxy = _SandboxNamespace(annotation_symbols)
+
+        def _import_allowed(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name not in _SCRIPT_ANNOTATION_MODULES:
+                raise ImportError(f"sandbox import is not allowed: {name}")
+            return typing_proxy
+
+        safe["__import__"] = _SandboxCallable(_import_allowed)
         return safe
 
     def _dispatch_fn(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -357,6 +449,94 @@ class EvalContext:
                 },
             }
 
+    def _script_namespace(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Build globals for trusted or sandboxed script execution."""
+        if self._sandbox:
+            ns: dict[str, Any] = {
+                "dispatch": _SandboxCallable(self._dispatch_fn),
+                "json": _sandbox_json(),
+                "__builtins__": self._make_builtins(),
+            }
+        else:
+            ns = {
+                "dispatch": self._dispatch_fn,
+                "json": json,
+            }
+        if params is not None:
+            ns["__dcc_params__"] = dict(params)
+        return ns
+
+    def run_callable(self, callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """Run a trusted callable on the current thread under this deadline.
+
+        Safe signal preemption is used only when the runtime supports it. On
+        runtimes such as Windows, the callable remains synchronous so a timed
+        out DCC action can never continue mutating host state in a background
+        worker; an overrun is reported after the callable returns.
+        """
+        if self._timeout_secs is None:
+            return callback(*args, **kwargs)
+
+        import threading
+        import time
+
+        timeout_secs = self._timeout_secs
+        signal_module: Any | None = None
+        old_handler: Any | None = None
+        timer_installed = False
+        deadline_triggered = False
+        if threading.current_thread() is threading.main_thread():
+            try:
+                import signal
+
+                if hasattr(signal, "SIGALRM"):
+                    signal_module = signal
+
+                    def _timeout_handler(signum: int, frame: Any) -> None:
+                        nonlocal deadline_triggered
+                        deadline_triggered = True
+                        raise TimeoutError(f"EvalContext call exceeded {timeout_secs}s timeout")
+
+                    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+                    if hasattr(signal, "setitimer") and hasattr(signal, "ITIMER_REAL"):
+                        signal.setitimer(signal.ITIMER_REAL, timeout_secs)
+                    else:
+                        signal.alarm(timeout_secs)
+                    timer_installed = True
+            except (AttributeError, OSError, ValueError):
+                signal_module = None
+                old_handler = None
+                timer_installed = False
+
+        started = time.monotonic()
+
+        def _deadline_exceeded() -> bool:
+            return deadline_triggered or time.monotonic() - started > timeout_secs
+
+        try:
+            try:
+                result = callback(*args, **kwargs)
+            except BaseException as exc:
+                if _deadline_exceeded():
+                    raise TimeoutError(f"EvalContext call exceeded the {timeout_secs}s timeout") from exc
+                raise
+            if _deadline_exceeded():
+                detail = (
+                    ""
+                    if timer_installed
+                    else "; safe preemption is unavailable on this runtime, so execution completed synchronously"
+                )
+                raise TimeoutError(f"EvalContext call exceeded the {timeout_secs}s timeout{detail}")
+            return result
+        finally:
+            if timer_installed and signal_module is not None:
+                if hasattr(signal_module, "setitimer") and hasattr(signal_module, "ITIMER_REAL"):
+                    signal_module.setitimer(signal_module.ITIMER_REAL, 0)
+                else:
+                    signal_module.alarm(0)
+                if old_handler is not None:
+                    signal_module.signal(signal_module.SIGALRM, old_handler)
+
     def run(self, script: str) -> Any:
         """Execute a Python script string and return its result.
 
@@ -377,47 +557,63 @@ class EvalContext:
             TimeoutError: If ``timeout_secs`` is set and the script exceeds it.
 
         """
-        ns: dict[str, Any] = {
-            "dispatch": self._dispatch_fn,
-            "json": json,
-        }
-
-        if self._sandbox:
-            ns["__builtins__"] = self._make_builtins()
+        ns = self._script_namespace()
 
         # Wrap script in a function so `return` works at the top level.
         indented = "\n".join("    " + line for line in script.splitlines())
         wrapped = f"def __dcc_eval_fn__():\n{indented}\n"
+        if self._sandbox:
+            _validate_sandbox_source(wrapped)
+
+        def _execute() -> Any:
+            try:
+                compiled = compile(
+                    wrapped,
+                    "<dcc-eval>",
+                    "exec",
+                    flags=__future__.annotations.compiler_flag,
+                    dont_inherit=True,
+                )
+                exec(compiled, ns)
+                return ns["__dcc_eval_fn__"]()
+            except TimeoutError:
+                raise
+            except Exception as exc:
+                raise RuntimeError(f"EvalContext script failed: {exc}") from exc
 
         try:
-            if self._timeout_secs is not None:
-                import signal as _signal
-
-                def _timeout_handler(signum: int, frame: Any) -> None:
-                    raise TimeoutError(f"EvalContext script exceeded {self._timeout_secs}s timeout")
-
-                old_handler = None
-                try:
-                    old_handler = _signal.signal(_signal.SIGALRM, _timeout_handler)  # type: ignore[attr-defined]
-                    _signal.alarm(self._timeout_secs)  # type: ignore[attr-defined]
-                except AttributeError:
-                    pass  # SIGALRM not available on Windows; skip
-
-            try:
-                exec(wrapped, ns)
-                result = ns["__dcc_eval_fn__"]()
-                return result
-            finally:
-                if self._timeout_secs is not None:
-                    try:
-                        import signal as _signal2
-
-                        _signal2.alarm(0)  # type: ignore[attr-defined]
-                        if old_handler is not None:
-                            _signal2.signal(_signal2.SIGALRM, old_handler)  # type: ignore[attr-defined]
-                    except AttributeError:
-                        pass
+            return self.run_callable(_execute)
         except TimeoutError:
             raise
-        except Exception as exc:
-            raise RuntimeError(f"EvalContext script failed: {exc}") from exc
+
+    def run_entrypoint(self, script: str, params: dict[str, Any]) -> Any:
+        """Execute module source and call its ``main(**params)`` in this context.
+
+        This deliberately shares the same dispatcher, restricted builtins, and
+        synchronous deadline as :meth:`run`; structured parameters must not
+        select a more trusted execution environment.
+        """
+        ns = self._script_namespace(params)
+        if self._sandbox:
+            _validate_sandbox_source(script)
+
+        def _execute() -> Any:
+            try:
+                compiled = compile(
+                    script,
+                    "<dcc-entrypoint>",
+                    "exec",
+                    flags=__future__.annotations.compiler_flag,
+                    dont_inherit=True,
+                )
+                exec(compiled, ns)
+                entrypoint = ns.get("main")
+                if not callable(entrypoint):
+                    raise TypeError("script must define a callable main")
+                return entrypoint(**ns["__dcc_params__"])
+            except TimeoutError:
+                raise
+            except Exception as exc:
+                raise RuntimeError(f"EvalContext script failed: {exc}") from exc
+
+        return self.run_callable(_execute)

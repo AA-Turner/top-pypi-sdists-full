@@ -1,6 +1,6 @@
 import inspect
 import warnings
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -18,7 +18,11 @@ from temporalio.workflow import ParentClosePolicy
 if TYPE_CHECKING:
     from mistralai.workflows.core.execution import workflow_execution
 
-from mistralai.workflows.core._registration.search_key_ingestion import SearchKeyValue, ingest_search_keys
+from mistralai.workflows.core._registration.search_key_ingestion import (
+    SearchKeyValue,
+    discard_search_keys,
+    ingest_search_keys,
+)
 from mistralai.workflows.core._registration.search_keys import validate_search_key_paths
 from mistralai.workflows.core.config.config import RESERVED_QUERY_NAMES, RESERVED_UPDATE_NAMES, config
 from mistralai.workflows.core.definition.validation._parameter_conversion import (
@@ -42,7 +46,7 @@ from mistralai.workflows.core.definition.workflow_definition import (
     _get_workflow_entrypoint_method,
     set_workflow_definition,
     set_workflow_entrypoint,
-    set_workflow_search_keys,
+    set_workflow_search_key_info,
 )
 from mistralai.workflows.core.execution.workflow_execution import (  # noqa: F401 - used in static methods below
     execute_workflow,
@@ -262,7 +266,7 @@ class workflow:
                 plugin_metadata=plugin_metadata,
             )
             set_workflow_definition(cls_type, workflow_definition_obj)
-            set_workflow_search_keys(actual_name, tuple(search_keys or ()), tuple(user_params_dict))
+            set_workflow_search_key_info(actual_name, tuple(search_keys or ()), tuple(user_params_dict), input_model)
 
             if not temporalio.workflow.unsafe.in_sandbox():
                 _registered_workflows.append(cls_type)
@@ -823,6 +827,32 @@ class workflow:
             await workflow.add_search_keys({"customer.tier": customer.tier})
         """
         await ingest_search_keys(search_keys)
+
+    @staticmethod
+    async def delete_search_keys(keys: Sequence[str]) -> None:
+        """Remove searchable key/value metadata from the running execution.
+
+        Frees the slots the keys held, so an execution that tracks something transient is
+        not stuck at its 20-key budget. Idempotent: keys the execution does not hold are
+        ignored. Callable from a workflow body or from inside an activity, and awaiting it
+        means the keys are gone. Failures degrade exactly like `add_search_keys`: transient
+        ones are retried then logged at warning, permanent rejections are logged at error,
+        and neither fails the execution.
+
+        Args:
+            keys: Search keys to remove, as a list or tuple. At most 20 per call.
+
+        Raises:
+            ApplicationError: If `keys` is not a list or tuple, if a key is empty, contains
+                ':', starts with the SDK-reserved `internal.` prefix, or if more than 20 keys
+                are passed in one call, and if the delete itself hits an unexpected error such
+                as a TypeError. Raised non-retryable, so it fails the execution outright rather
+                than wedging it on infinite task retry.
+
+        Example:
+            await workflow.delete_search_keys(["customer.tier"])
+        """
+        await discard_search_keys(keys)
 
     class unsafe:
         # re-export imports_passed_through

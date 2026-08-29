@@ -216,6 +216,7 @@ from .type_defs import (
     InstanceNetworkPerformanceOptionsTypeDef,
     InstanceSecondaryInterfaceTypeDef,
     InstanceStateTypeDef,
+    InstanceTypeSpecificationTypeDef,
     InternetGatewayAttachmentTypeDef,
     InternetGatewayCreateTagsRequestTypeDef,
     IpPermissionOutputTypeDef,
@@ -2868,6 +2869,7 @@ class Image(ServiceResource):
     free_tier_eligible: bool
     public_ssm_parameter_name: str
     image_watermarks: list[ImageWatermarkTypeDef]
+    instance_type_specification: InstanceTypeSpecificationTypeDef
     image_id: str
     image_location: str
     state: ImageStateType

@@ -104,7 +104,7 @@ async def test_task_span_lifecycle(temporal_env: WorkflowEnvironment) -> None:
     # Activity-context attributes
     assert s.attributes.get("wf.activity.type") == "simple_task_activity"
     assert s.attributes.get("wf.activity.attempt") == 1
-    assert s.attributes.get("wf.workflow.id") is not None
+    assert s.attributes.get("wf.workflow.execution_id") is not None
     assert s.attributes.get("wf.run.id") is not None
     assert s.attributes.get("wf.task_queue") == "test-task-queue"
 

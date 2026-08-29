@@ -60,6 +60,7 @@ class VideoGenerationRequestOptionsTypedDict(TypedDict):
     cloudflare: NotRequired[Dict[str, Any]]
     cohere: NotRequired[Dict[str, Any]]
     coreweave: NotRequired[Dict[str, Any]]
+    cosine: NotRequired[Dict[str, Any]]
     crofai: NotRequired[Dict[str, Any]]
     crucible: NotRequired[Dict[str, Any]]
     crusoe: NotRequired[Dict[str, Any]]
@@ -122,6 +123,7 @@ class VideoGenerationRequestOptionsTypedDict(TypedDict):
     novita: NotRequired[Dict[str, Any]]
     nvidia: NotRequired[Dict[str, Any]]
     octoai: NotRequired[Dict[str, Any]]
+    ollama: NotRequired[Dict[str, Any]]
     open_inference: NotRequired[Dict[str, Any]]
     openai: NotRequired[Dict[str, Any]]
     parasail: NotRequired[Dict[str, Any]]
@@ -248,6 +250,8 @@ class VideoGenerationRequestOptions(BaseModel):
     cohere: Optional[Dict[str, Any]] = None
 
     coreweave: Optional[Dict[str, Any]] = None
+
+    cosine: Optional[Dict[str, Any]] = None
 
     crofai: Optional[Dict[str, Any]] = None
 
@@ -391,6 +395,8 @@ class VideoGenerationRequestOptions(BaseModel):
 
     octoai: Optional[Dict[str, Any]] = None
 
+    ollama: Optional[Dict[str, Any]] = None
+
     open_inference: Annotated[
         Optional[Dict[str, Any]], pydantic.Field(alias="open-inference")
     ] = None
@@ -527,6 +533,7 @@ class VideoGenerationRequestOptions(BaseModel):
                 "cloudflare",
                 "cohere",
                 "coreweave",
+                "cosine",
                 "crofai",
                 "crucible",
                 "crusoe",
@@ -589,6 +596,7 @@ class VideoGenerationRequestOptions(BaseModel):
                 "novita",
                 "nvidia",
                 "octoai",
+                "ollama",
                 "open-inference",
                 "openai",
                 "parasail",

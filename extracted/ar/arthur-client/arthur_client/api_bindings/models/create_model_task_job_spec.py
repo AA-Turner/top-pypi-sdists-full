@@ -22,7 +22,6 @@ from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
 from arthur_client.api_bindings.models.new_metric_request import NewMetricRequest
 from arthur_client.api_bindings.models.new_rule_request import NewRuleRequest
-from arthur_client.api_bindings.models.task_type import TaskType
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -35,10 +34,9 @@ class CreateModelTaskJobSpec(BaseModel):
     task_name: StrictStr = Field(description="The name of the task.")
     onboarding_identifier: Optional[StrictStr] = None
     initial_rules: List[NewRuleRequest] = Field(description="The initial rules to apply to the created model.")
-    task_type: Optional[TaskType] = Field(default=None, description="The type of task to create.")
-    initial_metrics: List[NewMetricRequest] = Field(description="The initial metrics to apply to agentic tasks.")
+    initial_metrics: Optional[List[NewMetricRequest]] = Field(default=None, description="The initial metrics to apply to the created task.")
     agent_metadata: Optional[AgentMetadata] = None
-    __properties: ClassVar[List[str]] = ["job_type", "connector_id", "task_name", "onboarding_identifier", "initial_rules", "task_type", "initial_metrics", "agent_metadata"]
+    __properties: ClassVar[List[str]] = ["job_type", "connector_id", "task_name", "onboarding_identifier", "initial_rules", "initial_metrics", "agent_metadata"]
 
     @field_validator('job_type')
     def job_type_validate_enum(cls, value):
@@ -133,7 +131,6 @@ class CreateModelTaskJobSpec(BaseModel):
             "task_name": obj.get("task_name"),
             "onboarding_identifier": obj.get("onboarding_identifier"),
             "initial_rules": [NewRuleRequest.from_dict(_item) for _item in obj["initial_rules"]] if obj.get("initial_rules") is not None else None,
-            "task_type": obj.get("task_type"),
             "initial_metrics": [NewMetricRequest.from_dict(_item) for _item in obj["initial_metrics"]] if obj.get("initial_metrics") is not None else None,
             "agent_metadata": AgentMetadata.from_dict(obj["agent_metadata"]) if obj.get("agent_metadata") is not None else None
         })

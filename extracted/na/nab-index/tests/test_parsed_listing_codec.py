@@ -5,9 +5,9 @@ The exact-equivalence contract is proved by the Hypothesis harness in
 is opt-in (``-m property``) and does not run under the coverage gate, so these
 plain unit tests drive every branch of the codec: the wheel/sdist tag split,
 present and absent ``requires_python``, present and absent ``metadata_hash``,
-each header / digest gate that turns a stale or foreign blob into a
-decode-to-``None`` miss, and the field checks that keep a hand-written row from
-reaching a record.
+the integrity cells in both their raw and their parsed form, each header /
+digest gate that turns a stale or foreign blob into a decode-to-``None`` miss,
+and the field checks that keep a hand-written row from reaching a record.
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ from __future__ import annotations
 import dataclasses
 import json
 import sys
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 
 import pytest
 
@@ -30,8 +32,12 @@ from nab_index.parsed_listing import (
     decode,
     encode,
 )
+from nab_provider.records import defer_hashes, defer_sidecar_hash
 
 DIGEST = "a" * 64
+
+# Stands in for a body nested past the decoder's guard (``refuse_over_nested``).
+OVER_NESTED = b"[[[]]]"
 
 SHA256 = sys.intern("sha256")
 SHA512 = sys.intern("sha512")
@@ -41,6 +47,7 @@ RP = sys.intern(">=3.8")
 _H_FORMAT = 0
 _H_CODEC = 1
 _H_KEY_SCHEME = 2
+_H_ZIP_SDISTS = 4
 
 # An sdist row is tag plus seven fields; the unknown-tag case relies on keeping
 # that arity so the tag check is what rejects it, not the unpack.
@@ -49,11 +56,21 @@ _SDIST_ROW_LEN = 8
 # Wheel row positions after the tag, for the field-check cases below.
 _W_FILENAME = 1
 _W_URL = 2
+_W_VERSION = 3
 _W_REQUIRES_PYTHON = 4
 _W_HAS_METADATA = 5
+_W_UPLOAD_TIME = 6
 _W_HASHES = 7
 _W_SIZE = 8
 _W_METADATA_HASH = 9
+
+# The same for an sdist row, which carries neither flag nor sidecar hash.
+_S_FILENAME = 1
+_S_URL = 2
+_S_VERSION = 3
+_S_REQUIRES_PYTHON = 4
+_S_UPLOAD_TIME = 5
+_S_SIZE = 7
 
 
 def _policy(digest: str | None = DIGEST) -> CachePolicy:
@@ -108,7 +125,7 @@ SAMPLE: list[WheelFile | SdistFile] = [WHEEL_FULL, SDIST_FULL, WHEEL_BARE, SDIST
 def _roundtrip(files: list[WheelFile | SdistFile]) -> list[WheelFile | SdistFile]:
     decoded = decode(encode(files, DIGEST), _policy())
     assert decoded is not None
-    return decoded
+    return decoded.files
 
 
 def test_roundtrip_preserves_records_and_order() -> None:
@@ -152,13 +169,13 @@ def test_lone_surrogate_in_field_round_trips() -> None:
     """
     record = dataclasses.replace(SDIST_FULL, requires_python=f"{RP}\ud800")
 
-    assert decode(encode([record], DIGEST), _policy()) == [record]
+    assert _roundtrip([record]) == [record]
 
 
 def test_blob_is_portable_json() -> None:
     """The wire form carries no interpreter tag, so any reader can decode it."""
     header, rows = json.loads(encode(SAMPLE, DIGEST))
-    assert header == [FORMAT_VERSION, CODEC, KEY_SCHEME, DIGEST]
+    assert header == [FORMAT_VERSION, CODEC, KEY_SCHEME, DIGEST, []]
     assert [row[0] for row in rows] == [_TAG_WHEEL, _TAG_SDIST, _TAG_WHEEL, _TAG_SDIST]
 
 
@@ -177,6 +194,13 @@ def _blob_with_rows(rows: object) -> bytes:
 def _wheel_row_with(index: int, value: object) -> bytes:
     """A blob holding one wheel row with a single field replaced."""
     _header, rows = json.loads(encode([WHEEL_FULL], DIGEST))
+    rows[0][index] = value
+    return _blob_with_rows(rows)
+
+
+def _sdist_row_with(index: int, value: object) -> bytes:
+    """A blob holding one sdist row with a single field replaced."""
+    _header, rows = json.loads(encode([SDIST_FULL], DIGEST))
     rows[0][index] = value
     return _blob_with_rows(rows)
 
@@ -262,10 +286,12 @@ def test_unknown_tag_on_a_well_formed_row_is_miss(tag: object) -> None:
         (_W_FILENAME, 12345),
         (_W_FILENAME, None),
         (_W_URL, None),
+        (_W_VERSION, 1.0),
         (_W_REQUIRES_PYTHON, 3),
         (_W_HAS_METADATA, "yes"),
         # bool is a subclass of int, so an int must not pass as a flag.
         (_W_HAS_METADATA, 1),
+        (_W_UPLOAD_TIME, 20230101),
         (_W_SIZE, "1024"),
         # ... nor a bool as a count.
         (_W_SIZE, True),
@@ -282,13 +308,47 @@ def test_wrong_field_type_is_miss(index: int, value: object) -> None:
     assert decode(_wheel_row_with(index, value), _policy()) is None
 
 
+@pytest.mark.parametrize(
+    ("index", "value"),
+    [
+        (_S_FILENAME, 12345),
+        (_S_URL, None),
+        (_S_VERSION, None),
+        (_S_REQUIRES_PYTHON, 3),
+        (_S_UPLOAD_TIME, 20230101),
+        (_S_SIZE, "10"),
+        # bool is a subclass of int here too.
+        (_S_SIZE, True),
+        (_S_SIZE, 1.5),
+    ],
+)
+def test_wrong_sdist_field_type_is_miss(index: int, value: object) -> None:
+    """An sdist row is checked on its own fields, not through the wheel's."""
+    assert decode(_sdist_row_with(index, value), _policy()) is None
+
+
 def test_absent_optional_fields_decode_as_none() -> None:
     blob = _wheel_row_with(_W_METADATA_HASH, None)
     decoded = decode(blob, _policy())
     assert decoded is not None
-    wheel = decoded[0]
+    wheel = decoded.files[0]
     assert isinstance(wheel, WheelFile)
     assert wheel.metadata_hash is None
+
+
+def test_over_nested_blob_is_miss(
+    refuse_over_nested: Callable[[bytes], AbstractContextManager[None]],
+) -> None:
+    """A blob nested past the JSON decoder's guard is a miss, not a raise."""
+    with refuse_over_nested(OVER_NESTED):
+        assert decode(OVER_NESTED, _policy()) is None
+
+
+def test_over_nested_blob_names_its_depth(
+    refuse_over_nested: Callable[[bytes], AbstractContextManager[None]],
+) -> None:
+    with refuse_over_nested(OVER_NESTED):
+        assert corruption_reason(OVER_NESTED) == "nested too deeply to decode"
 
 
 @pytest.mark.parametrize(
@@ -301,6 +361,30 @@ def test_absent_optional_fields_decode_as_none() -> None:
 )
 def test_corruption_reason_names_the_structural_fault(blob: bytes, reason: str) -> None:
     assert corruption_reason(blob) == reason
+
+
+def test_zip_sdists_round_trip_sorted() -> None:
+    """The dropped releases ride the header, sorted so a blob is byte-stable."""
+    blob = encode(SAMPLE, DIGEST, frozenset({"2.0", "1.0"}))
+    header = json.loads(blob)[0]
+    decoded = decode(blob, _policy())
+
+    assert header[_H_ZIP_SDISTS] == ["1.0", "2.0"]
+    assert decoded is not None
+    assert decoded.zip_sdists == frozenset({"1.0", "2.0"})
+
+
+@pytest.mark.parametrize("cell", ["1.0", {"1.0": True}, [1.0], [None]])
+def test_bad_zip_sdists_cell_is_miss(cell: object) -> None:
+    """A cell shape this codec never wrote is a miss, not a crash."""
+    assert decode(_tamper_header(_H_ZIP_SDISTS, cell), _policy()) is None
+
+
+def test_corruption_reason_flags_a_bad_zip_sdists_cell() -> None:
+    assert (
+        corruption_reason(_tamper_header(_H_ZIP_SDISTS, "1.0"))
+        == "unexpected header shape"
+    )
 
 
 def test_corruption_reason_flags_same_build_bad_rows() -> None:
@@ -316,5 +400,99 @@ def test_foreign_build_header_is_not_corruption() -> None:
     assert corruption_reason(_tamper_header(_H_CODEC, CODEC + 1)) is None
 
 
+def test_a_previous_format_header_is_a_benign_miss() -> None:
+    """The header this build replaced is one cell shorter, and skew must not warn.
+
+    Every blob a cache already holds carries it, so reading the length as
+    corruption would warn once per package the first time an upgraded nab
+    reads them.
+    """
+    _header, rows = json.loads(encode(SAMPLE, DIGEST))
+    older = json.dumps([[FORMAT_VERSION - 1, CODEC, KEY_SCHEME, DIGEST], rows]).encode()
+
+    assert decode(older, _policy()) is None
+    assert corruption_reason(older) is None
+
+
 def test_digest_mismatch_is_not_corruption() -> None:
     assert corruption_reason(encode(SAMPLE, "b" * 64)) is None
+
+
+def _deferred_wheel(hashes: object, *, sidecar: object) -> WheelFile:
+    """A wheel holding ``hashes`` and ``sidecar`` as the index served them."""
+    wheel = WheelFile(
+        filename="pkg-1.0-py3-none-any.whl",
+        url="https://files.example/pkg-1.0-py3-none-any.whl",
+        version="1.0",
+        requires_python=None,
+        has_metadata=True,
+        upload_time=None,
+    )
+    defer_hashes(wheel, hashes)
+    defer_sidecar_hash(wheel, sidecar)
+    return wheel
+
+
+def test_unparsed_tables_ride_the_wire_as_the_index_served_them() -> None:
+    wheel = _deferred_wheel({"SHA256": DIGEST.upper()}, sidecar={"sha256": DIGEST})
+
+    rows = json.loads(encode([wheel], DIGEST))[1]
+
+    assert rows[0][_W_HASHES] == {"SHA256": DIGEST.upper()}
+    assert rows[0][_W_METADATA_HASH] == {"sha256": DIGEST}
+
+
+def test_a_value_that_is_not_an_object_rides_as_its_parse() -> None:
+    """Only a table defers, so any other value writes what the record parsed."""
+    wheel = _deferred_wheel(["sha256", DIGEST], sidecar=True)
+
+    rows = json.loads(encode([wheel], DIGEST))[1]
+
+    assert rows[0][_W_HASHES] == []
+    assert rows[0][_W_METADATA_HASH] is None
+
+
+def test_a_many_algorithm_table_defers_as_the_index_served_it() -> None:
+    wheel = _deferred_wheel({"sha256": DIGEST, "sha512": "f" * 128}, sidecar=True)
+
+    rows = json.loads(encode([wheel], DIGEST))[1]
+
+    assert rows[0][_W_HASHES] == {"sha256": DIGEST, "sha512": "f" * 128}
+    assert wheel.hashes == ((SHA256, DIGEST), (SHA512, "f" * 128))
+
+
+def test_a_rehydrated_record_defers_the_same_parse() -> None:
+    (wheel,) = _roundtrip(
+        [_deferred_wheel({"SHA256": DIGEST.upper()}, sidecar={"sha256": DIGEST})]
+    )
+
+    assert wheel.raw_hashes() == {"SHA256": DIGEST.upper()}
+    assert wheel.raw_sidecar() == {"sha256": DIGEST}
+    assert wheel.hashes == ((SHA256, DIGEST),)
+    assert wheel.metadata_hash == (SHA256, DIGEST)
+
+
+def test_a_rehydrated_sdist_defers_its_hashes() -> None:
+    sdist = SdistFile(
+        filename="pkg-1.0.tar.gz",
+        url="https://files.example/pkg-1.0.tar.gz",
+        version="1.0",
+        requires_python=None,
+        upload_time=None,
+    )
+    defer_hashes(sdist, {"SHA256": DIGEST.upper()})
+
+    (decoded,) = _roundtrip([sdist])
+
+    assert decoded.raw_hashes() == {"SHA256": DIGEST.upper()}
+    assert decoded.hashes == ((SHA256, DIGEST),)
+
+
+def test_a_row_is_the_same_whether_or_not_the_record_was_read() -> None:
+    """A read record keeps its table, so encoding does not depend on read order."""
+    unread = _deferred_wheel({"sha256": DIGEST}, sidecar={"sha256": DIGEST})
+    read = _deferred_wheel({"sha256": DIGEST}, sidecar={"sha256": DIGEST})
+    assert read.hashes == ((SHA256, DIGEST),)
+    assert read.metadata_hash == (SHA256, DIGEST)
+
+    assert encode([read], DIGEST) == encode([unread], DIGEST)

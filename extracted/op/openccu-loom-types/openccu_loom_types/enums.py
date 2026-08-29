@@ -953,6 +953,11 @@ class ValueSource(str, Enum):
     Stale = "stale"
     Unobserved = "unobserved"
 
+class WSEnvelopeKind(str, Enum):
+    Change = "change"
+    Initial = "initial"
+    Refresh = "refresh"
+
 class WeekdayStr(str, Enum):
     Friday = "FRIDAY"
     Monday = "MONDAY"

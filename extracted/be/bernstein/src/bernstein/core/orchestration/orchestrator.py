@@ -96,6 +96,17 @@ from bernstein.core.models import (
 )
 from bernstein.core.notifications import NotificationManager, NotificationPayload, NotificationTarget
 from bernstein.core.orchestration.adaptive_parallelism import AdaptiveParallelism
+from bernstein.core.orchestration.controller_state import (
+    AdaptiveParallelismState,
+    ClaimConflictEntry,
+    _sidecar_path,
+)
+from bernstein.core.orchestration.controller_state import (
+    load as _load_controller_state,
+)
+from bernstein.core.orchestration.controller_state import (
+    save as _save_controller_state,
+)
 from bernstein.core.orchestration.evolution import EvolutionCoordinator
 from bernstein.core.orchestration.run_stall import (
     ACTIVE_UNFINISHED_STATUSES,
@@ -104,6 +115,7 @@ from bernstein.core.orchestration.run_stall import (
     evaluate_run_stall,
     resolve_grace_s,
     resolve_min_ticks,
+    resolve_planning_window_s,
 )
 from bernstein.core.orchestration.schedule_projection import (
     SCHEDULE_PROJECTION_REV,
@@ -147,7 +159,7 @@ from bernstein.core.runtime_state import (
 from bernstein.core.security.audit import load_or_create_audit_key
 from bernstein.core.security.run_closure import RunClosureOutcome
 from bernstein.core.security.sanitize import sanitize_log
-from bernstein.core.seed import resolve_seed_path
+from bernstein.core.seed import parse_seed, resolve_seed_path
 from bernstein.core.semantic_cache import ResponseCacheManager
 from bernstein.core.signals import read_unresolved_pivots
 from bernstein.core.skills.provenance import record_usage
@@ -730,6 +742,25 @@ class Orchestrator:
         # 60-tick run whose graph never moves writes one row, not sixty.
         self._last_graph_digest: str = ""
 
+        # Run goal resolved from the seed config. Stored once at init so
+        # ``_record_plan_graph_full`` can bind the goal to the full-graph
+        # journal row without needing a fresh config parse each tick.
+        # Empty string when no seed/goal was supplied.
+        try:
+            _seed_path = resolve_seed_path(workdir)
+            _seed = parse_seed(_seed_path) if _seed_path.exists() else None
+            self._goal: str = (_seed.goal or "").strip() if _seed else ""
+        except Exception as exc:
+            logger.debug("Failed to resolve run goal from seed: %s", exc)
+            self._goal = ""
+
+        # Last ``plan.graph.full`` digest appended this run (issue #3613).
+        # Same "graph-changed" cadence as ``_last_graph_digest``: structural
+        # digests match means no new row; reworded titles do NOT emit a new
+        # full event because the digest only covers ``(task_id, role,
+        # sorted(depends_on))``.
+        self._last_full_graph_digest: str = ""
+
         # Live OTLP export of the journal projection : each
         # appended journal entry streams its journal-anchored span to the
         # operator's collector. Default off -- attach_live_export returns
@@ -865,7 +896,33 @@ class Orchestrator:
 
         # Adaptive parallelism: dynamically adjusts effective max_agents based
         # on error rate and CPU load.  See adaptive_parallelism.py.
-        self._adaptive_parallelism = AdaptiveParallelism(configured_max=config.max_agents)
+        # Sidecar persistence: restore state from a previous run when a sidecar
+        # exists.  ``load`` returns a zeroed naive state for an absent sidecar,
+        # so restoring it would start every fresh run at current_max=0 (which
+        # floors effective_max_agents far below configured_max).  Guard on the
+        # sidecar's presence so a missing file yields a clean AdaptiveParallelism
+        # (configured_max == current_max) instead.
+        if _sidecar_path(self._workdir).exists():
+            try:
+                _ap_state, _conflict_state = _load_controller_state(self._workdir)
+                self._adaptive_parallelism = AdaptiveParallelism.from_adaptive_parallelism_state(
+                    _ap_state, configured_max=config.max_agents
+                )
+                # Restore claim-conflict cooldowns (age-out is already applied in load).
+                for _tid, _entry in _conflict_state.items():
+                    self._claim_conflict_state[_tid] = (
+                        _entry.episode_count,
+                        _entry.backoff_until_epoch,
+                    )
+                logger.info(
+                    "Restored %d claim-conflict cooldown(s) from sidecar",
+                    len(self._claim_conflict_state),
+                )
+            except Exception:  # best-effort: never let a bad sidecar break startup
+                logger.warning("Controller sidecar load failed — starting fresh", exc_info=True)
+                self._adaptive_parallelism = AdaptiveParallelism(configured_max=config.max_agents)
+        else:
+            self._adaptive_parallelism = AdaptiveParallelism(configured_max=config.max_agents)
 
         # Governed workflow mode: when config.workflow is set (e.g. "governed"),
         # the executor drives the run through deterministic phases, filtering
@@ -1433,6 +1490,75 @@ class Orchestrator:
 
         self._last_graph_digest = digest
 
+    def _record_plan_graph_full(self, all_tasks: list[Task]) -> None:
+        """Append a ``plan.graph.full`` event when the executed graph changes.
+
+        Mirrors :meth:`_record_plan_graph_digest` but records every task's
+        title alongside the structural digest so a detached run or a review
+        board can render the whole graph with human-readable labels (issue
+        #3613 follow-on).
+
+        The digest is computed over the same structural triple
+        ``(task_id, role, sorted(depends_on))`` as ``plan.graph`` so the
+        two events share a single "graph changed" cadence: a reworded
+        title is ignored by both (neither emits a new row), and both
+        dedup on digest, so a 60-tick run whose graph never moves writes
+        one row each, not sixty. A failed append leaves
+        ``_last_full_graph_digest`` untouched so the next normal tick
+        retries, and the failure never propagates out of the tick.
+
+        The run goal is bound into the row so the review board (see
+        :func:`~bernstein.core.replay.review_board._fold_plan_graph_full`)
+        has the full picture without touching live state. The goal is never
+        logged at warning level (it may contain secrets); it is only written
+        to the journal row alongside the task list.
+
+        Args:
+            all_tasks: Every task in the graph built for this tick.
+        """
+        try:
+            digest = canonical_graph_digest(
+                [
+                    TaskNode(
+                        task_id=task.id,
+                        role=task.role,
+                        title="",
+                        description="",
+                        depends_on=tuple(task.depends_on),
+                    )
+                    for task in all_tasks
+                ]
+            )
+        except Exception as exc:
+            logger.debug("Failed to compute plan.graph.full digest: %s", exc)
+            return
+
+        if digest == self._last_full_graph_digest:
+            return
+
+        try:
+            self._recorder.record(
+                "plan.graph.full",
+                goal=self._goal,
+                nodes=[
+                    {
+                        "id": task.id,
+                        "role": task.role,
+                        "title": task.title,
+                        "depends_on": sorted(task.depends_on),
+                    }
+                    for task in sorted(all_tasks, key=lambda t: t.id)
+                ],
+                digest=digest,
+                rev=SCHEDULE_PROJECTION_REV,
+                task_count=len(all_tasks),
+            )
+        except Exception as exc:
+            logger.debug("Failed to record plan.graph.full: %s", exc)
+            return
+
+        self._last_full_graph_digest = digest
+
     def _tick_internal(self) -> TickResult:
         """Actual tick implementation (previously tick())."""
         result = TickResult()
@@ -1698,6 +1824,7 @@ class Orchestrator:
             # identity. Bind the graph that produced it to this run by
             # appending its digest to the journal.
             self._record_plan_graph_digest(all_tasks)
+            self._record_plan_graph_full(all_tasks)
         else:
             # Fast tick: skip the expensive graph analysis, validation and
             # snapshot persistence, but still recompute the critical path -
@@ -1998,6 +2125,20 @@ class Orchestrator:
             self._adaptive_parallelism.set_slo_constraint(
                 adjusted_max if adjusted_max != self._config.max_agents else None
             )
+
+            # Persist controller sidecar: adaptive parallelism state and
+            # claim-conflict cooldowns so they survive restarts.
+            try:
+                _ap_state = self._adaptive_parallelism.to_adaptive_parallelism_state()
+                _conflict_entries: dict[str, ClaimConflictEntry] = {}
+                for _tid, (_ep, _until) in self._claim_conflict_state.items():
+                    _conflict_entries[_tid] = ClaimConflictEntry(
+                        episode_count=int(_ep),
+                        backoff_until_epoch=float(_until),
+                    )
+                _save_controller_state(self._workdir, _ap_state, _conflict_entries)
+            except Exception:
+                logger.warning("Controller sidecar save failed — continuing", exc_info=True)
 
             # Track consecutive failures for incident detection
             if result.verified:
@@ -2573,6 +2714,7 @@ class Orchestrator:
             now=time.time(),
             grace_s=grace_s,
             min_ticks=min_ticks,
+            planning_window_s=resolve_planning_window_s(self._config.planning_window_s),
         )
         if not verdict.stalled:
             logger.debug(
@@ -2621,7 +2763,13 @@ class Orchestrator:
         _stuck_ids = sorted(
             str(task.id) for status, tasks in settled.items() if status in ACTIVE_UNFINISHED_STATUSES for task in tasks
         )
-        if not _stuck_ids:
+        # An empty ledger has no task to fail, and that absence IS the
+        # verdict rather than a reason to doubt it: the planning task never
+        # landed a graph, so there is nothing to mark stuck and nothing that
+        # can arrive. Treating "no stuck task" as "run continues" here is
+        # what left that run ticking to its wall-clock timeout.
+        _ledger_empty = not any(settled.values())
+        if not _stuck_ids and not _ledger_empty:
             logger.info(
                 "run_stall_check: no actively-unfinished task left after the %.1fs settle "
                 "window (tick #%d) - run continues",
@@ -3056,6 +3204,9 @@ class Orchestrator:
                 return  # _restart calls os.execv, but just in case
 
         self._drain_before_cleanup()
+        # Persist controller state one last time before cleanup so a
+        # clean exit always leaves a usable sidecar for the next run.
+        self._persist_controller_sidecar()
         self._cleanup()
 
         # A5 fix: unconditionally regenerate the FINAL retrospective here, at
@@ -4775,6 +4926,30 @@ class Orchestrator:
         from bernstein.core.orchestration import orchestrator_cleanup
 
         orchestrator_cleanup.save_session_state(self)
+
+    def _persist_controller_sidecar(self) -> None:
+        """Persist the current adaptive-parallelism and claim-conflict state to the sidecar.
+
+        Best-effort: failures are logged and never raised so a broken
+        sidecar path cannot prevent a clean shutdown.
+        """
+        try:
+            _ap_state = AdaptiveParallelismState(
+                configured_max=self._adaptive_parallelism.configured_max,
+                current_max=self._adaptive_parallelism._current_max,
+                slo_constrained_max=self._adaptive_parallelism._slo_constrained_max,
+                last_adjustment_reason=self._adaptive_parallelism._last_adjustment_reason,
+                low_error_since_epoch=self._adaptive_parallelism._low_error_since,
+            )
+            _conflict_entries: dict[str, ClaimConflictEntry] = {}
+            for _tid, (_ep, _until) in self._claim_conflict_state.items():
+                _conflict_entries[_tid] = ClaimConflictEntry(
+                    episode_count=int(_ep),
+                    backoff_until_epoch=float(_until),
+                )
+            _save_controller_state(self._workdir, _ap_state, _conflict_entries)
+        except Exception:
+            logger.warning("Controller sidecar persist failed during shutdown", exc_info=True)
 
     def _cleanup(self) -> None:
         """Delegate to orchestrator_cleanup.cleanup."""
@@ -6761,6 +6936,8 @@ if __name__ == "__main__":
             # state - adapter_name is guaranteed non-empty by the fatal
             # check above.
             adapter_pinned=adapter_name != "auto",
+            # Context policy configuration (loads from bernstein.yaml context: section)
+            context_policy_config=getattr(seed, "context", None) if seed else None,
         )
         run_config_budget_usd: float | None = None
         dry_run = False

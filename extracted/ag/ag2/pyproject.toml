@@ -112,15 +112,6 @@ ignore = [
     "ASYNC240",
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"notebook/agentchat_webscraping_with_oxylabs.ipynb" = [
-    "E226",
-    "E303",
-    "F811",
-    "F821",
-    "F706",
-]
-
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
@@ -158,9 +149,9 @@ follow_imports = "skip"
 follow_imports_for_stubs = true
 
 [tool.codespell]
-skip = "*.js,*.map,*.pdf,*.po,*.ts,*.json,*.svg,./website/node_modules,.notebook/agentchat_microsoft_fabric.ipynb,./notebook/agentchat_graph_rag_neo4j.ipynb"
+skip = "*.js,*.map,*.pdf,*.po,*.ts,*.json,*.svg"
 quiet-level = 3
-ignore-words-list = "ans,linar,nam,tread,ot,assertIn,dependin,socio-economic,ege,leapYear,fO,bu,te,ROUGE,ser,doubleClick,CNa,wOh,Hart,Empress,Chage,mane,digitalize,brunch,iif,COO,EHR,ALS,crasher,fulfilment"
+ignore-words-list = "ans,crasher,fulfilment,iif"
 
 [project]
 name = "ag2"
@@ -178,7 +169,7 @@ keywords = [
     "agentic",
 ]
 requires-python = ">=3.10"
-version = "1.0.2"
+version = "1.0.3"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
@@ -201,14 +192,10 @@ classifiers = [
     "Framework :: Pydantic :: 2",
 ]
 dependencies = [
-    "termcolor",
-    "python-dotenv",
-    "tiktoken",
     "pydantic>=2.6.1,<3",
-    "pyyaml>=6.0.2",
-    "packaging",
     "httpx>=0.28.1,<1",
     "anyio>=4.0.0,<5.0.0",
+    "pyyaml>=6.0.2",
     "fast-depends[pydantic]>=3.0.8,<4.0.0",
 ]
 
@@ -230,45 +217,39 @@ a2ui = [
     "starlette>=0.40,<2",
 ]
 acp = [
-    "agent-client-protocol>=0.12.0,<0.13",
+    "agent-client-protocol>=0.12.1,<0.13",
     "ag2[mcp]",
     "starlette>=0.40,<2",
     "uvicorn>=0.51.0,<1",
 ]
 ag-ui = ["ag-ui-protocol>=0.1.15,<0.2"]
 openai = ["openai>=2.45.0,<3.0"]
-anthropic = ["anthropic[vertex]>=0.116.0,<1"]
+anthropic = ["anthropic>=0.116.0,<1"]
 gemini = [
-    "google-api-core",
     "google-genai>=1.68.0,<3.0",
-    "google-cloud-aiplatform",
     "google-auth",
-    "pillow",
-    "jsonschema",
 ]
 elevenlabs = ["elevenlabs>=1.50.0,<3"]
 xai = ["xai-sdk>=1.12.2,<2"]
 zai = ["zai-sdk>=0.2.3,<1"]
 mistral = ["mistralai>=2.8.0,<3"]
-ollama = [
-    "ollama>=0.4.7",
-    "fix_busted_json>=0.0.18",
-]
+ollama = ["ollama>=0.4.7"]
 bedrock = ["boto3>=1.34.149"]
 dashscope = ["dashscope>=1.25.13"]
 redis = ["redis>=5.0,<9"]
-tracing = [
-    "opentelemetry-sdk>=1.20",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.20",
-]
+tracing = ["opentelemetry-sdk>=1.20"]
 metrics = ["prometheus-client>=0.20.0,<0.30.0"]
 tavily = ["tavily-python>=0.7.4,<0.8"]
 ddgs = ["ddgs>=9.0.0,<10"]
 perplexity = ["perplexityai>=0.30.0,<1"]
-mcp = ["mcp>=1.11.0,<2"]
+mcp = [
+    "mcp>=2.0.0,<3",
+    "mcp-types>=2.0.0,<3",
+    "jsonschema>=4.20.0,<5",
+]
 mcp-ui = [
     "mcp-ui-server>=1.0.0",
-    "mcp>=1.11.0,<2",
+    "mcp>=2.0.0,<3",
 ]
 
 [dependency-groups]
@@ -284,9 +265,8 @@ test = [
     "docker>=6.0.0,<8",
     "ag2[mcp]",
     "ag2[mcp-ui]",
-    "ipykernel==7.3.0",
-    "nbconvert==7.17.1",
-    "nbformat==5.10.4",
+    "pillow",
+    "python-dotenv",
     "respx>=0.23.0,<0.24.0",
     "httpx2>=2.9.1,<3",
 ]
@@ -347,37 +327,31 @@ docs = [
     "mkdocs-material==9.7.7",
     "mkdocs-literate-nav==0.6.3",
     "mdx-include==1.4.2",
-    "mkdocs-git-revision-date-localized-plugin==1.5.3",
+    "mkdocs-git-revision-date-localized-plugin==1.5.4",
     "typer>=0.22,<0.28",
     "mkdocs-minify-plugin==0.8.0",
     "mkdocs-macros-plugin==1.5.0",
     "mkdocs-glightbox==0.5.2",
     "mkdocs-redirects==1.2.3",
-    "pillow",
-    "cairosvg",
     "jinja2==3.1.6",
     "pyyaml==6.0.3",
-    "termcolor==3.3.0",
-    "nbclient==0.11.0",
-    "mcp>=1.11.0,<2",
+    "mcp>=2.0.0,<3",
 ]
 types = [
-    "mypy==2.3.0",
+    "mypy==2.3.1",
     "types-PyYAML",
-    "types-requests",
     { include-group = "test" },
     "ag2[openai, a2a, ag-ui]",
 ]
 lint = [
-    "ruff==0.15.22",
+    "ruff==0.16.4",
     "codespell==2.4.3",
-    "zizmor==1.26.1",
+    "zizmor==1.29.0",
 ]
 dev = [
     { include-group = "lint" },
     { include-group = "test" },
     { include-group = "types" },
     { include-group = "docs" },
-    "prek==0.4.10",
-    "uv==0.11.29",
+    "prek==0.4.14",
 ]

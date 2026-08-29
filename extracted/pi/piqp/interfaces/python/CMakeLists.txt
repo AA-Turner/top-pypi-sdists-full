@@ -13,9 +13,10 @@ set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 CONFIG REQUIRED)
 
 # detect arm64 cross compilation on macOS
+set(PIQP_TARGET_PROCESSOR "${CMAKE_SYSTEM_PROCESSOR}")
 if(DEFINED ENV{_PYTHON_HOST_PLATFORM})
-    if($ENV{_PYTHON_HOST_PLATFORM} MATCHES "arm64")
-        set(CMAKE_SYSTEM_PROCESSOR "arm64")
+    if("$ENV{_PYTHON_HOST_PLATFORM}" MATCHES "arm64")
+        set(PIQP_TARGET_PROCESSOR "arm64")
     endif()
 endif()
 
@@ -23,7 +24,7 @@ endif()
 pybind11_add_module(instruction_set src/instruction_set.cpp)
 
 # only link cpu_features on x86/amd64
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+if("${PIQP_TARGET_PROCESSOR}" MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
     target_compile_definitions(instruction_set PRIVATE CPU_FEATURES_AVAILABLE=1)
     target_link_libraries(instruction_set PRIVATE cpu_features)
 endif()
@@ -53,16 +54,16 @@ else()
 endif()
 
 create_piqp_python_target(piqp_python "")
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+if("${PIQP_TARGET_PROCESSOR}" MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
     create_piqp_python_target(piqp_python_avx2 "${AVX2_COMPILE_OPTION};${FMA_COMPILE_OPTION}")
     create_piqp_python_target(piqp_python_avx512 "${AVX512_COMPILE_OPTION};${FMA_COMPILE_OPTION}")
 endif()
 
 if (BUILD_WITH_BLASFEO)
     # if x86/amd64
-    if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+    if ("${PIQP_TARGET_PROCESSOR}" MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
         # if 64bit
-        if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "(x86_64)|(X86_64)|(amd64)|(AMD64)")
+        if ("${PIQP_TARGET_PROCESSOR}" MATCHES "(x86_64)|(X86_64)|(amd64)|(AMD64)")
             if (TARGET blasfeo_x64)
                 target_link_libraries(piqp_python PRIVATE blasfeo_x64)
             else ()
@@ -85,7 +86,7 @@ if (BUILD_WITH_BLASFEO)
         endif ()
 
     # if arm64
-    elseif (${CMAKE_SYSTEM_PROCESSOR} MATCHES "(ARM64)|(arm64)|(aarch64)")
+    elseif ("${PIQP_TARGET_PROCESSOR}" MATCHES "(ARM64)|(arm64)|(aarch64)")
         if (TARGET blasfeo_arm64)
             target_link_libraries(piqp_python PRIVATE blasfeo_arm64)
         else ()
@@ -98,7 +99,7 @@ endif ()
 
 install(TARGETS instruction_set LIBRARY DESTINATION piqp)
 install(TARGETS piqp_python LIBRARY DESTINATION piqp)
-if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+if("${PIQP_TARGET_PROCESSOR}" MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
     install(TARGETS piqp_python_avx2 LIBRARY DESTINATION piqp)
     install(TARGETS piqp_python_avx512 LIBRARY DESTINATION piqp)
 endif()

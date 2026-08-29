@@ -426,6 +426,7 @@ def _create_temporal_workers(
             else [],
             "workflow_runner": SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
             "interceptors": plugin_interceptors,
+            "max_concurrent_activities": config.worker.max_concurrent_activities,
         }
         worker_kwargs["workflow_task_poller_behavior"] = PollerBehaviorSimpleMaximum(
             maximum=config.worker.max_workflow_task_pollers
@@ -506,6 +507,8 @@ async def _upload_workflow_graphs(
                 result = await summarise_workflow(graph_data, client=summary_client, model=summary_model)
                 if result.summaries:
                     graph_data.node_summaries = {nid: s.to_dict() for nid, s in result.summaries.items()}
+                if result.workflow_summary is not None:
+                    graph_data.workflow_summary = result.workflow_summary.to_dict()
             except SummariseError as exc:
                 error = str(exc) or type(exc).__name__
                 logger.warning(

@@ -1,0 +1,36 @@
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+  builder: html
+  configuration: docs/conf.py
+
+# Optionally build your docs in additional formats such as PDF
+formats:
+  - pdf
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.13"
+
+python:
+  install:
+    - method: uv
+      command: sync
+      groups:
+        - docs
+
+# Set a custom search rank over pages matching a pattern
+search:
+  ranking:
+    censys.asm.html: 5
+    usage-asm.html: 5
+    censys.search.v2.html: 5
+    usage-v2.html: 5
+    censys.search.v1.html: -1
+    usage-v1.html: -1

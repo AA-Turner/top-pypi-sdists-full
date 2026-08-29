@@ -2,6 +2,7 @@
 # @generated-id: 9d6dd722408b
 
 from __future__ import annotations
+from .workerfeatures import WorkerFeatures, WorkerFeaturesTypedDict
 from mistralai.workflows.worker_client.types import BaseModel, UNSET_SENTINEL
 from pydantic import model_serializer
 from typing import Optional
@@ -12,6 +13,14 @@ class WorkerInfoTypedDict(TypedDict):
     scheduler_url: str
     namespace: str
     tls: NotRequired[bool]
+    features: NotRequired[WorkerFeaturesTypedDict]
+    r"""Server-resolved feature flags applied to worker configuration at startup.
+
+    `None` means the server has no opinion and the worker's own default stands — which is also what
+    an absent field yields, so an SDK newer than the API keeps behaving as it does today. Keeping
+    \"no opinion\" distinct from an explicit `False` is what lets a flag's SDK default change later
+    without a server that predates the change silently overriding it.
+    """
 
 
 class WorkerInfo(BaseModel):
@@ -21,9 +30,18 @@ class WorkerInfo(BaseModel):
 
     tls: Optional[bool] = False
 
+    features: Optional[WorkerFeatures] = None
+    r"""Server-resolved feature flags applied to worker configuration at startup.
+
+    `None` means the server has no opinion and the worker's own default stands — which is also what
+    an absent field yields, so an SDK newer than the API keeps behaving as it does today. Keeping
+    \"no opinion\" distinct from an explicit `False` is what lets a flag's SDK default change later
+    without a server that predates the change silently overriding it.
+    """
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["tls"])
+        optional_fields = set(["tls", "features"])
         serialized = handler(self)
         m = {}
 

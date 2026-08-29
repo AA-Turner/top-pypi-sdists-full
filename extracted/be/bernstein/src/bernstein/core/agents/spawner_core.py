@@ -17,7 +17,7 @@ from contextlib import suppress
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, cast
 
-from bernstein.adapters.base import RateLimitError, SpawnError, SpawnResult
+from bernstein.adapters.base import DEFAULT_TIMEOUT_SECONDS, RateLimitError, SpawnError, SpawnResult
 from bernstein.adapters.plugin_sdk import (
     SAMPLING_PARAM_KEYS,
     SamplingParamsRefusal,
@@ -42,6 +42,7 @@ from bernstein.core.agents.context_attachments import (
     collect_declared_context_files,
     resolve_context_attachments,
 )
+from bernstein.core.agents.context_receipt import build_context_receipt
 from bernstein.core.agents.heartbeat import HeartbeatMonitor
 from bernstein.core.agents.in_process_agent import InProcessAgent
 from bernstein.core.agents.project_context import resolve_project_context
@@ -1100,6 +1101,7 @@ def _render_prompt_with_receipt(
     max_turns: int | None = None,
     mailbox_section: str = "",
     model: str = "",
+    context_policy: Any = None,
 ) -> tuple[str, ContextReceipt]:
     """Build the full agent prompt from role template + tasks + context.
 
@@ -1410,12 +1412,48 @@ def _render_prompt_with_receipt(
             max_turns,
         )
 
-    # Build the per-section content receipt and extract the content strings
-    # for cache marking. The joined prompt must be byte-identical to the
-    # pre-receipt output, so the receipt is purely additive instrumentation.
-    from bernstein.core.agents.context_receipt import build_context_receipt
+    # Apply context policy filtering if a policy is provided
+    # The policy determines which parts to include and their order
+    if context_policy is not None:
+        # Check if context_policy is a ContextPolicy object or a dict
+        from bernstein.core.agents.context_policy import ContextPolicy
 
-    receipt = build_context_receipt(named_sections)
+        if isinstance(context_policy, ContextPolicy):
+            # Use ContextPolicy.select_parts to determine which parts to include
+            # select_parts returns list of (part_id, content) tuples
+            policy_parts = context_policy.select_parts(tasks, workdir)
+            policy_dict = {
+                "policy_id": context_policy.policy_id,
+                "policy_version": context_policy.policy_version,
+            }
+
+            # Filter named_sections based on policy's part_order
+            # Keep only sections whose part_id is in the policy's part_order
+            policy_part_ids = set(part_id for part_id, _ in policy_parts)
+            filtered_sections = [(label, content) for label, content in named_sections if label in policy_part_ids]
+
+            # Reorder sections according to policy's part_order
+            ordered_sections = sorted(
+                filtered_sections,
+                key=lambda x: (
+                    context_policy.part_order.index(x[0])
+                    if x[0] in context_policy.part_order
+                    else len(context_policy.part_order)
+                ),
+            )
+            named_sections = ordered_sections
+            policy = policy_dict
+        else:
+            # Backward compatibility: context_policy is a dict with policy_id/policy_version
+            policy_dict = {
+                "policy_id": context_policy.get("policy_id", ""),
+                "policy_version": context_policy.get("policy_version", ""),
+            }
+            policy = policy_dict
+    else:
+        policy = {}
+
+    receipt = build_context_receipt(named_sections, policy=policy)
 
     # Spawn-time prompt budget check (#4377). This is the prompt the adapter
     # is actually handed, so the measurement belongs here rather than only in
@@ -1540,6 +1578,7 @@ class AgentSpawner:
         provider_availability: dict[str, Any] | None = None,
         availability_prober: Callable[[ChainElement], ProbeResult] | None = None,
         adapter_pinned: bool = False,
+        context_policy_config: dict[str, Any] | None = None,
     ) -> None:
         self._enable_caching = enable_caching
         # True when the run-level adapter was explicitly selected by the
@@ -1592,6 +1631,10 @@ class AgentSpawner:
         self._availability_prober = availability_prober
         ttl_minutes = self._availability_config.probe_ttl_minutes if self._availability_config else 5
         self._availability_probe_cache = ProbeCache(ttl_seconds=ttl_minutes * 60.0)
+        # Context policy system
+        from bernstein.core.agents.context_policy import ContextPolicy
+
+        self._context_policy = ContextPolicy.from_config(context_policy_config)
         self._workspace = workspace
         self._bulletin = bulletin
         self._context_builder = TaskContextBuilder(workdir)
@@ -3085,6 +3128,18 @@ class AgentSpawner:
                 else:
                     os.environ[_k] = _prev
 
+    @staticmethod
+    def _resolve_spawn_timeout(tasks: list[Task]) -> int:
+        """Resolve the wall-clock timeout bucket for a task batch (#4571).
+
+        Delegates to ``_batch_timeout_seconds`` so the value armed on the
+        adapter's watchdog is the same value ``reap_dead_agents`` reads back
+        from ``session.timeout_s`` - one source of truth for the timeout.
+        """
+        from bernstein.core.tasks.task_lifecycle import _batch_timeout_seconds
+
+        return _batch_timeout_seconds(tasks)
+
     def _apply_provider_availability(
         self,
         role_name: str,
@@ -4081,6 +4136,7 @@ class AgentSpawner:
                 max_turns=_effective_max_turns,
                 mailbox_section=mailbox_section,
                 model=model_config.model,
+                context_policy=self._context_policy,
             )
 
         agent_source = catalog_agent.source if catalog_agent else "built-in"
@@ -4156,6 +4212,7 @@ class AgentSpawner:
             agent_source=agent_source,
             isolation=isolation_mode.value,
             token_budget=task_token_budget,
+            timeout_s=self._resolve_spawn_timeout(tasks),
             meta_messages=meta_messages,
             response_profile=style_resolution.style,
             profile_content_sha256=profile_content_sha,
@@ -4706,6 +4763,7 @@ class AgentSpawner:
                                 model_config=model_config,
                                 session_id=session_id,
                                 mcp_config=attempt_mcp,
+                                timeout_seconds=session.timeout_s or DEFAULT_TIMEOUT_SECONDS,
                                 task_scope=max_scope,
                                 budget_multiplier=_budget_mult,
                                 system_addendum=style_addendum,
@@ -4850,6 +4908,8 @@ class AgentSpawner:
                 session.abort_reason = result.abort_reason
                 session.abort_detail = result.abort_detail
                 session.finish_reason = result.finish_reason
+                if result.timeout_timer is not None:
+                    session.timeout_timer = result.timeout_timer
                 if result.log_path:
                     session.log_path = str(result.log_path)
 
@@ -5170,6 +5230,7 @@ class AgentSpawner:
             max_turns=_resume_max_turns,
             mailbox_section=self._render_mailbox_section(tasks),
             model=model_config.model,
+            context_policy=self._context_policy,
         )
         # Prepend crash recovery context
         prompt = resume_header + prompt
@@ -5248,6 +5309,7 @@ class AgentSpawner:
             workdir=worktree_path,
             model_config=model_config,
             session_id=session_id,
+            timeout_seconds=session.timeout_s or DEFAULT_TIMEOUT_SECONDS,
             task_scope=resume_scope,
             system_addendum=_resume_addendum,
             **_resume_extra,
@@ -5256,6 +5318,8 @@ class AgentSpawner:
         session.abort_reason = result.abort_reason
         session.abort_detail = result.abort_detail
         session.finish_reason = result.finish_reason
+        if result.timeout_timer is not None:
+            session.timeout_timer = result.timeout_timer
 
         # Touch heartbeat on resume spawn (same rationale as main spawn path)
         self._touch_prespawn_heartbeat(session_id)

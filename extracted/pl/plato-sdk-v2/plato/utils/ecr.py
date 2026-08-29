@@ -450,7 +450,12 @@ def retag_image(repository: str, source_tag: str, target_tag: str) -> bool:
 
 @dataclass
 class DockerPublishResult:
-    """Result of a Docker publish operation."""
+    """Result of a Docker publish operation.
+
+    ``latest_image`` is the ``:latest`` ref for the repository. The build does
+    NOT push it — it is the promotion target the caller retags ``ecr_image`` to
+    once the image has been prefetched (see ``plato world publish``).
+    """
 
     success: bool
     ecr_image: str
@@ -468,7 +473,16 @@ def publish_docker_image(
     disable_provenance: bool = True,
     no_cache: bool = False,
 ) -> DockerPublishResult:
-    """Build and publish a Docker image to ECR.
+    """Build and publish a Docker image to ECR under its version tag only.
+
+    ``:latest`` is deliberately NOT pushed here. A freshly pushed digest is cold
+    on every node (docker pull + rootfs conversion + snapshot-store ingest, 10+
+    minutes), so moving ``:latest`` at push time would send every launch that
+    resolves it — and every later ``--skip-docker`` retag minted from it —
+    through that cold path. Callers prefetch the version tag first (boot one VM
+    from it so the snapshot store is seeded) and only then retag it to
+    ``:latest``; the retag is a manifest copy, so the promoted digest is
+    already warm.
 
     Args:
         name: Short name for the image (e.g., 'my-agent')
@@ -509,8 +523,8 @@ def publish_docker_image(
     if disable_provenance:
         common_flags.append("--provenance=false")
 
-    # Tag with both versioned and latest
-    common_flags.extend(["-t", ecr_image, "-t", latest_image])
+    # Version tag only — :latest is promoted by the caller after prefetch.
+    common_flags.extend(["-t", ecr_image])
 
     # Reproducible builds
     common_flags.extend(["--build-arg", "SOURCE_DATE_EPOCH=0"])

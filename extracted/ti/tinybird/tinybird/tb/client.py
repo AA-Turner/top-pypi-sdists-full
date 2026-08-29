@@ -833,8 +833,8 @@ class TinyB:
     def user_workspace_branches(self, version: str = "v0"):
         return self._req(f"/{version}/user/workspaces/?with_environments=true&only_environments=true")
 
-    def branches(self):
-        return self._req("/v1/environments")
+    def branches(self, version: str = "v1"):
+        return self._req(f"/{version}/environments")
 
     def releases(self, workspace_id):
         return self._req(f"/v0/workspaces/{workspace_id}/releases")

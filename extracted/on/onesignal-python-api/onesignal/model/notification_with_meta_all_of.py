@@ -30,7 +30,9 @@ from onesignal.exceptions import ApiAttributeError
 
 
 def lazy_import():
+    from onesignal.model.email_warm_up import EmailWarmUp
     from onesignal.model.platform_delivery_data import PlatformDeliveryData
+    globals()['EmailWarmUp'] = EmailWarmUp
     globals()['PlatformDeliveryData'] = PlatformDeliveryData
 
 
@@ -101,6 +103,7 @@ class NotificationWithMetaAllOf(ModelNormal):
             'canceled': (bool,),  # noqa: E501
             'email_bcc': ([str], none_type,),  # noqa: E501
             'bcc_sent': (int, none_type,),  # noqa: E501
+            'email_warm_up': (EmailWarmUp,),  # noqa: E501
         }
 
     @cached_property
@@ -123,6 +126,7 @@ class NotificationWithMetaAllOf(ModelNormal):
         'canceled': 'canceled',  # noqa: E501
         'email_bcc': 'email_bcc',  # noqa: E501
         'bcc_sent': 'bcc_sent',  # noqa: E501
+        'email_warm_up': 'email_warm_up',  # noqa: E501
     }
 
     read_only_vars = {
@@ -180,6 +184,7 @@ class NotificationWithMetaAllOf(ModelNormal):
             canceled (bool): Indicates whether the notification was canceled before it could be sent.. [optional]  # noqa: E501
             email_bcc ([str], none_type): BCC recipients that were set on this email notification.. [optional]  # noqa: E501
             bcc_sent (int, none_type): Number of BCC copies successfully sent for this notification.. [optional]  # noqa: E501
+            email_warm_up (EmailWarmUp): [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)
@@ -279,6 +284,7 @@ class NotificationWithMetaAllOf(ModelNormal):
             canceled (bool): Indicates whether the notification was canceled before it could be sent.. [optional]  # noqa: E501
             email_bcc ([str], none_type): BCC recipients that were set on this email notification.. [optional]  # noqa: E501
             bcc_sent (int, none_type): Number of BCC copies successfully sent for this notification.. [optional]  # noqa: E501
+            email_warm_up (EmailWarmUp): [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)

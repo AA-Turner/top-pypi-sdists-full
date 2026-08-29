@@ -6,6 +6,7 @@ from .coat import *
 from .convit import *
 from .convmixer import *
 from .convnext import *
+from .cpubone import *
 from .crossvit import *
 from .csatv2 import *
 from .cspnet import *
@@ -36,7 +37,9 @@ from .inception_next import *
 from .inception_resnet_v2 import *
 from .inception_v3 import *
 from .inception_v4 import *
+from .lcnetv2 import *
 from .levit import *
+from .lowformer import *
 from .maxxvit import *
 from .mambaout import *
 from .metaformer import *

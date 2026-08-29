@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mistralai-workflows
-Version: 3.11.0
+Version: 3.12.0
 Summary: Mistral Workflows - Build reliable AI workflows with Python
 Project-URL: Homepage, https://mistral.ai
 Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
@@ -19,10 +19,10 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: asynciolimiter<2.0.0,>=1.2.0
 Requires-Dist: httpx<1.0.0,>=0.27.0
 Requires-Dist: jsonpatch<2.0.0,>=1.33
-Requires-Dist: mistralai<3.0.0,>=2.7.2
+Requires-Dist: mistralai<3.0.0,>=2.9.3
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0
-Requires-Dist: opentelemetry-instrumentation-httpx<0.61b0,>=0.60b1
+Requires-Dist: opentelemetry-instrumentation-httpx>=0.60b1
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
 Requires-Dist: orjson<4.0.0,>=3.10.15
 Requires-Dist: pydantic-settings<3.0.0,>=2.9.0
@@ -36,7 +36,7 @@ Requires-Dist: urllib3>=2.7.0
 Provides-Extra: all
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all'
 Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'all'
-Requires-Dist: mistralai-workflows-plugins-evaluation<4.0.0,>=3.0.0a1; extra == 'all'
+Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all'
 Requires-Dist: mistralai[workflow-payload-compression]; extra == 'all'
@@ -45,7 +45,7 @@ Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all'
 Provides-Extra: all-plugins
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all-plugins'
 Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'all-plugins'
-Requires-Dist: mistralai-workflows-plugins-evaluation<4.0.0,>=3.0.0a1; extra == 'all-plugins'
+Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all-plugins'
 Requires-Dist: mistralai[workflow-payload-compression]; extra == 'all-plugins'
@@ -57,8 +57,8 @@ Provides-Extra: compression
 Requires-Dist: mistralai[workflow-payload-compression]; extra == 'compression'
 Provides-Extra: encryption
 Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'encryption'
-Provides-Extra: evaluation
-Requires-Dist: mistralai-workflows-plugins-evaluation<4.0.0,>=3.0.0a1; extra == 'evaluation'
+Provides-Extra: evaluations
+Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'evaluations'
 Provides-Extra: gcs
 Requires-Dist: mistralai[workflow-payload-offloading-gcs]; extra == 'gcs'
 Provides-Extra: mistralai

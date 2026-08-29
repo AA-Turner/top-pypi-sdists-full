@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-swiftclient
-Version: 4.10.0
+Version: 4.11.0
 Summary: OpenStack Object Storage API Client Library
 Home-page: https://docs.openstack.org/python-swiftclient/latest/
 Author: OpenStack
@@ -35,7 +35,7 @@ Requires-Dist: requests>=2.4.0
 Provides-Extra: keystone
 Requires-Dist: python-keystoneclient>=0.7.0; extra == "keystone"
 Provides-Extra: test
-Requires-Dist: hacking<6.2.0,>=3.2.0; extra == "test"
+Requires-Dist: hacking<8.2.0,>=3.2.0; extra == "test"
 Requires-Dist: coverage!=4.4,>=4.0; extra == "test"
 Requires-Dist: python-keystoneclient>=0.7.0; extra == "test"
 Requires-Dist: keystoneauth1>=3.4.0; extra == "test"

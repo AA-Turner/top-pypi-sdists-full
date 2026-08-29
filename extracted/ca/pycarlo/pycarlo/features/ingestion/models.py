@@ -31,6 +31,66 @@ def _is_empty(value: object) -> bool:
     return not value
 
 
+_BATCH_MIN = 1
+_BATCH_MAX = 100
+
+
+def _check_batch_size(events: list, label: str) -> None:
+    """Validate that an ingest batch holds between 1 and 100 events.
+
+    Shared by the ETL and BI metadata/runs payload builders, which cap a batch
+    at 1–100 events. Raises ``ValueError`` when out of range.
+    """
+    if not (_BATCH_MIN <= len(events) <= _BATCH_MAX):
+        raise ValueError(
+            f"{label} requires between {_BATCH_MIN} and {_BATCH_MAX} events; got {len(events)}."
+        )
+
+
+# Allowed values for ``AssetRef.asset_type``.
+ASSET_REF_ASSET_TYPE_VALUES: frozenset[str] = frozenset(
+    {"TABLE", "FILE", "VIEW", "TOPIC", "DATASET", "DASHBOARD"}
+)
+
+# Allowed values for ``AssetRef.role``.
+ASSET_REF_ROLE_VALUES: frozenset[str] = frozenset({"INPUT", "OUTPUT"})
+
+
+@dataclass
+class AssetRef(DataClassJsonMixin):
+    """
+    Reference to an asset touched by lineage — an ETL run's input/output, or a
+    BI asset's upstream warehouse table.
+
+    Either ``mcon`` or ``fully_qualified_name`` must be set so the backend can
+    resolve the asset; the wire marks both nullable but a downstream resolver
+    can't act on an entirely empty reference, so the SDK fails fast.
+
+    :param asset_type: One of :data:`ASSET_REF_ASSET_TYPE_VALUES`.
+    :param role: One of :data:`ASSET_REF_ROLE_VALUES`.
+    :param mcon: Monte Carlo Object Name for the asset.
+    :param fully_qualified_name: Fully-qualified name (vendor format).
+    """
+
+    asset_type: str
+    role: str
+    mcon: str | None = field(default=None, metadata=config(exclude=_is_none))
+    fully_qualified_name: str | None = field(default=None, metadata=config(exclude=_is_none))
+
+    def __post_init__(self) -> None:
+        if self.asset_type not in ASSET_REF_ASSET_TYPE_VALUES:
+            raise ValueError(
+                f"AssetRef.asset_type must be one of {sorted(ASSET_REF_ASSET_TYPE_VALUES)}; "
+                f"got {self.asset_type!r}."
+            )
+        if self.role not in ASSET_REF_ROLE_VALUES:
+            raise ValueError(
+                f"AssetRef.role must be one of {sorted(ASSET_REF_ROLE_VALUES)}; got {self.role!r}."
+            )
+        if not self.mcon and not self.fully_qualified_name:
+            raise ValueError("AssetRef requires at least one of mcon or fully_qualified_name.")
+
+
 @dataclass
 class Tag(DataClassJsonMixin):
     """A key-value tag attached to an asset. Value is optional for key-only tags."""

@@ -535,6 +535,38 @@ def _build_vision_analysis_request(kwargs: Dict[str, Any], model_key: str) -> "V
     return VisionAnalysisRequest(**out)
 
 
+def _build_videogen_request(kwargs: Dict[str, Any], model_key: str) -> BaseModel:
+    """text-to-video / image-to-video: one clip to render on the studio spine.
+
+    A t2v ask needs a prompt; an i2v ask needs a conditioning input
+    (``start_image`` or ``source_video``) — the runner derives the capability
+    from which of those is present, so the guard here is "at least one of the
+    three", refused with the keys we got (never a silent empty render).
+    Geometry/length/sampler fields pass through; their real validation lives
+    in ``make_studio_i2v`` (the contract), range-guards in the schema.
+    """
+    prompt = kwargs.get("prompt") or kwargs.get("text")
+    start_image = kwargs.get("start_image") or kwargs.get("image")
+    source_video = kwargs.get("source_video")
+    if not (prompt or start_image or source_video):
+        raise ValueError(
+            "video request needs 'prompt' (t2v) or 'start_image'/"
+            f"'source_video' (i2v); got keys: {sorted(kwargs)}")
+
+    out: Dict[str, Any] = {
+        "request_id": kwargs.get("request_id", make_request_id()),
+        "model_key": model_key,
+        "prompt": prompt,
+        "start_image": start_image,
+        "source_video": source_video,
+    }
+    for k in ("negative", "width", "height", "fps", "requested_frames",
+              "seed", "steps", "cfg", "vram_budget_gb", "project", "pool"):
+        if kwargs.get(k) is not None:
+            out[k] = kwargs[k]
+    return VideoGenRequest(**out)
+
+
 # ---------------------------------------------------------------------------
 # Registries — single source of truth.
 # ---------------------------------------------------------------------------
@@ -560,6 +592,8 @@ MODEL_REQUEST_BUILDERS: Dict[Tuple[str, str], Callable[[Dict[str, Any], str], Ba
     ("transformers", "sentence-similarity"):          _build_similarity_request,
     ("transformers", "text-to-image"):                _build_imagegen_request,
     ("transformers", "image-to-image"):               _build_img2img_request,
+    ("transformers", "text-to-video"):                _build_videogen_request,
+    ("transformers", "image-to-video"):               _build_videogen_request,
     ("transformers", "keyword-extraction"):           _build_keywords_request,
     ("transformers", "depth-estimation"):             _build_vision_analysis_request,
     ("transformers", "object-detection"):             _build_vision_analysis_request,

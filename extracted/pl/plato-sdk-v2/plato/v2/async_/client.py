@@ -34,6 +34,7 @@ class AsyncSessionManager:
         testcase: str | None = None,
         artifacts: list[str] | None = None,
         timeout: int = 1800,
+        ready_timeout: int | None = None,
         agent_artifact_id: str | None = None,
         connect_network: bool = True,
         wait: bool = True,
@@ -56,6 +57,10 @@ class AsyncSessionManager:
             testcase: Test case public ID to create session from (auto-resets)
             artifacts: List of simulator artifact IDs to create session from
             timeout: VM timeout in seconds
+            ready_timeout: Maximum seconds the client polls ``wait_for_ready`` before raising
+                ``TimeoutError``. Defaults to ``timeout``. Independent of the VM lifetime, so
+                a boot that takes longer than the VM needs to live (e.g. a cold rootfs ingest)
+                can be waited for without asking the backend for a long-lived VM.
             agent_artifact_id: Optional agent artifact ID to associate with the session
             connect_network: If True, automatically connect all VMs to a WireGuard network
             wait: If True (default), block until all environments are ready. If False,
@@ -95,6 +100,7 @@ class AsyncSessionManager:
                 api_key=self._api_key,
                 testcase_id=testcase,
                 timeout=timeout,
+                ready_timeout=ready_timeout,
             )
         elif artifacts is not None:
             session = await Session.from_artifacts(
@@ -102,6 +108,7 @@ class AsyncSessionManager:
                 api_key=self._api_key,
                 artifact_ids=artifacts,
                 timeout=timeout,
+                ready_timeout=ready_timeout,
             )
         elif envs is not None:
             session = await Session.from_envs(
@@ -109,6 +116,7 @@ class AsyncSessionManager:
                 api_key=self._api_key,
                 envs=envs,
                 timeout=timeout,
+                ready_timeout=ready_timeout,
                 agent_artifact_id=agent_artifact_id,
                 wait=wait,
                 shutdown_callback_url=shutdown_callback_url,

@@ -54,6 +54,7 @@ from datamodel_code_generator.model.pydantic_v2.imports import (
     IMPORT_ALIAS_GENERATOR_TO_SNAKE,
     IMPORT_BASE_MODEL,
     IMPORT_CONFIG_DICT,
+    IMPORT_CONSTR,
     IMPORT_FIELD,
     IMPORT_FIELD_VALIDATOR,
     IMPORT_MISSING,
@@ -101,6 +102,52 @@ class _RawRepr:
         return self.value
 
 
+def _supports_pydantic_typed_extra_dict_key(data_type: DataType) -> bool:  # noqa: PLR0911
+    """Return whether Pydantic preserves the JSON object key as a string."""
+    if data_type.reference or data_type.data_types:
+        return False
+    if data_type.python_type or data_type.enum_member_literals:
+        return False
+    if data_type.is_optional:
+        return False
+    if data_type.is_dict:
+        return False
+    if data_type.is_list:
+        return False
+    if data_type.is_set:
+        return False
+    if data_type.is_frozen_set:
+        return False
+    if data_type.is_mapping:
+        return False
+    if data_type.is_sequence:
+        return False
+    if data_type.is_tuple:
+        return False
+
+    match data_type.literals:
+        case [] if (
+            data_type.type == IMPORT_CONSTR.import_
+            and data_type.import_ == IMPORT_CONSTR
+            and data_type.is_func
+            and data_type.kwargs
+            and data_type.alias is None
+            and data_type.discriminator is None
+        ):
+            return True
+        case literals if (
+            data_type.type is None
+            and data_type.import_ is None
+            and not data_type.is_func
+            and data_type.kwargs is None
+            and data_type.alias is None
+            and data_type.discriminator is None
+            and all(isinstance(value, str) for value in literals)
+        ):
+            return True
+    return False
+
+
 class Constraints(_Constraints):
     """Pydantic v2 field constraints with pattern support."""
 
@@ -132,6 +179,7 @@ _CONFIG_ITEMS_TEMPLATE_DATA_KEY = "config_items"
 _NEUTRALIZE_ROOT_MODEL_EXTRA_CONFIG_TEMPLATE_DATA_KEY = "neutralize_root_model_extra_config"
 _MIN_QUOTED_STRING_LENGTH = 2
 _LEGACY_CONFIG_LITERAL_STRINGS: frozenset[str] = frozenset({"False", "None", "True"})
+_EMPTY_FIELD_RENDER_PLAN = _PydanticFieldRenderPlan("", None, (), None)
 _LEGACY_PYDANTIC_EXTRA_TEMPLATE_PATTERN = re.compile(
     r"{%-?\s*(?:if|elif)\s+(?:not\s+)?field\.use_pydantic_extra_annotation_assignment\b"
 )
@@ -452,6 +500,18 @@ class DataModelField(_PydanticBaseDataModelField):
 
     def _get_field_render_plan(self) -> _PydanticFieldRenderPlan:
         """Include the explicit null default required by Pydantic v2."""
+        can_use_empty_plan = (
+            type(self) is DataModelField
+            and not self.is_class_var
+            and not self._requires_null_default_field()
+            and not super()._may_have_field_statement()
+        )
+        if can_use_empty_plan:
+            can_use_empty_plan = self._alias_generator_name_from_parent() is None
+        if can_use_empty_plan:
+            can_use_empty_plan = (parent := self.parent) is None or not parent._uses_custom_root_template  # noqa: SLF001
+        if can_use_empty_plan:
+            return _EMPTY_FIELD_RENDER_PLAN
         plan = super()._get_field_render_plan()
         if plan.rendered or not self._requires_null_default_field():
             return plan
@@ -481,6 +541,11 @@ class DataModelField(_PydanticBaseDataModelField):
     @property
     def is_pydantic_extra_field(self) -> bool:
         """Return whether this field represents Pydantic typed extra values."""
+        return self.name == self._PYDANTIC_EXTRA_FIELD_NAME
+
+    @property
+    def requires_immediate_forward_reference_resolution(self) -> bool:
+        """Keep typed-extra class-body annotations quoted until their targets exist."""
         return self.name == self._PYDANTIC_EXTRA_FIELD_NAME
 
     @property
@@ -696,6 +761,13 @@ def _construct_parser_simple_field(**data: Unpack[_ParserSimpleFieldData]) -> Da
     return field
 
 
+# The output field owns its validation-free construction contract. Parser code
+# resolves this exact-class capability once and keeps calling this function
+# directly on the hot path. External subclasses intentionally use normal
+# Pydantic construction unless they declare their own constructor.
+DataModelField.PARSER_CONSTRUCTOR = _construct_parser_simple_field
+
+
 def has_lookaround_pattern(
     fields: list[DataModelFieldBase],
     *,
@@ -749,11 +821,13 @@ class BaseModel(BaseModelBase):
     SUPPORTS_INHERITED_DISCRIMINATOR_ENUM: ClassVar[bool] = True
     SUPPORTS_FIELD_RENAMING: ClassVar[bool] = True
     SUPPORTS_ANNOTATED_CONSTRAINTS: ClassVar[bool] = True
+    SUPPORTS_SCHEMA_RUNTIME_VALIDATION: ClassVar[bool] = True
     ANNOTATED_CONSTRAINTS_CONTEXT: ClassVar[object | None] = _ANNOTATED_CONSTRAINTS_CONTEXT
     SUPPORTS_CONFIG_EXTRA: ClassVar[bool] = True
     SUPPORTS_ARBITRARY_TYPES_ALLOWED: ClassVar[bool] = True
     CUSTOM_TEMPLATE_ADAPTER = staticmethod(_adapt_legacy_pydantic_extra_template)
     _INCLUDE_DICT_KEY_REFERENCE_CLASSES = _get_dict_key_reference_classes_capability()
+    _TYPED_EXTRA_DICT_KEY_CAPABILITY = staticmethod(_supports_pydantic_typed_extra_dict_key)
     TYPED_EXTRA_FIELD_NAME: ClassVar[str] = "__pydantic_extra__"
     TYPED_EXTRA_PLAIN_ANNOTATION_TEMPLATE_DATA_KEY: ClassVar[str] = "pydantic_extra_plain_annotation"
     # In Pydantic 2.11+, populate_by_name is deprecated in favor of validate_by_name + validate_by_alias
@@ -1327,6 +1401,14 @@ class BaseModel(BaseModelBase):
         data_type: DataType,
     ) -> DataModelFieldBase:
         """Create the Pydantic v2 typed extra field."""
+        if (dict_key := data_type.dict_key) is not None and (
+            (capability := cls._TYPED_EXTRA_DICT_KEY_CAPABILITY) is None or not capability(dict_key)
+        ):
+            for nested_data_type in dict_key.all_data_types:
+                nested_data_type.unregister_reference()
+                nested_data_type.parent = None
+            data_type.dict_key = None
+
         return field_model(
             name=cls.TYPED_EXTRA_FIELD_NAME,
             data_type=data_type,

@@ -405,6 +405,19 @@ Online documentation is located at:
         default=250.0,
     )
     advanced.add_argument(
+        '--max-ocr-image-mpixels',
+        action='store',
+        type=numeric(float, 0.0),
+        metavar='MPixels',
+        help="Downsample the image sent to OCR when it exceeds this many "
+        "megapixels, to bound the memory each page needs. The visible page is "
+        "never downsampled, so this trades OCR accuracy on very high resolution "
+        "scans for a predictable memory ceiling. Peak memory is roughly "
+        "(--jobs) x 16 bytes x (megapixels of the largest page). By default "
+        "OCR runs at the full resolution of the page.",
+        default=None,
+    )
+    advanced.add_argument(
         '--pdf-renderer',
         choices=['auto', 'hocr', 'sandwich', 'hocrdebug', 'fpdf2'],
         default='auto',
@@ -551,17 +564,15 @@ def get_options_and_plugins(
         Tuple of (OcrOptions, PluginManager)
     """
     # Import here to avoid circular imports
-    from ocrmypdf.api import setup_plugin_infrastructure
+    from ocrmypdf.api import _install_plugins
 
     # First pass: get plugins so we can register their options
     pre_options, _unused = plugins_only_parser.parse_known_args(args=args)
 
-    # Set up plugin infrastructure with proper initialization
-    plugin_manager = setup_plugin_infrastructure(plugins=pre_options.plugins)
-
-    # Get parser and let plugins add their options
+    # Install plugins and let them add their options. This mutates interpreter
+    # global state, so it runs under the same lock the public API uses.
     parser = get_parser()
-    plugin_manager.add_options(parser=parser)
+    plugin_manager = _install_plugins(pre_options.plugins, parser=parser)
 
     # Parse all arguments
     namespace = parser.parse_args(args=args)

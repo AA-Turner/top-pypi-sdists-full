@@ -4131,7 +4131,19 @@ class WorkerStore:
             # model / unmeasured box) never eliminates (degrade-not-guess). A HOME
             # match is exempt — a box already holding/serving the model is feasible
             # de facto and must never be route-refused by a static estimate.
-            if not home:
+            # De-facto feasibility is MEASURED RESIDENCY, not assignment
+            # (2026-08-28, 35B-Distill × computron): a box actually holding
+            # the model is feasible by observation, but a bare assignment is
+            # a CLAIM the static verdict may refute — the operator assigned a
+            # 38.6 GB model to a 25 GB-combined box, the old home exemption
+            # admitted it as a candidate, and every reroute onto it harvested
+            # the same honest refusal. Per the ruling ("if allocated, should
+            # be blocked; the user will be forced to acknowledge it") the
+            # infeasible ASSIGNED pair is gated + pair-blocked exactly like a
+            # wildcard one; only a resident copy stays exempt.
+            _resident = home and _serveable_match(
+                model_key, wanted, list(w.get("loaded_models", [])))
+            if not _resident:
                 # Pair-block wiring (operator ruling 2026-08-28): a POSITIVE
                 # permanent-no verdict is recorded as a durable, console-
                 # visible per-(model × worker) block; a True verdict clears

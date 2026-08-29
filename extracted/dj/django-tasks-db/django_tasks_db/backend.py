@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -9,13 +8,16 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db.models import Expression
 from django.utils.module_loading import import_string
 from django.utils.version import PY311
-from django_tasks.backends.base import BaseTaskBackend
-from django_tasks.base import Task
-from django_tasks.base import TaskResult as BaseTaskResult
-from django_tasks.exceptions import TaskResultDoesNotExist
-from django_tasks.signals import task_enqueued
-from django_tasks.utils import normalize_json
 from typing_extensions import ParamSpec
+
+from .compat import (
+    BaseTaskBackend,
+    BaseTaskResult,
+    Task,
+    TaskResultDoesNotExist,
+    normalize_json,
+    task_enqueued,
+)
 
 if TYPE_CHECKING:
     from .models import DBTaskResult
@@ -25,7 +27,7 @@ P = ParamSpec("P")
 
 
 @dataclass(frozen=True, slots=PY311, kw_only=True)  # type: ignore[literal-required]
-class TaskResult(BaseTaskResult[T]):
+class TaskResult(BaseTaskResult[P, T]):  # type: ignore[misc]
     db_result: "DBTaskResult"
 
 
@@ -36,8 +38,6 @@ class DatabaseBackend(BaseTaskBackend):
     supports_priority = True
 
     def __init__(self, alias: str, params: dict) -> None:
-        from .models import DBTaskResult
-
         super().__init__(alias, params)
 
         if id_function := self.options.get("id_function"):
@@ -46,10 +46,18 @@ class DatabaseBackend(BaseTaskBackend):
             else:
                 self.id_function = import_string(id_function)
         else:
+            self.id_function = None
+
+    def _get_id(self) -> Any:
+        if self.id_function is None:
+            # Defer model import to avoid AppRegistryNotReady when the
+            # backend is instantiated before apps are fully loaded (e.g.
+            # by @task() decorators in third-party packages).
+            from .models import DBTaskResult
+
             # Fall back to the default defined on the model
             self.id_function = DBTaskResult._meta.pk.default
 
-    def _get_id(self) -> Any:
         result_id = self.id_function()
 
         if VERSION < (6, 0) and isinstance(result_id, Expression):
@@ -100,7 +108,7 @@ class DatabaseBackend(BaseTaskBackend):
         task: Task[P, T],
         args: P.args,  # type:ignore[valid-type]
         kwargs: P.kwargs,  # type:ignore[valid-type]
-    ) -> TaskResult[T]:
+    ) -> TaskResult[P, T]:
         self.validate_task(task)
 
         db_result = self._task_to_db_task(task, args, kwargs)
@@ -109,27 +117,17 @@ class DatabaseBackend(BaseTaskBackend):
 
         return db_result.task_result
 
-    async def _asend_task_enqueued_signal(self, task_result: TaskResult) -> None:
-        if VERSION < (5, 0):
-            from asgiref.sync import sync_to_async
-
-            await sync_to_async(task_enqueued.send, thread_sensitive=True)(
-                type(self), task_result=task_result
-            )
-        else:
-            await task_enqueued.asend(type(self), task_result=task_result)
-
     async def aenqueue(
         self,
         task: Task[P, T],
         args: P.args,  # type:ignore[valid-type]
         kwargs: P.kwargs,  #  type:ignore[valid-type]
-    ) -> TaskResult[T]:
+    ) -> TaskResult[P, T]:
         self.validate_task(task)
 
         db_result = await self._atask_to_db_task(task, args, kwargs)
 
-        await self._asend_task_enqueued_signal(db_result.task_result)
+        await task_enqueued.asend(type(self), task_result=db_result.task_result)
 
         return db_result.task_result
 
@@ -149,13 +147,14 @@ class DatabaseBackend(BaseTaskBackend):
         except (DBTaskResult.DoesNotExist, ValidationError) as e:
             raise TaskResultDoesNotExist(result_id) from e
 
-    def check(self, **kwargs: Any) -> Iterable[checks.CheckMessage]:
-        yield from super().check(**kwargs)
-
-        backend_name = self.__class__.__name__
-
-        if not apps.is_installed("django_tasks_db"):
-            yield checks.Error(
-                f"{backend_name} configured as django_tasks_db backend, but database app not installed",
-                "Insert 'django_tasks_db' in INSTALLED_APPS",
-            )
+    def check(self, **kwargs: Any) -> list[checks.CheckMessage]:
+        if apps.is_installed("django_tasks_db"):
+            return super().check(**kwargs)
+        else:
+            backend_name = self.__class__.__name__
+            return [
+                checks.Error(
+                    f"{backend_name} configured as django_tasks_db backend, but database app not installed",
+                    "Insert 'django_tasks_db' in INSTALLED_APPS",
+                ),
+            ]

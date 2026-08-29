@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: parsedmarc
-Version: 10.4.3
+Version: 11.0.0
 Summary: A Python package and CLI for parsing aggregate, failure, and SMTP TLS DMARC reports
 Project-URL: Homepage, https://domainaware.github.io/parsedmarc
 Author-email: Sean Whalen <whalenster@gmail.com>
@@ -20,25 +20,27 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: azure-identity>=1.8.0
-Requires-Dist: azure-monitor-ingestion>=1.0.0
-Requires-Dist: boto3>=1.16.63
-Requires-Dist: dateparser>=1.1.1
-Requires-Dist: dnspython>=2.0.0
-Requires-Dist: elasticsearch<9,>=8.18
+Requires-Dist: dnspython[doh]>=2.7.0
 Requires-Dist: expiringdict>=1.1.4
 Requires-Dist: httpx>=0.25
-Requires-Dist: kafka-python>=2.3.2
 Requires-Dist: lxml>=4.4.0
-Requires-Dist: mailsuite[gmail,msgraph]>=2.3.1
+Requires-Dist: mailsuite>=2.3.1
 Requires-Dist: maxminddb>=2.0.0
-Requires-Dist: microsoft-kiota-abstractions>=1.8.0
-Requires-Dist: opensearch-py<=4.0.0,>=2.4.2
 Requires-Dist: publicsuffixlist>=0.10.0
-Requires-Dist: pygelf>=0.4.2
+Requires-Dist: python-dateutil>=2.8.0
 Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: tqdm>=4.31.1
 Requires-Dist: xmltodict>=0.12.0
+Provides-Extra: all
+Requires-Dist: azure-identity>=1.8.0; extra == 'all'
+Requires-Dist: azure-monitor-ingestion>=1.0.0; extra == 'all'
+Requires-Dist: boto3>=1.16.63; extra == 'all'
+Requires-Dist: elasticsearch<9,>=8.18; extra == 'all'
+Requires-Dist: kafka-python>=2.3.2; extra == 'all'
+Requires-Dist: mailsuite[gmail,msgraph]>=2.3.1; extra == 'all'
+Requires-Dist: microsoft-kiota-abstractions>=1.8.0; extra == 'all'
+Requires-Dist: opensearch-py<=4.0.0,>=2.4.2; extra == 'all'
+Requires-Dist: pygelf>=0.4.2; extra == 'all'
 Provides-Extra: build
 Requires-Dist: ddgs>=9.0.0; extra == 'build'
 Requires-Dist: hatch>=1.14.0; extra == 'build'
@@ -47,12 +49,32 @@ Requires-Dist: nose; extra == 'build'
 Requires-Dist: pyright==1.1.411; extra == 'build'
 Requires-Dist: pytest; extra == 'build'
 Requires-Dist: pytest-cov; extra == 'build'
+Requires-Dist: pytz; extra == 'build'
 Requires-Dist: requests>=2.22.0; extra == 'build'
 Requires-Dist: ruff==0.16.0; extra == 'build'
 Requires-Dist: sphinx; extra == 'build'
 Requires-Dist: sphinx-rtd-theme; extra == 'build'
+Provides-Extra: elastic
+Requires-Dist: elasticsearch<9,>=8.18; extra == 'elastic'
+Provides-Extra: gelf
+Requires-Dist: pygelf>=0.4.2; extra == 'gelf'
+Provides-Extra: gmail
+Requires-Dist: mailsuite[gmail]>=2.3.1; extra == 'gmail'
+Provides-Extra: kafka
+Requires-Dist: kafka-python>=2.3.2; extra == 'kafka'
+Provides-Extra: loganalytics
+Requires-Dist: azure-identity>=1.8.0; extra == 'loganalytics'
+Requires-Dist: azure-monitor-ingestion>=1.0.0; extra == 'loganalytics'
+Provides-Extra: msgraph
+Requires-Dist: mailsuite[msgraph]>=2.3.1; extra == 'msgraph'
+Requires-Dist: microsoft-kiota-abstractions>=1.8.0; extra == 'msgraph'
+Provides-Extra: opensearch
+Requires-Dist: boto3>=1.16.63; extra == 'opensearch'
+Requires-Dist: opensearch-py<=4.0.0,>=2.4.2; extra == 'opensearch'
 Provides-Extra: postgresql
 Requires-Dist: psycopg[binary]>=3.1.0; extra == 'postgresql'
+Provides-Extra: s3
+Requires-Dist: boto3>=1.16.63; extra == 's3'
 Description-Content-Type: text/markdown
 
 # parsedmarc
@@ -70,10 +92,11 @@ Package](https://img.shields.io/pypi/v/parsedmarc.svg)](https://pypi.org/project
 </p>
 
 `parsedmarc` is a Python module and CLI utility for parsing DMARC
-reports. When used with Elasticsearch and Kibana (or Splunk), it works
-as a self-hosted open-source alternative to commercial DMARC report
-processing services such as Agari Brand Protection, Dmarcian, OnDMARC,
-ProofPoint Email Fraud Defense, and Valimail.
+reports. When used with Elasticsearch and Kibana (or Splunk), or with
+OpenSearch and Grafana, it works as a self-hosted open-source
+alternative to commercial DMARC report processing services such as
+Agari Brand Protection, Dmarcian, OnDMARC, ProofPoint Email Fraud
+Defense, and Valimail.
 
 > [!NOTE]
 > __Domain-based Message Authentication, Reporting, and Conformance__ (DMARC) is an email authentication protocol.

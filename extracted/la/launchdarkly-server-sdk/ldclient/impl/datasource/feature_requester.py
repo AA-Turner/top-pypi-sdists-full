@@ -4,17 +4,16 @@ Default implementation of feature flag polling requests.
 
 import json
 from collections import namedtuple
+from typing import Mapping, Optional, Tuple
 from urllib import parse
 
 import urllib3
 
+from ldclient.impl.datasource.datasource_common import FDV1_POLLING_ENDPOINT
 from ldclient.impl.http import _http_factory
 from ldclient.impl.util import _headers, log, throw_if_unsuccessful_response
 from ldclient.interfaces import FeatureRequester
 from ldclient.versioned_data_kind import FEATURES, SEGMENTS
-
-FDV1_POLLING_ENDPOINT = '/sdk/latest-all'
-
 
 CacheEntry = namedtuple('CacheEntry', ['data', 'etag'])
 
@@ -29,6 +28,10 @@ class FeatureRequesterImpl(FeatureRequester):
             self._poll_uri += '?%s' % parse.urlencode({'filter': config.payload_filter_key})
 
     def get_all_data(self):
+        (data, _) = self.get_all_data_with_headers()
+        return data
+
+    def get_all_data_with_headers(self) -> Tuple[dict, Optional[Mapping[str, str]]]:
         uri = self._poll_uri
         hdrs = _headers(self._config)
         cache_entry = self._cache.get(uri)
@@ -49,4 +52,4 @@ class FeatureRequesterImpl(FeatureRequester):
                 self._cache[uri] = CacheEntry(data=data, etag=etag)
         log.debug("%s response status:[%d] From cache? [%s] ETag:[%s]", uri, r.status, from_cache, etag)
 
-        return {FEATURES: data['flags'], SEGMENTS: data['segments']}
+        return ({FEATURES: data['flags'], SEGMENTS: data['segments']}, r.headers)

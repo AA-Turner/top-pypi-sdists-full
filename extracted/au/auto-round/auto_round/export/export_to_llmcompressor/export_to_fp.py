@@ -52,9 +52,9 @@ from auto_round.wrapper import WrapperWALayer
 
 from .config import check_compressed_tensors_supported
 from .export_to_static_fp import (
-    _append_attention_group,
     _configure_gaudi2_fp8_dtype,
     _construct_kv_scheme,
+    _get_attention_config,
     _use_fp8_attention,
     _use_fp8_kv,
 )
@@ -161,6 +161,8 @@ def _build_mixed_fp_quantization_config(
     model,
     static_kv_dtype=None,
     static_attention_dtype=None,
+    static_kv_granularity="tensor",
+    static_attention_granularity="tensor",
 ):
     """Build a quantization config dict for mixed-precision scenarios.
 
@@ -204,11 +206,16 @@ def _build_mixed_fp_quantization_config(
 
     use_fp8_attention = _use_fp8_attention(static_attention_dtype)
     if use_fp8_attention:
-        _append_attention_group(config_groups, model)
+        attention_config = _get_attention_config(model, static_attention_granularity)
+    else:
+        attention_config = None
+    kv_granularity = static_attention_granularity if use_fp8_attention else static_kv_granularity
     quantization_config = initialize_quantization(
         scheme=None,
         config_groups=config_groups,
-        kv_cache_scheme=_construct_kv_scheme() if (_use_fp8_kv(static_kv_dtype) or use_fp8_attention) else None,
+        kv_cache_scheme=(
+            _construct_kv_scheme(kv_granularity) if (_use_fp8_kv(static_kv_dtype) or use_fp8_attention) else None
+        ),
         ignore=ignore,
     )
     quantization_config = quantization_config.to_dict()
@@ -219,6 +226,8 @@ def _build_mixed_fp_quantization_config(
         quantization_config["config_groups"][group_name]["format"] = fmt
     quantization_config["provider"] = "auto-round"
     _configure_gaudi2_fp8_dtype(quantization_config)
+    if attention_config is not None:
+        quantization_config["attention_input_activations"] = attention_config
 
     return quantization_config
 
@@ -318,8 +327,11 @@ def save_quantized_as_fp(
     is_mixed = len(scheme_groups) > 1
 
     use_fp8_attention = _use_fp8_attention(serialization_dict.get("static_attention_dtype", None))
+    static_attention_granularity = serialization_dict.get("static_attention_granularity", "tensor")
+    static_kv_granularity = serialization_dict.get("static_kv_granularity", "tensor")
+    kv_granularity = static_attention_granularity if use_fp8_attention else static_kv_granularity
     kv_cache_scheme = (
-        _construct_kv_scheme()
+        _construct_kv_scheme(kv_granularity)
         if (_use_fp8_kv(serialization_dict.get("static_kv_dtype", None)) or use_fp8_attention)
         else None
     )
@@ -334,6 +346,8 @@ def save_quantized_as_fp(
             model,
             static_kv_dtype=serialization_dict.get("static_kv_dtype", None),
             static_attention_dtype=serialization_dict.get("static_attention_dtype", None),
+            static_kv_granularity=static_kv_granularity,
+            static_attention_granularity=static_attention_granularity,
         )
     else:
         scheme = _get_scheme(bits, data_type)
@@ -347,11 +361,15 @@ def save_quantized_as_fp(
             ignore=ignore,
         )
         if use_fp8_attention:
-            _append_attention_group(quantization_config.config_groups, model)
+            attention_config = _get_attention_config(model, static_attention_granularity)
+        else:
+            attention_config = None
         setattr(quantization_config, "format", format)
         quantization_config = quantization_config.to_dict()
         quantization_config["provider"] = "auto-round"
         _configure_gaudi2_fp8_dtype(quantization_config)
+        if attention_config is not None:
+            quantization_config["attention_input_activations"] = attention_config
     if hasattr(model, "config"):
         model.config.quantization_config = quantization_config
     if output_dir is None:

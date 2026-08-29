@@ -281,9 +281,15 @@ class TestExtractSearchKeyMetadata:
         result = extract_search_key_metadata(params, ["order.id", "customer.name", "customer.tier"])
         assert result == {"order.id": "ord-2", "customer.name": "acme", "customer.tier": "3"}
 
-    def test_keeps_value_within_char_cap_unchanged(self) -> None:
-        exact = "a" * MAX_SEARCH_KEY_VALUE_CHARS
+    def test_value_at_exact_cap_is_not_truncated(self) -> None:
+        exact = "x" * MAX_SEARCH_KEY_VALUE_CHARS  # 8192
         assert extract_search_key_metadata({"id": exact}, ["id"]) == {"id": exact}
+
+    def test_value_one_over_cap_is_truncated(self) -> None:
+        over = "x" * (MAX_SEARCH_KEY_VALUE_CHARS + 1)  # 8193
+        result = extract_search_key_metadata({"id": over}, ["id"])
+        assert len(result["id"]) == MAX_SEARCH_KEY_VALUE_CHARS
+        assert result["id"] == over[:MAX_SEARCH_KEY_VALUE_CHARS]
 
     def test_truncates_value_exceeding_char_cap(self) -> None:
         big = "a" * (MAX_SEARCH_KEY_VALUE_CHARS + 500)

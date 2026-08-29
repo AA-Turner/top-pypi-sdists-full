@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import time
 
 import pytest
 
@@ -26,6 +27,7 @@ import dcc_mcp_core.dcc_api_executor as _dcc_api_executor
 import dcc_mcp_core.elicitation as _elicitation
 import dcc_mcp_core.plugin_manifest as _plugin_manifest
 import dcc_mcp_core.rich_content as _rich_content
+from dcc_mcp_core.script_materialization import materialize_script
 
 # ── issue #406: batch_dispatch + EvalContext ─────────────────────────────────
 
@@ -107,6 +109,53 @@ class TestEvalContext:
         ctx = EvalContext(FakeDispatcher())
         with pytest.raises(RuntimeError):
             ctx.run("raise ValueError('deliberate')")
+
+    def test_callable_timeout_fallback_never_leaves_background_execution(self):
+        import threading
+
+        EvalContext = _batch.EvalContext
+        ctx = EvalContext(FakeDispatcher(), timeout_secs=1)
+        events = []
+        observed = {}
+
+        def slow_call():
+            time.sleep(1.1)
+            events.append("completed")
+
+        def invoke():
+            try:
+                ctx.run_callable(slow_call)
+            except BaseException as exc:
+                observed["error"] = exc
+
+        worker = threading.Thread(target=invoke)
+        worker.start()
+        worker.join(timeout=2)
+
+        assert not worker.is_alive()
+        assert events == ["completed"]
+        assert isinstance(observed.get("error"), TimeoutError)
+        assert "safe preemption is unavailable" in str(observed["error"])
+
+    def test_callable_cannot_swallow_deadline_timeout(self):
+        import signal
+
+        EvalContext = _batch.EvalContext
+        ctx = EvalContext(FakeDispatcher(), timeout_secs=1)
+        caught = []
+
+        def swallow_timeout():
+            try:
+                time.sleep(1.1)
+            except TimeoutError:
+                caught.append("timeout")
+            return "late-success"
+
+        with pytest.raises(TimeoutError):
+            ctx.run_callable(swallow_timeout)
+
+        if hasattr(signal, "SIGALRM"):
+            assert caught == ["timeout"]
 
 
 # ── issue #407: elicitation ──────────────────────────────────────────────────
@@ -425,6 +474,94 @@ class TestDccApiExecutor:
         assert result["success"] is True
         assert result["output"] == "from-file"
         assert result["context"]["materialized_script"]["path"] == str(script.resolve())
+
+    def test_execute_materialized_main_with_structured_params(self, tmp_path):
+        DccApiExecutor = _dcc_api_executor.DccApiExecutor
+        descriptor = materialize_script(
+            "def main(scale: float, copies: int = 1) -> dict:\n    return {'value': scale * copies}\n",
+            dcc_type="maya",
+            instance_id="maya-1",
+            session_id="session-1",
+            root=tmp_path,
+            reuse=True,
+            reuse_key="asset-builder",
+        )
+        ex = DccApiExecutor("maya", script_materialization_root=tmp_path)
+
+        first = ex.execute_params({"file_path": descriptor.file_path, "params": {"scale": 2.5}})
+        second = ex.execute_params(
+            {
+                "file_path": descriptor.file_path,
+                "params": {"scale": 2.5, "copies": 4},
+            }
+        )
+
+        assert first["success"] is True
+        assert first["output"] == {"value": 2.5}
+        assert second["output"] == {"value": 10.0}
+        metadata = second["context"]["materialized_script"]
+        assert metadata["reused"] is True
+        assert metadata["parameters_schema"]["required"] == ["scale"]
+
+    def test_execute_rejects_invalid_structured_params_before_import(self, tmp_path):
+        DccApiExecutor = _dcc_api_executor.DccApiExecutor
+        marker = tmp_path / "must-not-run"
+        descriptor = materialize_script(
+            f"from pathlib import Path\n"
+            f"Path({str(marker)!r}).write_text('ran')\n"
+            "def main(scale: float) -> float:\n"
+            "    return scale * 2\n",
+            dcc_type="maya",
+            instance_id="maya-1",
+            session_id="session-1",
+            root=tmp_path / "store",
+            reuse=True,
+        )
+        ex = DccApiExecutor("maya", script_materialization_root=tmp_path / "store")
+
+        result = ex.execute_params(
+            {
+                "file_path": descriptor.file_path,
+                "params": {"scale": "not-a-number", "typo": 1},
+            }
+        )
+
+        assert result["success"] is False
+        assert "params" in result["error"]
+        assert not marker.exists()
+
+    def test_execute_structured_params_honors_timeout(self, tmp_path):
+        DccApiExecutor = _dcc_api_executor.DccApiExecutor
+        descriptor = materialize_script(
+            "def main(delay: float) -> str:\n    dispatch('delay', {'seconds': delay})\n    return 'late'\n",
+            dcc_type="maya",
+            instance_id="maya-1",
+            session_id="session-1",
+            root=tmp_path,
+            reuse=True,
+        )
+
+        class SlowDispatcher:
+            def dispatch(self, name, params_json):
+                assert name == "delay"
+                time.sleep(json.loads(params_json)["seconds"])
+                return {"output": {"success": True}}
+
+        ex = DccApiExecutor("maya", dispatcher=SlowDispatcher(), script_materialization_root=tmp_path)
+
+        started = time.monotonic()
+        result = ex.execute_params(
+            {
+                "file_path": descriptor.file_path,
+                "params": {"delay": 2.0},
+                "timeout_secs": 1,
+            }
+        )
+        elapsed = time.monotonic() - started
+
+        assert result["success"] is False
+        assert "timed out" in result["message"].lower()
+        assert 0.8 <= elapsed < 2.75
 
     def test_execute_require_policy_rejects_inline_code(self, tmp_path):
         DccApiExecutor = _dcc_api_executor.DccApiExecutor

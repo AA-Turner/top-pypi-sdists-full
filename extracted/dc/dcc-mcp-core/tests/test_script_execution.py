@@ -8,6 +8,7 @@ import sys
 import pytest
 
 import dcc_mcp_core
+from dcc_mcp_core.dcc_api_executor import DccApiExecutor
 from dcc_mcp_core.script_execution import FileBackedScriptExecutionParams
 from dcc_mcp_core.script_execution import ScriptExecutionCapture
 from dcc_mcp_core.script_execution import ScriptExecutionContext
@@ -21,6 +22,75 @@ from dcc_mcp_core.script_execution import normalize_script_execution_params
 from dcc_mcp_core.script_execution import register_dcc_namespace
 from dcc_mcp_core.script_execution import reset_default_script_execution_context_for_tests
 from dcc_mcp_core.script_execution import validate_script_file_path
+
+
+@pytest.mark.parametrize("module", ["typing", "typing_extensions"])
+@pytest.mark.parametrize("dcc_type", ["3dsmax", "maya"])
+@pytest.mark.parametrize("qualified", [False, True])
+@pytest.mark.parametrize(
+    ("annotation", "argument", "schema_type"),
+    [
+        ("Annotated[int, 'units']", 7, "integer"),
+        ("Literal['fbx', 'usd']", "fbx", "string"),
+        ("List[int]", [1, 2], "array"),
+    ],
+)
+def test_materialized_annotations_execute_without_backport(
+    tmp_path: Path, module: str, dcc_type: str, qualified: bool, annotation: str, argument, schema_type: str
+) -> None:
+    symbol = annotation.split("[", 1)[0]
+    imports = f"import {module}" if qualified else f"from {module} import {symbol}"
+    annotation = f"{module}.{annotation}" if qualified else annotation
+    source = f"{imports}\ndef main(value: {annotation}):\n    return value\n"
+    backport_before = sys.modules.get("typing_extensions")
+    prepared = normalize_file_backed_script_execution_params(
+        {"code": source, "params": {"value": argument}},
+        dcc_type=dcc_type,
+        instance_id="annotation-contract",
+        session_id="offline",
+        materialization_root=tmp_path,
+    )
+    assert prepared.parameters_schema["properties"]["value"]["type"] == schema_type
+    assert Path(prepared.file_path).read_text(encoding="utf-8") == source
+    executor = DccApiExecutor(dcc_type, dispatcher=None, script_materialization_root=tmp_path)
+
+    result = executor.execute_params({"file_path": prepared.file_path, "params": {"value": argument}})
+
+    assert result["success"], result
+    assert result["output"] == argument
+    assert result["context"]["materialized_script"]["reused"] is True
+    assert sys.modules.get("typing_extensions") is backport_before
+
+
+@pytest.mark.parametrize("module", ["typing", "typing_extensions"])
+@pytest.mark.parametrize(
+    ("body", "error"),
+    [
+        ("return Annotated(int)", "not callable"),
+        ("return Annotated[int, 'units']", "indices"),
+        ("return Annotated.__class__", "reflective"),
+        ("return getattr(Annotated, '__class__')", "getattr"),
+        ("import os\n    return value", "sandbox import"),
+        ("from typing_extensions import get_type_hints\n    return value", "cannot import name"),
+    ],
+)
+def test_materialized_annotated_script_keeps_sandbox_restrictions(
+    tmp_path: Path, module: str, body: str, error: str
+) -> None:
+    source = f"from {module} import Annotated\ndef main(value: Annotated[int, 'units']):\n    {body}\n"
+    prepared = normalize_file_backed_script_execution_params(
+        {"code": source, "params": {"value": 7}},
+        dcc_type="3dsmax",
+        instance_id="annotation-contract",
+        session_id="offline",
+        materialization_root=tmp_path,
+    )
+    executor = DccApiExecutor("3dsmax", dispatcher=None, script_materialization_root=tmp_path)
+
+    result = executor.execute_params({"file_path": prepared.file_path, "params": {"value": 7}})
+
+    assert result["success"] is False
+    assert error in result["error"]
 
 
 def test_script_execution_helpers_are_exported() -> None:
@@ -149,6 +219,47 @@ def test_file_backed_normalizer_accepts_trusted_file_path(tmp_path: Path) -> Non
     assert metadata["path"] == str(script.resolve())
     assert metadata["file_ref"]["digest"] == f"sha256:{params.sha256}"
     assert execute_with_context(params.code, filename=params.file_path) == "from-file"
+
+
+def test_file_backed_normalizer_preserves_structured_params_and_materialized_provenance(tmp_path: Path) -> None:
+    descriptor = dcc_mcp_core.materialize_script(
+        "def main(scale: float) -> float:\n    return scale * 2\n",
+        dcc_type="maya",
+        instance_id="maya-1",
+        session_id="session-1",
+        root=tmp_path,
+        reuse=True,
+        reuse_key="scale-tool",
+    )
+
+    params = normalize_file_backed_script_execution_params(
+        {"file_path": descriptor.file_path, "params": {"scale": 2.5}},
+        dcc_type="maya",
+        instance_id="maya-1",
+        session_id="session-1",
+        materialization_root=tmp_path,
+        policy="require",
+    )
+
+    assert params.params == {"scale": 2.5}
+    assert params.params_provided is True
+    assert params.materialized_script is not None
+    assert params.materialized_context()["reused"] is True
+    assert params.materialized_context()["parameters_schema"]["required"] == ["scale"]
+
+    with pytest.raises(ValueError, match="sha256 does not match"):
+        normalize_file_backed_script_execution_params(
+            {
+                "file_path": descriptor.file_path,
+                "params": {"scale": 2.5},
+                "sha256": "0" * 64,
+            },
+            dcc_type="maya",
+            instance_id="maya-1",
+            session_id="session-1",
+            materialization_root=tmp_path,
+            policy="require",
+        )
 
 
 def test_file_backed_normalizer_rejects_untrusted_file_path(tmp_path: Path) -> None:

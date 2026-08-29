@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smpmgr
-Version: 0.18.1
+Version: 0.19.0
 Summary: Simple Management Protocol (SMP) Manager for remotely managing MCU firmware
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: readchar (==4.2.1)
-Requires-Dist: smpclient[all] (==7.0.1)
+Requires-Dist: smpclient[all] (==7.3.0)
 Requires-Dist: typer[all] (==0.24.1)
 Description-Content-Type: text/markdown
 

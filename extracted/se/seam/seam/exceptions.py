@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
 from .resources import ActionAttempt, ErrorActionAttempt, PendingActionAttempt
 
 
@@ -15,7 +16,49 @@ class SeamError(Exception):
     """Base exception for all errors raised by the Seam SDK."""
 
 
+# Webhook
+class SeamInvalidWebhookPayloadError(SeamError):
+    """
+    Exception raised when a webhook payload passes signature verification
+    but cannot be read as a Seam event.
+
+    The payload is genuinely from Seam and will never become readable, so
+    report it as a bug instead of letting the sender retry it, and do not
+    treat it as forgery.
+    """
+
+
 # HTTP
+class SeamHttpInvalidResponseError(SeamError):
+    """
+    Exception raised when a success response from the Seam API has an
+    unexpected shape, e.g., a proxy rewrote the body or the expected
+    response key is missing.
+
+    :ivar path: The request path that produced the response
+    :vartype path: str
+    :ivar response_key: The response key the SDK expected to read
+    :vartype response_key: str
+    """
+
+    def __init__(self, path: str, response_key: str, reason: str):
+        """
+        :param path: The request path that produced the response
+        :type path: str
+        :param response_key: The response key the SDK expected to read
+        :type response_key: str
+        :param reason: Description of how the response diverged
+        :type reason: str
+        """
+
+        super().__init__(
+            f"Seam returned an invalid response for {path}: "
+            f'expected "{response_key}", {reason}'
+        )
+        self.path = path
+        self.response_key = response_key
+
+
 class SeamHttpApiError(SeamError):
     """
     Base exception for Seam HTTP API errors.
@@ -99,7 +142,10 @@ class SeamHttpInvalidInputError(SeamHttpApiError):
 
         super().__init__(error, status_code, request_id)
         self.code = "invalid_input"
-        self._validation_errors = error.get("validation_errors") or {}
+        validation_errors = error.get("validation_errors")
+        self._validation_errors = (
+            validation_errors if isinstance(validation_errors, dict) else {}
+        )
 
     @property
     def validation_errors(self) -> List[SeamValidationError]:
@@ -123,7 +169,14 @@ class SeamHttpInvalidInputError(SeamHttpApiError):
         :rtype: List[str]
         """
 
-        return self._validation_errors.get(param_name, {}).get("_errors", [])
+        messages = self._validation_errors.get(param_name)
+
+        if not isinstance(messages, dict):
+            return []
+
+        errors = messages.get("_errors", [])
+
+        return errors if isinstance(errors, list) else []
 
 
 # Action Attempt

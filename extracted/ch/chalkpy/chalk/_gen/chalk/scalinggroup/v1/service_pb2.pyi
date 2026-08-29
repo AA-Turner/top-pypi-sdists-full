@@ -19,6 +19,12 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class ScaleFromZeroRequestPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SCALE_FROM_ZERO_REQUEST_POLICY_UNSPECIFIED: _ClassVar[ScaleFromZeroRequestPolicy]
+    SCALE_FROM_ZERO_REQUEST_POLICY_ERROR: _ClassVar[ScaleFromZeroRequestPolicy]
+    SCALE_FROM_ZERO_REQUEST_POLICY_HOLD: _ClassVar[ScaleFromZeroRequestPolicy]
+
 class FunctionQueueProtocol(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     FUNCTION_QUEUE_PROTOCOL_UNSPECIFIED: _ClassVar[FunctionQueueProtocol]
@@ -43,6 +49,9 @@ class ScalingGroupVisibility(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SCALING_GROUP_VISIBILITY_ACTIVE: _ClassVar[ScalingGroupVisibility]
     SCALING_GROUP_VISIBILITY_ARCHIVED: _ClassVar[ScalingGroupVisibility]
 
+SCALE_FROM_ZERO_REQUEST_POLICY_UNSPECIFIED: ScaleFromZeroRequestPolicy
+SCALE_FROM_ZERO_REQUEST_POLICY_ERROR: ScaleFromZeroRequestPolicy
+SCALE_FROM_ZERO_REQUEST_POLICY_HOLD: ScaleFromZeroRequestPolicy
 FUNCTION_QUEUE_PROTOCOL_UNSPECIFIED: FunctionQueueProtocol
 FUNCTION_QUEUE_PROTOCOL_LIST_V1: FunctionQueueProtocol
 FUNCTION_QUEUE_PROTOCOL_STREAM_V1: FunctionQueueProtocol
@@ -66,6 +75,7 @@ class ScalingSpec(_message.Message):
         "function_queue_depth_trigger",
         "gpu_utilization_trigger",
         "cron_scaling_trigger",
+        "scale_from_zero_request_policy",
     )
     MIN_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     MAX_REPLICAS_FIELD_NUMBER: _ClassVar[int]
@@ -75,6 +85,7 @@ class ScalingSpec(_message.Message):
     FUNCTION_QUEUE_DEPTH_TRIGGER_FIELD_NUMBER: _ClassVar[int]
     GPU_UTILIZATION_TRIGGER_FIELD_NUMBER: _ClassVar[int]
     CRON_SCALING_TRIGGER_FIELD_NUMBER: _ClassVar[int]
+    SCALE_FROM_ZERO_REQUEST_POLICY_FIELD_NUMBER: _ClassVar[int]
     min_replicas: int
     max_replicas: int
     target_cpu_utilization_percentage: int
@@ -83,6 +94,7 @@ class ScalingSpec(_message.Message):
     function_queue_depth_trigger: FunctionQueueDepthScalingTrigger
     gpu_utilization_trigger: GpuUtilizationScalingTrigger
     cron_scaling_trigger: CronScalingTrigger
+    scale_from_zero_request_policy: ScaleFromZeroRequestPolicy
     def __init__(
         self,
         min_replicas: _Optional[int] = ...,
@@ -93,6 +105,7 @@ class ScalingSpec(_message.Message):
         function_queue_depth_trigger: _Optional[_Union[FunctionQueueDepthScalingTrigger, _Mapping]] = ...,
         gpu_utilization_trigger: _Optional[_Union[GpuUtilizationScalingTrigger, _Mapping]] = ...,
         cron_scaling_trigger: _Optional[_Union[CronScalingTrigger, _Mapping]] = ...,
+        scale_from_zero_request_policy: _Optional[_Union[ScaleFromZeroRequestPolicy, str]] = ...,
     ) -> None: ...
 
 class FunctionQueueDepthScalingTrigger(_message.Message):

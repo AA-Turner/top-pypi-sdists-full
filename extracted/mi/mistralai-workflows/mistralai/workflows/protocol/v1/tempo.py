@@ -12,6 +12,10 @@ class TempoTraceAttributeIntValue(BaseModel):
     intValue: str = Field(description="The integer value of the attribute")
 
 
+class TempoTraceAttributeDoubleValue(BaseModel):
+    doubleValue: float = Field(description="The floating point value of the attribute")
+
+
 class TempoTraceAttributeBoolValue(BaseModel):
     boolValue: bool = Field(description="The boolean value of the attribute")
 
@@ -27,12 +31,14 @@ class TempoTraceAttributeArrayContainer(BaseModel):
 class TempoTraceAttributeArrayElement(BaseModel):
     stringValue: str | None = Field(default=None, description="A string element in the array")
     intValue: str | None = Field(default=None, description="An integer element in the array")
+    doubleValue: float | None = Field(default=None, description="A floating point element in the array")
     boolValue: bool | None = Field(default=None, description="A boolean element in the array")
 
 
 TempoTraceAttributeValue = Union[
     TempoTraceAttributeStringValue,
     TempoTraceAttributeIntValue,
+    TempoTraceAttributeDoubleValue,
     TempoTraceAttributeBoolValue,
     TempoTraceAttributeArrayValue,
 ]

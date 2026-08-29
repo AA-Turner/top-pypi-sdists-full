@@ -5514,6 +5514,13 @@ _CALIB_BUFFER: list = []
 _CALIB_SAMPLED: set = set()
 _CALIB_CORRECTIONS: dict = {}
 _CALIB_LOCK = threading.Lock()
+# load_seconds producer (the cold-load half of central's load_metrics — the
+# half the completion seam deliberately leaves to the load path): stamp a model
+# the first beat it shows as LOADING, measure to the first beat its footprint is
+# actually sampled. Beat-granular by construction — honest EMA fodder for
+# multi-second loads ("measure, don't bench"); a load that starts and finishes
+# inside one beat interval is simply unmeasured (fail-open, never guessed).
+_LOAD_STARTED: dict = {}
 # k2: the worker's adopted view of the operator's model BLOCK set (aa4aea3),
 # learned off the heartbeat reply (worker['blocked_models'] = [model_key, ...]),
 # the exact same additive/omit-when-empty wire idiom as calibration. Closes the
@@ -6596,8 +6603,8 @@ def _build_calibration_success(mk: str, row: dict) -> "dict | None":
     # would feed a wildly-low measured/predicted ratio into the full-load
     # correction (3.2G measured vs ~48G predicted). Classify it as "partial"
     # (the existing excluded-from-ratio vocabulary; the wire stays additive).
-    if verdict == "full" and (mk in _MOE_SPLIT
-                              or (row or {}).get("n_cpu_moe") is not None):
+    is_moe = mk in _MOE_SPLIT or (row or {}).get("n_cpu_moe") is not None
+    if verdict == "full" and is_moe:
         verdict = "partial"
     sample = {
         "model_key": mk,
@@ -6615,20 +6622,34 @@ def _build_calibration_success(mk: str, row: dict) -> "dict | None":
         "ok": True,
         "ts": time.time(),
     }
+    if is_moe:
+        # For central's load-metrics feed (derive_variant needs it); the
+        # calibration table ignores unknown keys — the wire stays additive.
+        sample["moe_capable"] = True
     return {k: v for k, v in sample.items() if v is not None}
 
 
-def _collect_calibration_from_allocations(allocs: "list | None") -> None:
+def _collect_calibration_from_allocations(allocs: "list | None",
+                                          loading: "list | None" = None) -> None:
     """Emit ONE measured sample per residency episode. Keys off the SAME
     allocations view the heartbeat already computes (per-process nvidia-smi
     VRAM), so it captures EVERY load path — on-demand, slot, warm/probe, reconcile
     — uniformly, and dedups via _CALIB_SAMPLED. Samples only once a footprint is
     actually measured (vram_bytes present); departed residents are re-armed so a
-    reload re-samples."""
+    reload re-samples.
+
+    ``loading`` (the beat's already-computed loading view — never a second
+    probe) drives the load_seconds stamp: first beat LOADING starts the clock,
+    the sample beat stops it. A stamp whose model is neither loading nor
+    resident (an aborted load) is dropped unmeasured."""
     if not _calibration_enabled():
         return
+    now = time.time()
     resident_now: set = set()
     new_samples: list = []
+    with _CALIB_LOCK:
+        for mk in (loading or []):
+            _LOAD_STARTED.setdefault(mk, now)
     for row in (allocs or []):
         mk = (row or {}).get("model_key")
         if not mk:
@@ -6641,11 +6662,18 @@ def _collect_calibration_from_allocations(allocs: "list | None") -> None:
                 continue
         s = _build_calibration_success(mk, row)
         if s:
+            with _CALIB_LOCK:
+                started = _LOAD_STARTED.pop(mk, None)
+            if started is not None and now > started:
+                s["load_seconds"] = round(now - started, 3)
             new_samples.append(s)
             with _CALIB_LOCK:
                 _CALIB_SAMPLED.add(mk)
     with _CALIB_LOCK:
         _CALIB_SAMPLED.intersection_update(resident_now)
+        for mk in [k for k in _LOAD_STARTED
+                   if k not in resident_now and k not in (loading or [])]:
+            _LOAD_STARTED.pop(mk, None)     # aborted load — never measured
         _CALIB_BUFFER.extend(new_samples)
         if len(_CALIB_BUFFER) > _CALIB_MAXLEN:
             del _CALIB_BUFFER[:-_CALIB_MAXLEN]
@@ -11064,16 +11092,19 @@ def _heartbeat_loop(client: CentralClient, state: WorkerState, args) -> None:
             # off it (measured per-process VRAM per resident), then reuse it for
             # the payload. Fully guarded — capture must never skip a beat.
             _allocs = _allocations(_slots)
+            # Computed ONCE and shared with the calibration collector and the
+            # aggregate tick — neither may become a second caller of the same
+            # probes. Hoisted above the collector so the load_seconds stamp
+            # reads the same loading view this beat reports.
+            _loaded_keys = loaded_model_keys()
+            _loading_keys = _loading_model_keys()
             try:
-                _collect_calibration_from_allocations(_allocs)
+                _collect_calibration_from_allocations(_allocs,
+                                                      loading=_loading_keys)
                 _calib_samples = _drain_calibration_samples()
             except Exception as _ce:  # noqa: BLE001 — telemetry never breaks a beat
                 logger.debug("calibration capture failed: %s", _ce)
                 _calib_samples = []
-            # Computed ONCE and shared with the aggregate tick — the aggregate
-            # must never become a second caller of the same probes.
-            _loaded_keys = loaded_model_keys()
-            _loading_keys = _loading_model_keys()
             _agg_summary = _aggregate_tick(
                 state, loading=_loading_keys, loaded=_loaded_keys,
                 calib_samples=_calib_samples, vram_split=_vram_split,

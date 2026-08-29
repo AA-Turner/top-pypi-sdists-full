@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.engine.v2 import feature_values_pb2 as _feature_values_pb2
 from chalk._gen.chalk.engine.v2 import feature_values_chart_pb2 as _feature_values_chart_pb2
+from chalk._gen.chalk.engine.v2 import offline_store_metrics_pb2 as _offline_store_metrics_pb2
 from chalk._gen.chalk.engine.v2 import query_log_pb2 as _query_log_pb2
 from chalk._gen.chalk.engine.v2 import query_values_pb2 as _query_values_pb2
 from google.protobuf import descriptor as _descriptor

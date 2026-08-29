@@ -13,12 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib
 import logging
 import os
 import re
-import sys
-import warnings
 
 from keystoneauth1 import adapter
 from keystoneauth1 import session as ks_session
@@ -119,26 +116,22 @@ class _HTTPClient(adapter.Adapter):
 
     def _check_status_code(self, resp):
         status = resp.status_code
-        LOG.debug('Response status {0}'.format(status))
+        LOG.debug('Response status %s', status)
         if status == 401:
-            LOG.error('Auth error: {0}'.format(self._get_error_message(resp)))
+            LOG.error('Auth error: %s', self._get_error_message(resp))
             raise exceptions.HTTPAuthError(
                 '{0}'.format(self._get_error_message(resp))
             )
         if not status or status >= 500:
-            LOG.error('5xx Server error: {0}'.format(
-                self._get_error_message(resp)
-            ))
+            LOG.error('5xx Server error: %s', self._get_error_message(resp))
             raise exceptions.HTTPServerError(
-                '{0}'.format(self._get_error_message(resp)),
+                str(self._get_error_message(resp)),
                 status
             )
         if status >= 400:
-            LOG.error('4xx Client error: {0}'.format(
-                self._get_error_message(resp)
-            ))
+            LOG.error('4xx Client error: %s', self._get_error_message(resp))
             raise exceptions.HTTPClientError(
-                '{0}'.format(self._get_error_message(resp)),
+                str(self._get_error_message(resp)),
                 status
             )
 
@@ -240,32 +233,3 @@ def env(*vars, **kwargs):
         if value:
             return value
     return kwargs.get('default', '')
-
-
-class _LazyImporter(object):
-    def __init__(self, module):
-        self._module = module
-
-    def __getattr__(self, name):
-        # This is only called until the import has been done.
-        lazy_submodules = [
-            'acls',
-            'cas',
-            'containers',
-            'orders',
-            'secrets',
-        ]
-        if name in lazy_submodules:
-            warnings.warn("The %s module is moved to barbicanclient/v1 "
-                          "directory, direct import of "
-                          "barbicanclient.client.%s "
-                          "will be deprecated. Please import "
-                          "barbicanclient.v1.%s instead."
-                          % (name, name, name))
-            return importlib.import_module('barbicanclient.v1.%s' % name)
-
-        # Return module attributes like __all__ etc.
-        return getattr(self._module, name)
-
-
-sys.modules[__name__] = _LazyImporter(sys.modules[__name__])

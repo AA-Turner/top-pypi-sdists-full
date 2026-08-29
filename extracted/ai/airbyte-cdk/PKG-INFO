@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: airbyte-cdk
-Version: 7.28.2
+Version: 7.28.3
 Summary: A framework for writing Airbyte Connectors.
 Home-page: https://airbyte.com
 License: MIT
@@ -50,7 +50,7 @@ Requires-Dist: langchain_community (>=0.4,<0.5) ; extra == "vector-db-based"
 Requires-Dist: langchain_core (>=1.2.5,<2.0.0) ; extra == "vector-db-based"
 Requires-Dist: langchain_text_splitters (>=1.0.0,<2.0.0) ; extra == "vector-db-based"
 Requires-Dist: markdown ; extra == "file-based"
-Requires-Dist: nltk (==3.9.1)
+Requires-Dist: nltk (==3.9.4)
 Requires-Dist: openai[embeddings] (==0.27.9) ; extra == "vector-db-based"
 Requires-Dist: openpyxl (>=3.1.0,<4.0.0) ; extra == "file-based"
 Requires-Dist: orjson (>=3.10.7,<4.0.0)

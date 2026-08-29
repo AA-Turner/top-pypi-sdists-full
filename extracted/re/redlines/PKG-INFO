@@ -1,11 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: redlines
-Version: 0.6.1
+Version: 0.6.2
 Summary: Compare text, and produce human-readable differences or deltas which look like track changes in Microsoft Word.
 Project-URL: Homepage, https://houfu.github.io/redlines/
 Project-URL: Documentation, https://houfu.github.io/redlines/
 Project-URL: Repository, https://github.com/houfu/redlines
-Project-URL: Agent Guide, https://github.com/houfu/redlines/blob/main/AGENT_GUIDE.md
+Project-URL: Agent Guide, https://houfu.github.io/redlines/guides/agent-guide/
 Author-email: houfu <houfu@outlook.sg>
 License-Expression: MIT
 License-File: LICENSE.txt
@@ -25,6 +25,8 @@ Provides-Extra: levenshtein
 Requires-Dist: levenshtein>=0.27.1; extra == 'levenshtein'
 Provides-Extra: nupunkt
 Requires-Dist: nupunkt>=0.6.0; (python_version >= '3.11') and extra == 'nupunkt'
+Provides-Extra: pdf
+Requires-Dist: pdfplumber>=0.10.0; extra == 'pdf'
 Description-Content-Type: text/markdown
 
 # Redlines
@@ -61,6 +63,7 @@ print(test.output_markdown)
 **Supported:** Python 3.10 - 3.14 (Python 3.8 and 3.9 support dropped)
 
 **Optional dependencies:**
+- `pip install redlines[pdf]` for PDF file comparison
 - `pip install redlines[nupunkt]` for advanced sentence boundary detection (Python 3.11+, handles abbreviations, citations, URLs)
 - `pip install redlines[levenshtein]` for additional statistics
 
@@ -145,6 +148,8 @@ processor = NupunktProcessor()
 test = Redlines("Dr. Smith said hello.", "Dr. Smith said hi.", processor=processor)
 ```
 
+Sentence mode preserves the input's paragraph boundaries (fixed in 0.6.2): sentences are anchored within their paragraph, so the output is not reflowed one sentence per paragraph.
+
 **Use NupunktProcessor for:** Legal/technical documents with abbreviations, URLs, citations, decimals
 **Use WholeDocumentProcessor (default) for:** Simple documents, speed-critical tasks (5-6x faster), paragraph-level granularity
 
@@ -152,7 +157,7 @@ See [demo comparison](demo/README.md) for benchmarks.
 
 ### For AI Agents & Automation
 
-**🤖 Using with AI coding agents?** See the **[Agent Integration Guide](AGENT_GUIDE.md)** for JSON schemas, automation patterns, error handling, and [runnable examples](examples/).
+**🤖 Using with AI coding agents?** See the **[Agent Integration Guide](https://houfu.github.io/redlines/guides/agent-guide/)** for JSON schemas, automation patterns, error handling, and [runnable examples](examples/). Agents fetching documentation as text can start at [llms.txt](https://houfu.github.io/redlines/llms.txt).
 
 ## Documentation & Resources
 

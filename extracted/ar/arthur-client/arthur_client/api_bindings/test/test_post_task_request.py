@@ -46,7 +46,6 @@ class TestPostTaskRequest(unittest.TestCase):
                         apply_to_response = True, 
                         config = null, )
                     ],
-                is_agentic = True,
                 agent_metadata = arthur_client.api_bindings.models.agent_metadata.AgentMetadata(
                     provider = 'gcp', 
                     gcp_metadata = arthur_client.api_bindings.models.gcp_agent_metadata.GCPAgentMetadata(

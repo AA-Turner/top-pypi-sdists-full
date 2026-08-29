@@ -1,3 +1,5 @@
+# Copyright the boost contributors.
+# SPDX-License-Identifier: GPL-3.0-only
 """Functional tests: quality & health commands — doctor, lint, audit, verify,
 drift, test, fingerprint, quarantine, decay, heal, conflict, changelog,
 attest, health."""
@@ -5,6 +7,7 @@ from __future__ import annotations
 
 import getpass
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -334,6 +337,18 @@ class TestAudit:
         assert "conflict" in labels
         # beta never declared anything, so it gets no conflict finding
         assert "conflict" not in [f["label"] for f in data["findings"]["beta"]]
+
+    def test_skills_conflict_cleared_by_quarantine(self, boost, tmp_path):
+        _import_skill(boost, tmp_path, "alpha", "# Alpha\n",
+                      extra_fm="conflicts: beta\n")
+        _import_skill(boost, tmp_path, "beta", "# Beta\n")
+        boost("audit", "--skills", expect=1)   # sanity: MED before quarantine
+
+        boost("quarantine", "alpha")
+        data = json.loads(boost("audit", "--skills", "--json").out)
+        assert data["counts"]["MED"] == 0
+        assert "conflict" not in [f["label"] for f in
+                                  data["findings"].get("beta", [])]
 
     def test_skills_conflict_against_uninstalled_peer_is_silent(self, boost, tmp_path):
         _import_skill(boost, tmp_path, "alpha", "# Alpha\n",
@@ -753,6 +768,24 @@ class TestHeal:
         assert "removed broken link ~/.claude/skills/relghost" in r.out
         assert not rel.is_symlink()
 
+    def test_dry_run_does_not_double_report_the_same_broken_link(
+            self, boost, installed):
+        # A skill's entire store dir gone breaks its symlinks in every linking
+        # agent. The real run unlinks them (`ours`) before computing
+        # `store.sync_plan()`, so `sync_plan`'s own stale-link sweep never
+        # sees them; `--dry-run` never unlinks, so the same paths were
+        # reported twice — once as "would remove broken link", again as
+        # "would remove stale link" — overstating what a real run does.
+        shutil.rmtree(paths.store_dir() / "brainstorming")
+        link = paths.home() / ".claude" / "skills" / "brainstorming"
+        assert link.is_symlink() and not link.exists()
+
+        r = boost("heal", "--dry-run")
+        mentions = [l for l in r.out.splitlines()
+                   if "~/.claude/skills/brainstorming" in l]
+        assert len(mentions) == 1, mentions
+        assert mentions[0].strip().startswith("would remove broken link")
+
     def test_restores_missing_store_from_tap(self, boost, installed):
         shutil.rmtree(paths.store_dir() / "brainstorming")
         r = boost("heal")
@@ -798,6 +831,19 @@ class TestConflict:
 
         boost("uninstall", "cowboy-coding")
         r = boost("conflict")
+        assert "no contradictory rules across 1 skill" in r.out
+
+    def test_quarantine_clears_a_declared_conflict(self, boost, tapped):
+        # Quarantine removes a skill's active links/materialization on purpose
+        # (see quality.py's doctor/drift comments) — a MED conflict finding
+        # against a skill with no active presence is a false alarm.
+        boost("install", "tdd-workflow", "cowboy-coding")
+        boost("conflict", expect=1)   # sanity: the pair is flagged before quarantine
+
+        boost("quarantine", "cowboy-coding")
+        r = boost("conflict")
+        assert r.rc == 0
+        assert "cowboy-coding" not in r.out
         assert "no contradictory rules across 1 skill" in r.out
 
     def test_ai_confirms_heuristic_pair(self, boost, tapped, monkeypatch):
@@ -875,3 +921,92 @@ class TestHealth:
         assert "2 events" in r.out                # tap + install in journal
         assert re.search(r"fingerprint\s+[0-9a-f]{16}", r.out)
         assert "● healthy" in r.out
+
+
+class TestDuplicateSkillDiscovery:
+    """The "Skill conflict detected" line Gemini CLI prints every session.
+
+    Gemini reads ``~/.agents/skills`` natively, so boost never links into
+    ``~/.gemini/skills``. Another installer that does not know that leaves an
+    entry there for a skill boost has in the store, Gemini loads it from two
+    discovery tiers, and warns once per skill per session. Nothing in boost saw
+    this before: `heal`'s broken-link sweep walks `linking_agents` and never
+    looks in a native-store agent's dir, and the entries are not broken anyway.
+
+    The chain is the one verified on a real machine — the gemini entry is a
+    relative link to another agent's dir, and *that* is boost's store symlink —
+    so a single `readlink()` reads it as foreign and only a full resolve finds
+    the duplicate.
+    """
+
+    @staticmethod
+    def _duplicate(name="brainstorming"):
+        gem = paths.home() / ".gemini" / "skills"
+        gem.mkdir(parents=True, exist_ok=True)
+        link = gem / name
+        link.symlink_to(os.path.join("..", "..", ".claude", "skills", name))
+        return link
+
+    def test_doctor_names_the_agent_both_paths_and_one_next_action(
+            self, boost, installed):
+        self._duplicate()
+        r = boost("doctor", expect=1)
+        assert "skill brainstorming is discoverable twice by Gemini CLI" in r.out
+        assert "~/.gemini/skills/brainstorming" in r.out
+        assert "~/.agents/skills/brainstorming" in r.out
+        assert "boost heal --prune-duplicates" in r.out
+        assert "need attention" in r.out
+
+    def test_doctor_is_healthy_without_the_duplicate(self, boost, installed):
+        assert "● healthy" in boost("doctor").out
+
+    def test_doctor_ignores_an_entry_that_leads_outside_the_store(
+            self, boost, installed):
+        # The common case on a real machine: most entries in ~/.gemini/skills
+        # belong to other tools entirely and are discovered exactly once.
+        theirs = paths.home() / ".claude" / "skills" / "someone-elses"
+        theirs.mkdir(parents=True, exist_ok=True)
+        (paths.home() / ".gemini" / "skills").mkdir(parents=True, exist_ok=True)
+        (paths.home() / ".gemini" / "skills" / "someone-elses").symlink_to(
+            os.path.join("..", "..", ".claude", "skills", "someone-elses"))
+        r = boost("doctor")
+        assert "discoverable twice" not in r.out
+        assert "● healthy" in r.out
+
+    def test_heal_names_it_but_will_not_remove_it_by_default(self, boost, installed):
+        link = self._duplicate()
+        r = boost("heal")
+        assert "duplicate skill discovery" in r.out
+        assert "boost heal --prune-duplicates" in r.out
+        assert link.is_symlink()          # boost did not create it; it stays
+        # and heal must not claim there was nothing to see: it found something
+        # it can fix and chose not to, one line above.
+        assert "nothing to heal automatically" in r.out
+
+    def test_heal_dry_run_with_the_flag_touches_nothing(self, boost, installed):
+        link = self._duplicate()
+        r = boost("heal", "--prune-duplicates", "--dry-run")
+        assert "would remove duplicate skill discovery" in r.out
+        assert link.is_symlink()
+
+    def test_heal_with_the_flag_removes_it_and_leaves_the_skill(
+            self, boost, installed):
+        link = self._duplicate()
+        r = boost("heal", "--prune-duplicates")
+        assert "removed duplicate skill discovery" in r.out
+        assert not link.is_symlink()
+        # the skill is still installed, and still discoverable — once
+        assert (paths.store_dir() / "brainstorming" / "SKILL.md").is_file()
+        assert (paths.home() / ".claude" / "skills" / "brainstorming").is_symlink()
+        assert "● healthy" in boost("doctor").out
+
+    def test_heal_with_the_flag_refuses_a_real_directory(self, boost, installed):
+        # Not a symlink, so not a duplicate discovery path and never removed —
+        # even though a directory of the same name sits in Gemini's dir.
+        gem = paths.home() / ".gemini" / "skills" / "brainstorming"
+        gem.mkdir(parents=True)
+        (gem / "SKILL.md").write_text("---\nname: brainstorming\n---\n",
+                                      encoding="utf-8")
+        r = boost("heal", "--prune-duplicates")
+        assert "duplicate skill discovery" not in r.out
+        assert (gem / "SKILL.md").is_file()

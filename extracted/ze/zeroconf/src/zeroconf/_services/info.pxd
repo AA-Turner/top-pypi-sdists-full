@@ -45,8 +45,6 @@ cdef object QM_QUESTION
 cdef object _IPVersion_All_value
 cdef object _IPVersion_V4Only_value
 
-cdef cython.set _ADDRESS_RECORD_TYPES
-
 cdef unsigned int _DUPLICATE_QUESTION_INTERVAL
 
 cdef bint TYPE_CHECKING
@@ -62,6 +60,8 @@ cdef class ServiceInfo(RecordUpdateListener):
     cdef public str key
     cdef public cython.list _ipv4_addresses
     cdef public cython.list _ipv6_addresses
+    cdef public bint _ipv4_denied
+    cdef public bint _ipv6_denied
     cdef public object port
     cdef public object weight
     cdef public object priority
@@ -77,16 +77,25 @@ cdef class ServiceInfo(RecordUpdateListener):
     cdef public DNSService _dns_service_cache
     cdef public DNSText _dns_text_cache
     cdef public cython.list _dns_address_cache
+    cdef public DNSNsec _dns_address_nsec_cache
     cdef public cython.set _get_address_and_nsec_records_cache
     cdef public cython.set _query_record_types
+    cdef public bint _txt_seen
 
-    @cython.locals(record_update=RecordUpdate, update=bint, cache=DNSCache)
+    @cython.locals(record_update=RecordUpdate, record=DNSRecord, nsec_records=list)
     cpdef void async_update_records(self, object zc, double now, cython.list records)
 
     @cython.locals(cache=DNSCache)
     cpdef bint _load_from_cache(self, object zc, double now)
 
-    @cython.locals(length="unsigned char", index="unsigned int", key_value=bytes, key_sep_value=tuple)
+    @cython.locals(
+        length="unsigned char",
+        index="unsigned int",
+        key_value=bytes,
+        key=bytes,
+        sep=bytes,
+        value=bytes,
+    )
     cdef void _unpack_text_into_properties(self)
 
     @cython.locals(k=bytes, v=bytes)
@@ -103,9 +112,21 @@ cdef class ServiceInfo(RecordUpdateListener):
     @cython.locals(
         dns_service_record=DNSService,
         dns_text_record=DNSText,
-        dns_address_record=DNSAddress
+        dns_address_record=DNSAddress,
+        dns_nsec_record=DNSNsec
     )
     cdef bint _process_record_threadsafe(self, object zc, DNSRecord record, double now)
+
+    @cython.locals(cache=DNSCache)
+    cdef void _load_records_for_new_server_from_cache(self, object zc, double now)
+
+    @cython.locals(
+        rdtypes=cython.list,
+        updated=cython.bint,
+        ipv4_denied=cython.bint,
+        ipv6_denied=cython.bint,
+    )
+    cdef bint _process_nsec_record(self, DNSNsec record, str record_key)
 
     @cython.locals(existing_idx=int, existing=object)
     cdef bint _upsert_ipv6_address(self, object ip_addr)
@@ -135,7 +156,8 @@ cdef class ServiceInfo(RecordUpdateListener):
     @cython.locals(cacheable=cython.bint)
     cdef DNSText _dns_text(self, object override_ttl)
 
-    cdef DNSNsec _dns_nsec(self, cython.list missing_types, object override_ttl)
+    @cython.locals(cacheable=cython.bint, has_v4=cython.bint, has_v6=cython.bint)
+    cdef DNSNsec _dns_address_nsec(self, object override_ttl)
 
     @cython.locals(cacheable=cython.bint)
     cdef cython.set _get_address_and_nsec_records(self, object override_ttl)

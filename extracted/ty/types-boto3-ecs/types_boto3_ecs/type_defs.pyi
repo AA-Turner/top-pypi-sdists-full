@@ -100,6 +100,7 @@ from .literals import (
     ServiceDeploymentLifecycleStageType,
     ServiceDeploymentRollbackMonitorsStatusType,
     ServiceDeploymentStatusType,
+    ServiceRevisionCleanupType,
     SettingNameType,
     SettingTypeType,
     SortOrderType,
@@ -226,6 +227,7 @@ __all__ = (
     "DeploymentConfigurationTypeDef",
     "DeploymentConfigurationUnionTypeDef",
     "DeploymentControllerTypeDef",
+    "DeploymentEarlySuccessCriteriaTypeDef",
     "DeploymentEphemeralStorageTypeDef",
     "DeploymentLifecycleHookDetailTypeDef",
     "DeploymentLifecycleHookOutputTypeDef",
@@ -987,6 +989,11 @@ ThresholdConfigurationTypeDef = TypedDict(
         "value": int,
     },
 )
+
+class DeploymentEarlySuccessCriteriaTypeDef(TypedDict):
+    enable: bool
+    healthyPercent: NotRequired[int]
+    sourceServiceRevisionCleanup: NotRequired[ServiceRevisionCleanupType]
 
 class LinearConfigurationTypeDef(TypedDict):
     stepPercent: NotRequired[float]
@@ -2494,6 +2501,7 @@ class DeploymentConfigurationOutputTypeDef(TypedDict):
     lifecycleHooks: NotRequired[list[DeploymentLifecycleHookOutputTypeDef]]
     linearConfiguration: NotRequired[LinearConfigurationTypeDef]
     canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
+    earlySuccessCriteria: NotRequired[DeploymentEarlySuccessCriteriaTypeDef]
 
 class DeploymentConfigurationTypeDef(TypedDict):
     deploymentCircuitBreaker: NotRequired[DeploymentCircuitBreakerTypeDef]
@@ -2505,6 +2513,7 @@ class DeploymentConfigurationTypeDef(TypedDict):
     lifecycleHooks: NotRequired[Sequence[DeploymentLifecycleHookTypeDef]]
     linearConfiguration: NotRequired[LinearConfigurationTypeDef]
     canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
+    earlySuccessCriteria: NotRequired[DeploymentEarlySuccessCriteriaTypeDef]
 
 class ClusterConfigurationTypeDef(TypedDict):
     executeCommandConfiguration: NotRequired[ExecuteCommandConfigurationTypeDef]

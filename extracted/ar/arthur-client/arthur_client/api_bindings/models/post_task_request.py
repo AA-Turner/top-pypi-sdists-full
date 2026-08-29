@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
@@ -33,9 +33,8 @@ class PostTaskRequest(BaseModel):
     connector_id: StrictStr = Field(description="The id of the connector where the task will be created. The connector must be an engine internal connector.")
     onboarding_identifier: Optional[StrictStr] = None
     rules_to_add: Optional[List[NewRuleRequest]] = Field(default=None, description="List of rules to add to the task.")
-    is_agentic: Optional[StrictBool] = Field(default=False, description="Whether this task should be created as an agentic trace task. If True, no rules will be applied to the task.")
     agent_metadata: Optional[AgentMetadata] = None
-    __properties: ClassVar[List[str]] = ["name", "connector_id", "onboarding_identifier", "rules_to_add", "is_agentic", "agent_metadata"]
+    __properties: ClassVar[List[str]] = ["name", "connector_id", "onboarding_identifier", "rules_to_add", "agent_metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -112,7 +111,6 @@ class PostTaskRequest(BaseModel):
             "connector_id": obj.get("connector_id"),
             "onboarding_identifier": obj.get("onboarding_identifier"),
             "rules_to_add": [NewRuleRequest.from_dict(_item) for _item in obj["rules_to_add"]] if obj.get("rules_to_add") is not None else None,
-            "is_agentic": obj.get("is_agentic") if obj.get("is_agentic") is not None else False,
             "agent_metadata": AgentMetadata.from_dict(obj["agent_metadata"]) if obj.get("agent_metadata") is not None else None
         })
         return _obj

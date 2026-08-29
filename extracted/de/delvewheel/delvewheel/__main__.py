@@ -35,7 +35,9 @@ def _dll_patterns(s: str) -> str:
 
 
 def _namespace_pkgs(s: str) -> str:
-    for namespace_pkg in filter(None, s.split(os.pathsep)):
+    """Helper for argument parser for validating a list of namespace
+    packages"""
+    for namespace_pkg in filter(None, map(str.strip, s.split(os.pathsep))):
         if any(c in r'<>:"/\|?*' or ord(c) < 32 for c in namespace_pkg) or not re.fullmatch(r'[^.]+(\.[^.]+)*', namespace_pkg):
             raise argparse.ArgumentTypeError(f'Invalid namespace package {namespace_pkg!r}')
     return s
@@ -64,7 +66,7 @@ def main():
         subparser.add_argument('--analyze-existing-exes', action='store_true', help='analyze and vendor in dependencies of EXEs that are in the wheel')
         subparser.add_argument('-v', action='count', default=0, help='verbosity')
         subparser.add_argument('--extract-dir', help=argparse.SUPPRESS)
-        subparser.add_argument('--test', default='', help=argparse.SUPPRESS)  # comma-separated testing options, internal use only
+        subparser.add_argument('--test', action='append', default=[], help=argparse.SUPPRESS)  # comma-separated testing options, internal use only
     parser_repair.add_argument('-w', '--wheel-dir', dest='target', default='wheelhouse', help='directory to write repaired wheel')
     parser_repair.add_argument('--no-mangle', action='append', default=[], metavar='DLLS', type=_dll_patterns, help=f'DLL names(s) not to mangle, {os.pathsep!r}-delimited')
     group = parser_repair.add_mutually_exclusive_group()
@@ -84,7 +86,7 @@ def main():
     parser_replace_needed.add_argument('file', help='path to an executable file')
     parser_replace_needed.add_argument('--strip', action='store_true', help='strip overlay if internal padding is insufficient')
     parser_replace_needed.add_argument('-v', action='count', default=0, help='verbosity')
-    parser_replace_needed.add_argument('--test', default='', help=argparse.SUPPRESS)  # comma-separated testing options, internal use only
+    parser_replace_needed.add_argument('--test', action='append', default=[], help=argparse.SUPPRESS)  # comma-separated testing options, internal use only
     args = parser.parse_args()
 
     # handle arguments
@@ -92,11 +94,11 @@ def main():
         warnings.warn(f'Requested verbosity level {args.v} exceeds maximum of 2; using level 2')
     _Config.verbose = args.v
     if args.command != 'needed':
-        _Config.test = args.test.split(',')
+        _Config.test = [t.strip() for t in ','.join(args.test).split(',') if t.strip()]
     if args.command in ('show', 'repair'):
-        add_paths = dict.fromkeys(os.path.abspath(path) for path in os.pathsep.join(args.add_path).split(os.pathsep) if path)
-        include = set(dll_name.lower() for dll_name in os.pathsep.join(args.include).split(os.pathsep) if dll_name)
-        exclude = set(dll_name.lower() for dll_name in os.pathsep.join(args.exclude).split(os.pathsep) if dll_name)
+        add_paths = dict.fromkeys(os.path.abspath(path.strip()) for path in os.pathsep.join(args.add_path).split(os.pathsep) if path.strip())
+        include = set(dll_name.strip().lower() for dll_name in os.pathsep.join(args.include).split(os.pathsep) if dll_name.strip())
+        exclude = set(dll_name.strip().lower() for dll_name in os.pathsep.join(args.exclude).split(os.pathsep) if dll_name.strip())
 
         if intersection := include & exclude:
             raise ValueError(f'Cannot force both inclusion and exclusion of {intersection}')
@@ -105,6 +107,8 @@ def main():
                 for include_item in include:
                     if fnmatch.fnmatch(include_item, exclude_item):
                         raise ValueError(f'Cannot force inclusion of {include_item} if {exclude_item} is excluded')
+        if args.command == 'repair' and args.with_mangle and not args.ignore_existing:
+            parser_repair.error('--with-mangle requires --ignore-existing')
 
         if add_paths:
             os.environ['PATH'] = f'{os.pathsep.join(add_paths)}{os.pathsep}{os.environ["PATH"]}'
@@ -122,10 +126,8 @@ def main():
             if args.command == 'show':
                 wr.show()
             else:  # args.command == 'repair'
-                if args.with_mangle and not args.ignore_existing:
-                    parser_repair.error('--with-mangle requires --ignore-existing')
-                no_mangles = set(dll_name.lower() for dll_name in os.pathsep.join(args.no_mangle).split(os.pathsep) if dll_name)
-                namespace_pkgs = set(tuple(namespace_pkg.split('.')) for namespace_pkg in args.namespace_pkg.split(os.pathsep) if namespace_pkg)
+                no_mangles = set(dll_name.strip().lower() for dll_name in os.pathsep.join(args.no_mangle).split(os.pathsep) if dll_name.strip())
+                namespace_pkgs = set(tuple(namespace_pkg.strip().split('.')) for namespace_pkg in args.namespace_pkg.split(os.pathsep) if namespace_pkg.strip())
                 wr.repair(args.target, no_mangles, args.no_mangle_all, args.with_mangle, args.strip, args.lib_sdir, not args.no_diagnostic and 'SOURCE_DATE_EPOCH' not in os.environ, namespace_pkgs, args.include_symbols, args.include_imports, args.custom_patch)
     elif args.command == 'needed':
         for dll_name in sorted(_dll_utils.get_direct_needed(args.file), key=str.lower):
@@ -145,7 +147,7 @@ def main():
                 raise ValueError(f'Dependency {old} must be changed')
             if new_lower in new_names:
                 raise ValueError(f'New dependency {new} cannot be specified more than once')
-            name_map[old] = new
+            name_map[old_lower] = new
             new_names.add(new_lower)
         _dll_utils.replace_needed(args.file, list(name_map.keys()), name_map, args.strip, True)
 

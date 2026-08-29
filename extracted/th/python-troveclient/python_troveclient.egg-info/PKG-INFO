@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-troveclient
-Version: 8.10.0
+Version: 8.11.0
 Summary: Client library for OpenStack DBaaS API
 Home-page: https://docs.openstack.org/python-troveclient/latest
 Author: OpenStack

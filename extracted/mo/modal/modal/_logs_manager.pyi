@@ -996,6 +996,173 @@ class ImageLogsManager:
 
     tail: __tail_spec
 
+class _SandboxLogsManager:
+    """mdmd:namespace"""
+    def __init__(self, source: modal._supports_logs._SupportsLogs):
+        """mdmd:hidden"""
+        ...
+
+    def fetch(
+        self,
+        *,
+        since: datetime.datetime,
+        until: typing.Optional[datetime.datetime] = None,
+        source: typing.Optional[typing.Literal["stdout", "stderr", "system"]] = None,
+        search_text: str = "",
+    ) -> collections.abc.AsyncGenerator[modal.types.LogEntry, None]:
+        """Fetch Sandbox logs corresponding to the date range and filters.
+
+        Args:
+            since: Start date to fetch logs from. Must be in UTC or timezone-naive,
+                which is interpreted as local time.
+            until: Defaults to current date if None. Must be in UTC or timezone-naive, which is interpreted
+                as local time.
+            source: Filter by source: 'stdout', 'stderr', or 'system'.
+            search_text: Filter by search text.
+
+        Yields:
+            `LogEntry` objects in chronological order.
+
+        Examples:
+
+            ```python notest
+            sandbox = modal.Sandbox.from_name("my-app", "sandbox")
+
+            for entry in sandbox.logs.fetch(
+                since=datetime.now() - timedelta(minutes=25),
+                source="stdout",
+            ):
+                print(entry.message, end="")
+            ```
+        """
+        ...
+
+    def tail(
+        self, entries: int = 100, *, source: typing.Optional[typing.Literal["stdout", "stderr", "system"]] = None
+    ) -> collections.abc.AsyncGenerator[modal.types.LogEntry, None]:
+        """Fetch the most recent Sandbox logs.
+
+        Args:
+            entries: The number of log entries to return.
+            source: Filter by source: 'stdout', 'stderr', or 'system'.
+
+        Yields:
+            `LogEntry` objects in chronological order.
+        """
+        ...
+
+class SandboxLogsManager:
+    """mdmd:namespace"""
+    def __init__(self, source: modal._supports_logs._SupportsLogs):
+        """mdmd:hidden"""
+        ...
+
+    class __fetch_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            since: datetime.datetime,
+            until: typing.Optional[datetime.datetime] = None,
+            source: typing.Optional[typing.Literal["stdout", "stderr", "system"]] = None,
+            search_text: str = "",
+        ) -> typing.Generator[modal.types.LogEntry, None, None]:
+            """Fetch Sandbox logs corresponding to the date range and filters.
+
+            Args:
+                since: Start date to fetch logs from. Must be in UTC or timezone-naive,
+                    which is interpreted as local time.
+                until: Defaults to current date if None. Must be in UTC or timezone-naive, which is interpreted
+                    as local time.
+                source: Filter by source: 'stdout', 'stderr', or 'system'.
+                search_text: Filter by search text.
+
+            Yields:
+                `LogEntry` objects in chronological order.
+
+            Examples:
+
+                ```python notest
+                sandbox = modal.Sandbox.from_name("my-app", "sandbox")
+
+                for entry in sandbox.logs.fetch(
+                    since=datetime.now() - timedelta(minutes=25),
+                    source="stdout",
+                ):
+                    print(entry.message, end="")
+                ```
+            """
+            ...
+
+        def aio(
+            self,
+            /,
+            *,
+            since: datetime.datetime,
+            until: typing.Optional[datetime.datetime] = None,
+            source: typing.Optional[typing.Literal["stdout", "stderr", "system"]] = None,
+            search_text: str = "",
+        ) -> collections.abc.AsyncGenerator[modal.types.LogEntry, None]:
+            """Fetch Sandbox logs corresponding to the date range and filters.
+
+            Args:
+                since: Start date to fetch logs from. Must be in UTC or timezone-naive,
+                    which is interpreted as local time.
+                until: Defaults to current date if None. Must be in UTC or timezone-naive, which is interpreted
+                    as local time.
+                source: Filter by source: 'stdout', 'stderr', or 'system'.
+                search_text: Filter by search text.
+
+            Yields:
+                `LogEntry` objects in chronological order.
+
+            Examples:
+
+                ```python notest
+                sandbox = modal.Sandbox.from_name("my-app", "sandbox")
+
+                for entry in sandbox.logs.fetch(
+                    since=datetime.now() - timedelta(minutes=25),
+                    source="stdout",
+                ):
+                    print(entry.message, end="")
+                ```
+            """
+            ...
+
+    fetch: __fetch_spec
+
+    class __tail_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, entries: int = 100, *, source: typing.Optional[typing.Literal["stdout", "stderr", "system"]] = None
+        ) -> typing.Generator[modal.types.LogEntry, None, None]:
+            """Fetch the most recent Sandbox logs.
+
+            Args:
+                entries: The number of log entries to return.
+                source: Filter by source: 'stdout', 'stderr', or 'system'.
+
+            Yields:
+                `LogEntry` objects in chronological order.
+            """
+            ...
+
+        def aio(
+            self, /, entries: int = 100, *, source: typing.Optional[typing.Literal["stdout", "stderr", "system"]] = None
+        ) -> collections.abc.AsyncGenerator[modal.types.LogEntry, None]:
+            """Fetch the most recent Sandbox logs.
+
+            Args:
+                entries: The number of log entries to return.
+                source: Filter by source: 'stdout', 'stderr', or 'system'.
+
+            Yields:
+                `LogEntry` objects in chronological order.
+            """
+            ...
+
+    tail: __tail_spec
+
 class _AppLogsManager:
     """mdmd:namespace"""
     def __init__(self, source: modal._supports_logs._SupportsLogs):

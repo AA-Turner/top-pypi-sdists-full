@@ -11,7 +11,7 @@ import re
 import sys
 import time
 import warnings
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
@@ -70,6 +70,9 @@ from .data import (
     PublicLiveview,
     PublicLiveviewSlotDict,
     PublicNVR,
+    PublicPosLineItemDict,
+    PublicPosLocationDict,
+    PublicPosTransactionResponse,
     PublicSensor,
     PublicSensorAlarmSettings,
     PublicSensorGlassBreakSettingsWrite,
@@ -100,6 +103,7 @@ from .data.devices import AiPort, Chime
 from .data.types import (
     AssetFileType,
     IteratorCallback,
+    PosTransactionType,
     ProgressCallback,
     PTZPatrol,
     PTZPreset,
@@ -197,9 +201,11 @@ class CameraPublicApiLcdMessageRequest(TypedDict, total=False):
     """
     Type for lcdMessage in PATCH /v1/cameras/{id} request body (Public API).
 
-    Per the integration spec, ``type`` is always required.  ``text`` is required
-    for CUSTOM_MESSAGE and IMAGE; ``resetAt`` is optional for all variants (UNIX
-    timestamp in ms; omit to use the NVR default, pass ``None`` for "forever").
+    Per the integration spec, ``type`` is required for every message variant;
+    ``text`` is required for CUSTOM_MESSAGE and IMAGE; ``resetAt`` is optional
+    for all variants (UNIX timestamp in ms; omit to use the NVR default, pass
+    ``None`` for "forever").  A ``resetAt`` already in the past clears the
+    message.
     """
 
     type: str
@@ -465,6 +471,10 @@ class BaseApiClient:
         # Per-instance (never a class-level mutable default — one process can
         # drive several consoles). Cancelled in :meth:`close_session`.
         self._rtsps_refresh_tasks: dict[str, asyncio.Task[None]] = {}
+        # Per-siren timers announcing the end of a timed run, keyed by siren id.
+        # Per-instance for the same reason as above; cancelled in
+        # :meth:`close_session` and on a devices-websocket disconnect.
+        self._siren_off_tasks: dict[str, asyncio.Task[None]] = {}
         # Proactive per-API-key pacer for the public path. Per-instance so
         # several consoles in one process never share a budget.
         self._public_rate_limiter = PublicApiRateLimiter()
@@ -643,6 +653,7 @@ class BaseApiClient:
         await self._cancel_update_task()
         await self._cancel_public_resync_task()
         await self._cancel_rtsps_refresh_tasks()
+        await self._cancel_siren_off_tasks()
         if self._session is not None:
             await self._session.close()
             self._session = None
@@ -684,6 +695,20 @@ class BaseApiClient:
         for task in tasks:
             task.cancel()
         for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    def _cancel_all_siren_offs(self) -> list[asyncio.Task[None]]:
+        """Cancel every pending siren expiry announcement, returning the tasks."""
+        tasks = list(self._siren_off_tasks.values())
+        self._siren_off_tasks.clear()
+        for task in tasks:
+            task.cancel()
+        return tasks
+
+    async def _cancel_siren_off_tasks(self) -> None:
+        """Cancel and await every pending siren expiry announcement."""
+        for task in self._cancel_all_siren_offs():
             with contextlib.suppress(asyncio.CancelledError):
                 await task
 
@@ -1372,7 +1397,9 @@ class ProtectApiClient(BaseApiClient):
         api_key: API key for UFP
         verify_ssl: Verify HTTPS certificate (default: `True`)
         session: Optional aiohttp session to use (default: generate one)
-        override_connection_host: Use `host` as your `connection_host` for RTSP stream instead of using the one provided by UniFi Protect.
+        override_connection_host: Use `host` as your `connection_host` for the
+            private RTSP(S) URLs and the public RTSPS URLs instead of using the
+            one provided by UniFi Protect.
         minimum_score: minimum score for events (default: `0`)
         subscribed_models: Model types you want to filter events for WS. You will need to manually check the bootstrap for updates for events that not subscibred.
         ignore_stats: Ignore storage, system, etc. stats/metrics from NVR and cameras (default: false)
@@ -1413,6 +1440,7 @@ class ProtectApiClient(BaseApiClient):
     _public_resync_pending: bool = False
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
+    _override_connection_host: bool = False
     # Lazy dispatcher; ``subscribe_events`` materialises it.
     _event_dispatcher: EventDispatcher | None = None
     # Internal events-WS adapter unsubscribe; populated while the typed
@@ -1508,6 +1536,7 @@ class ProtectApiClient(BaseApiClient):
         self.ignore_unadopted = ignore_unadopted
         self._update_lock = asyncio.Lock()
 
+        self._override_connection_host = override_connection_host
         if override_connection_host:
             self._connection_host = self._host
 
@@ -1529,6 +1558,7 @@ class ProtectApiClient(BaseApiClient):
         events_ws_subscribed_models: set[ModelType] | None = None,
         devices_ws_subscribed_models: set[ModelType] | None = None,
         ignore_unadopted: bool = True,
+        override_connection_host: bool = False,
         max_retries: int = RETRY_DEFAULT_ATTEMPTS,
     ) -> Self:
         """
@@ -1540,7 +1570,8 @@ class ProtectApiClient(BaseApiClient):
         :meth:`subscribe_events`, :meth:`subscribe_devices`, the public
         ``get_*_public`` / ``update_*_public`` methods, and
         :meth:`get_meta_info` instead. A revoked or invalid key surfaces as
-        :class:`NotAuthorized`.
+        :class:`NotAuthorized`. ``override_connection_host`` rewrites the host
+        of the public RTSPS URLs to ``host``; it needs no private bootstrap.
         """
         return cls(
             host,
@@ -1554,6 +1585,7 @@ class ProtectApiClient(BaseApiClient):
             events_ws_subscribed_models=events_ws_subscribed_models,
             devices_ws_subscribed_models=devices_ws_subscribed_models,
             ignore_unadopted=ignore_unadopted,
+            override_connection_host=override_connection_host,
             max_retries=max_retries,
         )
 
@@ -1627,6 +1659,11 @@ class ProtectApiClient(BaseApiClient):
     def has_public_bootstrap(self) -> bool:
         """Whether :meth:`update_public` has been called at least once."""
         return self._public_bootstrap is not None
+
+    @property
+    def override_connection_host(self) -> bool:
+        """Whether `host` overrides the console-reported connection host."""
+        return self._override_connection_host
 
     @property
     def connection_host(self) -> IPv4Address | IPv6Address | str:
@@ -2672,6 +2709,11 @@ class ProtectApiClient(BaseApiClient):
         # debounced via :attr:`PUBLIC_RESYNC_MIN_INTERVAL` so a reconnect
         # storm collapses into a single refresh.
         if state is WebsocketState.CONNECTED:
+            # Re-arm the siren timers from the cached status immediately: the
+            # resync that would refresh it is debounced and may not run at all,
+            # while the deadlines already in hand stay valid across the gap.
+            if self._public_bootstrap is not None:
+                self._reschedule_siren_offs(self._public_bootstrap)
             if not self._devices_ws_has_been_connected:
                 self._devices_ws_has_been_connected = True
             elif self._public_bootstrap is not None:
@@ -2697,31 +2739,12 @@ class ProtectApiClient(BaseApiClient):
                             "Skipping public bootstrap resync (debounced, last was %.1fs ago)",
                             now - self._last_public_resync,
                         )
-                # Force-end events that stayed open across the gap. The resync
-                # above refreshes identity/devices; events arrive only via WS
-                # so the sweep is what guarantees no stuck-active sensor. Gate
-                # on a live subscriber so a reconnect after the last
-                # unsubscribe does not mutate the shared event store.
-                if (
-                    self._event_dispatcher is not None
-                    and self._event_dispatcher.subscriber_count > 0
-                ):
-                    # Guard the flush so a raising sweep cannot skip the
-                    # CONNECTED state delivery to devices-WS subscribers.
-                    try:
-                        count = self._event_dispatcher.flush_stale_on_reconnect()
-                        if count > 0:
-                            _LOGGER.warning(
-                                "Websocket reconnected after gap; some events may"
-                                " have been missed (force-ended %d stale active"
-                                " events).",
-                                count,
-                            )
-                    except Exception:
-                        _LOGGER.exception(
-                            "Exception while flushing stale events on devices"
-                            " websocket reconnect"
-                        )
+                self._flush_stale_events_on_reconnect()
+        else:
+            # The cached siren status stops being live once the frames do, so
+            # the armed expiry timers stop being trustworthy. Drop them; the
+            # reconnect resync re-arms from the refreshed snapshot.
+            self._cancel_all_siren_offs()
 
         for sub in self._devices_ws_state_subscriptions:
             try:
@@ -2729,6 +2752,37 @@ class ProtectApiClient(BaseApiClient):
             except Exception:
                 _LOGGER.exception(
                     "Exception while running devices websocket state handler"
+                )
+
+    def _flush_stale_events_on_reconnect(self) -> None:
+        """
+        Force-end events that stayed open across a devices-websocket gap.
+
+        The reconnect resync refreshes identity/devices; events arrive only via
+        WS, so this sweep is what guarantees no stuck-active sensor. Gated on a
+        live subscriber so a reconnect after the last unsubscribe does not
+        mutate the shared event store.
+        """
+        if (
+            self._event_dispatcher is None
+            or self._event_dispatcher.subscriber_count == 0
+        ):
+            return
+        # Guard the flush so a raising sweep cannot skip the CONNECTED state
+        # delivery to devices-WS subscribers.
+        try:
+            count = self._event_dispatcher.flush_stale_on_reconnect()
+        except Exception:
+            _LOGGER.exception(
+                "Exception while flushing stale events on devices websocket reconnect"
+            )
+        else:
+            if count > 0:
+                _LOGGER.warning(
+                    "Websocket reconnected after gap; some events may"
+                    " have been missed (force-ended %d stale active"
+                    " events).",
+                    count,
                 )
 
     async def _resync_public_bootstrap(self) -> None:
@@ -2835,6 +2889,100 @@ class ProtectApiClient(BaseApiClient):
         task = self._rtsps_refresh_tasks.pop(camera_id, None)
         if task is not None and not task.done():
             task.cancel()
+
+    def _schedule_siren_off(self, siren_id: str) -> None:
+        """
+        Arm (or re-arm) the announcement of a timed siren run ending.
+
+        The console emits no frame when the run expires, so the deadline
+        derived from ``sirenStatus`` is the only signal there is. Any timer
+        already armed for the siren is dropped first: the newest status wins.
+        An idle siren (no ``turn_off_at``) simply disarms, and so does a call
+        from outside a running event loop.
+        """
+        pb = self._public_bootstrap
+        siren = pb.sirens.get(siren_id) if pb is not None else None
+        self._cancel_siren_off(siren_id)
+        if siren is None:
+            return
+        turn_off_at = siren.siren_status.turn_off_at
+        if turn_off_at is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # ``process_devices_ws_message`` is synchronous and may be driven
+            # from outside the loop; a caller with no loop cannot be served a
+            # timer anyway.
+            _LOGGER.debug("No running event loop, siren %s expiry not armed", siren_id)
+            return
+        delay = (turn_off_at - datetime.now(UTC)).total_seconds()
+        # A deadline already in the past still goes through the task rather
+        # than announcing inline, so the synthetic frame lands *after* the
+        # frame that revealed the expired run instead of ahead of it.
+        self._siren_off_tasks[siren_id] = loop.create_task(
+            self._announce_siren_off_at(siren_id, turn_off_at, max(delay, 0.0))
+        )
+
+    async def _announce_siren_off_at(
+        self, siren_id: str, turn_off_at: datetime, delay: float
+    ) -> None:
+        """Wait out a siren's remaining run time, then announce it stopped."""
+        try:
+            await asyncio.sleep(delay)
+            pb = self._public_bootstrap
+            siren = pb.sirens.get(siren_id) if pb is not None else None
+            # Announce only while the cached status still describes the run this
+            # task was armed for. A snapshot merged mid-sleep may carry a later
+            # run, and clearing its flag would report a playing siren as stopped
+            # with nothing left to re-arm.
+            if siren is not None and siren.siren_status.turn_off_at == turn_off_at:
+                self._announce_siren_off(siren)
+        finally:
+            # A re-arm cancels this task and stores its replacement under the
+            # same key before this cleanup runs, so only clear the slot while
+            # it still points at this task.
+            if self._siren_off_tasks.get(siren_id) is asyncio.current_task():
+                del self._siren_off_tasks[siren_id]
+
+    def _announce_siren_off(self, siren: Siren) -> None:
+        """Fold the expiry into the cached status and emit it like a server frame."""
+        # The timing fields are left as the server set them (a manual stop
+        # leaves them populated too); clearing the flag is what makes
+        # ``turn_off_at`` — and so this announcement — idempotent.
+        siren.siren_status.is_active = False
+        if self._devices_ws_filtered_out(ModelType.SIREN):
+            return
+        self.emit_devices_message(self._build_siren_off_update(siren))
+
+    @staticmethod
+    def _build_siren_off_update(siren: Siren) -> WSSubscriptionMessage:
+        """Build a synthetic devices-WS ``update`` announcing a siren stopped."""
+        return WSSubscriptionMessage(
+            action=WSAction.UPDATE,
+            new_update_id=siren.id,
+            changed_data={
+                "modelKey": ModelType.SIREN.value,
+                "id": siren.id,
+                "sirenStatus": siren.siren_status.unifi_dict(),
+            },
+            new_obj=siren,
+            old_obj=None,
+        )
+
+    def _cancel_siren_off(self, siren_id: str) -> None:
+        """Cancel a pending siren expiry announcement, if any."""
+        task = self._siren_off_tasks.pop(siren_id, None)
+        if task is not None and not task.done():
+            task.cancel()
+
+    def _reschedule_siren_offs(self, pb: PublicBootstrap) -> None:
+        """Re-arm every siren expiry announcement against a freshly applied snapshot."""
+        for siren_id in list(self._siren_off_tasks):
+            if siren_id not in pb.sirens:
+                self._cancel_siren_off(siren_id)
+        for siren_id in pb.sirens:
+            self._schedule_siren_off(siren_id)
 
     async def _refresh_all_cached_rtsps(self) -> None:
         """Re-fetch every camera that already has RTSPS streams in place, coalesced."""
@@ -3184,7 +3332,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            streams = RTSPSStreams(**response_json)
+            streams = RTSPSStreams(api=self, **response_json)
         except (orjson.JSONDecodeError, TypeError) as ex:
             _LOGGER.error(
                 "Could not decode JSON response for create RTSPS streams (camera %s): %s",
@@ -3222,7 +3370,7 @@ class ProtectApiClient(BaseApiClient):
 
         try:
             response_json = orjson.loads(response)
-            return RTSPSStreams(**response_json)
+            return RTSPSStreams(api=self, **response_json)
         except (orjson.JSONDecodeError, TypeError) as ex:
             _LOGGER.error(
                 "Could not decode JSON response for get RTSPS streams (camera %s): %s",
@@ -3273,7 +3421,9 @@ class ProtectApiClient(BaseApiClient):
                     for quality, url in extra.items()
                     if quality not in quality_strs
                 }
-                camera.rtsps_streams = RTSPSStreams(**survivors) if survivors else None
+                camera.rtsps_streams = (
+                    RTSPSStreams(api=self, **survivors) if survivors else None
+                )
         return success
 
     async def get_package_camera_snapshot(
@@ -3993,6 +4143,41 @@ class ProtectApiClient(BaseApiClient):
         self._write_through_public_twin(camera)
         return camera
 
+    @public_post(
+        "/v1/pos/cameras/{camera_id}/transactions",
+        item=PublicPosTransactionResponse,
+    )
+    async def create_pos_transaction_public(
+        self,
+        camera_id: str,
+        *,
+        type: PosTransactionType,  # noqa: A002  # wire key is ``type``
+        external_id: str,
+        amount: float,
+        currency: str | None = None,
+        line_items: list[PublicPosLineItemDict] | None = None,
+        location: PublicPosLocationDict | None = None,
+        payment_types: list[str] | None = None,
+        timestamp: int | None = None,
+    ) -> PublicPosTransactionResponse:
+        """
+        Ingest a point-of-sale transaction as a camera event using public API.
+
+        ``external_id`` (1-255 chars) is unique per camera and drives
+        best-effort idempotency: a repeat returns ``created=False`` with
+        ``event_id`` echoing the already-ingested event, while a concurrent
+        repeat raises ``BadRequest`` on the server's 409 and should be retried
+        shortly. Idempotency is in-memory and per-process, so it does not
+        survive a Protect restart.
+
+        ``amount`` is >= 0, ``currency`` an uppercase ISO 4217 code,
+        ``line_items`` holds at most 200 entries (each ``quantity`` >= 1),
+        ``payment_types`` at most 20, and ``timestamp`` is epoch milliseconds
+        within the last 24 hours and no more than 5 minutes ahead of server time
+        (a value inside that skew is clamped to now).
+        """
+        raise NotImplementedError
+
     @public_get("/v1/chimes", items=PublicChime)
     async def get_chimes_public(self) -> list[PublicChime]:
         """Get all chimes using public API."""
@@ -4500,7 +4685,7 @@ class ProtectApiClient(BaseApiClient):
         viewer_id: str,
         *,
         name: str | None = None,
-        liveview: str | None | _UnsetType = _UNSET,
+        liveview: str | _UnsetType | None = _UNSET,
     ) -> PublicViewer:
         """Patch viewer settings using public API. Pass ``liveview=None`` to clear."""
         body: dict[str, Any] = {}
@@ -4977,6 +5162,10 @@ class ProtectApiClient(BaseApiClient):
             # between writes, so a concurrent public-WS frame cannot interleave
             # a torn state. Tolerated-missing endpoints keep their prior data.
             diffs = self._apply_public_fetch_results(pb, endpoints, results)
+            # Re-derive the siren deadlines in the same await-free window the
+            # merge ran in: a timer armed for a superseded run must not outlive
+            # the status it was derived from.
+            self._reschedule_siren_offs(pb)
         finally:
             # Stop buffering and drain on success and failure alike: replayed
             # frames land on the fresh snapshot when the prime succeeded, and

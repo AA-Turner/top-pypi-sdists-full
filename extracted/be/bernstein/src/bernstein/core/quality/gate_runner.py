@@ -312,14 +312,31 @@ class GateRunner:
         from bernstein.core import quality_gates as qg
 
         if step.name == "agent_test_mutation":
-            ok, detail, score = await asyncio.to_thread(
+            ok, detail, score, evidence_status = await asyncio.to_thread(
                 qg.run_agent_test_mutation_gate_sync,
                 self._config,
                 task,
                 run_dir,
             )
         else:
-            ok, detail, score = await asyncio.to_thread(qg.run_mutation_gate_sync, self._config, run_dir)
+            ok, detail, score, evidence_status = await asyncio.to_thread(
+                qg.run_mutation_gate_sync, self._config, run_dir
+            )
+
+        # If evidence is missing (tool missing, subprocess died), return inconclusive.
+        if evidence_status is not None:
+            return GateResult(
+                name=step.name,
+                status="inconclusive",
+                reason=evidence_status,
+                required=step.required,
+                blocked=step.required,
+                cached=False,
+                duration_ms=0,
+                details=detail,
+                metadata={"mutation_score": score} if score is not None else {},
+            )
+
         return GateResult(
             name=step.name,
             status="pass" if ok else "fail",
@@ -1551,7 +1568,9 @@ class GateRunner:
         if self._changed_files_resolved:
             if not python_files:
                 return None
-            return f"ruff check {self._quote_paths(python_files)}"
+            # Preserve command prefix (e.g., "uv run") from configured lint_command
+            lint_prefix = self._extract_command_prefix(self._config.lint_command, "ruff check")
+            return f"{lint_prefix} {self._quote_paths(python_files)}"
         return self._config.lint_command
 
     def _type_check_command(self, step: GatePipelineStep, changed_files: list[str]) -> str | None:
@@ -1562,7 +1581,9 @@ class GateRunner:
             if not python_files:
                 return None
             expanded = self._expand_type_check_files(python_files)
-            return f"pyright {self._quote_paths(expanded)}"
+            # Preserve command prefix (e.g., "uv run") from configured type_check_command
+            type_check_prefix = self._extract_command_prefix(self._config.type_check_command, "pyright")
+            return f"{type_check_prefix} {self._quote_paths(expanded)}"
         return self._config.type_check_command
 
     def _expand_type_check_files(self, python_files: list[str]) -> list[str]:
@@ -1638,6 +1659,25 @@ class GateRunner:
 
     def _quote_paths(self, paths: list[str]) -> str:
         return shlex.join(paths)
+
+    @staticmethod
+    def _extract_command_prefix(configured_command: str, base_command: str) -> str:
+        """Extract command prefix from a configured command, preserving tool runners like 'uv run'.
+
+        Args:
+            configured_command: The full configured command (e.g., "uv run ruff check .")
+            base_command: The base tool command to find (e.g., "ruff check" or "pyright")
+
+        Returns:
+            The command prefix including any tool runners (e.g., "uv run ruff check")
+        """
+        # Find where the base command starts in the configured command
+        idx = configured_command.find(base_command)
+        if idx == -1:
+            # Base command not found, return it as-is
+            return base_command
+        # Return everything up to and including the base command
+        return configured_command[: idx + len(base_command)]
 
     @staticmethod
     def _find_tests_by_name(run_dir: Path, module_name: str) -> set[str]:

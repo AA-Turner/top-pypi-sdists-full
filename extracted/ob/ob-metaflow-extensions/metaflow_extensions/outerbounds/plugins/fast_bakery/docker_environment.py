@@ -236,6 +236,7 @@ class DockerEnvironment(MetaflowEnvironment):
             target_os=None,
             target_arch=None,
             index_strategy=None,
+            extra_configs=None,
         ):
             try:
                 bakery = FastBakery(url=FAST_BAKERY_URL)
@@ -248,6 +249,7 @@ class DockerEnvironment(MetaflowEnvironment):
                     bakery.conda_channels(channels)
                 bakery.base_image(base_image)
                 bakery.platform(target_os, target_arch)
+                bakery.extra_configs(extra_configs)
 
                 if self._force_rebuild:
                     bakery.ignore_cache()
@@ -275,6 +277,11 @@ class DockerEnvironment(MetaflowEnvironment):
                         )
                     if index_strategy:
                         self.logger(f"     ⚙️ Pip index strategy: {index_strategy}")
+
+                    if extra_configs:
+                        self.logger(f"     🧩 Extra configs:")
+                        for key, value in extra_configs.items():
+                            self.logger(f"        🔧 {key}: {value}")
 
                     self.logger(f"     🏗️  Base image: {base_image}")
 
@@ -355,6 +362,14 @@ class DockerEnvironment(MetaflowEnvironment):
             packages = get_pinned_conda_libs(python, self.datastore_type)
             packages.update(dependencies.attributes["packages"] if dependencies else {})
 
+            # extra_configs is only supported by environment decorators that
+            # declare it in their defaults (e.g. @anaconda/@anaconda_base). Keying
+            # off the defaults rather than the attributes ensures an attribute
+            # smuggled onto @conda/@pypi never reaches the bakery.
+            extra_configs = None
+            if dependencies is not None and "extra_configs" in dependencies.defaults:
+                extra_configs = dependencies.attributes.get("extra_configs") or None
+
             channels = None
             if dependencies and dependencies.attributes.get("channels"):
                 channels = [
@@ -377,6 +392,11 @@ class DockerEnvironment(MetaflowEnvironment):
 
             if index_strategy is not None:
                 requested["index_strategy"] = index_strategy
+
+            # Only set when present, so that dedup/cache keys for flows that do
+            # not use extra_configs remain unchanged.
+            if extra_configs:
+                requested["extra_configs"] = extra_configs
 
             dedup_key = hashlib.sha256(
                 json.dumps(requested).encode("utf-8")

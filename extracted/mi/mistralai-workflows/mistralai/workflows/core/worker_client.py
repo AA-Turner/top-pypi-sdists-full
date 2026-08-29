@@ -28,21 +28,22 @@ class _NoopSyncClient:
 
 def get_worker_client(
     base_url: str | None = None,
-    timeout: float = 60.0,
+    timeout: float | None = None,
     api_key: str | None = None,
     headers: httpx.Headers | dict[str, str] | None = None,
     token_provider: TokenProvider | None = None,
 ) -> PrivateWorkerClient:
     resolved_base_url = (base_url or config.worker.server_url).rstrip("/")
+    resolved_timeout = timeout if timeout is not None else config.http.timeout
     provider = token_provider or get_token_provider(api_key)
     async_client = _get_async_client(
-        timeout=timeout, token_provider=provider, headers=headers, server_url=resolved_base_url
+        timeout=resolved_timeout, token_provider=provider, headers=headers, server_url=resolved_base_url
     )
     client = PrivateWorkerClient(
         server_url=resolved_base_url,
         client=_NoopSyncClient(),
         async_client=async_client,
-        timeout_ms=int(timeout * 1000),
+        timeout_ms=int(resolved_timeout * 1000),
     )
     # The async_client was created specifically for this instance;
     # mark it as not-supplied so the SDK closes it on __aexit__.

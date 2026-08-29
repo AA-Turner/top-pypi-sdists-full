@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name         = "infrared-protocols"
 # Placeholder; the publish workflow injects the release tag as the version.
-version      = "9.0.0"
+version      = "9.1.0"
 license      = "MIT"
 description  = "Library to decode and encode infrared signals."
 readme       = "README.md"

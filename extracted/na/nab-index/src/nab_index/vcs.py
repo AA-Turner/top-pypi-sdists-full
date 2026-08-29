@@ -1,19 +1,22 @@
 """Shallow VCS clone helper for nab-index.
 
-Performs ``git clone --depth 1`` against a directory under the cache
-root.  URL admission lives upstream in
-:func:`nab_provider.vcs_admission.admit_vcs_url`.
+Lands one commit under the cache root with ``git init``,
+``git fetch --depth 1`` and ``git checkout FETCH_HEAD``.  URL admission
+lives upstream in :func:`nab_provider.vcs_admission.admit_vcs_url`.
 
 Cache layout under ``cache_root / "vcs"``:
 
     <repo-key>/<commit-sha>/
 
-``repo-key`` is the 16-char prefix of a SHA-256 over the canonicalised
-repo URL (``vcs+`` prefix stripped).  ``commit-sha`` is always a
-concrete 40-char hash; floating refs are resolved via
-``git ls-remote`` before the clone runs.  A finished clone carries a
-``.git/nab-complete`` marker file; a tree without it is discarded and
-recloned.
+``repo-key`` is the 16-char prefix of a SHA-256 over
+``VcsRequest.repo_url``: the requirement URL without its ``git+``
+prefix, ``@<ref>`` suffix and ``#`` fragment.  Nothing canonicalises
+what is left, so two spellings of one repo get two cache entries.
+
+``commit-sha`` is always a concrete 40-char hash; floating refs are
+resolved via ``git ls-remote`` before the fetch runs.  A finished clone
+carries a ``.git/nab-complete`` marker file; a tree without it is
+discarded and refetched.
 """
 
 from __future__ import annotations
@@ -124,24 +127,31 @@ def prepare_clone(
     )
 
     dest = cache_root / "vcs" / _repo_key(request.repo_url) / sha
-    if _clone_complete(dest):
-        return VcsClone(
-            path=dest,
-            commit_sha=sha,
-            subdirectory=request.subdirectory,
-        )
 
-    if not may_reach_remote:
-        msg = f"no cached clone of {request.repo_url} @ {sha} (offline mode)"
-        raise VcsCloneError(msg)
+    # The presence check stats the cache path, so it sits inside the guard too.
+    try:
+        if _clone_complete(dest):
+            return VcsClone(
+                path=dest,
+                commit_sha=sha,
+                subdirectory=request.subdirectory,
+            )
 
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists() and not _clone_complete(dest):
-        # A concurrent run may have completed dest since the top check;
-        # only wipe a partial.
-        shutil.rmtree(dest)
+        if not may_reach_remote:
+            msg = f"no cached clone of {request.repo_url} @ {sha} (offline mode)"
+            raise VcsCloneError(msg)
 
-    tmp = Path(tempfile.mkdtemp(dir=dest.parent, prefix=f"{sha}.", suffix=".tmp"))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists() and not _clone_complete(dest):
+            # A concurrent run may have completed dest since the top check;
+            # only wipe a partial.
+            shutil.rmtree(dest)
+
+        tmp = Path(tempfile.mkdtemp(dir=dest.parent, prefix=f"{sha}.", suffix=".tmp"))
+    except OSError as exc:
+        msg = f"clone cache entry for {request.repo_url} @ {sha} is unusable: {exc}"
+        raise VcsCloneError(msg) from exc
+
     try:
         _shallow_clone(request.repo_url, sha, tmp)
         try:
@@ -204,16 +214,26 @@ def _resolve_sha(
     # companion refs/tags/<name>^{} line, so without it an annotated tag
     # would resolve to the tag object rather than the commit it points at.
     ls_remote_args = ["git", "ls-remote", request.repo_url, target, f"{target}^{{}}"]
+
+    # Resolve from a scratch directory: git finds its repository by walking up
+    # from the working directory, so a ``url.<base>.insteadOf`` rewrite in the
+    # checkout nab was invoked from would resolve the ref at one repository
+    # while the clone fetches the commit from another.
     try:
-        proc = subprocess.run(  # noqa: S603 - URL admission upstream
-            ls_remote_args,
-            check=True,
-            capture_output=True,
-            env=_git_env(),
-            timeout=_LS_REMOTE_TIMEOUT_SECONDS,
-        )
+        with tempfile.TemporaryDirectory(
+            prefix="nab-ls-remote-",
+            ignore_cleanup_errors=True,
+        ) as scratch:
+            proc = subprocess.run(  # noqa: S603 - URL admission upstream
+                ls_remote_args,
+                check=True,
+                capture_output=True,
+                cwd=scratch,
+                env=_git_env(Path(scratch)),
+                timeout=_LS_REMOTE_TIMEOUT_SECONDS,
+            )
     except (
-        FileNotFoundError,
+        OSError,
         subprocess.CalledProcessError,
         subprocess.TimeoutExpired,
     ) as exc:
@@ -264,7 +284,7 @@ def _shallow_clone(repo_url: str, sha: str, dest: Path) -> None:
     :func:`tempfile.mkdtemp`, so it already exists.
     """
     dest.mkdir(parents=True, exist_ok=True)
-    env = _git_env()
+    env = _git_env(dest)
 
     init_args = ["git", "init", "--quiet"]
     fetch_args = ["git", "fetch", "--quiet", "--depth", "1", repo_url, sha]
@@ -291,7 +311,7 @@ def _shallow_clone(repo_url: str, sha: str, dest: Path) -> None:
             env=env,
         )
     except (
-        FileNotFoundError,
+        OSError,
         subprocess.CalledProcessError,
         subprocess.TimeoutExpired,
     ) as exc:
@@ -308,17 +328,21 @@ def _shallow_clone(repo_url: str, sha: str, dest: Path) -> None:
         raise VcsCloneError(msg) from exc
 
 
-def _git_env() -> dict[str, str]:
-    """Return an environment for git subprocesses.
+def _git_env(cwd: Path) -> dict[str, str]:
+    """Return an environment for a git subprocess running in ``cwd``.
 
     Disables interactive prompts and any auto-detected user config so
-    the clone fails fast on unauthenticated repos rather than hanging,
-    and drops the inherited repo-selection variables so every call acts
-    on the directory nab passes as ``cwd``.
+    the clone fails fast on unauthenticated repos rather than hanging.
+    Drops the inherited repo-selection variables and confines repository
+    discovery to ``cwd``, so no surrounding checkout is found.
     """
     env = dict(os.environ)
     for name in _REPO_SELECTION_VARS:
         env.pop(name, None)
+
+    # git stops the walk before a ceiling directory, so naming the parent
+    # leaves ``cwd`` as the only place it can find a repository.
+    env["GIT_CEILING_DIRECTORIES"] = str(cwd.resolve().parent)
 
     env["GIT_TERMINAL_PROMPT"] = "0"
     env.setdefault("GIT_CONFIG_GLOBAL", "/dev/null")

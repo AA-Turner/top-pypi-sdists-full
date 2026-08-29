@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dwave-system
-Version: 1.35.0
+Version: 1.36.0
 Summary: All things D-Wave System.
 Home-page: https://github.com/dwavesystems/dwave-system
 Author: D-Wave Systems Inc.
@@ -20,7 +20,7 @@ License-File: LICENSE
 Requires-Dist: dimod<0.14.0,>=0.12.20
 Requires-Dist: dwave-cloud-client<0.15.0,>=0.12.0
 Requires-Dist: dwave-graphs<2,>=1
-Requires-Dist: dwave-optimization<0.8,>=0.1.0
+Requires-Dist: dwave-optimization<0.9,>=0.1.0
 Requires-Dist: dwave-preprocessing>=0.5.0
 Requires-Dist: dwave-samplers>=1.0.0
 Requires-Dist: homebase<2.0.0,>=1.0.0

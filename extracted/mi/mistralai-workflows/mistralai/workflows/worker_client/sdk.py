@@ -1107,8 +1107,9 @@ class PrivateWorkerClient(BaseSDK):
         self,
         *,
         temporal_workflow_id: str,
-        execution_token_hash: str,
         search_key_metadata: Optional[Dict[str, str]] = None,
+        temporal_run_id: OptionalNullable[str] = UNSET,
+        execution_token_hash: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1118,10 +1119,10 @@ class PrivateWorkerClient(BaseSDK):
 
         Upsert searchable metadata for an execution.
 
-        Bound to an execution via ``execution_token_hash``: the worker holds the
-        token, and the path's ``temporal_workflow_id`` must match the token's
-        execution. Metadata is scoped to the execution's true tenant, not the
-        calling worker's namespace, so shared workers write under the user's scope.
+        The execution is named by ``temporal_run_id``, or by the legacy
+        ``execution_token_hash`` for workers that predate it. Metadata is scoped to the
+        execution's true tenant, not the calling worker's namespace, so shared workers
+        write under the user's scope.
 
         Values over the per-key cap are truncated, overlong keys are skipped, and
         new keys beyond ``MAX_SEARCH_KEYS`` are dropped — all reported via
@@ -1129,8 +1130,9 @@ class PrivateWorkerClient(BaseSDK):
         with more than ``MAX_SEARCH_KEYS`` keys is hard-rejected with 422.
 
         :param temporal_workflow_id:
-        :param execution_token_hash:
         :param search_key_metadata: Unencrypted key/value searchable metadata to upsert for this execution
+        :param temporal_run_id: Temporal run ID identifying the execution to write to
+        :param execution_token_hash: Superseded by temporal_run_id; accepted for workers that predate it
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1150,6 +1152,7 @@ class PrivateWorkerClient(BaseSDK):
             temporal_workflow_id=temporal_workflow_id,
             body=models.UpsertExecutionMetadataRequest(
                 search_key_metadata=search_key_metadata,
+                temporal_run_id=temporal_run_id,
                 execution_token_hash=execution_token_hash,
             ),
         )
@@ -1221,8 +1224,9 @@ class PrivateWorkerClient(BaseSDK):
         self,
         *,
         temporal_workflow_id: str,
-        execution_token_hash: str,
         search_key_metadata: Optional[Dict[str, str]] = None,
+        temporal_run_id: OptionalNullable[str] = UNSET,
+        execution_token_hash: OptionalNullable[str] = UNSET,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -1232,10 +1236,10 @@ class PrivateWorkerClient(BaseSDK):
 
         Upsert searchable metadata for an execution.
 
-        Bound to an execution via ``execution_token_hash``: the worker holds the
-        token, and the path's ``temporal_workflow_id`` must match the token's
-        execution. Metadata is scoped to the execution's true tenant, not the
-        calling worker's namespace, so shared workers write under the user's scope.
+        The execution is named by ``temporal_run_id``, or by the legacy
+        ``execution_token_hash`` for workers that predate it. Metadata is scoped to the
+        execution's true tenant, not the calling worker's namespace, so shared workers
+        write under the user's scope.
 
         Values over the per-key cap are truncated, overlong keys are skipped, and
         new keys beyond ``MAX_SEARCH_KEYS`` are dropped — all reported via
@@ -1243,8 +1247,9 @@ class PrivateWorkerClient(BaseSDK):
         with more than ``MAX_SEARCH_KEYS`` keys is hard-rejected with 422.
 
         :param temporal_workflow_id:
-        :param execution_token_hash:
         :param search_key_metadata: Unencrypted key/value searchable metadata to upsert for this execution
+        :param temporal_run_id: Temporal run ID identifying the execution to write to
+        :param execution_token_hash: Superseded by temporal_run_id; accepted for workers that predate it
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1264,6 +1269,7 @@ class PrivateWorkerClient(BaseSDK):
             temporal_workflow_id=temporal_workflow_id,
             body=models.UpsertExecutionMetadataRequest(
                 search_key_metadata=search_key_metadata,
+                temporal_run_id=temporal_run_id,
                 execution_token_hash=execution_token_hash,
             ),
         )
@@ -1316,6 +1322,216 @@ class PrivateWorkerClient(BaseSDK):
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
                 models.UpsertExecutionMetadataResponse, http_res
+            )
+        if utils.match_response(http_res, "422", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.HTTPValidationErrorData, http_res
+            )
+            raise errors.HTTPValidationError(response_data, http_res)
+        if utils.match_response(http_res, ["403", "404", "4XX"], "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = await utils.stream_to_text_async(http_res)
+            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
+
+        raise errors.SDKDefaultError("Unexpected response received", http_res)
+
+    def delete_execution_metadata(
+        self,
+        *,
+        temporal_workflow_id: str,
+        temporal_run_id: str,
+        keys: Optional[List[str]] = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> models.DeleteExecutionMetadataResponse:
+        r"""Delete Execution Metadata
+
+        Delete search keys for an execution. Tenant scoping matches the upsert endpoint.
+        Missing keys are a no-op.
+
+        :param temporal_workflow_id:
+        :param temporal_run_id: Temporal run ID identifying the execution to delete from
+        :param keys: Search keys to delete for this execution. Missing keys are a no-op.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequest(
+            temporal_workflow_id=temporal_workflow_id,
+            body=models.DeleteExecutionMetadataRequest(
+                temporal_run_id=temporal_run_id,
+                keys=keys,
+            ),
+        )
+
+        req = self._build_request(
+            method="DELETE",
+            path="/v1/workflows/executions/search_keys/{temporal_workflow_id}",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=True,
+            request_has_path_params=True,
+            request_has_query_params=False,
+            user_agent_header="user-agent",
+            accept_header_value="application/json",
+            http_headers=http_headers,
+            get_serialized_body=lambda: utils.serialize_request_body(
+                request.body,
+                False,
+                False,
+                "json",
+                models.DeleteExecutionMetadataRequest,
+            ),
+            allow_empty_value=None,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = self.do_request(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="delete_execution_metadata_v1_workflows_executions_search_keys__temporal_workflow_id__delete",
+                oauth2_scopes=None,
+                security_source=None,
+            ),
+            request=req,
+            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
+            retry_config=retry_config,
+        )
+
+        response_data: Any = None
+        if utils.match_response(http_res, "200", "application/json"):
+            return unmarshal_json_response(
+                models.DeleteExecutionMetadataResponse, http_res
+            )
+        if utils.match_response(http_res, "422", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.HTTPValidationErrorData, http_res
+            )
+            raise errors.HTTPValidationError(response_data, http_res)
+        if utils.match_response(http_res, ["403", "404", "4XX"], "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
+        if utils.match_response(http_res, "5XX", "*"):
+            http_res_text = utils.stream_to_text(http_res)
+            raise errors.SDKDefaultError("API error occurred", http_res, http_res_text)
+
+        raise errors.SDKDefaultError("Unexpected response received", http_res)
+
+    async def delete_execution_metadata_async(
+        self,
+        *,
+        temporal_workflow_id: str,
+        temporal_run_id: str,
+        keys: Optional[List[str]] = None,
+        retries: OptionalNullable[utils.RetryConfig] = UNSET,
+        server_url: Optional[str] = None,
+        timeout_ms: Optional[int] = None,
+        http_headers: Optional[Mapping[str, str]] = None,
+    ) -> models.DeleteExecutionMetadataResponse:
+        r"""Delete Execution Metadata
+
+        Delete search keys for an execution. Tenant scoping matches the upsert endpoint.
+        Missing keys are a no-op.
+
+        :param temporal_workflow_id:
+        :param temporal_run_id: Temporal run ID identifying the execution to delete from
+        :param keys: Search keys to delete for this execution. Missing keys are a no-op.
+        :param retries: Override the default retry configuration for this method
+        :param server_url: Override the default server URL for this method
+        :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
+        :param http_headers: Additional headers to set or replace on requests.
+        """
+        base_url = None
+        url_variables = None
+        if timeout_ms is None:
+            timeout_ms = self.sdk_configuration.timeout_ms
+
+        if server_url is not None:
+            base_url = server_url
+        else:
+            base_url = self._get_url(base_url, url_variables)
+
+        request = models.DeleteExecutionMetadataV1WorkflowsExecutionsSearchKeysTemporalWorkflowIDDeleteRequest(
+            temporal_workflow_id=temporal_workflow_id,
+            body=models.DeleteExecutionMetadataRequest(
+                temporal_run_id=temporal_run_id,
+                keys=keys,
+            ),
+        )
+
+        req = self._build_request_async(
+            method="DELETE",
+            path="/v1/workflows/executions/search_keys/{temporal_workflow_id}",
+            base_url=base_url,
+            url_variables=url_variables,
+            request=request,
+            request_body_required=True,
+            request_has_path_params=True,
+            request_has_query_params=False,
+            user_agent_header="user-agent",
+            accept_header_value="application/json",
+            http_headers=http_headers,
+            get_serialized_body=lambda: utils.serialize_request_body(
+                request.body,
+                False,
+                False,
+                "json",
+                models.DeleteExecutionMetadataRequest,
+            ),
+            allow_empty_value=None,
+            timeout_ms=timeout_ms,
+        )
+
+        if retries == UNSET:
+            if self.sdk_configuration.retry_config is not UNSET:
+                retries = self.sdk_configuration.retry_config
+
+        retry_config = None
+        if isinstance(retries, utils.RetryConfig):
+            retry_config = (retries, ["429", "500", "502", "503", "504"])
+
+        http_res = await self.do_request_async(
+            hook_ctx=HookContext(
+                config=self.sdk_configuration,
+                base_url=base_url or "",
+                operation_id="delete_execution_metadata_v1_workflows_executions_search_keys__temporal_workflow_id__delete",
+                oauth2_scopes=None,
+                security_source=None,
+            ),
+            request=req,
+            is_error_status_code=lambda c: utils.match_status_codes(["4XX", "5XX"], c),
+            retry_config=retry_config,
+        )
+
+        response_data: Any = None
+        if utils.match_response(http_res, "200", "application/json"):
+            return unmarshal_json_response(
+                models.DeleteExecutionMetadataResponse, http_res
             )
         if utils.match_response(http_res, "422", "application/json"):
             response_data = unmarshal_json_response(

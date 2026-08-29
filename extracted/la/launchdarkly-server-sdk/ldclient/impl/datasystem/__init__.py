@@ -6,10 +6,14 @@ v2), as well as types for v1 and v2 specific protocols.
 from abc import abstractmethod
 from enum import Enum
 from threading import Event
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Optional, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from ldclient.impl.aio.concurrency import AsyncEvent
 
 from ldclient.impl.listeners import Listeners
 from ldclient.interfaces import (
+    AsyncReadOnlyStore,
     DataSourceStatusProvider,
     DataStoreStatusProvider,
     FlagTracker,
@@ -137,6 +141,92 @@ class DataSystem(Protocol):
     @property
     @abstractmethod
     def store(self) -> ReadOnlyStore:
+        """
+        Returns the data store used by the data system.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def environment_id(self) -> Optional[str]:
+        """
+        Returns the environment ID reported by LaunchDarkly, if it is known.
+
+        This is only available once a connection to LaunchDarkly has provided
+        it, and it will be None when the SDK is offline, using an unsupported
+        data source, or connected to a service which does not report it.
+        """
+        raise NotImplementedError
+
+
+class AsyncDataSystem(Protocol):
+    """
+    Async counterpart of :class:`DataSystem`: the same requirements, with the
+    data system's background work running as asyncio tasks.
+    """
+
+    @abstractmethod
+    def start(self, set_on_ready: "AsyncEvent"):
+        """
+        Starts the data system.
+
+        This method will return immediately. The provided event will be set when the system
+        has reached an initial state (either permanently failed, e.g. due to bad auth, or
+        succeeded)
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def stop(self):
+        """
+        Halts the data system. Should be called when the client is closed to stop any long running
+        operations.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def data_source_status_provider(self) -> DataSourceStatusProvider:
+        """
+        Returns an interface for tracking the status of the data source.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def data_store_status_provider(self) -> DataStoreStatusProvider:
+        """
+        Returns an interface for tracking the status of a persistent data store.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def flag_change_listeners(self) -> Listeners:
+        """
+        Returns the collection of listeners for flag change events.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def data_availability(self) -> DataAvailability:
+        """
+        Indicates what form of data is currently available, awaiting the store's
+        readiness so a persistent store populated by another process is recognized.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def target_availability(self) -> DataAvailability:
+        """
+        Indicates the ideal form of data attainable given the current configuration.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def store(self) -> AsyncReadOnlyStore:
         """
         Returns the data store used by the data system.
         """

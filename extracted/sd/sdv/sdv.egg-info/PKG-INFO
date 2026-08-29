@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sdv
-Version: 1.38.1
+Version: 1.38.2
 Summary: Generate synthetic data for single table, multi table and sequential data
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License-Expression: BUSL-1.1
@@ -48,7 +48,7 @@ Requires-Dist: deepecho>=0.7.0; python_version < "3.14"
 Requires-Dist: deepecho>=0.8.0; python_version >= "3.14"
 Requires-Dist: rdt>=1.18.2; python_version < "3.14"
 Requires-Dist: rdt>=1.20.0; python_version >= "3.14"
-Requires-Dist: sdmetrics>=0.28.1
+Requires-Dist: sdmetrics>=0.30.0
 Requires-Dist: platformdirs>=4.0
 Requires-Dist: pyyaml>=6.0.1
 Provides-Extra: excel

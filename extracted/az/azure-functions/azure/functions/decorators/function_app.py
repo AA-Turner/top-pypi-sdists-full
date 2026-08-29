@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, List, Optional, Union, \
 from azure.functions.decorators.blob import BlobTrigger, BlobInput, BlobOutput
 from azure.functions.decorators.core import Binding, Trigger, DataType, \
     AuthLevel, SCRIPT_FILE_NAME, Cardinality, AccessRights, Setting, BlobSource, \
-    McpPropertyType
+    McpPropertyType, CosmosDBChangeFeedMode
 from azure.functions.decorators.cosmosdb import CosmosDBTrigger, \
     CosmosDBOutput, CosmosDBInput, CosmosDBTriggerV3, CosmosDBInputV3, \
     CosmosDBOutputV3
@@ -56,7 +56,8 @@ from .mcp import _MCPToolTrigger, MCPResourceTrigger, MCPPromptTrigger, \
 from .retry_policy import RetryPolicy
 from .function_name import FunctionName
 from .warmup import WarmUpTrigger
-from ..mcp import MCPToolContext, _is_mcp_call_tool_result, _is_mcp_sdk_type
+from ..mcp import (MCPToolContext, _is_mcp_call_tool_result,
+                   _is_mcp_sdk_type, _is_mcp_sdk_type_annotation)
 from .._http_asgi import AsgiMiddleware
 from .._http_wsgi import WsgiMiddleware, Context
 from azure.functions.decorators.mysql import MySqlInput, MySqlOutput, \
@@ -1047,6 +1048,8 @@ class TriggerApi(DecoratorApi, ABC):
                           start_from_beginning: Optional[time] = None,
                           start_from_time: Optional[time] = None,
                           preferred_locations: Optional[str] = None,
+                          change_feed_mode: Optional[Union[CosmosDBChangeFeedMode,
+                                                           str]] = None,
                           data_type: Optional[
                               Union[DataType, str]] = None,
                           **kwargs: Any) -> \
@@ -1108,6 +1111,9 @@ class TriggerApi(DecoratorApi, ABC):
             has no effect once the trigger has a lease state.
         :param preferred_locations: Preferred locations (regions) for geo-replicated
             Cosmos DB accounts.
+        :param change_feed_mode: (Optional) The change feed mode for the Cosmos DB
+            trigger. Can be :class:`CosmosDBChangeFeedMode.LATEST_VERSION` (default)
+            or :class:`CosmosDBChangeFeedMode.ALL_VERSIONS_AND_DELETES`.
         :param data_type: Defines how the Functions runtime should treat the
             parameter value.
         :param kwargs: Additional keyword arguments for specifying binding fields
@@ -1134,6 +1140,7 @@ class TriggerApi(DecoratorApi, ABC):
             start_from_beginning=start_from_beginning,
             start_from_time=start_from_time,
             preferred_locations=preferred_locations,
+            change_feed_mode=change_feed_mode,
             data_type=parse_singular_param_to_enum(data_type, DataType),
             **kwargs)
 
@@ -1678,16 +1685,8 @@ class TriggerApi(DecoratorApi, ABC):
                 is_mcp_content = False
                 is_mcp_sdk_type = False
 
-                # Try to detect official MCP SDK types by checking module
-                try:
-                    if isinstance(return_annotation, type):
-                        # Check if the type is from the mcp.types module
-                        if hasattr(return_annotation, '__module__'):
-                            module = return_annotation.__module__
-                            if module and (module.startswith('mcp.types') or module == 'mcp.types'):
-                                is_mcp_sdk_type = True
-                except (ImportError, TypeError, AttributeError):
-                    pass
+                is_mcp_sdk_type = _is_mcp_sdk_type_annotation(
+                    return_annotation)
 
                 # Check for @mcp_content decorated classes
                 try:
@@ -1703,46 +1702,6 @@ class TriggerApi(DecoratorApi, ABC):
                     origin = typing.get_origin(return_annotation)
                     args = typing.get_args(return_annotation)
 
-                    # Check for official MCP SDK types in lists
-                    if origin in (list, List):
-                        # For List[T], check if T is an MCP type
-                        try:
-                            if len(args) > 0:
-                                list_item_type = args[0]
-                                # Check if it's a direct MCP type
-                                if isinstance(list_item_type, type):
-                                    if hasattr(list_item_type, '__module__'):
-                                        module = list_item_type.__module__
-                                        if (module
-                                            and (module.startswith('mcp.types')
-                                                 or module == 'mcp.types')):
-                                            is_mcp_sdk_type = True
-                                # Check if it's a Union of MCP types
-                                elif hasattr(list_item_type, '__origin__'):
-                                    union_origin = typing.get_origin(
-                                        list_item_type)
-                                    if union_origin is Union:
-                                        union_args = typing.get_args(
-                                            list_item_type)
-                                        for union_arg in union_args:
-                                            if (isinstance(union_arg, type)
-                                                    and union_arg is not  # noqa
-                                                    type(None)):
-                                                if hasattr(union_arg,
-                                                           '__module__'):
-                                                    module = (
-                                                        union_arg.__module__)
-                                                    if (module
-                                                        and (module.startswith(
-                                                            'mcp.types')
-                                                            or module
-                                                            == 'mcp.types')):
-                                                        is_mcp_sdk_type = True
-                                                        break
-                        except (ImportError, TypeError, AttributeError,
-                                IndexError):
-                            pass
-
                     # Check for Optional[T] where T is an MCP type
                     if origin is Union:
                         for arg in args:
@@ -1754,20 +1713,6 @@ class TriggerApi(DecoratorApi, ABC):
                                         is_mcp_content = True
                                         break
                             except TypeError:
-                                pass
-
-                            # Check for MCP SDK types in Union
-                            try:
-                                if isinstance(arg, type):
-                                    # Check module for mcp.types
-                                    if hasattr(arg, '__module__'):
-                                        module = arg.__module__
-                                        if (module
-                                                and (module.startswith('mcp.types')
-                                                     or module == 'mcp.types')):
-                                            is_mcp_sdk_type = True
-                                            break
-                            except (ImportError, TypeError, AttributeError):
                                 pass
 
                 # Auto-enable use_result_schema for MCP types
@@ -1834,15 +1779,17 @@ class TriggerApi(DecoratorApi, ABC):
                         # Serialize using model_dump() for Pydantic models
                         if hasattr(result, 'model_dump'):
                             result_dict = result.model_dump(
-                                mode='json', exclude_none=True)
+                                mode='json', exclude_none=True, by_alias=True)
                         elif hasattr(result, 'dict'):
-                            result_dict = result.dict(exclude_none=True)
+                            result_dict = result.dict(
+                                exclude_none=True, by_alias=True)
                         else:
                             # Fallback: convert to dict manually
                             result_dict = {
                                 'content': [
                                     block.model_dump(
-                                        mode='json', exclude_none=True)
+                                        mode='json', exclude_none=True,
+                                        by_alias=True)
                                     if hasattr(block, 'model_dump')
                                     else dict(block)
                                     for block in result.content
@@ -1901,10 +1848,11 @@ class TriggerApi(DecoratorApi, ABC):
                     elif _is_mcp_sdk_type(result):
                         if hasattr(result, 'model_dump'):
                             result_dict = result.model_dump(
-                                mode='json', exclude_none=True)
+                                mode='json', exclude_none=True, by_alias=True)
                             result_json = json.dumps(result_dict)
                         elif hasattr(result, 'dict'):
-                            result_dict = result.dict(exclude_none=True)
+                            result_dict = result.dict(
+                                exclude_none=True, by_alias=True)
                             result_json = json.dumps(result_dict)
                         else:
                             result_dict = result.__dict__

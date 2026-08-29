@@ -19,7 +19,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import cache
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NotRequired, Self, TypedDict
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import Field
 from pydantic.fields import PrivateAttr
@@ -30,6 +31,8 @@ from ..utils import (
     convert_smart_types,
     convert_to_datetime,
     convert_video_modes,
+    format_host_for_url,
+    from_js_time,
     to_js_time,
 )
 from .base import ProtectBaseObject, ProtectModelWithId
@@ -50,6 +53,7 @@ from .types import (
     EventType,
     FobAwayState,
     FobButton,
+    FobButtonLabels,
     LightModeEnableType,
     LightModeType,
     LiveviewCycleMode,
@@ -78,7 +82,11 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    from ..api import CameraPublicApiLcdMessageRequest, PublicApiChimeRingSettingRequest
+    from ..api import (
+        CameraPublicApiLcdMessageRequest,
+        ProtectApiClient,
+        PublicApiChimeRingSettingRequest,
+    )
     from .public_event import PublicEvent
 
 # Public Integration API numeric bounds, taken from the OpenAPI spec. The
@@ -123,6 +131,36 @@ def _coerce_public_int(
 _LCD_TYPES_REQUIRING_TEXT: frozenset[DoorbellMessageType] = frozenset(
     {DoorbellMessageType.CUSTOM_MESSAGE, DoorbellMessageType.IMAGE}
 )
+
+
+def _build_public_lcd_message(
+    text_type: DoorbellMessageType | None,
+    text: str | None,
+    reset_at: datetime | DEFAULT_TYPE | None,
+) -> CameraPublicApiLcdMessageRequest:
+    """Build the ``lcdMessage`` PATCH body; ``text_type`` of ``None`` clears it."""
+    if text_type is None:
+        if text is not None or reset_at is not DEFAULT:
+            raise BadRequest("Clearing the LCD message does not accept text/reset_at")
+        # The public API validates the request against a ``oneOf`` whose variants
+        # all require ``type``, so an empty object is rejected before any handler
+        # runs. A message whose ``resetAt`` has already passed is removed instead
+        # of being pushed to the camera; ``0`` avoids any client/console clock
+        # skew, and the type is never delivered so any text-free one will do.
+        return {"type": DoorbellMessageType.DO_NOT_DISTURB, "resetAt": 0}
+    if text_type in _LCD_TYPES_REQUIRING_TEXT:
+        if text is None:
+            raise BadRequest(f"{text_type} requires text")
+    elif text is not None:
+        raise BadRequest(f"{text_type} does not accept text")
+    message: CameraPublicApiLcdMessageRequest = {"type": text_type}
+    if text is not None:
+        message["text"] = text
+    if isinstance(reset_at, datetime):
+        message["resetAt"] = to_js_time(reset_at)
+    elif reset_at is None:
+        message["resetAt"] = None
+    return message
 
 
 # Smart-detect object events. Protect 7.x emits overlapping ``smartDetectZone``
@@ -218,6 +256,20 @@ class PublicLiveviewSlotDict(TypedDict):
     cycleInterval: int
 
 
+class PublicPosLineItemDict(TypedDict):
+    """One purchased line item of a POS transaction (write shape)."""
+
+    title: str
+    quantity: int
+
+
+class PublicPosLocationDict(TypedDict):
+    """Location or register a POS transaction was rung up at (write shape)."""
+
+    id: str
+    name: NotRequired[str]
+
+
 class PublicSignalState(ProtectBaseObject):
     # Nullable on the wire: a freshly-paired wireless device (e.g. a key fob)
     # has not yet reported its Bluetooth signal.
@@ -266,11 +318,19 @@ class PublicCameraLedSettings(ProtectBaseObject):
 
 
 class PublicLcdMessage(ProtectBaseObject):
-    # Spec marks ``type``/``text`` required, but the PATCH endpoint accepts
-    # (and a cleared message returns) ``{}`` — so every field is optional.
+    # Response shape, not request shape: the spec models these as separate
+    # schemas. Responses use ``lcdMessageUnion``, where every field is
+    # optional, so all three are optional here. Requests use ``lcdMessage``, a
+    # ``oneOf`` whose four variants all require ``type`` — an empty object is
+    # rejected there, and a camera with no message omits the key entirely.
     type: DoorbellMessageType | None = None
     reset_at: int | None = None
     text: str | None = None
+
+    @property
+    def reset_at_dt(self) -> datetime | None:
+        """``reset_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.reset_at)
 
 
 class PublicCameraFeatureFlags(ProtectBaseObject):
@@ -306,6 +366,17 @@ class PublicSmartDetectSettings(ProtectBaseObject):
         } | super().unifi_dict_conversions()
 
 
+def _replace_url_host(url: str, host: str) -> str:
+    """Replace the host component of ``url``, keeping port, path and query."""
+    parts = urlsplit(url)
+    try:
+        port = parts.port
+    except ValueError:
+        return url
+    netloc = f"{host}:{port}" if port is not None else host
+    return urlunsplit(parts._replace(netloc=netloc))
+
+
 class RTSPSStreams(ProtectBaseObject):
     """RTSPS stream URLs for a camera."""
 
@@ -315,15 +386,30 @@ class RTSPSStreams(ProtectBaseObject):
     # Besides standard qualities (high/medium/low), there are special cases like "package" for doorbells
     # and unclear implementation for 180° cameras with dual sensors. Dynamic handling via __pydantic_extra__ is safer.
 
+    def __init__(self, api: ProtectApiClient | None = None, **data: Any) -> None:
+        """Bind to ``api`` so URLs can honour ``override_connection_host``."""
+        # Runtime-identical to ProtectBaseObject.__init__, but mypy synthesises a
+        # dataclass_transform __init__ per model subclass from declared fields only;
+        # without this redeclaration every ``RTSPSStreams(api=...)`` is a
+        # call-arg error.
+        super().__init__(api=api, **data)
+
     def get_stream_url(self, quality: str, srtp: bool = True) -> str | None:
         """Get stream URL for a quality level; ``srtp=False`` strips ``?enableSrtp``."""
         url = getattr(self, quality, None)
-        if srtp or not isinstance(url, str):
+        if not isinstance(url, str):
             return url
-        # Strip only the exact ?enableSrtp suffix the server appends (mirrors the
-        # private rtsps_url construction); go2rtc rejects the SRTP variant. A
-        # generic query strip would be wrong if Protect ever adds other params.
-        return url.removesuffix("?enableSrtp")
+        if not srtp:
+            # Strip only the exact ?enableSrtp suffix the server appends (mirrors the
+            # private rtsps_url construction); go2rtc rejects the SRTP variant. A
+            # generic query strip would be wrong if Protect ever adds other params.
+            url = url.removesuffix("?enableSrtp")
+        api = self._api
+        if api is None or not api.override_connection_host:
+            return url
+        # A multi-homed console does not answer with the address the request
+        # arrived on, so the server URL can name an unreachable interface.
+        return _replace_url_host(url, format_host_for_url(api.connection_host))
 
     def get_available_stream_qualities(self) -> list[str]:
         """
@@ -797,29 +883,20 @@ class PublicCamera(PublicDeviceModel):
 
     async def set_lcd_message(
         self,
-        text_type: DoorbellMessageType,
+        text_type: DoorbellMessageType | None,
         text: str | None = None,
-        reset_at: datetime | None | DEFAULT_TYPE = DEFAULT,
+        reset_at: datetime | DEFAULT_TYPE | None = DEFAULT,
     ) -> PublicCamera:
         """
         Set the doorbell LCD message via the public API.
 
-        ``text`` is required for CUSTOM_MESSAGE and IMAGE and must be omitted
-        otherwise. ``reset_at`` controls when the message clears: omit for the
-        NVR default, pass ``None`` for "forever", or a specific datetime.
+        Pass ``None`` for ``text_type`` to clear the message, with ``text`` and
+        ``reset_at`` omitted. ``text`` is required for CUSTOM_MESSAGE and IMAGE
+        and must be omitted otherwise. ``reset_at`` controls when the message
+        clears: omit for the NVR default, pass ``None`` for "forever", or a
+        specific datetime.
         """
-        if text_type in _LCD_TYPES_REQUIRING_TEXT:
-            if text is None:
-                raise BadRequest(f"{text_type} requires text")
-        elif text is not None:
-            raise BadRequest(f"{text_type} does not accept text")
-        message: CameraPublicApiLcdMessageRequest = {"type": text_type}
-        if text is not None:
-            message["text"] = text
-        if isinstance(reset_at, datetime):
-            message["resetAt"] = to_js_time(reset_at)
-        elif reset_at is None:
-            message["resetAt"] = None
+        message = _build_public_lcd_message(text_type, text, reset_at)
         updated = await self._api.update_camera_public(self.id, lcd_message=message)
         self._apply_from_response(updated)
         return self
@@ -1004,6 +1081,11 @@ class PublicLight(PublicDeviceModel):
     is_pir_motion_detected: bool
     # Flat ``cameraId`` string of the paired camera, or ``null``.
     camera: str | None = None
+
+    @property
+    def last_motion_dt(self) -> datetime | None:
+        """``last_motion`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.last_motion)
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
@@ -1263,6 +1345,36 @@ class PublicSensor(PublicDeviceModel):
     has_custom_sensitivity_when_armed: bool = False
     # Capability map, present only on newer firmware (older consoles omit it).
     feature_flags: PublicSensorFeatureFlags | None = None
+
+    @property
+    def open_status_changed_at_dt(self) -> datetime | None:
+        """``open_status_changed_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.open_status_changed_at)
+
+    @property
+    def motion_detected_at_dt(self) -> datetime | None:
+        """``motion_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.motion_detected_at)
+
+    @property
+    def alarm_triggered_at_dt(self) -> datetime | None:
+        """``alarm_triggered_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.alarm_triggered_at)
+
+    @property
+    def leak_detected_at_dt(self) -> datetime | None:
+        """``leak_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.leak_detected_at)
+
+    @property
+    def external_leak_detected_at_dt(self) -> datetime | None:
+        """``external_leak_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.external_leak_detected_at)
+
+    @property
+    def tampering_detected_at_dt(self) -> datetime | None:
+        """``tampering_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.tampering_detected_at)
 
     @property
     def has_feature_flags(self) -> bool:
@@ -1627,6 +1739,11 @@ class PublicSirenStatus(ProtectBaseObject):
     duration: int | None = None
 
     @property
+    def activated_at_dt(self) -> datetime | None:
+        """``activated_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.activated_at)
+
+    @property
     def turn_off_at(self) -> datetime | None:
         """
         When the siren is expected to stop playing.
@@ -1637,12 +1754,15 @@ class PublicSirenStatus(ProtectBaseObject):
         populated). Derived from the websocket payload so no extra API call is
         needed — HA can compare against ``datetime.now(UTC)`` instead of
         maintaining its own timer.
+
+        ``duration`` is in milliseconds here even though
+        :meth:`ProtectApiClient.play_siren_public` takes seconds: the spec
+        types the status field as ``sirenDuration`` (5000/10000/20000/30000 ms)
+        and the play request body as ``sirenDurationSeconds`` (5/10/20/30 s).
         """
         if not self.is_active or self.activated_at is None or self.duration is None:
             return None
-        return datetime.fromtimestamp(self.activated_at / 1000, tz=UTC) + timedelta(
-            seconds=self.duration
-        )
+        return from_js_time(self.activated_at) + timedelta(milliseconds=self.duration)
 
 
 class Siren(PublicDeviceModel):
@@ -1799,6 +1919,7 @@ class Fob(PublicDeviceModel):
     # ``FobAwayState`` carries an ``unknown`` member, so values added by newer
     # firmware coerce to the ``UNKNOWN`` member rather than raising.
     away_state: FobAwayState
+    button_labels: FobButtonLabels
     feature_flags: PublicFobFeatureFlags
     # Required by the spec — a fob is always a wireless battery device.
     wireless_connection_state: PublicWirelessConnectionState
@@ -1894,6 +2015,11 @@ class AlarmHubInput(ProtectBaseObject):
     input_type: AlarmHubInputType | None = None
     last_triggered_at: int | None = None
     camera_id: str | None = None
+
+    @property
+    def last_triggered_at_dt(self) -> datetime | None:
+        """``last_triggered_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.last_triggered_at)
 
 
 class AlarmHubOutput(ProtectBaseObject):
@@ -2084,6 +2210,21 @@ class NvrArmMode(ProtectBaseObject):
     breach_trigger_event_id: str | None = None
     breach_event_id: str | None = None
 
+    @property
+    def armed_at_dt(self) -> datetime | None:
+        """``armed_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.armed_at)
+
+    @property
+    def will_be_armed_at_dt(self) -> datetime | None:
+        """``will_be_armed_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.will_be_armed_at)
+
+    @property
+    def breach_detected_at_dt(self) -> datetime | None:
+        """``breach_detected_at`` as a timezone-aware UTC ``datetime``."""
+        return convert_to_datetime(self.breach_detected_at)
+
 
 class PublicDoorbellCustomImage(ProtectBaseObject):
     """A custom doorbell image entry (preview GIF + full sprite PNG)."""
@@ -2271,7 +2412,19 @@ class PublicUlpUser(ProtectModelWithId):
     first_name: str
     last_name: str
     full_name: str
+    # Spec-required and non-nullable — an empty string when UniFi Identity
+    # holds no address — but ``sample_ulp_users.json``, captured from a real
+    # console, carries no ``email`` key at all, so older firmware omits it and
+    # the field stays optional.
+    email: str | None = None
     status: UlpUserStatus
+
+
+class PublicPosTransactionResponse(ProtectBaseObject):
+    """Result of ingesting a POS transaction for a camera."""
+
+    created: bool
+    event_id: str | None = None
 
 
 class PublicFile(ProtectBaseObject):

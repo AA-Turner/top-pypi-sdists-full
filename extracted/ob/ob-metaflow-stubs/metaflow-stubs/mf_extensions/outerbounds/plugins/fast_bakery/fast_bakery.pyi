@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.37.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-25T23:04:30.418069                                                            #
+# MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-08-28T18:11:58.413747                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -73,6 +73,8 @@ class FastBakery(object, metaclass=type):
     def ignore_cache(self):
         ...
     def platform(self, os, arch):
+        ...
+    def extra_configs(self, configs: typing.Dict[str, str]):
         ...
     def index_strategy(self, strategy: str):
         ...

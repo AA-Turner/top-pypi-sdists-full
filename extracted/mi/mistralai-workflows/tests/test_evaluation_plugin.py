@@ -11,8 +11,8 @@ import pytest
 
 from mistralai.workflows import get_workflow_definition, workflow
 from mistralai.workflows.core.execution.concurrency import ParallelExecutionWorkflow
-from mistralai.workflows.plugins.evaluation import evaluation
-from mistralai.workflows.plugins.evaluation._activities import (
+from mistralai.workflows.plugins.evaluations import evaluation
+from mistralai.workflows.plugins.evaluations._activities import (
     _get_obs_client_factory,
     create_optimization,
     create_optimization_trial,
@@ -24,8 +24,8 @@ from mistralai.workflows.plugins.evaluation._activities import (
     upload_output_records,
     upload_run_scores,
 )
-from mistralai.workflows.plugins.evaluation._record_workflow import EvalRecordWorkflow
-from mistralai.workflows.plugins.evaluation.types import (
+from mistralai.workflows.plugins.evaluations._record_workflow import EvalRecordWorkflow
+from mistralai.workflows.plugins.evaluations.types import (
     Evaluator,
     Goal,
     RunEvaluator,
@@ -1211,7 +1211,7 @@ class TestUsesContextStyleWithDepends:
 
     def test_task_context_with_depends_is_detected(self) -> None:
         from mistralai.workflows.core.dependencies.dependency_injector import Depends
-        from mistralai.workflows.plugins.evaluation._orchestrator import _uses_context_style
+        from mistralai.workflows.plugins.evaluations._orchestrator import _uses_context_style
 
         def _fake_dep() -> str:
             return "injected"
@@ -1223,7 +1223,7 @@ class TestUsesContextStyleWithDepends:
 
     def test_scorer_context_with_depends_is_detected(self) -> None:
         from mistralai.workflows.core.dependencies.dependency_injector import Depends
-        from mistralai.workflows.plugins.evaluation._orchestrator import _uses_context_style
+        from mistralai.workflows.plugins.evaluations._orchestrator import _uses_context_style
 
         def _fake_dep() -> str:
             return "injected"
@@ -1241,7 +1241,7 @@ class TestUsesContextStyleWithDepends:
 class EvalWorkflowScoreContextScorer:
     @workflow.entrypoint
     async def run(self, params: dict) -> dict:
-        from mistralai.workflows.plugins.evaluation._orchestrator import score
+        from mistralai.workflows.plugins.evaluations._orchestrator import score
 
         dataset = params["dataset"]
         outputs = [r.get("text", "no text") for r in dataset]

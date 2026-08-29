@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: piqp
-Version: 0.6.3
+Version: 0.6.4
 Summary: A Proximal Interior Point Quadratic Programming solver
 Author-Email: Roland Schwan <roland.schwan@epfl.ch>
 License: BSD 2-Clause License

@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "extra-platforms"
-version = "13.6.0"
+version = "13.7.0"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -47,6 +47,7 @@ keywords = [
     "Command Prompt",
     "Contour",
     "CPU architecture",
+    "Crush",
     "Cursor",
     "Cygwin",
     "Dash",
@@ -59,10 +60,12 @@ keywords = [
     "Fish",
     "foot",
     "FreeBSD",
+    "Gemini CLI",
     "Generic Linux",
     "Gentoo Linux",
     "Ghostty",
     "GitHub Actions runner",
+    "GitHub Copilot CLI",
     "GitLab CI",
     "GNOME Terminal",
     "GNU Screen",
@@ -104,6 +107,7 @@ keywords = [
     "NixOS",
     "Nobara",
     "Nushell",
+    "OpenAI Codex",
     "OpenBSD",
     "openSUSE",
     "OpenWrt",
@@ -111,6 +115,7 @@ keywords = [
     "OS detection",
     "OS info",
     "Parallels",
+    "Pi",
     "Pidora",
     "PikaOS",
     "Platform detection",
@@ -248,7 +253,7 @@ pytest = ["pytest>=8.2.1"]
 [project.urls]
 Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 Documentation = "https://kdeldycke.github.io/extra-platforms"
-Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.6.0"
+Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.7.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/extra-platforms"
 Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -291,9 +296,6 @@ exclude-newer = "1 week"
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.12"
 
-[tool.uv.exclude-newer-package]
-click-extra = "2026-07-30T17:07:28.533730Z"
-
 [tool.uv.build-backend]
 module-root = ""
 source-exclude = [
@@ -317,6 +319,7 @@ preview = true
 fix = true
 unsafe-fixes = false
 show-fixes = true
+output-prefer-rule-codes = true
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -347,12 +350,18 @@ Github = "GitHub"
 IOS = "iOS"
 Javascript = "JavaScript"
 MacOS = "macOS"
+PATCHed = "PATCHed"
+PNGs = "PNGs"
 PyPi = "PyPI"
 Typescript = "TypeScript"
 
 [tool.typos.default.extend-words]
 astroid = "astroid"
 oject = "oject"
+sur = "sur"
+
+[tool.typos.type.svg]
+check-file = false
 
 [tool.mypy]
 check_untyped_defs = true
@@ -368,19 +377,24 @@ module = "click_extra.*"
 ignore_missing_imports = true
 
 [tool.pytest]
-addopts = ["--durations=10"]
+addopts = [
+    "--durations=10",
+    "--import-mode=importlib",
+]
 markers = ["network: Tests that require network access (excluded with -m 'not network')."]
+testpaths = ["tests"]
 xfail_strict = true
 
 [tool.coverage.run]
-branch = true
 source = ["extra_platforms"]
+branch = true
 
 [tool.coverage.report]
+fail_under = 30
 precision = 2
 
 [tool.bumpversion]
-current_version = "13.6.0"
+current_version = "13.7.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -440,15 +454,19 @@ exclude = [
     "^https://github.com/.+/issues/[0-9]+#issuecomment-.*$",
     "^https://github.com/.+/releases/.+/download/.*$",
     "^https://doi.org/.+/zenodo.*$",
+    'archive\.ph',
+    'sci-hub\.st',
+    'ycombinator\.com',
+    'x\.com',
+    '^https://www\.virustotal\.com/gui/.*$',
+    'bitdefender\.com',
+    '^https://www\.npmjs\.com/package/.*$',
+    '^https://star-history\.com/.*$',
+    'githubstatus\.com',
 ]
 
 [tool.repomatic]
 abandoned-versions = ["1.0.1"]
-exclude = [
-    "labels",
-    "skills",
-    "workflows/debug.yaml",
-]
 
 [tool.repomatic.docs]
 update-script = ""
@@ -466,3 +484,6 @@ os = [
     "macos-14",
     "windows-2022",
 ]
+
+[tool.repomatic.workflow]
+extra-paths = ["docs/**"]

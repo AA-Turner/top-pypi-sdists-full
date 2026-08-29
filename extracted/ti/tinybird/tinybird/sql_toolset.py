@@ -493,7 +493,6 @@ def replace_tables_chquery_cached(
     sorted_replacements: Optional[tuple] = None,
     default_database: str = "",
     output_one_line: bool = False,
-    timestamp: Optional[datetime] = None,
     function_allow_list: Optional[FrozenSet[str]] = None,
     settings_allow_list: Optional[FrozenSet[str]] = None,
 ) -> str:
@@ -536,7 +535,6 @@ def replace_tables(
             sql,
             None,
             output_one_line=output_one_line,
-            timestamp=timestamp,
             function_allow_list=hashable_list,
             settings_allow_list=hashable_settings_list,
         )
@@ -610,7 +608,6 @@ def replace_tables(
             sql,
             None,
             output_one_line=output_one_line,
-            timestamp=timestamp,
             function_allow_list=hashable_list,
             settings_allow_list=hashable_settings_list,
         )
@@ -649,7 +646,6 @@ def replace_tables(
                 r,
                 default_database=default_database,
                 output_one_line=output_one_line,
-                timestamp=timestamp,
                 function_allow_list=hashable_list,
                 settings_allow_list=hashable_settings_list,
             )
@@ -658,7 +654,6 @@ def replace_tables(
                 sql,
                 None,
                 output_one_line=output_one_line,
-                timestamp=timestamp,
                 function_allow_list=hashable_list,
                 settings_allow_list=hashable_settings_list,
             )

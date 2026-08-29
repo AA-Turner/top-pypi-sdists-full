@@ -1,7 +1,7 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-  "setuptools",
+    "setuptools",
 ]
 
 [project]
@@ -10,7 +10,7 @@ description = "An ORM-based backend for Django Tasks"
 authors = [
     {name = "Jake Howard"},
 ]
-version = "0.12.0"
+version = "0.13.0"
 readme = "README.md"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
@@ -26,9 +26,6 @@ classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
     "Framework :: Django",
-    "Framework :: Django :: 4.2",
-    "Framework :: Django :: 5.0",
-    "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
@@ -39,10 +36,14 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "Django>=4.2",
+    "django>=5.2",
     "typing_extensions",
     "django-stubs-ext",
-    "django-tasks>=0.12.0"
+]
+[project.optional-dependencies]
+compat = [
+    "django>=5.2,<6.0",
+    "django-tasks>=0.12.0",
 ]
 
 [project.urls]
@@ -52,9 +53,10 @@ Changelog = "https://github.com/RealOrangeOne/django-tasks-db/releases"
 
 [dependency-groups]
 dev = [
-    "ruff",
-    "coverage",
+    "ruff==0.16.4",
+    "coverage==7.15.4",
     "django-stubs[compatible-mypy]",
+    "mypy==2.3.1",
     "dj-database-url",
 ]
 mysql = [

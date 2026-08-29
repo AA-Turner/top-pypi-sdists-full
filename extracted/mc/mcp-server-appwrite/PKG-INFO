@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mcp-server-appwrite
-Version: 0.8.55
+Version: 0.8.56
 Summary: MCP server for Appwrite: manage projects and their databases, auth, storage, functions, messaging, and sites, and search the official Appwrite documentation
 License-File: LICENSE
 Requires-Python: >=3.12

@@ -39,20 +39,6 @@ impl<'a> Cursor<'a> {
             .unwrap_or(EOF_CHAR)
     }
 
-    pub fn peek_with_current_while(&self, mut predicate: impl FnMut(char) -> bool) -> String {
-        let iter = self.chars.clone();
-        let mut s = String::new();
-        s.push(self.current_char);
-        for c in iter {
-            if predicate(c) {
-                s.push(c);
-            } else {
-                break;
-            }
-        }
-        s
-    }
-
     /// Checks if the character at the current position is expected.
     pub fn matches(&self, expected: &str) -> bool {
         let mut iter = expected.chars();
@@ -70,6 +56,27 @@ impl<'a> Cursor<'a> {
     /// Checks if there is nothing more to consume.
     pub(crate) fn is_eof(&self) -> bool {
         self.chars.as_str().is_empty()
+    }
+
+    #[inline]
+    pub(crate) fn remaining(&self) -> &str {
+        self.chars.as_str()
+    }
+
+    /// Consumes an ASCII prefix without decoding one character at a time.
+    /// SIMD scanners call this after locating a token boundary.
+    pub(crate) fn eat_ascii_bytes(&mut self, len: usize) {
+        debug_assert!(len > 0);
+        let remaining = self.chars.as_str();
+        let prefix = &remaining.as_bytes()[..len];
+        debug_assert!(prefix.is_ascii());
+        let current_char = prefix[len - 1] as char;
+        let rest = &remaining[len..];
+
+        self.current_offset += tombi_text::Offset::new(len as u32);
+        self.current_position += tombi_text::RelativePosition::from((0, len as u32));
+        self.current_char = current_char;
+        self.chars = rest.chars();
     }
 
     /// Moves to the next character.

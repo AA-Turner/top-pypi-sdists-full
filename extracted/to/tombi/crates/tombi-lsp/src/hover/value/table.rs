@@ -22,11 +22,11 @@ use crate::{
     schema_resolver::resolve_table_unevaluated_property_schema,
 };
 
-impl GetHoverContent for tombi_document_tree::Table {
+impl GetHoverContent for tombi_document_tree_syntax::Table {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         position: tombi_text::Position,
-        keys: &'a [tombi_document_tree::Key],
+        keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
@@ -66,7 +66,7 @@ impl GetHoverContent for tombi_document_tree::Table {
                     SchemaView::Table(table_schema) => {
                         if let Some(key) = keys.first() {
                             if let Some(value) = self.get(key) {
-                                let accessor = Accessor::Key(key.value.clone());
+                                let accessor = Accessor::Key(key.value().to_owned());
                                 let key_patterns = match table_schema.pattern_properties.as_ref() {
                                     Some(pattern_properties) => Some(
                                         pattern_properties
@@ -88,7 +88,7 @@ impl GetHoverContent for tombi_document_tree::Table {
                                     let required = table_schema
                                         .required
                                         .as_ref()
-                                        .map(|r| r.contains(&key.value))
+                                        .map(|r| r.iter().any(|value| value == key.value()))
                                         .unwrap_or_default();
 
                                     if let Ok(Some(current_schema)) = table_schema
@@ -135,10 +135,11 @@ impl GetHoverContent for tombi_document_tree::Table {
                                                     key_patterns,
                                                     ..Default::default()
                                                 }),
-                                                schema_uri: Some(
-                                                    current_schema.schema_uri.as_ref().clone(),
+                                                schema_uri: super::super::current_schema_link_uri(
+                                                    Some(&current_schema),
                                                 ),
                                                 range: None,
+                                                schema_tooltip: None,
                                             }));
                                         }
 
@@ -235,7 +236,7 @@ impl GetHoverContent for tombi_document_tree::Table {
                                     for property_key in pattern_keys {
                                         if let Ok(pattern) = tombi_regex::Regex::new(&property_key)
                                         {
-                                            if pattern.is_match(&key.value) {
+                                            if pattern.is_match(key.value()) {
                                                 if let Ok(Some(current_schema)) = table_schema
                                                     .resolve_pattern_property_schema(
                                                         &property_key,
@@ -697,7 +698,7 @@ impl GetHoverContent for tombi_document_tree::Table {
                 if let Some(key) = keys.first()
                     && let Some(value) = self.get(key)
                 {
-                    let accessor = Accessor::Key(key.value.clone());
+                    let accessor = Accessor::Key(key.value().to_owned());
 
                     return value
                         .get_hover_content(
@@ -721,6 +722,7 @@ impl GetHoverContent for tombi_document_tree::Table {
                     constraints: None,
                     schema_uri: None,
                     range: Some(self.range()),
+                    schema_tooltip: None,
                 }))
             }
         }
@@ -729,7 +731,7 @@ impl GetHoverContent for tombi_document_tree::Table {
 }
 
 fn comment_directive_table_keys_order(
-    table: &tombi_document_tree::Table,
+    table: &tombi_document_tree_syntax::Table,
 ) -> Option<tombi_schema_store::TableOrderOverride> {
     let comment_directive = get_comment_directive_content::<
         TableCommonFormatRules,
@@ -752,7 +754,7 @@ impl GetHoverContent for TableSchema {
     fn get_hover_content<'a: 'b, 'b>(
         &'a self,
         _position: tombi_text::Position,
-        _keys: &'a [tombi_document_tree::Key],
+        _keys: &'a [tombi_document_tree_syntax::Key],
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
@@ -788,8 +790,9 @@ impl GetHoverContent for TableSchema {
                     array_values_order_by: self.array_values_order_by.clone(),
                     ..Default::default()
                 }),
-                schema_uri: current_schema.map(|schema| schema.schema_uri.as_ref().clone()),
+                schema_uri: super::super::current_schema_link_uri(current_schema),
                 range: None,
+                schema_tooltip: None,
             }))
         }
         .boxed()

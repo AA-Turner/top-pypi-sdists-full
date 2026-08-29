@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Generic, TypedDict, TypeVar
+from typing import Any, ClassVar, Generic, TypedDict, TypeVar
 
 from .constants import RepoType, Visibility
 
@@ -40,12 +40,15 @@ def _coerce_datetime(value: Any) -> datetime | None:
 class _FromDictMixin:
     """Adds tolerant ``from_dict`` construction to a dataclass."""
 
+    _field_aliases: ClassVar[dict[str, str]] = {}
+
     @classmethod
     def from_dict(cls: type[_TDataclass], data: Mapping[str, Any] | None) -> _TDataclass:
         if not data:
             return cls()  # type: ignore[call-arg]
         known = {f.name for f in fields(cls)}  # type: ignore[arg-type]
-        kwargs = {key: value for key, value in data.items() if key in known}
+        aliases = cls._field_aliases
+        kwargs = {aliases.get(key, key): value for key, value in data.items() if aliases.get(key, key) in known}
         return cls(**kwargs)  # type: ignore[arg-type]
 
 
@@ -54,11 +57,94 @@ class _FromDictMixin:
 # ---------------------------------------------------------------------------
 @dataclass(slots=True)
 class UserInfo(_FromDictMixin):
+    _field_aliases: ClassVar[dict[str, str]] = {
+        "name": "username",
+        "avatar": "avatar_url",
+    }
+    _id_keys: ClassVar[tuple[str, ...]] = (
+        "id",
+        "Id",
+        "ID",
+        "user_id",
+        "UserId",
+        "userId",
+        "uid",
+        "Uid",
+        "UID",
+        "sub",
+        "Sub",
+    )
+    _username_keys: ClassVar[tuple[str, ...]] = (
+        "Username",
+        "username",
+        # Observed OIDC-style shape on newer /users/me responses: the login
+        # handle may be in ``name`` while ``preferred_username`` can be empty or
+        # a display value, so keep the same priority as get_current_username().
+        "name",
+        "Name",
+        "preferred_username",
+        "PreferredUsername",
+        "preferredUsername",
+        "user_name",
+        "UserName",
+        "login",
+        "Login",
+        "nickname",
+        "Nickname",
+    )
+    _email_keys: ClassVar[tuple[str, ...]] = ("email", "Email", "mail", "Mail")
+    _avatar_keys: ClassVar[tuple[str, ...]] = (
+        "avatar_url",
+        "avatarUrl",
+        "AvatarUrl",
+        "avatar",
+        "Avatar",
+        "picture",
+        "Picture",
+    )
+    _description_keys: ClassVar[tuple[str, ...]] = (
+        "description",
+        "Description",
+        "bio",
+        "Bio",
+        "introduction",
+        "Introduction",
+    )
+
     id: str | int | None = None
     username: str | None = None
     email: str | None = None
     avatar_url: str | None = None
     description: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any] | None) -> UserInfo:
+        """Build user info from legacy ModelScope and newer OIDC-style keys."""
+        if not isinstance(data, Mapping) or not data:
+            return cls()
+        return cls(
+            id=cls._first_non_empty(data, cls._id_keys),
+            username=cls._as_str_or_none(cls._first_non_empty(data, cls._username_keys)),
+            email=cls._as_str_or_none(cls._first_non_empty(data, cls._email_keys)),
+            avatar_url=cls._as_str_or_none(cls._first_non_empty(data, cls._avatar_keys)),
+            description=cls._as_str_or_none(cls._first_non_empty(data, cls._description_keys)),
+        )
+
+    @staticmethod
+    def _first_non_empty(data: Mapping[str, Any], keys: tuple[str, ...]) -> Any | None:
+        for key in keys:
+            if key not in data:
+                continue
+            value = data[key]
+            if value is not None and value != "":
+                return value
+        return None
+
+    @staticmethod
+    def _as_str_or_none(value: Any | None) -> str | None:
+        if value is None:
+            return None
+        return str(value)
 
 
 # ---------------------------------------------------------------------------

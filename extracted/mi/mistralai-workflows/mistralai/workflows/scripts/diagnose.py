@@ -178,7 +178,11 @@ def _print_config(config: Any) -> None:
     if isinstance(config, Exception):
         print(f"  ERROR: {config}")
         return
-    dump = _safe_serialize(config.model_dump())
+    # Use the same redaction as startup logging so config.http proxy credentials are stripped from
+    # the dump operators share with support (SecretStr / header names are masked by _safe_serialize).
+    from mistralai.workflows.core.config.config import _loggable_config
+
+    dump = _safe_serialize(_loggable_config(config))
     try:
         dump["_effective_task_queue"] = config.get_effective_task_queue()
     except Exception as exc:

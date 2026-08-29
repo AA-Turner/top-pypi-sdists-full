@@ -64,6 +64,11 @@ from .calibration import (
     corrections_for,
     record_samples,
 )
+from .model_metrics import (
+    ModelMetricsStore,
+    derive_variant,
+    model_metrics_store,
+)
 
 __all__ = [
     "CANONICAL_STATUSES",
@@ -104,4 +109,7 @@ __all__ = [
     "clamp_correction",
     "corrections_for",
     "record_samples",
+    "ModelMetricsStore",
+    "derive_variant",
+    "model_metrics_store",
 ]

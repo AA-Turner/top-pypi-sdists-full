@@ -1,14 +1,14 @@
+import io
 import os
-
 import sys
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 from click.testing import CliRunner
 
 from importlinter import __version__, cli
 from importlinter.application import output
-import io
 
 this_directory = Path(__file__).parent
 assets_directory = this_directory / ".." / "assets"
@@ -93,6 +93,17 @@ def test_lint_imports(working_directory, config_filename, expected_result):
     assert expected_result == result
 
 
+def test_lint_imports_renders_broken_contract_guidance_for_broken_contract(capsys):
+    os.chdir(testpackage_directory)
+
+    result = cli.lint_imports(config_filename=".brokencontractguidance.ini")
+
+    assert cli.EXIT_STATUS_ERROR == result
+    captured = capsys.readouterr()
+    assert "Use the testpackage.high top-level interface." in captured.out
+    assert "More information here: http://docs.example.com/high" in captured.out
+
+
 def test_lint_imports_raises_clear_error_when_root_package_is_single_file(capsys):
     os.chdir(testpackage_directory)
 
@@ -118,6 +129,11 @@ def test_lint_imports_debug_mode(is_debug_mode):
 def test_show_timings_smoke_test():
     os.chdir(testpackage_directory)
     assert cli.EXIT_STATUS_SUCCESS == cli.lint_imports(show_timings=True)
+
+
+def test_no_logo_smoke_test():
+    os.chdir(testpackage_directory)
+    assert cli.EXIT_STATUS_SUCCESS == cli.lint_imports(no_logo=True)
 
 
 @pytest.mark.parametrize("verbose", (True, False))

@@ -15,6 +15,42 @@
 from magnumclient.v1 import baseunit
 
 
+CLUSTER_ATTRIBUTES = [
+    'status',
+    'health_status',
+    'cluster_template_id',
+    'node_addresses',
+    'uuid',
+    'cluster_id',
+    'status_reason',
+    'created_at',
+    'updated_at',
+    'coe_version',
+    'labels',
+    'labels_overridden',
+    'labels_skipped',
+    'labels_added',
+    'fixed_network',
+    'fixed_subnet',
+    'floating_ip_enabled',
+    'faults',
+    'keypair',
+    'api_address',
+    'master_addresses',
+    'master_lb_enabled',
+    'create_timeout',
+    'node_count',
+    'discovery_url',
+    'docker_volume_size',
+    'master_count',
+    'container_version',
+    'name',
+    'master_flavor_id',
+    'flavor_id',
+    'health_status_reason',
+    'project_id',
+]
+
 CREATION_ATTRIBUTES = baseunit.CREATION_ATTRIBUTES
 CREATION_ATTRIBUTES.append('cluster_template_id')
 CREATION_ATTRIBUTES.append('create_timeout')
@@ -37,6 +73,22 @@ class Cluster(baseunit.BaseTemplate):
 class ClusterManager(baseunit.BaseTemplateManager):
     resource_class = Cluster
     template_name = 'clusters'
+
+    @staticmethod
+    def _normalize(cluster):
+        # Pre-1.13 servers return stack_id instead of cluster_id; normalise
+        # so callers always see cluster_id regardless of server microversion.
+        stack_id = cluster._info.get('stack_id')
+        if stack_id and not cluster._info.get('cluster_id'):
+            cluster._info['cluster_id'] = stack_id
+        return cluster
+
+    def get(self, id):
+        cluster = super().get(id)
+        return self._normalize(cluster) if cluster else None
+
+    def list(self, **kwargs):
+        return [self._normalize(c) for c in super().list(**kwargs)]
 
     def resize(self, cluster_uuid, node_count,
                nodes_to_remove=[], nodegroup=None):

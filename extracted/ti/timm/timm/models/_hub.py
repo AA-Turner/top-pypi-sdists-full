@@ -220,6 +220,17 @@ def load_state_dict_from_hf(
     assert has_hf_hub(True)
     hf_model_id, hf_revision = hf_split(model_id)
 
+    # Load directly via safetensors if that's what the filename specifies
+    if filename.endswith(".safetensors"):
+        assert _has_safetensors, "`pip install safetensors` to use .safetensors"
+        cached_safe_file = hf_hub_download(
+            repo_id=hf_model_id,
+            filename=filename,
+            revision=hf_revision,
+            cache_dir=cache_dir,
+        )
+        return safetensors.torch.load_file(cached_safe_file, device="cpu")
+
     # Look for .safetensors alternatives and load from it if it exists
     if _has_safetensors:
         for safe_filename in _get_safe_alternatives(filename):
@@ -262,28 +273,33 @@ _PREFERRED_FILES = (
 )
 _EXT_PRIORITY = ('.safetensors', '.pth', '.pth.tar', '.bin')
 
+
 def load_state_dict_from_path(
-        path: str,
+        path: Union[str, Path],
         weights_only: bool = True,
 ):
+    path = Path(path)
     found_file = None
     for fname in _PREFERRED_FILES:
         p = path / fname
         if p.exists():
-            logging.info(f"Found preferred checkpoint: {p.name}")
+            _logger.info(f"Found preferred checkpoint: {p.name}")
             found_file = p
             break
 
-    # fallback: first match per‑extension class
-    for ext in _EXT_PRIORITY:
-        files = sorted(path.glob(f"*{ext}"))
-        if files:
-            if len(files) > 1:
-                logging.warning(
-                    f"Multiple {ext} checkpoints in {path}: {names}. "
-                    f"Using '{files[0].name}'."
-                )
-            found_file = files[0]
+    if found_file is None:
+        # fallback: first match per‑extension class, in extension priority order
+        for ext in _EXT_PRIORITY:
+            files = sorted(path.glob(f"*{ext}"))
+            if files:
+                if len(files) > 1:
+                    names = [f.name for f in files]
+                    _logger.warning(
+                        f"Multiple {ext} checkpoints in {path}: {names}. "
+                        f"Using '{files[0].name}'."
+                    )
+                found_file = files[0]
+                break
 
     if not found_file:
         raise RuntimeError(f"No suitable checkpoints found in {path}.")

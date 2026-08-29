@@ -1,12 +1,10 @@
 import os
-import sys
 import unittest
-from nose.plugins.attrib import AttributeSelector
+
 from nose.plugins import PluginTester
+from nose.plugins.attrib import AttributeSelector
 
 support = os.path.join(os.path.dirname(__file__), 'support')
-
-compat_24 = sys.version_info >= (2, 4)
 
 
 class AttributePluginTester(PluginTester, unittest.TestCase):
@@ -177,7 +175,6 @@ class TestStaticMethod(AttributePluginTester):
         assert 'Ran 1 test' in self.output
 
 
-if compat_24:
     class TestAttributeEval(AttributePluginTester):
         args = ["-A", "c>20"]
 

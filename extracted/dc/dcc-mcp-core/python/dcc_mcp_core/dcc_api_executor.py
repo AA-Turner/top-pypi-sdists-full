@@ -281,12 +281,20 @@ class DccApiExecutor:
                 reuse=_optional_bool(params, "reuse", default=False),
                 reuse_key=_optional_string(params, "reuse_key"),
             )
+        except (FileNotFoundError, TypeError, ValueError) as exc:
+            return {
+                "success": False,
+                "message": f"Script parameters are invalid on {self._dcc_name}.",
+                "error": str(exc),
+            }
+
+        try:
             ctx = EvalContext(
                 self._dispatcher,
                 sandbox=True,
                 timeout_secs=script.timeout_secs,
             )
-            result = ctx.run(script.code)
+            result = ctx.run_entrypoint(script.code, script.params) if script.params_provided else ctx.run(script.code)
             materialized_context = script.materialized_context()
             context = {"materialized_script": materialized_context} if materialized_context is not None else {}
             return {
@@ -295,19 +303,13 @@ class DccApiExecutor:
                 "output": result,
                 "context": context,
             }
-        except (FileNotFoundError, TypeError, ValueError) as exc:
-            return {
-                "success": False,
-                "message": f"Script parameters are invalid on {self._dcc_name}.",
-                "error": str(exc),
-            }
         except TimeoutError as exc:
             return {
                 "success": False,
                 "message": f"Script timed out on {self._dcc_name}.",
                 "error": str(exc),
             }
-        except RuntimeError as exc:
+        except Exception as exc:
             return {
                 "success": False,
                 "message": f"Script failed on {self._dcc_name}.",
@@ -356,8 +358,11 @@ def register_dcc_api_executor(
         f"When to use: when you need to run multiple {dcc} API calls in one round-trip "
         f"to reduce token usage (~37% reduction vs individual calls). "
         f"How to use: pass file_path when possible; inline code is materialized "
-        f"before execution unless script_materialization_policy=off. "
-        f"Scripts are sandboxed and time-limited."
+        f"before execution unless script_materialization_policy=off. Pass params "
+        f"to call a typed file-backed main(**params) entry point. "
+        f"Legacy inline scripts and typed entry points share the same sandbox and "
+        f"dispatcher capabilities. Both paths stay on the owner thread and report timeout "
+        f"overruns without leaving background DCC mutations."
     )
 
     search_schema = json_dumps(
@@ -395,6 +400,14 @@ def register_dcc_api_executor(
                 "script_path": {
                     "type": "string",
                     "description": "Deprecated alias for file_path",
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Arguments for a typed file-backed main(**params) entry point",
+                },
+                "sha256": {
+                    "type": "string",
+                    "description": "Optional expected SHA-256 digest for code or file_path",
                 },
                 "script_materialization_policy": {
                     "type": "string",

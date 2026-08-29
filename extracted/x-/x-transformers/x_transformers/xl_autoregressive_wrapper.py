@@ -449,7 +449,7 @@ class XLAutoregressiveWrapper(Module):
         if exists(self.ttt_custom_loss_module):
             assert exists(intermediates), 'intermediates must be passed to update_ttt when using ttt_custom_loss_module'
             loss_t = self.ttt_custom_loss_module(intermediates, mask = mask)
-            loss_t_per_batch = masked_mean(loss_t, mask) if loss_t.ndim > 1 else loss_t
+            loss_t_per_batch = masked_mean(loss_t, mask, dim = -1) if loss_t.ndim > 1 else loss_t
         else:
             loss_t = self.loss_fn(
                 rearrange(logits, 'b n c -> b c n'),
@@ -458,7 +458,7 @@ class XLAutoregressiveWrapper(Module):
                 reduction = 'none'
             )
 
-            loss_t_per_batch = masked_mean(loss_t, mask)
+            loss_t_per_batch = masked_mean(loss_t, mask, dim = -1)
 
         # gather all batch parameters for source modules
 
@@ -720,7 +720,7 @@ class XLAutoregressiveWrapper(Module):
                     )
 
                     mask = chunk_labels != ignore_index
-                    loss_per_batch = masked_mean(loss, mask)
+                    loss_per_batch = masked_mean(loss, mask, dim = -1)
 
                     if is_last_recurrent_step:
                         total_loss = total_loss + loss_per_batch.mean() * loss_weight

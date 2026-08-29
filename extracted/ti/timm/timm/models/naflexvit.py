@@ -20,7 +20,7 @@ import logging
 import math
 from dataclasses import dataclass, fields, replace
 from functools import partial
-from typing import Callable, Dict, List, Optional, Set, Tuple, Type, Union, Any
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, Union, Any
 
 import torch
 import torch.nn as nn
@@ -28,6 +28,7 @@ import torch.nn.functional as F
 
 from timm.data import IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
 from timm.layers import (
+    get_device_dtype,
     AttentionPoolLatent,
     Mlp,
     LayerNorm,
@@ -77,6 +78,7 @@ class NaFlexVitCfg:
     proj_bias: bool = True
     attn_drop_rate: float = 0.0
     scale_attn_inner_norm: bool = False  # Apply scaling norm to attn context
+    use_key_only_attn_mask: bool = False  # Use [B, 1, 1, N] key-only mask for self-attention
 
     # Regularization
     init_values: Optional[float] = None  # Layer-scale init values (layer-scale enabled if not None)
@@ -209,6 +211,18 @@ def calculate_naflex_grid_sizes(_coord: torch.Tensor):
     max_y = _coord[:, :, 0].amax(dim=1) + 1
     max_x = _coord[:, :, 1].amax(dim=1) + 1
     return [(int(h.item()), int(w.item())) for h, w in zip(max_y, max_x)]
+
+
+def _normalize_naflex_grid_sample_coords(
+        patch_coord: torch.Tensor,
+        ar_preserving: bool = False,
+) -> torch.Tensor:
+    """Normalize NaFlex patch coordinates for ``grid_sample`` with ``align_corners=False``."""
+    shapes = patch_coord.amax(dim=1) + 1
+    if ar_preserving:
+        shapes = shapes.amax(dim=1, keepdim=True).expand_as(shapes)
+
+    return (2.0 * patch_coord.to(dtype=torch.float32) + 1.0) / shapes[:, None, :] - 1.0
 
 
 class NaFlexRopeIterator:
@@ -481,9 +495,16 @@ class NaFlexEmbeds(nn.Module):
                 interpolation=pos_embed_interp_mode,
                 antialias=True,
                 channels_last=channels_last,
+                device=device,
             )
         else:
             self.patch_interpolator = None
+
+        self.supports_patch_interpolation = bool(
+            self.is_linear
+            and self.patch_interpolator is not None
+            and self.norm_input is None
+        )
 
         # Create normalization layer after the projection
         assert not (proj_norm_layer is True and norm_layer is None), \
@@ -530,6 +551,23 @@ class NaFlexEmbeds(nn.Module):
             nn.init.normal_(self.pos_embed_y, std=.02)
         if self.pos_embed_x is not None:
             nn.init.normal_(self.pos_embed_x, std=.02)
+
+    @torch.jit.ignore
+    def prewarm_patch_interpolator(
+            self,
+            patch_sizes: Iterable[Union[int, Tuple[int, int]]],
+    ) -> None:
+        """Precompute patch interpolation matrices on the projection device.
+
+        The cache is cleared by any subsequent ``.to()`` / dtype conversion of the model,
+        so prewarm after the model has been moved to its execution device.
+
+        Args:
+            patch_sizes: Iterable of target patch sizes to precompute.
+        """
+        if not self.supports_patch_interpolation:
+            raise RuntimeError('Patch interpolation is not supported by this embedding configuration.')
+        self.patch_interpolator.prewarm(patch_sizes, device=self.proj.weight.device)
 
     def feature_info(self, location) -> Dict[str, Any]:
         """Get feature information for feature extraction.
@@ -629,7 +667,6 @@ class NaFlexEmbeds(nn.Module):
                 pos_embed_flat[:, :seq_len].expand(len(batch_indices), -1, -1)
             )
 
-    @disable_compiler
     def _apply_learned_naflex_pos_embed_grid_sample(
             self,
             x: torch.Tensor,
@@ -637,44 +674,28 @@ class NaFlexEmbeds(nn.Module):
     ) -> None:
         """Apply learned position embeddings to NaFlex batch using grid_sample.
 
-        Uses F.grid_sample for efficient interpolation of learned 2D position embeddings
-        based on patch coordinates. Based on proposal by https://github.com/stas-sl
+        Directly samples the learned 2D position embeddings at each patch coordinate,
+        avoiding a dense grid sized by the largest height and width in the batch.
+        Based on proposal by https://github.com/stas-sl
 
         Args:
             x: Input tensor to add position embeddings to [B, N, C]
             patch_coord: Patch coordinates [B, N, 2] with (y, x) values
         """
-        device = x.device
-        B, N, C = x.shape
-        shapes = patch_coord.max(dim=1).values + 1  # (B, 2) containing [h_i, w_i]
-
-        if self.pos_embed_ar_preserving:
-            L_i = shapes.amax(dim=1)  # (B,) max(h_i, w_i)
-            L_global = L_i.amax()
-            grid_size_y = grid_size_x = L_global
-            scale_x = scale_y = L_global / L_i  # uniform zoom (B,)
-        else:
-            grid_size_y, grid_size_x = shapes.amax(dim=0)  # (2,)
-            scale_y = grid_size_y / shapes[:, 0]  # vertical zoom (B,)
-            scale_x = grid_size_x / shapes[:, 1]  # horizontal zoom (B,)
-
-        theta = torch.zeros(B, 2, 3, device=device, dtype=torch.float32)
-        theta[:, 0, 0] = scale_x
-        theta[:, 1, 1] = scale_y
-        theta[:, 0, 2] = scale_x - 1  # translate x
-        theta[:, 1, 2] = scale_y - 1  # translate y
-
-        grid = F.affine_grid(theta, (B, C, grid_size_y, grid_size_x), align_corners=False)
+        B = x.shape[0]
+        grid = _normalize_naflex_grid_sample_coords(
+            patch_coord,
+            ar_preserving=self.pos_embed_ar_preserving,
+        ).flip(-1).unsqueeze(2)  # (B, N, 1, 2), grid_sample coordinate order is (x, y)
         pos_embed = F.grid_sample(
             self.pos_embed.permute(0, 3, 1, 2).expand(B, -1, -1, -1).float(),
             grid,
             mode=self.pos_embed_interp_mode,
             align_corners=False,
             padding_mode='border',
-        ).to(dtype=x.dtype)  # (B, C, H_out, W_out)
+        ).to(dtype=x.dtype)  # (B, C, N, 1)
 
-        bi = torch.arange(B, device=device, dtype=torch.long).unsqueeze(1)
-        x += pos_embed[bi, :, patch_coord[..., 0], patch_coord[..., 1]]  # NOTE leave as '+='
+        x += pos_embed.squeeze(-1).transpose(1, 2)  # NOTE leave as '+='
 
     def _apply_learned_pos_embed(
             self,
@@ -1176,6 +1197,7 @@ class NaFlexVit(nn.Module):
         self.num_reg_tokens = cfg.reg_tokens
         self.has_class_token = cfg.class_token
         self.pool_include_prefix = cfg.pool_include_prefix
+        self.use_key_only_attn_mask = cfg.use_key_only_attn_mask
         self.grad_checkpointing = False
 
         # Initialize embedding module (includes patch, position embedding, and class/reg tokens)
@@ -1201,6 +1223,7 @@ class NaFlexVit(nn.Module):
             channels_last=getattr(cfg, 'patchify_channels_last', True),
             **dd,
         )
+        self.supports_patch_interpolation = self.embeds.supports_patch_interpolation
         self.norm_pre = norm_layer(cfg.embed_dim, **dd) if cfg.pre_norm else nn.Identity()
 
         # ROPE position embeddings at model level
@@ -1360,30 +1383,19 @@ class NaFlexVit(nn.Module):
 
     @torch.jit.ignore()
     def load_pretrained(self, checkpoint_path: str, prefix: str = '') -> None:
-        # Custom loading for the new model structure
-        from .vision_transformer import _load_weights as _orig_load_weights
-        from ._helpers import _torch_load
+        """Load model-specific weights from an original JAX/Flax NumPy checkpoint.
 
-        def _load_weights_adapter(model, checkpoint_path, prefix=''):
-            """Adapter function to handle the different model structure"""
-            state_dict = _torch_load(checkpoint_path, map_location='cpu', weights_only=True)
-            if isinstance(state_dict, dict) and 'state_dict' in state_dict:
-                state_dict = state_dict['state_dict']
+        This helper handles foreign ``.npz`` checkpoint layouts, including the
+        Big Vision SigLIP2 NaFlex checkpoints. Native PyTorch state dictionaries
+        are loaded by the generic factory/checkpoint helpers.
 
-            # Map original keys to new structure
-            for k in list(state_dict.keys()):
-                if k.startswith('cls_token'):
-                    state_dict['embeds.' + k] = state_dict.pop(k)
-                elif k.startswith('reg_token'):
-                    state_dict['embeds.' + k] = state_dict.pop(k)
-                elif k.startswith('pos_embed'):
-                    state_dict['embeds.' + k] = state_dict.pop(k)
-                elif k.startswith('patch_embed'):
-                    state_dict['embeds.' + k[12:]] = state_dict.pop(k)
+        Args:
+            checkpoint_path: Path to a NumPy checkpoint.
+            prefix: Prefix for parameter names in the checkpoint.
+        """
+        from .vision_transformer import _load_weights
 
-            return _orig_load_weights(model, state_dict, prefix)
-
-        _load_weights_adapter(self, checkpoint_path, prefix)
+        _load_weights(self, checkpoint_path, prefix)
 
     @torch.jit.ignore
     def no_weight_decay(self) -> Set:
@@ -1401,6 +1413,26 @@ class NaFlexVit(nn.Module):
     def get_patch_size(self) -> Tuple[int, int]:
         """Return the 2-tuple patch size. For NaFlex dataloader / transform wiring."""
         return self.embeds.patch_size
+
+    @torch.jit.ignore
+    def prewarm_patch_interpolator(
+            self,
+            patch_sizes: Iterable[Union[int, Tuple[int, int]]],
+    ) -> None:
+        """Precompute patch interpolation matrices before captured execution.
+
+        Useful before ``torch.compile`` so the first forward at a non-base patch size
+        does not build a cache entry inside the captured graph. The cache is cleared by
+        any subsequent ``.to()`` / dtype conversion, so prewarm after moving the model
+        to its execution device.
+
+        Args:
+            patch_sizes: Iterable of target patch sizes to precompute.
+
+        Raises:
+            RuntimeError: If this model's embedding config does not support patch interpolation.
+        """
+        self.embeds.prewarm_patch_interpolator(patch_sizes)
 
     @torch.jit.ignore
     def group_matcher(self, coarse: bool = False) -> Dict:
@@ -1513,6 +1545,7 @@ class NaFlexVit(nn.Module):
             num_classes: Number of classes for new classification head
             global_pool: Optional new global pooling type
         """
+        dd = get_device_dtype(self)
         self.num_classes = num_classes
         if global_pool is not None:
             assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map')
@@ -1521,7 +1554,8 @@ class NaFlexVit(nn.Module):
             elif global_pool != 'map' and self.attn_pool is not None:
                 self.attn_pool = None  # remove attention pooling
             self.global_pool = global_pool
-        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+        self.head = nn.Linear(self.embed_dim, num_classes, **dd) if num_classes > 0 else nn.Identity()
+        self.head.train(self.training)
 
     def _forward_embeds(
             self,
@@ -1573,6 +1607,8 @@ class NaFlexVit(nn.Module):
             attn_mask = create_attention_mask(
                 patch_valid,
                 num_prefix_tokens=self.num_prefix_tokens,
+                symmetric=not self.use_key_only_attn_mask,
+                q_len=1 if self.use_key_only_attn_mask else None,
                 dtype=x.dtype
             )
 

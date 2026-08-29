@@ -1,5 +1,5 @@
 import time
-from typing import Callable, Mapping, Optional, Set
+from typing import Callable, Mapping, Optional, Protocol, Set
 
 from ldclient.impl.dependency_tracker import DependencyTracker, KindAndKey
 from ldclient.impl.listeners import Listeners
@@ -26,11 +26,21 @@ class DataSourceUpdateSinkImpl(DataSourceUpdateSink):
 
         self.__lock = ReadWriteLock()
         self.__status = DataSourceStatus(DataSourceState.INITIALIZING, time.time(), None)
+        self.__environment_id: Optional[str] = None
 
     @property
     def status(self) -> DataSourceStatus:
         with self.__lock.read():
             return self.__status
+
+    @property
+    def environment_id(self) -> Optional[str]:
+        with self.__lock.read():
+            return self.__environment_id
+
+    def set_environment_id(self, environment_id: str) -> None:
+        with self.__lock.write():
+            self.__environment_id = environment_id
 
     def init(self, all_data: Mapping[VersionedDataKind, Mapping[str, dict]]):
         old_data = None
@@ -132,8 +142,17 @@ class DataSourceUpdateSinkImpl(DataSourceUpdateSink):
         return affected_items
 
 
+class _DataSourceStatusSource(Protocol):
+    """The status property a status provider reads from its update sink;
+    satisfied by both the sync and async sink implementations."""
+
+    @property
+    def status(self) -> DataSourceStatus:
+        ...
+
+
 class DataSourceStatusProviderImpl(DataSourceStatusProvider):
-    def __init__(self, listeners: Listeners, update_sink: DataSourceUpdateSinkImpl):
+    def __init__(self, listeners: Listeners, update_sink: _DataSourceStatusSource):
         self.__listeners = listeners
         self.__update_sink = update_sink
 

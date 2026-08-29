@@ -614,30 +614,45 @@ async def poll_trace_otel_data_available(
             as any span is available.
     """
     start_time = asyncio.get_event_loop().time()
+    last_seen_span_names: list[str] = []
+    polls_with_spans = 0
+    last_status_error: str | None = None
 
     while True:
         try:
             response = await client.get(f"/v1/workflows/executions/{execution_id}/trace/otel")
             response.raise_for_status()
+            last_status_error = None
 
             trace_data = response.json()
             spans = _extract_otel_spans(trace_data)
+            span_names = [span.get("name", "") for span in spans]
+            if spans:
+                last_seen_span_names = span_names
+                polls_with_spans += 1
 
             if not required_span_prefixes:
                 if spans:
                     return cast(dict[str, Any], trace_data)
-            else:
-                span_names = [span.get("name", "") for span in spans]
-                if all(any(name.startswith(prefix) for name in span_names) for prefix in required_span_prefixes):
-                    return cast(dict[str, Any], trace_data)
-        except httpx.HTTPStatusError:
-            pass
+            elif all(any(name.startswith(prefix) for name in span_names) for prefix in required_span_prefixes):
+                return cast(dict[str, Any], trace_data)
+        except httpx.HTTPStatusError as exc:
+            last_status_error = f"{exc.response.status_code} on last poll"
 
         elapsed = asyncio.get_event_loop().time() - start_time
         if elapsed > timeout:
             waiting_for = f" (waiting for span prefixes: {required_span_prefixes})" if required_span_prefixes else ""
+            if last_seen_span_names:
+                progress = (
+                    f" Last saw {len(last_seen_span_names)} span(s) across {polls_with_spans} poll(s): "
+                    f"{sorted(last_seen_span_names)}."
+                )
+            else:
+                progress = " No spans ever appeared during polling."
+            if last_status_error is not None:
+                progress += f" Last HTTP error: {last_status_error}."
             raise TimeoutError(
-                f"OTEL trace data not available for execution {execution_id} after {timeout}s{waiting_for}"
+                f"OTEL trace data not available for execution {execution_id} after {timeout}s{waiting_for}.{progress}"
             )
 
         await asyncio.sleep(poll_interval)

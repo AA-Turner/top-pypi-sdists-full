@@ -85,6 +85,7 @@ class MistralCompletionConfig(CompletionConfigBase):
     type: Literal["mistral"] = "mistral"
     model: str = "mistral-small-latest"
     api_key_env_var: str = "MISTRAL_CLIENT_API_KEY"
+    base_url_env_var: str = "MISTRAL_BASE_URL"
     prompt_cache_key: str | None = None
     base_url: Annotated[str, StringConstraints(strip_whitespace=True)] | None = None
     reasoning_effort: str | None = None
@@ -96,6 +97,8 @@ class MistralCompletionConfig(CompletionConfigBase):
             msg = f"Required environment variable is not set: {self.api_key_env_var}"
             raise KeyError(msg)
 
+        base_url = self.base_url or os.environ.get(self.base_url_env_var, "").strip() or None
+
         from mistralai.vibe.sdk.providers.completion.adapters.mistral import (
             MistralCompletion,
         )
@@ -105,7 +108,7 @@ class MistralCompletionConfig(CompletionConfigBase):
             model=self.model,
             prompt_cache_key=self.prompt_cache_key,
             reasoning_effort=self.reasoning_effort,
-            server_url=self.base_url,
+            server_url=base_url,
         )
 
 

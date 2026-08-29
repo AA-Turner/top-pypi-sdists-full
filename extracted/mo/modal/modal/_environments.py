@@ -39,6 +39,7 @@ class _EnvironmentManager:
         name: str,  # Name to use for the new Environment
         *,
         restricted: bool = False,  # If True, enable RBAC restrictions on the Environment
+        default_role: str | None = None,  # Default member Role for the Restricted Environment
         experimental_options: dict[str, Any] | None = None,  # Experimental options for Environment creation
         client: _Client | None = None,  # Optional client with Modal credentials
     ) -> None:
@@ -51,8 +52,11 @@ class _EnvironmentManager:
         ```
         """
         check_environment_name(name)
+
         client = await _Client.from_env() if client is None else client
         request = api_pb2.EnvironmentCreateRequest(name=name, is_managed=restricted)
+        if default_role:
+            request.default_member_role_str = default_role
         if (experimental_options or {}).get("is_public", False):
             request.environment_type = api_pb2.ENVIRONMENT_TYPE_PUBLIC
         await client.stub.EnvironmentCreate(request)
@@ -116,8 +120,11 @@ class _EnvironmentRolesManager:
         """mdmd:hidden"""
         self._environment = environment
 
-    async def list(self) -> dict[Literal["users", "service_users"], dict[str, str]]:
+    async def list(self, *, exclude_default: bool = False) -> dict[Literal["users", "service_users"], dict[str, str]]:
         """Enumerate the Environment Role for each user and service user in the workspace.
+
+        Args:
+            exclude_default: If `True`, only include roles that are directly assigned.
 
         **Examples:**
 
@@ -137,6 +144,8 @@ class _EnvironmentRolesManager:
         users: dict[str, str] = {}
         service_users: dict[str, str] = {}
         for principal in resp.principal_roles:
+            if exclude_default and not principal.has_role_assignment:
+                continue
             if principal.user_id:
                 users[principal.user_name] = principal.role_str
             elif principal.service_user_id:
@@ -252,8 +261,8 @@ class _EnvironmentMembersManager:
         """Remove the Environment Role of users and service users, reverting them to the default."""
         deprecation_warning(
             (2026, 7, 23),
-            "`Environment.members.remove()` is deprecated. Environment Roles are now explicit; "
-            "set a role (e.g. 'no-access') with `Environment.roles.update()` instead.",
+            "`Environment.members.remove()` is deprecated; assign a role (e.g. 'no-access') with "
+            "`Environment.roles.update()` instead.",
         )
         await self._environment.hydrate()
         users = users or []
@@ -469,7 +478,7 @@ class _EnvironmentBillingManager:
         elif end.tzinfo != timezone.utc:
             raise InvalidError("Timezone-aware 'end' parameter must be in UTC.")
 
-        if not self._environment.is_hydrated:
+        if not self._environment._is_hydrated:
             await self._environment.hydrate()
 
         request = api_pb2.WorkspaceBillingReportRequest(
@@ -540,7 +549,7 @@ class _EnvironmentBillingManager:
         if cycle > datetime.now(timezone.utc):
             raise InvalidError("Provided 'cycle' parameter cannot be in the future.")
 
-        if not self._environment.is_hydrated:
+        if not self._environment._is_hydrated:
             await self._environment.hydrate()
 
         request = api_pb2.EnvironmentBillingSummaryRequest(environment_id=self._environment.object_id)

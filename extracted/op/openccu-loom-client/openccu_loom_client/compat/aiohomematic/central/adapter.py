@@ -124,6 +124,13 @@ _CREATE_BACKUP_POLL_ATTEMPTS: Final = 120
 # coarse — ~70x slower than the retired 30 s poll.
 _HUB_RECONCILE_INTERVAL: Final = 300
 
+# How long a dropped WS connection must stay down before the central is
+# reported Degraded. The transport's first reconnect attempt is 0.5 s away and
+# most drops are over well inside this window, so reporting immediately would
+# announce a pair of state transitions for an outage nothing could act on.
+# Coming back is never delayed — see _on_connection_state_changed.
+_DEGRADED_GRACE_SECONDS: Final = 15.0
+
 # Channel types owning a device's weekly program end in this suffix.
 _WEEK_PROFILE_CHANNEL_SUFFIX: Final = "WEEK_PROFILE"
 
@@ -614,10 +621,20 @@ def _to_alarm_message(*, message: Any) -> AlarmMessageData:
 
 
 def _to_inbox_device(*, entry: Any) -> InboxDeviceData:
-    """Convert a daemon inbox entry into aiohomematic's ``InboxDeviceData``."""
+    """
+    Convert a daemon inbox entry into aiohomematic's ``InboxDeviceData``.
+
+    ``awaiting_release`` is carried through because the two states share one
+    listing: an entry flagged here is already accepted and needs a *release*,
+    while the rest are waiting for an *accept*. Dropping the flag left a
+    consumer with one action for both, and for half of them it was the wrong
+    one. Absent on a daemon older than 0.66.0, where the state does not exist
+    and ``False`` is the truth rather than a placeholder.
+    """
     data = _as_dict(entry=entry)
     address = data.get("address") or ""
     return InboxDeviceData(
+        awaiting_release=bool(data.get("awaiting_release")),
         # The daemon's inbox DTO carries no ise_id; the serial is the stable
         # identity it does ship (the address is the fallback).
         device_id=data.get("serial") or address,
@@ -660,6 +677,24 @@ class _JsonRpcClient:
     async def accept_device_in_inbox(self, *, device_address: str) -> bool:
         """Accept a device out of the inbox. The transport raises on refusal, so reaching the return means success."""
         await self._client.devices.accept_device(address=device_address)
+        return True
+
+    async def release_device_in_inbox(self, *, device_address: str) -> bool:
+        """
+        Finish onboarding an accepted device so it may be adopted.
+
+        The second half of the wizard, and the action an entry with
+        ``awaiting_release`` needs — offering *accept* for one of those asks an
+        operator to accept a device that is already accepted.
+
+        The transport raises on refusal, so reaching the return means success.
+        A 404 means nothing withholds the address any more (released already,
+        or it never went through the wizard) and surfaces as
+        :class:`LoomNotFoundError`, which is inside the aiohomematic exception
+        hierarchy and therefore renders as a typed error rather than a generic
+        failure.
+        """
+        await self._client.devices.release_device(address=device_address)
         return True
 
     async def acknowledge_message(self, *, message_id: str) -> bool:
@@ -1026,6 +1061,9 @@ class LoomCentralAdapter:
         # the live keys match the one-time HA registry migration.
         self._serial = serial
         self._state: CentralState = CentralState.Stopped
+        # Pending "report the disconnect" timer; cancelled by a reconnect
+        # inside the grace window and by stop().
+        self._degraded_task: asyncio.Task[None] | None = None
         self._system_information = make_system_information()
         # Make the store build categorised Dp* / CustomDp* instances so
         # HA-side isinstance dispatch works on the live objects. Must be
@@ -1328,13 +1366,46 @@ class LoomCentralAdapter:
         every entity to unavailable on a five-second reconnect would be worse
         than the staleness it reports.
 
+        A disconnect is reported only after :data:`_DEGRADED_GRACE_SECONDS` of
+        staying down, because most of them do not last: the transport's first
+        retry is 0.5 s away and a flap is over before anything above could act
+        on it. Announcing every one costs more than it tells — a consumer that
+        renders the transition (``homematicip_local`` fires a bus event on the
+        way back to Running, which automations can subscribe to) would see a
+        pair of transitions for an outage nobody noticed. Reconnecting inside
+        the window cancels the pending report, so the state never moves.
+
+        Coming back is announced immediately: staleness ending is news the
+        moment it happens, and by then the connection has proven itself.
+
         Never overrides a terminal state: once ``stop()`` has run, a late
         transition from the transport winding down must not resurrect the
         central into Running.
         """
         if self._state in (CentralState.Stopped, CentralState.Failed):
             return
-        new_state = CentralState.Running if event.connected else CentralState.Degraded
+        # Any transition supersedes a pending one: a reconnect inside the grace
+        # window must cancel the disconnect report rather than race it.
+        if (pending := self._degraded_task) is not None and not pending.done():
+            pending.cancel()
+            self._degraded_task = None
+        if not event.connected:
+            self._degraded_task = asyncio.create_task(self._degrade_after_grace(), name="loom-degrade-after-grace")
+            return
+        await self._apply_connection_state(connected=True)
+
+    async def _degrade_after_grace(self) -> None:
+        """Report the disconnect once it has outlived the grace window."""
+        # A reconnect inside the window cancels this task, so CancelledError
+        # propagating is the normal path out — the state simply never moves.
+        await asyncio.sleep(_DEGRADED_GRACE_SECONDS)
+        if self._state in (CentralState.Stopped, CentralState.Failed):
+            return
+        await self._apply_connection_state(connected=False)
+
+    async def _apply_connection_state(self, *, connected: bool) -> None:
+        """Move the lifecycle state and tell HA, if this is actually a change."""
+        new_state = CentralState.Running if connected else CentralState.Degraded
         if new_state is self._state:
             return
         old_state = self._state
@@ -1344,12 +1415,12 @@ class LoomCentralAdapter:
             self._name,
             old_state,
             new_state,
-            "connected" if event.connected else "disconnected",
+            "connected" if connected else "disconnected",
         )
         # The daemon-connection sensor mirrors the same fact, and a killed
         # daemon sends no daemon_status.changed to move it — this is the only
         # thing that does.
-        for dp in self.hub_coordinator._apply_daemon_connection(connected=event.connected):
+        for dp in self.hub_coordinator._apply_daemon_connection(connected=connected):
             await self._ha_bus.publish(
                 event=AioDataPointStateChangedEvent(
                     timestamp=datetime.now(tz=UTC), unique_id=dp.unique_id, new_value=dp.value
@@ -1699,6 +1770,9 @@ class LoomCentralAdapter:
             self._refresh_group.cancel()
             self._refresh_group = None
         self._looper.cancel_tasks()
+        if (pending := self._degraded_task) is not None and not pending.done():
+            pending.cancel()
+        self._degraded_task = None
         self._client.set_rebootstrap_hook(None)
         await self._client.close()
         self._state = CentralState.Stopped

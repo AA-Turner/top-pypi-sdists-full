@@ -27,6 +27,7 @@ class TestEnvVarsFromModels:
         assert "CA_BUNDLE" in vars_
         assert "TEMPORAL_SERVER_URL" in vars_
         assert "KUBERNETES_SERVICE_HOST" in vars_
+        assert "MAX_CONCURRENT_ACTIVITIES" in vars_
 
 
 class TestPrintConfig:
@@ -39,6 +40,7 @@ class TestPrintConfig:
         assert "deployment_name" in output
         assert "task_queue" in output
         assert "_effective_task_queue" in output
+        assert "max_concurrent_activities" in output
 
     def test_secret_values_are_redacted(self, capsys, monkeypatch):
         monkeypatch.setenv("MISTRAL_API_KEY", "super-secret-value")
@@ -48,6 +50,19 @@ class TestPrintConfig:
         output = capsys.readouterr().out
         assert "super-secret-value" not in output
         assert "***" in output
+
+    def test_proxy_credentials_are_redacted(self, capsys):
+        from mistralai.workflows.core.config.config import AppConfig
+
+        cfg = AppConfig()
+        cfg.http.proxy = "http://user:S3cret@corp-proxy:3128"
+        cfg.http.routes = {"all://*.eu.corp": {"proxy": "http://ruser:rpass@eu-proxy:3128"}}
+
+        _print_config(cfg)
+        output = capsys.readouterr().out
+        assert "S3cret" not in output
+        assert "rpass" not in output
+        assert "http://***@corp-proxy:3128" in output
 
 
 class TestPrintEnvVars:

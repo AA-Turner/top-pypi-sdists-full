@@ -12,7 +12,9 @@ import sys
 import unittest
 
 import onesignal
+from onesignal.model.email_warm_up import EmailWarmUp
 from onesignal.model.platform_delivery_data import PlatformDeliveryData
+globals()['EmailWarmUp'] = EmailWarmUp
 globals()['PlatformDeliveryData'] = PlatformDeliveryData
 from onesignal.model.notification_with_meta_all_of import NotificationWithMetaAllOf
 

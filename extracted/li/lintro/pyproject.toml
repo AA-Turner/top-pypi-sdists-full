@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lintro"
-version = "0.132.0"
+version = "0.135.1"
 description = "A unified CLI tool for code formatting, linting, and quality assurance"
 keywords = [
   "linting",
@@ -44,6 +44,7 @@ dependencies = [
   "httpx>=0.28.1",
   "defusedxml>=0.7.1",
   "identify>=2.6.19",
+  "watchdog>=6.0.0",
 ]
 authors = [{ name = "lgtm-hq", email = "turbocoder13@gmail.com" }]
 license = "MIT"
@@ -175,6 +176,7 @@ packages = [
   "lintro.parsers.cargo_audit",
   "lintro.parsers.cargo_deny",
   "lintro.parsers.clippy",
+  "lintro.parsers.buf",
   "lintro.parsers.commitlint",
   "lintro.parsers.dotenv_linter",
   "lintro.parsers.gitleaks",
@@ -209,6 +211,7 @@ packages = [
   "lintro.parsers.vale",
   "lintro.parsers.vue_tsc",
   "lintro.plugins",
+  "lintro.profiling",
   "lintro.tools",
   "lintro.tools.core",
   "lintro.tools.core.install_strategies",
@@ -223,6 +226,7 @@ packages = [
   "lintro.utils.execution",
   "lintro.utils.output",
   "lintro.utils.output.sarif",
+  "lintro.watch",
 ]
 
 [tool.setuptools.package-data]

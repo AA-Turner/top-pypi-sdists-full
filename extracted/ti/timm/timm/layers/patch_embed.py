@@ -10,7 +10,7 @@ Hacked together by / Copyright 2020 Ross Wightman
 """
 import logging
 import math
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch import nn as nn
@@ -347,13 +347,15 @@ class PatchEmbedResamplerFixedOrigSize(nn.Module):
             self,
             orig_size: Tuple[int, int],
             interpolation: str = 'bicubic',
-            antialias: bool = True
+            antialias: bool = True,
+            device=None,
     ):
         """
         Args:
             orig_size (Tuple[int, int]): The expected original (height, width) of input patch_embed tensors.
             interpolation (str): Interpolation mode.
             antialias (bool): Use anti-aliasing filter in resize.
+            device: Device used for cache prewarming before the first forward.
         """
         super().__init__()
         assert isinstance(orig_size, tuple) and len(orig_size) == 2, \
@@ -361,8 +363,22 @@ class PatchEmbedResamplerFixedOrigSize(nn.Module):
         self.orig_size = orig_size # expected original size
         self.interpolation = interpolation
         self.antialias = antialias
-        # Cache map key is the target new_size tuple
-        self._pinv_cache_map: Dict[Tuple[int, int], str] = {}
+        # Runtime-only cache. Keep matrices out of module buffers so DDP does
+        # not broadcast derived data on every forward. DataParallel replicas
+        # shallow-share regular Python attributes, so include device and dtype
+        # in the key to retain each replica's matrix independently.
+        self._pinv_cache_map: Dict[
+            Tuple[Tuple[int, int], torch.device, torch.dtype],
+            torch.Tensor,
+        ] = {}
+        # Tracks the module device before any matrices have been cached. The
+        # anchor and cached matrices are derived state and do not belong in a
+        # checkpoint.
+        self.register_buffer(
+            '_cache_device_anchor',
+            torch.empty(0, dtype=torch.uint8, device=device),
+            persistent=False,
+        )
 
     def _get_or_create_pinv_matrix(
             self,
@@ -370,29 +386,64 @@ class PatchEmbedResamplerFixedOrigSize(nn.Module):
             device: torch.device,
             dtype: torch.dtype = DTYPE_INTERMEDIATE
     ) -> torch.Tensor:
-        """Retrieves the cached pinv matrix or computes and caches it for the given new_size."""
-        cache_key = new_size
-        buffer_name = self._pinv_cache_map.get(cache_key)
-
-        if buffer_name and hasattr(self, buffer_name):
-            pinv_matrix = getattr(self, buffer_name)
-            if pinv_matrix.device == device and pinv_matrix.dtype == dtype:
-                 return pinv_matrix
+        """Retrieves or computes the cached pinv matrix for a target size, device, and dtype."""
+        cache_key = (new_size, device, dtype)
+        pinv_matrix = self._pinv_cache_map.get(cache_key)
+        if pinv_matrix is not None:
+            return pinv_matrix
 
         # Calculate the matrix if not cached or needs update
-        resize_mat = _compute_resize_matrix(
-            self.orig_size, new_size, self.interpolation, self.antialias, device, dtype
-        )
-        pinv_matrix = torch.linalg.pinv(resize_mat)  # Calculates the pseudoinverse matrix used for resampling
+        # Always cache a regular float32 tensor so it remains usable if an
+        # inference forward is followed by training and backward, and so an
+        # autocast miss does not poison subsequent cache lookups with a lower
+        # precision matrix.
+        with torch.inference_mode(False), torch.autocast(device_type=device.type, enabled=False):
+            resize_mat = _compute_resize_matrix(
+                self.orig_size, new_size, self.interpolation, self.antialias, device, dtype
+            )
+            pinv_matrix = torch.linalg.pinv(resize_mat)  # Calculates the pseudoinverse matrix used for resampling
 
-        # Cache using register_buffer
-        buffer_name = f"pinv_{new_size[0]}x{new_size[1]}"
-        if hasattr(self, buffer_name):
-             delattr(self, buffer_name)
-        self.register_buffer(buffer_name, pinv_matrix)
-        self._pinv_cache_map[cache_key] = buffer_name # Map new_size key to buffer name
+        self._pinv_cache_map[cache_key] = pinv_matrix
 
         return pinv_matrix
+
+    def _apply(self, fn, recurse: bool = True):
+        # Cached tensors are not registered buffers. Drop them when the module
+        # moves device or dtype so stale allocations cannot be retained.
+        self._pinv_cache_map.clear()
+        # Accept recurse for newer PyTorch callers, but do not forward it since
+        # older supported PyTorch versions do not have that Module._apply arg.
+        # This module has no children, so recurse does not affect its behavior.
+        return super()._apply(fn)
+
+    def prewarm(
+            self,
+            new_sizes: Iterable[Union[int, Tuple[int, int]]],
+            device: Optional[Union[str, torch.device]] = None,
+    ) -> None:
+        """Precompute resampling matrices for a collection of target sizes.
+
+        Prewarming is useful before ``torch.compile`` or other captured execution,
+        where creating a new cache entry during the first forward is undesirable.
+
+        The cache is cleared by any ``.to()`` / ``.cuda()`` / dtype conversion of this
+        module, so prewarm after the model has been moved to its execution device.
+
+        Args:
+            new_sizes: Iterable of target patch sizes.
+            device: Device on which to build the cache. Defaults to this module's
+                current device.
+        """
+        if device is not None:
+            # Resolve index-less or aliased devices (for example ``cuda`` or ``cpu:0``)
+            # to the concrete device reported by tensors used during forward.
+            device = torch.empty(0, device=torch.device(device)).device
+        else:
+            device = self._cache_device_anchor.device
+        for new_size in new_sizes:
+            new_size = to_2tuple(new_size)
+            if new_size != self.orig_size:
+                self._get_or_create_pinv_matrix(new_size, device)
 
     def forward(self, patch_embed: torch.Tensor, new_size: List[int]) -> torch.Tensor:
         """ Resamples the patch embedding weights to new_size.
@@ -446,6 +497,7 @@ class PatchEmbedInterpolator(nn.Module):
         antialias: Whether to use antialiasing during interpolation
         channels_last: Per-patch flat layout of the linear weight / patches:
             True -> (ph, pw, C) [NaFlex default], False -> (C, ph, pw).
+        device: Device used for cache prewarming before the first forward.
     """
 
     def __init__(
@@ -456,6 +508,7 @@ class PatchEmbedInterpolator(nn.Module):
             interpolation: str = 'bicubic',
             antialias: bool = True,
             channels_last: bool = True,
+            device=None,
     ):
         super().__init__()
         self.base_patch_size = base_patch_size
@@ -464,6 +517,29 @@ class PatchEmbedInterpolator(nn.Module):
         self.interpolation = interpolation
         self.antialias = antialias
         self.channels_last = channels_last
+        self.resampler = PatchEmbedResamplerFixedOrigSize(
+            orig_size=base_patch_size,
+            interpolation=interpolation,
+            antialias=antialias,
+            device=device,
+        )
+
+    def prewarm(
+            self,
+            target_patch_sizes: Iterable[Union[int, Tuple[int, int]]],
+            device: Optional[Union[str, torch.device]] = None,
+    ) -> None:
+        """Precompute interpolation matrices for target patch sizes.
+
+        The cache is cleared by any ``.to()`` / ``.cuda()`` / dtype conversion of this
+        module, so prewarm after the model has been moved to its execution device.
+
+        Args:
+            target_patch_sizes: Iterable of target patch sizes.
+            device: Device on which to build the cache. Defaults to this module's
+                current device.
+        """
+        self.resampler.prewarm(target_patch_sizes, device=device)
 
     def resample_linear_weight(
             self,
@@ -493,14 +569,8 @@ class PatchEmbedInterpolator(nn.Module):
         else:
             weight_conv = weight.reshape(embed_dim, self.in_chans, base_ph, base_pw)
 
-        # Resample using existing function (operates on [out, in, h, w], layout-agnostic)
-        weight_conv_resampled = resample_patch_embed(
-            weight_conv,
-            new_size=[target_ph, target_pw],
-            interpolation=self.interpolation,
-            antialias=self.antialias,
-            verbose=False,
-        )
+        # Resample spatial dimensions with the shared pseudoinverse cache.
+        weight_conv_resampled = self.resampler(weight_conv, [target_ph, target_pw])
 
         # Reshape back to linear format [embed_dim, ph*pw*C] in the same channel order.
         if self.channels_last:
@@ -527,14 +597,7 @@ class PatchEmbedInterpolator(nn.Module):
         if target_patch_size == self.base_patch_size:
             return weight
 
-        # Resample using existing function
-        weight_resampled = resample_patch_embed(
-            weight,
-            new_size=list(target_patch_size),
-            interpolation=self.interpolation,
-            antialias=self.antialias,
-            verbose=False,
-        )
+        weight_resampled = self.resampler(weight, list(target_patch_size))
 
         return weight_resampled
 

@@ -7,7 +7,7 @@ from urllib.parse import unquote, urlsplit
 
 import js
 
-from workers import Context, Request
+from workers import Context, Request, WorkerEntrypoint
 
 logger = logging.getLogger("wsgi")
 NULL_BODY_STATUSES = frozenset({101, 103, 204, 205, 304})
@@ -262,8 +262,9 @@ def _make_streaming_response(
             for proxy in proxies:
                 proxy.destroy()
 
+    # Make proxies async so that it is possible to stack switch inside them.
     @create_proxy
-    def pull(controller: Any) -> None:
+    async def pull(controller: Any) -> None:
         try:
             chunk = next(chunks, _END)
         except Exception as exc:  # noqa: BLE001 - forward app errors to the stream
@@ -278,7 +279,7 @@ def _make_streaming_response(
         controller.enqueue(_to_js_uint8array(chunk))
 
     @create_proxy
-    def cancel(_reason: Any = None) -> None:
+    async def cancel(_reason: Any = None) -> None:
         cleanup()
 
     proxies = [pull, cancel]
@@ -378,3 +379,13 @@ async def fetch(
     except Exception:
         logger.exception("WSGI request failed")
         raise
+
+
+def entrypoint(app: Any) -> type[WorkerEntrypoint]:
+    """Create the default Worker entrypoint for a WSGI application."""
+
+    class Default(WorkerEntrypoint):
+        async def fetch(self, request):
+            return await fetch(app, request, self.env)
+
+    return Default

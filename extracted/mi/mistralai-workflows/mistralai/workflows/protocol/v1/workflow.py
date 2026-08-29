@@ -489,6 +489,10 @@ class WorkflowExecutionRequest(BaseModel):
 
 class WorkflowExecutionResponse(WorkflowExecutionWithoutResultResponse):
     result: Any | None = Field(description="The result of the workflow execution, if available")
+    search_keys: dict[str, str] | None = Field(
+        default=None,
+        description="The execution's search keys (metadata), if requested via include_search_keys.",
+    )
 
 
 WorkflowRunResponse = WorkflowExecutionResponse

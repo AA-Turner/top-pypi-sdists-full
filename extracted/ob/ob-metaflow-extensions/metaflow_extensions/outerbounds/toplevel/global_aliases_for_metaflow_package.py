@@ -139,6 +139,7 @@ from ..plugins.aws import assume_role
 from . import ob_internal
 from ..plugins.apps.core.app_deploy_decorator import app_deploy
 from ..plugins.anaconda_models import anaconda_models
+from ..plugins.llamacpp import llamacpp
 from . import apps
 
 # persist perimeter into current
