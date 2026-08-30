@@ -513,7 +513,8 @@ class StdlibChecker(DeprecatedMixin, BaseChecker):
             "The first argument of assertTrue and assertFalse is "
             "a condition. If a constant is passed as parameter, that "
             "condition will be always true. In this case a warning "
-            "should be emitted.",
+            "should be emitted. The same applies to assertEqual and "
+            "assertNotEqual when both compared values are constants.",
         ),
         "W1506": (
             "threading.Thread needs the target function",
@@ -820,15 +821,27 @@ class StdlibChecker(DeprecatedMixin, BaseChecker):
             )
 
     def _check_redundant_assert(self, node: nodes.Call, infer: InferenceResult) -> None:
+        if not isinstance(infer, astroid.BoundMethod):
+            return
         if (
-            isinstance(infer, astroid.BoundMethod)
-            and node.args
+            node.args
             and isinstance(node.args[0], nodes.Const)
             and infer.name in {"assertTrue", "assertFalse"}
         ):
             self.add_message(
                 "redundant-unittest-assert",
                 args=(infer.name, node.args[0].value),
+                node=node,
+            )
+        elif (
+            len(node.args) > 1
+            and isinstance(node.args[0], nodes.Const)
+            and isinstance(node.args[1], nodes.Const)
+            and infer.name in {"assertEqual", "assertNotEqual"}
+        ):
+            self.add_message(
+                "redundant-unittest-assert",
+                args=(infer.name, (node.args[0].value, node.args[1].value)),
                 node=node,
             )
 
@@ -866,19 +879,18 @@ class StdlibChecker(DeprecatedMixin, BaseChecker):
 
         if mode_arg:
             mode_arg = utils.safe_infer(mode_arg)
-            if (
-                func_name in OPEN_FILES_MODE
-                and isinstance(mode_arg, nodes.Const)
-                and not _check_mode_str(mode_arg.value)
-            ):
-                self.add_message(
-                    "bad-open-mode",
-                    node=node,
-                    # avoid a boolean context on the constant ``bool(NotImplemented)``
-                    # raises a TypeError on Python >= 3.14
-                    args=str(mode_arg.value),
-                    confidence=confidence,
-                )
+            if func_name in OPEN_FILES_MODE:
+                if not isinstance(mode_arg, nodes.Const):
+                    return  # mode may be binary - don't guess
+                if not _check_mode_str(mode_arg.value):
+                    self.add_message(
+                        "bad-open-mode",
+                        node=node,
+                        # avoid a boolean context on the constant ``bool(NotImplemented)``
+                        # raises a TypeError on Python >= 3.14
+                        args=str(mode_arg.value),
+                        confidence=confidence,
+                    )
 
         if not mode_arg or (
             isinstance(mode_arg, nodes.Const) and "b" not in str(mode_arg.value)

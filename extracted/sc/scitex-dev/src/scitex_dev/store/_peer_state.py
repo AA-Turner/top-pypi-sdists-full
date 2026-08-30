@@ -86,6 +86,12 @@ class PeerState:
         wanted: dict[str, set[str]] = {}
         for index, table, _column in self.dialect.index_specs(schema):
             wanted.setdefault(table, set()).add(index)
+        # Full-text indexes are built by their own DDL rather than the
+        # uniform CREATE INDEX above, but they are still objects create_sql
+        # builds — so a store missing one must still be repaired, and a
+        # store that has them must not have create_sql re-run for nothing.
+        for index, table, _ddl in self.dialect.text_index_specs(schema):
+            wanted.setdefault(table, set()).add(index)
         for table, names in wanted.items():
             if not names <= self._first_column_values(self.dialect.indexes_sql(table)):
                 return True
@@ -94,9 +100,9 @@ class PeerState:
     def _first_column_values(self, sql: str) -> set[str]:
         """Run ``sql`` and collect the FIRST column of every row.
 
-        SQLite and Postgres disagree on what that column is called in each of
-        these catalogue queries, so it is taken positionally by key — the same
-        trick, and the same precedent, as the column read below.
+        The catalogue queries do not agree on what that column is called,
+        so it is taken positionally by key — the same trick, and the same
+        precedent, as the column read below.
         """
         return {
             str(row[list(row.keys())[0]])
@@ -118,8 +124,8 @@ class PeerState:
         this runs on every open.
         """
         for table, column, coltype, default in self.dialect.additive_columns(schema):
-            # SQLite's PRAGMA says `name`; Postgres's information_schema
-            # says `column_name` — neither is portable, so the shared helper
+            # `information_schema` says `column_name`, and a catalogue
+            # column name is not something to hard-code, so the shared helper
             # takes the first value via its key (precedent: system_identifier).
             existing = self._first_column_values(self.dialect.columns_sql(table))
             if not existing or column in existing:

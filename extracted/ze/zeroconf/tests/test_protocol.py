@@ -7,8 +7,6 @@ import logging
 import os
 import pickle
 import socket
-import struct
-import unittest.mock
 from typing import cast
 
 import pytest
@@ -18,7 +16,7 @@ from zeroconf import DNSHinfo, DNSIncoming, DNSText, const, current_time_millis
 from zeroconf._logger import _MAX_SEEN_LOGS
 from zeroconf._protocol import incoming as _incoming_module
 
-from . import has_working_ipv6
+from . import add_question_batch, has_working_ipv6
 
 log = logging.getLogger("zeroconf")
 original_logging_level = logging.NOTSET
@@ -35,514 +33,493 @@ def teardown_module():
         log.setLevel(original_logging_level)
 
 
-class PacketGeneration(unittest.TestCase):
-    def test_parse_own_packet_simple(self):
-        generated = r.DNSOutgoing(0)
-        r.DNSIncoming(generated.packets()[0])
+@pytest.mark.parametrize("multicast", [True, False])
+def test_empty_message_roundtrips(multicast):
+    out = r.DNSOutgoing(0, multicast)
+    assert r.DNSIncoming(out.packets()[0]).valid
 
-    def test_parse_own_packet_simple_unicast(self):
-        generated = r.DNSOutgoing(0, False)
-        r.DNSIncoming(generated.packets()[0])
 
-    def test_parse_own_packet_flags(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        r.DNSIncoming(generated.packets()[0])
+@pytest.mark.parametrize(
+    ("flags", "wire_flags"),
+    [(const._FLAGS_QR_QUERY, 0x0000), (const._FLAGS_QR_RESPONSE, 0x8000)],
+)
+def test_header_carries_the_flag_bits(flags, wire_flags):
+    packet = r.DNSOutgoing(flags).packets()[0]
+    assert int.from_bytes(packet[2:4], "big") == wire_flags
+    assert r.DNSIncoming(packet).valid
 
-    def test_parse_own_packet_question(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        generated.add_question(r.DNSQuestion("testname.local.", const._TYPE_SRV, const._CLASS_IN))
-        r.DNSIncoming(generated.packets()[0])
 
-    def test_parse_own_packet_nsec(self):
-        answer = r.DNSNsec(
-            "eufy HomeBase2-2464._hap._tcp.local.",
-            const._TYPE_NSEC,
+def test_multicast_header_id_is_zero():
+    """RFC 6762 section 18.1: multicast DNS messages carry id 0."""
+    packet = r.DNSOutgoing(const._FLAGS_QR_QUERY).packets()[0]
+    assert int.from_bytes(packet[:2], "big") == 0
+
+
+@pytest.mark.parametrize("question_count", [0, 10])
+def test_section_counts_reflect_the_content(question_count):
+    out = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    for i in range(question_count):
+        out.add_question(r.DNSQuestion(f"probe-{i}.local.", const._TYPE_SRV, const._CLASS_IN))
+    packet = out.packets()[0]
+    counts = [int.from_bytes(packet[o : o + 2], "big") for o in (4, 6, 8, 10)]
+    assert counts == [question_count, 0, 0, 0]
+
+
+def test_parsed_question_equals_the_original():
+    probe = r.DNSQuestion("echo-check._http._tcp.local.", const._TYPE_PTR, const._CLASS_IN)
+    out = r.DNSOutgoing(const._FLAGS_QR_QUERY)
+    out.add_question(probe)
+    parsed = r.DNSIncoming(out.packets()[0])
+    assert [probe] == parsed.questions
+
+
+def test_parse_own_packet_nsec():
+    answer = r.DNSNsec(
+        "eufy HomeBase2-2464._hap._tcp.local.",
+        const._TYPE_NSEC,
+        const._CLASS_IN | const._CLASS_UNIQUE,
+        const._DNS_OTHER_TTL,
+        "eufy HomeBase2-2464._hap._tcp.local.",
+        [const._TYPE_TXT, const._TYPE_SRV],
+    )
+
+    generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    generated.add_answer_at_time(answer, 0)
+    parsed = r.DNSIncoming(generated.packets()[0])
+    assert answer in parsed.answers()
+
+    # Now with the higher RD type first
+    answer = r.DNSNsec(
+        "eufy HomeBase2-2464._hap._tcp.local.",
+        const._TYPE_NSEC,
+        const._CLASS_IN | const._CLASS_UNIQUE,
+        const._DNS_OTHER_TTL,
+        "eufy HomeBase2-2464._hap._tcp.local.",
+        [const._TYPE_SRV, const._TYPE_TXT],
+    )
+
+    generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    generated.add_answer_at_time(answer, 0)
+    parsed = r.DNSIncoming(generated.packets()[0])
+    assert answer in parsed.answers()
+
+    # Types > 255 should raise an exception
+    answer_invalid_types = r.DNSNsec(
+        "eufy HomeBase2-2464._hap._tcp.local.",
+        const._TYPE_NSEC,
+        const._CLASS_IN | const._CLASS_UNIQUE,
+        const._DNS_OTHER_TTL,
+        "eufy HomeBase2-2464._hap._tcp.local.",
+        [const._TYPE_TXT, const._TYPE_SRV, 1000],
+    )
+    generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    generated.add_answer_at_time(answer_invalid_types, 0)
+    with pytest.raises(ValueError, match="rdtype 1000 is too large for NSEC"):
+        generated.packets()
+
+    # Empty rdtypes are not allowed
+    answer_invalid_types = r.DNSNsec(
+        "eufy HomeBase2-2464._hap._tcp.local.",
+        const._TYPE_NSEC,
+        const._CLASS_IN | const._CLASS_UNIQUE,
+        const._DNS_OTHER_TTL,
+        "eufy HomeBase2-2464._hap._tcp.local.",
+        [],
+    )
+    generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    generated.add_answer_at_time(answer_invalid_types, 0)
+    with pytest.raises(ValueError, match="NSEC must have at least one rdtype"):
+        generated.packets()
+
+
+def test_parse_own_packet_response():
+    generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    generated.add_answer_at_time(
+        r.DNSService(
+            "æøå.local.",
+            const._TYPE_SRV,
             const._CLASS_IN | const._CLASS_UNIQUE,
-            const._DNS_OTHER_TTL,
-            "eufy HomeBase2-2464._hap._tcp.local.",
-            [const._TYPE_TXT, const._TYPE_SRV],
-        )
-
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        generated.add_answer_at_time(answer, 0)
-        parsed = r.DNSIncoming(generated.packets()[0])
-        assert answer in parsed.answers()
-
-        # Now with the higher RD type first
-        answer = r.DNSNsec(
-            "eufy HomeBase2-2464._hap._tcp.local.",
-            const._TYPE_NSEC,
-            const._CLASS_IN | const._CLASS_UNIQUE,
-            const._DNS_OTHER_TTL,
-            "eufy HomeBase2-2464._hap._tcp.local.",
-            [const._TYPE_SRV, const._TYPE_TXT],
-        )
-
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        generated.add_answer_at_time(answer, 0)
-        parsed = r.DNSIncoming(generated.packets()[0])
-        assert answer in parsed.answers()
-
-        # Types > 255 should raise an exception
-        answer_invalid_types = r.DNSNsec(
-            "eufy HomeBase2-2464._hap._tcp.local.",
-            const._TYPE_NSEC,
-            const._CLASS_IN | const._CLASS_UNIQUE,
-            const._DNS_OTHER_TTL,
-            "eufy HomeBase2-2464._hap._tcp.local.",
-            [const._TYPE_TXT, const._TYPE_SRV, 1000],
-        )
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        generated.add_answer_at_time(answer_invalid_types, 0)
-        with pytest.raises(ValueError, match="rdtype 1000 is too large for NSEC"):
-            generated.packets()
-
-        # Empty rdtypes are not allowed
-        answer_invalid_types = r.DNSNsec(
-            "eufy HomeBase2-2464._hap._tcp.local.",
-            const._TYPE_NSEC,
-            const._CLASS_IN | const._CLASS_UNIQUE,
-            const._DNS_OTHER_TTL,
-            "eufy HomeBase2-2464._hap._tcp.local.",
-            [],
-        )
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        generated.add_answer_at_time(answer_invalid_types, 0)
-        with pytest.raises(ValueError, match="NSEC must have at least one rdtype"):
-            generated.packets()
-
-    def test_parse_own_packet_response(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        generated.add_answer_at_time(
-            r.DNSService(
-                "æøå.local.",
-                const._TYPE_SRV,
-                const._CLASS_IN | const._CLASS_UNIQUE,
-                const._DNS_HOST_TTL,
-                0,
-                0,
-                80,
-                "foo.local.",
-            ),
+            const._DNS_HOST_TTL,
             0,
-        )
-        parsed = r.DNSIncoming(generated.packets()[0])
-        assert len(generated.answers) == 1
-        assert len(generated.answers) == len(parsed.answers())
-
-    def test_adding_empty_answer(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        generated.add_answer_at_time(
-            None,
             0,
-        )
-        generated.add_answer_at_time(
-            r.DNSService(
-                "æøå.local.",
-                const._TYPE_SRV,
-                const._CLASS_IN | const._CLASS_UNIQUE,
-                const._DNS_HOST_TTL,
-                0,
-                0,
-                80,
-                "foo.local.",
-            ),
+            80,
+            "foo.local.",
+        ),
+        0,
+    )
+    parsed = r.DNSIncoming(generated.packets()[0])
+    assert len(generated.answers) == 1
+    assert len(generated.answers) == len(parsed.answers())
+
+
+def test_adding_empty_answer():
+    generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    generated.add_answer_at_time(
+        None,
+        0,
+    )
+    generated.add_answer_at_time(
+        r.DNSService(
+            "æøå.local.",
+            const._TYPE_SRV,
+            const._CLASS_IN | const._CLASS_UNIQUE,
+            const._DNS_HOST_TTL,
             0,
-        )
-        parsed = r.DNSIncoming(generated.packets()[0])
-        assert len(generated.answers) == 1
-        assert len(generated.answers) == len(parsed.answers())
+            0,
+            80,
+            "foo.local.",
+        ),
+        0,
+    )
+    parsed = r.DNSIncoming(generated.packets()[0])
+    assert len(generated.answers) == 1
+    assert len(generated.answers) == len(parsed.answers())
 
-    def test_adding_expired_answer(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        generated.add_answer_at_time(
-            r.DNSService(
-                "æøå.local.",
-                const._TYPE_SRV,
-                const._CLASS_IN | const._CLASS_UNIQUE,
-                const._DNS_HOST_TTL,
-                0,
-                0,
-                80,
-                "foo.local.",
-            ),
-            current_time_millis() + 1000000,
-        )
-        parsed = r.DNSIncoming(generated.packets()[0])
-        assert len(generated.answers) == 0
-        assert len(generated.answers) == len(parsed.answers())
 
-    def test_match_question(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        question = r.DNSQuestion("testname.local.", const._TYPE_SRV, const._CLASS_IN)
+def test_adding_expired_answer():
+    generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    generated.add_answer_at_time(
+        r.DNSService(
+            "æøå.local.",
+            const._TYPE_SRV,
+            const._CLASS_IN | const._CLASS_UNIQUE,
+            const._DNS_HOST_TTL,
+            0,
+            0,
+            80,
+            "foo.local.",
+        ),
+        current_time_millis() + 1000000,
+    )
+    parsed = r.DNSIncoming(generated.packets()[0])
+    assert len(generated.answers) == 0
+    assert len(generated.answers) == len(parsed.answers())
+
+
+def test_suppress_answer():
+    query_generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
+    question = r.DNSQuestion("candidate.local.", const._TYPE_SRV, const._CLASS_IN)
+    query_generated.add_question(question)
+    answer1 = r.DNSService(
+        "candidate-a.local.",
+        const._TYPE_SRV,
+        const._CLASS_IN | const._CLASS_UNIQUE,
+        const._DNS_HOST_TTL,
+        0,
+        0,
+        80,
+        "foo.local.",
+    )
+    staleanswer2 = r.DNSService(
+        "candidate-b.local.",
+        const._TYPE_SRV,
+        const._CLASS_IN | const._CLASS_UNIQUE,
+        int(const._DNS_HOST_TTL / 2),
+        0,
+        0,
+        80,
+        "foo.local.",
+    )
+    answer2 = r.DNSService(
+        "candidate-b.local.",
+        const._TYPE_SRV,
+        const._CLASS_IN | const._CLASS_UNIQUE,
+        const._DNS_HOST_TTL,
+        0,
+        0,
+        80,
+        "foo.local.",
+    )
+    query_generated.add_answer_at_time(answer1, 0)
+    query_generated.add_answer_at_time(staleanswer2, 0)
+    query = r.DNSIncoming(query_generated.packets()[0])
+
+    # Should be suppressed
+    response = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    response.add_answer(query, answer1)
+    assert len(response.answers) == 0
+
+    # Should not be suppressed, TTL in query is too short
+    response.add_answer(query, answer2)
+    assert len(response.answers) == 1
+
+    # Should not be suppressed, name is different
+    tmp = copy.copy(answer1)
+    tmp.key = "specimen3.local."
+    tmp.name = "specimen3.local."
+    response.add_answer(query, tmp)
+    assert len(response.answers) == 2
+
+    # Should not be suppressed, type is different
+    tmp = copy.copy(answer1)
+    tmp.type = const._TYPE_A
+    response.add_answer(query, tmp)
+    assert len(response.answers) == 3
+
+    # Should not be suppressed, class is different
+    tmp = copy.copy(answer1)
+    tmp.class_ = const._CLASS_NONE
+    response.add_answer(query, tmp)
+    assert len(response.answers) == 4
+
+    # ::TODO:: could add additional tests for DNSAddress, DNSHinfo, DNSPointer, DNSText, DNSService
+
+
+def test_dns_hinfo():
+    generated = r.DNSOutgoing(0)
+    generated.add_additional_answer(DNSHinfo("irrelevant", const._TYPE_HINFO, 0, 0, "cpu", "os"))
+    parsed = r.DNSIncoming(generated.packets()[0])
+    answer = cast(r.DNSHinfo, parsed.answers()[0])
+    assert answer.cpu == "cpu"
+    assert answer.os == "os"
+
+    generated = r.DNSOutgoing(0)
+    generated.add_additional_answer(DNSHinfo("irrelevant", const._TYPE_HINFO, 0, 0, "cpu", "x" * 257))
+    with pytest.raises(r.NamePartTooLongException):
+        generated.packets()
+
+
+def test_many_questions():
+    """Test many questions get separated into multiple packets."""
+    generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
+    add_question_batch(generated, 100)
+    assert len(generated.questions) == 100
+
+    packets = generated.packets()
+    assert len(packets) == 2
+    assert len(packets[0]) < const._MAX_MSG_TYPICAL
+    assert len(packets[1]) < const._MAX_MSG_TYPICAL
+
+    parsed1 = r.DNSIncoming(packets[0])
+    assert len(parsed1.questions) == 85
+    parsed2 = r.DNSIncoming(packets[1])
+    assert len(parsed2.questions) == 15
+
+
+def test_many_questions_with_many_known_answers():
+    """Test many questions and known answers get separated into multiple packets."""
+    generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
+    questions = []
+    for _ in range(30):
+        question = r.DNSQuestion("_hap._tcp.local.", const._TYPE_PTR, const._CLASS_IN)
         generated.add_question(question)
-        parsed = r.DNSIncoming(generated.packets()[0])
-        assert len(generated.questions) == 1
-        assert len(generated.questions) == len(parsed.questions)
-        assert question == parsed.questions[0]
-
-    def test_suppress_answer(self):
-        query_generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        question = r.DNSQuestion("testname.local.", const._TYPE_SRV, const._CLASS_IN)
-        query_generated.add_question(question)
-        answer1 = r.DNSService(
-            "testname1.local.",
-            const._TYPE_SRV,
+        questions.append(question)
+    assert len(generated.questions) == 30
+    now = current_time_millis()
+    for _ in range(200):
+        known_answer = r.DNSPointer(
+            "myservice{i}_tcp._tcp.local.",
+            const._TYPE_PTR,
             const._CLASS_IN | const._CLASS_UNIQUE,
-            const._DNS_HOST_TTL,
-            0,
-            0,
-            80,
-            "foo.local.",
+            const._DNS_OTHER_TTL,
+            "123.local.",
         )
-        staleanswer2 = r.DNSService(
-            "testname2.local.",
-            const._TYPE_SRV,
+        generated.add_answer_at_time(known_answer, now)
+    packets = generated.packets()
+    assert len(packets) == 3
+    assert len(packets[0]) <= const._MAX_MSG_TYPICAL
+    assert len(packets[1]) <= const._MAX_MSG_TYPICAL
+    assert len(packets[2]) <= const._MAX_MSG_TYPICAL
+
+    parsed1 = r.DNSIncoming(packets[0])
+    assert len(parsed1.questions) == 30
+    assert len(parsed1.answers()) == 88
+    assert parsed1.truncated
+    parsed2 = r.DNSIncoming(packets[1])
+    assert len(parsed2.questions) == 0
+    assert len(parsed2.answers()) == 101
+    assert parsed2.truncated
+    parsed3 = r.DNSIncoming(packets[2])
+    assert len(parsed3.questions) == 0
+    assert len(parsed3.answers()) == 11
+    assert not parsed3.truncated
+
+
+def test_massive_probe_packet_split():
+    """Test probe with many authoritative answers."""
+    generated = r.DNSOutgoing(const._FLAGS_QR_QUERY | const._FLAGS_AA)
+    questions = []
+    for _ in range(30):
+        question = r.DNSQuestion(
+            "_hap._tcp.local.",
+            const._TYPE_PTR,
             const._CLASS_IN | const._CLASS_UNIQUE,
-            int(const._DNS_HOST_TTL / 2),
-            0,
-            0,
-            80,
-            "foo.local.",
         )
-        answer2 = r.DNSService(
-            "testname2.local.",
-            const._TYPE_SRV,
+        generated.add_question(question)
+        questions.append(question)
+    assert len(generated.questions) == 30
+    for _ in range(200):
+        authorative_answer = r.DNSPointer(
+            "myservice{i}_tcp._tcp.local.",
+            const._TYPE_PTR,
             const._CLASS_IN | const._CLASS_UNIQUE,
-            const._DNS_HOST_TTL,
-            0,
-            0,
-            80,
-            "foo.local.",
+            const._DNS_OTHER_TTL,
+            "123.local.",
         )
-        query_generated.add_answer_at_time(answer1, 0)
-        query_generated.add_answer_at_time(staleanswer2, 0)
-        query = r.DNSIncoming(query_generated.packets()[0])
+        generated.add_authorative_answer(authorative_answer)
+    packets = generated.packets()
+    assert len(packets) == 3
+    assert len(packets[0]) <= const._MAX_MSG_TYPICAL
+    assert len(packets[1]) <= const._MAX_MSG_TYPICAL
+    assert len(packets[2]) <= const._MAX_MSG_TYPICAL
 
-        # Should be suppressed
-        response = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        response.add_answer(query, answer1)
-        assert len(response.answers) == 0
+    parsed1 = r.DNSIncoming(packets[0])
+    assert parsed1.questions[0].unicast is True
+    assert len(parsed1.questions) == 30
+    assert parsed1.num_questions == 30
+    assert parsed1.num_authorities == 88
+    assert parsed1.truncated
+    parsed2 = r.DNSIncoming(packets[1])
+    assert len(parsed2.questions) == 0
+    assert parsed2.num_authorities == 101
+    assert parsed2.truncated
+    parsed3 = r.DNSIncoming(packets[2])
+    assert len(parsed3.questions) == 0
+    assert parsed3.num_authorities == 11
+    assert not parsed3.truncated
 
-        # Should not be suppressed, TTL in query is too short
-        response.add_answer(query, answer2)
-        assert len(response.answers) == 1
 
-        # Should not be suppressed, name is different
-        tmp = copy.copy(answer1)
-        tmp.key = "testname3.local."
-        tmp.name = "testname3.local."
-        response.add_answer(query, tmp)
-        assert len(response.answers) == 2
+def test_only_one_answer_can_by_large():
+    """Test that only the first answer in each packet can be large.
 
-        # Should not be suppressed, type is different
-        tmp = copy.copy(answer1)
-        tmp.type = const._TYPE_A
-        response.add_answer(query, tmp)
-        assert len(response.answers) == 3
-
-        # Should not be suppressed, class is different
-        tmp = copy.copy(answer1)
-        tmp.class_ = const._CLASS_NONE
-        response.add_answer(query, tmp)
-        assert len(response.answers) == 4
-
-        # ::TODO:: could add additional tests for DNSAddress, DNSHinfo, DNSPointer, DNSText, DNSService
-
-    def test_dns_hinfo(self):
-        generated = r.DNSOutgoing(0)
-        generated.add_additional_answer(DNSHinfo("irrelevant", const._TYPE_HINFO, 0, 0, "cpu", "os"))
-        parsed = r.DNSIncoming(generated.packets()[0])
-        answer = cast(r.DNSHinfo, parsed.answers()[0])
-        assert answer.cpu == "cpu"
-        assert answer.os == "os"
-
-        generated = r.DNSOutgoing(0)
-        generated.add_additional_answer(DNSHinfo("irrelevant", const._TYPE_HINFO, 0, 0, "cpu", "x" * 257))
-        self.assertRaises(r.NamePartTooLongException, generated.packets)
-
-    def test_many_questions(self):
-        """Test many questions get separated into multiple packets."""
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        questions = []
-        for i in range(100):
-            question = r.DNSQuestion(f"testname{i}.local.", const._TYPE_SRV, const._CLASS_IN)
-            generated.add_question(question)
-            questions.append(question)
-        assert len(generated.questions) == 100
-
-        packets = generated.packets()
-        assert len(packets) == 2
-        assert len(packets[0]) < const._MAX_MSG_TYPICAL
-        assert len(packets[1]) < const._MAX_MSG_TYPICAL
-
-        parsed1 = r.DNSIncoming(packets[0])
-        assert len(parsed1.questions) == 85
-        parsed2 = r.DNSIncoming(packets[1])
-        assert len(parsed2.questions) == 15
-
-    def test_many_questions_with_many_known_answers(self):
-        """Test many questions and known answers get separated into multiple packets."""
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        questions = []
-        for _ in range(30):
-            question = r.DNSQuestion("_hap._tcp.local.", const._TYPE_PTR, const._CLASS_IN)
-            generated.add_question(question)
-            questions.append(question)
-        assert len(generated.questions) == 30
-        now = current_time_millis()
-        for _ in range(200):
-            known_answer = r.DNSPointer(
-                "myservice{i}_tcp._tcp.local.",
-                const._TYPE_PTR,
-                const._CLASS_IN | const._CLASS_UNIQUE,
-                const._DNS_OTHER_TTL,
-                "123.local.",
-            )
-            generated.add_answer_at_time(known_answer, now)
-        packets = generated.packets()
-        assert len(packets) == 3
-        assert len(packets[0]) <= const._MAX_MSG_TYPICAL
-        assert len(packets[1]) <= const._MAX_MSG_TYPICAL
-        assert len(packets[2]) <= const._MAX_MSG_TYPICAL
-
-        parsed1 = r.DNSIncoming(packets[0])
-        assert len(parsed1.questions) == 30
-        assert len(parsed1.answers()) == 88
-        assert parsed1.truncated
-        parsed2 = r.DNSIncoming(packets[1])
-        assert len(parsed2.questions) == 0
-        assert len(parsed2.answers()) == 101
-        assert parsed2.truncated
-        parsed3 = r.DNSIncoming(packets[2])
-        assert len(parsed3.questions) == 0
-        assert len(parsed3.answers()) == 11
-        assert not parsed3.truncated
-
-    def test_massive_probe_packet_split(self):
-        """Test probe with many authoritative answers."""
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY | const._FLAGS_AA)
-        questions = []
-        for _ in range(30):
-            question = r.DNSQuestion(
-                "_hap._tcp.local.",
-                const._TYPE_PTR,
-                const._CLASS_IN | const._CLASS_UNIQUE,
-            )
-            generated.add_question(question)
-            questions.append(question)
-        assert len(generated.questions) == 30
-        for _ in range(200):
-            authorative_answer = r.DNSPointer(
-                "myservice{i}_tcp._tcp.local.",
-                const._TYPE_PTR,
-                const._CLASS_IN | const._CLASS_UNIQUE,
-                const._DNS_OTHER_TTL,
-                "123.local.",
-            )
-            generated.add_authorative_answer(authorative_answer)
-        packets = generated.packets()
-        assert len(packets) == 3
-        assert len(packets[0]) <= const._MAX_MSG_TYPICAL
-        assert len(packets[1]) <= const._MAX_MSG_TYPICAL
-        assert len(packets[2]) <= const._MAX_MSG_TYPICAL
-
-        parsed1 = r.DNSIncoming(packets[0])
-        assert parsed1.questions[0].unicast is True
-        assert len(parsed1.questions) == 30
-        assert parsed1.num_questions == 30
-        assert parsed1.num_authorities == 88
-        assert parsed1.truncated
-        parsed2 = r.DNSIncoming(packets[1])
-        assert len(parsed2.questions) == 0
-        assert parsed2.num_authorities == 101
-        assert parsed2.truncated
-        parsed3 = r.DNSIncoming(packets[2])
-        assert len(parsed3.questions) == 0
-        assert parsed3.num_authorities == 11
-        assert not parsed3.truncated
-
-    def test_only_one_answer_can_by_large(self):
-        """Test that only the first answer in each packet can be large.
-
-        https://datatracker.ietf.org/doc/html/rfc6762#section-17
-        """
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        query = r.DNSIncoming(r.DNSOutgoing(const._FLAGS_QR_QUERY).packets()[0])
-        for _i in range(3):
-            generated.add_answer(
-                query,
-                r.DNSText(
-                    "zoom._hap._tcp.local.",
-                    const._TYPE_TXT,
-                    const._CLASS_IN | const._CLASS_UNIQUE,
-                    1200,
-                    b"\x04ff=0\x04ci=2\x04sf=0\x0bsh=6fLM5A==" * 100,
-                ),
-            )
+    https://datatracker.ietf.org/doc/html/rfc6762#section-17
+    """
+    generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+    query = r.DNSIncoming(r.DNSOutgoing(const._FLAGS_QR_QUERY).packets()[0])
+    for _i in range(3):
         generated.add_answer(
             query,
-            r.DNSService(
-                "testname1.local.",
-                const._TYPE_SRV,
+            r.DNSText(
+                "zoom._hap._tcp.local.",
+                const._TYPE_TXT,
                 const._CLASS_IN | const._CLASS_UNIQUE,
-                const._DNS_HOST_TTL,
-                0,
-                0,
-                80,
-                "foo.local.",
+                1200,
+                b"\x04ff=0\x04ci=2\x04sf=0\x0bsh=6fLM5A==" * 100,
             ),
         )
-        assert len(generated.answers) == 4
+    generated.add_answer(
+        query,
+        r.DNSService(
+            "candidate-a.local.",
+            const._TYPE_SRV,
+            const._CLASS_IN | const._CLASS_UNIQUE,
+            const._DNS_HOST_TTL,
+            0,
+            0,
+            80,
+            "foo.local.",
+        ),
+    )
+    assert len(generated.answers) == 4
 
-        packets = generated.packets()
-        assert len(packets) == 4
-        assert len(packets[0]) <= const._MAX_MSG_ABSOLUTE
-        assert len(packets[0]) > const._MAX_MSG_TYPICAL
+    packets = generated.packets()
+    assert len(packets) == 4
+    assert len(packets[0]) <= const._MAX_MSG_ABSOLUTE
+    assert len(packets[0]) > const._MAX_MSG_TYPICAL
 
-        assert len(packets[1]) <= const._MAX_MSG_ABSOLUTE
-        assert len(packets[1]) > const._MAX_MSG_TYPICAL
+    assert len(packets[1]) <= const._MAX_MSG_ABSOLUTE
+    assert len(packets[1]) > const._MAX_MSG_TYPICAL
 
-        assert len(packets[2]) <= const._MAX_MSG_ABSOLUTE
-        assert len(packets[2]) > const._MAX_MSG_TYPICAL
+    assert len(packets[2]) <= const._MAX_MSG_ABSOLUTE
+    assert len(packets[2]) > const._MAX_MSG_TYPICAL
 
-        assert len(packets[3]) <= const._MAX_MSG_TYPICAL
+    assert len(packets[3]) <= const._MAX_MSG_TYPICAL
 
-        for packet in packets:
-            parsed = r.DNSIncoming(packet)
-            assert len(parsed.answers()) == 1
-
-    def test_questions_do_not_end_up_every_packet(self):
-        """Test that questions are not sent again when multiple packets are needed.
-
-        https://datatracker.ietf.org/doc/html/rfc6762#section-7.2
-        Sometimes a Multicast DNS querier will already have too many answers
-        to fit in the Known-Answer Section of its query packets....  It MUST
-        immediately follow the packet with another query packet containing no
-        questions and as many more Known-Answer records as will fit.
-        """
-
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        for i in range(35):
-            question = r.DNSQuestion(f"testname{i}.local.", const._TYPE_SRV, const._CLASS_IN)
-            generated.add_question(question)
-            answer = r.DNSService(
-                f"testname{i}.local.",
-                const._TYPE_SRV,
-                const._CLASS_IN | const._CLASS_UNIQUE,
-                const._DNS_HOST_TTL,
-                0,
-                0,
-                80,
-                f"foo{i}.local.",
-            )
-            generated.add_answer_at_time(answer, 0)
-
-        assert len(generated.questions) == 35
-        assert len(generated.answers) == 35
-
-        packets = generated.packets()
-        assert len(packets) == 2
-        assert len(packets[0]) <= const._MAX_MSG_TYPICAL
-        assert len(packets[1]) <= const._MAX_MSG_TYPICAL
-
-        parsed1 = r.DNSIncoming(packets[0])
-        assert len(parsed1.questions) == 35
-        assert len(parsed1.answers()) == 33
-
-        parsed2 = r.DNSIncoming(packets[1])
-        assert len(parsed2.questions) == 0
-        assert len(parsed2.answers()) == 2
-
-
-class PacketForm(unittest.TestCase):
-    def test_transaction_id(self):
-        """ID must be zero in a DNS-SD packet"""
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        bytes = generated.packets()[0]
-        id = bytes[0] << 8 | bytes[1]
-        assert id == 0
-
-    def test_setting_id(self):
-        """Test setting id in the constructor"""
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY, id_=4444)
-        assert generated.id == 4444
-
-    def test_query_header_bits(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        bytes = generated.packets()[0]
-        flags = bytes[2] << 8 | bytes[3]
-        assert flags == 0x0
-
-    def test_response_header_bits(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        bytes = generated.packets()[0]
-        flags = bytes[2] << 8 | bytes[3]
-        assert flags == 0x8000
-
-    def test_numbers(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        bytes = generated.packets()[0]
-        (num_questions, num_answers, num_authorities, num_additionals) = struct.unpack("!4H", bytes[4:12])
-        assert num_questions == 0
-        assert num_answers == 0
-        assert num_authorities == 0
-        assert num_additionals == 0
-
-    def test_numbers_questions(self):
-        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-        question = r.DNSQuestion("testname.local.", const._TYPE_SRV, const._CLASS_IN)
-        for _i in range(10):
-            generated.add_question(question)
-        bytes = generated.packets()[0]
-        (num_questions, num_answers, num_authorities, num_additionals) = struct.unpack("!4H", bytes[4:12])
-        assert num_questions == 10
-        assert num_answers == 0
-        assert num_authorities == 0
-        assert num_additionals == 0
-
-
-class TestDnsIncoming(unittest.TestCase):
-    def test_incoming_exception_handling(self):
-        generated = r.DNSOutgoing(0)
-        packet = generated.packets()[0]
-        packet = packet[:8] + b"deadbeef" + packet[8:]
+    for packet in packets:
         parsed = r.DNSIncoming(packet)
-        parsed = r.DNSIncoming(packet)
-        assert parsed.valid is False
+        assert len(parsed.answers()) == 1
 
-    def test_incoming_unknown_type(self):
-        generated = r.DNSOutgoing(0)
-        answer = r.DNSAddress("a", const._TYPE_SOA, const._CLASS_IN, 1, b"a")
-        generated.add_additional_answer(answer)
-        packet = generated.packets()[0]
-        parsed = r.DNSIncoming(packet)
-        assert len(parsed.answers()) == 0
-        assert parsed.is_query() != parsed.is_response()
 
-    def test_incoming_circular_reference(self):
-        assert not r.DNSIncoming(
-            bytes.fromhex(
-                "01005e0000fb542a1bf0577608004500006897934000ff11d81bc0a86a31e00000fb"
-                "14e914e90054f9b2000084000000000100000000095f7365727669636573075f646e"
-                "732d7364045f756470056c6f63616c00000c0001000011940018105f73706f746966"
-                "792d636f6e6e656374045f746370c023"
-            )
-        ).valid
+def test_questions_do_not_end_up_every_packet():
+    """Test that questions are not sent again when multiple packets are needed.
 
-    @unittest.skipIf(not has_working_ipv6(), "Requires IPv6")
-    @unittest.skipIf(os.environ.get("SKIP_IPV6"), "IPv6 tests disabled")
-    def test_incoming_ipv6(self):
-        addr = "2606:2800:220:1:248:1893:25c8:1946"  # example.com
-        packed = socket.inet_pton(socket.AF_INET6, addr)
-        generated = r.DNSOutgoing(0)
-        answer = r.DNSAddress("domain", const._TYPE_AAAA, const._CLASS_IN | const._CLASS_UNIQUE, 1, packed)
-        generated.add_additional_answer(answer)
-        packet = generated.packets()[0]
-        parsed = r.DNSIncoming(packet)
-        record = parsed.answers()[0]
-        assert isinstance(record, r.DNSAddress)
-        assert record.address == packed
+    https://datatracker.ietf.org/doc/html/rfc6762#section-7.2
+    Sometimes a Multicast DNS querier will already have too many answers
+    to fit in the Known-Answer Section of its query packets....  It MUST
+    immediately follow the packet with another query packet containing no
+    questions and as many more Known-Answer records as will fit.
+    """
+
+    generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
+    for i, question in enumerate(add_question_batch(generated, 35)):
+        answer = r.DNSService(
+            question.name,
+            const._TYPE_SRV,
+            const._CLASS_IN | const._CLASS_UNIQUE,
+            const._DNS_HOST_TTL,
+            0,
+            0,
+            80,
+            f"foo{i}.local.",
+        )
+        generated.add_answer_at_time(answer, 0)
+
+    assert len(generated.questions) == 35
+    assert len(generated.answers) == 35
+
+    packets = generated.packets()
+    assert len(packets) == 2
+    assert len(packets[0]) <= const._MAX_MSG_TYPICAL
+    assert len(packets[1]) <= const._MAX_MSG_TYPICAL
+
+    parsed1 = r.DNSIncoming(packets[0])
+    assert len(parsed1.questions) == 35
+    assert len(parsed1.answers()) == 33
+
+    parsed2 = r.DNSIncoming(packets[1])
+    assert len(parsed2.questions) == 0
+    assert len(parsed2.answers()) == 2
+
+
+def test_setting_id():
+    """Test setting id in the constructor"""
+    generated = r.DNSOutgoing(const._FLAGS_QR_QUERY, id_=4444)
+    assert generated.id == 4444
+
+
+def test_incoming_exception_handling():
+    generated = r.DNSOutgoing(0)
+    packet = generated.packets()[0]
+    packet = packet[:8] + b"deadbeef" + packet[8:]
+    parsed = r.DNSIncoming(packet)
+    parsed = r.DNSIncoming(packet)
+    assert parsed.valid is False
+
+
+def test_incoming_unknown_type():
+    generated = r.DNSOutgoing(0)
+    answer = r.DNSAddress("a", const._TYPE_SOA, const._CLASS_IN, 1, b"a")
+    generated.add_additional_answer(answer)
+    packet = generated.packets()[0]
+    parsed = r.DNSIncoming(packet)
+    assert len(parsed.answers()) == 0
+    assert parsed.is_query() != parsed.is_response()
+
+
+def test_incoming_circular_reference():
+    assert not r.DNSIncoming(
+        bytes.fromhex(
+            "01005e0000fb542a1bf0577608004500006897934000ff11d81bc0a86a31e00000fb"
+            "14e914e90054f9b2000084000000000100000000095f7365727669636573075f646e"
+            "732d7364045f756470056c6f63616c00000c0001000011940018105f73706f746966"
+            "792d636f6e6e656374045f746370c023"
+        )
+    ).valid
+
+
+@pytest.mark.skipif(not has_working_ipv6(), reason="Requires IPv6")
+@pytest.mark.skipif(os.environ.get("SKIP_IPV6"), reason="IPv6 tests disabled")
+def test_incoming_ipv6():
+    addr = "2606:2800:220:1:248:1893:25c8:1946"  # example.com
+    packed = socket.inet_pton(socket.AF_INET6, addr)
+    generated = r.DNSOutgoing(0)
+    answer = r.DNSAddress("domain", const._TYPE_AAAA, const._CLASS_IN | const._CLASS_UNIQUE, 1, packed)
+    generated.add_additional_answer(answer)
+    packet = generated.packets()[0]
+    parsed = r.DNSIncoming(packet)
+    record = parsed.answers()[0]
+    assert isinstance(record, r.DNSAddress)
+    assert record.address == packed
 
 
 def test_dns_compression_rollback_for_corruption():
@@ -777,7 +754,7 @@ def test_qm_packet_parser():
     )
     parsed = DNSIncoming(qm_packet)
     assert parsed.questions[0].unicast is False
-    assert ",QM," in str(parsed.questions[0])
+    assert "mode=QM" in str(parsed.questions[0])
 
 
 # MDNS	115	Standard query 0x0000 PTR _companion-link._tcp.local, "QU" question OPT
@@ -789,7 +766,7 @@ def test_qu_packet_parser():
     )
     parsed = DNSIncoming(qu_packet)
     assert parsed.questions[0].unicast is True
-    assert ",QU," in str(parsed.questions[0])
+    assert "mode=QU" in str(parsed.questions[0])
 
 
 def test_parse_packet_with_nsec_record():
@@ -803,7 +780,7 @@ def test_parse_packet_with_nsec_record():
     )
     parsed = DNSIncoming(nsec_packet)
     nsec_record = cast(r.DNSNsec, parsed.answers()[3])
-    assert "nsec," in str(nsec_record)
+    assert "type=nsec" in str(nsec_record)
     assert nsec_record.rdtypes == [16, 33]
     assert nsec_record.next_name == "MyHome54 (2)._meshcop._udp.local."
 

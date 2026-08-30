@@ -431,12 +431,16 @@ class ClusterTrustBundleProjection(DictMixin):
       * **signerName** ``Optional[str]`` - Select all ClusterTrustBundles that match this signer name. Mutually-exclusive
         with name.  The contents of all selected ClusterTrustBundles will be unified
         and deduplicated.
+      * **user** ``Optional[int]`` - user is Optional: The owner UID of the created file. If specified, the
+        item-level user field takes precedence over defaultUser. (Alpha) This field
+        requires the AtomicWriteVolumeUserFields feature gate to be enabled.
     """
     path: 'str'
     labelSelector: 'Optional[meta_v1.LabelSelector]' = None
     name: 'Optional[str]' = None
     optional: 'Optional[bool]' = None
     signerName: 'Optional[str]' = None
+    user: 'Optional[int]' = None
 
 
 @dataclass
@@ -530,7 +534,9 @@ class ConfigMap(DictMixin):
         characters, '-', '_' or '.'. BinaryData can contain byte sequences that are
         not in the UTF-8 range. The keys stored in BinaryData must not overlap with
         the ones in the Data field, this is enforced during validation process. Using
-        this field will require 1.10+ apiserver and kubelet.
+        this field will require 1.10+ apiserver and kubelet. Note: BinaryData keys are
+        not currently propagated to container env vars via ConfigMapKeyRef or
+        ConfigMapRef env sources; only Data keys are used.
       * **data** ``Optional[dict]`` - Data contains the configuration data. Each key must consist of alphanumeric
         characters, '-', '_' or '.'. Values with non-UTF-8 byte sequences must use the
         BinaryData field. The keys stored in Data must not overlap with the keys in
@@ -563,7 +569,8 @@ class ConfigMapEnvSource(DictMixin):
       with.
       
       The contents of the target ConfigMap's Data field will represent the key-value
-      pairs as environment variables.
+      pairs as environment variables. Keys in the BinaryData field are not currently
+      propagated to container env vars.
 
       **parameters**
 
@@ -583,7 +590,8 @@ class ConfigMapKeySelector(DictMixin):
 
       **parameters**
 
-      * **key** ``str`` - The key to select.
+      * **key** ``str`` - The key to select from the ConfigMap's Data field. Keys in the BinaryData
+        field are not currently propagated to container env vars.
       * **name** ``Optional[str]`` - Name of the referent. This field is effectively required, but due to backwards
         compatibility is allowed to be empty. Instances of this type with an empty
         value here are almost certainly wrong. More info:
@@ -697,6 +705,10 @@ class ConfigMapVolumeSource(DictMixin):
         are not affected by this setting. This might be in conflict with other options
         that affect the file mode, like fsGroup, and the result can be other mode bits
         set.
+      * **defaultUser** ``Optional[int]`` - defaultUser is Optional: The owner UID of the created files by default. The
+        defaultUser field is only used as a fallback when the item-level user field is
+        unset. (Alpha) This field requires the AtomicWriteVolumeUserFields feature
+        gate to be enabled.
       * **items** ``Optional[List[KeyToPath]]`` - items if unspecified, each key-value pair in the Data field of the referenced
         ConfigMap will be projected into the volume as a file whose name is the key
         and content is the value. If specified, the listed keys will be projected into
@@ -711,6 +723,7 @@ class ConfigMapVolumeSource(DictMixin):
       * **optional** ``Optional[bool]`` - optional specify whether the ConfigMap or its keys must be defined
     """
     defaultMode: 'Optional[int]' = None
+    defaultUser: 'Optional[int]' = None
     items: 'Optional[List[KeyToPath]]' = None
     name: 'Optional[str]' = None
     optional: 'Optional[bool]' = None
@@ -1161,11 +1174,15 @@ class DownwardAPIVolumeFile(DictMixin):
       * **resourceFieldRef** ``Optional[ResourceFieldSelector]`` - Selects a resource of the container: only resources limits and requests
         (limits.cpu, limits.memory, requests.cpu and requests.memory) are currently
         supported.
+      * **user** ``Optional[int]`` - user is Optional: The owner UID of the created file. If specified, the
+        item-level user field takes precedence over defaultUser. (Alpha) This field
+        requires the AtomicWriteVolumeUserFields feature gate to be enabled.
     """
     path: 'str'
     fieldRef: 'Optional[ObjectFieldSelector]' = None
     mode: 'Optional[int]' = None
     resourceFieldRef: 'Optional[ResourceFieldSelector]' = None
+    user: 'Optional[int]' = None
 
 
 @dataclass
@@ -1182,9 +1199,14 @@ class DownwardAPIVolumeSource(DictMixin):
         bits. Defaults to 0644. Directories within the path are not affected by this
         setting. This might be in conflict with other options that affect the file
         mode, like fsGroup, and the result can be other mode bits set.
+      * **defaultUser** ``Optional[int]`` - defaultUser is Optional: The owner UID of the created files by default. The
+        defaultUser field is only used as a fallback when the item-level user field is
+        unset. (Alpha) This field requires the AtomicWriteVolumeUserFields feature
+        gate to be enabled.
       * **items** ``Optional[List[DownwardAPIVolumeFile]]`` - Items is a list of downward API volume file
     """
     defaultMode: 'Optional[int]' = None
+    defaultUser: 'Optional[int]' = None
     items: 'Optional[List[DownwardAPIVolumeFile]]' = None
 
 
@@ -1199,6 +1221,13 @@ class EmptyDirVolumeSource(DictMixin):
         default is "" which means to use the node's default medium. Must be an empty
         string (default) or Memory. More info:
         https://kubernetes.io/docs/concepts/storage/volumes#emptydir
+      * **mode** ``Optional[int]`` - mode specifies the permission bits for the emptyDir directory, in numeric
+        notation (e.g., 0755, 01777). Must be a value between 0000 and 01777. If not
+        specified, defaults to 0777. This might be in conflict with other options that
+        affect the file mode, like fsGroup. If fsGroup is specified, the fsGroup
+        permissions will override the mode specified here. This field has no effect on
+        Windows. This field is alpha and requires EmptyDirVolumeMode featuregate to be
+        enabled.
       * **sizeLimit** ``Optional[resource.Quantity]`` - sizeLimit is the total amount of local storage required for this EmptyDir
         volume. The size limit is also applicable for memory medium. The maximum usage
         on memory medium EmptyDir would be the minimum value between the SizeLimit
@@ -1207,6 +1236,7 @@ class EmptyDirVolumeSource(DictMixin):
         https://kubernetes.io/docs/concepts/storage/volumes#emptydir
     """
     medium: 'Optional[str]' = None
+    mode: 'Optional[int]' = None
     sizeLimit: 'Optional[resource.Quantity]' = None
 
 
@@ -1711,6 +1741,34 @@ class EventSource(DictMixin):
 
 
 @dataclass
+class EvictionResponder(DictMixin):
+    r"""EvictionResponder allows you to specify the responder reacting to an Eviction.
+      Responders should observe and communicate through the Eviction Resource API to
+      help with the graceful eviction of a target (e.g. termination of a pod).
+
+      **parameters**
+
+      * **name** ``str`` - name allows you to identify the responder responding to the Eviction.
+        It must be a valid domain-prefixed key (such as "acme.io/foo"). Domain names
+        *.k8s.io and *.kubernetes.io are reserved. This field must be unique for each
+        responder. This field is required.
+      * **priority** ``int`` - priority for this responder. Higher priorities are selected first by the
+        evictionrequest-controller. If there are responders with the same priority,
+        the responder whose domain name comes first in the alphabetical higher domain
+        order, will be picked. This means that the top domain labels are compared
+        alphabetically first, followed by the lower domain labels. The key is compared
+        last.
+        The responder that is the managing controller of the pod should set the value
+        of this field to 10000 to allow both for preemption or fallback registration
+        by other responders.
+        The minimum value is 0 and the maximum value is 100000. The interval 0-999 is
+        reserved for responders with *.k8s.io suffix. This field is required.
+    """
+    name: 'str'
+    priority: 'int'
+
+
+@dataclass
 class ExecAction(DictMixin):
     r"""ExecAction describes a "run in container" action.
 
@@ -1886,11 +1944,16 @@ class GRPCAction(DictMixin):
       **parameters**
 
       * **port** ``int`` - Port number of the gRPC service. Number must be in the range 1 to 65535.
+      * **mode** ``Optional[str]`` - mode specifies the connection mode for the gRPC health probe. Set to "TLS" to
+        use TLS without certificate verification. Set to "Plaintext" to use a
+        plaintext (insecure) connection explicitly. If not specified, the probe uses a
+        plaintext (insecure) connection.
       * **service** ``Optional[str]`` - Service is the name of the service to place in the gRPC HealthCheckRequest
         (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
         If this is not specified, the default behavior is defined by gRPC.
     """
     port: 'int'
+    mode: 'Optional[str]' = None
     service: 'Optional[str]' = None
 
 
@@ -1974,12 +2037,15 @@ class HTTPGetAction(DictMixin):
         "Host" in httpHeaders instead.
       * **httpHeaders** ``Optional[List[HTTPHeader]]`` - Custom headers to set in the request. HTTP allows repeated headers.
       * **path** ``Optional[str]`` - Path to access on the HTTP server.
+      * **protocol** ``Optional[str]`` - Protocol selects the wire protocol for the probe connection. Nil defaults to
+        HTTP/1.1.
       * **scheme** ``Optional[str]`` - Scheme to use for connecting to the host. Defaults to HTTP.
     """
     port: 'util_intstr.IntOrString'
     host: 'Optional[str]' = None
     httpHeaders: 'Optional[List[HTTPHeader]]' = None
     path: 'Optional[str]' = None
+    protocol: 'Optional[str]' = None
     scheme: 'Optional[str]' = None
 
 
@@ -2183,10 +2249,14 @@ class KeyToPath(DictMixin):
         bits. If not specified, the volume defaultMode will be used. This might be in
         conflict with other options that affect the file mode, like fsGroup, and the
         result can be other mode bits set.
+      * **user** ``Optional[int]`` - user is Optional: The owner UID of the created file. If specified, the
+        item-level user field takes precedence over defaultUser. (Alpha) This field
+        requires the AtomicWriteVolumeUserFields feature gate to be enabled.
     """
     key: 'str'
     path: 'str'
     mode: 'Optional[int]' = None
+    user: 'Optional[int]' = None
 
 
 @dataclass
@@ -2655,6 +2725,55 @@ class NodeAffinity(DictMixin):
 
 
 @dataclass
+class NodeAllocatableMappedResources(DictMixin):
+    r"""NodeAllocatableMappedResources describes mapped node allocatable resource
+      allocations.
+
+      **parameters**
+
+      * **name** ``str`` - Name is the name of the resource (e.g., cpu, memory).
+      * **quantity** ``resource.Quantity`` - Quantity is the total node allocatable resource capacity allocated for the
+        claim. This claim's allocated devices is shared by all the containers
+        referencing the claim. Kubelet adds this value to both requests and limits at
+        the pod-level cgroup, and to limits at the container-level cgroup for each
+        container referencing the claim.
+    """
+    name: 'str'
+    quantity: 'resource.Quantity'
+
+
+@dataclass
+class NodeAllocatableOverheadResources(DictMixin):
+    r"""NodeAllocatableOverheadResources describes auxiliary overhead resource
+      allocations.
+
+      **parameters**
+
+      * **name** ``str`` - Name is the name of the resource (e.g., cpu, memory).
+      * **perContainer** ``Optional[resource.Quantity]`` - PerContainer is the variable overhead quantity applied for each container
+        referencing the claim. The container references are recorded in
+        `nodeAllocatableResourceClaimStatuses.containers`. The total overhead quantity
+        allocated for the claim is computed as: Quantity = PerPod + (PerContainer *
+        NumReferences) Kubelet accounts for this overhead in cgroups: - Pod-level
+        cgroup (requests and limits): Kubelet adds PerPod + (PerContainer *
+        NumReferences). - Container-level cgroup (limits only): Kubelet adds PerPod +
+        PerContainer for each referencing container. This allows any single container
+        to access the pod-level overhead, while the parent cgroup caps the total usage
+        to account for PerPod exactly once. At least one of PerPod or PerContainer
+        must be specified. Specifying neither is an invalid configuration.
+      * **perPod** ``Optional[resource.Quantity]`` - PerPod is the flat overhead quantity allocated per pod. Adding to each
+        container limit allows individual containers to utilize the overhead, while
+        the parent pod-level cgroup limit caps the total usage at the pod boundary
+        where the overhead is accounted for exactly once. At least one of PerPod or
+        PerContainer must be specified. Specifying neither is an invalid
+        configuration.
+    """
+    name: 'str'
+    perContainer: 'Optional[resource.Quantity]' = None
+    perPod: 'Optional[resource.Quantity]' = None
+
+
+@dataclass
 class NodeAllocatableResourceClaimStatus(DictMixin):
     r"""NodeAllocatableResourceClaimStatus describes the status of node allocatable
       resources allocated via DRA.
@@ -2663,14 +2782,19 @@ class NodeAllocatableResourceClaimStatus(DictMixin):
 
       * **resourceClaimName** ``str`` - ResourceClaimName is the resource claim referenced by the pod that resulted in
         this node allocatable resource allocation.
-      * **resources** ``dict`` - Resources is a map of the node-allocatable resource name to the aggregate
-        quantity allocated to the claim.
       * **containers** ``Optional[List[str]]`` - Containers lists the names of all containers in this pod that reference the
         claim.
+      * **mapping** ``Optional[List[NodeAllocatableMappedResources]]`` - Mapping contains allocations through devices mapped in the device spec's
+        `nodeAllocatableResources[...].mapping` field. This is used by kubelet for pod
+        level and container-level cgroup enforcement.
+      * **overhead** ``Optional[List[NodeAllocatableOverheadResources]]`` - Overhead contains allocations through devices mapped in the device spec's
+        `nodeAllocatableResources[...].overhead` field. This is used by kubelet for
+        pod level and container-level cgroup enforcement.
     """
     resourceClaimName: 'str'
-    resources: 'dict'
     containers: 'Optional[List[str]]' = None
+    mapping: 'Optional[List[NodeAllocatableMappedResources]]' = None
+    overhead: 'Optional[List[NodeAllocatableOverheadResources]]' = None
 
 
 @dataclass
@@ -2813,6 +2937,23 @@ class NodeList(DictMixin):
 
 
 @dataclass
+class NodePodPreemptionPolicy(DictMixin):
+    r"""NodePodPreemptionPolicy defines the node-level policies governing preemption
+      for pods on this node.
+
+      **parameters**
+
+      * **disableResizePreemption** ``Optional[List[str]]`` - DisableResizePreemption lists the owners (e.g., autoscalers, operators,
+        administrators) that have requested to disable scheduler and Kubelet
+        preemption for in-place pod resize on this node. If this list is non-empty,
+        resize-induced preemption is disabled on this node. This is an alpha field and
+        requires enabling the InPlacePodVerticalScalingSchedulerPreemption feature
+        gate.
+    """
+    disableResizePreemption: 'Optional[List[str]]' = None
+
+
+@dataclass
 class NodeRuntimeHandler(DictMixin):
     r"""NodeRuntimeHandler is a set of runtime handler information.
 
@@ -2904,6 +3045,9 @@ class NodeSpec(DictMixin):
       * **podCIDRs** ``Optional[List[str]]`` - podCIDRs represents the IP ranges assigned to the node for usage by Pods on
         that node. If this field is specified, the 0th entry must match the podCIDR
         field. It may contain at most 1 value for each of IPv4 and IPv6.
+      * **podPreemptionPolicy** ``Optional[NodePodPreemptionPolicy]`` - PodPreemptionPolicy controls the node-level preemption behaviors for pods on
+        this node. This is an alpha field and requires enabling the
+        InPlacePodVerticalScalingSchedulerPreemption feature gate.
       * **providerID** ``Optional[str]`` - ID of the node assigned by the cloud provider in the format:
         <ProviderName>://<ProviderSpecificNodeID>
       * **taints** ``Optional[List[Taint]]`` - If specified, the node's taints.
@@ -2915,6 +3059,7 @@ class NodeSpec(DictMixin):
     externalID: 'Optional[str]' = None
     podCIDR: 'Optional[str]' = None
     podCIDRs: 'Optional[List[str]]' = None
+    podPreemptionPolicy: 'Optional[NodePodPreemptionPolicy]' = None
     providerID: 'Optional[str]' = None
     taints: 'Optional[List[Taint]]' = None
     unschedulable: 'Optional[bool]' = None
@@ -3008,6 +3153,7 @@ class NodeSystemInfo(DictMixin):
       * **systemUUID** ``str`` - SystemUUID reported by the node. For unique machine identification MachineID
         is preferred. This field is specific to Red Hat hosts
         https://access.redhat.com/documentation/en-us/red_hat_subscription_management/1/html/rhsm/uuid
+      * **runningInUserNamespace** ``Optional[bool]`` - Whether the node is running in a user namespace.
       * **swap** ``Optional[NodeSwapStatus]`` - Swap Info reported by the node.
     """
     architecture: 'str'
@@ -3020,6 +3166,7 @@ class NodeSystemInfo(DictMixin):
     operatingSystem: 'str'
     osImage: 'str'
     systemUUID: 'str'
+    runningInUserNamespace: 'Optional[bool]' = None
     swap: 'Optional[NodeSwapStatus]' = None
 
 
@@ -3212,9 +3359,8 @@ class PersistentVolumeClaimSpec(DictMixin):
         object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC
         (PersistentVolumeClaim) If the provisioner or an external controller can
         support the specified data source, it will create a new volume based on the
-        contents of the specified data source. When the AnyVolumeDataSource feature
-        gate is enabled, dataSource contents will be copied to dataSourceRef, and
-        dataSourceRef contents will be copied to dataSource when
+        contents of the specified data source. dataSource contents will be copied to
+        dataSourceRef, and dataSourceRef contents will be copied to dataSource when
         dataSourceRef.namespace is not specified. If the namespace is specified, then
         dataSourceRef will not be copied to dataSource.
       * **dataSourceRef** ``Optional[TypedObjectReference]`` - dataSourceRef specifies the object from which to populate the volume with
@@ -3237,8 +3383,7 @@ class PersistentVolumeClaimSpec(DictMixin):
           specified.
         * While dataSource only allows local objects, dataSourceRef allows objects
           in any namespaces.
-        (Beta) Using this field requires the AnyVolumeDataSource feature gate to be
-        enabled. (Alpha) Using the namespace field of dataSourceRef requires the
+        (Alpha) Using the namespace field of dataSourceRef requires the
         CrossNamespaceVolumeDataSource feature gate to be enabled.
       * **resources** ``Optional[VolumeResourceRequirements]`` - resources represents the minimum resources the volume should have. Users are
         allowed to specify resource requirements that are lower than previous value
@@ -3354,6 +3499,8 @@ class PersistentVolumeClaimStatus(DictMixin):
       * **currentVolumeAttributesClassName** ``Optional[str]`` - currentVolumeAttributesClassName is the current name of the
         VolumeAttributesClass the PVC is using. When unset, there is no
         VolumeAttributeClass applied to this PersistentVolumeClaim
+      * **healthStatus** ``Optional[VolumeHealthStatus]`` - healthStatus contains the latest controller-reported health information for
+        the volume bound to this claim.
       * **modifyVolumeStatus** ``Optional[ModifyVolumeStatus]`` - ModifyVolumeStatus represents the status object of ControllerModifyVolume
         operation. When this is unset, there is no ModifyVolume operation being
         attempted.
@@ -3365,6 +3512,7 @@ class PersistentVolumeClaimStatus(DictMixin):
     capacity: 'Optional[dict]' = None
     conditions: 'Optional[List[PersistentVolumeClaimCondition]]' = None
     currentVolumeAttributesClassName: 'Optional[str]' = None
+    healthStatus: 'Optional[VolumeHealthStatus]' = None
     modifyVolumeStatus: 'Optional[ModifyVolumeStatus]' = None
     phase: 'Optional[str]' = None
 
@@ -3797,6 +3945,9 @@ class PodCertificateProjection(DictMixin):
         lifetime *shorter* than MaxExpirationSeconds, but no shorter than 3600 seconds
         (1 hour).  This constraint is enforced by kube-apiserver. `kubernetes.io`
         signers will never issue certificates with a lifetime longer than 24 hours.
+      * **user** ``Optional[int]`` - user is Optional: The owner UID of the created file. If specified, the
+        item-level user field takes precedence over defaultUser. (Alpha) This field
+        requires the AtomicWriteVolumeUserFields feature gate to be enabled.
       * **userAnnotations** ``Optional[dict]`` - userAnnotations allow pod authors to pass additional information to the signer
         implementation.  Kubernetes does not restrict or validate this metadata in any
         way.
@@ -3814,6 +3965,7 @@ class PodCertificateProjection(DictMixin):
     credentialBundlePath: 'Optional[str]' = None
     keyPath: 'Optional[str]' = None
     maxExpirationSeconds: 'Optional[int]' = None
+    user: 'Optional[int]' = None
     userAnnotations: 'Optional[dict]' = None
 
 
@@ -4117,12 +4269,8 @@ class PodSecurityContext(DictMixin):
         unprivileged Pods. Eligible volumes are in-tree FibreChannel and iSCSI
         volumes, and all CSI volumes whose CSI driver announces SELinux support by
         setting spec.seLinuxMount: true in their CSIDriver instance. Other volumes are
-        always re-labelled recursively. "MountOption" value is allowed only when
-        SELinuxMount feature gate is enabled.
-        If not specified and SELinuxMount feature gate is enabled, "MountOption" is
-        used. If not specified and SELinuxMount feature gate is disabled,
-        "MountOption" is used for ReadWriteOncePod volumes and "Recursive" for all
-        other volumes.
+        always re-labelled recursively.
+        If not specified, "MountOption" is used.
         This field affects only Pods that have SELinux label set, either in
         PodSecurityContext or in SecurityContext of all containers.
         All Pods that use the same volume should use the same seLinuxChangePolicy,
@@ -4202,6 +4350,20 @@ class PodSpec(DictMixin):
         list cannot be specified when creating a pod, and it cannot be modified by
         updating the pod spec. In order to add an ephemeral container to an existing
         pod, use the pod's ephemeralcontainers subresource.
+      * **evictionResponders** ``Optional[List[EvictionResponder]]`` - evictionResponders reference responders that react to Evictions based on
+        EvictionRequests. Responders should observe and communicate through the
+        Eviction Resource API to help with the graceful termination of a pod. The
+        responders are selected sequentially, according to their specified priority.
+        Responders should periodically report on an eviction progress by updating the
+        .status.responders[].heartbeatTime field of the Eviction object. If this field
+        is not updated within the heartbeat deadline defined by the Eviction API
+        (currently 20 minutes), the eviction is passed over to the next responder with
+        a lower priority. If there is no other responder, the last default
+        imperative-eviction.k8s.io/evictor responder with a priority of 100 will evict
+        the pod using the imperative Eviction API (pods/<name>/eviction subresource).
+        The maximum length of the responders list is 10. Responders are not supported
+        when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field
+        can only be set on creation and is immutable afterwards.
       * **hostAliases** ``Optional[List[HostAlias]]`` - HostAliases is an optional list of hosts and IPs that will be injected into
         the pod's hosts file if specified.
       * **hostIPC** ``Optional[bool]`` - Use the host's ipc namespace. Optional: Default to false.
@@ -4227,7 +4389,7 @@ class PodSpec(DictMixin):
         Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or
         set to false. - `hostNetwork` must be set to false.
         This field must be a valid DNS subdomain as defined in RFC 1123 and contain at
-        most 64 characters. Requires the HostnameOverride feature gate to be enabled.
+        most 64 characters.
       * **imagePullSecrets** ``Optional[List[LocalObjectReference]]`` - ImagePullSecrets is an optional list of references to secrets in the same
         namespace to use for pulling any of the images used by this PodSpec. If
         specified, these secrets will be passed to individual puller implementations
@@ -4287,7 +4449,9 @@ class PodSpec(DictMixin):
         otherwise it will remain unset and treated as zero. More info:
         https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md
       * **preemptionPolicy** ``Optional[str]`` - PreemptionPolicy is the Policy for preempting pods with lower priority. One of
-        Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.
+        Never, PreemptLowerPriority. When Priority Admission Controller is enabled, it
+        prevents users from setting this field. The admission controller populates
+        this field from PriorityClassName. Defaults to PreemptLowerPriority if unset.
       * **priority** ``Optional[int]`` - The priority value. Various system components use this field to find the
         priority of the pod. When Priority Admission Controller is enabled, it
         prevents users from setting this field. The admission controller populates
@@ -4390,6 +4554,7 @@ class PodSpec(DictMixin):
     dnsPolicy: 'Optional[str]' = None
     enableServiceLinks: 'Optional[bool]' = None
     ephemeralContainers: 'Optional[List[EphemeralContainer]]' = None
+    evictionResponders: 'Optional[List[EvictionResponder]]' = None
     hostAliases: 'Optional[List[HostAlias]]' = None
     hostIPC: 'Optional[bool]' = None
     hostNetwork: 'Optional[bool]' = None
@@ -4533,6 +4698,8 @@ class PodStatus(DictMixin):
         PodSpec.Resources
       * **startTime** ``Optional[meta_v1.Time]`` - RFC 3339 date and time at which the object was acknowledged by the Kubelet.
         This is before the Kubelet pulled the container image(s) for the pod.
+      * **volumeHealth** ``Optional[List[PodVolumeHealth]]`` - volumeHealth contains node-reported health for each volume the pod is using.
+        Populated by the kubelet on the pod's node.
     """
     allocatedResources: 'Optional[dict]' = None
     conditions: 'Optional[List[PodCondition]]' = None
@@ -4555,6 +4722,7 @@ class PodStatus(DictMixin):
     resourceClaimStatuses: 'Optional[List[PodResourceClaimStatus]]' = None
     resources: 'Optional[ResourceRequirements]' = None
     startTime: 'Optional[meta_v1.Time]' = None
+    volumeHealth: 'Optional[List[PodVolumeHealth]]' = None
 
 
 @dataclass
@@ -4628,6 +4796,23 @@ class PodTemplateSpec(DictMixin):
     """
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
     spec: 'Optional[PodSpec]' = None
+
+
+@dataclass
+class PodVolumeHealth(DictMixin):
+    r"""PodVolumeHealth contains health information for a volume used by a pod,
+      reported by the CSI node plugin via the kubelet.
+
+      **parameters**
+
+      * **name** ``str`` - name matches an entry in pod.spec.volumes.
+      * **healthConditions** ``Optional[List[VolumeHealthCondition]]`` - conditions is the set of adverse conditions reported by the CSI node plugin
+        for this volume on this node. At most 16 conditions may be reported.
+      * **lastTransitionTime** ``Optional[meta_v1.Time]`` - lastTransitionTime is when the current set of conditions first appeared.
+    """
+    name: 'str'
+    healthConditions: 'Optional[List[VolumeHealthCondition]]' = None
+    lastTransitionTime: 'Optional[meta_v1.Time]' = None
 
 
 @dataclass
@@ -4745,10 +4930,15 @@ class ProjectedVolumeSource(DictMixin):
         decimal values for mode bits. Directories within the path are not affected by
         this setting. This might be in conflict with other options that affect the
         file mode, like fsGroup, and the result can be other mode bits set.
+      * **defaultUser** ``Optional[int]`` - defaultUser is Optional: The owner UID of the created files by default. The
+        defaultUser field is only used as a fallback when the item-level user field is
+        unset. (Alpha) This field requires the AtomicWriteVolumeUserFields feature
+        gate to be enabled.
       * **sources** ``Optional[List[VolumeProjection]]`` - sources is the list of volume projections. Each entry in this list handles one
         source.
     """
     defaultMode: 'Optional[int]' = None
+    defaultUser: 'Optional[int]' = None
     sources: 'Optional[List[VolumeProjection]]' = None
 
 
@@ -5183,9 +5373,13 @@ class ResourceStatus(DictMixin):
 
       * **name** ``str`` - Name of the resource. Must be unique within the pod and in case of non-DRA
         resource, match one of the resources from the pod spec. For DRA resources, the
-        value must be "claim:<claim_name>/<request>". When this status is reported
-        about a container, the "claim_name" and "request" must match one of the claims
-        of this container.
+        value must be "claim:<claim_name>/<request>" when
+        container.resources.claims[*].request is set or "claim:<claim_name>" when
+        container.resources.claims[*].request is empty. For DRA-backed extended
+        resources, "claim:<claim_name>/<request>" is used when the claim name and
+        request name are recorded in pod.status.extendedResourceClaimStatus. When this
+        status is reported about a container, the "claim_name" and "request" must
+        match one of the claims of this container.
       * **resources** ``Optional[List[ResourceHealth]]`` - List of unique resources health. Each element in the list contains an unique
         resource ID and its health. At a minimum, for the lifetime of a Pod, resource
         ID must uniquely identify the resource allocated to the Pod on the Node. If
@@ -5508,6 +5702,10 @@ class SecretVolumeSource(DictMixin):
         are not affected by this setting. This might be in conflict with other options
         that affect the file mode, like fsGroup, and the result can be other mode bits
         set.
+      * **defaultUser** ``Optional[int]`` - defaultUser is Optional: The owner UID of the created files by default. The
+        defaultUser field is only used as a fallback when the item-level user field is
+        unset. (Alpha) This field requires the AtomicWriteVolumeUserFields feature
+        gate to be enabled.
       * **items** ``Optional[List[KeyToPath]]`` - items If unspecified, each key-value pair in the Data field of the referenced
         Secret will be projected into the volume as a file whose name is the key and
         content is the value. If specified, the listed keys will be projected into the
@@ -5520,6 +5718,7 @@ class SecretVolumeSource(DictMixin):
         https://kubernetes.io/docs/concepts/storage/volumes#secret
     """
     defaultMode: 'Optional[int]' = None
+    defaultUser: 'Optional[int]' = None
     items: 'Optional[List[KeyToPath]]' = None
     optional: 'Optional[bool]' = None
     secretName: 'Optional[str]' = None
@@ -5733,10 +5932,14 @@ class ServiceAccountTokenProjection(DictMixin):
         rotate the token if the token is older than 80 percent of its time to live or
         if the token is older than 24 hours.Defaults to 1 hour and must be at least 10
         minutes.
+      * **user** ``Optional[int]`` - user is Optional: The owner UID of the created file. If specified, the
+        item-level user field takes precedence over defaultUser. (Alpha) This field
+        requires the AtomicWriteVolumeUserFields feature gate to be enabled.
     """
     path: 'str'
     audience: 'Optional[str]' = None
     expirationSeconds: 'Optional[int]' = None
+    user: 'Optional[int]' = None
 
 
 @dataclass
@@ -6541,14 +6744,56 @@ class VolumeDevice(DictMixin):
 
 
 @dataclass
+class VolumeHealthCondition(DictMixin):
+    r"""VolumeHealthCondition represents an adverse health condition reported for a
+      volume.
+
+      **parameters**
+
+      * **reason** ``str`` - reason is a brief CamelCase machine-parseable reason. Together with status it
+        forms the unique identity of a condition entry. Maximum permitted length of a
+        reason is 256 bytes.
+      * **status** ``str`` - status is the machine-parseable health category. Possible values: -
+        "Inaccessible": the volume cannot be accessed. - "DataLoss": data loss has
+        been detected on the volume. - "Degraded": the volume is functioning with
+        reduced capability.
+      * **message** ``Optional[str]`` - message is a human-readable description. Maximum permitted length of a message
+        is 1024 bytes.
+    """
+    reason: 'str'
+    status: 'str'
+    message: 'Optional[str]' = None
+
+
+@dataclass
+class VolumeHealthStatus(DictMixin):
+    r"""VolumeHealthStatus contains health information for a volume reported by the
+      CSI controller plugin.
+
+      **parameters**
+
+      * **healthConditions** ``Optional[List[VolumeHealthCondition]]`` - conditions is the set of adverse conditions reported by the CSI controller
+        plugin. An empty list means no adverse condition. At most 16 conditions may be
+        reported.
+      * **lastTransitionTime** ``Optional[meta_v1.Time]`` - lastTransitionTime is when the current set of conditions first appeared.
+    """
+    healthConditions: 'Optional[List[VolumeHealthCondition]]' = None
+    lastTransitionTime: 'Optional[meta_v1.Time]' = None
+
+
+@dataclass
 class VolumeMount(DictMixin):
     r"""VolumeMount describes a mounting of a Volume within a container.
 
       **parameters**
 
-      * **mountPath** ``str`` - Path within the container at which the volume should be mounted.  Must not
-        contain ':'.
+      * **mountPath** ``str`` - Path within the container at which the volume should be mounted.
       * **name** ``str`` - This must match the Name of a Volume.
+      * **bindMountOptions** ``Optional[List[str]]`` - bindMountOptions is the list of additional bind mount options to apply when
+        mounting this volume into the container. Allowed values are noexec, nodev, and
+        nosuid. These are Linux mount options and have no effect on Windows nodes.
+        This field is not supported with image volumes. This is an alpha field and
+        requires enabling the VolumeBindMountOptions feature gate.
       * **mountPropagation** ``Optional[str]`` - mountPropagation determines how mounts are propagated from the host to
         container and the other way around. When not set, MountPropagationNone is
         used. This field is beta in 1.10. When RecursiveReadOnly is set to IfPossible
@@ -6577,6 +6822,7 @@ class VolumeMount(DictMixin):
     """
     mountPath: 'str'
     name: 'str'
+    bindMountOptions: 'Optional[List[str]]' = None
     mountPropagation: 'Optional[str]' = None
     readOnly: 'Optional[bool]' = None
     recursiveReadOnly: 'Optional[str]' = None

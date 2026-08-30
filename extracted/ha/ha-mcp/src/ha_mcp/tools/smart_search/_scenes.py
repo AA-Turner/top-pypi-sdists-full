@@ -4,8 +4,13 @@ import asyncio
 import logging
 from typing import Any
 
+from ...client.rest_client import (
+    HomeAssistantAPIError,
+    SceneResolution,
+    SceneStorageConfigNotFoundError,
+)
 from ._config import (
-    BULK_WEBSOCKET_TIMEOUT,
+    ENTITY_REGISTRY_TIMEOUT,
     INDIVIDUAL_CONFIG_TIMEOUT,
     INDIVIDUAL_FETCH_BATCH_SIZE,
     SCENE_CONFIG_TIME_BUDGET,
@@ -25,15 +30,13 @@ class SceneSearchMixin(ConfigFetchMixin):
 
     async def _walk_scene_registry(
         self,
-        configs: dict[str, dict[str, Any]],
         *,
         prefetched_registry: Any = None,
     ) -> tuple[set[str], dict[str, str], bool]:
         """Walk the entity registry once for scene metadata (Phase 2.5).
 
-        Returns ``(homeassistant_scene_uids, slug_to_storage_id, registry_failed)``
-        and mutates ``configs`` in place, aliasing each bulk-fetched config under
-        its entity-id slug. Two outputs:
+        Returns ``(homeassistant_scene_uids, slug_to_storage_id, registry_failed)``.
+        Two outputs:
 
         1. ``homeassistant_scene_uids`` -- unique_ids backed by
            ``platform == "homeassistant"`` (HA's storage collection).
@@ -41,14 +44,12 @@ class SceneSearchMixin(ConfigFetchMixin):
            the per-id REST endpoint ``/config/scene/config/<id>`` can't fetch
            them and treating their 404s as ``failed_count`` produces a
            misleading ``partial: true`` flag (issue #1168 R3 blocker 2).
-        2. Slug-keyed aliases pointing at the bulk-fetched config. HA derives a
-           scene's entity_id from the ``name`` field via its own slugify
-           (collapsing runs of underscores, replacing all non-alnum with
-           underscores, etc.); approximating that with ``.replace()`` chains
-           produces near-misses.
-
-        Run unconditionally so the platform filter is available even when the
-        bulk fetch returned nothing (the common Hue-only case).
+        2. ``slug_to_storage_id`` -- each scene's entity-id slug mapped to its
+           storage key, used by the result builder. HA derives a scene's
+           entity_id from the ``name`` field via its own slugify (collapsing
+           runs of underscores, replacing all non-alnum with underscores,
+           etc.); approximating that with ``.replace()`` chains produces
+           near-misses.
 
         Assumption — caveat for downstream callers: when ``registry_failed``
         is ``False``, the returned ``homeassistant_scene_uids`` set is
@@ -63,9 +64,9 @@ class SceneSearchMixin(ConfigFetchMixin):
         function trusts ``success: True`` as a completeness signal.
         """
         homeassistant_scene_uids: set[str] = set()
-        # Issue #1168 R7 blocker 17/21: registry-derived slug->storage map for
-        # the result-builder fallback, keeping the storage key correct for any
-        # scene the registry knows about regardless of bulk-fetch coverage.
+        # Issue #1168 R7 blocker 17/21: registry-derived slug->storage map.
+        # It decides which scenes are fetched, which storage key each fetch
+        # asks for, and the storage key the result reports.
         slug_to_storage_id: dict[str, str] = {}
         try:
             # The ha_search orchestrator may hand us the registry list it already
@@ -79,12 +80,12 @@ class SceneSearchMixin(ConfigFetchMixin):
                     self.client.send_websocket_message(
                         {"type": "config/entity_registry/list"}
                     ),
-                    timeout=BULK_WEBSOCKET_TIMEOUT,
+                    timeout=ENTITY_REGISTRY_TIMEOUT,
                 )
             if isinstance(reg_resp, dict) and reg_resp.get("success"):
                 for entry in reg_resp.get("result") or []:
                     self._index_scene_registry_entry(
-                        entry, configs, homeassistant_scene_uids, slug_to_storage_id
+                        entry, homeassistant_scene_uids, slug_to_storage_id
                     )
             else:
                 # Soft-failure path: `send_websocket_message` returns
@@ -118,7 +119,6 @@ class SceneSearchMixin(ConfigFetchMixin):
     @staticmethod
     def _index_scene_registry_entry(
         entry: dict[str, Any],
-        configs: dict[str, dict[str, Any]],
         homeassistant_scene_uids: set[str],
         slug_to_storage_id: dict[str, str],
     ) -> None:
@@ -132,15 +132,13 @@ class SceneSearchMixin(ConfigFetchMixin):
         slug = ent_id.removeprefix("scene.")
         if slug:
             slug_to_storage_id[slug] = uid
-        if uid in configs and slug and slug != uid:
-            configs[slug] = configs[uid]
 
     @staticmethod
     def _select_scene_ids_to_fetch(
         scored: list[tuple[str, str, str | None, int]],
-        configs: dict[str, dict[str, Any]],
         homeassistant_scene_uids: set[str],
         registry_failed: bool,
+        slug_to_storage_id: dict[str, str],
     ) -> tuple[list[str], int]:
         """Pick scene ids needing a per-id fetch, skipping integration-managed ones.
 
@@ -162,18 +160,28 @@ class SceneSearchMixin(ConfigFetchMixin):
           one. Skip all per-id fetches and count them as
           ``integration_skipped``.
 
-        Returns ``(sids_to_fetch, integration_skipped_count)``.
+        The ids in ``scored`` are entity-id SLUGS while
+        ``homeassistant_scene_uids`` holds STORAGE keys, and the two diverge
+        for any scene renamed in the UI (HA derives the entity_id from the
+        scene's ``name``, never re-keying storage). Comparing them directly
+        classified every renamed HA scene as integration-managed and skipped
+        its fetch, so its config never loaded. ``slug_to_storage_id`` -- built
+        by the registry walk for exactly this mapping -- translates first.
+
+        Returns ``(sids_to_fetch, integration_skipped_count)``, in SLUG terms:
+        the caller fetches by storage key but keys the result by slug, which
+        is what the scoring pass looks up.
         """
         if registry_failed:
             # Registry walk failed — we can't distinguish HA-managed from
             # integration-managed. Attempt all and accept false partials.
-            return [sid for _, _, sid, _ in scored if sid and sid not in configs], 0
+            return [sid for _, _, sid, _ in scored if sid], 0
         sids: list[str] = []
         integration_skipped = 0
         for _, _, sid, _ in scored:
-            if not sid or sid in configs:
+            if not sid:
                 continue
-            if sid in homeassistant_scene_uids:
+            if slug_to_storage_id.get(sid, sid) in homeassistant_scene_uids:
                 sids.append(sid)
             else:
                 integration_skipped += 1
@@ -187,10 +195,10 @@ class SceneSearchMixin(ConfigFetchMixin):
     ) -> str | None:
         """Resolve a scene's storage key (the contract used by ha_config_*_scene).
 
-        Issue #1168 R6/R7 blockers 17/21: three-tier resolution:
-          1. ``scene_config["id"]`` -- present whenever the bulk fetch carried it.
+        Issue #1168 R6/R7 blockers 17/21: three-step resolution:
+          1. ``scene_config["id"]`` -- present whenever the per-id config carried it.
           2. ``slug_to_storage_id`` -- registry-derived; covers integration-
-             managed scenes and any scene whose bulk record omitted ``id``.
+             managed scenes and any scene whose config omitted ``id``.
           3. ``scene_id`` itself (the entity-id slug) -- final fallback when the
              registry walk also failed; surfaced via ``logger.warning`` so the
              silent-slug-mismatch path becomes observable.
@@ -202,12 +210,118 @@ class SceneSearchMixin(ConfigFetchMixin):
             return slug_to_storage_id[scene_id]
         logger.warning(
             "ha_search scene result fell back to entity-id slug for "
-            "scene_id=%r -- neither bulk config nor registry walk produced a "
+            "scene_id=%r -- neither the per-id config nor the registry walk produced a "
             "storage key. ``ha_config_get_scene`` will rely on its resolver "
             "remap to land on the right scene.",
             scene_id,
         )
         return scene_id
+
+    async def _fetch_one_scene_config(
+        self,
+        sid: str,
+        slug_to_storage_id: dict[str, str],
+        failed_errors: list[str],
+        *,
+        registry_failed: bool,
+    ) -> tuple[str, dict[str, Any] | None, str | None]:
+        """Fetch one scene's storage config and classify the outcome.
+
+        Extracted from ``_deep_search_scenes``'s Attempt-C fetch closure
+        (C901). Returns ``(sid, config-or-None, marker)`` where the marker is
+        the ``_individual_fetch_budgeted`` classification: ``None`` (success),
+        ``"yaml_skipped"``, ``"timeout"`` or ``"failed"``.
+        """
+        # Hand the client the resolution this scan already made instead of the
+        # bare storage key. The client's own resolver treats its input as an
+        # entity-id slug ("scene.<input>" registry/state lookups), so a bare
+        # storage key that differs from the name-derived slug misses BOTH
+        # lookups and every not-a-storage-scene 404 degrades to the bare
+        # "vanished" case — round-6 of #2302's no-component lane caught exactly
+        # that on the seeded YAML-with-id scene. Passing the resolution keeps
+        # the 404 classification working AND drops the per-scene registry
+        # round-trip the internal re-resolve used to pay.
+        #
+        # ONLY when the registry walk succeeded, though: on the failed walk the
+        # map is empty, and a synthesized (sid, registry_hit=False) resolution
+        # would suppress the client's own per-scene resolver — which may work
+        # again by fetch time on a transient list failure, and is the only way
+        # a UI-renamed storage scene (storage key != slug) can still resolve.
+        # Leaving resolution unset there restores the pre-#2302 per-scene
+        # resolve for exactly that path (Codex review on #2302).
+        resolution = (
+            None
+            if registry_failed
+            else SceneResolution(
+                storage_key=slug_to_storage_id.get(sid, sid),
+                registry_hit=sid in slug_to_storage_id,
+                platform=None,
+            )
+        )
+        try:
+            config_resp = await asyncio.wait_for(
+                # Fetch by STORAGE key (what the endpoint indexes on),
+                # return under the SLUG (what the scoring pass looks up).
+                self.client.get_scene_config(sid, resolution=resolution),
+                timeout=INDIVIDUAL_CONFIG_TIMEOUT,
+            )
+            return (sid, config_resp.get("config", {}), None)
+        except SceneStorageConfigNotFoundError as e:
+            # The entity EXISTS, it is just not an editable storage scene:
+            # a YAML-defined scene carrying an ``id:`` (which registers
+            # under platform ``homeassistant`` exactly like a storage
+            # scene, so the registry walk cannot pre-filter it), an
+            # ``id``-less YAML scene the client confirmed through the state
+            # machine, or an integration-managed (Hue/deCONZ/...) scene.
+            # The client decides that classification itself
+            # (``_raise_scene_config_404``) from the registry/state lookups
+            # it makes for the fetch, independently of the search-side
+            # registry filter — which is why this branch stays correct on
+            # the registry-failed attempt-all path, where integration-
+            # managed scenes DO reach the fetch. Every one of them is a
+            # structural gap rather than a fetch outage, so classify it the
+            # way the automation/script fetchers do (#2292).
+            logger.debug(
+                f"Scene individual config fetch ({sid}) returned 404 "
+                f"— not a storage scene: {e}"
+            )
+            return (sid, None, "yaml_skipped")
+        except HomeAssistantAPIError as e:
+            if e.status_code == 404:
+                # A bare 404 (not the subclass above) means the entity is in
+                # neither the registry nor the state machine: it vanished
+                # between get_states() and this fetch. That IS a real gap in
+                # this result, so it belongs in the failed bucket with a
+                # representative sample.
+                logger.debug(
+                    f"Scene individual config fetch ({sid}) returned 404 "
+                    "— entity no longer exists since enumeration."
+                )
+            else:
+                logger.debug(f"Scene individual config fetch ({sid}) failed: {e}")
+            record_first_failure(failed_errors, e)
+            return (sid, None, "failed")
+        except TimeoutError:
+            # Per-request timeout under batch concurrency — distinct
+            # from a real failure; see _fetch_automation_config
+            # (#1784).
+            logger.debug(
+                f"Scene individual config fetch ({sid}) timed out "
+                f"after {INDIVIDUAL_CONFIG_TIMEOUT}s."
+            )
+            return (sid, None, "timeout")
+        except Exception as e:
+            if is_timeout_error(e):
+                # Client-side HTTP timeout arrived wrapped; still a
+                # timeout. See is_timeout_error in _fetch.
+                logger.debug(
+                    f"Scene individual config fetch ({sid}) timed "
+                    f"out (client-side HTTP timeout): {e}"
+                )
+                return (sid, None, "timeout")
+            logger.debug(f"Scene individual config fetch ({sid}) failed: {e}")
+            record_first_failure(failed_errors, e)
+            return (sid, None, "failed")
 
     async def _deep_search_scenes(
         self,
@@ -217,19 +331,21 @@ class SceneSearchMixin(ConfigFetchMixin):
         *,
         config_time_budget: float | None = None,
         prefetched_registry: Any = None,
-    ) -> tuple[list[dict[str, Any]], int, int, int, bool, int, str | None]:
-        """Deep-search scenes: two-tier strategy plus registry-walk augmentation.
+        storage_ids_out: dict[str, str] | None = None,
+        graph_entity_ids: set[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], int, int, int, int, bool, int, str | None]:
+        """Deep-search scenes: per-id fetch plus registry-walk augmentation.
 
         Scenes have no listing primitive, so entities are enumerated from
         get_states() and configs fetched per id. Returns the scene results plus
-        the six diagnostic signals feeding the response ``partial`` /
+        the seven diagnostic signals feeding the response ``partial`` /
         ``partial_reason``:
-        ``(results, failed_count, skipped_count, integration_skipped,
-        registry_failed, timeout_count, failed_sample)``. ``failed_sample``
-        is one representative ``summarize_fetch_error`` summary of a
-        ``failed``-class exception (``None`` when none occurred) — see the
-        automation/script mirror in ``_deep_search_automations`` (#1784
-        follow-up).
+        ``(results, failed_count, yaml_skipped_count, skipped_count,
+        integration_skipped, registry_failed, timeout_count, failed_sample)``.
+        ``failed_sample`` is one representative ``summarize_fetch_error``
+        summary of a ``failed``-class exception (``None`` when none occurred)
+        — see the automation/script mirror in ``_deep_search_automations``
+        (#1784 follow-up).
         """
         scene_entities = [
             e for e in all_entities if e.get("entity_id", "").startswith("scene.")
@@ -246,31 +362,26 @@ class SceneSearchMixin(ConfigFetchMixin):
             )
             scored.append((entity_id, friendly_name, scene_id, name_score))
 
-        # Phase 2: bulk fetch
-        configs = await self._bulk_fetch_configs(
-            "/config/scene/config",
-            lambda item: (
-                item.get("id") or item.get("name", "").lower().replace(" ", "_")
-            ),
-            INDIVIDUAL_CONFIG_TIMEOUT,
-            "Scene",
-        )
-        bulk_fetched = configs is not None
-        if configs is None:
-            configs = {}
+        configs: dict[str, dict[str, Any]] = {}
 
-        # Phase 2.5: registry walk (runs unconditionally, mutates ``configs``,
-        # and must precede Attempt C since the integration-skip filter depends
-        # on its homeassistant_scene_uids output).
+        # Phase 2.5: registry walk. Must precede the per-id fetch since the
+        # integration-skip filter depends on its homeassistant_scene_uids
+        # output.
         (
             homeassistant_scene_uids,
             slug_to_storage_id,
             registry_failed,
-        ) = await self._walk_scene_registry(
-            configs, prefetched_registry=prefetched_registry
-        )
+        ) = await self._walk_scene_registry(prefetched_registry=prefetched_registry)
+        # Hand the slug-to-storage-key map back to deep_search, which needs it
+        # to give reference-graph scene hits their real storage key. An out
+        # parameter rather than a ninth return value: the one production
+        # caller and the one test that drive this function unpack its tuple
+        # positionally.
+        if storage_ids_out is not None:
+            storage_ids_out.update(slug_to_storage_id)
 
         failed_count = 0
+        yaml_skipped_count = 0
         skipped_count = 0
         integration_skipped = 0
         timeout_count = 0
@@ -284,62 +395,36 @@ class SceneSearchMixin(ConfigFetchMixin):
 
         # Attempt C: parallel per-id fetch with a wall-clock budget so a few
         # slow scenes don't tank the whole search.
-        if not bulk_fetched:
-            sids_to_fetch, integration_skipped = self._select_scene_ids_to_fetch(
-                scored, configs, homeassistant_scene_uids, registry_failed
+        sids_to_fetch, integration_skipped = self._select_scene_ids_to_fetch(
+            scored, homeassistant_scene_uids, registry_failed, slug_to_storage_id
+        )
+
+        async def _fetch_scene_config(
+            sid: str,
+        ) -> tuple[str, dict[str, Any] | None, str | None]:
+            return await self._fetch_one_scene_config(
+                sid, slug_to_storage_id, failed_errors, registry_failed=registry_failed
             )
 
-            async def _fetch_scene_config(
-                sid: str,
-            ) -> tuple[str, dict[str, Any] | None, str | None]:
-                try:
-                    config_resp = await asyncio.wait_for(
-                        self.client.get_scene_config(sid),
-                        timeout=INDIVIDUAL_CONFIG_TIMEOUT,
-                    )
-                    return (sid, config_resp.get("config", {}), None)
-                except TimeoutError:
-                    # Per-request timeout under batch concurrency — distinct
-                    # from a real failure; see _fetch_automation_config
-                    # (#1784).
-                    logger.debug(
-                        f"Scene individual config fetch ({sid}) timed out "
-                        f"after {INDIVIDUAL_CONFIG_TIMEOUT}s."
-                    )
-                    return (sid, None, "timeout")
-                except Exception as e:
-                    if is_timeout_error(e):
-                        # Client-side HTTP timeout arrived wrapped; still a
-                        # timeout. See is_timeout_error in _fetch.
-                        logger.debug(
-                            f"Scene individual config fetch ({sid}) timed "
-                            f"out (client-side HTTP timeout): {e}"
-                        )
-                        return (sid, None, "timeout")
-                    logger.debug(f"Scene individual config fetch ({sid}) failed: {e}")
-                    record_first_failure(failed_errors, e)
-                    return (sid, None, "failed")
-
-            (
-                fetched_configs,
-                failed_count,
-                skipped_count,
-                # Scene YAML/integration-managed pre-classification happens
-                # upstream via `_walk_scene_registry`; the 4th tuple slot
-                # from `_individual_fetch_budgeted` is therefore expected
-                # to stay at zero on this path.
-                _scene_yaml_skipped,
-                timeout_count,
-            ) = await self._individual_fetch_budgeted(
-                sids_to_fetch,
-                _fetch_scene_config,
-                config_time_budget
-                if config_time_budget is not None
-                else SCENE_CONFIG_TIME_BUDGET,
-                "Scene",
-                "scenes",
-            )
-            configs.update(fetched_configs)
+        (
+            fetched_configs,
+            failed_count,
+            skipped_count,
+            yaml_skipped_count,
+            timeout_count,
+        ) = await self._individual_fetch_budgeted(
+            sids_to_fetch,
+            _fetch_scene_config,
+            config_time_budget
+            if config_time_budget is not None
+            else SCENE_CONFIG_TIME_BUDGET,
+            "Scene",
+            "scenes",
+            deprioritize={
+                entity_id.removeprefix("scene.") for entity_id in graph_entity_ids or ()
+            },
+        )
+        configs.update(fetched_configs)
 
         # Phase 3: Score scenes, resolving each match's storage key
         scene_results: list[dict[str, Any]] = []
@@ -355,12 +440,14 @@ class SceneSearchMixin(ConfigFetchMixin):
                     "score": m["score"],
                     "match_in_name": m["match_in_name"],
                     "match_in_config": m["match_in_config"],
+                    "match_in_references": False,
                     "config": scene_config if scene_config else None,
                 }
             )
         return (
             scene_results,
             failed_count,
+            yaml_skipped_count,
             skipped_count,
             integration_skipped,
             registry_failed,
@@ -388,9 +475,11 @@ class SceneSearchMixin(ConfigFetchMixin):
         failed = scene_stats["failed"]
         skipped = scene_stats["skipped"]
         # .get(): tolerate older callers/tests that build the stats dict
-        # without the timeout key (added for #1784).
+        # without the timeout key (added for #1784) or without the
+        # yaml_skipped key (added for #2292).
         timeout = scene_stats.get("timeout", 0)
-        if not (failed or skipped or timeout):
+        yaml_skipped = scene_stats.get("yaml_skipped", 0)
+        if not (failed or yaml_skipped or skipped or timeout):
             return
         response["partial"] = True
         reason_parts: list[str] = []
@@ -409,6 +498,25 @@ class SceneSearchMixin(ConfigFetchMixin):
                 f"{sample_suffix}) — "
                 f"their match status is unknown; this result is not "
                 f"exhaustive.{hint}"
+            )
+        if yaml_skipped:
+            # Structural, not transient, and two kinds land here: a YAML-defined
+            # scene with an ``id:`` is indistinguishable from a storage scene in
+            # the entity registry, so it survives the integration-platform
+            # filter and then 404s on the per-id endpoint; and on the
+            # registry-failed attempt-all path integration-managed scenes reach
+            # the fetch and 404 the same way. Name both so the reader knows
+            # where the definition actually lives. Mirrors the
+            # automation/script fragment in ``_apply_per_type_partial_flag``
+            # (#2292).
+            reason_parts.append(
+                f"{yaml_skipped} scene(s) not scanned (per-id config endpoint "
+                "returned 404 — these are YAML-defined scenes, or "
+                "integration-managed scenes, which that endpoint does not "
+                "expose) — their match status is unknown; this result is not "
+                "exhaustive. Their definitions live outside HA storage "
+                "(typically scenes.yaml or the owning integration); check "
+                "there if the match matters."
             )
         if timeout:
             reason_parts.append(
@@ -442,12 +550,20 @@ class SceneSearchMixin(ConfigFetchMixin):
         if scene_stats["registry_failed"]:
             # Issue #1168 R5 blocker 11: when the registry fetch errors, the
             # integration-platform filter is unavailable and Attempt C falls
-            # back to attempting all scenes -- surface that so an elevated
-            # failed_count isn't mistaken for a real config outage.
+            # back to attempting all scenes -- surface that so the elevated
+            # counts aren't mistaken for a real config outage. Since the 404
+            # taxonomy split (#2292) the bucket that swells here is
+            # ``yaml_skipped``, not ``failed``: the REST client classifies an
+            # integration-managed scene's 404 as
+            # ``SceneStorageConfigNotFoundError`` from its own registry/state
+            # lookups, which this path's failed registry walk does not affect.
             reason_parts.append(
                 "Entity-registry fetch failed; integration-platform filter "
                 "unavailable, attempted all scenes (false-positive failures "
-                "expected for integration-managed scenes)."
+                "expected for integration-managed scenes). The registry is "
+                "also where a scene's storage key comes from, so the returned "
+                "`scene_id` values fall back to the entity-id slug and will "
+                "not resolve for a scene that was renamed in the UI."
             )
         # Use the standardised " ; " separator (matches
         # ``_merge_payload_metadata`` and ``_apply_per_type_partial_flag``).

@@ -1,14 +1,14 @@
 [project]
 name = "pyzotero"
-version = "1.14.0"
+version = "1.15.0"
 description = "Python wrapper for the Zotero API"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "feedparser >= 6.0.12",
     "bibtexparser>=1.4.3,<2.0.0",
-    "httpx>=0.28.1",
     "whenever>=0.8.8",
+    "httpx2>=2.12.0",
 ]
 license = "BlueOak-1.0.0"
 license-files = ["LICENSE.md"]
@@ -53,8 +53,8 @@ cli = ["click>=8.0.0"]
 mcp = ["mcp[cli]>=1.0.0; python_version>='3.10'"]
 
 [project.scripts]
-pyzotero = "pyzotero.cli:main"
-pyzotero-mcp = "pyzotero.mcp_server:main"
+pyzotero = "pyzotero._entry:cli"
+pyzotero-mcp = "pyzotero._entry:mcp"
 
 [dependency-groups]
 dev = [

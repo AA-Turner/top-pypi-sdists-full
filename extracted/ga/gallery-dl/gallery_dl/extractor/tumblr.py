@@ -81,9 +81,10 @@ class TumblrExtractor(Extractor):
             self._sub_image = text.re(
                 r"https?://(\d+\.media\.tumblr\.com(?:/[0-9a-f]+)?"
                 r"/tumblr(?:_inline)?_[^_]+)_\d+\.([0-9a-z]+)").sub
-            self._subn_orig_image = text.re(r"/s\d+x\d+/").subn
-            self._findall_image = text.re('<img [^>]*src="([^"]+)"').findall
-            self._findall_video = text.re('<source [^>]*src="([^"]+)"').findall
+            self._subn_orig_image = text.re(
+                r"/s\d+x\d+/").subn
+            self._finditer_inline = text.re(
+                r'<(?:img|source()) [^>]*src="([^"]+)"').finditer
 
         for post in self.posts():
             if self.date_min > post["timestamp"]:
@@ -264,21 +265,24 @@ class TumblrExtractor(Extractor):
         return rb["comment"] + rb["tree_html"]
 
     def _extract_inline(self, posts, post, seen, txt):
-        for url in self._findall_image(txt):
-            if url not in seen:
-                seen.add(url)
-                url, fb = self._original_inline_image(url)
-                if fb:
-                    post["_fallback"] = self._original_image_fallback(
-                        url, post["id"])
-                posts.append(self._prepare_image(url, post.copy()))
-                post.pop("_fallback", None)
-
-        for url in self._findall_video(txt):
-            url = self._original_video(url)
-            if url not in seen:
-                seen.add(url)
-                posts.append(self._prepare(url, post.copy()))
+        more = txt.find(">[[MORE]]<") + 1
+        for match in self._finditer_inline(txt):
+            post["keepreading"] = (match.end() > more) if more else False
+            vid, url = match.groups()
+            if vid is None:
+                if url not in seen:
+                    seen.add(url)
+                    url, fb = self._original_inline_image(url)
+                    if fb:
+                        post["_fallback"] = self._original_image_fallback(
+                            url, post["id"])
+                    posts.append(self._prepare_image(url, post.copy()))
+                    post.pop("_fallback", None)
+            else:
+                url = self._original_video(url)
+                if url not in seen:
+                    seen.add(url)
+                    posts.append(self._prepare(url, post.copy()))
 
     def _original_photo(self, url):
         resized = url.replace("/s2048x3072/", "/s99999x99999/", 1)

@@ -34,6 +34,14 @@ class PawchiveExtractor(Extractor):
             self.root_dl = f"{lhs}{sep}file.{rhs}"
             self.cookies_domain = "." + rhs
 
+        if revisions := self.config("revisions"):
+            self.revisions = True
+            self.revisions_unique = (revisions == "unique")
+        else:
+            self.revisions = False
+        order = self.config("order-revisions")
+        self.revisions_reverse = order[0] in {"r", "a"} if order else False
+
         self.api = PawchiveAPI(self)
         self._find_inline = text.re(
             r'src="(?:https?://(?:pawchive\.(?:pw|st)))?(/inline/[^"]+'
@@ -72,6 +80,8 @@ class PawchiveExtractor(Extractor):
         posts = self.posts()
         if max_posts := self.config("max-posts"):
             posts = itertools.islice(posts, max_posts)
+        if self.revisions:
+            posts = self._revisions(posts)
 
         for post in posts:
             headers["Referer"] = (f"{self.root}/{post['service']}/user/"
@@ -108,6 +118,12 @@ class PawchiveExtractor(Extractor):
                 if not isinstance(cmts, list):
                     self.log.debug("%s/%s: %s", creator_id, post["id"], cmts)
                     post["comments"] = ()
+
+            if tags := post.get("tags"):
+                if isinstance(tags, str):
+                    post["tags"] = tags[1:-1].replace('"', '').split(",")
+            else:
+                post["tags"] = ()
 
             files = []
             hashes = set()
@@ -230,6 +246,76 @@ class PawchiveExtractor(Extractor):
             date_string = date_string[:19]
         return self.parse_datetime_iso(date_string)
 
+    def _revisions(self, posts):
+        return itertools.chain.from_iterable(
+            self._revisions_post(post) for post in posts)
+
+    def _revisions_get(self, post):
+        return self.api.creator_post_revisions(
+            post["service"], post["user"], post["id"])
+
+    def _revisions_post(self, post):
+        revs = self._revisions_get(post)
+
+        post["revision_id"] = 0
+        if not revs:
+            post["revision_hash"] = self._revision_hash(post)
+            post["revision_index"] = 1
+            post["revision_count"] = 1
+            return (post,)
+
+        revs.insert(0, post)
+        for rev in revs:
+            rev["revision_hash"] = self._revision_hash(rev)
+
+        if self.revisions_unique:
+            uniq = []
+            last = None
+            for rev in revs:
+                if last != rev["revision_hash"]:
+                    last = rev["revision_hash"]
+                    uniq.append(rev)
+            revs = uniq
+
+        cnt = idx = len(revs)
+        for rev in revs:
+            rev["revision_index"] = idx
+            rev["revision_count"] = cnt
+            idx -= 1
+
+        if self.revisions_reverse:
+            revs.reverse()
+
+        return revs
+
+    def _revisions_all(self, post):
+        post["revision_id"] = 0
+        revs = self._revisions_get(post)
+        revs.insert(0, post)
+
+        cnt = idx = len(revs)
+        for rev in revs:
+            rev["revision_hash"] = self._revision_hash(rev)
+            rev["revision_index"] = idx
+            rev["revision_count"] = cnt
+            idx -= 1
+
+        if self.revisions_reverse:
+            revs.reverse()
+
+        return revs
+
+    def _revision_hash(self, revision):
+        rev = {key: revision.get(key)
+               for key in ("id", "user", "service", "title", "content",
+                           "embed", "published", "edited", "captions", "tags")}
+        rev["file"] = revision["file"].copy()
+        rev["file"].pop("name", None)
+        rev["attachments"] = [att.copy() for att in revision["attachments"]]
+        for att in rev["attachments"]:
+            att.pop("name", None)
+        return util.sha1(util.json_dumps(rev))
+
 
 class PawchiveUserExtractor(PawchiveExtractor):
     """Extractor for all posts from a pawchive user listing"""
@@ -253,7 +339,7 @@ class PawchiveUserExtractor(PawchiveExtractor):
 class PawchivePostExtractor(PawchiveExtractor):
     """Extractor for a single pawchive post"""
     subcategory = "post"
-    pattern = USER_PATTERN + r"/post/([^/?#]+)"
+    pattern = USER_PATTERN + r"/post/([^/?#]+)(/revisions?(?:/(\d*))?)?"
     example = "https://pawchive.pw/SERVICE/user/12345/post/12345"
 
     def __init__(self, match):
@@ -261,8 +347,20 @@ class PawchivePostExtractor(PawchiveExtractor):
         PawchiveExtractor.__init__(self, match)
 
     def posts(self):
-        service, creator_id, post_id = self.groups
-        return (self.api.creator_post(service, creator_id, post_id),)
+        service, creator_id, post_id, revision, revision_id = self.groups
+        post = self.api.creator_post(service, creator_id, post_id)
+        if not revision:
+            return (post,)
+
+        self.revisions = False
+        revs = self._revisions_all(post)
+        if not revision_id:
+            return revs
+
+        for rev in revs:
+            if str(rev["revision_id"]) == revision_id:
+                return (rev,)
+        raise self.exc.NotFoundError("revision")
 
 
 class PawchivePostsExtractor(PawchiveExtractor):

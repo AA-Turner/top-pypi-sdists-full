@@ -33,13 +33,14 @@ class GofileFolderExtractor(Extractor):
         folder = self._get_content(self.groups[0], password)
         yield Message.Directory, "", folder
 
-        try:
-            contents = folder.pop("children")
-        except KeyError:
+        if not folder.get("canAccess"):
             raise self.exc.AuthorizationError("Password required")
 
+        contents = (folder.pop("children").values()
+                    if "children" in folder else (folder,))
+
         num = 0
-        for content in contents.values():
+        for content in contents:
             content["folder"] = folder
 
             if content["type"] == "file":
@@ -85,7 +86,7 @@ class GofileFolderExtractor(Extractor):
                 f"{lang}::"
                 f"{self.api_token}::"
                 f"{int(time.time() / 14400)}::"
-                f"9844d94d963d30")
+                f"{self.config('salt') or '12af056dacea0b'}")
         return hashlib.sha256(data.encode()).hexdigest()
 
     def _get_content(self, content_id, password=None):

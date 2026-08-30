@@ -22,6 +22,7 @@ import threading
 import subprocess
 import urllib.request
 import urllib.error
+import urllib.parse
 import uuid
 from pathlib import Path
 from datetime import datetime, timezone
@@ -321,6 +322,21 @@ STREAM_INTERVAL = 2  # seconds between real-time stream pushes
 # missing-field branch falls through to SLOW.
 HEARTBEAT_INTERVAL_FAST = 3
 HEARTBEAT_INTERVAL_SLOW = 60
+
+# Wake long-poll (fast relay, 2026-08-29). On the SLOW cadence a relay query
+# (e.g. the cloud session-trace page asking for a transcript) used to sit
+# unseen for up to 60s — the daemon only learns about queued work on its next
+# heartbeat. Instead of tightening the fleet-wide cadence, the idle sleep at
+# the bottom of the main loop is spent holding GET /ingest/wake open; the
+# cloud answers early the moment there is a queued query, a durable pending
+# action, or a viewer watching the dashboard, and the daemon heartbeats
+# immediately. Net request rate while idle: one cheap held GET per ~15s tick
+# in place of a plain sleep. CLAWMETRY_WAKE_POLL=0 turns it off; a cloud
+# without the endpoint (404) mutes it for WAKE_POLL_MUTE_SECS so old servers
+# aren't hammered.
+WAKE_POLL_MAX_WAIT = 15          # seconds the server may hold one wake call
+WAKE_POLL_MUTE_SECS = 600        # back-off after a 404/unsupported response
+_WAKE_POLL_MUTED_UNTIL = 0.0     # module state: epoch until which wake is off
 BATCH_SIZE = (
     200  # events per encrypted POST (was 10; fewer HTTP requests = faster sync)
 )
@@ -7034,6 +7050,94 @@ def _pick_heartbeat_interval(resp_json: dict | None) -> int:
     )
 
 
+def _wake_says_heartbeat(resp_json: dict | None) -> bool:
+    """Pure decision: does a /ingest/wake response warrant an immediate
+    heartbeat? Work (queued relay query / pending action) obviously does;
+    so does a live viewer, so the daemon flips to FAST without waiting out
+    the rest of a slow beat."""
+    if not isinstance(resp_json, dict):
+        return False
+    return bool(resp_json.get("work") or resp_json.get("viewer_active"))
+
+
+def _wake_wait(config: dict, wait_secs: float) -> dict | None:
+    """Hold GET /ingest/wake open for up to ``wait_secs``; the cloud answers
+    early when there is a reason to heartbeat (queued relay query, durable
+    pending action, or an active viewer).
+
+    Returns the parsed response dict, or None on any failure — callers treat
+    None as "sleep normally". A 404 (cloud without the endpoint yet) mutes
+    the wake poll for WAKE_POLL_MUTE_SECS so old servers aren't polled with
+    a request they will never understand.
+    """
+    global _WAKE_POLL_MUTED_UNTIL
+    if os.environ.get("CLAWMETRY_WAKE_POLL", "1") == "0":
+        return None
+    if time.time() < _WAKE_POLL_MUTED_UNTIL:
+        return None
+    try:
+        from clawmetry.config import is_cloud_disabled
+        if is_cloud_disabled():
+            return None
+    except Exception:
+        pass
+    node_id = str(config.get("node_id") or "")
+    api_key = str(config.get("api_key") or "")
+    if not (node_id and api_key):
+        return None
+    wait_secs = max(0.0, min(float(WAKE_POLL_MAX_WAIT), float(wait_secs)))
+    url = (
+        INGEST_URL.rstrip("/")
+        + "/ingest/wake?node_id="
+        + urllib.parse.quote(node_id)
+        + f"&wait={int(wait_secs)}"
+    )
+    req = urllib.request.Request(
+        url, headers={"X-Api-Key": api_key, "X-Node-Id": node_id}, method="GET"
+    )
+    try:
+        # Timeout leaves headroom past the server's hold; no retries — a
+        # failed wake costs nothing (the next tick tries again) and retrying
+        # a long-poll would double-hold the connection.
+        with urllib.request.urlopen(req, timeout=wait_secs + 10) as resp:
+            raw = resp.read()
+        body = json.loads(raw) if (raw and raw.strip()) else {}
+        return body if isinstance(body, dict) else None
+    except urllib.error.HTTPError as e:
+        if e.code in (404, 405, 501):
+            _WAKE_POLL_MUTED_UNTIL = time.time() + WAKE_POLL_MUTE_SECS
+            log.debug("wake poll unsupported by cloud (%s); muted for %ss",
+                      e.code, WAKE_POLL_MUTE_SECS)
+        return None
+    except Exception as e:
+        log.debug("wake poll failed (non-fatal): %s", e)
+        return None
+
+
+def _idle_sleep_or_wake(config: dict, sleep_secs: float,
+                        allow_wake: bool) -> bool:
+    """The main loop's end-of-cycle sleep. When ``allow_wake`` (SLOW cadence,
+    heartbeats healthy), the sleep is spent holding /ingest/wake instead of
+    ``time.sleep`` — same wall-clock, but the cloud can end it early.
+
+    Returns True when the caller should heartbeat immediately.
+    """
+    sleep_secs = max(1.0, float(sleep_secs))
+    if not allow_wake:
+        time.sleep(sleep_secs)
+        return False
+    t0 = time.time()
+    resp = _wake_wait(config, sleep_secs)
+    if _wake_says_heartbeat(resp):
+        return True
+    # Wake declined/failed/answered early with nothing: sleep out the
+    # remainder so a broken endpoint can't turn the tick into a hot loop.
+    remaining = sleep_secs - (time.time() - t0)
+    if remaining > 0.05:
+        time.sleep(remaining)
+    return False
+
+
 def _machine_specs() -> dict:
     """Which machine is this? — hostname, OS, arch, RAM, cores.
 
@@ -7219,6 +7323,8 @@ _LITE_RT_LABELS = {
     "cline": "Cline",
     "openhands": "OpenHands",
     "openworker": "OpenWorker",
+    "lovable": "Lovable",
+    "replit": "Replit Agent",
 
 }
 
@@ -8677,6 +8783,12 @@ _PENDING_SHAPES = {
     "runtimes", "models", "rollup_sessions",
     # Added in P3 (#2989): rollup-backed span/trace shapes.
     "spans", "traces", "external_calls", "search",
+    # Replay history paging: snapshot carries the capped tail, this shape
+    # serves older pages on demand (rendered daemon-side before encryption).
+    "transcript_page",
+    # #1012 Agent Graph: was live in the q/1 registry but never added here,
+    # so cloud-requested on-demand fetches of it silently no-oped.
+    "agent_graph",
 }
 
 
@@ -8707,12 +8819,18 @@ def _local_dispatch_fallback(shape: str, args: dict) -> dict:
         "sessions":   "query_sessions",
         "aggregates": "query_aggregates",
         "transcript": "query_events",
+        "transcript_page": "query_transcript_page",
     }
     method = method_map.get(shape)
     if not method:
         raise ValueError(f"unknown shape: {shape}")
-    rows = getattr(store, method)(**_filter_store_kwargs(shape, args or {}))
-    return {"rows": rows, "count": len(rows), "_shape": shape, "_via": "fallback"}
+    result = getattr(store, method)(**_filter_store_kwargs(shape, args or {}))
+    if isinstance(result, dict):
+        # transcript_page returns {rows, has_more, next_before_ts} directly.
+        result.setdefault("_shape", shape)
+        result["_via"] = "fallback"
+        return result
+    return {"rows": result, "count": len(result), "_shape": shape, "_via": "fallback"}
 
 
 # Per-shape allowlist of kwargs accepted by the underlying ``LocalStore``
@@ -8725,6 +8843,7 @@ _SHAPE_ALLOWED_KWARGS = {
     "sessions":   {"agent_id", "since", "until", "limit"},
     "aggregates": {"agent_id", "since", "until"},
     "transcript": {"session_id", "limit"},
+    "transcript_page": {"session_id", "before_ts", "limit"},
 }
 
 
@@ -11363,6 +11482,13 @@ def _dispatch_pending_queries(config: dict, pending: list) -> None:
                         "_source": "local_store",
                         "_shape":  "brain_history",
                     }
+            elif shape == "transcript_page":
+                # Replay history paging: render the raw event page into the
+                # SAME transcript messages routes/sessions serves locally, so
+                # the browser never re-implements the message builder. Raw
+                # payloads are stripped and tool detail trimmed — the relay
+                # blob has the same size discipline as the snapshot.
+                payload = _render_transcript_page(_local_dispatch(shape, args), args)
             else:
                 payload = _local_dispatch(shape, args)
             blob = encrypt_payload(payload, enc_key)
@@ -13617,6 +13743,16 @@ _FAMILY_ADAPTER_SPECS = (
     # worker, not a coding CLI: its sessions are SaaS-connector work as
     # often as file edits.
     ("clawmetry_pro.adapters.openworker", "OpenWorkerAdapter"),
+    # Lovable (lovable.dev) -- cloud app builder with NO local process or
+    # store; the adapter reads local git clones of its GitHub-synced repos
+    # (one bot commit per accepted agent edit). Observe-only, no cost.
+    ("clawmetry_pro.adapters.lovable", "LovableAdapter"),
+    # Replit Agent (replit.com) -- the agent loop runs on Replit's infra but
+    # serializes per-session transcript journals INTO the Repl workspace
+    # (.local/state/replit/agent/), so the daemon reads them where it runs:
+    # inside the workspace shell (`pip install clawmetry` in a Repl) or over
+    # a local clone/export pointed at via CLAWMETRY_REPLIT_ROOTS.
+    ("clawmetry_pro.adapters.replit", "ReplitAdapter"),
 )
 
 
@@ -15258,6 +15394,8 @@ _RUNTIME_PREFIXES = frozenset({
     "cline",
     "openhands",
     "openworker",
+    "lovable",
+    "replit",
 })
 
 
@@ -15935,6 +16073,122 @@ def _derive_transcript_title(msgs):
     return ""
 
 
+def _render_transcript_page(page: dict, args: dict) -> dict:
+    """Turn a ``transcript_page`` raw-event page into rendered transcript
+    messages for the cloud relay.
+
+    Reuses ``routes.sessions._try_local_store_transcript`` (the one message
+    builder every surface shares) on the page's rows, then strips raw
+    payloads / trims tool detail via ``_project_snapshot_messages`` so the
+    encrypted relay blob stays snapshot-sized. Never raises — a failed render
+    answers an empty page with paging intact so the browser can retry or
+    stop, not a poisoned blob.
+    """
+    page = page if isinstance(page, dict) else {}
+    out = {
+        "messages": [],
+        "count": 0,
+        "has_more": bool(page.get("has_more")),
+        "next_before_ts": page.get("next_before_ts"),
+        "_shape": "transcript_page",
+        "_source": "local_store",
+    }
+    try:
+        rows = page.get("rows") or []
+        if not rows:
+            return out
+        import routes.sessions as _s
+        t = _s._try_local_store_transcript(
+            (args or {}).get("session_id") or "", _events=rows)
+        msgs = (t or {}).get("messages") or []
+        out["messages"] = _project_snapshot_messages(msgs)
+        out["count"] = len(out["messages"])
+    except Exception as _e:
+        log.debug("transcript_page render failed: %s", _e)
+    return out
+
+
+def _first_user_prompt_index(msgs):
+    """Index of the opening user prompt in a transcript message list, or
+    ``None``. Mirrors what the replay's turn grouping treats as a turn anchor:
+    ``role == "user"``, not a tool chip, non-empty text content."""
+    for i, m in enumerate(msgs):
+        if not isinstance(m, dict) or m.get("role") != "user" or m.get("tool"):
+            continue
+        c = m.get("content")
+        if isinstance(c, str) and c.strip():
+            return i
+    return None
+
+
+def _cap_transcript_messages(msgs, msg_cap):
+    """Cap a transcript to ~``msg_cap`` messages for the snapshot WITHOUT
+    losing the opening user prompt. Returns ``(messages, truncated,
+    oldest_contiguous_ts)`` — the third element is the ms timestamp of the
+    first message of the kept TAIL (the contiguous newest window), i.e. the
+    ``before_ts`` cursor a "load earlier messages" fetch should start from;
+    ``None`` when nothing was cut or the tail carries no timestamps.
+
+    The old ``msgs[-msg_cap:]`` tail-cap silently dropped the head of any
+    session longer than the cap, including the first user message, so the
+    cloud replay opened mid-session on a bare tool chip and long sessions
+    lost every turn anchor (user report 2026-08-29: 83-message session,
+    cap 80, opening prompt gone; 756-message session rendered as a single
+    turn). The title fix (_derive_transcript_title runs pre-cap) masked it
+    in the list view while the replay stayed headless.
+
+    Keep the opening user prompt, an honest omission marker, and the most
+    recent messages; the full transcript stays on the local dashboard.
+    """
+    if len(msgs) <= msg_cap:
+        return msgs, False, None
+    tail = msgs[-(msg_cap - 2):] if msg_cap > 2 else msgs[-msg_cap:]
+    tail_start = len(msgs) - len(tail)
+    keep = []
+    fu_idx = _first_user_prompt_index(msgs)
+    if fu_idx is not None and fu_idx < tail_start:
+        keep.append(msgs[fu_idx])
+    omitted = tail_start - len(keep)
+    if omitted > 0:
+        # Timestamp the marker just before the tail so the viewer's
+        # ts-sorted merge keeps it between the opening prompt and the
+        # recent messages.
+        marker_ts = None
+        for m in tail:
+            ts = m.get("timestamp") if isinstance(m, dict) else None
+            if isinstance(ts, (int, float)):
+                marker_ts = ts - 1
+                break
+        if marker_ts is None and keep:
+            ts = keep[0].get("timestamp")
+            if isinstance(ts, (int, float)):
+                marker_ts = ts + 1
+        keep.append({
+            "role": "system",
+            "content": (
+                "… %d earlier messages not shown here to keep cloud sync "
+                "light. Open your local ClawMetry dashboard for the full "
+                "transcript." % omitted
+            ),
+            "timestamp": marker_ts,
+        })
+    oldest_contiguous_ts = None
+    for m in tail:
+        ts = m.get("timestamp") if isinstance(m, dict) else None
+        if isinstance(ts, (int, float)):
+            oldest_contiguous_ts = ts
+            break
+    return keep + tail, True, oldest_contiguous_ts
+
+
+# Freshness cache for _build_transcripts: sid -> {fp, cap, t}. The fp is the
+# newest event's (ts, id); while it holds, the finished transcript dict is
+# reused instead of re-fetched and re-rendered. Bounded FIFO — the daemon is
+# long-lived and sessions churn.
+_TRANSCRIPT_SNAP_CACHE: dict = {}
+_TRANSCRIPT_SNAP_CACHE_MAX = 32
+
+
 def _build_transcripts(limit_sessions=8, msg_cap=80, extra_sids=None):
     """Recent per-session transcripts for the cloud Embodied tab.
 
@@ -15977,6 +16231,25 @@ def _build_transcripts(limit_sessions=8, msg_cap=80, extra_sids=None):
             return {}
         out = {}
         for sid in recent_sids:
+            # Perf: a snapshot cycle used to re-fetch up to 10k events and
+            # re-render the transcript for EVERY recent session, every cycle,
+            # even when nothing changed. Probe the newest (ts, id) with a
+            # 1-row query and reuse the previously built transcript when the
+            # fingerprint matches — an idle session costs one indexed row
+            # instead of a 10k-row scan + rebuild. (A backfill that inserts
+            # only OLDER events won't move the fingerprint; the cache heals
+            # on the session's next new event.)
+            fp = None
+            try:
+                head = store.query_events(session_id=sid, limit=1)
+                if head:
+                    fp = (str(head[0].get("ts")), str(head[0].get("id")))
+            except Exception:
+                fp = None
+            cached = _TRANSCRIPT_SNAP_CACHE.get(sid)
+            if fp and cached and cached.get("fp") == fp                     and cached.get("cap") == msg_cap:
+                out[sid] = cached["t"]
+                continue
             try:
                 rows = store.query_events(session_id=sid, limit=10000)
                 t = _s._try_local_store_transcript(sid, _events=rows)
@@ -15995,11 +16268,16 @@ def _build_transcripts(limit_sessions=8, msg_cap=80, extra_sids=None):
                     title = _derive_transcript_title(msgs)
                 except Exception:
                     title = ""
-                if len(msgs) > msg_cap:
+                msgs, _was_capped, _oldest_tail_ts = _cap_transcript_messages(
+                    msgs, msg_cap)
+                if _was_capped:
                     t = dict(t)
-                    msgs = msgs[-msg_cap:]
                     t["messages"] = msgs
                     t["_truncated"] = True
+                    # Paging cursor for the replay's "load earlier messages":
+                    # the first fetch asks for history strictly older than
+                    # the contiguous tail this snapshot carries.
+                    t["_oldest_contiguous_ts"] = _oldest_tail_ts
                 # Perf: the per-message `raw` payload (#1895) can be ~12 KB each
                 # and the tool deep-dive (#1911) carries input/output; shipping
                 # them in full for 8 sessions × 80 msgs would bloat the shared
@@ -16014,6 +16292,12 @@ def _build_transcripts(limit_sessions=8, msg_cap=80, extra_sids=None):
                 # openclaw, so "Claude Code" filter showed "no sessions").
                 t["runtime"] = _runtime_of_session(sid)
                 out[sid] = t
+                if fp:
+                    _TRANSCRIPT_SNAP_CACHE[sid] = {
+                        "fp": fp, "cap": msg_cap, "t": t}
+                    while len(_TRANSCRIPT_SNAP_CACHE) > _TRANSCRIPT_SNAP_CACHE_MAX:
+                        _TRANSCRIPT_SNAP_CACHE.pop(
+                            next(iter(_TRANSCRIPT_SNAP_CACHE)))
         return out
     except Exception as _e:
         log.debug("transcripts snapshot build failed: %s", _e)
@@ -22944,7 +23228,42 @@ def run_daemon() -> None:
         # whenever a viewer is active. When idle (SLOW=60s),
         # POLL_INTERVAL still rules, so bandwidth + Cloud Run cost stay
         # flat.
-        time.sleep(max(1, min(POLL_INTERVAL, heartbeat_interval)))
+        #
+        # Wake long-poll (fast relay, 2026-08-29): on the SLOW cadence the
+        # sleep is spent holding GET /ingest/wake instead — same wall-clock
+        # when idle, but a fresh relay query (cloud trace page, Guard action)
+        # or a newly-arrived viewer ends it early and forces an immediate
+        # heartbeat, cutting relay latency from "next slow beat" (≤60s) to a
+        # couple of seconds. Skipped on FAST (3s beats are already prompt)
+        # and while heartbeats are failing (don't hold sockets to a flapping
+        # cloud).
+        _cycle_sleep = max(1, min(POLL_INTERVAL, heartbeat_interval))
+        _wake_now = _idle_sleep_or_wake(
+            config,
+            _cycle_sleep,
+            allow_wake=(
+                heartbeat_interval > HEARTBEAT_INTERVAL_FAST
+                and consecutive_hb_failures == 0
+            ),
+        )
+        if _wake_now:
+            # Answer NOW, not after the next cycle body. The body's ingest
+            # passes can run 10-20s on a busy node, and waiting them out put
+            # a measured 22.5s on a transcript ask that the wake had already
+            # detected within ~2s (live measurement, 2026-08-29). A heartbeat
+            # here drains pending_queries and dispatches them synchronously;
+            # the cycle body then runs as usual with a fresh timer.
+            if send_heartbeat(config):
+                last_heartbeat = time.time()
+                consecutive_hb_failures = 0
+                heartbeat_interval = _pick_heartbeat_interval(
+                    _LAST_HEARTBEAT_RESPONSE
+                )
+            else:
+                # Fall back to the old shape: zero the timer so the normal
+                # end-of-cycle gate retries, and let its failure accounting
+                # take over from there.
+                last_heartbeat = 0.0
 
 
 # ── Telegram gateway-log ingest (#1192 follow-up) ──────────────────────────

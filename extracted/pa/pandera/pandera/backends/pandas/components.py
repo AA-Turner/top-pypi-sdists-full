@@ -126,7 +126,9 @@ class ColumnBackend(ArraySchemaBackend):
                 check_obj[column_name] = self._try_convert_dtype_after_fillna(
                     check_obj[column_name], schema.dtype, schema.default
                 )
-            if schema.coerce:
+            # if the column has parsers, defer coercion to the array backend,
+            # which runs parsers before coercing
+            if schema.coerce and not schema.parsers:
                 try:
                     check_obj[column_name] = self.coerce_dtype(
                         check_obj[column_name],
@@ -316,7 +318,9 @@ class IndexBackend(ArraySchemaBackend):
 
         error_handler = ErrorHandler(lazy)
 
-        if schema.coerce:
+        # if the index has parsers, defer coercion to the array backend,
+        # which runs parsers before coercing
+        if schema.coerce and not schema.parsers:
             try:
                 check_obj.index = schema.coerce_dtype(check_obj.index)
             except SchemaError as exc:
@@ -338,6 +342,8 @@ class IndexBackend(ArraySchemaBackend):
                 inplace=inplace,
             )
             assert is_field(_validated_obj)
+            if schema.parsers:
+                check_obj.index = pd.Index(_validated_obj)
         except SchemaError as exc:
             error_handler.collect_error(
                 get_error_category(exc.reason_code),

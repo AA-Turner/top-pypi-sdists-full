@@ -154,7 +154,6 @@ class DashboardScreenshotTools:
         ] = DEFAULT_HEIGHT,
         viewport_presets: Annotated[
             list[ViewportPreset] | None,
-            JSON_STRING_COERCION,
             Field(
                 description="Render one or more named responsive viewports in "
                 "this order: mobile (390x844), tablet (768x1024), desktop "
@@ -162,6 +161,7 @@ class DashboardScreenshotTools:
                 min_length=1,
                 max_length=3,
             ),
+            JSON_STRING_COERCION,
         ] = None,
         orientation: Annotated[
             Orientation | None,
@@ -196,16 +196,20 @@ class DashboardScreenshotTools:
             str | None,
             Field(
                 description="Installed Home Assistant frontend theme name, "
-                "applied to this render. The engine user's saved theme "
-                "preference is restored after the capture (best effort)."
+                "applied to this render. The engine persists this on the "
+                "engine account's profile; this tool reports the change in "
+                "warnings but does not undo it (see ha_manage_theme "
+                "action='set_engine_theme')."
             ),
         ] = None,
         dark_mode: Annotated[
             bool,
             Field(
                 description="Render the requested theme in dark mode, applied "
-                "to this render. The engine user's saved theme preference is "
-                "restored after the capture (best effort)."
+                "to this render. The engine persists this on the engine "
+                "account's profile; this tool reports the change in warnings "
+                "but does not undo it (see ha_manage_theme "
+                "action='set_engine_theme')."
             ),
         ] = False,
         language: Annotated[

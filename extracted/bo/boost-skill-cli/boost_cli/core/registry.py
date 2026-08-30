@@ -1,9 +1,13 @@
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """Tap registries: GitHub repos (or local paths) full of SKILL.md files."""
 from __future__ import annotations
 
 import difflib
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,6 +21,12 @@ class Tap:
     name: str          # "anthropics/skills" or a short alias
     url: str           # https URL or local path
     curated: bool = False
+    #: A 40-character commit this tap is held at, or "" for "track the default
+    #: branch". A pin is durable *because it is recorded here*: `tap --at`
+    #: checked a commit out and nothing remembered, so the next `boost update`
+    #: moved the clone to HEAD — silently invalidating any prebuilt vectors
+    #: imported for that commit, which is the whole reason the pin exists.
+    pin: str = ""
 
     @property
     def safe_name(self) -> str:
@@ -128,7 +138,8 @@ def list_taps() -> list[Tap]:
     taps = config.get("taps", []) or []
     if not isinstance(taps, list):
         return []
-    return [Tap(name=t["name"], url=t.get("url", ""), curated=bool(t.get("curated")))
+    return [Tap(name=t["name"], url=t.get("url", ""),
+                curated=bool(t.get("curated")), pin=str(t.get("pin") or ""))
             for t in taps if isinstance(t, dict) and t.get("name")]
 
 
@@ -161,8 +172,14 @@ def get(name: str) -> Tap:
                     else "list taps with `boost taps`")
 
 
-def add(spec: str, curated: bool = False) -> Tap:
+def add(spec: str, curated: bool = False, at: str | None = None) -> Tap:
     """Parse `spec`, shallow-clone it, and record the tap in config.
+
+    ``at`` pins the clone to one commit. It exists for published vector shards:
+    a shard is only importable while the tap sits at the commit it was built
+    from (see ``core.shards``), so "tap this registry as the shard expects it"
+    has to be one operation — tapping HEAD and then moving would re-scan the
+    catalog for a tree the vectors do not describe.
 
     Raises BoostError if a tap with that name is already configured.
     """
@@ -176,6 +193,16 @@ def add(spec: str, curated: bool = False) -> Tap:
     if tap.path.exists():
         util.rmtree(tap.path)
     gitutil.clone_shallow(url, tap.path)
+    if at:
+        try:
+            gitutil.checkout_commit(tap.path, at)
+        except BoostError:
+            # A pin that cannot be honoured must not leave a tap silently on
+            # HEAD: the caller asked for one tree and would get another, and
+            # every shard keyed to the pin would then be refused for a commit
+            # mismatch whose cause is three steps back.
+            util.rmtree(tap.path)
+            raise
     problems = policy.check_tap_signing(tap.path)
     if problems:
         util.rmtree(tap.path)  # leave no half-added tap behind
@@ -184,9 +211,211 @@ def add(spec: str, curated: bool = False) -> Tap:
             hint="add its key with `boost trust add <name> <key>`, "
                  "or relax `boost policy set require_signed_taps false`")
     cfg = config.load()
-    cfg.setdefault("taps", []).append(
-        {"name": name, "url": url, "curated": curated})
+    row = {"name": name, "url": url, "curated": curated}
+    if at:
+        row["pin"] = at
+    cfg.setdefault("taps", []).append(row)
     config.save(cfg)
+    tap.pin = at or ""
+    return tap
+
+
+#: Default concurrency for :func:`add_many`. Tapping is network-latency bound,
+#: not bandwidth or CPU bound: a clone of a catalog registry measures ~1.6 s
+#: whether one runs or twelve do, so the wall time of `boost tap --catalog` was
+#: 463 x 1.6 s ~= 13 minutes of mostly waiting. Measured on the real catalog,
+#: 40 registries went from 58 s serial to 6.4 s at 12 workers with the per-repo
+#: median unchanged (1.55 s -> 1.46 s), which is what says the concurrency is
+#: not being paid for somewhere else.
+DEFAULT_TAP_JOBS = 8
+
+#: Politeness ceiling. Nothing in the measurements argues for more, and this is
+#: someone else's server: past this the risk of being throttled outweighs a
+#: wall-time gain that is already asymptotic.
+MAX_TAP_JOBS = 16
+
+
+def tap_jobs(requested: int | None = None) -> int:
+    """How many clones to run at once, clamped to something defensible."""
+    if requested is None:
+        env = os.environ.get("BOOST_TAP_JOBS")
+        requested = int(env) if env and env.isdigit() else DEFAULT_TAP_JOBS
+    return max(1, min(int(requested), MAX_TAP_JOBS))
+
+
+def _discard(tap: Tap) -> None:
+    """Remove a rejected clone, tolerating one that was never created.
+
+    `add` only ever deleted a directory it had just cloned successfully, so it
+    could call `rmtree` unguarded. Here the failure may be the clone itself —
+    at which point the path does not exist, and `util.rmtree`'s read-only retry
+    hook chmods a missing file and raises `FileNotFoundError` out of the worker
+    thread, turning "this one registry 404'd" into a crashed catalog tap.
+    """
+    # Cleanup is best-effort: the caller's real error is the one worth
+    # reporting, and a leftover directory is a smaller problem than losing it
+    # behind a cleanup failure.
+    with suppress(OSError):
+        if tap.path.exists():
+            util.rmtree(tap.path)
+
+
+def _clone_one(spec: str, curated: bool, at: str | None) -> dict:
+    """Clone one tap without touching config. Never raises.
+
+    Config is deliberately left alone: `config.load()` -> mutate -> `save()` is
+    read-modify-write on a single JSON file, so running it from N threads loses
+    taps at random. :func:`add_many` writes once, on one thread, after every
+    clone has finished.
+    """
+    try:
+        name, url = parse_spec(spec)
+    except BoostError as exc:
+        return {"spec": spec, "name": spec, "ok": False, "error": exc.message}
+    tap = Tap(name=name, url=url, curated=curated)
+    try:
+        if tap.path.exists():
+            util.rmtree(tap.path)
+        gitutil.clone_shallow(url, tap.path)
+        if at:
+            gitutil.checkout_commit(tap.path, at)
+        problems = policy.check_tap_signing(tap.path)
+        if problems:
+            _discard(tap)
+            return {"spec": spec, "name": name, "ok": False,
+                    "error": "failed provenance policy: %s" % "; ".join(problems)}
+    except BoostError as exc:
+        # Leave no half-added tap behind, exactly as `add` does: a clone that
+        # failed its pin or its policy check is not a tap, and a directory that
+        # looks like one would be indexed on the next scan.
+        _discard(tap)
+        return {"spec": spec, "name": name, "ok": False, "error": exc.message}
+    return {"spec": spec, "name": name, "url": url, "ok": True, "tap": tap}
+
+
+def add_many(specs: list[str], curated: bool = False,
+             pins: dict[str, str] | None = None, jobs: int | None = None,
+             on_done=None) -> list[dict]:
+    """Clone many taps at once and register them in a single config write.
+
+    Returns one result dict per spec, in the order given, each with ``ok`` and
+    either ``tap`` or ``error``. One registry's failure never costs another its
+    clone — a catalog tap of 463 repos that aborted on the first 404 would be
+    worse than useless.
+
+    `pins` maps a tap name to the commit to check out, for published vector
+    shards (see ``core.shards``).
+    """
+    if not specs:
+        return []
+    paths.ensure_dirs()
+    pins = pins or {}
+    existing = {t.name for t in list_taps()}
+    results: list[dict] = []
+    todo: list[str] = []
+    for spec in specs:
+        try:
+            name, _url = parse_spec(spec)
+        except BoostError as exc:
+            results.append({"spec": spec, "name": spec, "ok": False,
+                            "error": exc.message})
+            continue
+        if name in existing:
+            results.append({"spec": spec, "name": name, "ok": False,
+                            "skipped": True, "error": "already tapped"})
+            continue
+        # Guard against the same registry appearing twice in one selection:
+        # two threads cloning into one directory is a corrupt clone, not a race
+        # anyone would enjoy debugging.
+        existing.add(name)
+        todo.append(spec)
+
+    def work(spec: str) -> dict:
+        name, _url = parse_spec(spec)
+        return _clone_one(spec, curated, pins.get(name))
+
+    with ThreadPoolExecutor(max_workers=tap_jobs(jobs)) as pool:
+        for res in pool.map(work, todo):
+            results.append(res)
+            if on_done is not None:
+                on_done(res)
+
+    # One read-modify-write, after every clone: N threads doing this each would
+    # lose taps, and 463 sequential rewrites of the same file is its own cost.
+    fresh = [r for r in results if r.get("ok")]
+    if fresh:
+        cfg = config.load()
+        rows = cfg.setdefault("taps", [])
+        for r in fresh:
+            row = {"name": r["name"], "url": r["url"], "curated": curated}
+            pin = pins.get(r["name"])
+            if pin:
+                row["pin"] = pin
+                r["tap"].pin = pin
+            rows.append(row)
+        config.save(cfg)
+    # First occurrence, not last: a dict comprehension over `specs` keeps the
+    # LAST index for a repeated spec, which pushed the duplicate — and so its
+    # whole position — to the end and reordered everything in between.
+    order: dict[str, int] = {}
+    for i, spec in enumerate(specs):
+        order.setdefault(spec, i)
+    # Ties are the repeats themselves; report the clone before the "already
+    # tapped" note about it.
+    results.sort(key=lambda r: (order.get(r["spec"], len(order)),
+                                bool(r.get("skipped"))))
+    return results
+
+
+#: How long a tap set may go unrefreshed before `boost search` mentions it.
+#: Two weeks rather than days: registries move slowly, and a hint that fires
+#: every other search is one users learn to read past.
+STALE_TAPS_DAYS = 14
+
+
+def mark_refreshed() -> None:
+    """Stamp "the taps were refreshed just now"; never fails a refresh."""
+    with suppress(OSError):
+        paths.ensure_dirs()
+        paths.tap_refresh_marker().write_text("", encoding="utf-8")
+
+
+def refresh_age_days() -> float | None:
+    """Days since the last tap refresh, or None when nothing has recorded one.
+
+    None is not zero and not infinity: on a machine that has never run
+    `boost update` there is nothing to report, and inventing an age would make
+    every fresh install nag about staleness on its first search.
+    """
+    marker = paths.tap_refresh_marker()
+    try:
+        age = time.time() - marker.stat().st_mtime
+    except OSError:
+        return None
+    return max(0.0, age / 86400.0)
+
+
+def pin(name: str, commit: str) -> Tap:
+    """Record `commit` as the tap's pin, so `update` leaves it alone."""
+    tap = get(name)
+    cfg = config.load()
+    for row in cfg.get("taps", []) or []:
+        if isinstance(row, dict) and row.get("name") == tap.name:
+            row["pin"] = commit
+    config.save(cfg)
+    tap.pin = commit
+    return tap
+
+
+def unpin(name: str) -> Tap:
+    """Drop a tap's pin so it tracks its default branch again."""
+    tap = get(name)
+    cfg = config.load()
+    for row in cfg.get("taps", []) or []:
+        if isinstance(row, dict) and row.get("name") == tap.name:
+            row.pop("pin", None)
+    config.save(cfg)
+    tap.pin = ""
     return tap
 
 
@@ -212,8 +441,13 @@ def remove(name: str) -> Tap:
 WHEEL_SCHEME = "builtin:"
 
 
-def update(name: str | None = None) -> tuple[dict, dict]:
+def update(name: str | None = None,
+           force: bool = False) -> tuple[dict, dict]:
     """git-pull one tap (or all). Returns ``({name: summary}, {name: error})``.
+
+    **A pinned tap is skipped** unless ``force``, which also clears the pin —
+    an update that silently moved a pinned clone is what made `tap --at` a
+    suggestion rather than a guarantee.
 
     **A named tap still raises.** ``boost update sometap`` is a request about
     that one tap, so its failure is the answer to the question asked.
@@ -233,6 +467,14 @@ def update(name: str | None = None) -> tuple[dict, dict]:
     results: dict = {}
     failures: dict = {}
     for tap in targets:
+        if tap.pin and not force:
+            # A pinned tap is held at one commit on purpose: prebuilt vectors
+            # are keyed to it, and moving the clone would make them stale while
+            # still present — the failure that looks like nothing at all. Not
+            # an error, because "update everything" over 400 taps should not
+            # fail because three are pinned.
+            results[tap.name] = "pinned at %s (skipped)" % tap.pin[:7]
+            continue
         try:
             if tap.url.startswith(WHEEL_SCHEME):
                 # boost's own tap arrives with the wheel, so there is no remote
@@ -252,6 +494,11 @@ def update(name: str | None = None) -> tuple[dict, dict]:
                 results[tap.name] = "cloned"
             else:
                 results[tap.name] = gitutil.pull(tap.path)
+                if tap.pin:
+                    # `--force` is a decision to stop holding this tap still,
+                    # so the pin goes with the move rather than silently
+                    # re-applying on the next run.
+                    unpin(tap.name)
         except BoostError as err:
             if name:
                 raise
@@ -259,4 +506,9 @@ def update(name: str | None = None) -> tuple[dict, dict]:
             # says; git's own first line already carries the URL or path. See
             # gitutil._git_error for why that line is now the one we show.
             failures[tap.name] = err.message
+    if results:
+        # Stamped on any successful sweep, including one where every tap was
+        # already current: "refreshed" is about having asked, not about having
+        # found something.
+        mark_refreshed()
     return results, failures

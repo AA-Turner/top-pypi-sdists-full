@@ -108,7 +108,8 @@ class AryionExtractor(Extractor):
             pos = page.find("Next &gt;&gt;")
             if pos < 0:
                 return
-            url = self.root + text.rextr(page, "href='", "'", pos)
+            url = self.root + text.unescape(text.rextr(
+                page, "href='", "'", pos))
 
     def _pagination_folders(self, url, folder=None, seen=None):
         if folder is None:

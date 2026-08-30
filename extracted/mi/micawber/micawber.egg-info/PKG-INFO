@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: micawber
-Version: 0.7.0
+Version: 0.7.1
 Summary: a small library for extracting rich content from urls
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/micawber

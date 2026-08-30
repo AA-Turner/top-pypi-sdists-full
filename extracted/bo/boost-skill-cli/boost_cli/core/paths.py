@@ -1,5 +1,5 @@
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """All filesystem locations boost touches.
 
 Everything derives from $HOME (or explicit env overrides) at call time so
@@ -101,6 +101,16 @@ def logs_dir() -> Path:
 def state_dir() -> Path:
     """Return the state directory (pins, tags, policy, profiles, pulse)."""
     return boost_home() / "state"
+
+
+def tap_refresh_marker() -> Path:
+    """File whose mtime records when the taps were last refreshed.
+
+    An mtime rather than a JSON field: the only question asked of it is "how
+    long ago", on the search path, where one `stat` is affordable and parsing
+    anything is not.
+    """
+    return state_dir() / "last-tap-refresh"
 
 
 def snapshots_dir() -> Path:

@@ -44,7 +44,8 @@ class SourceAdapterConfig(BaseModel):
     webhook_url: Optional[StrictStr] = None
     source_collection_id: Optional[StrictStr] = Field(default=None, description="For adapter_type 'collection': the source collection whose documents are demoted into this bucket as first-class objects.")
     source_filters: Optional[Dict[str, Any]] = Field(default=None, description="For adapter_type 'collection': optional documents/list filter (LogicalOperator shape) selecting which source documents to demote.")
-    __properties: ClassVar[List[str]] = ["adapter_type", "enabled", "connection_id", "connection", "event_filter", "field_mapping", "blob_source", "batching", "dedup_key", "webhook_secret", "webhook_url", "source_collection_id", "source_filters"]
+    source_bucket_ids: Optional[List[StrictStr]] = Field(default=None, description="For adapter_type 'bucket': the source buckets whose objects are fanned into this bucket as first-class objects (fan-in).")
+    __properties: ClassVar[List[str]] = ["adapter_type", "enabled", "connection_id", "connection", "event_filter", "field_mapping", "blob_source", "batching", "dedup_key", "webhook_secret", "webhook_url", "source_collection_id", "source_filters", "source_bucket_ids"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -121,7 +122,8 @@ class SourceAdapterConfig(BaseModel):
             "webhook_secret": obj.get("webhook_secret"),
             "webhook_url": obj.get("webhook_url"),
             "source_collection_id": obj.get("source_collection_id"),
-            "source_filters": obj.get("source_filters")
+            "source_filters": obj.get("source_filters"),
+            "source_bucket_ids": obj.get("source_bucket_ids")
         })
         return _obj
 

@@ -7,6 +7,7 @@ if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.
     from dataclasses import dataclass, field
 
 from . import meta_v1
+from . import resource
 
 
 @dataclass
@@ -165,6 +166,27 @@ class DeviceTaintSelector(DictMixin):
 
 
 @dataclass
+class PartitionTypeStatus(DictMixin):
+    r"""PartitionTypeStatus reports allocatability for a single partition type,
+      identified by the value of a grouping attribute.
+
+      **parameters**
+
+      * **allocatable** ``int`` - Allocatable is the number of additional devices of this partition type that
+        could still be allocated given current shared-counter consumption.
+      * **attribute** ``str`` - Attribute is the fully qualified name of the device attribute whose value
+        groups this entry. It is the PartitionTypeAttribute declared by the devices'
+        own slice, or the default named in the request when their slice declares none.
+      * **total** ``int`` - Total is the number of devices of this partition type in the pool.
+      * **type** ``str`` - Type is the partition type value (e.g. "Full" or "Half").
+    """
+    allocatable: 'int'
+    attribute: 'str'
+    total: 'int'
+    type: 'str'
+
+
+@dataclass
 class PoolStatus(DictMixin):
     r"""PoolStatus contains status information for a single resource pool.
 
@@ -188,8 +210,18 @@ class PoolStatus(DictMixin):
       * **nodeName** ``Optional[str]`` - NodeName is the node this pool is associated with. When omitted, the pool is
         not associated with a specific node. Must be a valid DNS subdomain name
         (RFC1123).
+      * **partitionSummary** ``Optional[List[PartitionTypeStatus]]`` - PartitionSummary reports allocatability per (attribute, partition type) for a
+        partitionable pool that publishes SharedCounters. Each entry names the
+        grouping attribute it was resolved from: the PartitionTypeAttribute declared
+        by a device's own slice, or for devices whose slice declares none, the default
+        named in the request. A pool that mixes partitions declared under different
+        attributes reports each independently. When no slice declares an attribute and
+        the request names no default, the pool reports no partition summary.
       * **resourceSliceCount** ``Optional[int]`` - ResourceSliceCount is the number of ResourceSlices that make up this pool. May
         be unset when validationError is set.
+      * **shareableSummary** ``Optional[ShareableSummaryStatus]`` - ShareableSummary reports aggregate capacity for a pool that contains devices
+        with AllowMultipleAllocations. It is populated only when at least one device
+        in the pool is shareable.
       * **totalDevices** ``Optional[int]`` - TotalDevices is the total number of devices in the pool across all slices. A
         value of 0 means the pool has no devices. May be unset when validationError is
         set.
@@ -206,7 +238,9 @@ class PoolStatus(DictMixin):
     allocatedDevices: 'Optional[int]' = None
     availableDevices: 'Optional[int]' = None
     nodeName: 'Optional[str]' = None
+    partitionSummary: 'Optional[List[PartitionTypeStatus]]' = None
     resourceSliceCount: 'Optional[int]' = None
+    shareableSummary: 'Optional[ShareableSummaryStatus]' = None
     totalDevices: 'Optional[int]' = None
     unavailableDevices: 'Optional[int]' = None
     validationError: 'Optional[str]' = None
@@ -283,6 +317,16 @@ class ResourcePoolStatusRequestSpec(DictMixin):
       * **driver** ``str`` - Driver specifies the DRA driver name to filter pools. Only pools from
         ResourceSlices with this driver will be included. Must be a DNS subdomain
         (e.g., "gpu.example.com").
+      * **defaultPartitionTypeAttribute** ``Optional[str]`` - DefaultPartitionTypeAttribute optionally names a device attribute (by its
+        fully qualified name, e.g. "gpu.example.com/profile") to use as the default
+        grouping attribute for partitionable devices whose slice has not declared one
+        themselves.
+        A slice's own PartitionTypeAttribute always takes precedence. This default
+        applies only to devices whose slice does not declare one, so that a request
+        can still get an accurate partitionSummary from a driver that has not been
+        updated to declare it. When neither the slice nor this default names an
+        attribute, a partitionable pool reports no partitionSummary.
+        Must include the domain qualifier.
       * **limit** ``Optional[int]`` - Limit optionally specifies the maximum number of pools to return in the
         status. If more pools match the filter criteria, the response will be
         truncated (i.e., len(status.pools) < status.poolCount).
@@ -292,6 +336,7 @@ class ResourcePoolStatusRequestSpec(DictMixin):
         non-empty valid resource pool name (DNS subdomains separated by "/").
     """
     driver: 'str'
+    defaultPartitionTypeAttribute: 'Optional[str]' = None
     limit: 'Optional[int]' = None
     poolName: 'Optional[str]' = None
 
@@ -319,5 +364,42 @@ class ResourcePoolStatusRequestStatus(DictMixin):
     poolCount: 'int'
     conditions: 'Optional[List[meta_v1.Condition]]' = None
     pools: 'Optional[List[PoolStatus]]' = None
+
+
+@dataclass
+class ShareableCapacityStatus(DictMixin):
+    r"""ShareableCapacityStatus reports aggregate amounts for a single shareable
+      capacity key.
+
+      **parameters**
+
+      * **available** ``resource.Quantity`` - Available is Total minus Consumed, never negative.
+      * **consumed** ``resource.Quantity`` - Consumed is the amount drawn by current allocations.
+      * **name** ``str`` - Name is the capacity name.
+      * **total** ``resource.Quantity`` - Total is the sum of this capacity across shareable devices in the pool.
+    """
+    available: 'resource.Quantity'
+    consumed: 'resource.Quantity'
+    name: 'str'
+    total: 'resource.Quantity'
+
+
+@dataclass
+class ShareableSummaryStatus(DictMixin):
+    r"""ShareableSummaryStatus reports aggregate capacity for a pool that contains
+      devices with AllowMultipleAllocations.
+
+      **parameters**
+
+      * **fullyAvailableDevices** ``int`` - FullyAvailableDevices is the number of shareable devices with no capacity
+        consumed.
+      * **partiallyAvailableDevices** ``int`` - PartiallyAvailableDevices is the number of shareable devices with some but not
+        all capacity consumed.
+      * **capacity** ``Optional[List[ShareableCapacityStatus]]`` - Capacity reports aggregate total, consumed, and available amounts per
+        shareable capacity key across the pool.
+    """
+    fullyAvailableDevices: 'int'
+    partiallyAvailableDevices: 'int'
+    capacity: 'Optional[List[ShareableCapacityStatus]]' = None
 
 

@@ -558,7 +558,7 @@ CODES = {
 
 def HTTPBasicAuth(username, password, type=b"Basic"):
     authorization = type + b" " + binascii.b2a_base64(
-        f"{username}:{password}".encode("latin1"), newline=False)
+        f"{username}:{password}".encode("utf-8"), newline=False)
     del username, password
 
     def _apply(request):

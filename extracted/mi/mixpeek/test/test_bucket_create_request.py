@@ -45,7 +45,38 @@ class TestBucketCreateRequest(unittest.TestCase):
                         ], 
                     default_policy = 'insert', ),
                 metadata = { },
-                storage_class = 'standard'
+                storage_class = 'standard',
+                source_adapter = mixpeek.models.source_adapter_config.SourceAdapterConfig(
+                    adapter_type = '', 
+                    enabled = True, 
+                    connection_id = '', 
+                    connection = mixpeek.models.external_connection.ExternalConnection(
+                        api_base_url = '', 
+                        credentials = { }, ), 
+                    event_filter = mixpeek.models.event_filter.EventFilter(
+                        event_types = [
+                            ''
+                            ], ), 
+                    field_mapping = {
+                        'key' : ''
+                        }, 
+                    blob_source = mixpeek.models.blob_source.BlobSource(
+                        file_field = '', 
+                        blob_type = 'video', 
+                        target_property = '', ), 
+                    batching = mixpeek.models.batching_config.BatchingConfig(
+                        mode = 'time_window', 
+                        window_seconds = 5.0, 
+                        max_batch_size = 1.0, 
+                        auto_submit = True, ), 
+                    dedup_key = '', 
+                    webhook_secret = '', 
+                    webhook_url = '', 
+                    source_collection_id = '', 
+                    source_filters = { }, 
+                    source_bucket_ids = [
+                        ''
+                        ], )
             )
         else:
             return BucketCreateRequest(

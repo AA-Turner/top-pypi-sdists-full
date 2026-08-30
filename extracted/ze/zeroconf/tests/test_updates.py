@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import logging
-import socket
 import time
 
 import pytest
 
 import zeroconf as r
+from tests import make_service_info
 from zeroconf import Zeroconf, const
 from zeroconf._record_update import RecordUpdate
 from zeroconf._services.browser import ServiceBrowser
-from zeroconf._services.info import ServiceInfo
 
 log = logging.getLogger("zeroconf")
 original_logging_level = logging.NOTSET
@@ -29,12 +28,10 @@ def teardown_module():
         log.setLevel(original_logging_level)
 
 
-def test_legacy_record_update_listener(quick_timing: None) -> None:
+def test_legacy_record_update_listener(zc: Zeroconf, quick_timing: None) -> None:
     """Test a RecordUpdateListener that does not implement update_records."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
     with pytest.raises(RuntimeError):
         r.RecordUpdateListener().update_record(
             zc,
@@ -63,16 +60,7 @@ def test_legacy_record_update_listener(quick_timing: None) -> None:
     name = "MyTestHome"
     browser = ServiceBrowser(zc, type_, [on_service_state_change])
 
-    info_service = ServiceInfo(
-        type_,
-        f"{name}.{type_}",
-        80,
-        0,
-        0,
-        {"path": "/~paulsm/"},
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info_service = make_service_info(type_, f"{name}.{type_}", properties={"path": "/healthz/"})
 
     zc.register_service(info_service)
 
@@ -86,8 +74,6 @@ def test_legacy_record_update_listener(quick_timing: None) -> None:
     zc.remove_listener(listener)
     # Removing a second time should not throw
     zc.remove_listener(listener)
-
-    zc.close()
 
 
 def test_record_update_compat():

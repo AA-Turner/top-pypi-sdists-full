@@ -29,6 +29,7 @@ import contextlib
 import csv
 import os
 from collections.abc import Iterable, Iterator
+from datetime import timedelta
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
@@ -51,7 +52,7 @@ from .element import (
 )
 from .form import FormMixin
 from .frame import Frame
-from .mixin_md import MDTable
+from .mixin_md import MD_GLOBAL, MDTable, _set_global
 from .mixin_named_range import TableNamedExpressions
 from .named_range import NamedRange, table_name_check
 from .office_forms import OfficeFormsMixin
@@ -86,8 +87,22 @@ _XP_ROW_GROUP = xpath_compile(
 )
 
 
+def _decode_time_string(data: str) -> timedelta:
+    parts = data.strip().split(":")
+    if 2 <= len(parts) <= 3:
+        hours = int(parts[0])
+        minutes = int(parts[1])
+        if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+            raise ValueError
+        seconds = float(parts[2]) if len(parts) == 3 else 0.0
+        if not (0 <= seconds < 60):
+            raise ValueError
+        return timedelta(hours=hours, minutes=minutes, seconds=seconds)
+    raise ValueError(f"Invalid time string: {data!r}")
+
+
 def _get_python_value(
-    data: str | bytes | int | float | bool, encoding: str
+    data: str | bytes | int | float | bool, encoding: str = "utf-8"
 ) -> CellValue:
     """Guess the most appropriate Python type to load data, with regard to ODF
     types.
@@ -124,6 +139,9 @@ def _get_python_value(
     # A Duration ?
     with contextlib.suppress(ValueError):
         return Duration.decode(data)
+    # A time string (HH:MM:SS or HH:MM)?
+    with contextlib.suppress(ValueError, AttributeError):
+        return _decode_time_string(data)
     # A Boolean ?
     with contextlib.suppress(ValueError):
         # "True" or "False" with a .lower
@@ -996,18 +1014,31 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         self._table_cache.clear_col_indexes()
         self._compute_table_cache()
 
+    def optimize_height(self) -> None:
+        """Remove bottom empty rows in-place.
+
+        This method keeps the repeated styles of empty cells but minimizes the
+        table height to fit the actual content.
+        """
+        self._optimize_height_trim_rows()
+
     def optimize_width(self) -> None:
-        """Remove empty rows and right-side empty cells in-place.
+        """Remove right-side empty cells in-place.
 
         This method keeps the repeated styles of empty cells but minimizes the
         row width to fit the actual content.
         """
-        self._optimize_width_trim_rows()
         width = self._optimize_width_length()
         self._optimize_width_rstrip_rows(width)
         self._optimize_width_adapt_columns(width)
 
-    def _optimize_width_trim_rows(self) -> None:
+    def _optimize_height_trim_rows(self) -> None:
+        for row in reversed(self._get_rows()):
+            if not row.has_values():
+                if row.repeated:
+                    row._set_repeated(None)
+            else:
+                break
         count = -1  # to keep one empty row
         for row in reversed(self._get_rows()):
             if row.is_empty(aggressive=False):
@@ -1027,6 +1058,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             pass
         # raz cache of rows
         self._table_cache.clear_row_indexes()
+        self._compute_table_cache()
 
     def _optimize_width_length(self) -> int:
         try:
@@ -1457,21 +1489,38 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                 values.extend([None] * (self.width - len(values)))
         return values
 
-    def get_row_sub_elements(self, y: int | str) -> list[list[Element]]:
-        """Get the list of Elements of the cells of the row at the given 'y'
-        position (internal).
+    def get_row_sub_elements(self, y: int | str | Row) -> list[Any]:
+        """Get the list of cell contents for the row at index "y" or Row
+        object (internal).
 
-        Missing values are replaced by [].
+        The list is padded to "table.width".
+
+        For each column in the row:
+        - If the cell contains non-empty child text elements ("<text:p>"),
+          returns the list of child elements "[Element, ...]".
+        - If the cell is empty or contains non-text content, returns the
+          Cell object itself.
+        - If the column index extends beyond the row boundary up to
+          "table.width", returns "[]".
 
         Args:
-            y: The 0-based index of the row.
+            y: The row index (0-based) or Row element.
 
         Returns:
-            list[list[Element]]: A list of sub-elements from each cell in the
-                row.
+            list[Any]: A list of child element lists, Cell objects, or []
+                padded to match the table's width.
         """
-        values = self.get_row(y, clone=False).get_sub_elements()
-        values.extend([] * (self.width - len(values)))
+        row = y if isinstance(y, Row) else self.get_row(y, clone=False)
+        cells = row.get_cells()
+        values: list[Any] = []
+        for cell in cells:
+            children = cell.children
+            if children and any(getattr(e, "inner_text", "").strip() for e in children):
+                values.append(children)
+            else:
+                values.append(cell)
+        if len(values) < self.width:
+            values.extend([[]] * (self.width - len(values)))
         return values
 
     def set_row_values(
@@ -2777,7 +2826,20 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         self.set_cells(cells, coord=start, clone=False)
         return True
 
-    # Utilities
+    def to_markdown(self) -> str:
+        """Export the table content as a Markdown string.
+
+        Returns:
+            str: The Markdown representation of the table.
+        """
+        was_initialized = "document" in MD_GLOBAL and MD_GLOBAL["document"] is not None
+        if not was_initialized:
+            _set_global(None)
+        try:
+            return self._md_format()
+        finally:
+            if not was_initialized:
+                _set_global(None)
 
     def to_csv(
         self,

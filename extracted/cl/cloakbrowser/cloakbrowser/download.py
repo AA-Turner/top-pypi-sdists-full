@@ -113,6 +113,20 @@ def _warn_preview_fallback() -> None:
     )
 
 
+def _emit(text: str) -> None:
+    """Write a cosmetic line to stderr, swallowing any error.
+
+    On a legacy Windows console sys.stderr is cp1252/strict; an unencodable
+    glyph raises UnicodeEncodeError. Because the welcome banner runs on the
+    binary-download path, that would abort the whole launch (ticket 2354).
+    A banner is decoration - never let it propagate.
+    """
+    try:
+        sys.stderr.write(text)
+    except Exception:
+        pass
+
+
 def _show_welcome(tier: str = "keyless") -> None:
     """Show welcome message on launch. A marker file gates the cadence: a paid
     (Pro) key shows once ever; free (keyless or a free GitHub key) re-shows every
@@ -126,36 +140,40 @@ def _show_welcome(tier: str = "keyless") -> None:
     marker = get_cache_dir() / ".welcome_shown"
     if not _welcome_due(marker, pro=(tier == "pro")):
         return
-    sys.stderr.write("\n")
-    sys.stderr.write("  CloakBrowser — stealth Chromium for automation\n")
-    sys.stderr.write("  https://github.com/CloakHQ/CloakBrowser\n")
-    sys.stderr.write("\n")
+    # ASCII-only banner + a swallow-everything writer: on a legacy Windows
+    # console sys.stderr is cp1252/strict, so a non-ASCII glyph (or any IO
+    # error) here would raise and abort the whole binary-download path. A
+    # cosmetic banner must never be able to kill a launch.
+    _emit("\n")
+    _emit("  CloakBrowser - stealth Chromium for automation\n")
+    _emit("  https://github.com/CloakHQ/CloakBrowser\n")
+    _emit("\n")
     if tier == "pro":
-        sys.stderr.write(
-            f"  CloakBrowser Pro active (v{PRO_MAJOR}) — latest binary, newest patches.\n"
+        _emit(
+            f"  CloakBrowser Pro active (v{PRO_MAJOR}) - latest binary, newest patches.\n"
         )
-        sys.stderr.write("  Pro support → support@cloakbrowser.dev\n")
+        _emit("  Pro support -> support@cloakbrowser.dev\n")
     elif tier == "free":
-        sys.stderr.write(
+        _emit(
             f"  CloakBrowser free (v{PRO_MAJOR}): the latest binary, 1 concurrent session.\n"
         )
-        sys.stderr.write(
-            "  For more than one concurrent session → https://cloakbrowser.dev\n"
+        _emit(
+            "  For more than one concurrent session -> https://cloakbrowser.dev\n"
         )
     else:
         free_major = CHROMIUM_VERSION.split(".")[0]
-        sys.stderr.write(
+        _emit(
             f"  Running the free binary (v{free_major}). "
             f"The latest binary (v{PRO_MAJOR}) is free too, with 1 concurrent session.\n"
         )
-        sys.stderr.write(
+        _emit(
             "  Get your key: run  cloakbrowser login  or visit https://cloakbrowser.dev/free\n"
         )
-        sys.stderr.write(
-            "  For more than one concurrent session → https://cloakbrowser.dev\n"
+        _emit(
+            "  For more than one concurrent session -> https://cloakbrowser.dev\n"
         )
-    sys.stderr.write("  Star us if CloakBrowser helps your project!\n")
-    sys.stderr.write("\n")
+    _emit("  Star us if CloakBrowser helps your project!\n")
+    _emit("\n")
     try:
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(str(int(time.time())))
@@ -193,7 +211,11 @@ def ensure_binary(
     requested_version = normalize_requested_version(browser_version)
 
     # Pro license key check (custom download URL overrides Pro path)
-    from .license import resolve_license_key, validate_license
+    from .license import (
+        CloakBrowserLicenseError,
+        resolve_license_key,
+        validate_license,
+    )
 
     key = resolve_license_key(license_key)
     if os.environ.get("CLOAKBROWSER_DOWNLOAD_URL"):
@@ -232,11 +254,19 @@ def ensure_binary(
                     f"CLOAKBROWSER_LICENSE_KEY."
                 ) from e
         elif info:
-            logger.warning(
-                "License validation failed (plan=%s), using free tier", info.plan
+            # Key supplied but rejected — abort, never downgrade to free.
+            raise CloakBrowserLicenseError(
+                f"CloakBrowser Pro: license key is invalid or expired "
+                f"(plan={info.plan}). Check CLOAKBROWSER_LICENSE_KEY, or unset it "
+                f"to use the free binary."
             )
         else:
-            logger.warning("License validation unavailable, using free tier")
+            # Key supplied but unvalidatable (server down, no cache) — abort.
+            raise CloakBrowserLicenseError(
+                "CloakBrowser Pro: license could not be validated (server "
+                "unreachable and no cached validation). Retry in a moment, or "
+                "unset CLOAKBROWSER_LICENSE_KEY to use the free binary."
+            )
 
     # Fail fast if no binary available for this platform
     check_platform_available()
@@ -1210,7 +1240,7 @@ def _check_wrapper_update() -> None:
         latest = resp.json()["info"]["version"]
         if _version_newer(latest, _wrapper_version):
             logger.warning(
-                "Update available: cloakbrowser %s → %s. "
+                "Update available: cloakbrowser %s -> %s. "
                 "Run: pip install --upgrade cloakbrowser",
                 _wrapper_version,
                 latest,

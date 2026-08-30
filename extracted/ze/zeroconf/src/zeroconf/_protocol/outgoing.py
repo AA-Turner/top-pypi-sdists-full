@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -77,7 +62,7 @@ LOGGING_DEBUG = logging.DEBUG
 
 
 class DNSOutgoing:
-    """Object representation of an outgoing packet"""
+    """Builder for outgoing DNS messages."""
 
     __slots__ = (
         "additionals",
@@ -97,38 +82,24 @@ class DNSOutgoing:
     )
 
     def __init__(self, flags: int, multicast: bool = True, id_: int = 0) -> None:
-        self.flags = flags
         self.finished = False
+        self.flags = flags
         self.id = id_
         self.multicast = multicast
         self.packets_data: list[bytes] = []
-
-        # these 3 are per-packet -- see also _reset_for_next_packet()
-        self.names: dict[str, int] = {}
-        self.data: list[bytes] = []
-        self.size: int = _DNS_PACKET_HEADER_LEN
-        self.allow_long: bool = True
-
         self.state = STATE_INIT
 
+        # per-packet state -- see also _reset_for_next_packet()
+        self.allow_long: bool = True
+        self.data: list[bytes] = []
+        self.names: dict[str, int] = {}
+        self.size: int = _DNS_PACKET_HEADER_LEN
+
+        # the four sections in RFC 1035 section 4.1 order
         self.questions: list[DNSQuestion] = []
         self.answers: list[tuple[DNSRecord, float]] = []
         self.authorities: list[DNSPointer] = []
         self.additionals: list[DNSRecord] = []
-
-    def is_query(self) -> bool:
-        """Returns true if this is a query."""
-        return (self.flags & _FLAGS_QR_MASK) == _FLAGS_QR_QUERY
-
-    def is_response(self) -> bool:
-        """Returns true if this is a response."""
-        return (self.flags & _FLAGS_QR_MASK) == _FLAGS_QR_RESPONSE
-
-    def _reset_for_next_packet(self) -> None:
-        self.names = {}
-        self.data = []
-        self.size = _DNS_PACKET_HEADER_LEN
-        self.allow_long = True
 
     def __repr__(self) -> str:
         return "<DNSOutgoing:{}>".format(
@@ -144,27 +115,8 @@ class DNSOutgoing:
             )
         )
 
-    def add_question(self, record: DNSQuestion) -> None:
-        """Adds a question"""
-        self.questions.append(record)
-
-    def add_answer(self, inp: DNSIncoming, record: DNSRecord) -> None:
-        """Adds an answer"""
-        if not record.suppressed_by(inp):
-            self.add_answer_at_time(record, 0.0)
-
-    def add_answer_at_time(self, record: DNSRecord | None, now: float_) -> None:
-        """Adds an answer if it does not expire by a certain time"""
-        now_double = now
-        if record is not None and (now_double == 0 or not record.is_expired(now_double)):
-            self.answers.append((record, now))
-
-    def add_authorative_answer(self, record: DNSPointer) -> None:
-        """Adds an authoritative answer"""
-        self.authorities.append(record)
-
     def add_additional_answer(self, record: DNSRecord) -> None:
-        """Adds an additional answer
+        """Append a record to the additional section per DNS-SD guidance.
 
         From: RFC 6763, DNS-Based Service Discovery, February 2013
 
@@ -201,226 +153,38 @@ class DNSOutgoing:
         """
         self.additionals.append(record)
 
-    def _write_byte(self, value: int_) -> None:
-        """Writes a single byte to the packet"""
-        self.data.append(BYTE_TABLE[value])
-        self.size += 1
+    def add_answer(self, inp: DNSIncoming, record: DNSRecord) -> None:
+        if not record.suppressed_by(inp):
+            self.add_answer_at_time(record, 0.0)
 
-    def _get_short(self, value: int_) -> bytes:
-        """Convert an unsigned short to 2 bytes."""
-        return SHORT_LOOKUP[value] if value < SHORT_CACHE_MAX else PACK_SHORT(value)
-
-    def _insert_short_at_start(self, value: int_) -> None:
-        """Inserts an unsigned short at the start of the packet"""
-        self.data.insert(0, self._get_short(value))
-
-    def _replace_short(self, index: int_, value: int_) -> None:
-        """Replaces an unsigned short in a certain position in the packet"""
-        self.data[index] = self._get_short(value)
-
-    def write_short(self, value: int_) -> None:
-        """Writes an unsigned short to the packet"""
-        self.data.append(self._get_short(value))
-        self.size += 2
-
-    def _write_int(self, value: float | int) -> None:
-        """Writes an unsigned integer to the packet"""
-        value_as_int = int(value)
-        long_bytes = LONG_LOOKUP.get(value_as_int)
-        if long_bytes is not None:
-            self.data.append(long_bytes)
-        else:
-            self.data.append(PACK_LONG(value_as_int))
-        self.size += 4
-
-    def write_string(self, value: bytes_) -> None:
-        """Writes a string to the packet"""
-        if TYPE_CHECKING:
-            assert isinstance(value, bytes)
-        self.data.append(value)
-        self.size += len(value)
-
-    def _write_utf(self, s: str_) -> None:
-        """Writes a UTF-8 string of a given length to the packet"""
-        utfstr = s.encode("utf-8")
-        length = len(utfstr)
-        if length > 64:
-            raise NamePartTooLongException
-        self._write_byte(length)
-        self.write_string(utfstr)
-
-    def write_character_string(self, value: bytes) -> None:
-        if TYPE_CHECKING:
-            assert isinstance(value, bytes)
-        length = len(value)
-        if length > 256:
-            raise NamePartTooLongException
-        self._write_byte(length)
-        self.write_string(value)
-
-    def write_name(self, name: str_) -> None:
-        """
-        Write names to packet
-
-        18.14. Name Compression
-
-        When generating Multicast DNS messages, implementations SHOULD use
-        name compression wherever possible to compress the names of resource
-        records, by replacing some or all of the resource record name with a
-        compact two-byte reference to an appearance of that data somewhere
-        earlier in the message [RFC1035].
-        """
-
-        # split name into each label
-        if name and name[-1] == ".":
-            name = name[:-1]
-
-        index = self.names.get(name, 0)
-        if index:
-            self._write_link_to_name(index)
+    def add_answer_at_time(self, record: DNSRecord | None, now: float_) -> None:
+        """Add an answer, dropping it when it is already expired at now."""
+        if record is None:
             return
+        if now == 0 or not record.is_expired(now):
+            self.answers.append((record, now))
 
-        start_size = self.size
-        labels = name.split(".")
-        # Write each new label or a pointer to the existing one in the packet
-        self.names[name] = start_size
-        self._write_utf(labels[0])
+    def add_authorative_answer(self, record: DNSPointer) -> None:
+        self.authorities.append(record)
 
-        name_length = 0
-        for count in range(1, len(labels)):
-            partial_name = ".".join(labels[count:])
-            index = self.names.get(partial_name, 0)
-            if index:
-                self._write_link_to_name(index)
-                return
-            if name_length == 0:
-                name_length = len(name.encode("utf-8"))
-            self.names[partial_name] = start_size + name_length - len(partial_name.encode("utf-8"))
-            self._write_utf(labels[count])
+    def add_question(self, record: DNSQuestion) -> None:
+        self.questions.append(record)
 
-        # this is the end of a name
-        self._write_byte(0)
+    def is_query(self) -> bool:
+        """True when the QR flag marks the message as a query."""
+        return (self.flags & _FLAGS_QR_MASK) == _FLAGS_QR_QUERY
 
-    def _write_link_to_name(self, index: int_) -> None:
-        # If part of the name already exists in the packet,
-        # create a pointer to it
-        self._write_byte((index >> 8) | 0xC0)
-        self._write_byte(index & 0xFF)
-
-    def _write_question(self, question: DNSQuestion_) -> bool:
-        """Writes a question to the packet"""
-        start_data_length = len(self.data)
-        start_size = self.size
-        self.write_name(question.name)
-        self.write_short(question.type)
-        self._write_record_class(question)
-        return self._check_data_limit_or_rollback(start_data_length, start_size)
-
-    def _write_record_class(self, record: DNSQuestion_ | DNSRecord_) -> None:
-        """Write out the record class including the unique/unicast (QU) bit."""
-        class_ = record.class_
-        if record.unique is True and self.multicast:
-            self.write_short(class_ | _CLASS_UNIQUE)
-        else:
-            self.write_short(class_)
-
-    def _write_ttl(self, record: DNSRecord_, now: float_) -> None:
-        """Write out the record ttl."""
-        self._write_int(record.ttl if now == 0 else record.get_remaining_ttl(now))
-
-    def _write_record(self, record: DNSRecord_, now: float_) -> bool:
-        """Writes a record (answer, authoritative answer, additional) to
-        the packet.  Returns True on success, or False if we did not
-        because the packet because the record does not fit."""
-        start_data_length = len(self.data)
-        start_size = self.size
-        self.write_name(record.name)
-        self.write_short(record.type)
-        self._write_record_class(record)
-        self._write_ttl(record, now)
-        index = len(self.data)
-        self.write_short(0)  # Will get replaced with the actual size
-        record.write(self)
-        # Adjust size for the short we will write before this record
-        length = 0
-        for d in self.data[index + 1 :]:
-            length += len(d)
-        # Here we replace the 0 length short we wrote
-        # before with the actual length
-        self._replace_short(index, length)
-        return self._check_data_limit_or_rollback(start_data_length, start_size)
-
-    def _check_data_limit_or_rollback(self, start_data_length: int_, start_size: int_) -> bool:
-        """Check data limit, if we go over, then rollback and return False."""
-        len_limit = _MAX_MSG_ABSOLUTE if self.allow_long else _MAX_MSG_TYPICAL
-        self.allow_long = False
-
-        if self.size <= len_limit:
-            return True
-
-        if LOGGING_IS_ENABLED_FOR(LOGGING_DEBUG):  # pragma: no branch
-            log.debug(
-                "Reached data limit (size=%d) > (limit=%d) - rolling back",
-                self.size,
-                len_limit,
-            )
-        del self.data[start_data_length:]
-        self.size = start_size
-
-        start_size_int = start_size
-        rollback_names = [name for name, idx in self.names.items() if idx >= start_size_int]
-        for name in rollback_names:
-            del self.names[name]
-        return False
-
-    def _write_questions_from_offset(self, questions_offset: int_) -> int:
-        questions_written = 0
-        for question in self.questions[questions_offset:]:
-            if not self._write_question(question):
-                break
-            questions_written += 1
-        return questions_written
-
-    def _write_answers_from_offset(self, answer_offset: int_) -> int:
-        answers_written = 0
-        for answer, time_ in self.answers[answer_offset:]:
-            if not self._write_record(answer, time_):
-                break
-            answers_written += 1
-        return answers_written
-
-    def _write_records_from_offset(self, records: Sequence[DNSRecord], offset: int_) -> int:
-        records_written = 0
-        for record in records[offset:]:
-            if not self._write_record(record, 0):
-                break
-            records_written += 1
-        return records_written
-
-    def _has_more_to_add(
-        self,
-        questions_offset: int_,
-        answer_offset: int_,
-        authority_offset: int_,
-        additional_offset: int_,
-    ) -> bool:
-        """Check if all questions, answers, authority, and additionals have been written to the packet."""
-        return (
-            questions_offset < len(self.questions)
-            or answer_offset < len(self.answers)
-            or authority_offset < len(self.authorities)
-            or additional_offset < len(self.additionals)
-        )
+    def is_response(self) -> bool:
+        """True when the QR flag marks the message as a response."""
+        return (self.flags & _FLAGS_QR_MASK) == _FLAGS_QR_RESPONSE
 
     def packets(self) -> list[bytes]:
-        """Returns a list of bytestrings containing the packets' bytes
+        """Render the queued sections into wire format chunks and finish the message.
 
-        No further parts should be added to the packet once this
-        is done.  The packets are each restricted to _MAX_MSG_TYPICAL
-        or less in length, except for the case of a single answer which
-        will be written out to a single oversized packet no more than
-        _MAX_MSG_ABSOLUTE in length (and hence will be subject to IP
-        fragmentation potentially)."""
+        Each chunk stays within _MAX_MSG_TYPICAL, except a lone oversized
+        answer which may grow to _MAX_MSG_ABSOLUTE and rely on IP
+        fragmentation.
+        """
         packets_data = self.packets_data
 
         if self.state == STATE_FINISHED:
@@ -508,3 +272,210 @@ class DNSOutgoing:
 
         self.state = STATE_FINISHED
         return packets_data
+
+    def write_character_string(self, value: bytes) -> None:
+        if TYPE_CHECKING:
+            assert isinstance(value, bytes)
+        length = len(value)
+        if length > 256:
+            raise NamePartTooLongException
+        self._write_byte(length)
+        self.write_string(value)
+
+    def write_name(self, name: str_) -> None:
+        """
+        Write names to packet
+
+        18.14. Name Compression
+
+        When generating Multicast DNS messages, implementations SHOULD use
+        name compression wherever possible to compress the names of resource
+        records, by replacing some or all of the resource record name with a
+        compact two-byte reference to an appearance of that data somewhere
+        earlier in the message [RFC1035].
+        """
+
+        # split name into each label
+        if name and name[-1] == ".":
+            name = name[:-1]
+
+        index = self.names.get(name, 0)
+        if index:
+            self._write_link_to_name(index)
+            return
+
+        start_size = self.size
+        labels = name.split(".")
+        # Write each new label or a pointer to the existing one in the packet
+        self.names[name] = start_size
+        self._write_utf(labels[0])
+
+        name_length = 0
+        for count in range(1, len(labels)):
+            partial_name = ".".join(labels[count:])
+            index = self.names.get(partial_name, 0)
+            if index:
+                self._write_link_to_name(index)
+                return
+            if name_length == 0:
+                name_length = len(name.encode("utf-8"))
+            self.names[partial_name] = start_size + name_length - len(partial_name.encode("utf-8"))
+            self._write_utf(labels[count])
+
+        # this is the end of a name
+        self._write_byte(0)
+
+    def write_short(self, value: int_) -> None:
+        """Append a 16 bit value in network order."""
+        self.data.append(self._get_short(value))
+        self.size += 2
+
+    def write_string(self, value: bytes_) -> None:
+        """Append raw bytes."""
+        if TYPE_CHECKING:
+            assert isinstance(value, bytes)
+        self.data.append(value)
+        self.size += len(value)
+
+    def _check_data_limit_or_rollback(self, start_data_length: int_, start_size: int_) -> bool:
+        """Check data limit, if we go over, then rollback and return False."""
+        len_limit = _MAX_MSG_ABSOLUTE if self.allow_long else _MAX_MSG_TYPICAL
+        self.allow_long = False
+
+        if self.size <= len_limit:
+            return True
+
+        if LOGGING_IS_ENABLED_FOR(LOGGING_DEBUG):  # pragma: no branch
+            log.debug(
+                "Reached data limit (size=%d) > (limit=%d) - rolling back",
+                self.size,
+                len_limit,
+            )
+        del self.data[start_data_length:]
+        self.size = start_size
+
+        start_size_int = start_size
+        rollback_names = [name for name, idx in self.names.items() if idx >= start_size_int]
+        for name in rollback_names:
+            del self.names[name]
+        return False
+
+    def _get_short(self, value: int_) -> bytes:
+        """Encode a 16 bit value as two network order bytes."""
+        return SHORT_LOOKUP[value] if value < SHORT_CACHE_MAX else PACK_SHORT(value)
+
+    def _has_more_to_add(
+        self,
+        questions_offset: int_,
+        answer_offset: int_,
+        authority_offset: int_,
+        additional_offset: int_,
+    ) -> bool:
+        """Check if all questions, answers, authority, and additionals have been written to the packet."""
+        return (
+            questions_offset < len(self.questions)
+            or answer_offset < len(self.answers)
+            or authority_offset < len(self.authorities)
+            or additional_offset < len(self.additionals)
+        )
+
+    def _insert_short_at_start(self, value: int_) -> None:
+        """Prepend a 16 bit value as the first chunk."""
+        self.data.insert(0, self._get_short(value))
+
+    def _replace_short(self, index: int_, value: int_) -> None:
+        """Overwrite the chunk at index with a 16 bit value."""
+        self.data[index] = self._get_short(value)
+
+    def _reset_for_next_packet(self) -> None:
+        self.allow_long = True
+        self.data = []
+        self.names = {}
+        self.size = _DNS_PACKET_HEADER_LEN
+
+    def _write_answers_from_offset(self, answer_offset: int_) -> int:
+        answers_written = 0
+        for answer, time_ in self.answers[answer_offset:]:
+            if not self._write_record(answer, time_):
+                break
+            answers_written += 1
+        return answers_written
+
+    def _write_byte(self, value: int_) -> None:
+        """Append one byte."""
+        self.data.append(BYTE_TABLE[value])
+        self.size += 1
+
+    def _write_int(self, value: float | int) -> None:
+        """Append an unsigned 32 bit value."""
+        value_as_int = int(value)
+        long_bytes = LONG_LOOKUP.get(value_as_int)
+        if long_bytes is not None:
+            self.data.append(long_bytes)
+        else:
+            self.data.append(PACK_LONG(value_as_int))
+        self.size += 4
+
+    def _write_link_to_name(self, index: int_) -> None:
+        self._write_byte((index >> 8) | 0xC0)
+        self._write_byte(index & 0xFF)
+
+    def _write_question(self, question: DNSQuestion_) -> bool:
+        """Encode one question, or roll back and return False when it cannot fit."""
+        start_data_length = len(self.data)
+        start_size = self.size
+        self.write_name(question.name)
+        self.write_short(question.type)
+        self._write_record_class(question)
+        return self._check_data_limit_or_rollback(start_data_length, start_size)
+
+    def _write_questions_from_offset(self, questions_offset: int_) -> int:
+        questions_written = 0
+        for question in self.questions[questions_offset:]:
+            if not self._write_question(question):
+                break
+            questions_written += 1
+        return questions_written
+
+    def _write_record(self, record: DNSRecord_, now: float_) -> bool:
+        """Write one record, or roll back and return False when it cannot fit."""
+        data_length_before = len(self.data)
+        size_before = self.size
+        self.write_name(record.name)
+        self.write_short(record.type)
+        self._write_record_class(record)
+        self._write_ttl(record, now)
+        length_index = len(self.data)
+        self.write_short(0)  # placeholder for the rdata length
+        rdata_size_start = self.size
+        record.write(self)
+        self._replace_short(length_index, self.size - rdata_size_start)
+        return self._check_data_limit_or_rollback(data_length_before, size_before)
+
+    def _write_record_class(self, record: DNSQuestion_ | DNSRecord_) -> None:
+        """Write out the record class including the unique/unicast (QU) bit."""
+        class_ = record.class_
+        if record.unique is True and self.multicast:
+            self.write_short(class_ | _CLASS_UNIQUE)
+        else:
+            self.write_short(class_)
+
+    def _write_records_from_offset(self, records: Sequence[DNSRecord], offset: int_) -> int:
+        records_written = 0
+        for record in records[offset:]:
+            if not self._write_record(record, 0):
+                break
+            records_written += 1
+        return records_written
+
+    def _write_ttl(self, record: DNSRecord_, now: float_) -> None:
+        """Write out the record ttl."""
+        self._write_int(record.ttl if now == 0 else record.get_remaining_ttl(now))
+
+    def _write_utf(self, value: str_) -> None:
+        encoded = value.encode("utf-8")
+        byte_length = len(encoded)
+        if byte_length > 64:
+            raise NamePartTooLongException(f"{byte_length} byte label exceeds the limit")
+        self._write_byte(byte_length)
+        self.write_string(encoded)

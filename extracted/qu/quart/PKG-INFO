@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: Quart
-Version: 0.22.0
+Version: 0.23.1
 Summary: A Python ASGI web framework with the same API as Flask
 Author-email: pgjones <philip.graham.jones@googlemail.com>
 Maintainer-email: Pallets <contact@palletsprojects.com>
-Requires-Python: >=3.11
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-Expression: MIT
 Classifier: Development Status :: 4 - Beta

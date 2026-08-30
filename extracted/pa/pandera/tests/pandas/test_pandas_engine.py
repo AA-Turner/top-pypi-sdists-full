@@ -180,6 +180,42 @@ def test_pandas_boolean_native_type_error(data):
             dtype.coerce_value(value)
 
 
+@pytest.mark.parametrize(
+    "dtype_alias",
+    [
+        "Int8",
+        "Int16",
+        "Int32",
+        "Int64",
+        "UInt8",
+        "UInt16",
+        "UInt32",
+        "UInt64",
+        "Float32",
+        "Float64",
+        "boolean",
+    ],
+)
+@pytest.mark.parametrize("value", [pd.NA, None, np.nan])
+def test_pandas_masked_nullable_coerce_value_na(dtype_alias, value):
+    """Test masked nullable dtypes coerce NA values to the NA sentinel."""
+    dtype = pandas_engine.Engine.dtype(dtype_alias)
+    assert dtype.coerce_value(value) is pd.NA
+
+
+@pytest.mark.parametrize(
+    "dtype_alias", ["Int64", "UInt8", "Float32", "Float64", "boolean"]
+)
+@pytest.mark.parametrize(
+    "value", [pd.NaT, np.datetime64("NaT", "ns"), np.timedelta64("NaT", "ns")]
+)
+def test_pandas_masked_nullable_coerce_value_nat_raises(dtype_alias, value):
+    """Test masked nullable dtypes still reject non-numeric NaT values."""
+    dtype = pandas_engine.Engine.dtype(dtype_alias)
+    with pytest.raises(TypeError):
+        dtype.coerce_value(value)
+
+
 @hypothesis.settings(max_examples=1000)
 @pytest.mark.parametrize("timezone_aware", [True, False])
 @given(
@@ -848,3 +884,53 @@ def test_pandas_arrow_struct_dtype(data, expected_output):
             assert (
                 failure_case["failure_case"] == expected_value["failure_case"]
             )
+
+
+@pytest.mark.parametrize(
+    "numpy_dtype, scalar_type",
+    [
+        (np.dtype("S16"), np.bytes_),
+        (np.dtype("S1"), np.bytes_),
+        (np.dtype("U16"), np.str_),
+        (np.dtype("U100"), np.str_),
+    ],
+)
+def test_itemsize_parameterized_numpy_dtype(numpy_dtype, scalar_type):
+    """Itemsize-parameterized numpy dtypes resolve like their scalar type.
+
+    ``np.dtype("S16").name`` is ``"bytes128"``, which ``np.dtype`` cannot parse
+    back, so normalizing through ``name`` used to raise
+    ``TypeError: data type 'bytes128' not understood``. See
+    https://github.com/unionai-oss/pandera/issues/1270
+    """
+    assert pandas_engine.Engine.dtype(
+        numpy_dtype
+    ) == pandas_engine.Engine.dtype(scalar_type)
+
+
+def test_itemsize_parameterized_numpy_dtype_validates():
+    """A schema declared with a sized numpy dtype validates matching data."""
+    schema = pa.DataFrameSchema({"a": pa.Column(np.dtype("S16"))})
+    df = pd.DataFrame({"a": np.array([b"ab", b"cd"], dtype="S16")})
+    assert schema.validate(df).shape == (2, 1)
+
+
+@pytest.mark.parametrize(
+    "alias, expected_alias_of",
+    [
+        (np.intc, np.int32),
+        (np.uintc, np.uint32),
+        (np.longlong, np.int64),
+        (np.ulonglong, np.uint64),
+    ],
+)
+def test_platform_alias_numpy_dtype_still_normalized(alias, expected_alias_of):
+    """Platform-specific aliases must still normalize to fixed-width dtypes.
+
+    This is the behavior the ``name`` round-trip exists for, and it is not
+    reproduced by using ``np.dtype.type`` directly: ``np.dtype("longlong").type``
+    is ``np.longlong``, not ``np.int64``.
+    """
+    assert pandas_engine.Engine.dtype(alias).type == np.dtype(
+        expected_alias_of
+    )

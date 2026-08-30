@@ -6,8 +6,8 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import meta_v1
 from . import resource
+from . import meta_v1
 
 
 @dataclass
@@ -128,8 +128,7 @@ class HPAScalingRules(DictMixin):
       from the stabilization window is chosen.
       
       The tolerance is applied to the metric values and prevents scaling too eagerly
-      for small metric variations. (Note that setting a tolerance requires the beta
-      HPAConfigurableTolerance feature gate to be enabled.)
+      for small metric variations.
 
       **parameters**
 
@@ -153,8 +152,6 @@ class HPAScalingRules(DictMixin):
         100Mi, and scale-down and scale-up tolerances of 5% and 1% respectively,
         scaling will be triggered when the actual consumption falls below 95Mi or
         exceeds 101Mi.
-        This is an beta field and requires the HPAConfigurableTolerance feature gate
-        to be enabled.
     """
     policies: 'Optional[List[HPAScalingPolicy]]' = None
     selectPolicy: 'Optional[str]' = None
@@ -228,12 +225,17 @@ class HorizontalPodAutoscalerCondition(DictMixin):
         to another
       * **message** ``Optional[str]`` - message is a human-readable explanation containing details about the
         transition
+      * **observedGeneration** ``Optional[int]`` - observedGeneration represents the .metadata.generation that the condition was
+        set based upon. For instance, if .metadata.generation is currently 12, but the
+        .status.conditions[x].observedGeneration is 9, the condition is out of date
+        with respect to the current state of the instance.
       * **reason** ``Optional[str]`` - reason is the reason for the condition's last transition.
     """
     status: 'str'
     type: 'str'
     lastTransitionTime: 'Optional[meta_v1.Time]' = None
     message: 'Optional[str]' = None
+    observedGeneration: 'Optional[int]' = None
     reason: 'Optional[str]' = None
 
 
@@ -390,7 +392,7 @@ class MetricStatus(DictMixin):
       * **type** ``str`` - type is the type of metric source.  It will be one of "ContainerResource",
         "External", "Object", "Pods" or "Resource", each corresponds to a matching
         field in the object.
-      * **containerResource** ``Optional[ContainerResourceMetricStatus]`` - container resource refers to a resource metric (such as those specified in
+      * **containerResource** ``Optional[ContainerResourceMetricStatus]`` - containerResource refers to a resource metric (such as those specified in
         requests and limits) known to Kubernetes describing a single container in each
         pod in the current scale target (e.g. CPU or memory). Such metrics are built
         in to Kubernetes, and have special scaling options on top of those available
@@ -446,9 +448,9 @@ class MetricValueStatus(DictMixin):
 
       **parameters**
 
-      * **averageUtilization** ``Optional[int]`` - currentAverageUtilization is the current value of the average of the resource
-        metric across all relevant pods, represented as a percentage of the requested
-        value of the resource for the pods.
+      * **averageUtilization** ``Optional[int]`` - averageUtilization is the current value of the average of the resource metric
+        across all relevant pods, represented as a percentage of the requested value
+        of the resource for the pods.
       * **averageValue** ``Optional[resource.Quantity]`` - averageValue is the current value of the average of the metric across all
         relevant pods (as a quantity)
       * **value** ``Optional[resource.Quantity]`` - value is the current value of the metric (as a quantity).
@@ -483,7 +485,7 @@ class ObjectMetricStatus(DictMixin):
       **parameters**
 
       * **current** ``MetricValueStatus`` - current contains the current value for the given metric
-      * **describedObject** ``CrossVersionObjectReference`` - DescribedObject specifies the descriptions of a object,such as kind,name
+      * **describedObject** ``CrossVersionObjectReference`` - describedObject specifies the descriptions of a object,such as kind,name
         apiVersion
       * **metric** ``MetricIdentifier`` - metric identifies the target metric by name and selector
     """

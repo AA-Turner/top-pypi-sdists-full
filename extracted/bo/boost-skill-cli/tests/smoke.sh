@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # End-to-end smoke test for boost, fully sandboxed under a throwaway HOME.
 # Usage: bash tests/smoke.sh [--online]   (--online also taps anthropics/skills)
 set -uo pipefail
@@ -168,6 +168,7 @@ echo "== every command answers --help"
 while read -r c; do
   run "help: $c" 0 ./boost "$c" --help
 done <<'CMDS'
+quickstart
 install
 uninstall
 sync

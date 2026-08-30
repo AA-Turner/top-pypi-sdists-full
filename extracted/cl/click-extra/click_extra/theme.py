@@ -16,13 +16,13 @@
 """Help-screen color themes for Click Extra.
 
 Holds the {class}`HelpTheme` dataclass (pure data, no factory methods),
-the {data}`nocolor_theme` constant, the process-wide fallback accessed via
+the {data}`NOCOLOR_THEME` constant, the process-wide fallback accessed via
 {func}`get_default_theme` / {func}`set_default_theme`, the named-theme
 {data}`theme_registry` plus {func}`register_theme` helper, and the
 {class}`ThemeOption` that exposes `--theme` on every Click Extra command.
 
 The built-in themes (`dark`, `dracula`, `light`, `manpage`,
-`monokai`, `nord`, `solarized_dark`) live in the package data file
+`monokai`, `nord`, `solarized-dark`) live in the package data file
 `click_extra/themes.toml` and are loaded at module import time via
 {meth}`HelpTheme.from_dict`. `manpage` is a colorless theme that
 shadows man-pages(7) typography (bold literals, italic replaceable); the
@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import os
 import sys
 from dataclasses import dataclass
 from gettext import gettext as _
@@ -56,6 +57,7 @@ from typing import cast
 
 import click
 import cloup
+from click.core import ParameterSource
 from click.shell_completion import CompletionItem
 from cloup._util import identity
 
@@ -71,9 +73,25 @@ else:
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from typing import Any
+    from typing import Any, Final
 
     from cloup.styling import IStyle
+
+
+THEME_ENVVAR: Final[str] = "CLICK_EXTRA_THEME"
+"""Environment variable naming the help-screen palette of every Click Extra CLI.
+
+Global and CLI-agnostic, unlike the `<CLI>_THEME` variable Click derives from
+the option itself: exporting it once from a shell profile themes every Click
+Extra command installed on the machine, including the ones a user wraps with
+`click-extra wrap`. It accepts the same values as `--theme`, the
+{data}`~click_extra.theme.AUTO_THEME` directive included.
+
+Read by {meth}`~click_extra.theme.ThemeOption.set_theme` as a last resort, so a
+`--theme` flag, a `<CLI>_THEME` variable and a configuration file each outrank
+it. See that method for why it is read directly instead of being wired through
+the option's `envvar`.
+"""
 
 
 @dataclass(frozen=True)
@@ -107,7 +125,7 @@ class HelpTheme(cloup.HelpTheme):
     warning: IStyle = identity
     """Style applied to the `WARNING` level name in log records.
 
-    Example: `WARNING: Requested 16 jobs exceeds available CPU cores (8).`
+    Example: `WARNING: Requested 16 jobs exceeds the 8 logical CPUs: honored, but pays only for I/O-bound work.`
     """
 
     info: IStyle = identity
@@ -392,7 +410,7 @@ for the bold counterpart and the full rationale.
 """
 
 
-nocolor_theme: HelpTheme = HelpTheme()
+NOCOLOR_THEME: HelpTheme = HelpTheme()
 """Color theme for Click Extra to force no colors.
 
 All style slots default to `identity`, so styling
@@ -400,10 +418,10 @@ calls return the raw text unchanged.
 """
 
 
-_default_theme: HelpTheme = nocolor_theme
+_default_theme: HelpTheme = NOCOLOR_THEME
 """Process-wide fallback theme. See {func}`get_default_theme`.
 
-Initialized to {data}`nocolor_theme` here, then reassigned to the `dark`
+Initialized to {data}`NOCOLOR_THEME` here, then reassigned to the `dark`
 built-in theme at the bottom of this module once {file}`themes.toml` is loaded.
 """
 
@@ -517,10 +535,13 @@ AUTO_THEME: str = "auto"
 Unlike the named built-in palettes, `auto` is not a registry entry: it is a
 directive handled by {class}`ThemeOption`, which calls {func}`resolve_auto_theme`
 to pick `dark` or `light` from the detected background, mirroring
-`--color=auto`. Kept out of the `--help` metavar and shell completion (which
-only advertise registered palettes), so a CLI that does not opt into auto
-detection keeps an unchanged help screen, yet accepted by
-{meth}`ThemeChoice.convert` so `--theme=auto` works on every Click Extra CLI.
+`--color=auto`.
+
+It is advertised all the same, in the `--help` metavar and in shell completion
+({attr}`ThemeChoice.choices`), because it works on every Click Extra CLI whether
+or not that CLI knows about it: a value accepted everywhere and named nowhere is
+one nobody finds. `--color` lists its own `auto` beside `always` and `never` for
+the same reason.
 """
 
 
@@ -639,12 +660,18 @@ class ThemeChoice(click.ParamType):
 
     @property
     def choices(self) -> tuple[str, ...]:
-        """Theme names visible in the current context, alphabetically sorted."""
+        """Values `--theme` takes, alphabetically sorted.
+
+        The theme names visible in the current context, plus
+        {data}`AUTO_THEME`: it resolves to a palette rather than being one, but
+        a value a CLI accepts everywhere and advertises nowhere is a value
+        nobody finds, and `--color` lists its own `auto` alongside the rest.
+        """
         try:
             ctx = click.get_current_context(silent=True)
         except RuntimeError:
             ctx = None
-        return tuple(sorted(get_theme_registry(ctx)))
+        return tuple(sorted({AUTO_THEME, *get_theme_registry(ctx)}))
 
     def _normalize(self, value: str) -> str:
         return value if self.case_sensitive else value.casefold()
@@ -695,7 +722,7 @@ class ThemeChoice(click.ParamType):
         lookup = {self._normalize(name): name for name in registry}
         canonical = lookup.get(self._normalize(value))
         if canonical is None:
-            choices = "|".join(sorted(registry))
+            choices = "|".join(sorted({AUTO_THEME, *registry}))
             self.fail(
                 f"{value!r} is not one of [{choices}].",
                 param,
@@ -712,7 +739,7 @@ class ThemeChoice(click.ParamType):
         prefix = self._normalize(incomplete)
         return [
             CompletionItem(name)
-            for name in sorted(get_theme_registry(ctx))
+            for name in sorted({AUTO_THEME, *get_theme_registry(ctx)})
             if self._normalize(name).startswith(prefix)
         ]
 
@@ -732,6 +759,12 @@ class ThemeOption(ExtraOption):
     The resolved {class}`HelpTheme` lands on the Click context under
     {data}`click_extra.context.THEME` and applies for the duration of the
     current invocation only.
+
+    A user who never passes the flag can still pick a palette by exporting
+    {data}`~click_extra.theme.THEME_ENVVAR` (`CLICK_EXTRA_THEME`), which is
+    honored by every Click Extra CLI at once. See {meth}`set_theme` for how it
+    ranks against the flag, the `<CLI>_THEME` variable and the configuration
+    file.
 
     The reserved value {data}`~click_extra.theme.AUTO_THEME` (`--theme=auto`)
     is also accepted on every CLI: it resolves the palette from the terminal
@@ -758,8 +791,48 @@ class ThemeOption(ExtraOption):
         {func}`~click_extra.theme.resolve_auto_theme`, leaving `ctx.meta`
         untouched when no palette can be resolved so {func}`get_current_theme`
         keeps its default.
+
+        Before that, {data}`~click_extra.theme.THEME_ENVVAR` is consulted when
+        the value still comes from the option's own default, which yields the
+        precedence: `--theme` > `<CLI>_THEME` > configuration file >
+        `CLICK_EXTRA_THEME` > built-in default. The global variable therefore
+        only names the palette of the CLIs nothing else has an opinion about.
+
+        ```{note}
+        The variable is read here rather than wired through the option's
+        `envvar`. Click resolves an explicit `envvar` *before* the
+        auto-generated `<CLI>_THEME`, which would let the machine-wide
+        preference outrank the CLI-specific one, and would list both names in
+        the `--params` table, making the combined string the widest cell of its
+        column. This mirrors how
+        {class}`~click_extra.accessibility.AccessibleOption` reads `ACCESSIBLE`
+        and {class}`~click_extra.color.ColorOption` reads `NO_COLOR`.
+        ```
+
+        An unparsable palette name is a warning, not an error: a typo in a
+        shell profile would otherwise break every Click Extra CLI on the
+        machine at once, including the ones needed to fix it.
         """
-        if value is None or ctx.resilient_parsing:
+        if ctx.resilient_parsing:
+            return
+
+        # Nothing more specific picked a palette, so let the machine-wide
+        # variable have the last word before the built-in default.
+        source = ctx.get_parameter_source(param.name) if param.name else None
+        if source is ParameterSource.DEFAULT:
+            raw = os.environ.get(THEME_ENVVAR)
+            if raw:
+                try:
+                    value = param.type.convert(raw, param, ctx)
+                except click.BadParameter:
+                    logging.getLogger("click_extra").warning(
+                        "Ignoring %s=%r: not one of [%s].",
+                        THEME_ENVVAR,
+                        raw,
+                        "|".join(sorted(get_theme_registry(ctx))),
+                    )
+
+        if value is None:
             return
         if value == AUTO_THEME:
             theme = resolve_auto_theme(ctx, query_background=self.query_background)
@@ -817,7 +890,7 @@ def _load_builtin_themes() -> dict[str, HelpTheme]:
     file is tolerated rather than fatal: the function logs a warning on
     the `click_extra` logger and returns an empty mapping, so importing
     the package never aborts. The CLI then keeps the colorless
-    {data}`nocolor_theme` as its default (see the module footer) and
+    {data}`NOCOLOR_THEME` as its default (see the module footer) and
     `--theme` offers no built-in choices, though themes declared in a
     CLI's config file (`[tool.<cli>.themes.<name>]`) remain available.
     ```
@@ -849,7 +922,7 @@ theme is a one-file edit in that TOML file: declare a new `[<name>]`
 table with one inline-table per styled slot.
 
 Index by name to access any palette, like `BUILTIN_THEMES["dark"]` or
-`BUILTIN_THEMES["solarized_dark"]`.
+`BUILTIN_THEMES["solarized-dark"]`.
 
 Empty when the `themes.toml` data file is absent (some packaging and
 distribution setups drop it); see `_load_builtin_themes` for the
@@ -881,3 +954,15 @@ theme_registry.update(BUILTIN_THEMES)
 # rather than crashing on a missing "dark" key.
 if "dark" in BUILTIN_THEMES:
     set_default_theme(BUILTIN_THEMES["dark"])
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve deprecated `theme` symbols via the PEP 562 `__getattr__` hook.
+
+    The `nocolor_theme` constant was renamed `NOCOLOR_THEME`, following the
+    uppercase constant convention. Fires only for names not defined in this
+    module. See {mod}`click_extra._deprecated`.
+    """
+    from ._deprecated import resolve_deprecated
+
+    return resolve_deprecated(__name__, name)

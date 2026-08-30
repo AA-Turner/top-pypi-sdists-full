@@ -31,9 +31,7 @@ from enum import Enum
 from functools import lru_cache
 
 import click
-import click.formatting
 import cloup
-from click._compat import term_len
 from cloup._util import identity
 
 from . import theme as _theme
@@ -358,6 +356,18 @@ class HelpFormatter(cloup.HelpFormatter):
 
     theme: HelpTheme
 
+    keywords: HelpKeywords
+    """Keywords to highlight, collected from the rendered command's context.
+
+    Instance state, initialized per formatter: `_HelpColorsMixin.format_help`
+    fills it before rendering, and {meth}`highlight_extra_keywords` mutates it
+    (see the `excluded_keywords` subtraction), so a shared class-level default
+    would leak keywords across formatters.
+    """
+
+    excluded_keywords: HelpKeywords | None
+    """Keywords subtracted from the cross-reference passes, or `None`."""
+
     def __init__(self, *args, **kwargs) -> None:
         """Forces theme to the active one for the current Click context.
 
@@ -373,75 +383,9 @@ class HelpFormatter(cloup.HelpFormatter):
         if not isinstance(theme, HelpTheme):
             theme = active_theme.with_(**theme._asdict())
         kwargs["theme"] = theme
+        self.keywords = HelpKeywords()
+        self.excluded_keywords = None
         super().__init__(*args, **kwargs)
-
-    def write_usage(
-        self,
-        prog: str,
-        args: str = "",
-        prefix: str | None = None,
-    ) -> None:
-        """ANSI-aware override of `cloup.HelpFormatter.write_usage`.
-
-        On Click `8.3.x`, `click.formatting.wrap_text` measures line length
-        with raw {func}`len`, counting every byte of the ANSI escape sequences
-        embedded in `initial_indent` (the styled `Usage:` heading +
-        invoked-command name). With 24-bit RGB themes (like Solarized Dark,
-        Dracula, Nord, Monokai), each styled token carries 17+ extra
-        bytes of escape, which inflates the measured line beyond the width
-        budget and causes premature wraps mid-token: `[OPTIONS\\n  ]`.
-
-        Cloup styles `prefix` and `prog` then delegates to click's
-        {meth}`HelpFormatter.write_usage`, inheriting the bug. This
-        override re-applies the same styling, then bypasses `wrap_text`
-        whenever the visible content fits on a single line: the common case
-        for short usage strings where wrapping is unnecessary. Lines that
-        genuinely overflow the visible width fall back to click's
-        implementation: the wrap point may still be sub-optimal but the
-        output stays syntactically valid.
-
-        ```{note}
-        Click `8.4.0` (PR [pallets/click#3420](https://github.com/pallets/click/pull/3420)) made
-        `click.formatting.TextWrapper` ANSI-aware by counting
-        visible width instead of raw bytes, so this override is a no-op
-        fast path on Click `>= 8.4.0` and only fixes wrapping on the
-        Click `8.3.x` releases click-extra still supports.
-        ```
-
-        ```{todo} Drop this override once the minimum supported Click rises to
-        `8.4.0` (which includes `pallets/click#3420`). The
-        `term_len`-based visible-width check below becomes redundant
-        once Click's own wrapper counts visible width.
-        ```
-        """
-        if prefix is None:
-            prefix = "Usage:"
-        styled_prefix = self.theme.heading(prefix) + " "
-        styled_prog = self.theme.invoked_command(prog)
-
-        usage_prefix = f"{styled_prefix:>{self.current_indent}}{styled_prog} "
-        text_width = self.width - self.current_indent
-        visible_width = term_len(usage_prefix) + term_len(args)
-
-        if visible_width <= text_width:
-            # Fits on one visible line: skip click's wrap_text, which would
-            # count the ANSI escape bytes toward line length and split
-            # mid-token for 24-bit RGB themes.
-            self.write(f"{usage_prefix}{args}\n")
-            return
-
-        # Visibly too wide for one line. Fall back to click's parent
-        # implementation for multi-line wrapping. Bypass cloup's wrapper to
-        # avoid double-styling `prefix` and `prog`.
-        click.formatting.HelpFormatter.write_usage(
-            self,
-            styled_prog,
-            args,
-            styled_prefix,
-        )
-
-    keywords: HelpKeywords = HelpKeywords()
-    excluded_keywords: HelpKeywords | None = None
 
     #: Matches range expressions like `0<=x<=9`, `x>=1024`, `0<=x<100`.
     #:
@@ -787,8 +731,8 @@ def highlight(
     else:
         pattern_list = set(patterns)
 
-    # Set of character indices flagged for highlighting.
-    matched_indices: set[int] = set()
+    # Character spans flagged for highlighting, as (start, end) intervals.
+    spans: list[tuple[int, int]] = []
 
     # Normalize patterns into regular expressions and find matches.
     for pattern in pattern_list:
@@ -822,29 +766,32 @@ def highlight(
                 start_pos = start_idx + 1
                 continue
 
-            matched_indices.update(range(start_idx, end_idx))
+            spans.append((start_idx, end_idx))
             start_pos = start_idx + 1
 
-    if not matched_indices:
+    if not spans:
         return content
 
-    # Build the styled string in one pass: contiguous runs of matched or
-    # unmatched characters are grouped, and only matched runs are styled.
+    # Coalesce overlapping and touching spans, so the styling function is
+    # applied once per contiguous run of matched characters, exactly as if the
+    # matches had been unioned character by character.
+    spans.sort()
+    merged: list[list[int]] = [list(spans[0])]
+    for start, end in spans[1:]:
+        if start <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+
+    # Stitch the result back: unmatched gaps verbatim, matched runs styled.
     parts: list[str] = []
-    in_match = 0 in matched_indices
-    run_start = 0
-
-    for i in range(1, len(content) + 1):
-        current_in_match = i in matched_indices if i < len(content) else not in_match
-        if current_in_match != in_match:
-            segment = content[run_start:i]
-            parts.append(styling_func(segment) if in_match else segment)
-            run_start = i
-            in_match = current_in_match
-
-    # Flush the last run.
-    if run_start < len(content):
-        segment = content[run_start:]
-        parts.append(styling_func(segment) if in_match else segment)
+    cursor = 0
+    for start, end in merged:
+        if start > cursor:
+            parts.append(content[cursor:start])
+        parts.append(styling_func(content[start:end]))
+        cursor = end
+    if cursor < len(content):
+        parts.append(content[cursor:])
 
     return "".join(parts)

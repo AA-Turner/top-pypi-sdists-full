@@ -7,6 +7,7 @@ import builtins
 import dataclasses
 import datetime
 import decimal
+import enum
 import inspect
 import logging
 import sys
@@ -24,6 +25,7 @@ from typing import (
 import numpy as np
 import pandas as pd
 import typeguard
+from pandas.core.dtypes.dtypes import BaseMaskedDtype
 from pydantic import BaseModel, ValidationError, create_model
 
 from pandera import dtypes, errors
@@ -159,6 +161,12 @@ class DataType(dtypes.DataType):
 
     def coerce_value(self, value: Any) -> Any:
         """Coerce an value to a particular type."""
+        if isinstance(self.type, BaseMaskedDtype) and pd.isna(value):
+            # masked nullable dtypes support NA values directly, so
+            # delegate to pandas: this mirrors Series.astype, coercing
+            # valid NA values to the dtype's NA sentinel and raising on
+            # invalid ones (e.g. NaT)
+            return pd.array([value], dtype=self.type)[0]
         # by default, the pandas Engine delegates to the underlying numpy
         # datatype to coerce a value to the correct type.
         return self.type.type(value)
@@ -226,6 +234,10 @@ class Engine(
         try:
             return engine.Engine.dtype(cls, data_type)
         except TypeError:
+            if inspect.isclass(data_type) and issubclass(data_type, enum.Enum):
+                # treat an Enum class as a categorical type whose categories
+                # are the enum members.
+                return Category(categories=data_type)
             if is_geopandas_dtype(data_type):
                 # register geopandas datatypes
                 import pandera.engines.geopandas_engine
@@ -253,7 +265,14 @@ class Engine(
                 if isinstance(np_or_pd_dtype, np.dtype):
                     # cast alias to platform-agnostic dtype
                     # e.g.: np.intc -> np.int32
-                    common_np_dtype = np.dtype(np_or_pd_dtype.name)
+                    try:
+                        common_np_dtype = np.dtype(np_or_pd_dtype.name)
+                    except TypeError:
+                        # Itemsize-parameterized dtypes encode their width in
+                        # ``name`` in a form ``np.dtype`` cannot parse back,
+                        # e.g. np.dtype("S16").name == "bytes128". Their scalar
+                        # type is already platform-agnostic, so use it as-is.
+                        common_np_dtype = np_or_pd_dtype
                     np_or_pd_dtype = common_np_dtype.type
 
             return engine.Engine.dtype(cls, np_or_pd_dtype)
@@ -302,8 +321,8 @@ class BOOL(DataType, dtypes.Bool):
     _bool_like = frozenset({True, False})
 
     def coerce_value(self, value: Any) -> Any:
-        """Coerce an value to specified datatime type."""
-        if value not in self._bool_like:
+        """Coerce a value to specified boolean type."""
+        if value not in self._bool_like and not pd.isna(value):
             raise TypeError(
                 f"value {value} cannot be coerced to type {self.type}"
             )
@@ -565,8 +584,10 @@ class Decimal(DataType, dtypes.Decimal):
     supported by the Python :py:class:`decimal.Decimal` class.
     """
 
-    _exp: decimal.Decimal = dataclasses.field(init=False)
-    _ctx: decimal.Context = dataclasses.field(init=False)
+    # attributes derived from precision, scale, and rounding, so they are
+    # excluded from comparisons: decimal.Context doesn't implement __eq__.
+    _exp: decimal.Decimal = dataclasses.field(init=False, compare=False)
+    _ctx: decimal.Context = dataclasses.field(init=False, compare=False)
 
     def __init__(
         self,
@@ -1412,10 +1433,12 @@ class PydanticModel(DataType):
 
     @property
     def column_names(self) -> list[str]:
-        """Return pydantic field aliases, falling back to field names."""
+        """Return serialized pydantic field names."""
         if PYDANTIC_V2:
             return [
-                field.alias or name
+                getattr(field, "serialization_alias", None)
+                or field.alias
+                or name
                 for name, field in self.type.model_fields.items()  # type: ignore[attr-defined]
             ]
         return [

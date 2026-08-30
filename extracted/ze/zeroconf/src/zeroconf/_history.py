@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -57,6 +42,20 @@ class QuestionHistory:
             self._evict_to_make_room(now)
         self._history[question] = (now, known_answers)
 
+    def async_expire(self, now: _float) -> None:
+        """Expire the history of old questions."""
+        removes: list[DNSQuestion] = []
+        for question, now_known_answers in self._history.items():
+            than, _ = now_known_answers
+            if now - than > _DUPLICATE_QUESTION_INTERVAL:
+                removes.append(question)
+        for question in removes:
+            del self._history[question]
+
+    def clear(self) -> None:
+        """Clear the history."""
+        self._history.clear()
+
     def suppresses(self, question: DNSQuestion, now: _float, known_answers: set[DNSRecord]) -> bool:
         """Check to see if a question should be suppressed.
 
@@ -76,20 +75,6 @@ class QuestionHistory:
         # The last question has more known answers than
         # we knew so we have to ask
         return not previous_known_answers - known_answers
-
-    def async_expire(self, now: _float) -> None:
-        """Expire the history of old questions."""
-        removes: list[DNSQuestion] = []
-        for question, now_known_answers in self._history.items():
-            than, _ = now_known_answers
-            if now - than > _DUPLICATE_QUESTION_INTERVAL:
-                removes.append(question)
-        for question in removes:
-            del self._history[question]
-
-    def clear(self) -> None:
-        """Clear the history."""
-        self._history.clear()
 
     def _evict_to_make_room(self, now: _float) -> None:
         """Drop expired or oldest entries when the history is at cap.

@@ -3,6 +3,8 @@ import shutil
 import sys
 import tempfile
 import unittest
+from email.message import Message
+from unittest import mock
 
 from micawber import *
 try:
@@ -17,6 +19,7 @@ try:
     import flask
 except ImportError:
     flask = None
+from micawber.contrib.providers import GoogleMapsProvider
 from micawber.parsers import full_handler
 from micawber.test_utils import test_pr, test_cache, test_pr_cache, TestProvider, BaseTestCase
 
@@ -150,6 +153,50 @@ class ProviderTestCase(BaseTestCase):
             pr.request('http://refused-test')
         self.assertTrue(ctx.exception.__cause__ is not None)
 
+    def test_fetch_decode_error_chained(self):
+        # Charset/decode failures must become ProviderException like network errors.
+        class FakeResp(object):
+            def __init__(self, body, charset):
+                self._body = body
+                self.headers = Message()
+                self.headers['Content-Type'] = (
+                    'application/json; charset=%s' % charset)
+
+            def read(self):
+                return self._body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+        pr = ProviderRegistry()
+        pr.register(r'http://decode-test\S*',
+                    Provider('http://example.com/oembed'))
+
+        with mock.patch('micawber.providers.urlopen',
+                        return_value=FakeResp(b'{}', 'not-a-codec')):
+            with self.assertRaises(ProviderException) as ctx:
+                pr.request('http://decode-test1')
+            self.assertIsInstance(ctx.exception.__cause__, LookupError)
+            self.assertEqual(
+                str(ctx.exception),
+                'Error fetching "http://example.com/oembed?format=json'
+                '&url=http%3A%2F%2Fdecode-test1"')
+
+        with mock.patch('micawber.providers.urlopen',
+                        return_value=FakeResp(b'\xff', 'utf-8')):
+            with self.assertRaises(ProviderException) as ctx:
+                pr.request('http://decode-test2')
+            self.assertIsInstance(ctx.exception.__cause__, UnicodeDecodeError)
+
+        with mock.patch('micawber.providers.urlopen',
+                        return_value=FakeResp(b'{}', 'not-a-codec')):
+            urls, data = pr.extract('see http://decode-test3')
+            self.assertEqual(urls, ['http://decode-test3'])
+            self.assertEqual(data, {})
+
     def test_bootstrap_basic_matching(self):
         pr = bootstrap_basic()
         urls = [
@@ -179,6 +226,25 @@ class ProviderTestCase(BaseTestCase):
         for url in urls:
             self.assertTrue(pr.provider_for_url(url) is not None, url)
 
+    def test_bootstrap_iframely(self):
+        # An api key (or md5-hashed "key") is required.
+        self.assertRaises(ValueError, bootstrap_iframely)
+
+        pr = bootstrap_iframely(api_key='secret')
+        for url in ('http://example.com/foo',
+                    'https://vimeo.com/76979871',
+                    'https://sub.domain.example/path?query=1'):
+            provider = pr.provider_for_url(url)
+            self.assertTrue(provider is not None, url)
+            self.assertEqual(provider.endpoint, 'https://iframe.ly/api/oembed')
+            self.assertEqual(provider.base_params['api_key'], 'secret')
+
+        self.assertTrue(pr.provider_for_url('ftp://example.com/f') is None)
+
+        pr = bootstrap_iframely(key='0123456789abcdef')
+        provider = pr.provider_for_url('https://example.com/')
+        self.assertEqual(provider.base_params['key'], '0123456789abcdef')
+
     def test_invalid_json(self):
         pr = ProviderRegistry()
         class BadProvider(Provider):
@@ -186,6 +252,23 @@ class ProviderTestCase(BaseTestCase):
                 return 'bad'
         pr.register('http://bad', BadProvider('link'))
         self.assertRaises(InvalidResponseException, pr.request, 'http://bad')
+
+    def test_non_object_json(self):
+        # Non-object JSON must raise InvalidResponseException.
+        class BadProvider(Provider):
+            body = None
+            def fetch(self, url):
+                return self.body
+        pr = ProviderRegistry()
+        provider = BadProvider('link')
+        pr.register(r'http://bad\S*', provider)
+        for body in ('[]', 'null', '"url and title"', '123', 'true', 'false'):
+            provider.body = body
+            self.assertRaises(InvalidResponseException, pr.request,
+                              'http://bad-test')
+            urls, extracted = pr.extract('see http://bad-test here')
+            self.assertEqual(urls, ['http://bad-test'])
+            self.assertEqual(extracted, {})
 
 
 class EscapingTestCase(BaseTestCase):
@@ -224,6 +307,21 @@ class EscapingTestCase(BaseTestCase):
         resp = test_pr.request('http://video-test1')
         self.assertEqual(full_handler('http://video-test1', resp),
                          '<test1>video</test1>')
+
+    def test_full_handler_without_html_falls_back_to_link(self):
+        resp = {'type': 'video', 'url': 'http://video-test1', 'title': 'vtest1'}
+        expected = '<a href="http://video-test1" title="vtest1">vtest1</a>'
+        self.assertEqual(full_handler('http://video-test1', resp), expected)
+
+        class NoHtmlVideoProvider(Provider):
+            def request(self, url, **params):
+                return {'type': 'video', 'title': 'broken', 'url': url}
+
+        pr = ProviderRegistry()
+        pr.register(r'http://video-nohtml', NoHtmlVideoProvider('video'))
+        self.assertEqual(
+            parse_text_full('http://video-nohtml/foo', pr),
+            '<a href="http://video-nohtml/foo" title="broken">broken</a>')
 
 
 class PickleCacheTestCase(unittest.TestCase):
@@ -554,6 +652,16 @@ class ParserTestCase(BaseTestCase):
             html = frame % 'http://link-test1'
             self.assertEqual(test_pr.parse_html(html), html)
 
+    def test_skip_html_comments(self):
+        html = ('<div><!-- keep http://link-test2 --><p>http://link-test1</p>'
+                '</div>')
+        parsed = test_pr.parse_html(html)
+        self.assertIn('<!-- keep http://link-test2 -->', parsed)
+        self.assertIn(self.full_pairs['http://link-test1'], parsed)
+        urls, extracted = test_pr.extract_html(html)
+        self.assertEqual(urls, ['http://link-test1'])
+        self.assertEqual(list(extracted), ['http://link-test1'])
+
     def test_urlize_params(self):
         text = 'test http://foo.com/'
         urlize_params = {'target': '_blank', 'rel': 'nofollow'}
@@ -648,6 +756,17 @@ class TestHTMLEntities(BaseTestCase):
             '<a href="http://baz.com">http://baz.com</a> &lt;/script&gt;\n'
             '<a href="http://baze.com">http://baze.com</a>\n'
             '&lt;foo&gt;</p>'))
+
+class GoogleMapsProviderTestCase(unittest.TestCase):
+    def test_query_param_without_equals(self):
+        p = GoogleMapsProvider('')
+        # Flag-style query params (no '=') must not raise.
+        result = p.request('https://maps.google.com/maps?q')
+        self.assertEqual(result['type'], 'rich')
+        self.assertIn('output=embed', result['html'])
+        result = p.request('https://maps.google.com/maps?foo&q=Paris')
+        self.assertIn('q=Paris', result['html'])
+        self.assertNotIn('foo', result['html'])
 
 
 if __name__ == '__main__':

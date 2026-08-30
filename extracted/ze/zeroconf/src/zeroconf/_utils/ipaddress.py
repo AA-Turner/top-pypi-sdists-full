@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -46,28 +31,28 @@ class ZeroconfIPv4Address(IPv4Address):
         self._hash = IPv4Address.__hash__(self)
         self.zc_integer = int(self)
 
-    def __str__(self) -> str:
-        """Return the string representation of the IPv4 address."""
-        return self._str
-
     def __hash__(self) -> int:
         """Return the precomputed hash of the IPv4 address."""
         return self._hash
 
+    def __str__(self) -> str:
+        """Return the string representation of the IPv4 address."""
+        return self._str
+
     @property
     def is_link_local(self) -> bool:
-        """Return True if this is a link-local address."""
+        """True for a link-local address."""
         return self._is_link_local
 
     @property
-    def is_unspecified(self) -> bool:
-        """Return True if this is an unspecified address."""
-        return self._is_unspecified
+    def is_loopback(self) -> bool:
+        """True for a loopback address."""
+        return self._is_loopback
 
     @property
-    def is_loopback(self) -> bool:
-        """Return True if this is a loop back."""
-        return self._is_loopback
+    def is_unspecified(self) -> bool:
+        """True for an unspecified address."""
+        return self._is_unspecified
 
 
 class ZeroconfIPv6Address(IPv6Address):
@@ -83,28 +68,28 @@ class ZeroconfIPv6Address(IPv6Address):
         self._hash = IPv6Address.__hash__(self)
         self.zc_integer = int(self)
 
-    def __str__(self) -> str:
-        """Return the string representation of the IPv6 address."""
-        return self._str
-
     def __hash__(self) -> int:
         """Return the precomputed hash of the IPv6 address."""
         return self._hash
 
+    def __str__(self) -> str:
+        """Return the string representation of the IPv6 address."""
+        return self._str
+
     @property
     def is_link_local(self) -> bool:
-        """Return True if this is a link-local address."""
+        """True for a link-local address."""
         return self._is_link_local
 
     @property
-    def is_unspecified(self) -> bool:
-        """Return True if this is an unspecified address."""
-        return self._is_unspecified
+    def is_loopback(self) -> bool:
+        """True for a loopback address."""
+        return self._is_loopback
 
     @property
-    def is_loopback(self) -> bool:
-        """Return True if this is a loop back."""
-        return self._is_loopback
+    def is_unspecified(self) -> bool:
+        """True for an unspecified address."""
+        return self._is_unspecified
 
 
 @lru_cache(maxsize=512)

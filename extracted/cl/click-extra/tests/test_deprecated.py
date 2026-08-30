@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import re
-from importlib import import_module, reload
+from importlib import import_module
 
 import pytest
 
@@ -59,22 +59,3 @@ def test_unknown_attribute_raises(module_id):
     """A non-registered attribute still raises a standard AttributeError."""
     with pytest.raises(AttributeError, match="has no attribute 'DOES_NOT_EXIST'"):
         _ = import_module(module_id).DOES_NOT_EXIST
-
-
-def test_test_plan_module_shim():
-    """Importing the renamed test_plan module warns and re-exports the old names."""
-    test_plan = import_module("click_extra.test_plan")
-    with pytest.deprecated_call(
-        match=re.escape(
-            "click_extra.test_plan is deprecated and will be removed in "
-            f"click-extra {REMOVAL_VERSION}, use click_extra.test_suite instead.",
-        ),
-    ):
-        reload(test_plan)
-
-    test_suite = import_module("click_extra.test_suite")
-    assert test_plan.CLITestCase is test_suite.CLITestCase
-    assert test_plan.SkippedTest is test_suite.SkippedTest
-    assert test_plan.DEFAULT_TEST_PLAN is test_suite.DEFAULT_TEST_SUITE
-    assert test_plan.parse_test_plan is test_suite.parse_test_suite
-    assert test_plan.run_test_plan is test_suite.run_test_suite

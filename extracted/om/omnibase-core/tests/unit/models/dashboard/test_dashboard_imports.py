@@ -24,6 +24,11 @@ EXPECTED_EXPORTS: tuple[str, ...] = (
     "ModelWidgetConfigMetricCard",
     "ModelStatusItemConfig",
     "ModelWidgetConfigStatusGrid",
+    # Semantic severity for StatusGrid (OMN-16884 — Phase C3)
+    "DEFAULT_SEVERITY_ROLES",
+    "ModelSeverityRole",
+    "ModelSeverityVerdict",
+    "ModelStatusSecondary",
     "ModelEventFilter",
     "ModelWidgetConfigEventFeed",
     # UI Contract Primitives (OMN-13130 — Phase 0)
@@ -38,6 +43,14 @@ EXPECTED_EXPORTS: tuple[str, ...] = (
     "ModelRendererCapabilityContract",
     # Versioned design-token contract (OMN-13389)
     "ModelRendererThemeContract",
+    # Theme instance + catalog layer (OMN-16882 — Phase C1)
+    "ModelThemeInstance",
+    "ModelThemeCatalogEntry",
+    "ModelThemeCatalog",
+    "ModelThemeActivation",
+    # One versioned widget envelope (OMN-16883 — Phase C2)
+    "ModelWidgetEnvelope",
+    "ModelWidgetProvenance",
     # Review Packet + OmniStudio Evidence Bundle (OMN-13387)
     "ModelReviewPacket",
     "ModelOmniStudioEvidenceBundle",

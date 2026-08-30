@@ -35,7 +35,11 @@ ColumnReader::ColumnReader(ParquetReader& reader, LogicalType type,
     uint64_t maxRepeat)
     : schema{schema}, fileIdx{fileIdx}, maxDefine{maxDefinition}, maxRepeat{maxRepeat},
       reader{reader}, type{std::move(type)}, protocol(nullptr), pageRowsAvailable{0},
-      groupRowsAvailable(0), chunkReadOffset(0) {}
+      groupRowsAvailable(0), chunkReadOffset(0) {
+    // Buffers used by applyPendingSkips() (row skipping for range-limited scans).
+    dummyDefine.resize(DEFAULT_VECTOR_CAPACITY);
+    dummyRepeat.resize(DEFAULT_VECTOR_CAPACITY);
+}
 
 void ColumnReader::initializeRead(uint64_t /*rowGroupIdx*/,
     const std::vector<lbug_parquet::format::ColumnChunk>& columns,
@@ -275,7 +279,6 @@ void ColumnReader::prepareRead(parquet_filter_t& /*filter*/) {
     block.reset();
     lbug_parquet::format::PageHeader pageHdr;
     pageHdr.read(protocol);
-
     switch (pageHdr.type) {
     case PageType::DATA_PAGE_V2:
         preparePageV2(pageHdr);

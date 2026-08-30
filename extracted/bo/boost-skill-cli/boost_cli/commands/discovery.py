@@ -1,5 +1,5 @@
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """Discovery & Search commands: search, discover, recommend, browse,
 index, trending, stats, count.
 
@@ -141,6 +141,9 @@ def cmd_search(argv):
             "no matches for %r" % query,
             "try `boost discover %s` to search all of GitHub" % query))
         _hint_semantic_search(engine)
+        # Especially here: "no matches" is exactly the answer an out-of-date
+        # tap set produces, and the user has no other way to suspect it.
+        _hint_stale_taps()
         return 0
     # The CLI's long-standing wording for the BM25 engine differs from the label
     # rag/eval use ("BM25 full-content"), and both are load-bearing: the latter
@@ -180,6 +183,7 @@ def cmd_search(argv):
     if use_rag:
         _note_stem_expansions(query)
     _hint_semantic_search(engine)
+    _hint_stale_taps()
     return 0
 
 
@@ -198,6 +202,28 @@ def _note_stem_expansions(query: str) -> None:
     out.info(out.role(out.truncate(
         "no exact match for %s — showing %s" % (said, shown),
         max(0, out.term_width() - 2)), "muted"))
+
+
+def _hint_stale_taps() -> None:
+    """Mention old tap clones. One `stat`, and never a network call.
+
+    Search deliberately does not refresh the taps themselves. A refresh is a
+    `git fetch` per tap — ~1.6 s each, minutes across a real install — so doing
+    it inline would turn a sub-second command into a wait, and doing it in the
+    background would mean unannounced network egress plus writes to the very
+    caches the search is reading. Worse, a tap's commit is load-bearing for
+    dense vectors, so a silent update would strand imported shards as stale.
+
+    So: say it, do not do it. The marker's mtime answers "how long ago" for the
+    price of one stat, and a machine that has never refreshed says nothing at
+    all rather than inventing an age.
+    """
+    age = registry.refresh_age_days()
+    if age is None or age < registry.STALE_TAPS_DAYS:
+        return
+    out.info(out.role(
+        "taps last refreshed %d days ago — `boost update --taps-only`"
+        % int(age), "muted"))
 
 
 def _hint_semantic_search(engine: str) -> None:
@@ -270,6 +296,59 @@ def _shard_io(args) -> int:
     return 0
 
 
+def _fetch_shards(args) -> int:
+    """`--fetch-shards`: the published half of the keyless tier, on demand.
+
+    Separate from `boost quickstart` because the two answer different
+    questions. Quickstart sets a machine up; this refreshes vectors on one that
+    is already tapped, including taps quickstart never touches.
+    """
+    from ..core import dense, shards
+    if not registry.list_taps():
+        raise BoostError("no taps configured — nothing to fetch",
+                        hint="`boost quickstart` taps the defaults and fetches "
+                             "their vectors in one pass")
+    manifest = shards.fetch_manifest()
+    why = shards.incompatible(manifest)
+    if why:
+        raise BoostError("published shards cannot serve this machine — %s" % why,
+                        hint=dense.fix_hint(dense.status().get("reason", "")))
+    commits = rag._tap_commits()
+    by_name = {t.name: commits.get(t.safe_name, "") for t in registry.list_taps()}
+    results = shards.sync(list(by_name), by_name, manifest=manifest,
+                          on_event=_shard_event)
+    if args.as_json:
+        print(json.dumps({"shards": results}, indent=2))
+        return 0
+    got = [r for r in results if r["status"] == "imported"]
+    total = sum(int(r.get("chunks") or 0) for r in got)
+    if got:
+        out.ok("imported %d shard(s), %s chunks — no embedding needed"
+               % (len(got), format(total, ",")))
+    else:
+        # Not a success line. Nothing landed, and saying "imported 0" with a
+        # tick reads as a job well done to the one user who most needs to know
+        # their vectors are still missing.
+        out.warn("no published vectors matched your taps")
+    missing = [r["tap"] for r in results if r["status"] != "imported"]
+    if missing:
+        out.info(out.role("%d tap(s) without usable vectors: %s"
+                          % (len(missing), ", ".join(missing[:5])
+                             + (" …" if len(missing) > 5 else "")), "muted"))
+        out.info("embed those locally with `boost reindex --dense`")
+    return 0
+
+
+def _shard_event(tap: str, status: str, detail: str) -> None:
+    """Progress for one shard, quiet enough to run over forty taps."""
+    if status == "downloading":
+        out.info(out.role("fetching %s %s" % (tap, detail), "muted"))
+    elif status in ("failed", "refused"):
+        out.info(out.role("%s: %s%s" % (tap, status,
+                                        " (%s)" % detail if detail else ""),
+                          "muted"))
+
+
 def cmd_reindex(argv):
     """Build/refresh the full-content (RAG) search index over tapped items."""
     p = cliparse.parser(
@@ -287,11 +366,16 @@ def cmd_reindex(argv):
                    help="merge a prebuilt vector shard, skipping the embed "
                         "cost; refused unless it matches this store's backend "
                         "and the tap's current commit")
+    p.add_argument("--fetch-shards", action="store_true",
+                   help="download and import published vectors for every tap "
+                        "that has them, instead of embedding locally")
     p.add_argument("--json", action="store_true", dest="as_json",
                    help="machine-readable output")
     args = p.parse_args(argv)
     if args.export_shard or args.import_shard:
         return _shard_io(args)
+    if args.fetch_shards:
+        return _fetch_shards(args)
     if not registry.list_taps():
         raise BoostError("no taps configured — nothing to index",
                         hint="add the recommended registries with `boost tap --defaults`")
@@ -1630,7 +1714,7 @@ def cmd_stats(argv):
         else:
             out.kv("latest", "%s %s" % (latest, out.role("(up to date)", "muted")))
     if upstream:
-        out.kv("upstream", upstream)
+        out.kv("upstream", upstream, wrap=True)
     return 0
 
 

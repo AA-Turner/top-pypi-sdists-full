@@ -156,6 +156,55 @@ class TestSub(unittest.TestCase):
         with self.assertRaises(real.error):
             real.sub(r"a", r"\g<zz>", "a")
 
+    def test_named_chars_are_not_rewritten_inside_comments(self):
+        """`re` never parses a comment's text, so a bogus \\N{...} there must not raise here.
+
+        The rewrite is textual, so it needs just enough context to know where NOT to look:
+        (?#...), # to end-of-line under VERBOSE, and neither of those inside a character class.
+        """
+        for pat, flags in [(r"(?# \N{NOT_A_REAL_NAME})abc", 0),
+                           ("a  # \\N{NOT_A_REAL_NAME}\nb", real.X),
+                           ("(?x)a # \\N{NOT_A_REAL_NAME}\nb", 0)]:
+            with self.subTest(pat=pat):
+                self.assertIsNotNone(real.compile(pat, flags))
+                self.assertIsNotNone(re.compile(pat, flags))  # the oracle agrees
+        # And a REAL name still resolves everywhere it did before.
+        for pat, flags in [(r"\N{BULLET}", 0), (r"[\N{BULLET}]", 0), (r"(?#c)\N{BULLET}", 0),
+                           (r"[#\N{BULLET}]", real.X), (r"[]\N{BULLET}]", 0)]:
+            with self.subTest(pat=pat):
+                self.assertIsNotNone(real.compile(pat, flags))
+        # Residue, asserted so it stays deliberate: a SCOPED (?x:...) turns VERBOSE on and is not
+        # tracked — following it means a flag-scope stack, which the C++ parser already owns.
+        with self.assertRaises(real.error):
+            real.compile("(?x:a # \\N{NOT_A_REAL_NAME}\n)")
+
+    def test_regexset_resolves_named_characters(self):
+        """RegexSet skipped the \\N{NAME} rewrite compile() does, so a named member was refused
+        by the very message that says the binding resolves it."""
+        s = real.RegexSet([r"\N{LATIN SMALL LETTER A}", r"(?# \N{NOT_A_REAL_NAME})b", r"\d+"])
+        self.assertEqual(s.matches("a"), [True, False, False])
+        self.assertEqual(s.matches("b"), [False, True, False])
+        with self.assertRaises(real.error):
+            real.RegexSet([r"\N{NOT_A_REAL_NAME}"])
+
+    def test_negative_count_and_maxsplit_do_nothing(self):
+        """re reads a NEGATIVE count/maxsplit as "none", not "unlimited" — and -1 is exactly what a
+        caller arriving from Go's `n` or Rust writes to mean "all". REAL replaced/split everything,
+        silently, which is the one shape of this divergence that corrupts data instead of raising."""
+        self.assertEqual(real.sub(r"\d", "X", "123", count=-1), "123")
+        self.assertEqual(real.subn(r"\d", "X", "123", count=-1), ("123", 0))
+        self.assertEqual(real.split(r"\d", "a1b2c", maxsplit=-1), ["a1b2c"])
+        self.assertEqual(real.split(r"(\d)", "a1b", maxsplit=-1), ["a1b"])
+        self.assertEqual(real.sub(rb"\d", b"X", b"123", count=-1), b"123")
+        self.assertEqual(real.sub(r"\d", lambda m: "X", "123", count=-1), "123")
+        # 0 still means unlimited, and a positive count still bounds it.
+        self.assertEqual(real.sub(r"\d", "X", "123", count=0), "XXX")
+        self.assertEqual(real.sub(r"\d", "X", "123", count=2), "XX3")
+        self.assertEqual(real.split(r"\d", "a1b2c", maxsplit=1), ["a", "b2c"])
+        # The template is still parsed: an invalid one raises even though nothing is replaced.
+        with self.assertRaises(real.error):
+            real.sub(r"(a)", r"\9", "a", count=-1)
+
     def test_callable_and_count(self):
         """Callable replacements and count limits work."""
         self.assertEqual(real.sub(r"\d+", lambda m: str(int(m.group()) * 2), "3 4"),
@@ -705,10 +754,15 @@ class TestIntentionalDivergences(unittest.TestCase):
         self.assertFalse(hasattr(real, "RegexFlag"))
         self.assertFalse(hasattr(real, "Scanner"))
         self.assertEqual(real.I | real.M, _re.I | _re.M)  # the VALUES are re's
-        # flags echoes what was passed; re adds UNICODE for a str pattern, and neither for bytes.
+        # flags echoes only the compile() argument; re adds UNICODE for a str pattern, and neither
+        # for bytes. Inline flags in the pattern text apply at match time but are NOT folded into
+        # Pattern.flags — re.compile('(?i)a').flags is 34, REAL's is 0.
         self.assertEqual(real.compile("a", real.I).flags, real.I)
         self.assertEqual(int(_re.compile("a", _re.I).flags), _re.I | _re.UNICODE)
         self.assertEqual(real.compile(b"a", real.I).flags, int(_re.compile(b"a", _re.I).flags))
+        self.assertEqual(real.compile("(?i)a").flags, 0)
+        self.assertEqual(int(_re.compile("(?i)a").flags), _re.I | _re.UNICODE)
+        self.assertTrue(real.compile("(?i)a").fullmatch("A"))
         # re.L (4), re.DEBUG (128) and an unrecognised bit are refused, never ignored.
         for bit in (4, 128, 1024):
             with self.subTest(bit=bit), self.assertRaises(real.error):
@@ -800,6 +854,107 @@ class TestUnsupportedNamesTheEscapeHatch(unittest.TestCase):
         with self.assertRaises(real.error) as caught:
             real.RegexSet([self.UNSUPPORTED])
         self.assertNotIn("fallback", str(caught.exception))
+
+    # Every construct the divergences page lists as excluded by design, plus the two lookaround
+    # refusals. The fallback delegates to re verbatim, so re -- not this list -- decides which of
+    # them the remedy is true for; the test asks re the same question the binding does.
+    EXCLUDED_BY_DESIGN = [
+        r"(a)\1",             # backreference, by number
+        r"(?P<n>a)(?P=n)",    # backreference, by name
+        r"(a)(?(1)b|c)",      # conditional group
+        r"a(?C1)b",           # callout
+        r"a(?R)b",            # recursion, whole pattern
+        r"(a)(?1)",           # recursion, absolute
+        r"(a)(?-1)",          # recursion, relative
+        r"(?P<n>a)(?&n)",     # subroutine call, PCRE spelling
+        r"(?P<n>a)(?P>n)",    # subroutine call, Python spelling
+        r"(?=(?=a))",         # nested lookaround
+        r"(?<=a*)b",          # unbounded lookaround
+    ]
+
+    def test_every_excluded_construct_is_named_and_classified(self):
+        """Each must be REFUSED, and refused with its own name -- "unknown extension" reads as a
+        typo and taught the reader nothing about why the wall is there."""
+        named = {
+            r"(a)(?(1)b|c)": "conditional groups are not supported",
+            r"a(?C1)b": "callouts are not supported",
+            r"a(?R)b": "pattern recursion is not supported",
+            r"(a)(?1)": "pattern recursion is not supported",
+            r"(a)(?-1)": "pattern recursion is not supported",
+            r"(?P<n>a)(?&n)": "subroutine calls are not supported",
+            r"(?P<n>a)(?P>n)": "subroutine calls are not supported",
+        }
+        for pattern in self.EXCLUDED_BY_DESIGN:
+            with self.subTest(pattern=pattern):
+                with self.assertRaises(real.error) as caught:
+                    real.compile(pattern)
+                message = str(caught.exception)
+                self.assertNotIn("unknown extension", message)
+                self.assertIn("COMPATIBILITY.md", message)  # classified `unsupported`, not `syntax`
+                if pattern in named:
+                    self.assertIn(named[pattern], message)
+        self.assertEqual(len(self.EXCLUDED_BY_DESIGN), 11)  # denominator
+
+    def test_the_remedy_is_offered_exactly_where_re_can_take_the_pattern(self):
+        """The advice is only worth giving where both halves hold. re is the oracle because the
+        fallback IS re: whatever it compiles, fallback=True will run, and whatever it refuses
+        would send the reader through a door that is not there."""
+        import re as stdlib
+        delegable = 0
+        for pattern in self.EXCLUDED_BY_DESIGN:
+            try:
+                stdlib.compile(pattern)
+                re_takes_it = True
+            except stdlib.error:
+                re_takes_it = False
+            with self.subTest(pattern=pattern, re_takes_it=re_takes_it):
+                with self.assertRaises(real.error) as caught:
+                    real.compile(pattern)
+                message = str(caught.exception)
+                if re_takes_it:
+                    delegable += 1
+                    self.assertIn("pass fallback=True", message)
+                    # and the promise must hold, not merely be printed
+                    self.assertEqual(real.compile(pattern, fallback=True).engine, "re")
+                else:
+                    self.assertNotIn("pass fallback=True", message)
+                    self.assertIn("does not help here", message)
+                    # re's own class, not real.error: fallback delegates, so the delegate's
+                    # refusal is what surfaces. Both are re.error, which is what a caller
+                    # writing `except re.error` around a fallback compile relies on.
+                    with self.assertRaises(stdlib.error):
+                        real.compile(pattern, fallback=True)
+        # Both arms must be exercised, or the test proves only one of them.
+        self.assertGreater(delegable, 0)
+        self.assertLess(delegable, len(self.EXCLUDED_BY_DESIGN))
+
+    def test_the_oracle_is_asked_with_the_flags_the_fallback_would_use(self):
+        """Same pattern, opposite advice, decided by the flag alone. real.U is a no-op here
+        (Unicode is already the str default) so REAL refuses the backreference either way, but
+        re rejects the UNICODE flag outright on a bytes pattern -- so the delegation that works
+        without it raises with it. An oracle asked without the flags would promise both."""
+        pattern = rb"(a)\1"
+
+        with self.assertRaises(real.error) as caught:
+            real.compile(pattern)
+        self.assertIn("pass fallback=True", str(caught.exception))
+        self.assertEqual(real.compile(pattern, fallback=True).engine, "re")
+
+        with self.assertRaises(real.error) as caught:
+            real.compile(pattern, real.U)
+        self.assertIn("does not help here", str(caught.exception))
+        with self.assertRaises(ValueError):  # re's own refusal of U on bytes, not a re.error
+            real.compile(pattern, real.U, fallback=True)
+
+    def test_a_syntax_error_is_offered_no_remedy_at_all(self):
+        """Malformed is malformed for re too: neither arm of the advice applies."""
+        for pattern in (r"(unclosed", r"a)", r"(?Z)", r"a{3,1}"):
+            with self.subTest(pattern=pattern):
+                with self.assertRaises(real.error) as caught:
+                    real.compile(pattern)
+                message = str(caught.exception)
+                self.assertNotIn("fallback", message)
+                self.assertNotIn("does not help here", message)
 
 
 class TestErrorHierarchy(unittest.TestCase):

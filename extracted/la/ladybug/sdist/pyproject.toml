@@ -4,7 +4,7 @@ description = "Highly scalable, extremely fast, easy-to-use embeddable graph dat
 readme = "README.md"
 license = { text = "MIT" }
 keywords = ["graph", "database"]
-version = "0.19.1"
+version = "0.20.0"
 requires-python = ">=3.10,<3.15"
 
 [project.urls]
@@ -19,7 +19,7 @@ dev = [
     "numpy~=2.0",
     "pandas~=2.2",
     "polars~=1.30",
-    "pyarrow>=21,<23",
+    "pyarrow>=25",
     "pybind11~=2.13",
     "pytest",
     "pytest-asyncio~=1.0",

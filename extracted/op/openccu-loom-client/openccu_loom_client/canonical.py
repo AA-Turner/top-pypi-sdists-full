@@ -25,10 +25,21 @@ plain ``central_id`` string instead, so the thin adapters here wrap it
 in a minimal stub provider.
 
 This module is the Python side of the daemon's Go
-``internal/routingkey`` (``SerialSuffix`` / ``CanonicalUniqueID``); both
-run the same routing-key algorithm underneath, so the two produce
-bit-identical output. See
-``docs/external-clients/ha-unique-id-migration.md`` in the daemon repo.
+``internal/routingkey`` (``SerialSuffix`` / ``CanonicalUniqueID``). Both run
+the same routing-key algorithm underneath, so the two produce identical
+output — replayed case by case from the shared golden fixtures under
+``tests/fixtures/``, which are byte-identical copies of the daemon's.
+
+That was not true until 2026-08-28. The daemon scoped ``CUX*`` addresses by
+central and the reference implementation left them bare, because CUxD hands
+out the same synthetic addresses on every CCU and two bridged CCUs would
+otherwise declare identical unique ids for them. aiohomematic 2026.8.7 adopted
+the rule (SukramJ/aiohomematic#3370), the daemon retired its divergence
+fixture, and the CUxD cases now sit in the shared ones like any other. Against
+an aiohomematic older than 2026.8.7 the claim above does not hold — which is
+one more reason the version floor in ``pyproject.toml`` is not decorative.
+
+See ``docs/external-clients/ha-unique-id-migration.md`` in the daemon repo.
 """
 
 from __future__ import annotations

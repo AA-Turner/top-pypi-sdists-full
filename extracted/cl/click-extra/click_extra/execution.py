@@ -70,6 +70,7 @@ if TYPE_CHECKING:
     from typing import IO, Any
 
     from .envvar import TEnvVars
+    from .theme import HelpTheme
 
     TArg = str | Path | None
     TNestedArgs = Iterable[TArg | Iterable["TNestedArgs"]]
@@ -83,29 +84,52 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 R = TypeVar("R")
 
-CPU_COUNT = os.cpu_count()
-"""Number of **logical** CPUs available, or `None` if undetermined.
 
-This is {func}`os.cpu_count`, which counts *logical* processors (hardware
-threads). On a CPU with simultaneous multi-threading (Intel Hyper-Threading,
-AMD SMT) a 4-physical-core chip reports `8`. It is therefore **not** a count
-of *physical* cores, and is usually larger than what physical-core tools
-report, such as `psutil.cpu_count(logical=False)` or pytest-xdist's
-`-n auto` (which counts physical cores). Parallelism here is keyed on the
-logical count on purpose: subprocess- and I/O-bound work overlaps well across
-hardware threads.
+def _logical_cpu_count() -> int | None:
+    """The logical CPU count this process can actually use, if determinable.
+
+    {func}`os.process_cpu_count` (Python 3.13+) is preferred: it honors the
+    process's CPU affinity mask and, on Linux, the cgroup quota, so a
+    container limited to two CPUs reports `2` instead of the host's full
+    core count. {func}`os.cpu_count` is cgroup-blind, which is exactly what
+    lets a quota-limited container oversubscribe its allocation, so it only
+    serves as the fallback for older runtimes and platforms where the
+    process-aware count is unavailable.
+    """
+    if hasattr(os, "process_cpu_count"):
+        count: int | None = os.process_cpu_count()
+        if count is not None:
+            return count
+    return os.cpu_count()
+
+
+CPU_COUNT = _logical_cpu_count()
+"""Number of **logical** CPUs available to this process, or `None` if undetermined.
+
+A count of *logical* processors (hardware threads), resolved by
+{func}`_logical_cpu_count`: {func}`os.process_cpu_count` on Python 3.13+,
+falling back to {func}`os.cpu_count` on older runtimes. On a CPU with
+simultaneous multi-threading (Intel Hyper-Threading, AMD SMT) a
+4-physical-core chip reports `8`. It is therefore **not** a count of
+*physical* cores, and is usually larger than what physical-core tools report,
+such as `psutil.cpu_count(logical=False)` or pytest-xdist's `-n auto` (which
+counts physical cores). Parallelism here is keyed on the logical count on
+purpose: subprocess- and I/O-bound work overlaps well across hardware
+threads.
 """
 
-DEFAULT_JOBS = max(1, CPU_COUNT - 1) if CPU_COUNT else 1
-"""Default number of parallel jobs: one fewer than {data}`CPU_COUNT` (logical CPUs).
+DEFAULT_JOBS = CPU_COUNT - 1 if CPU_COUNT and CPU_COUNT >= 3 else (CPU_COUNT or 1)
+"""Default number of parallel jobs: {data}`CPU_COUNT` minus one reserved core.
 
-Leaves one logical CPU free for the main process and system tasks. Falls back
-to `1` (sequential) when the count cannot be determined.
+Leaves one logical CPU free for the main process and system tasks, but only
+on hosts with three logical CPUs or more: on smaller hosts the reservation
+would collapse the pool to a single (sequential) worker, and threads waiting
+on subprocesses and I/O cost nothing there, so the whole machine is used
+instead. Falls back to `1` (sequential) when the count cannot be determined.
 
 ```{caution}
-This resolves to `1` not only on single-core hosts but also on **two-core
-hosts**, since it reserves one core. There, the default silently runs
-sequentially. {meth}`JobCount.convert` logs whenever a parallel-intent
+On a **single-CPU host** this still resolves to `1` and the default silently
+runs sequentially. {meth}`JobCount.convert` logs whenever a parallel-intent
 keyword collapses to a single job this way: as a warning for an explicit
 request, at info level for the option's own default.
 ```
@@ -119,7 +143,9 @@ class JobCount(click.ParamType):
     ({data}`CPU_COUNT`), counting hardware threads, not physical cores:
 
     - `auto` resolves to {data}`DEFAULT_JOBS` (one fewer than the available
-      logical CPUs), the same heuristic used as the option's default.
+      logical CPUs, except on hosts with fewer than three, where reserving a
+      core would leave a single worker), the same heuristic used as the
+      option's default.
     - `max` resolves to {data}`CPU_COUNT` (every available logical CPU).
 
     Any other token is parsed as an integer and left to
@@ -230,13 +256,15 @@ class JobsOption(ExtraOption):
     Accepts an integer or one of two keywords resolved by
     {class}`~click_extra.execution.JobCount`: `auto` (the default: one fewer
     than the available logical CPU cores, leaving a core free for the main
-    process and system tasks) and `max` (every available logical CPU core). A
-    value of `0` disables parallelism and runs sequentially.
+    process and system tasks, except on hosts with fewer than three logical
+    CPUs, where reserving one would leave a single worker) and `max` (every
+    available logical CPU core). A value of `0` disables parallelism and runs
+    sequentially.
 
-    The core count is the number of *logical* CPUs (hardware threads) reported
-    by {func}`os.cpu_count`, not physical cores: see
-    {data}`~click_extra.execution.CPU_COUNT`. On a host with too few logical
-    CPUs, `auto`/`max` resolve to a single job and
+    The core count is the number of *logical* CPUs (hardware threads)
+    available to the process, not physical cores: see
+    {data}`~click_extra.execution.CPU_COUNT`. On a host with a single logical
+    CPU, `auto`/`max` resolve to a single job and
     {class}`~click_extra.execution.JobCount` logs that execution will be
     sequential: as a warning when the keyword was requested explicitly, at info
     level when it came from the option's own default.
@@ -264,10 +292,13 @@ class JobsOption(ExtraOption):
         `auto`/`max` keyword to an integer by the time this runs. A value of
         `0` disables parallelism: it is rounded up to `1` (sequential
         execution) with a warning. Negative values are likewise clamped to
-        `1`, and a count above the available cores is honored but warned
-        about. The resolved count is then logged at info level next to the
-        host's logical CPU count ({data}`~click_extra.execution.CPU_COUNT`), so a
-        CLI's parallelism is visible under `--verbosity INFO`.
+        `1`. A count above the available cores is honored: the pool is a
+        {class}`~concurrent.futures.ThreadPoolExecutor`, and oversubscription
+        is how I/O- and subprocess-bound work overlaps, so the warning only
+        flags the CPU-bound case where extra threads just contend for the
+        GIL. The resolved count is then logged at info level next to the
+        host's logical CPU count ({data}`~click_extra.execution.CPU_COUNT`),
+        so a CLI's parallelism is visible under `--verbosity INFO`.
         """
         if ctx.resilient_parsing:
             return
@@ -287,7 +318,8 @@ class JobsOption(ExtraOption):
             )
         elif CPU_COUNT and value > CPU_COUNT:
             logger.warning(
-                "Requested %d jobs exceeds available CPU cores (%d).",
+                "Requested %d jobs exceeds the %d logical CPUs: honored, "
+                "but pays only for I/O-bound work.",
                 value,
                 CPU_COUNT,
             )
@@ -297,7 +329,7 @@ class JobsOption(ExtraOption):
         # Surface the resolved worker count so any CLI using --jobs can show its
         # parallelism (and how it maps to the logical CPU count) under -v/INFO.
         logger.info(
-            "Resolved --jobs to %d (os.cpu_count()=%s logical CPUs).",
+            "Resolved --jobs to %d (%s logical CPUs).",
             effective,
             CPU_COUNT if CPU_COUNT is not None else "unknown",
         )
@@ -310,8 +342,8 @@ class JobsOption(ExtraOption):
         show_default=True,
         type=JobCount(),
         help=_(
-            "Number of parallel jobs. Accepts an integer, 'auto' (one fewer "
-            "than the host's logical CPUs) or 'max' (all logical CPUs). 0 runs "
+            "Number of parallel jobs. Accepts an integer, 'auto' (the host's "
+            "logical CPUs minus one) or 'max' (all logical CPUs). 0 runs "
             "sequentially."
         ),
         **kwargs,
@@ -749,7 +781,7 @@ def args_cleanup(*args: TArg | TNestedArgs) -> tuple[str, ...]:
     return tuple(str(arg) for arg in flatten(args) if arg is not None)
 
 
-def highlight_bin_name(program: str) -> str:
+def highlight_bin_name(program: str, theme: HelpTheme | None = None) -> str:
     """Style the binary's own name inside `program`, leaving its directory plain.
 
     `/opt/homebrew/bin/mas` renders with only `mas` in the active theme's
@@ -757,16 +789,22 @@ def highlight_bin_name(program: str) -> str:
     out from the noise of its location. A bare name (no separator) is styled
     whole. Both POSIX and Windows separators are recognized, whichever comes
     last.
+
+    :param program: the command, path and all.
+    :param theme: palette to style with. Defaults to the theme the current
+        invocation runs under, see {func}`format_cli_prompt`.
+    :return: the styled command.
     """
+    active_theme = get_current_theme() if theme is None else theme
     split_at = max(program.rfind("/"), program.rfind("\\")) + 1
-    return program[:split_at] + get_current_theme().invoked_command(
-        program[split_at:],
-    )
+    return program[:split_at] + active_theme.invoked_command(program[split_at:])
 
 
 def format_cli_prompt(
     cmd_args: Iterable[str],
     extra_env: TEnvVars | None = None,
+    theme: HelpTheme | None = None,
+    prompt: str | None = None,
 ) -> str:
     """Render the shell prompt simulating a CLI invocation, for logs and dry-runs.
 
@@ -784,8 +822,20 @@ def format_cli_prompt(
 
     Useful to print a copy-pasteable command trace in debug logs, dry-runs and
     test output.
+
+    :param cmd_args: the command line to render.
+    :param extra_env: environment assignments to prefix it with.
+    :param theme: palette to style the line with. Defaults to the theme the
+        current invocation runs under, which is what a CLI printing its own
+        trace wants. A caller drawing the line onto a surface of its own choosing
+        (a light [capture](screenshots.md), say) passes the one that surface can
+        show.
+    :param prompt: sigil to draw before the command, when the shell being
+        pictured is not the one running. A capture mimicking a Windows terminal
+        passes `PS C:\\>`; `None` keeps {data}`PROMPT`, which is this platform's.
+    :return: the styled prompt line.
     """
-    active_theme = get_current_theme()
+    active_theme = get_current_theme() if theme is None else theme
     extra_env_string = ""
     if extra_env:
         extra_env_string = "".join(
@@ -796,13 +846,13 @@ def format_cli_prompt(
     cmd_parts = tuple(cmd_args)
     styled_parts = []
     if cmd_parts:
-        styled_parts.append(highlight_bin_name(cmd_parts[0]))
+        styled_parts.append(highlight_bin_name(cmd_parts[0], active_theme))
         for part in cmd_parts[1:]:
             styled_parts.append(
                 active_theme.option(part) if part.startswith("-") else part,
             )
 
-    sigil, _, spacing = PROMPT.partition(" ")
+    sigil, _, spacing = (PROMPT if prompt is None else f"{prompt} ").partition(" ")
     return (
         active_theme.bracket(sigil)
         + f" {spacing}"
@@ -1008,6 +1058,7 @@ def run_cli(
     args: TArg | TNestedArgs,
     *,
     extra_env: TEnvVars | None = None,
+    cwd: Path | str | None = None,
     timeout: float | None = None,
     label: str | None = None,
     merge_streams: bool = False,
@@ -1063,6 +1114,10 @@ def run_cli(
     :param extra_env: environment variables forced over the inherited environment
         for this call (see {func}`~click_extra.envvar.env_copy`). They are part of
         the disclosed prompt line, since reproducing the call requires them.
+    :param cwd: directory to run the child in. `None` inherits the caller's, which
+        is {func}`subprocess.run`'s own default. A relative `args[0]` is resolved
+        by the OS against this directory, not the caller's, so pass an absolute
+        path (or a name on the `PATH`) when moving the child elsewhere.
     :param timeout: seconds before the child is killed. `None` waits forever.
     :param label: tag identifying this call on each streamed output line, for
         when several children interleave in one log. Carried as the record's
@@ -1091,7 +1146,17 @@ def run_cli(
         prompt raised from inside the child (`sudo` reading `/dev/tty`)
         would fail, and `sudo`'s tty-keyed credential cache would no longer
         match. No-op on Windows, where the timeout path already kills the full
-        tree.
+        tree. Only the reaping half of this flag has that Windows equivalent,
+        and the other half has none: a POSIX session also detaches the child
+        from the controlling terminal, where a Windows child keeps sharing the
+        parent's console and can still reach back into it. A subprocess-heavy
+        test suite is where that surfaces — `meta-package-manager`'s Windows
+        CI saw a package manager's own teardown land in the parent `pytest`
+        process as a mid-run {exc}`KeyboardInterrupt`, which a console control
+        event on the shared console explains and which no POSIX runner showed.
+        The lever there is `windows_creation_flags`
+        (`CREATE_NEW_PROCESS_GROUP`), left to the caller because it also
+        changes how a real Ctrl-C reaches the child.
     :param command_level: logging level of the invocation-disclosure line.
         Defaults to {data}`logging.INFO`; lower it to {data}`logging.DEBUG` for
         internal probes not worth narrating.
@@ -1129,6 +1194,7 @@ def run_cli(
         encoding="utf-8",
         errors=errors,
         env=cast("subprocess._ENV", env_copy(extra_env)),
+        cwd=cwd,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         | windows_creation_flags,
         startupinfo=startupinfo,

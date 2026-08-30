@@ -3,10 +3,11 @@ import re
 from html import escape
 
 try:
-    from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup, Comment
     bs_kwargs = replace_kwargs = {'features': 'html.parser'}
 except ImportError:
     BeautifulSoup = None
+    Comment = None
     bs_kwargs = replace_kwargs = {}
 
 from micawber.exceptions import ProviderException
@@ -46,7 +47,10 @@ def full_handler(url, response_data, **params):
     elif response_data['type'] == 'photo':
         return '<a href="%(url)s" title="%(title)s"><img alt="%(title)s" src="%(url)s" /></a>' % _escape_data(response_data)
     else:
-        return response_data['html']
+        html = response_data.get('html')
+        if html is None:
+            return '<a href="%(url)s" title="%(title)s">%(title)s</a>' % _escape_data(response_data)
+        return html
 
 def inline_handler(url, response_data, **params):
     return '<a href="%(url)s" title="%(title)s">%(title)s</a>' % _escape_data(response_data)
@@ -164,7 +168,7 @@ def parse_html(html, providers, urlize_all=True, handler=full_handler,
                 url_handler,
                 urlize_params=urlize_params,
                 **params)
-            url.replace_with(BeautifulSoup(replacement, **replace_kwargs))
+            url.replace_with(soup_class(replacement, **replace_kwargs))
 
     return str(soup)
 
@@ -200,6 +204,9 @@ def _is_standalone(soup_elem):
     return False
 
 def _inside_skip(soup_elem):
+    # Comment nodes match url_re as strings; leave them like script/style skips.
+    if Comment is not None and isinstance(soup_elem, Comment):
+        return True
     parent = soup_elem.parent
     while parent is not None:
         if parent.name in skip_elements:

@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 import pydash as _
@@ -81,7 +83,7 @@ def test_max_(case, expected):
     [
         (([1, 2, 3],), 3),
         (({"a": 3, "b": 2, "c": 1},), 3),
-        ((["anaconda", "bison", "camel"], lambda x: len(x)), "anaconda"),
+        ((["anaconda", "bison", "camel"], len), "anaconda"),
         (
             (
                 [{"name": "barney", "age": 36}, {"name": "fred", "age": 40}],
@@ -118,6 +120,11 @@ def test_mean(case, expected):
     assert _.mean(case) == expected
 
 
+def test_mean_empty():
+    assert math.isnan(_.mean([]))
+    assert math.isnan(_.mean({}))
+
+
 @parametrize(
     "case,expected",
     [
@@ -131,6 +138,11 @@ def test_mean_by(case, expected):
     assert _.mean_by(*case) == expected
 
 
+def test_mean_by_empty():
+    assert math.isnan(_.mean_by([]))
+    assert math.isnan(_.mean_by([], lambda x: x * 2))
+
+
 @parametrize(
     "case,expected",
     [
@@ -142,6 +154,11 @@ def test_mean_by(case, expected):
 )
 def test_median(case, expected):
     assert _.median(*case) == expected
+
+
+def test_median_empty():
+    assert math.isnan(_.median([]))
+    assert math.isnan(_.median({}))
 
 
 @parametrize(
@@ -160,7 +177,7 @@ def test_min_(case, expected):
     [
         (([1, 2, 3],), 1),
         (({"a": 3, "b": 2, "c": 1},), 1),
-        ((["anaconda", "bison", "cat"], lambda x: len(x)), "cat"),
+        ((["anaconda", "bison", "cat"], len), "cat"),
         (
             (
                 [{"name": "barney", "age": 36}, {"name": "fred", "age": 40}],

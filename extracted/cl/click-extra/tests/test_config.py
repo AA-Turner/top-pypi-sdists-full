@@ -16,9 +16,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import plistlib
 import re
+import sqlite3
 import sys
 import unittest.mock
 from pathlib import Path
@@ -46,6 +49,7 @@ from click_extra import (
     config_option,
     echo,
     export_config_option,
+    format_from_mime,
     get_app_dir,
     group,
     no_config_option,
@@ -54,6 +58,7 @@ from click_extra import (
     search_params,
     validate_config_option,
 )
+from click_extra.config import SQLITE_CONFIG_TABLE
 from click_extra.config.schema import (
     _expand_dotted_keys,
 )
@@ -63,6 +68,9 @@ from click_extra.pytest import (
     default_debug_uncolored_logging,
     default_debug_uncolored_version_details,
 )
+
+DOCS_CONFIG_PAGE = Path(__file__).parent.parent / "docs" / "config.md"
+"""The documentation page transcribing part of ``ConfigFormat``."""
 
 # The complete set of glob search flags ``ConfigOption`` enforces by default.
 FULL_SEARCH_FLAGS = (
@@ -314,6 +322,64 @@ XML_FILE, XML_DATA = (
     },
 )
 
+PLIST_FILE, PLIST_DATA = (
+    dedent(
+        """\
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <!-- Comment -->
+        <dict>
+            <key>top_level_param</key>
+            <string>to_ignore</string>
+
+            <key>config-cli1</key>
+            <dict>
+                <key>verbosity</key>
+                <string>DEBUG</string>
+                <key>blahblah</key>
+                <integer>234</integer>
+                <key>dummy_flag</key>
+                <true/>
+                <key>my_list</key>
+                <array>
+                    <string>pip</string>
+                    <string>npm</string>
+                    <string>gem</string>
+                </array>
+
+                <key>default</key>
+                <dict>
+                    <key>int_param</key>
+                    <integer>3</integer>
+                    <key>random_stuff</key>
+                    <string>will be ignored</string>
+                </dict>
+            </dict>
+
+            <key>garbage</key>
+            <dict/>
+        </dict>
+        </plist>
+        """,
+    ),
+    {
+        "top_level_param": "to_ignore",
+        "config-cli1": {
+            "verbosity": "DEBUG",
+            "blahblah": 234,
+            "dummy_flag": True,
+            "my_list": ["pip", "npm", "gem"],
+            "default": {
+                "int_param": 3,
+                "random_stuff": "will be ignored",
+            },
+        },
+        "garbage": {},
+    },
+)
+
 PYPROJECT_TOML_FILE, PYPROJECT_TOML_DATA = (
     dedent("""\
         [build-system]
@@ -343,6 +409,78 @@ PYPROJECT_TOML_FILE, PYPROJECT_TOML_DATA = (
     },
 )
 
+ARGFILE_FILE, ARGFILE_DATA = (
+    dedent(
+        """\
+        # Comment
+
+        --dummy-flag
+        --my-list pip
+        --my-list npm --my-list gem
+        --verbosity DEBUG
+        """,
+    ),
+    {
+        "config-cli1": {
+            "dummy_flag": True,
+            "my_list": ["pip", "npm", "gem"],
+            "verbosity": "DEBUG",
+        },
+    },
+)
+
+SQLITE_DATA = {
+    "config-cli1": {
+        "dummy_flag": True,
+        "my_list": ["pip", "npm", "gem"],
+        "default": {
+            "int_param": 3,
+            "random_stuff": "will be ignored",
+        },
+    },
+}
+"""The shared reference configuration, as `SQLITE_CONFIG_TABLE` rows.
+
+Keys are dotted parameter paths, values are JSON-encoded. This mirrors
+`TOML_DATA`, minus the verbosity bump and the sections the other formats
+use to exercise their own quirks."""
+
+
+def flatten_sqlite_keys(data: dict, prefix: str = "") -> dict:
+    """Flatten a nested mapping into dotted keys, the SQLite config layout."""
+    flat: dict = {}
+    for key, value in data.items():
+        full_key = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            flat.update(flatten_sqlite_keys(value, full_key))
+        else:
+            flat[full_key] = value
+    return flat
+
+
+def make_sqlite_config(
+    path: Path,
+    data: dict | None = None,
+    *,
+    create_table: bool = True,
+) -> Path:
+    """Write a nested mapping into a SQLite configuration database."""
+    connection = sqlite3.connect(path)
+    if create_table:
+        connection.execute(
+            f"CREATE TABLE {SQLITE_CONFIG_TABLE} (key TEXT PRIMARY KEY, value TEXT)"
+        )
+    if data:
+        for key, value in flatten_sqlite_keys(data).items():
+            connection.execute(
+                f"INSERT INTO {SQLITE_CONFIG_TABLE} VALUES (?, ?)",
+                (key, json.dumps(value)),
+            )
+    connection.commit()
+    connection.close()
+    return path
+
+
 all_config_formats = pytest.mark.parametrize(
     ("conf_name, conf_text, conf_data"),
     [
@@ -353,6 +491,7 @@ all_config_formats = pytest.mark.parametrize(
             ("json", JSON_FILE, JSON_DATA),
             ("ini", INI_FILE, INI_DATA),
             ("xml", XML_FILE, XML_DATA),
+            ("plist", PLIST_FILE, PLIST_DATA),
         )
     ],
 )
@@ -783,6 +922,12 @@ def test_export_config_includes_unset_params(invoke):
     assert '"tag": []' in result.stdout
     assert '"regexp": null' in result.stdout
 
+    result = invoke(unset_cli, "--export-config", "plist", color=False)
+    assert result.exit_code == 0
+    assert "<key>tag</key>" in result.stdout
+    # plist has no null type: the unset parameter is dropped from the export.
+    assert "regexp" not in result.stdout
+
 
 def test_export_config_kebab_case_keys(invoke, tmp_path):
     """Exported keys use the kebab-case spelling, the canonical form for files.
@@ -1044,6 +1189,615 @@ def test_conf_metadata_no_config(invoke):
     assert result.exit_code == 0
     assert "conf_source=MISSING" in result.stdout
     assert "conf_full=MISSING" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("media_type", "expected"),
+    (
+        # Media types each format is served as.
+        ("application/toml", ConfigFormat.TOML),
+        ("text/x-toml", ConfigFormat.TOML),
+        ("application/yaml", ConfigFormat.YAML),
+        ("text/yaml", ConfigFormat.YAML),
+        ("application/x-yaml", ConfigFormat.YAML),
+        ("text/x-yaml", ConfigFormat.YAML),
+        ("application/json", ConfigFormat.JSON),
+        ("text/json", ConfigFormat.JSON),
+        ("application/json5", ConfigFormat.JSON5),
+        ("application/jsonc", ConfigFormat.JSONC),
+        ("application/hjson", ConfigFormat.HJSON),
+        ("application/xml", ConfigFormat.XML),
+        ("text/xml", ConfigFormat.XML),
+        ("application/x-plist", ConfigFormat.PLIST),
+        ("application/vnd.sqlite3", ConfigFormat.SQLITE),
+        ("application/x-sqlite3", ConfigFormat.SQLITE),
+        # Parameters are stripped and case is ignored.
+        ("application/toml; charset=utf-8", ConfigFormat.TOML),
+        ("  Application/TOML  ", ConfigFormat.TOML),
+        # RFC 6839 structured syntax suffixes.
+        ("application/vnd.acme.settings+json", ConfigFormat.JSON),
+        ("application/atom+xml", ConfigFormat.XML),
+        # Types no format claims.
+        ("text/plain", None),
+        ("application/octet-stream", None),
+        ("application/unknown", None),
+        ("", None),
+        ("   ", None),
+    ),
+)
+def test_format_from_mime(media_type, expected):
+    assert format_from_mime(media_type) == expected
+
+
+def test_format_from_mime_restricted_to_candidates():
+    """`formats` narrows the resolution, like `format_from_path` does."""
+    assert format_from_mime("application/json") is ConfigFormat.JSON
+    assert format_from_mime("application/json", [ConfigFormat.TOML]) is None
+
+
+def test_mime_types_are_unambiguous():
+    """No media type is claimed by two formats.
+
+    A duplicate would leave `format_from_mime` resolving on `ConfigFormat`
+    declaration order alone, silently handing the media type to whichever
+    format happens to be declared first.
+    """
+    owners: dict[str, str] = {}
+    for fmt in ConfigFormat:
+        for media_type in fmt.mime_types:
+            assert media_type == media_type.strip().lower(), (
+                f"{fmt.name} declares {media_type!r}, which is not normalized."
+            )
+            assert media_type.count("/") == 1, (
+                f"{fmt.name} declares {media_type!r}, which is not a type/subtype."
+            )
+            assert media_type not in owners, (
+                f"{media_type!r} is claimed by both {owners.get(media_type)} "
+                f"and {fmt.name}."
+            )
+            owners[media_type] = fmt.name
+
+
+def test_docs_media_types_table_matches_formats():
+    """The media-type table in the docs is `ConfigFormat.mime_types`, transcribed.
+
+    A format gaining or losing a media type otherwise leaves the table stale,
+    and that table is the only place a user reads the mapping from.
+    """
+    page = DOCS_CONFIG_PAGE.read_text(encoding="utf-8")
+    table = page.split("#### Typing a download", 1)[1].split("```{warning}", 1)[0]
+
+    # Each row links its format to the section documenting it, whose anchor is
+    # the member name kebab-cased.
+    documented = {}
+    for row in table.splitlines():
+        match = re.match(r"\|\s*\[`[^`]+`\]\(#([\w-]+)\)\s*\|([^|]+)\|", row)
+        if not match:
+            continue
+        anchor, cell = match.groups()
+        for media_type in re.findall(r"`([^`]+)`", cell):
+            documented[media_type] = anchor
+
+    declared = {
+        media_type: fmt.name.lower().replace("_", "-")
+        for fmt in ConfigFormat
+        for media_type in fmt.mime_types
+    }
+    assert documented == declared
+
+
+@pytest.mark.parametrize(
+    ("media_type", "conf_text"),
+    (
+        pytest.param("application/toml", TOML_FILE, id="toml"),
+        pytest.param("application/yaml", YAML_FILE, id="yaml"),
+        pytest.param("application/json", JSON_FILE, id="json"),
+        pytest.param("application/xml", XML_FILE, id="xml"),
+        pytest.param("application/x-plist", PLIST_FILE, id="plist"),
+        pytest.param(
+            "application/vnd.acme.settings+json", JSON_FILE, id="vendor-suffix"
+        ),
+    ),
+)
+def test_remote_conf_typed_by_content_type(
+    invoke,
+    simple_config_cli,
+    httpserver,
+    media_type,
+    conf_text,
+):
+    """An extension-less URL is typed by the media type its server advertises."""
+    httpserver.expect_request("/settings").respond_with_data(
+        conf_text, content_type=media_type
+    )
+
+    result = invoke(
+        simple_config_cli,
+        "--config",
+        httpserver.url_for("/settings"),
+        "default",
+        color=False,
+    )
+    assert result.exit_code == 0
+    assert result.stdout == (
+        "dummy_flag = True\nmy_list = ('pip', 'npm', 'gem')\nint_parameter = 3\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "media_type",
+    ("text/plain", "application/octet-stream", "application/json"),
+)
+def test_remote_conf_falls_back_to_the_url_name(
+    invoke,
+    simple_config_cli,
+    httpserver,
+    media_type,
+):
+    """A generic or plain wrong media type still leaves the URL name to match on."""
+    httpserver.expect_request("/configuration.toml").respond_with_data(
+        TOML_FILE, content_type=media_type
+    )
+
+    result = invoke(
+        simple_config_cli,
+        "--config",
+        httpserver.url_for("/configuration.toml"),
+        "default",
+        color=False,
+    )
+    assert result.exit_code == 0
+    assert result.stdout == (
+        "dummy_flag = True\nmy_list = ('pip', 'npm', 'gem')\nint_parameter = 3\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("file_format_patterns", "exit_code", "stdout"),
+    (
+        pytest.param({}, 0, "dummy_flag = True\n", id="all-formats"),
+        pytest.param(
+            {"file_format_patterns": ConfigFormat.TOML}, 2, "", id="toml-only"
+        ),
+    ),
+)
+def test_remote_conf_content_type_never_widens_the_format_set(
+    invoke,
+    httpserver,
+    file_format_patterns,
+    exit_code,
+    stdout,
+):
+    """A media type is resolved against `file_format_patterns` alone.
+
+    The same `application/json` download feeds the CLI when `JSON` is accepted,
+    and is rejected outright when the option only declares `TOML`.
+    """
+
+    @click.command
+    @option("--dummy-flag/--no-flag")
+    @config_option(**file_format_patterns)
+    def config_cli1(dummy_flag):
+        echo(f"dummy_flag = {dummy_flag!r}")
+
+    httpserver.expect_request("/settings").respond_with_data(
+        JSON_FILE, content_type="application/json"
+    )
+
+    result = invoke(
+        config_cli1,
+        "--config",
+        httpserver.url_for("/settings"),
+        color=False,
+    )
+    assert result.exit_code == exit_code
+    assert result.stdout == stdout
+    if exit_code:
+        assert "Error parsing file as TOML." in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("file_format_patterns", "expected"),
+    (
+        pytest.param(ConfigFormat.TOML, "TOML", id="single"),
+        pytest.param([ConfigFormat.TOML, ConfigFormat.JSON], "TOML or JSON", id="pair"),
+        pytest.param(
+            [ConfigFormat.TOML, ConfigFormat.JSON, ConfigFormat.INI],
+            "TOML, JSON or INI",
+            id="triple",
+        ),
+    ),
+)
+def test_unparsable_conf_message_enumerates_formats(
+    invoke,
+    create_config,
+    caplog,
+    file_format_patterns,
+    expected,
+):
+    """The "error parsing" message never dangles its conjunction."""
+    conf_path = create_config("configuration.toml", "This is not a TOML file.")
+
+    @click.command
+    @option("--dummy-flag/--no-flag")
+    @config_option(file_format_patterns=file_format_patterns)
+    def config_cli1(dummy_flag):
+        echo(f"dummy_flag = {dummy_flag!r}")
+
+    with caplog.at_level(logging.CRITICAL, logger="click_extra"):
+        result = invoke(config_cli1, "--config", str(conf_path), color=False)
+
+    assert result.exit_code == 2
+    assert f"Error parsing file as {expected}." in caplog.text
+
+
+def test_argfile_conf_file_overrides_defaults(
+    invoke,
+    simple_config_cli,
+    create_config,
+    assert_output_regex,
+):
+    """An argfile feeds CLI tokens into the same default_map pipeline."""
+    conf_path = create_config("configuration.conf", ARGFILE_FILE)
+
+    result = invoke(
+        simple_config_cli,
+        "--config",
+        str(conf_path),
+        "default",
+        color=False,
+    )
+    # Subcommand options cannot be addressed from an argfile, so int_param
+    # keeps its default.
+    assert result.stdout == (
+        "dummy_flag = True\nmy_list = ('pip', 'npm', 'gem')\nint_parameter = 10\n"
+    )
+
+    # Debug level has been activated by the configuration file.
+    assert_output_regex(
+        result.stderr,
+        rf"Load configuration matching {re.escape(str(conf_path))}\n"
+        + default_debug_uncolored_logging
+        + default_debug_uncolored_version_details
+        + default_debug_uncolored_log_end,
+    )
+    assert result.exit_code == 0
+
+
+def test_argfile_conf_metadata(invoke, create_config):
+    @click.command
+    @config_option
+    @pass_context
+    def config_metadata(ctx):
+        echo(f"conf_source={ctx.meta['click_extra.conf_source']}")
+        echo(f"conf_full={ctx.meta['click_extra.conf_full']}")
+
+    conf_path = create_config(
+        "configuration.conf",
+        "--verbosity DEBUG\n--unknown-token some value\n",
+    )
+
+    result = invoke(config_metadata, "--config", str(conf_path))
+    assert result.stdout == (
+        f"conf_source={conf_path}\n"
+        "conf_full={'config-metadata': "
+        "{'verbosity': 'DEBUG', 'unknown_token': 'some'}}\n"
+    )
+    assert result.stderr == f"Load configuration matching {conf_path}\n"
+    assert result.exit_code == 0
+
+
+def test_argfile_cli_overrides_conf(invoke, create_config):
+    """Command-line parameters take precedence over argfile values."""
+
+    @click.command
+    @config_option
+    @option("--dummy-flag/--no-flag", default=True)
+    @option("--name", default="nobody")
+    def argfile_cli(dummy_flag, name):
+        echo(f"dummy_flag = {dummy_flag!r}")
+        echo(f"name = {name!r}")
+
+    conf_path = create_config(
+        "override.conf",
+        '--no-flag\n--name "from config"\n',
+    )
+
+    result = invoke(
+        argfile_cli,
+        "--config",
+        str(conf_path),
+        "--dummy-flag",
+        "--name",
+        "from CLI",
+        color=False,
+    )
+    assert result.stdout == "dummy_flag = True\nname = 'from CLI'\n"
+    assert result.exit_code == 0
+
+
+def test_argfile_secondary_flag_and_inline_value(invoke, create_config):
+    @click.command
+    @config_option
+    @option("--dummy-flag/--no-flag", default=True)
+    @option("--name", default="nobody")
+    @option("--ratio", type=float, default=1.0)
+    def argfile_cli(dummy_flag, name, ratio):
+        echo(f"dummy_flag = {dummy_flag!r}")
+        echo(f"name = {name!r}")
+        echo(f"ratio = {ratio!r}")
+
+    conf_path = create_config(
+        "secondary.conf",
+        "# A comment.\n--no-flag\n--name='John #1 Doe'\n--ratio=0.5\n",
+    )
+
+    result = invoke(argfile_cli, "--config", str(conf_path), color=False)
+    assert result.stdout == ("dummy_flag = False\nname = 'John #1 Doe'\nratio = 0.5\n")
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("conf_text", "expect_error"),
+    [
+        pytest.param(
+            "--unknown-option some value\n--name ok\n",
+            True,
+            id="unknown-option-rejected",
+        ),
+        pytest.param("--name ok\n", False, id="clean-config-accepted"),
+    ],
+)
+def test_argfile_strict_conf(invoke, create_config, conf_text, expect_error):
+    """Strict mode rejects unknown options with the standard error."""
+
+    @click.command
+    @config_option(strict=True)
+    @option("--name", default="nobody")
+    def argfile_strict_cli(name):
+        echo(f"name = {name!r}")
+
+    conf_path = create_config("strict.conf", conf_text)
+    result = invoke(argfile_strict_cli, "--config", str(conf_path), color=False)
+
+    if expect_error:
+        assert result.exit_code == 1
+        assert not result.stdout
+        assert (
+            "Configuration validation error: "
+            "Unknown configuration key 'unknown_option'." in result.stderr
+        )
+    else:
+        assert result.exit_code == 0
+        assert result.stdout == "name = 'ok'\n"
+
+
+def test_argfile_unknown_option_ignored_when_not_strict(invoke, create_config):
+    @click.command
+    @config_option
+    @option("--name", default="nobody")
+    def argfile_lax_cli(name):
+        echo(f"name = {name!r}")
+
+    conf_path = create_config("lax.conf", "--unknown-option some value\n--name ok\n")
+    result = invoke(argfile_lax_cli, "--config", str(conf_path), color=False)
+    assert result.exit_code == 0
+    assert result.stdout == "name = 'ok'\n"
+
+
+@pytest.mark.parametrize(
+    "conf_text",
+    [
+        pytest.param("--name\n", id="missing-value"),
+        pytest.param("# Only a comment.\n", id="comment-only"),
+        pytest.param("key = value\n", id="foreign-ini-style"),
+    ],
+)
+def test_argfile_unparsable_conf(invoke, create_config, conf_text):
+    """An argfile that produces no option is skipped like any other format."""
+
+    @command
+    @option("--name", default="nobody")
+    def argfile_cli(name):
+        echo(f"name = {name!r}")
+
+    conf_path = create_config("broken.conf", conf_text)
+    result = invoke(argfile_cli, "--config", str(conf_path), color=False)
+    assert not result.stdout
+    assert "critical: Error parsing file as" in result.stderr
+    assert result.exit_code == 2
+
+
+def test_argfile_positional_tokens_skipped(invoke, create_config):
+    @click.command
+    @config_option
+    @option("--name", default="nobody")
+    def argfile_cli(name):
+        echo(f"name = {name!r}")
+
+    conf_path = create_config("positionals.conf", "subcommand\n--name ok\n")
+    result = invoke(argfile_cli, "--config", str(conf_path), color=False)
+    assert result.exit_code == 0
+    assert result.stdout == "name = 'ok'\n"
+
+
+def test_argfile_export_config_rejected(invoke):
+    """Argfile has no serializer, so --export-config rejects it."""
+
+    @command
+    def dump_cli():
+        echo("ran")
+
+    result = invoke(dump_cli, "--export-config", "argfile", color=False)
+    assert result.exit_code == 2
+    assert "'argfile' is not one of" in result.stderr
+
+
+@pytest.mark.parametrize("ext", ["sqlite", "sqlite3"])
+def test_sqlite_conf_file_overrides_defaults(
+    invoke,
+    simple_config_cli,
+    tmp_path,
+    ext,
+):
+    conf_path = make_sqlite_config(tmp_path / f"configuration.{ext}", SQLITE_DATA)
+
+    result = invoke(
+        simple_config_cli,
+        "--config",
+        str(conf_path),
+        "default",
+        color=False,
+    )
+    assert result.stdout == (
+        "dummy_flag = True\nmy_list = ('pip', 'npm', 'gem')\nint_parameter = 3\n"
+    )
+    assert result.stderr == f"Load configuration matching {conf_path}\n"
+    assert result.exit_code == 0
+
+
+def test_sqlite_conf_metadata(invoke, tmp_path):
+    conf_path = make_sqlite_config(tmp_path / "configuration.sqlite", SQLITE_DATA)
+
+    @click.command
+    @config_option
+    @pass_context
+    def config_metadata(ctx):
+        echo(f"conf_source={ctx.meta['click_extra.conf_source']}")
+        echo(f"conf_full={ctx.meta['click_extra.conf_full']}")
+        echo(f"default_map={ctx.default_map}")
+
+    result = invoke(config_metadata, "--config", str(conf_path))
+    assert result.stdout == (
+        f"conf_source={conf_path}\n"
+        f"conf_full={SQLITE_DATA}\n"
+        # No configuration values match the CLI's parameter structure, so the
+        # ChainMap layered onto the existing default_map holds two empty maps.
+        "default_map=ChainMap({}, {})\n"
+    )
+    assert result.stderr == f"Load configuration matching {conf_path}\n"
+    assert result.exit_code == 0
+
+
+def test_sqlite_read_and_parse_conf(tmp_path):
+    """The default format patterns discover SQLite databases by extension."""
+    conf_path = make_sqlite_config(tmp_path / "my-cli.sqlite", SQLITE_DATA)
+
+    conf_option = ConfigOption()
+    location, conf = conf_option.read_and_parse_conf(str(tmp_path / "*"))
+    assert location == conf_path.resolve()
+    assert conf == SQLITE_DATA
+
+
+@pytest.mark.parametrize(
+    "make_db",
+    [
+        pytest.param("garbage", id="garbage-content"),
+        pytest.param("missing-table", id="missing-table"),
+        pytest.param("empty-table", id="empty-table"),
+    ],
+)
+def test_sqlite_conf_unparsable(invoke, simple_config_cli, tmp_path, make_db):
+    """A SQLite file that cannot yield a configuration is rejected."""
+    conf_path = tmp_path / "configuration.sqlite"
+    if make_db == "garbage":
+        conf_path.write_text("this is not a SQLite database", encoding="UTF-8")
+    else:
+        make_sqlite_config(conf_path, create_table=(make_db != "missing-table"))
+
+    result = invoke(
+        simple_config_cli,
+        "--config",
+        str(conf_path),
+        "default",
+        color=False,
+    )
+    assert result.exit_code == 2
+    assert "critical: Error parsing file as" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "plist_variant",
+    [
+        pytest.param(plistlib.FMT_XML, id="xml"),
+        pytest.param(plistlib.FMT_BINARY, id="binary"),
+    ],
+)
+def test_plist_conf_file_overrides_defaults(
+    invoke,
+    simple_config_cli,
+    assert_output_regex,
+    tmp_path,
+    plist_variant,
+):
+    """Both the XML and the binary plist variants load through --config."""
+    conf_path = tmp_path / "configuration.plist"
+    conf_path.write_bytes(plistlib.dumps(PLIST_DATA, fmt=plist_variant))
+
+    result = invoke(
+        simple_config_cli,
+        "--config",
+        str(conf_path),
+        "default",
+        color=False,
+    )
+    assert result.stdout == (
+        "dummy_flag = True\nmy_list = ('pip', 'npm', 'gem')\nint_parameter = 3\n"
+    )
+
+    # Debug level has been activated by the configuration file.
+    assert_output_regex(
+        result.stderr,
+        rf"Load configuration matching {re.escape(str(conf_path))}\n"
+        + default_debug_uncolored_logging
+        + default_debug_uncolored_version_details
+        + default_debug_uncolored_log_end,
+    )
+    assert result.exit_code == 0
+
+
+def test_plist_read_and_parse_conf(tmp_path):
+    """The default format patterns discover plist files by extension."""
+    conf_path = tmp_path / "my-cli.plist"
+    conf_path.write_bytes(plistlib.dumps(PLIST_DATA, fmt=plistlib.FMT_BINARY))
+
+    conf_option = ConfigOption()
+    location, conf = conf_option.read_and_parse_conf(str(tmp_path / "*"))
+    assert location == conf_path.resolve()
+    assert conf == PLIST_DATA
+
+
+def test_validate_config_sqlite_valid(invoke, tmp_path):
+    """--validate-config accepts a valid SQLite configuration database."""
+    conf_path = make_sqlite_config(
+        tmp_path / "valid.sqlite",
+        {
+            "validate-cli": {
+                "dummy_flag": True,
+                "my_list": ["pip", "npm"],
+                "sub": {
+                    "int_param": 3,
+                },
+            },
+        },
+    )
+
+    @click.group
+    @option("--dummy-flag/--no-flag")
+    @option("--my-list", multiple=True)
+    @config_option
+    @validate_config_option
+    def validate_cli(dummy_flag, my_list):
+        echo(f"dummy_flag = {dummy_flag!r}")
+
+    @validate_cli.command
+    @option("--int-param", type=int, default=10)
+    def sub(int_param):
+        echo(f"int_parameter = {int_param!r}")
+
+    result = invoke(validate_cli, "--validate-config", str(conf_path), color=False)
+    assert result.exit_code == 0
+    assert "is valid" in result.stderr
 
 
 def test_default_map_populated(invoke, create_config):
@@ -1957,6 +2711,250 @@ def test_parent_patterns_inaccessible_directory(tmp_path):
         assert Path(root_dir) != tmp_path
 
 
+# --- Cascading configuration files --------------------------------------------
+
+
+@pytest.fixture
+def cascade_tree(tmp_path, monkeypatch):
+    """Point auto-discovery at a temporary app dir nested inside `tmp_path`.
+
+    Returns `(tmp_path, app_dir)`: a config file dropped in `app_dir` is the
+    most local source, one in `tmp_path` sits one level up the parent walk.
+    """
+    app_dir = tmp_path / "appdir"
+    app_dir.mkdir()
+    monkeypatch.setattr(
+        "click_extra.config.option.get_app_dir", lambda *a, **k: str(app_dir)
+    )
+    return tmp_path, app_dir
+
+
+LOCAL_CONF = dedent(
+    """
+    [cascade-cli]
+    int_param = 1
+    dummy_flag = true
+    """,
+)
+
+PARENT_CONF = dedent(
+    """
+    [cascade-cli]
+    int_param = 99
+    other_param = "from_parent"
+    """,
+)
+
+
+def _cascade_cli_factory(stop_at, cascade):
+    """A CLI reading `--int-param`, `--dummy-flag` and `--other-param`.
+
+    Built on plain `click.command` so the single `@config_option` below is
+    not duplicated by click-extra's auto-injected default one.
+    """
+
+    @click.command
+    @config_option(search_parents=True, stop_at=stop_at, cascade=cascade)
+    @click.option("--int-param", type=int, default=10)
+    @click.option("--dummy-flag/--no-flag")
+    @click.option("--other-param", default="none")
+    def cascade_cli(int_param, dummy_flag, other_param):
+        echo(f"int_param = {int_param!r}")
+        echo(f"dummy_flag = {dummy_flag!r}")
+        echo(f"other_param = {other_param!r}")
+
+    return cascade_cli
+
+
+def test_cascade_merges_files_local_wins(invoke, cascade_tree):
+    """With cascade=True, local values win and parent values fill the gaps."""
+    tmp_path, app_dir = cascade_tree
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="utf-8")
+
+    result = invoke(_cascade_cli_factory(tmp_path, cascade=True), color=False)
+    assert result.stdout == (
+        "int_param = 1\ndummy_flag = True\nother_param = 'from_parent'\n"
+    )
+    assert result.exit_code == 0
+
+
+def test_no_cascade_first_file_wins(invoke, cascade_tree):
+    """Without cascade, the first parseable file wins entirely."""
+    tmp_path, app_dir = cascade_tree
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="utf-8")
+
+    result = invoke(_cascade_cli_factory(tmp_path, cascade=False), color=False)
+    assert result.stdout == ("int_param = 1\ndummy_flag = True\nother_param = 'none'\n")
+    assert result.exit_code == 0
+
+
+def test_cascade_single_layer_from_parent(invoke, cascade_tree):
+    """A lone file found up the walk is applied as-is."""
+    tmp_path, _app_dir = cascade_tree
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="utf-8")
+
+    result = invoke(_cascade_cli_factory(tmp_path, cascade=True), color=False)
+    assert result.stdout == (
+        "int_param = 99\ndummy_flag = False\nother_param = 'from_parent'\n"
+    )
+    assert result.exit_code == 0
+
+
+def test_cascade_explicit_config_does_not_cascade(invoke, cascade_tree):
+    """An explicit --config pins a single source, even with cascade=True."""
+    tmp_path, app_dir = cascade_tree
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
+    parent_conf = tmp_path / "config.toml"
+    parent_conf.write_text(PARENT_CONF, encoding="utf-8")
+
+    result = invoke(
+        _cascade_cli_factory(tmp_path, cascade=True),
+        "--config",
+        str(parent_conf),
+        color=False,
+    )
+    assert result.stdout == (
+        "int_param = 99\ndummy_flag = False\nother_param = 'from_parent'\n"
+    )
+    assert result.exit_code == 0
+
+
+def test_cascade_conf_sources_metadata(invoke, cascade_tree):
+    """ctx.meta[CONF_SOURCES] lists every loaded file, highest precedence first."""
+    from click_extra import context
+
+    tmp_path, app_dir = cascade_tree
+    local_conf = app_dir / "config.toml"
+    local_conf.write_text(LOCAL_CONF, encoding="utf-8")
+    parent_conf = tmp_path / "config.toml"
+    parent_conf.write_text(PARENT_CONF, encoding="utf-8")
+
+    @click.command
+    @config_option(search_parents=True, stop_at=tmp_path, cascade=True)
+    @click.option("--int-param", type=int, default=10)
+    @pass_context
+    def cascade_cli(ctx, int_param):
+        sources = context.get(ctx, context.CONF_SOURCES)
+        for location, _conf in sources:
+            echo(str(location))
+        echo(f"conf_source = {context.get(ctx, context.CONF_SOURCE)}")
+
+    result = invoke(cascade_cli, color=False)
+    assert result.stdout == (
+        f"{local_conf.resolve()}\n"
+        f"{parent_conf.resolve()}\n"
+        f"conf_source = {local_conf.resolve()}\n"
+    )
+    assert result.exit_code == 0
+
+
+def test_cascade_conf_full_is_merged_view(invoke, cascade_tree):
+    """ctx.meta[CONF_FULL] exposes the deep-merged document."""
+    from click_extra import context
+
+    tmp_path, app_dir = cascade_tree
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
+    (tmp_path / "config.toml").write_text(PARENT_CONF, encoding="utf-8")
+
+    @click.command
+    @config_option(search_parents=True, stop_at=tmp_path, cascade=True)
+    @click.option("--int-param", type=int, default=10)
+    @pass_context
+    def cascade_cli(ctx, int_param):
+        full = context.get(ctx, context.CONF_FULL)
+        section = full["cascade-cli"]
+        echo(f"int_param = {section['int_param']!r}")
+        echo(f"other_param = {section['other_param']!r}")
+
+    result = invoke(cascade_cli, color=False)
+    assert result.stdout == "int_param = 1\nother_param = 'from_parent'\n"
+    assert result.exit_code == 0
+
+
+def test_cascade_validation_error_names_file(invoke, cascade_tree, caplog):
+    """A strict-check failure in one layer names that file and exits 1."""
+    tmp_path, app_dir = cascade_tree
+    (app_dir / "config.toml").write_text(LOCAL_CONF, encoding="utf-8")
+    bad_parent = tmp_path / "config.toml"
+    bad_parent.write_text(
+        dedent(
+            """
+            [cascade-cli]
+            unknown_key = "boom"
+            """,
+        ),
+        encoding="utf-8",
+    )
+
+    @click.command
+    @config_option(search_parents=True, stop_at=tmp_path, cascade=True, strict=True)
+    @click.option("--int-param", type=int, default=10)
+    @click.option("--dummy-flag/--no-flag")
+    @click.option("--other-param", default="none")
+    def cascade_cli(int_param, dummy_flag, other_param):
+        echo(f"int_param = {int_param!r}")
+
+    result = invoke(cascade_cli, color=False)
+    assert not result.stdout
+    assert f"Configuration validation error in {bad_parent.resolve()}" in caplog.text
+    assert "Unknown configuration key 'unknown_key'" in caplog.text
+    assert result.exit_code == 1
+
+
+def test_read_and_parse_all_conf_orders_local_first(tmp_path):
+    """All parseable files are yielded, deepest first; unparsable ones skip."""
+    (tmp_path / "a" / "b").mkdir(parents=True)
+    deep = tmp_path / "a" / "b" / "config.toml"
+    deep.write_text("[test-cli]\nk = 2", encoding="utf-8")
+    middle = tmp_path / "a" / "config.toml"
+    middle.write_text("[test-cli]\nk = 1", encoding="utf-8")
+    # Unparsable content: found, but not yielded.
+    (tmp_path / "config.toml").write_text("not toml {{{", encoding="utf-8")
+
+    @click.command
+    @config_option(search_parents=True, stop_at=tmp_path)
+    def test_cli():
+        pass
+
+    with click.Context(test_cli, info_name="test-cli"):
+        config_opt = search_params(test_cli.params, ConfigOption)
+        assert isinstance(config_opt, ConfigOption)
+        results = list(
+            config_opt.read_and_parse_all_conf(str(tmp_path / "a" / "b" / "*.toml"))
+        )
+
+    assert [location for location, _ in results] == [
+        deep.resolve(),
+        middle.resolve(),
+    ]
+    assert [conf["test-cli"]["k"] for _, conf in results] == [2, 1]
+
+
+def test_read_and_parse_conf_returns_first(tmp_path):
+    """read_and_parse_conf keeps its first-match contract on top of the generator."""
+    (tmp_path / "a" / "b").mkdir(parents=True)
+    deep = tmp_path / "a" / "b" / "config.toml"
+    deep.write_text("[test-cli]\nk = 2", encoding="utf-8")
+    (tmp_path / "a" / "config.toml").write_text("[test-cli]\nk = 1", encoding="utf-8")
+
+    @click.command
+    @config_option(search_parents=True, stop_at=tmp_path)
+    def test_cli():
+        pass
+
+    with click.Context(test_cli, info_name="test-cli"):
+        config_opt = search_params(test_cli.params, ConfigOption)
+        assert isinstance(config_opt, ConfigOption)
+        location, conf = config_opt.read_and_parse_conf(
+            str(tmp_path / "a" / "b" / "*.toml")
+        )
+
+    assert location == deep.resolve()
+    assert conf == {"test-cli": {"k": 2}}
+
+
 @pytest.mark.parametrize(
     ("vcs_dir", "expected"),
     [
@@ -2620,7 +3618,7 @@ def test_export_config_numeric_values_keep_their_type(invoke):
     assert 'count = "7"' not in result.stdout
 
 
-@pytest.mark.parametrize("fmt", ["toml", "json", "yaml"])
+@pytest.mark.parametrize("fmt", ["toml", "json", "yaml", "plist"])
 def test_export_config_round_trip(invoke, tmp_path, fmt):
     """A dumped configuration reloads to the same values through --config."""
 

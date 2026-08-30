@@ -66,6 +66,8 @@ class ImagehostImageExtractor(Extractor):
             data = text.nameext_from_url(url)
         data["token"] = self.token
         data["post_url"] = self.page_url
+        data["_http_headers"] = {"Referer": self.page_url}
+
         data.update(self.metadata(page))
 
         if url.startswith("http:"):
@@ -326,9 +328,8 @@ class PixhostImageExtractor(ImagehostImageExtractor):
 
     def get_info(self, page):
         self.kwdict["directory"] = self.page_url.rsplit("/")[-2]
-        url , pos = text.extract(page, "class=\"image-img\" src=\"", "\"")
-        name, pos = text.extract(page, "alt=\"", "\"", pos)
-        return url, text.unescape(name) if name else None
+        data = self._extract_jsonld(page)
+        return data["contentUrl"], data.get("name")
 
 
 class PixhostGalleryExtractor(ImagehostImageExtractor):

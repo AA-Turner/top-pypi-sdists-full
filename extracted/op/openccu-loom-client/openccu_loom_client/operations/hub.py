@@ -8,7 +8,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
 
-from openccu_loom_types.rest import (
+from openccu_loom_client.operations._base import _OperationsBase
+from openccu_loom_client.wire.rest import (
     AlarmMessage,
     Area,
     AreaRoomRef,
@@ -21,8 +22,6 @@ from openccu_loom_types.rest import (
     SysvarSummary,
 )
 
-from openccu_loom_client.operations._base import _OperationsBase
-
 
 class HubOperations(_OperationsBase):
     """Programs, system variables, alarm/service messages, install mode."""
@@ -32,6 +31,17 @@ class HubOperations(_OperationsBase):
     async def list_programs(self) -> list[ProgramSummary]:
         """List all programs on the CCU. Wire: ``GET /programs``."""
         return await self._request_list(method="GET", path="/programs", model=ProgramSummary)
+
+    async def get_program(self, *, program_id: str) -> ProgramSummary:
+        """
+        Read one program's current state.
+
+        Wire: ``GET /programs/{id}``. The list endpoint has no single-item
+        counterpart in this façade otherwise, and the store needs one to
+        refresh a program after a push that carries no payload.
+        """
+        payload = await self._transport.request(method="GET", path=f"/programs/{quote(program_id, safe='')}")
+        return ProgramSummary.model_validate(payload)
 
     async def execute_program(self, *, program_id: str) -> None:
         """Wire: ``POST /programs/{id}/execute``."""

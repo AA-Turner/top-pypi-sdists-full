@@ -39,19 +39,14 @@ class AudiochanExtractor(Extractor):
 
     def items(self):
         for post in self.posts():
+            post["date"] = self.parse_datetime_iso(post["created_at"])
+            post["date_updated"] = self.parse_datetime_iso(post["updated_at"])
+
             if file := post.get("audioFile"):
                 post["_http_headers"] = self.headers_dl
-                post["date"] = self.parse_datetime_iso(
-                    file["created_at"])
-                post["date_updated"] = self.parse_datetime_iso(
-                    file["updated_at"])
                 post["description"] = self._extract_description(
                     post["description"])
             else:
-                post["date"] = self.parse_datetime_iso(
-                    post["created_at"])
-                post["date_updated"] = self.parse_datetime_iso(
-                    post["updated_at"])
                 post["description"] = post.pop("teaser", "")
 
             tags = []
@@ -101,13 +96,17 @@ class AudiochanExtractor(Extractor):
 
     def _extract_url(self, post):
         file = post["audioFile"]
-        if url := file["url"]:
+        if url := file.get("url"):
             return url
 
+        base = f"{self.root_api}/audios/{post['id']}"
         data = {"file_id": file.get("source_audio_file_id") or file["id"]}
+        data["play_intent"] = self.request_json(
+            base + "/play-intent", method="POST", headers=self.headers_api,
+            json=data)["play_intent"]
         return self.request_json(
-            f"{self.root_api}/audios/{post['id']}/stream-url",
-            method="POST", headers=self.headers_api, json=data)["url"]
+            base + "/stream-url", method="POST", headers=self.headers_api,
+            json=data)["url"]
 
     def _extract_description(self, description, texts=None):
         if texts is None:

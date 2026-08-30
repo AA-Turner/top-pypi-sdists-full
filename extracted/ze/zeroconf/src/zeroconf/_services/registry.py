@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -52,6 +37,26 @@ class ServiceRegistry:
         """Add a new service to the registry."""
         self._add(info)
 
+    def async_get_info_name(self, name: str) -> ServiceInfo | None:
+        """Return all ServiceInfo for the name."""
+        return self._services.get(name)
+
+    def async_get_infos_server(self, server: str) -> list[ServiceInfo]:
+        """Return all ServiceInfo matching server."""
+        return self._async_get_by_index(self.servers, server)
+
+    def async_get_infos_type(self, type_: str) -> list[ServiceInfo]:
+        """Return all ServiceInfo matching type."""
+        return self._async_get_by_index(self.types, type_)
+
+    def async_get_service_infos(self) -> list[ServiceInfo]:
+        """Return all ServiceInfo."""
+        return list(self._services.values())
+
+    def async_get_types(self) -> list[str]:
+        """Return all types."""
+        return list(self.types)
+
     def async_remove(self, info: list[ServiceInfo] | ServiceInfo) -> None:
         """Remove a new service from the registry."""
         self._remove(info if isinstance(info, list) else [info])
@@ -60,33 +65,6 @@ class ServiceRegistry:
         """Update new service in the registry."""
         self._remove([info])
         self._add(info)
-
-    def async_get_service_infos(self) -> list[ServiceInfo]:
-        """Return all ServiceInfo."""
-        return list(self._services.values())
-
-    def async_get_info_name(self, name: str) -> ServiceInfo | None:
-        """Return all ServiceInfo for the name."""
-        return self._services.get(name)
-
-    def async_get_types(self) -> list[str]:
-        """Return all types."""
-        return list(self.types)
-
-    def async_get_infos_type(self, type_: str) -> list[ServiceInfo]:
-        """Return all ServiceInfo matching type."""
-        return self._async_get_by_index(self.types, type_)
-
-    def async_get_infos_server(self, server: str) -> list[ServiceInfo]:
-        """Return all ServiceInfo matching server."""
-        return self._async_get_by_index(self.servers, server)
-
-    def _async_get_by_index(self, records: _ServiceIndex, key: _str) -> list[_ServiceInfo]:
-        """Return all ServiceInfo matching the index."""
-        record_infos = records.get(key)
-        if record_infos is None:
-            return []
-        return list(record_infos.values())
 
     def _add(self, info: ServiceInfo) -> None:
         """Add a new service under the lock."""
@@ -100,6 +78,13 @@ class ServiceRegistry:
         self.types.setdefault(info.type.lower(), {})[info.key] = info
         self.servers.setdefault(info.server_key, {})[info.key] = info
         self.has_entries = True
+
+    def _async_get_by_index(self, records: _ServiceIndex, key: _str) -> list[_ServiceInfo]:
+        """Return all ServiceInfo matching the index."""
+        record_infos = records.get(key)
+        if record_infos is None:
+            return []
+        return list(record_infos.values())
 
     def _remove(self, infos: list[_ServiceInfo]) -> None:
         """Remove a services under the lock."""

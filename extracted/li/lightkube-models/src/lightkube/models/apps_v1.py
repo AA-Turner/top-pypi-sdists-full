@@ -6,10 +6,10 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import meta_v1
 from . import core_v1
 from . import runtime
 from . import util_intstr
+from . import meta_v1
 
 
 @dataclass
@@ -27,24 +27,24 @@ class ControllerRevision(DictMixin):
 
       **parameters**
 
-      * **revision** ``int`` - Revision indicates the revision of the state represented by Data.
+      * **data** ``runtime.RawExtension`` - Data is the serialized representation of the state.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-      * **data** ``Optional[runtime.RawExtension]`` - Data is the serialized representation of the state.
       * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+      * **revision** ``Optional[int]`` - Revision indicates the revision of the state represented by Data.
     """
-    revision: 'int'
+    data: 'runtime.RawExtension'
     apiVersion: 'Optional[str]' = None
-    data: 'Optional[runtime.RawExtension]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
+    revision: 'Optional[int]' = None
 
     def __post_init__(self):
         self.apiVersion = 'apps/v1'
@@ -86,6 +86,8 @@ class DaemonSet(DictMixin):
 
       **parameters**
 
+      * **spec** ``DaemonSetSpec`` - The desired behavior of this daemon set. More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -96,16 +98,14 @@ class DaemonSet(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[DaemonSetSpec]`` - The desired behavior of this daemon set. More info:
-        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **status** ``Optional[DaemonSetStatus]`` - The current status of this daemon set. This data may be out of date by some
         window of time. Populated by the system. Read-only. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
     """
+    spec: 'DaemonSetSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[DaemonSetSpec]' = None
     status: 'Optional[DaemonSetStatus]' = None
 
     def __post_init__(self):
@@ -119,17 +119,17 @@ class DaemonSetCondition(DictMixin):
 
       **parameters**
 
-      * **status** ``str`` - Status of the condition, one of True, False, Unknown.
-      * **type** ``str`` - Type of DaemonSet condition.
       * **lastTransitionTime** ``Optional[meta_v1.Time]`` - Last time the condition transitioned from one status to another.
       * **message** ``Optional[str]`` - A human readable message indicating details about the transition.
       * **reason** ``Optional[str]`` - The reason for the condition's last transition.
+      * **status** ``Optional[str]`` - Status of the condition, one of True, False, Unknown.
+      * **type** ``Optional[str]`` - Type of DaemonSet condition.
     """
-    status: 'str'
-    type: 'str'
     lastTransitionTime: 'Optional[meta_v1.Time]' = None
     message: 'Optional[str]' = None
     reason: 'Optional[str]' = None
+    status: 'Optional[str]' = None
+    type: 'Optional[str]' = None
 
 
 @dataclass
@@ -251,6 +251,7 @@ class Deployment(DictMixin):
 
       **parameters**
 
+      * **spec** ``DeploymentSpec`` - Specification of the desired behavior of the Deployment.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -261,13 +262,12 @@ class Deployment(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[DeploymentSpec]`` - Specification of the desired behavior of the Deployment.
       * **status** ``Optional[DeploymentStatus]`` - Most recently observed status of the Deployment.
     """
+    spec: 'DeploymentSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[DeploymentSpec]' = None
     status: 'Optional[DeploymentStatus]' = None
 
     def __post_init__(self):
@@ -281,19 +281,19 @@ class DeploymentCondition(DictMixin):
 
       **parameters**
 
-      * **status** ``str`` - Status of the condition, one of True, False, Unknown.
-      * **type** ``str`` - Type of deployment condition.
       * **lastTransitionTime** ``Optional[meta_v1.Time]`` - Last time the condition transitioned from one status to another.
       * **lastUpdateTime** ``Optional[meta_v1.Time]`` - The last time this condition was updated.
       * **message** ``Optional[str]`` - A human readable message indicating details about the transition.
       * **reason** ``Optional[str]`` - The reason for the condition's last transition.
+      * **status** ``Optional[str]`` - Status of the condition, one of True, False, Unknown.
+      * **type** ``Optional[str]`` - Type of deployment condition.
     """
-    status: 'str'
-    type: 'str'
     lastTransitionTime: 'Optional[meta_v1.Time]' = None
     lastUpdateTime: 'Optional[meta_v1.Time]' = None
     message: 'Optional[str]' = None
     reason: 'Optional[str]' = None
+    status: 'Optional[str]' = None
+    type: 'Optional[str]' = None
 
 
 @dataclass
@@ -421,6 +421,9 @@ class ReplicaSet(DictMixin):
 
       **parameters**
 
+      * **spec** ``ReplicaSetSpec`` - Spec defines the specification of the desired behavior of the ReplicaSet. More
+        info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -432,18 +435,15 @@ class ReplicaSet(DictMixin):
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - If the Labels of a ReplicaSet are empty, they are defaulted to be the same as
         the Pod(s) that the ReplicaSet manages. Standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[ReplicaSetSpec]`` - Spec defines the specification of the desired behavior of the ReplicaSet. More
-        info:
-        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **status** ``Optional[ReplicaSetStatus]`` - Status is the most recently observed status of the ReplicaSet. This data may
         be out of date by some window of time. Populated by the system. Read-only.
         More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
     """
+    spec: 'ReplicaSetSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[ReplicaSetSpec]' = None
     status: 'Optional[ReplicaSetStatus]' = None
 
     def __post_init__(self):
@@ -457,17 +457,17 @@ class ReplicaSetCondition(DictMixin):
 
       **parameters**
 
-      * **status** ``str`` - Status of the condition, one of True, False, Unknown.
-      * **type** ``str`` - Type of replica set condition.
       * **lastTransitionTime** ``Optional[meta_v1.Time]`` - The last time the condition transitioned from one status to another.
       * **message** ``Optional[str]`` - A human readable message indicating details about the transition.
       * **reason** ``Optional[str]`` - The reason for the condition's last transition.
+      * **status** ``Optional[str]`` - Status of the condition, one of True, False, Unknown.
+      * **type** ``Optional[str]`` - Type of replica set condition.
     """
-    status: 'str'
-    type: 'str'
     lastTransitionTime: 'Optional[meta_v1.Time]' = None
     message: 'Optional[str]' = None
     reason: 'Optional[str]' = None
+    status: 'Optional[str]' = None
+    type: 'Optional[str]' = None
 
 
 @dataclass
@@ -663,6 +663,7 @@ class StatefulSet(DictMixin):
 
       **parameters**
 
+      * **spec** ``StatefulSetSpec`` - Spec defines the desired identities of pods in this set.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -673,14 +674,13 @@ class StatefulSet(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[StatefulSetSpec]`` - Spec defines the desired identities of pods in this set.
       * **status** ``Optional[StatefulSetStatus]`` - Status is the current status of Pods in this StatefulSet. This data may be out
         of date by some window of time.
     """
+    spec: 'StatefulSetSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[StatefulSetSpec]' = None
     status: 'Optional[StatefulSetStatus]' = None
 
     def __post_init__(self):
@@ -694,17 +694,17 @@ class StatefulSetCondition(DictMixin):
 
       **parameters**
 
-      * **status** ``str`` - Status of the condition, one of True, False, Unknown.
-      * **type** ``str`` - Type of statefulset condition.
       * **lastTransitionTime** ``Optional[meta_v1.Time]`` - Last time the condition transitioned from one status to another.
       * **message** ``Optional[str]`` - A human readable message indicating details about the transition.
       * **reason** ``Optional[str]`` - The reason for the condition's last transition.
+      * **status** ``Optional[str]`` - Status of the condition, one of True, False, Unknown.
+      * **type** ``Optional[str]`` - Type of statefulset condition.
     """
-    status: 'str'
-    type: 'str'
     lastTransitionTime: 'Optional[meta_v1.Time]' = None
     message: 'Optional[str]' = None
     reason: 'Optional[str]' = None
+    status: 'Optional[str]' = None
+    type: 'Optional[str]' = None
 
 
 @dataclass

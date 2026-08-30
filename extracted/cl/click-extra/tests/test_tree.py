@@ -238,8 +238,9 @@ def kitchen_script(tmp_path):
 def test_wrap_tree_renders_tree(runner, kitchen_script):
     result = runner.invoke(demo, ["wrap", "--tree", kitchen_script], color=False)
     assert result.exit_code == 0
-    # The root line is labeled with the script exactly as the user typed it.
-    assert result.stdout.startswith(kitchen_script)
+    # The root is labeled with the name the target runs under, not with the
+    # path that reached it (see cli_wrapper.target_prog_name).
+    assert result.stdout.startswith("kitchen ")
     assert "Manage recipes and ingredients." in result.stdout
     assert "├── bake" in result.stdout
     assert "└── pantry" in result.stdout
@@ -252,7 +253,7 @@ def test_wrap_tree_drills_into_subcommand(runner, kitchen_script):
         demo, ["wrap", "--tree", kitchen_script, "pantry"], color=False
     )
     assert result.exit_code == 0
-    assert result.stdout.startswith(f"{kitchen_script} pantry")
+    assert result.stdout.startswith("kitchen pantry")
     assert "└── restock" in result.stdout
     assert "bake" not in result.stdout
 
@@ -268,15 +269,18 @@ def test_wrap_tree_accessible_ascii_rail(runner, kitchen_script):
     assert "`-- pantry" in result.stdout
 
 
-@pytest.mark.parametrize("conflicting", ["--params", "--man", "--carapace"])
+@pytest.mark.parametrize(
+    "conflicting",
+    (["--params"], ["--man"], ["--help-format", "json"]),
+)
 def test_wrap_tree_mutually_exclusive(runner, kitchen_script, conflicting):
     result = runner.invoke(
-        demo, ["wrap", "--tree", conflicting, kitchen_script], color=False
+        demo, ["wrap", "--tree", *conflicting, kitchen_script], color=False
     )
     assert result.exit_code != 0
-    assert "--params, --man, --carapace and --tree are mutually exclusive." in (
-        result.output
-    )
+    assert (
+        "--params, --man, --tree and --help-format are mutually exclusive."
+    ) in result.output
 
 
 def test_wrap_tree_unresolvable_target(runner):

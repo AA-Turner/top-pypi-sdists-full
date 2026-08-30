@@ -17,16 +17,36 @@ class CSIDriver(res.GlobalResource, m_storage_v1.CSIDriver):
     )
 
 
+class CSINodeStatus(res.GlobalSubResource, m_storage_v1.CSINode):
+    """* **Extends**: ``models.storage_v1.CSINode``
+       * **Type**: Global Resource
+       * **Accepted client methods**: `get`, `patch`, `replace`
+    """
+    _api_info = res.ApiInfo(
+        resource=res.ResourceDef('storage.k8s.io', 'v1', 'CSINode'),
+        parent=res.ResourceDef('storage.k8s.io', 'v1', 'CSINode'),
+        plural='csinodes',
+        verbs=['get', 'patch', 'put'],
+        action='status',
+    )
+
+
 class CSINode(res.GlobalResource, m_storage_v1.CSINode):
     """* **Extends**: ``models.storage_v1.CSINode``
        * **Type**: Global Resource
        * **Accepted client methods**: `delete`, `deletecollection`, `get`, `list`, `patch`, `create`, `replace`, `watch`
+
+       **Subresources**:
+
+       * **Status**: ``CSINodeStatus``
     """
     _api_info = res.ApiInfo(
         resource=res.ResourceDef('storage.k8s.io', 'v1', 'CSINode'),
         plural='csinodes',
         verbs=['delete', 'deletecollection', 'get', 'list', 'patch', 'post', 'put', 'watch'],
     )
+
+    Status: ClassVar = CSINodeStatus
 
 
 class CSIStorageCapacity(res.NamespacedResourceG, m_storage_v1.CSIStorageCapacity):

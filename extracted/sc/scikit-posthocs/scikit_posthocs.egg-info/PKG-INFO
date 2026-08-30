@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-posthocs
-Version: 0.16.0
+Version: 0.16.1
 Summary: Statistical post-hoc analysis and outlier detection algorithms
 Author-email: Maksim Terpilovskii <maximtrp@gmail.com>
 License: Copyright (c) 2026 Maksim Terpilovskii

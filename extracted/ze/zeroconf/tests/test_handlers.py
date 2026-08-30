@@ -23,7 +23,7 @@ from zeroconf._handlers.multicast_outgoing_queue import (
 from zeroconf._utils.time import millis_to_seconds
 from zeroconf.asyncio import AsyncZeroconf
 
-from . import _clear_cache, _inject_response, has_working_ipv6
+from . import _clear_cache, _inject_response, has_working_ipv6, make_service_info
 
 log = logging.getLogger("zeroconf")
 original_logging_level = logging.NOTSET
@@ -40,216 +40,185 @@ def teardown_module():
         log.setLevel(original_logging_level)
 
 
-class TestRegistrar(unittest.TestCase):
-    def test_ttl(self):
-        # instantiate a zeroconf instance
-        zc = Zeroconf(interfaces=["127.0.0.1"])
-
-        # service definition
-        type_ = "_test-srvc-type._tcp.local."
-        name = "xxxyyy"
-        registration_name = f"{name}.{type_}"
-
-        desc = {"path": "/~paulsm/"}
-        info = ServiceInfo(
-            type_,
-            registration_name,
-            80,
-            0,
-            0,
-            desc,
-            "ash-2.local.",
-            addresses=[socket.inet_aton("10.0.1.2")],
-        )
-
-        nbr_answers = nbr_additionals = nbr_authorities = 0
-
-        def get_ttl(record_type):
-            if expected_ttl is not None:
-                return expected_ttl
-            if record_type in [const._TYPE_A, const._TYPE_SRV, const._TYPE_NSEC]:
-                return const._DNS_HOST_TTL
-            return const._DNS_OTHER_TTL
-
-        def _process_outgoing_packet(out):
-            """Sends an outgoing packet."""
-            nonlocal nbr_answers, nbr_additionals, nbr_authorities
-
-            for answer, _ in out.answers:
-                nbr_answers += 1
-                assert answer.ttl == get_ttl(answer.type)
-            for answer in out.additionals:
-                nbr_additionals += 1
-                assert answer.ttl == get_ttl(answer.type)
-            for answer in out.authorities:
-                nbr_authorities += 1
-                assert answer.ttl == get_ttl(answer.type)
-
-        # register service with default TTL
-        expected_ttl = None
-        for _ in range(3):
-            _process_outgoing_packet(zc.generate_service_query(info))
-        zc.registry.async_add(info)
-        for _ in range(3):
-            _process_outgoing_packet(zc.generate_service_broadcast(info, None))
-        assert nbr_answers == 15 and nbr_additionals == 0 and nbr_authorities == 3
-        nbr_answers = nbr_additionals = nbr_authorities = 0
-
-        # query
-        query = r.DNSOutgoing(const._FLAGS_QR_QUERY | const._FLAGS_AA)
-        assert query.is_query() is True
-        query.add_question(r.DNSQuestion(info.type, const._TYPE_PTR, const._CLASS_IN))
-        query.add_question(r.DNSQuestion(info.name, const._TYPE_SRV, const._CLASS_IN))
-        query.add_question(r.DNSQuestion(info.name, const._TYPE_TXT, const._CLASS_IN))
-        query.add_question(r.DNSQuestion(info.server or info.name, const._TYPE_A, const._CLASS_IN))
-        question_answers = zc.query_handler.async_response(
-            [r.DNSIncoming(packet) for packet in query.packets()], False
-        )
-        assert question_answers
-        _process_outgoing_packet(construct_outgoing_multicast_answers(question_answers.mcast_aggregate))
-
-        # The additonals should all be suppressed since they are all in the answers section
-        # There will be one NSEC additional to indicate the lack of AAAA record
-        #
-        assert nbr_answers == 4 and nbr_additionals == 1 and nbr_authorities == 0
-        nbr_answers = nbr_additionals = nbr_authorities = 0
-
-        # unregister
-        expected_ttl = 0
-        zc.registry.async_remove(info)
-        for _ in range(3):
-            _process_outgoing_packet(zc.generate_service_broadcast(info, 0))
-        assert nbr_answers == 15 and nbr_additionals == 0 and nbr_authorities == 0
-        nbr_answers = nbr_additionals = nbr_authorities = 0
-
-        expected_ttl = None
-        for _ in range(3):
-            _process_outgoing_packet(zc.generate_service_query(info))
-        zc.registry.async_add(info)
-        # register service with custom TTL
-        expected_ttl = const._DNS_HOST_TTL * 2
-        assert expected_ttl != const._DNS_HOST_TTL
-        for _ in range(3):
-            _process_outgoing_packet(zc.generate_service_broadcast(info, expected_ttl))
-        assert nbr_answers == 15 and nbr_additionals == 0 and nbr_authorities == 3
-        nbr_answers = nbr_additionals = nbr_authorities = 0
-
-        # query
-        expected_ttl = None
-        query = r.DNSOutgoing(const._FLAGS_QR_QUERY | const._FLAGS_AA)
-        query.add_question(r.DNSQuestion(info.type, const._TYPE_PTR, const._CLASS_IN))
-        query.add_question(r.DNSQuestion(info.name, const._TYPE_SRV, const._CLASS_IN))
-        query.add_question(r.DNSQuestion(info.name, const._TYPE_TXT, const._CLASS_IN))
-        query.add_question(r.DNSQuestion(info.server or info.name, const._TYPE_A, const._CLASS_IN))
-        question_answers = zc.query_handler.async_response(
-            [r.DNSIncoming(packet) for packet in query.packets()], False
-        )
-        assert question_answers
-        _process_outgoing_packet(construct_outgoing_multicast_answers(question_answers.mcast_aggregate))
-
-        # There will be one NSEC additional to indicate the lack of AAAA record
-        assert nbr_answers == 4 and nbr_additionals == 1 and nbr_authorities == 0
-        nbr_answers = nbr_additionals = nbr_authorities = 0
-
-        # unregister
-        expected_ttl = 0
-        zc.registry.async_remove(info)
-        for _ in range(3):
-            _process_outgoing_packet(zc.generate_service_broadcast(info, 0))
-        assert nbr_answers == 15 and nbr_additionals == 0 and nbr_authorities == 0
-        nbr_answers = nbr_additionals = nbr_authorities = 0
-        zc.close()
-
-    @pytest.mark.usefixtures("quick_timing")
-    def test_name_conflicts(self):
-        # instantiate a zeroconf instance
-        zc = Zeroconf(interfaces=["127.0.0.1"])
-        type_ = "_homeassistant._tcp.local."
-        name = "Home"
-        registration_name = f"{name}.{type_}"
-
-        info = ServiceInfo(
-            type_,
-            name=registration_name,
-            server="random123.local.",
-            addresses=[socket.inet_pton(socket.AF_INET, "1.2.3.4")],
-            port=80,
-            properties={"version": "1.0"},
-        )
-        zc.register_service(info)
-
-        conflicting_info = ServiceInfo(
-            type_,
-            name=registration_name,
-            server="random456.local.",
-            addresses=[socket.inet_pton(socket.AF_INET, "4.5.6.7")],
-            port=80,
-            properties={"version": "1.0"},
-        )
-        with pytest.raises(r.NonUniqueNameException):
-            zc.register_service(conflicting_info)
-        zc.close()
-
-    @pytest.mark.usefixtures("quick_timing")
-    def test_register_and_lookup_type_by_uppercase_name(self):
-        # instantiate a zeroconf instance
-        zc = Zeroconf(interfaces=["127.0.0.1"])
-        type_ = "_mylowertype._tcp.local."
-        name = "Home"
-        registration_name = f"{name}.{type_}"
-
-        info = ServiceInfo(
-            type_,
-            name=registration_name,
-            server="random123.local.",
-            addresses=[socket.inet_pton(socket.AF_INET, "1.2.3.4")],
-            port=80,
-            properties={"version": "1.0"},
-        )
-        zc.register_service(info)
-        _clear_cache(zc)
-        info = ServiceInfo(type_, registration_name)
-        info.load_from_cache(zc)
-        assert info.addresses == []
-
-        out = r.DNSOutgoing(const._FLAGS_QR_QUERY)
-        out.add_question(r.DNSQuestion(type_.upper(), const._TYPE_PTR, const._CLASS_IN))
-        zc.send(out)
-        info = ServiceInfo(type_, registration_name)
-        for _ in range(50):
-            time.sleep(0.02)
-            info.load_from_cache(zc)
-            # Wait for both A and TXT records — they arrive as separate
-            # cache updates and the listener may schedule the assertions
-            # between the two. Breaking on just `info.addresses` makes
-            # the test flaky under PyPy / skip_cython.
-            if info.addresses and info.properties:
-                break
-        assert info.addresses == [socket.inet_pton(socket.AF_INET, "1.2.3.4")]
-        assert info.properties == {b"version": b"1.0"}
-        zc.close()
-
-
-def test_ptr_optimization(quick_timing: None) -> None:
-    # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
+def test_ttl(zc: Zeroconf) -> None:
     # service definition
     type_ = "_test-srvc-type._tcp.local."
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
+
+    nbr_answers = nbr_additionals = nbr_authorities = 0
+
+    def get_ttl(record_type):
+        if expected_ttl is not None:
+            return expected_ttl
+        if record_type in [const._TYPE_A, const._TYPE_SRV, const._TYPE_NSEC]:
+            return const._DNS_HOST_TTL
+        return const._DNS_OTHER_TTL
+
+    def _process_outgoing_packet(out):
+        nonlocal nbr_answers, nbr_additionals, nbr_authorities
+
+        for answer, _ in out.answers:
+            nbr_answers += 1
+            assert answer.ttl == get_ttl(answer.type)
+        for answer in out.additionals:
+            nbr_additionals += 1
+            assert answer.ttl == get_ttl(answer.type)
+        for answer in out.authorities:
+            nbr_authorities += 1
+            assert answer.ttl == get_ttl(answer.type)
+
+    # register service with default TTL
+    expected_ttl = None
+    for _ in range(3):
+        _process_outgoing_packet(zc.generate_service_query(info))
+    zc.registry.async_add(info)
+    for _ in range(3):
+        _process_outgoing_packet(zc.generate_service_broadcast(info, None))
+    assert nbr_answers == 15 and nbr_additionals == 0 and nbr_authorities == 3
+    nbr_answers = nbr_additionals = nbr_authorities = 0
+
+    # query
+    query = r.DNSOutgoing(const._FLAGS_QR_QUERY | const._FLAGS_AA)
+    assert query.is_query() is True
+    query.add_question(r.DNSQuestion(info.type, const._TYPE_PTR, const._CLASS_IN))
+    query.add_question(r.DNSQuestion(info.name, const._TYPE_SRV, const._CLASS_IN))
+    query.add_question(r.DNSQuestion(info.name, const._TYPE_TXT, const._CLASS_IN))
+    query.add_question(r.DNSQuestion(info.server or info.name, const._TYPE_A, const._CLASS_IN))
+    question_answers = zc.query_handler.async_response(
+        [r.DNSIncoming(packet) for packet in query.packets()], False
+    )
+    assert question_answers
+    _process_outgoing_packet(construct_outgoing_multicast_answers(question_answers.mcast_aggregate))
+
+    # The additonals should all be suppressed since they are all in the answers section
+    # There will be one NSEC additional to indicate the lack of AAAA record
+    #
+    assert nbr_answers == 4 and nbr_additionals == 1 and nbr_authorities == 0
+    nbr_answers = nbr_additionals = nbr_authorities = 0
+
+    # unregister
+    expected_ttl = 0
+    zc.registry.async_remove(info)
+    for _ in range(3):
+        _process_outgoing_packet(zc.generate_service_broadcast(info, 0))
+    assert nbr_answers == 15 and nbr_additionals == 0 and nbr_authorities == 0
+    nbr_answers = nbr_additionals = nbr_authorities = 0
+
+    expected_ttl = None
+    for _ in range(3):
+        _process_outgoing_packet(zc.generate_service_query(info))
+    zc.registry.async_add(info)
+    # register service with custom TTL
+    expected_ttl = const._DNS_HOST_TTL * 2
+    assert expected_ttl != const._DNS_HOST_TTL
+    for _ in range(3):
+        _process_outgoing_packet(zc.generate_service_broadcast(info, expected_ttl))
+    assert nbr_answers == 15 and nbr_additionals == 0 and nbr_authorities == 3
+    nbr_answers = nbr_additionals = nbr_authorities = 0
+
+    # query
+    expected_ttl = None
+    query = r.DNSOutgoing(const._FLAGS_QR_QUERY | const._FLAGS_AA)
+    query.add_question(r.DNSQuestion(info.type, const._TYPE_PTR, const._CLASS_IN))
+    query.add_question(r.DNSQuestion(info.name, const._TYPE_SRV, const._CLASS_IN))
+    query.add_question(r.DNSQuestion(info.name, const._TYPE_TXT, const._CLASS_IN))
+    query.add_question(r.DNSQuestion(info.server or info.name, const._TYPE_A, const._CLASS_IN))
+    question_answers = zc.query_handler.async_response(
+        [r.DNSIncoming(packet) for packet in query.packets()], False
+    )
+    assert question_answers
+    _process_outgoing_packet(construct_outgoing_multicast_answers(question_answers.mcast_aggregate))
+
+    # There will be one NSEC additional to indicate the lack of AAAA record
+    assert nbr_answers == 4 and nbr_additionals == 1 and nbr_authorities == 0
+    nbr_answers = nbr_additionals = nbr_authorities = 0
+
+    # unregister
+    expected_ttl = 0
+    zc.registry.async_remove(info)
+    for _ in range(3):
+        _process_outgoing_packet(zc.generate_service_broadcast(info, 0))
+    assert nbr_answers == 15 and nbr_additionals == 0 and nbr_authorities == 0
+    nbr_answers = nbr_additionals = nbr_authorities = 0
+
+
+@pytest.mark.usefixtures("quick_timing")
+def test_name_conflicts(zc: Zeroconf) -> None:
+    type_ = "_homeassistant._tcp.local."
+    name = "Home"
+    registration_name = f"{name}.{type_}"
+
     info = ServiceInfo(
         type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+        name=registration_name,
+        server="random123.local.",
+        addresses=[socket.inet_pton(socket.AF_INET, "1.2.3.4")],
+        port=80,
+        properties={"version": "1.0"},
     )
+    zc.register_service(info)
+
+    conflicting_info = ServiceInfo(
+        type_,
+        name=registration_name,
+        server="random456.local.",
+        addresses=[socket.inet_pton(socket.AF_INET, "4.5.6.7")],
+        port=80,
+        properties={"version": "1.0"},
+    )
+    with pytest.raises(r.NonUniqueNameException):
+        zc.register_service(conflicting_info)
+
+
+@pytest.mark.usefixtures("quick_timing")
+def test_register_and_lookup_type_by_uppercase_name(zc: Zeroconf) -> None:
+    type_ = "_mylowertype._tcp.local."
+    name = "Home"
+    registration_name = f"{name}.{type_}"
+
+    info = ServiceInfo(
+        type_,
+        name=registration_name,
+        server="random123.local.",
+        addresses=[socket.inet_pton(socket.AF_INET, "1.2.3.4")],
+        port=80,
+        properties={"version": "1.0"},
+    )
+    zc.register_service(info)
+    _clear_cache(zc)
+    info = ServiceInfo(type_, registration_name)
+    info.load_from_cache(zc)
+    assert info.addresses == []
+
+    out = r.DNSOutgoing(const._FLAGS_QR_QUERY)
+    out.add_question(r.DNSQuestion(type_.upper(), const._TYPE_PTR, const._CLASS_IN))
+    zc.send(out)
+    info = ServiceInfo(type_, registration_name)
+    for _ in range(50):
+        time.sleep(0.02)
+        info.load_from_cache(zc)
+        # Wait for both A and TXT records — they arrive as separate
+        # cache updates and the listener may schedule the assertions
+        # between the two. Breaking on just `info.addresses` makes
+        # the test flaky under PyPy / skip_cython.
+        if info.addresses and info.properties:
+            break
+    assert info.addresses == [socket.inet_pton(socket.AF_INET, "1.2.3.4")]
+    assert info.properties == {b"version": b"1.0"}
+
+
+def test_ptr_optimization(zc: Zeroconf, quick_timing: None) -> None:
+    # service definition
+    type_ = "_test-srvc-type._tcp.local."
+    name = "xxxyyy"
+    registration_name = f"{name}.{type_}"
+
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
 
     # register
     zc.register_service(info)
@@ -300,21 +269,21 @@ def test_ptr_optimization(quick_timing: None) -> None:
 
     # unregister
     zc.unregister_service(info)
-    zc.close()
 
 
 @unittest.skipIf(not has_working_ipv6(), "Requires IPv6")
 @unittest.skipIf(os.environ.get("SKIP_IPV6"), "IPv6 tests disabled")
-def test_any_query_for_ptr():
+def test_any_query_for_ptr(zc: Zeroconf) -> None:
     """Test that queries for ANY will return PTR records and the response is aggregated."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     type_ = "_anyptr._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
     ipv6_address = socket.inet_pton(socket.AF_INET6, "2001:db8::1")
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, server_name, addresses=[ipv6_address])
+    info = make_service_info(
+        type_, registration_name, properties=desc, server=server_name, addresses=[ipv6_address]
+    )
     zc.registry.async_add(info)
 
     _clear_cache(zc)
@@ -329,21 +298,21 @@ def test_any_query_for_ptr():
     assert mcast_answers[0].alias == registration_name  # type: ignore[attr-defined]
     # unregister
     zc.registry.async_remove(info)
-    zc.close()
 
 
 @unittest.skipIf(not has_working_ipv6(), "Requires IPv6")
 @unittest.skipIf(os.environ.get("SKIP_IPV6"), "IPv6 tests disabled")
-def test_aaaa_query():
+def test_aaaa_query(zc: Zeroconf) -> None:
     """Test that queries for AAAA records work and should respond right away."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     type_ = "_knownaaaservice._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
     ipv6_address = socket.inet_pton(socket.AF_INET6, "2001:db8::1")
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, server_name, addresses=[ipv6_address])
+    info = make_service_info(
+        type_, registration_name, properties=desc, server=server_name, addresses=[ipv6_address]
+    )
     zc.registry.async_add(info)
 
     generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
@@ -356,21 +325,21 @@ def test_aaaa_query():
     assert mcast_answers[0].address == ipv6_address  # type: ignore[attr-defined]
     # unregister
     zc.registry.async_remove(info)
-    zc.close()
 
 
 @unittest.skipIf(not has_working_ipv6(), "Requires IPv6")
 @unittest.skipIf(os.environ.get("SKIP_IPV6"), "IPv6 tests disabled")
-def test_aaaa_query_upper_case():
+def test_aaaa_query_upper_case(zc: Zeroconf) -> None:
     """Test that queries for AAAA records work and should respond right away with an upper case name."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     type_ = "_knownaaaservice._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
     ipv6_address = socket.inet_pton(socket.AF_INET6, "2001:db8::1")
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, server_name, addresses=[ipv6_address])
+    info = make_service_info(
+        type_, registration_name, properties=desc, server=server_name, addresses=[ipv6_address]
+    )
     zc.registry.async_add(info)
 
     generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
@@ -383,30 +352,21 @@ def test_aaaa_query_upper_case():
     assert mcast_answers[0].address == ipv6_address  # type: ignore[attr-defined]
     # unregister
     zc.registry.async_remove(info)
-    zc.close()
 
 
 @unittest.skipIf(not has_working_ipv6(), "Requires IPv6")
 @unittest.skipIf(os.environ.get("SKIP_IPV6"), "IPv6 tests disabled")
-def test_a_and_aaaa_record_fate_sharing():
+def test_a_and_aaaa_record_fate_sharing(zc: Zeroconf) -> None:
     """Test that queries for AAAA always return A records in the additionals and should respond right away."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     type_ = "_a-and-aaaa-service._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
     ipv6_address = socket.inet_pton(socket.AF_INET6, "2001:db8::1")
-    ipv4_address = socket.inet_aton("10.0.1.2")
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name,
-        addresses=[ipv6_address, ipv4_address],
+    ipv4_address = socket.inet_aton("10.7.4.2")
+    info = make_service_info(
+        type_, registration_name, properties=desc, server=server_name, addresses=[ipv6_address, ipv4_address]
     )
     aaaa_record = info.dns_addresses(version=r.IPVersion.V6Only)[0]
     a_record = info.dns_addresses(version=r.IPVersion.V4Only)[0]
@@ -441,29 +401,16 @@ def test_a_and_aaaa_record_fate_sharing():
 
     # unregister
     zc.registry.async_remove(info)
-    zc.close()
 
 
-def test_unicast_response():
+def test_unicast_response(zc: Zeroconf) -> None:
     """Ensure we send a unicast response when the source port is not the MDNS port."""
-    # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
     # service definition
     type_ = "_test-srvc-type._tcp.local."
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     # register
     zc.registry.async_add(info)
     _clear_cache(zc)
@@ -499,30 +446,17 @@ def test_unicast_response():
 
     # unregister
     zc.registry.async_remove(info)
-    zc.close()
 
 
 @pytest.mark.asyncio
-async def test_probe_answered_immediately():
+async def test_probe_answered_immediately(zc: Zeroconf) -> None:
     """Verify probes are responded to immediately."""
-    # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
     # service definition
     type_ = "_test-srvc-type._tcp.local."
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     zc.registry.async_add(info)
     query = r.DNSOutgoing(const._FLAGS_QR_QUERY)
     question = r.DNSQuestion(info.type, const._TYPE_PTR, const._CLASS_IN)
@@ -550,30 +484,17 @@ async def test_probe_answered_immediately():
     assert question_answers.mcast_now
     assert not question_answers.mcast_aggregate
     assert not question_answers.mcast_aggregate_last_second
-    zc.close()
 
 
 @pytest.mark.asyncio
-async def test_probe_answered_immediately_with_uppercase_name():
+async def test_probe_answered_immediately_with_uppercase_name(zc: Zeroconf) -> None:
     """Verify probes are responded to immediately with an uppercase name."""
-    # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
     # service definition
     type_ = "_test-srvc-type._tcp.local."
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     zc.registry.async_add(info)
     query = r.DNSOutgoing(const._FLAGS_QR_QUERY)
     question = r.DNSQuestion(info.type.upper(), const._TYPE_PTR, const._CLASS_IN)
@@ -601,43 +522,29 @@ async def test_probe_answered_immediately_with_uppercase_name():
     assert question_answers.mcast_now
     assert not question_answers.mcast_aggregate
     assert not question_answers.mcast_aggregate_last_second
-    zc.close()
 
 
-def test_qu_response(quick_timing: None) -> None:
+def test_qu_response(zc: Zeroconf, quick_timing: None) -> None:
     """Handle multicast incoming with the QU bit set."""
-    # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
     # service definition
     type_ = "_test-srvc-type._tcp.local."
     other_type_ = "_notthesame._tcp.local."
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
     registration_name2 = f"{name}.{other_type_}"
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info2 = ServiceInfo(
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
+    info2 = make_service_info(
         other_type_,
         registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        "ash-other.local.",
+        properties=desc,
+        server="ash-other.local.",
         addresses=[socket.inet_aton("10.0.4.2")],
     )
-    # register
-    zc.register_service(info)
+    # Register and inject the announcement directly so the cache state is
+    # deterministic; announcing on loopback would race the phases below.
+    zc.registry.async_add(info)
+    _inject_response(zc, r.DNSIncoming(zc.generate_service_broadcast(info, None).packets()[0]))
 
     def _validate_complete_response(answers):
         has_srv = has_txt = has_a = has_aaaa = has_nsec = False
@@ -727,26 +634,15 @@ def test_qu_response(quick_timing: None) -> None:
     _validate_complete_response(question_answers.ucast)
     # unregister
     zc.unregister_service(info)
-    zc.close()
 
 
-def test_known_answer_supression():
-    zc = Zeroconf(interfaces=["127.0.0.1"])
+def test_known_answer_supression(zc: Zeroconf) -> None:
     type_ = "_knownanswersv8._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
+    info = make_service_info(type_, registration_name, properties=desc, server=server_name)
     zc.registry.async_add(info)
 
     now = current_time_millis()
@@ -870,16 +766,16 @@ def test_known_answer_supression():
 
     # unregister
     zc.registry.async_remove(info)
-    zc.close()
 
 
-def test_no_nsec_answer_for_service_without_addresses() -> None:
+def test_no_nsec_answer_for_service_without_addresses(zc: Zeroconf) -> None:
     """A service with no address records cannot assert which types exist, so no NSEC is sent."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     type_ = "_noaddrnsec._tcp.local."
     registration_name = f"noaddr.{type_}"
     server_name = "noaddr-host.local."
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, {"path": "/~paulsm/"}, server_name)
+    info = make_service_info(
+        type_, registration_name, properties={"path": "/healthz/"}, server=server_name, addresses=[]
+    )
     zc.registry.async_add(info)
     _clear_cache(zc)
 
@@ -895,11 +791,9 @@ def test_no_nsec_answer_for_service_without_addresses() -> None:
     assert not question_answers.mcast_aggregate_last_second
 
     zc.registry.async_remove(info)
-    zc.close()
 
 
-def test_multi_packet_known_answer_supression():
-    zc = Zeroconf(interfaces=["127.0.0.1"])
+def test_multi_packet_known_answer_supression(zc: Zeroconf) -> None:
     type_ = "_handlermultis._tcp.local."
     name = "knownname"
     name2 = "knownname2"
@@ -909,41 +803,14 @@ def test_multi_packet_known_answer_supression():
     registration2_name = f"{name2}.{type_}"
     registration3_name = f"{name3}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
     server_name2 = "ash-3.local."
     server_name3 = "ash-4.local."
 
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info2 = ServiceInfo(
-        type_,
-        registration2_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name2,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info3 = ServiceInfo(
-        type_,
-        registration3_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name3,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info = make_service_info(type_, registration_name, properties=desc, server=server_name)
+    info2 = make_service_info(type_, registration2_name, properties=desc, server=server_name2)
+    info3 = make_service_info(type_, registration3_name, properties=desc, server=server_name3)
     zc.registry.async_add(info)
     zc.registry.async_add(info2)
     zc.registry.async_add(info3)
@@ -971,43 +838,23 @@ def test_multi_packet_known_answer_supression():
     zc.registry.async_remove(info)
     zc.registry.async_remove(info2)
     zc.registry.async_remove(info3)
-    zc.close()
 
 
-def test_known_answer_supression_service_type_enumeration_query():
-    zc = Zeroconf(interfaces=["127.0.0.1"])
+def test_known_answer_supression_service_type_enumeration_query(zc: Zeroconf) -> None:
     type_ = "_otherknown._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
+    info = make_service_info(type_, registration_name, properties=desc, server=server_name)
     zc.registry.async_add(info)
 
     type_2 = "_otherknown2._tcp.local."
     name = "knownname"
     registration_name2 = f"{name}.{type_2}"
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
     server_name2 = "ash-3.local."
-    info2 = ServiceInfo(
-        type_2,
-        registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        server_name2,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info2 = make_service_info(type_2, registration_name2, properties=desc, server=server_name2)
     zc.registry.async_add(info2)
     now = current_time_millis()
     _clear_cache(zc)
@@ -1058,43 +905,23 @@ def test_known_answer_supression_service_type_enumeration_query():
     # unregister
     zc.registry.async_remove(info)
     zc.registry.async_remove(info2)
-    zc.close()
 
 
-def test_upper_case_enumeration_query():
-    zc = Zeroconf(interfaces=["127.0.0.1"])
+def test_upper_case_enumeration_query(zc: Zeroconf) -> None:
     type_ = "_otherknown._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
+    info = make_service_info(type_, registration_name, properties=desc, server=server_name)
     zc.registry.async_add(info)
 
     type_2 = "_otherknown2._tcp.local."
     name = "knownname"
     registration_name2 = f"{name}.{type_2}"
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
     server_name2 = "ash-3.local."
-    info2 = ServiceInfo(
-        type_2,
-        registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        server_name2,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info2 = make_service_info(type_2, registration_name2, properties=desc, server=server_name2)
     zc.registry.async_add(info2)
     _clear_cache(zc)
 
@@ -1112,11 +939,9 @@ def test_upper_case_enumeration_query():
     # unregister
     zc.registry.async_remove(info)
     zc.registry.async_remove(info2)
-    zc.close()
 
 
-def test_enumeration_query_with_no_registered_services():
-    zc = Zeroconf(interfaces=["127.0.0.1"])
+def test_enumeration_query_with_no_registered_services(zc: Zeroconf) -> None:
     _clear_cache(zc)
     generated = r.DNSOutgoing(const._FLAGS_QR_QUERY)
     question = r.DNSQuestion(const._SERVICE_TYPE_ENUMERATION_NAME.upper(), const._TYPE_PTR, const._CLASS_IN)
@@ -1125,7 +950,6 @@ def test_enumeration_query_with_no_registered_services():
     question_answers = zc.query_handler.async_response([r.DNSIncoming(packet) for packet in packets], False)
     assert not question_answers
     # unregister
-    zc.close()
 
 
 # This test uses asyncio because it needs to access the cache directly
@@ -1140,35 +964,17 @@ async def test_qu_response_only_sends_additionals_if_sends_answer():
     type_ = "_addtest1._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
+    info = make_service_info(type_, registration_name, properties=desc, server=server_name)
     zc.registry.async_add(info)
 
     type_2 = "_addtest2._tcp.local."
     name = "knownname"
     registration_name2 = f"{name}.{type_2}"
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
     server_name2 = "ash-3.local."
-    info2 = ServiceInfo(
-        type_2,
-        registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        server_name2,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info2 = make_service_info(type_2, registration_name2, properties=desc, server=server_name2)
     zc.registry.async_add(info2)
 
     ptr_record = info.dns_pointer()
@@ -1306,22 +1112,13 @@ async def test_cache_flush_bit():
     type_ = "_cacheflush._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
     server_name = "server-uu1.local."
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info = make_service_info(type_, registration_name, properties=desc, server=server_name)
     a_record = info.dns_addresses()[0]
     zc.cache.async_add_records([info.dns_pointer(), a_record, info.dns_text(), info.dns_service()])
 
-    info.addresses = [socket.inet_aton("10.0.1.5"), socket.inet_aton("10.0.1.6")]
+    info.addresses = [socket.inet_aton("10.7.4.5"), socket.inet_aton("10.7.4.6")]
     new_records = info.dns_addresses()
     for new_record in new_records:
         assert new_record.unique is True
@@ -1411,7 +1208,7 @@ async def test_record_update_manager_add_listener_callsback_existing_records():
     zc: Zeroconf = aiozc.zeroconf
     updated = []
 
-    class MyListener(r.RecordUpdateListener):
+    class EventStore(r.RecordUpdateListener):
         """A RecordUpdateListener that does not implement update_records."""
 
         def async_update_records(self, zc: Zeroconf, now: float, records: list[r.RecordUpdate]) -> None:
@@ -1421,23 +1218,14 @@ async def test_record_update_manager_add_listener_callsback_existing_records():
     type_ = "_cacheflush._tcp.local."
     name = "knownname"
     registration_name = f"{name}.{type_}"
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
     server_name = "server-uu1.local."
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info = make_service_info(type_, registration_name, properties=desc, server=server_name)
     a_record = info.dns_addresses()[0]
     ptr_record = info.dns_pointer()
     zc.cache.async_add_records([ptr_record, a_record, info.dns_text(), info.dns_service()])
 
-    listener = MyListener()
+    listener = EventStore()
 
     zc.add_listener(
         listener,
@@ -1465,14 +1253,10 @@ async def test_questions_query_handler_populates_the_question_history_from_qm_qu
     _clear_cache(zc)
 
     aiozc.zeroconf.registry.async_add(
-        ServiceInfo(
+        make_service_info(
             "_hap._tcp.local.",
             "other._hap._tcp.local.",
-            80,
-            0,
-            0,
-            {"md": "known"},
-            "ash-2.local.",
+            properties={"md": "known"},
             addresses=[socket.inet_aton("1.2.3.4")],
         )
     )
@@ -1509,14 +1293,10 @@ async def test_questions_query_handler_does_not_put_qu_questions_in_history():
     zc = aiozc.zeroconf
     now = current_time_millis()
     _clear_cache(zc)
-    info = ServiceInfo(
+    info = make_service_info(
         "_hap._tcp.local.",
         "qu._hap._tcp.local.",
-        80,
-        0,
-        0,
-        {"md": "known"},
-        "ash-2.local.",
+        properties={"md": "known"},
         addresses=[socket.inet_aton("1.2.3.4")],
     )
     aiozc.zeroconf.registry.async_add(info)
@@ -1653,36 +1433,21 @@ async def test_response_aggregation_timings(run_isolated: None) -> None:
     registration_name2 = f"{name}.{type_2}"
     registration_name3 = f"{name}.{type_3}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info2 = ServiceInfo(
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
+    info2 = make_service_info(
         type_2,
         registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        "ash-4.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+        properties=desc,
+        server="ash-4.local.",
+        addresses=[socket.inet_aton("10.7.4.3")],
     )
-    info3 = ServiceInfo(
+    info3 = make_service_info(
         type_3,
         registration_name3,
-        80,
-        0,
-        0,
-        desc,
-        "ash-4.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+        properties=desc,
+        server="ash-4.local.",
+        addresses=[socket.inet_aton("10.7.4.3")],
     )
     aiozc.zeroconf.registry.async_add(info)
     aiozc.zeroconf.registry.async_add(info2)
@@ -1790,16 +1555,13 @@ async def test_response_aggregation_timings_multiple(
     name = "xxxyyy"
     registration_name2 = f"{name}.{type_2}"
 
-    desc = {"path": "/~paulsm/"}
-    info2 = ServiceInfo(
+    desc = {"path": "/healthz/"}
+    info2 = make_service_info(
         type_2,
         registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        "ash-4.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+        properties=desc,
+        server="ash-4.local.",
+        addresses=[socket.inet_aton("10.7.4.3")],
     )
     aiozc.zeroconf.registry.async_add(info2)
 
@@ -1885,57 +1647,14 @@ async def test_response_aggregation_random_delay():
     registration_name4 = f"{name}.{type_4}"
     registration_name5 = f"{name}.{type_5}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-1.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc, server="ash-1.local.")
+    info2 = make_service_info(
+        type_2, registration_name2, properties=desc, addresses=[socket.inet_aton("10.7.4.3")]
     )
-    info2 = ServiceInfo(
-        type_2,
-        registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
-    )
-    info3 = ServiceInfo(
-        type_3,
-        registration_name3,
-        80,
-        0,
-        0,
-        desc,
-        "ash-3.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info4 = ServiceInfo(
-        type_4,
-        registration_name4,
-        80,
-        0,
-        0,
-        desc,
-        "ash-4.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info5 = ServiceInfo(
-        type_5,
-        registration_name5,
-        80,
-        0,
-        0,
-        desc,
-        "ash-5.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info3 = make_service_info(type_3, registration_name3, properties=desc, server="ash-3.local.")
+    info4 = make_service_info(type_4, registration_name4, properties=desc, server="ash-4.local.")
+    info5 = make_service_info(type_5, registration_name5, properties=desc, server="ash-5.local.")
     mocked_zc = unittest.mock.MagicMock()
     mocked_zc.loop = asyncio.get_running_loop()
     outgoing_queue = MulticastOutgoingQueue(mocked_zc, 0, 500)
@@ -1983,26 +1702,10 @@ async def test_future_answers_are_removed_on_send():
     registration_name = f"{name}.{type_}"
     registration_name2 = f"{name}.{type_2}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-1.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info2 = ServiceInfo(
-        type_2,
-        registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc, server="ash-1.local.")
+    info2 = make_service_info(
+        type_2, registration_name2, properties=desc, addresses=[socket.inet_aton("10.7.4.3")]
     )
     mocked_zc = unittest.mock.MagicMock()
     mocked_zc.loop = asyncio.get_running_loop()
@@ -2047,14 +1750,14 @@ async def test_add_listener_warns_when_not_using_record_update_listener(caplog):
     zc: Zeroconf = aiozc.zeroconf
     updated = []
 
-    class MyListener:
+    class EventStore:
         """A RecordUpdateListener that does not implement update_records."""
 
         def async_update_records(self, zc: Zeroconf, now: float, records: list[r.RecordUpdate]) -> None:
             """Update multiple records in one shot."""
             updated.extend(records)
 
-    zc.add_listener(MyListener(), None)  # type: ignore[arg-type]
+    zc.add_listener(EventStore(), None)  # type: ignore[arg-type]
     await asyncio.sleep(0)  # flush out any call soons
     assert (
         "listeners passed to async_add_listener must inherit from RecordUpdateListener" in caplog.text

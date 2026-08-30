@@ -62,14 +62,14 @@ from click.shell_completion import (
 )
 from cloup.constraints import mutually_exclusive
 
+from ._utils import generator_tag, missing_extra_message
 from .commands import DEFAULT_HELP_NAMES, default_params
 from .parameters import (
     full_short_help,
-    generator_tag,
     is_repeatable,
+    iter_params_for_display,
     iter_subcommands,
     make_resilient_context,
-    missing_extra_message,
     option_value_kind,
     param_spellings,
     short_long_opts,
@@ -467,7 +467,7 @@ def extract_carapace_command(
 
     positional: list[list[str]] = []
     persistent_spellings = set(inherited_opts)
-    for param in command.get_params(ctx):
+    for param in iter_params_for_display(command, ctx):
         if isinstance(param, click.Argument):
             action = _param_action(param, command_path)
             if param.nargs == -1:

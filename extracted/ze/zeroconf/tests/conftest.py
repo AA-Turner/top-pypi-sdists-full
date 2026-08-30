@@ -59,7 +59,7 @@ _KNOWN_BLOCKING: frozenset[str] = frozenset(
         "tests/test_asyncio.py::test_async_service_registration_same_server_different_ports",
         "tests/test_asyncio.py::test_async_service_registration_same_server_same_ports",
         "tests/test_asyncio.py::test_async_tasks",
-        "tests/test_core.py::Framework::test_use_asyncio_false_forces_thread_when_loop_running",
+        "tests/test_core.py::test_use_asyncio_false_forces_thread_when_loop_running",
         "tests/utils/test_asyncio.py::test_run_coro_with_timeout",
     }
 )
@@ -105,12 +105,15 @@ def verify_threads_ended():
 
 
 @pytest.fixture
-def zc_loopback() -> Generator[Zeroconf]:
+def zc(verify_threads_ended: None) -> Generator[Zeroconf]:
     """Yield a loopback `Zeroconf` and close it on teardown.
 
     Replaces the inline `zc = Zeroconf(interfaces=["127.0.0.1"])` +
     explicit `zc.close()` pattern duplicated across the suite. Calling
     `zc.close()` inside a test is still safe — `close()` is idempotent.
+
+    Depends on `verify_threads_ended` so the instance is torn down before
+    the thread check runs.
     """
     zc = Zeroconf(interfaces=["127.0.0.1"])
     try:
@@ -120,7 +123,7 @@ def zc_loopback() -> Generator[Zeroconf]:
 
 
 @pytest_asyncio.fixture
-async def aiozc_loopback() -> AsyncGenerator[AsyncZeroconf]:
+async def aiozc(verify_threads_ended: None) -> AsyncGenerator[AsyncZeroconf]:
     """Yield a loopback `AsyncZeroconf` and close it on teardown.
 
     Replaces the inline `aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])`

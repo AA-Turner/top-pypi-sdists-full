@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightkube-models
-Version: 1.36.3.8
+Version: 1.37.0.8
 Summary: Models and Resources for lightkube module
 Author-Email: Giuseppe Tribulato <gtsystem@gmail.com>
 License-Expression: MIT

@@ -289,10 +289,15 @@ def mean_by(collection, iteratee=None):
 
         >>> mean_by([1, 2, 3, 4], lambda x: x**2)
         7.5
+        >>> math.isnan(mean_by([]))
+        True
 
     .. versionadded:: 4.0.0
     """
-    return sum_by(collection, iteratee) / len(collection)
+    length = len(collection)
+    if not length:
+        return float("nan")
+    return sum_by(collection, iteratee) / length
 
 
 def ceil(x: NumberT, precision: int = 0) -> float:
@@ -319,6 +324,11 @@ def ceil(x: NumberT, precision: int = 0) -> float:
     """
     return rounder(math.ceil, x, precision)
 
+
+# When used as an iteratee (e.g. count_by, group_by), only the element value
+# should be passed; the optional `precision` parameter must not receive the
+# collection index.  Marking _argcount=1 tells callit() to pass a single arg.
+ceil._argcount = 1  # type: ignore[attr-defined]
 
 NumT = t.TypeVar("NumT", int, float, "Decimal")
 NumT2 = t.TypeVar("NumT2", int, float, "Decimal")
@@ -412,6 +422,12 @@ def floor(x: NumberT, precision: int = 0) -> float:
     .. versionadded:: 3.3.0
     """
     return rounder(math.floor, x, precision)
+
+
+# When used as an iteratee (e.g. count_by, group_by), only the element value
+# should be passed; the optional `precision` parameter must not receive the
+# collection index.  Marking _argcount=1 tells callit() to pass a single arg.
+floor._argcount = 1  # type: ignore[attr-defined]
 
 
 @t.overload
@@ -620,6 +636,9 @@ def median(collection, iteratee=None):
     .. versionadded:: 2.1.0
     """
     length = len(collection)
+    if not length:
+        # Match mean_by: empty collection has no median.
+        return float("nan")
     middle = (length + 1) / 2
     collection = sorted(ret[0] for ret in iteriteratee(collection, iteratee))
 
@@ -941,6 +960,12 @@ def round_(x, precision=0):
         Remove alias ``curve``.
     """
     return rounder(round, x, precision)
+
+
+# When used as an iteratee (e.g. count_by, group_by), only the element value
+# should be passed; the optional `precision` parameter must not receive the
+# collection index.  Marking _argcount=1 tells callit() to pass a single arg.
+round_._argcount = 1  # type: ignore[attr-defined]
 
 
 @t.overload

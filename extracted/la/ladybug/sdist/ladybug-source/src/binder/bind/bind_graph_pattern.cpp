@@ -1,3 +1,6 @@
+#include <mutex>
+#include <unordered_map>
+
 #include "binder/binder.h"
 #include "binder/expression/expression_util.h"
 #include "binder/expression/path_expression.h"
@@ -6,8 +9,10 @@
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
+#include "common/constants.h"
 #include "common/enums/rel_direction.h"
 #include "common/exception/binder.h"
+#include "common/partition_routing_hook.h"
 #include "common/types/types.h"
 #include "common/utils.h"
 #include "function/cast/functions/cast_from_string_functions.h"
@@ -25,6 +30,14 @@ using namespace lbug::catalog;
 
 namespace lbug {
 namespace binder {
+
+// Returns true only for attached native LBUG databases. Foreign attached databases
+// (sqlite/duckdb/postgres/...) must not participate in default-database or rel-context
+// resolution: rel tables referencing foreign node tables live in the main catalog and
+// unqualified names must keep resolving there.
+static bool isLbugDatabase(main::DatabaseManager* dbManager, const std::string& dbName) {
+    return dbManager->getAttachedDatabase(dbName)->getDBType() == ATTACHED_LBUG_DB_TYPE;
+}
 
 // A graph pattern contains node/rel and a set of key-value pairs associated with the variable. We
 // bind node/rel as query graph and key-value pairs as a separate collection. This collection is
@@ -194,7 +207,31 @@ std::shared_ptr<RelExpression> Binder::bindQueryRel(const RelPattern& relPattern
         throw BinderException("Bind relationship " + parsedName +
                               " to relationship with same name is not supported.");
     }
-    auto entries = bindRelGroupEntries(relPattern.getTableNames());
+    // Infer the catalog context from the endpoint nodes: if every endpoint table belongs
+    // to the same single attached LBUG database, unqualified rel labels (and anonymous rel
+    // patterns) resolve in that database's catalog. Main and foreign endpoint tables
+    // (sqlite/duckdb/postgres) invalidate the context: rel tables referencing foreign node
+    // tables (e.g. a main-catalog rel table over attached foreign nodes) must still resolve
+    // in the default catalog.
+    auto dbManager = main::DatabaseManager::Get(*clientContext);
+    std::string contextDbName;
+    bool invalidContext = false;
+    for (auto* node : {leftNode.get(), rightNode.get()}) {
+        for (auto* entry : node->getEntries()) {
+            auto dbName = node->getDbName(entry);
+            if (dbName.empty() || !isLbugDatabase(dbManager, dbName)) {
+                invalidContext = true;
+            } else if (contextDbName.empty()) {
+                contextDbName = dbName;
+            } else if (contextDbName != dbName) {
+                invalidContext = true;
+            }
+        }
+    }
+    if (invalidContext || contextDbName.empty()) {
+        contextDbName.clear();
+    }
+    auto [entries, dbNames] = bindRelGroupEntries(relPattern.getTableNames(), contextDbName);
     // bind src & dst node
     RelDirectionType directionType = RelDirectionType::UNKNOWN;
     std::shared_ptr<NodeExpression> srcNode;
@@ -223,7 +260,8 @@ std::shared_ptr<RelExpression> Binder::bindQueryRel(const RelPattern& relPattern
     // bind variable length
     std::shared_ptr<RelExpression> queryRel;
     if (QueryRelTypeUtils::isRecursive(relPattern.getRelType())) {
-        queryRel = createRecursiveQueryRel(relPattern, entries, srcNode, dstNode, directionType);
+        queryRel =
+            createRecursiveQueryRel(relPattern, entries, dbNames, srcNode, dstNode, directionType);
     } else {
         queryRel = createNonRecursiveQueryRel(relPattern.getVariableName(), entries, srcNode,
             dstNode, directionType, relPattern.getTableNames());
@@ -238,6 +276,11 @@ std::shared_ptr<RelExpression> Binder::bindQueryRel(const RelPattern& relPattern
     queryRel->setLeftNode(leftNode);
     queryRel->setRightNode(rightNode);
     queryRel->setAlias(parsedName);
+    // Carry the database context for each rel entry so planning/physical routing
+    // (cardinality estimation, extend scan) can resolve the right storage manager.
+    for (auto& [entry, dbName] : dbNames) {
+        queryRel->setDbName(entry, dbName);
+    }
     if (!parsedName.empty()) {
         addToScope(parsedName, queryRel);
     }
@@ -388,18 +431,36 @@ static void checkWeightedShortestPathSupportedType(const LogicalType& type) {
 }
 
 std::shared_ptr<RelExpression> Binder::createRecursiveQueryRel(const parser::RelPattern& relPattern,
-    const std::vector<TableCatalogEntry*>& entries, std::shared_ptr<NodeExpression> srcNode,
-    std::shared_ptr<NodeExpression> dstNode, RelDirectionType directionType) {
-    auto catalog = Catalog::Get(*clientContext);
+    const std::vector<TableCatalogEntry*>& entries,
+    const std::unordered_map<TableCatalogEntry*, std::string>& dbNames,
+    std::shared_ptr<NodeExpression> srcNode, std::shared_ptr<NodeExpression> dstNode,
+    RelDirectionType directionType) {
     auto transaction = transaction::Transaction::Get(*clientContext);
     table_catalog_entry_set_t nodeEntrySet;
+    std::unordered_map<TableCatalogEntry*, std::string> nodeDbNames;
     for (auto entry : entries) {
         auto& relGroupEntry = entry->constCast<RelGroupCatalogEntry>();
+        // Resolve the catalog that owns this rel entry so its endpoint node tables are
+        // looked up in the right database (IDs are 0-based per database).
+        auto dbNameIt = dbNames.find(entry);
+        auto dbName = dbNameIt != dbNames.end() ? dbNameIt->second : "";
+        auto catalog = dbName.empty() ? Catalog::Get(*clientContext) :
+                                        main::DatabaseManager::Get(*clientContext)
+                                            ->getAttachedDatabase(dbName)
+                                            ->getCatalog();
         for (auto id : relGroupEntry.getSrcNodeTableIDSet()) {
-            nodeEntrySet.insert(catalog->getTableCatalogEntry(transaction, id));
+            auto nodeEntry = catalog->getTableCatalogEntry(transaction, id);
+            nodeEntrySet.insert(nodeEntry);
+            if (!dbName.empty()) {
+                nodeDbNames[nodeEntry] = dbName;
+            }
         }
         for (auto id : relGroupEntry.getDstNodeTableIDSet()) {
-            nodeEntrySet.insert(catalog->getTableCatalogEntry(transaction, id));
+            auto nodeEntry = catalog->getTableCatalogEntry(transaction, id);
+            nodeEntrySet.insert(nodeEntry);
+            if (!dbName.empty()) {
+                nodeDbNames[nodeEntry] = dbName;
+            }
         }
     }
     auto nodeEntries = std::vector<TableCatalogEntry*>{nodeEntrySet.begin(), nodeEntrySet.end()};
@@ -407,13 +468,13 @@ std::shared_ptr<RelExpression> Binder::createRecursiveQueryRel(const parser::Rel
     auto prevScope = saveScope();
     scope.clear();
     // Bind intermediate node.
-    auto node = createQueryNode(recursivePatternInfo->nodeName, nodeEntries, {}, {});
+    auto node = createQueryNode(recursivePatternInfo->nodeName, nodeEntries, nodeDbNames, {});
     addToScope(node->toString(), node);
     auto nodeFields = getBaseNodeStructFields();
     auto nodeProjectionList = bindRecursivePatternNodeProjectionList(*recursivePatternInfo, *node);
     bindProjectionListAsStructField(nodeProjectionList, nodeFields);
     node->setDataType(LogicalType::NODE(std::move(nodeFields)));
-    auto nodeCopy = createQueryNode(recursivePatternInfo->nodeName, nodeEntries, {}, {});
+    auto nodeCopy = createQueryNode(recursivePatternInfo->nodeName, nodeEntries, nodeDbNames, {});
     // Bind intermediate rel
     auto rel = createNonRecursiveQueryRel(recursivePatternInfo->relName, entries,
         nullptr /* srcNode */, nullptr /* dstNode */, directionType, {});
@@ -718,18 +779,165 @@ static std::vector<TableCatalogEntry*> sortEntries(const table_catalog_entry_set
     return entries;
 }
 
+namespace {
+
+// Scan-substitute entries (local child clones carrying a wrapper scan function) must outlive
+// the bound statement that references them. Cache them per PartitionRef so repeated binds of
+// the same remote partition reuse one stable entry. Note: a wrapper that swaps its scan
+// function for an already-bound partition within one process lifetime will keep serving the
+// function captured at first bind.
+std::mutex& scanEntryMutex() {
+    static std::mutex mtx;
+    return mtx;
+}
+
+struct ScanEntryKey {
+    const void* database;
+    const void* scanFunction;
+    bool operator==(const ScanEntryKey& other) const {
+        return database == other.database && scanFunction == other.scanFunction;
+    }
+};
+
+struct ScanEntryKeyHasher {
+    uint64_t operator()(const ScanEntryKey& key) const {
+        return std::hash<const void*>{}(key.database) * 31 +
+               std::hash<const void*>{}(key.scanFunction);
+    }
+};
+
+std::unordered_map<ScanEntryKey, std::unique_ptr<TableCatalogEntry>, ScanEntryKeyHasher>&
+scanEntryCache() {
+    static std::unordered_map<ScanEntryKey, std::unique_ptr<TableCatalogEntry>, ScanEntryKeyHasher>
+        cache;
+    return cache;
+}
+
+// Entries are cached per (database, wrapper scan function) so repeated binds reuse one stable
+// substitute without leaking state across databases.
+TableCatalogEntry* retainPartitionedScanEntry(std::unique_ptr<TableCatalogEntry> entry,
+    main::ClientContext* clientContext, const void* scanFunctionIdentity) {
+    ScanEntryKey key{clientContext->getDatabase(), scanFunctionIdentity};
+    std::lock_guard lck{scanEntryMutex()};
+    auto [it, inserted] = scanEntryCache().emplace(key, std::move(entry));
+    return it->second.get();
+}
+
+} // namespace
+
+// A partitioned parent node table owns no physical storage; its records live across its
+// partition subgraphs. When a node label resolves to a partitioned parent we expand it into the
+// child partition tables so the (existing) multi-table node scan unions over every partition.
+//
+// If a routing wrapper (see common/partition_routing_hook.h) claims a partition via `locate`,
+// the local child owns no storage and cannot be scanned; instead the wrapper supplies a scan
+// function through `bindScan`, which the engine attaches to an internal clone of the child's
+// catalog entry (keeping schema, table ID, and partition lineage). Scanning a parent that
+// mixes claimed and unclaimed partitions cannot be planned, so it is rejected at bind time.
+static table_catalog_entry_set_t expandPartitionedNodeTables(catalog::Catalog* catalog,
+    const transaction::Transaction* transaction, const table_catalog_entry_set_t& entrySet,
+    main::ClientContext* clientContext) {
+    table_catalog_entry_set_t expanded;
+    bool anyClaimed = false;
+    std::string claimedParentName;
+    for (auto entry : entrySet) {
+        if (entry->getType() != CatalogEntryType::NODE_TABLE_ENTRY) {
+            expanded.insert(entry);
+            continue;
+        }
+        auto* nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
+        if (!nodeEntry->isPartitioned()) {
+            expanded.insert(entry);
+            continue;
+        }
+        const auto* hooks = common::getPartitionRoutingHooks();
+        for (auto childID : nodeEntry->getChildTableIDs()) {
+            auto* child = catalog->getTableCatalogEntry(transaction, childID);
+            const auto ref = common::PartitionRef{nodeEntry->getTableID(),
+                child->ptrCast<NodeTableCatalogEntry>()->getPartitionIndex()};
+            common::PartitionHandle handle = nullptr;
+            if (hooks == nullptr || hooks->locate == nullptr ||
+                !hooks->locate(hooks->context, ref, &handle)) {
+                expanded.insert(child);
+                continue;
+            }
+            anyClaimed = true;
+            claimedParentName = nodeEntry->getName();
+            if (hooks->bindScan == nullptr) {
+                throw BinderException(
+                    std::format("Partition index {} of table {} is routed remotely, but the "
+                                "partition routing hooks do not provide bindScan.",
+                        ref.partitionIndex, nodeEntry->getName()));
+            }
+            common::PartitionScanSpec spec;
+            if (!hooks->bindScan(hooks->context, ref, handle, &spec)) {
+                throw BinderException(std::format("Partition routing hooks did not provide a "
+                                                  "scan for partition index {} of table {}.",
+                    ref.partitionIndex, nodeEntry->getName()));
+            }
+            if (spec.scanFunction == nullptr || spec.createBindData == nullptr) {
+                throw BinderException(std::format("Partition routing hooks provided an invalid "
+                                                  "scan for partition index {} of table {}.",
+                    ref.partitionIndex, nodeEntry->getName()));
+            }
+            // Attach the wrapper's scan to a clone of the child entry so the substitute keeps
+            // the parent's schema, table ID, and partition lineage.
+            auto patched = child->copy();
+            auto* patchedNode = patched->ptrCast<NodeTableCatalogEntry>();
+            patchedNode->setScanFunction(*spec.scanFunction);
+            patchedNode->setCreateBindDataFunc(
+                [createBindData = std::move(spec.createBindData)](main::ClientContext*,
+                    const std::string& nodeUniqueName) { return createBindData(nodeUniqueName); });
+            if (patchedNode->getBoundScanInfo(clientContext, "") == nullptr) {
+                throw BinderException(std::format(
+                    "The scan function provided by the partition routing hooks for partition "
+                    "index {} of table {} did not produce a valid scan.",
+                    ref.partitionIndex, nodeEntry->getName()));
+            }
+            // Partitions routed to the same wrapper scan share one substitute entry, so a
+            // fully-claimed parent collapses to a single entry in the set below.
+            expanded.insert(
+                retainPartitionedScanEntry(std::move(patched), clientContext, spec.scanFunction));
+        }
+    }
+    if (anyClaimed && expanded.size() > 1) {
+        throw BinderException(std::format(
+            "Table {}: scanning a mix of locally stored and remotely routed partitions is not "
+            "supported. A routing wrapper must claim either all or none of a scanned parent's "
+            "partitions and expose them as one consolidated scan entry.",
+            claimedParentName));
+    }
+    return expanded;
+}
+
 std::pair<std::vector<TableCatalogEntry*>, std::unordered_map<TableCatalogEntry*, std::string>>
 Binder::bindNodeTableEntries(const std::vector<std::string>& tableNames) const {
     auto transaction = transaction::Transaction::Get(*clientContext);
-    auto catalog = Catalog::Get(*clientContext);
     auto useInternal = clientContext->useInternalCatalogEntry();
+    // Select the base catalog for unqualified/anonymous patterns: active graph, then
+    // default database (USE db), then main.
+    auto dbManager = main::DatabaseManager::Get(*clientContext);
+    catalog::Catalog* catalog = nullptr;
+    std::string activeDbName;
+    if (auto defaultGraphCatalog = dbManager->getDefaultGraphCatalog();
+        defaultGraphCatalog != nullptr) {
+        catalog = defaultGraphCatalog;
+    } else if (dbManager->hasDefaultDatabase() &&
+               isLbugDatabase(dbManager, dbManager->getDefaultDatabase())) {
+        activeDbName = dbManager->getDefaultDatabase();
+        catalog = dbManager->getAttachedDatabase(activeDbName)->getCatalog();
+    } else {
+        catalog = Catalog::Get(*clientContext);
+    }
     table_catalog_entry_set_t entrySet;
     std::unordered_map<TableCatalogEntry*, std::string> dbNames;
-    if (tableNames.empty()) { // Rewrite as all node tables in database.
+    if (tableNames.empty()) { // Rewrite as all node tables in the active catalog.
         for (auto entry : catalog->getNodeTableEntries(transaction, useInternal)) {
             entrySet.insert(entry);
+            if (!activeDbName.empty()) {
+                dbNames[entry] = activeDbName;
+            }
         }
-        auto dbManager = main::DatabaseManager::Get(*clientContext);
         for (auto attachedDB : dbManager->getAttachedDatabases()) {
             auto attachedCatalog = attachedDB->getCatalog();
             for (auto entry : attachedCatalog->getTableEntries(transaction, useInternal)) {
@@ -753,6 +961,8 @@ Binder::bindNodeTableEntries(const std::vector<std::string>& tableNames) const {
             }
         }
     }
+    // Expand partitioned parents into their partition subgraphs for scanning.
+    entrySet = expandPartitionedNodeTables(catalog, transaction, entrySet, clientContext);
     return {sortEntries(entrySet), std::move(dbNames)};
 }
 
@@ -782,20 +992,26 @@ std::pair<TableCatalogEntry*, std::string> Binder::bindNodeTableEntry(
         }
         return {attachedCatalog->getTableCatalogEntry(transaction, tableName, useInternal), dbName};
     } else {
-        // Check if there's a default graph set and use its catalog
+        // Check if there's a default graph set and use its catalog; otherwise fall
+        // back to the default database (USE db), then main.
         auto dbManager = main::DatabaseManager::Get(*clientContext);
         catalog::Catalog* catalog = nullptr;
-        auto defaultGraphCatalog = dbManager->getDefaultGraphCatalog();
-        if (defaultGraphCatalog != nullptr) {
+        std::string resolvedDbName;
+        if (auto defaultGraphCatalog = dbManager->getDefaultGraphCatalog();
+            defaultGraphCatalog != nullptr) {
             catalog = defaultGraphCatalog;
+        } else if (dbManager->hasDefaultDatabase() &&
+                   isLbugDatabase(dbManager, dbManager->getDefaultDatabase())) {
+            resolvedDbName = dbManager->getDefaultDatabase();
+            catalog = dbManager->getAttachedDatabase(resolvedDbName)->getCatalog();
         } else {
             catalog = Catalog::Get(*clientContext);
         }
-        // Unqualified name: only search main catalog
+        // Unqualified name: only search the active catalog
         // Foreign tables require qualified names (db.table) to avoid ambiguity
         bool hasTable = catalog->containsTable(transaction, name, useInternal);
         if (hasTable) {
-            return {catalog->getTableCatalogEntry(transaction, name, useInternal), ""};
+            return {catalog->getTableCatalogEntry(transaction, name, useInternal), resolvedDbName};
         }
         // Check if this is an ANY graph (has _nodes table)
         // In ANY graphs, labels are stored dynamically in the _nodes table
@@ -807,57 +1023,88 @@ std::pair<TableCatalogEntry*, std::string> Binder::bindNodeTableEntry(
     }
 }
 
-std::vector<TableCatalogEntry*> Binder::bindRelGroupEntries(
-    const std::vector<std::string>& tableNames) const {
+std::pair<std::vector<TableCatalogEntry*>, std::unordered_map<TableCatalogEntry*, std::string>>
+Binder::bindRelGroupEntries(const std::vector<std::string>& tableNames,
+    const std::string& contextDbName) const {
     auto transaction = transaction::Transaction::Get(*clientContext);
     auto useInternal = clientContext->useInternalCatalogEntry();
 
-    // Check if there's a default graph set and use its catalog
+    // Resolve the catalog for unqualified names / the anonymous case. An explicit
+    // context (all endpoint nodes from the same attached database) wins; otherwise
+    // fall back to the active graph, then the default database (USE db), then main.
     auto dbManager = main::DatabaseManager::Get(*clientContext);
     catalog::Catalog* catalog = nullptr;
-    auto defaultGraphCatalog = dbManager->getDefaultGraphCatalog();
-    if (defaultGraphCatalog != nullptr) {
+    std::string activeDbName;
+    if (!contextDbName.empty()) {
+        activeDbName = contextDbName;
+    } else if (auto defaultGraphCatalog = dbManager->getDefaultGraphCatalog();
+               defaultGraphCatalog != nullptr) {
         catalog = defaultGraphCatalog;
+    } else if (dbManager->hasDefaultDatabase() &&
+               isLbugDatabase(dbManager, dbManager->getDefaultDatabase())) {
+        activeDbName = dbManager->getDefaultDatabase();
     } else {
         catalog = Catalog::Get(*clientContext);
     }
+    if (!activeDbName.empty()) {
+        catalog = dbManager->getAttachedDatabase(activeDbName)->getCatalog();
+    }
 
     table_catalog_entry_set_t entrySet;
-    if (tableNames.empty()) { // Rewrite as all rel groups in database.
+    std::unordered_map<TableCatalogEntry*, std::string> dbNames;
+    if (tableNames.empty()) { // Rewrite as all rel groups in the active catalog.
         for (auto entry : catalog->getRelGroupEntries(transaction, useInternal)) {
             entrySet.insert(entry);
+            if (!activeDbName.empty()) {
+                dbNames[entry] = activeDbName;
+            }
         }
-        // Stop-gap: skip attached rel groups; physical routing for rel patterns
-        // over attached databases is not yet implemented. Unlabeled ()-[r]->()
-        // would otherwise crash or silently read the wrong table on ID overlap.
-        // TODO: implement full dbName plumbing for rel patterns (BUG 6).
     } else {
         for (auto& name : tableNames) {
-            // Check for qualified rel name (db.table) — not yet supported.
-            if (name.find('.') != std::string::npos) {
-                throw BinderException(
-                    "Qualified relationship patterns (e.g. -[r:db.rel]->) are not supported yet.");
+            std::string dbName;
+            std::string tableName = name;
+            auto dotPos = name.find('.');
+            if (dotPos != std::string::npos) {
+                dbName = name.substr(0, dotPos);
+                tableName = name.substr(dotPos + 1);
             }
-            if (catalog->containsTable(transaction, name)) {
-                auto entry = catalog->getTableCatalogEntry(transaction, name, useInternal);
+            // Qualified name (db.rel) resolves in that attached database's catalog;
+            // unqualified names resolve in the active catalog selected above.
+            catalog::Catalog* targetCatalog = catalog;
+            std::string resolvedDbName = activeDbName;
+            if (!dbName.empty()) {
+                auto* attachedDB = dbManager->getAttachedDatabase(dbName);
+                targetCatalog = attachedDB->getCatalog();
+                resolvedDbName = dbName;
+            }
+            if (targetCatalog->containsTable(transaction, tableName, useInternal)) {
+                auto entry =
+                    targetCatalog->getTableCatalogEntry(transaction, tableName, useInternal);
                 if (entry->getType() != CatalogEntryType::REL_GROUP_ENTRY) {
                     throw BinderException(std::format(
                         "Cannot bind {} as a relationship pattern label.", entry->getName()));
                 }
                 entrySet.insert(entry);
+                if (!resolvedDbName.empty()) {
+                    dbNames[entry] = resolvedDbName;
+                }
             } else {
                 // Check if this is an ANY graph (has _edges table)
                 // In ANY graphs, labels are stored dynamically in the _edges table
-                if (catalog->containsTable(transaction, "_edges", useInternal)) {
-                    auto entry = catalog->getTableCatalogEntry(transaction, "_edges", useInternal);
+                if (targetCatalog->containsTable(transaction, "_edges", useInternal)) {
+                    auto entry =
+                        targetCatalog->getTableCatalogEntry(transaction, "_edges", useInternal);
                     entrySet.insert(entry);
+                    if (!resolvedDbName.empty()) {
+                        dbNames[entry] = resolvedDbName;
+                    }
                 } else {
                     throw BinderException(std::format("Table {} does not exist.", name));
                 }
             }
         }
     }
-    return sortEntries(entrySet);
+    return {sortEntries(entrySet), std::move(dbNames)};
 }
 
 } // namespace binder

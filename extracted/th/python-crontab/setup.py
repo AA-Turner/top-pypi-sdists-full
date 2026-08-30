@@ -35,7 +35,7 @@ RELEASE = "1"
 
 setup(
     name             = 'python-crontab',
-    version          = '3.3.0',
+    version          = '3.4.0',
     release          = RELEASE,
     description      = 'Python Crontab API',
     long_description = description,

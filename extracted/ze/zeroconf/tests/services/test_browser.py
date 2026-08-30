@@ -27,14 +27,16 @@ from zeroconf import (
 )
 from zeroconf._services import ServiceStateChange
 from zeroconf._services.browser import ServiceBrowser, _ScheduledPTRQuery
-from zeroconf._services.info import ServiceInfo
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncZeroconf
 
 from .. import (
     QuestionHistoryWithoutSuppression,
     _inject_response,
+    _restamp_cache,
+    _wait_for,
     _wait_for_start,
     has_working_ipv6,
+    make_service_info,
     mock_incoming_msg,
     time_changed_millis,
 )
@@ -54,11 +56,10 @@ def teardown_module():
         log.setLevel(original_logging_level)
 
 
-def test_service_browser_cancel_multiple_times():
+def test_service_browser_cancel_multiple_times(zc: Zeroconf) -> None:
     """Test we can cancel a ServiceBrowser multiple times before close."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     # start a browser
     type_ = "_hap._tcp.local."
 
@@ -73,14 +74,11 @@ def test_service_browser_cancel_multiple_times():
     browser.cancel()
     browser.cancel()
 
-    zc.close()
 
-
-def test_service_browser_cancel_context_manager():
+def test_service_browser_cancel_context_manager(zc: Zeroconf) -> None:
     """Test we can cancel a ServiceBrowser with it being used as a context manager."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     # start a browser
     type_ = "_hap._tcp.local."
 
@@ -101,8 +99,6 @@ def test_service_browser_cancel_context_manager():
     asyncio.run_coroutine_threadsafe(asyncio.sleep(0), zc.loop).result()
 
     assert cast(bool, browser.done) is True
-
-    zc.close()
 
 
 def test_service_browser_cancel_multiple_times_after_close():
@@ -176,7 +172,7 @@ class TestServiceBrowser(unittest.TestCase):
         service_type = "_type._tcp.local."
         service_server = "ash-1.local."
         service_text = b"path=/~matt1/"
-        service_address = "10.0.1.2"
+        service_address = "10.7.4.2"
         service_v6_address = "2001:db8::1"
         service_v6_second_address = "6001:db8::1"
 
@@ -304,7 +300,7 @@ class TestServiceBrowser(unittest.TestCase):
 
             # service SRV updated
             service_updated_event.clear()
-            service_server = "ash-2.local."
+            service_server = "spare-rig.local."
             _inject_response(zeroconf, mock_record_update_incoming_msg(r.ServiceStateChange.Updated))
             service_updated_event.wait(wait_time)
             assert service_added_count == 1
@@ -333,7 +329,7 @@ class TestServiceBrowser(unittest.TestCase):
 
             # service A updated
             service_updated_event.clear()
-            service_address = "10.0.1.3"
+            service_address = "10.7.4.3"
             # Verify we match on uppercase
             service_server = service_server.upper()
             _inject_response(zeroconf, mock_record_update_incoming_msg(r.ServiceStateChange.Updated))
@@ -346,7 +342,7 @@ class TestServiceBrowser(unittest.TestCase):
             service_updated_event.clear()
             service_server = "ash-3.local."
             service_text = b"path=/~matt3/"
-            service_address = "10.0.1.3"
+            service_address = "10.7.4.3"
             _inject_response(zeroconf, mock_record_update_incoming_msg(r.ServiceStateChange.Updated))
             service_updated_event.wait(wait_time)
             assert service_added_count == 1
@@ -437,7 +433,7 @@ class TestServiceBrowserMultipleTypes(unittest.TestCase):
                 if percent == const._EXPIRE_REFRESH_TIME_PERCENT:
                     called_with_refresh_time_check = True
                     return 0
-                return self.created + (percent * self.ttl * 10)
+                return self.created + percent * self.ttl * 10
 
             # Set an expire time that will force a refresh
             with patch("zeroconf.DNSRecord.get_expiration_time", new=_mock_get_expiration_time):
@@ -524,7 +520,6 @@ def test_first_query_delay():
     first_query_time = None
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT):
-        """Sends an outgoing packet."""
         nonlocal first_query_time
         if first_query_time is None:
             first_query_time = current_time_millis()
@@ -578,7 +573,6 @@ async def test_asking_default_is_asking_qm_questions_after_the_first_qu(quick_ti
     questions: list[list[DNSQuestion]] = []
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT, v6_flow_scope=()):
-        """Sends an outgoing packet."""
         pout = r.DNSIncoming(out.packets()[0])
         questions.append(pout.questions)
         got_query.set()
@@ -597,16 +591,7 @@ async def test_asking_default_is_asking_qm_questions_after_the_first_qu(quick_ti
         service_removed = asyncio.Event()
 
         browser = AsyncServiceBrowser(zeroconf_browser, type_, [on_service_state_change])
-        info = ServiceInfo(
-            type_,
-            registration_name,
-            80,
-            0,
-            0,
-            {"path": "/~paulsm/"},
-            "ash-2.local.",
-            addresses=[socket.inet_aton("10.0.1.2")],
-        )
+        info = make_service_info(type_, registration_name, properties={"path": "/healthz/"})
         task = await aio_zeroconf_registrar.async_register_service(info)
         await task
         loop = asyncio.get_running_loop()
@@ -680,7 +665,6 @@ async def test_ttl_refresh_cancelled_rescue_query(quick_timing: None) -> None:
     packets = []
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT, v6_flow_scope=()):
-        """Sends an outgoing packet."""
         pout = r.DNSIncoming(out.packets()[0])
         packets.append(pout)
         got_query.set()
@@ -699,16 +683,7 @@ async def test_ttl_refresh_cancelled_rescue_query(quick_timing: None) -> None:
         service_removed = asyncio.Event()
 
         browser = AsyncServiceBrowser(zeroconf_browser, type_, [on_service_state_change])
-        info = ServiceInfo(
-            type_,
-            registration_name,
-            80,
-            0,
-            0,
-            {"path": "/~paulsm/"},
-            "ash-2.local.",
-            addresses=[socket.inet_aton("10.0.1.2")],
-        )
+        info = make_service_info(type_, registration_name, properties={"path": "/healthz/"})
         task = await aio_zeroconf_registrar.async_register_service(info)
         await task
         loop = asyncio.get_running_loop()
@@ -773,7 +748,6 @@ async def test_asking_qm_questions():
     first_outgoing = None
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT):
-        """Sends an outgoing packet."""
         nonlocal first_outgoing
         if first_outgoing is None:
             first_outgoing = out
@@ -813,7 +787,6 @@ async def test_asking_qu_questions():
     first_outgoing = None
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT):
-        """Sends an outgoing packet."""
         nonlocal first_outgoing
         if first_outgoing is None:
             first_outgoing = out
@@ -839,12 +812,10 @@ async def test_asking_qu_questions():
             await aiozc.async_close()
 
 
-def test_legacy_record_update_listener(quick_timing: None) -> None:
+def test_legacy_record_update_listener(zc: Zeroconf, quick_timing: None) -> None:
     """Test a RecordUpdateListener that does not implement update_records."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
     with pytest.raises(RuntimeError):
         r.RecordUpdateListener().update_record(
             zc,
@@ -873,16 +844,7 @@ def test_legacy_record_update_listener(quick_timing: None) -> None:
     name = "MyTestHome"
     browser = ServiceBrowser(zc, type_, [on_service_state_change])
 
-    info_service = ServiceInfo(
-        type_,
-        f"{name}.{type_}",
-        80,
-        0,
-        0,
-        {"path": "/~paulsm/"},
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    info_service = make_service_info(type_, f"{name}.{type_}", properties={"path": "/healthz/"})
 
     zc.register_service(info_service)
 
@@ -897,14 +859,11 @@ def test_legacy_record_update_listener(quick_timing: None) -> None:
     # Removing a second time should not throw
     zc.remove_listener(listener)
 
-    zc.close()
 
-
-def test_service_browser_is_aware_of_port_changes():
+def test_service_browser_is_aware_of_port_changes(zc: Zeroconf) -> None:
     """Test that the ServiceBrowser is aware of port changes."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     # start a browser
     type_ = "_hap._tcp.local."
     registration_name = f"xxxyyy.{type_}"
@@ -919,10 +878,10 @@ def test_service_browser_is_aware_of_port_changes():
 
     browser = ServiceBrowser(zc, type_, [on_service_state_change])
 
-    desc = {"path": "/~paulsm/"}
-    address_parsed = "10.0.1.2"
+    desc = {"path": "/healthz/"}
+    address_parsed = "10.7.4.2"
     address = socket.inet_aton(address_parsed)
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, "ash-2.local.", addresses=[address])
+    info = make_service_info(type_, registration_name, properties=desc, addresses=[address])
 
     _inject_response(
         zc,
@@ -960,14 +919,11 @@ def test_service_browser_is_aware_of_port_changes():
     assert service_info.port == 400
     browser.cancel()
 
-    zc.close()
 
-
-def test_service_browser_listeners_update_service():
+def test_service_browser_listeners_update_service(zc: Zeroconf) -> None:
     """Test that the ServiceBrowser ServiceListener that implements update_service."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     # start a browser
     type_ = "_hap._tcp.local."
     registration_name = f"xxxyyy.{type_}"
@@ -990,10 +946,10 @@ def test_service_browser_listeners_update_service():
 
     browser = r.ServiceBrowser(zc, type_, None, listener)
 
-    desc = {"path": "/~paulsm/"}
-    address_parsed = "10.0.1.2"
+    desc = {"path": "/healthz/"}
+    address_parsed = "10.7.4.2"
     address = socket.inet_aton(address_parsed)
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, "ash-2.local.", addresses=[address])
+    info = make_service_info(type_, registration_name, properties=desc, addresses=[address])
 
     _inject_response(
         zc,
@@ -1022,14 +978,11 @@ def test_service_browser_listeners_update_service():
     ]
     browser.cancel()
 
-    zc.close()
 
-
-def test_service_browser_listeners_no_update_service():
+def test_service_browser_listeners_no_update_service(zc: Zeroconf) -> None:
     """A listener that ignores update events records only add/remove callbacks."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     # start a browser
     type_ = "_hap._tcp.local."
     registration_name = f"xxxyyy.{type_}"
@@ -1051,10 +1004,10 @@ def test_service_browser_listeners_no_update_service():
 
     browser = r.ServiceBrowser(zc, type_, None, listener)
 
-    desc = {"path": "/~paulsm/"}
-    address_parsed = "10.0.1.2"
+    desc = {"path": "/healthz/"}
+    address_parsed = "10.7.4.2"
     address = socket.inet_aton(address_parsed)
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, "ash-2.local.", addresses=[address])
+    info = make_service_info(type_, registration_name, properties=desc, addresses=[address])
 
     _inject_response(
         zc,
@@ -1082,12 +1035,9 @@ def test_service_browser_listeners_no_update_service():
     ]
     browser.cancel()
 
-    zc.close()
 
-
-def test_service_browser_nsec_record_does_not_trigger_update():
+def test_service_browser_nsec_record_does_not_trigger_update(zc: Zeroconf) -> None:
     """NSEC records assert non-existence and must not fire ServiceStateChange.Updated."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     type_ = "_hap._tcp.local."
     registration_name = f"xxxyyy.{type_}"
     callbacks: list[tuple[str, str, str]] = []
@@ -1110,9 +1060,9 @@ def test_service_browser_nsec_record_does_not_trigger_update():
     listener = MyServiceListener()
     browser = r.ServiceBrowser(zc, type_, None, listener)
     try:
-        desc = {"path": "/~paulsm/"}
-        address = socket.inet_aton("10.0.1.2")
-        info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, "ash-2.local.", addresses=[address])
+        desc = {"path": "/healthz/"}
+        address = socket.inet_aton("10.7.4.2")
+        info = make_service_info(type_, registration_name, properties=desc, addresses=[address])
 
         _inject_response(
             zc,
@@ -1149,24 +1099,21 @@ def test_service_browser_nsec_record_does_not_trigger_update():
         assert callbacks == [("add", type_, registration_name)]
     finally:
         browser.cancel()
-        zc.close()
 
 
-def test_service_browser_uses_non_strict_names():
+def test_service_browser_uses_non_strict_names(zc: Zeroconf) -> None:
     """Verify we can look for technically invalid names as we cannot change what others do."""
 
     # dummy service callback
     def on_service_state_change(zeroconf, service_type, state_change, name):
         pass
 
-    zc = r.Zeroconf(interfaces=["127.0.0.1"])
     browser = ServiceBrowser(zc, ["_tivo-videostream._tcp.local."], [on_service_state_change])
     browser.cancel()
 
     # Still fail on completely invalid
     with pytest.raises(r.BadTypeInNameException):
         browser = ServiceBrowser(zc, ["tivo-videostream._tcp.local."], [on_service_state_change])
-    zc.close()
 
 
 def test_group_ptr_queries_with_known_answers():
@@ -1257,7 +1204,6 @@ async def test_query_scheduler():
     sends: list[r.DNSIncoming] = []
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT, v6_flow_scope=()):
-        """Sends an outgoing packet."""
         pout = r.DNSIncoming(out.packets()[0])
         sends.append(pout)
 
@@ -1350,7 +1296,6 @@ async def test_query_scheduler_rescue_records():
     sends: list[r.DNSIncoming] = []
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT, v6_flow_scope=()):
-        """Sends an outgoing packet."""
         pout = r.DNSIncoming(out.packets()[0])
         sends.append(pout)
 
@@ -1415,11 +1360,10 @@ async def test_query_scheduler_rescue_records():
     await aiozc.async_close()
 
 
-def test_service_browser_matching():
+def test_service_browser_matching(zc: Zeroconf) -> None:
     """Test that the ServiceBrowser matching does not match partial names."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     # start a browser
     type_ = "_http._tcp.local."
     registration_name = f"xxxyyy.{type_}"
@@ -1444,19 +1388,12 @@ def test_service_browser_matching():
 
     browser = r.ServiceBrowser(zc, type_, None, listener)
 
-    desc = {"path": "/~paulsm/"}
-    address_parsed = "10.0.1.2"
+    desc = {"path": "/healthz/"}
+    address_parsed = "10.7.4.2"
     address = socket.inet_aton(address_parsed)
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, "ash-2.local.", addresses=[address])
-    should_not_match = ServiceInfo(
-        not_match_type_,
-        not_match_registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[address],
+    info = make_service_info(type_, registration_name, properties=desc, addresses=[address])
+    should_not_match = make_service_info(
+        not_match_type_, not_match_registration_name, properties=desc, addresses=[address]
     )
 
     _inject_response(
@@ -1502,8 +1439,6 @@ def test_service_browser_matching():
     ]
     browser.cancel()
 
-    zc.close()
-
 
 @patch.object(_engine, "_CACHE_CLEANUP_INTERVAL", 0.01)
 def test_service_browser_expire_callbacks():
@@ -1532,20 +1467,17 @@ def test_service_browser_expire_callbacks():
 
     browser = r.ServiceBrowser(zc, type_, None, listener)
 
-    desc = {"path": "/~paul2/"}
-    address_parsed = "10.0.1.3"
+    desc = {"path": "/status1/"}
+    address_parsed = "10.7.4.3"
     address = socket.inet_aton(address_parsed)
-    info = ServiceInfo(
+    info = make_service_info(
         type_,
         registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "newname-2.local.",
+        properties=desc,
+        server="newname-2.local.",
+        addresses=[address],
         host_ttl=1,
         other_ttl=1,
-        addresses=[address],
     )
 
     _inject_response(
@@ -1560,16 +1492,10 @@ def test_service_browser_expire_callbacks():
         ),
     )
     # Force the ttl to be 1 second
-    now = current_time_millis()
-    for cache_record in list(zc.cache.cache.values()):
-        for record in cache_record.values():
-            zc.cache._async_set_created_ttl(record, now, 1)
+    _restamp_cache(zc, current_time_millis(), 1)
 
     # Wait for the add callback to fire from the original inject_response.
-    for _ in range(30):
-        time.sleep(0.01)
-        if len(callbacks) == 1:
-            break
+    _wait_for(lambda: len(callbacks) >= 1)
 
     info.port = 400
     info._dns_service_cache = None  # we are mutating the record so clear the cache
@@ -1579,10 +1505,7 @@ def test_service_browser_expire_callbacks():
         mock_incoming_msg([info.dns_service()]),
     )
 
-    for _ in range(30):
-        time.sleep(0.01)
-        if len(callbacks) == 2:
-            break
+    _wait_for(lambda: len(callbacks) >= 2)
 
     assert callbacks == [
         ("add", type_, registration_name),
@@ -1595,15 +1518,9 @@ def test_service_browser_expire_callbacks():
     # Going through `_async_set_created_ttl` updates the expiration
     # heap; mutating `record.created` directly would leave the heap
     # entry pointing at the original `when` so the reaper never wakes.
-    past = current_time_millis() - 2000
-    for cache_record in list(zc.cache.cache.values()):
-        for record in list(cache_record.values()):
-            zc.cache._async_set_created_ttl(record, past, 1)
+    _restamp_cache(zc, current_time_millis() - 2000, 1)
 
-    for _ in range(30):
-        time.sleep(0.01)
-        if len(callbacks) == 3:
-            break
+    _wait_for(lambda: len(callbacks) >= 3)
 
     assert callbacks == [
         ("add", type_, registration_name),
@@ -1664,7 +1581,6 @@ async def test_close_zeroconf_without_browser_before_start_up_queries(quick_timi
     sends: list[r.DNSIncoming] = []
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT, v6_flow_scope=()):
-        """Sends an outgoing packet."""
         pout = r.DNSIncoming(out.packets()[0])
         sends.append(pout)
 
@@ -1680,16 +1596,7 @@ async def test_close_zeroconf_without_browser_before_start_up_queries(quick_timi
         service_added = asyncio.Event()
 
         browser = AsyncServiceBrowser(zeroconf_browser, type_, [on_service_state_change])
-        info = ServiceInfo(
-            type_,
-            registration_name,
-            80,
-            0,
-            0,
-            {"path": "/~paulsm/"},
-            "ash-2.local.",
-            addresses=[socket.inet_aton("10.0.1.2")],
-        )
+        info = make_service_info(type_, registration_name, properties={"path": "/healthz/"})
         task = await aio_zeroconf_registrar.async_register_service(info)
         await task
         loop = asyncio.get_running_loop()
@@ -1732,7 +1639,6 @@ async def test_close_zeroconf_without_browser_after_start_up_queries(quick_timin
     sends: list[r.DNSIncoming] = []
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT, v6_flow_scope=()):
-        """Sends an outgoing packet."""
         pout = r.DNSIncoming(out.packets()[0])
         sends.append(pout)
 
@@ -1748,16 +1654,7 @@ async def test_close_zeroconf_without_browser_after_start_up_queries(quick_timin
         service_added = asyncio.Event()
         browser = AsyncServiceBrowser(zeroconf_browser, type_, [on_service_state_change])
         expected_ttl = const._DNS_OTHER_TTL
-        info = ServiceInfo(
-            type_,
-            registration_name,
-            80,
-            0,
-            0,
-            {"path": "/~paulsm/"},
-            "ash-2.local.",
-            addresses=[socket.inet_aton("10.0.1.2")],
-        )
+        info = make_service_info(type_, registration_name, properties={"path": "/healthz/"})
         task = await aio_zeroconf_registrar.async_register_service(info)
         await task
         loop = asyncio.get_running_loop()

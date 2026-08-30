@@ -46,6 +46,13 @@ logger = logging.getLogger(__name__)
 # overflowed the previous 20MB cap (#1721).
 MAX_WS_MESSAGE_BYTES = 64 * 1024 * 1024
 
+# How long :meth:`HomeAssistantWebSocketClient.send_command` waits for a reply
+# when the caller names no ``_wait_timeout``. Named rather than inlined because
+# callers that schedule retries have to budget around it: a caller whose retry
+# delay assumes a fast failure will start its next attempt one whole timeout
+# later than it planned when the command hangs instead.
+DEFAULT_COMMAND_WAIT_TIMEOUT = 30.0
+
 
 def _extract_ws_error(error: Any) -> tuple[str, str | None]:
     """Split an HA WebSocket ``error`` payload into ``(message, code)``.
@@ -104,10 +111,15 @@ class WebSocketConnectionState:
         return self._pending_requests.pop(message_id, None)
 
     def cancel_pending_request(self, message_id: int) -> None:
-        """Cancel a pending request future if it exists."""
+        """Remove a pending request future, cancelling it or draining its exception."""
         future = self._pending_requests.pop(message_id, None)
         if future and not future.done():
             future.cancel()
+        elif future and not future.cancelled():
+            # A done future may hold the exception reset_connection set on it;
+            # retrieve it here so dropping the last reference doesn't log an
+            # ERROR-level "Future exception was never retrieved" at GC.
+            future.exception()
 
     def register_event_response(
         self, message_id: int
@@ -126,10 +138,13 @@ class WebSocketConnectionState:
         return self._event_responses.pop(message_id, None)
 
     def cancel_event_response(self, message_id: int) -> None:
-        """Cancel a stored event future."""
+        """Remove a pending event future, cancelling it or draining its exception."""
         future = self._event_responses.pop(message_id, None)
         if future and not future.done():
             future.cancel()
+        elif future and not future.cancelled():
+            # Same GC guard as cancel_pending_request above.
+            future.exception()
 
     def store_auth_message(self, message_type: str, data: dict[str, Any]) -> None:
         """Store an authentication handshake message."""
@@ -621,10 +636,11 @@ class HomeAssistantWebSocketClient:
         Args:
             command_type: Type of command to send
             _wait_timeout: Seconds to wait for the response (consumed from
-                ``kwargs``, not forwarded to Home Assistant). Defaults to 30s,
-                which suits fast commands; long-running ones (e.g. a
-                ``supervisor/api`` add-on install) must raise this so the
-                client doesn't give up before Home Assistant replies.
+                ``kwargs``, not forwarded to Home Assistant). Defaults to
+                ``DEFAULT_COMMAND_WAIT_TIMEOUT``, which suits fast commands;
+                long-running ones (e.g. a ``supervisor/api`` add-on install)
+                must raise this so the client doesn't give up before Home
+                Assistant replies.
             **kwargs: Command parameters (merged into the outgoing message)
 
         Returns:
@@ -644,7 +660,7 @@ class HomeAssistantWebSocketClient:
         # break that call shape under mypy. The leading underscore keeps it out
         # of the HA message namespace — HA WebSocket fields never start with
         # one — so it can never shadow a real command field when popped.
-        wait_timeout: float = kwargs.pop("_wait_timeout", 30.0)
+        wait_timeout: float = kwargs.pop("_wait_timeout", DEFAULT_COMMAND_WAIT_TIMEOUT)
 
         message_id = self.get_next_message_id()
         message = {"id": message_id, "type": command_type, **kwargs}
@@ -662,6 +678,11 @@ class HomeAssistantWebSocketClient:
             # consumer treats it like a post-send drop (ambiguous -> partial, never
             # re-fired), NOT as never-sent; only the readiness guard above is provably
             # never-sent. Still cancel the pending future so it cannot leak.
+            self.cancel_pending_response(message_id)
+            raise
+        except BaseException:
+            # Cancellation mid-send: same leak potential as the response-wait
+            # clause below — drop the registered future before propagating.
             self.cancel_pending_response(message_id)
             raise
 
@@ -697,6 +718,15 @@ class HomeAssistantWebSocketClient:
             self.cancel_pending_response(message_id)
             raise HomeAssistantCommandTimeout("Command timeout") from e
         except Exception:
+            self.cancel_pending_response(message_id)
+            raise
+        except BaseException:
+            # Cancellation (or another BaseException) while awaiting the
+            # response: without this clause the registered future stays in
+            # _pending_requests until a response with this id arrives — which a
+            # hung handler never sends — leaking one entry per cancelled call
+            # (e.g. the ha_search dashboards leg cancelled on a component-leg
+            # failure, #2291).
             self.cancel_pending_response(message_id)
             raise
 
@@ -735,6 +765,12 @@ class HomeAssistantWebSocketClient:
             self.cancel_pending_response(message_id)
             self.cancel_event_response(message_id)
             raise
+        except BaseException:
+            # Cancellation mid-send: skips the clause above and would leave BOTH
+            # registrations behind — drop them before propagating.
+            self.cancel_pending_response(message_id)
+            self.cancel_event_response(message_id)
+            raise
 
         try:
             result_response = await asyncio.wait_for(
@@ -758,7 +794,12 @@ class HomeAssistantWebSocketClient:
 
         try:
             event_response = await asyncio.wait_for(event_future, timeout=wait_timeout)
-        except TimeoutError:
+        except BaseException:
+            # A cancelled caller leaves the event registration in
+            # _event_responses until an event with this id arrives, which
+            # nothing sends once the caller is gone. The cleanup is
+            # exception-type-independent and the original exception re-raises
+            # unchanged.
             self.cancel_event_response(message_id)
             raise
 
@@ -810,10 +851,19 @@ class HomeAssistantWebSocketClient:
         except Exception:
             self.cancel_pending_response(message_id)
             raise
+        except BaseException:
+            # Cancellation mid-send: skips the clause above and would leave the
+            # pending future registered — drop it before propagating.
+            self.cancel_pending_response(message_id)
+            raise
 
         try:
             response = await asyncio.wait_for(future, timeout=30.0)
-        except TimeoutError:
+        except BaseException:
+            # A cancelled caller leaks the pending future, which nothing ever
+            # resolves once the caller is gone. The cleanup is
+            # exception-type-independent and the original exception re-raises
+            # unchanged.
             self.cancel_pending_response(message_id)
             raise
 
@@ -905,10 +955,21 @@ class HomeAssistantWebSocketClient:
             self._state.unregister_subscription_queue(message_id)
             self.cancel_pending_response(message_id)
             raise
+        except BaseException:
+            # Cancellation mid-send: skips the clause above and would leave BOTH
+            # the queue and the pending future registered — the queue never
+            # drains and buffers every later event for this id forever.
+            self._state.unregister_subscription_queue(message_id)
+            self.cancel_pending_response(message_id)
+            raise
 
         try:
             response = await asyncio.wait_for(result_future, timeout=timeout)
-        except TimeoutError:
+        except BaseException:
+            # A cancelled caller leaks the pending future AND the subscription
+            # queue, which keeps accumulating events with no reader. The
+            # cleanup is exception-type-independent and the original exception
+            # re-raises unchanged.
             self._state.unregister_subscription_queue(message_id)
             self.cancel_pending_response(message_id)
             raise

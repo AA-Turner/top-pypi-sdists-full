@@ -124,6 +124,8 @@ __all__ = [  # noqa: RUF022
     "ListHeader",
     "ListItem",
     "ListMixin",
+    "MAX_MD_COLUMNS",
+    "MAX_MD_LINES",
     "Manifest",
     "Meta",
     "MetaAutoReload",
@@ -189,6 +191,7 @@ __all__ = [  # noqa: RUF022
     "Tab",
     "TabStopStyle",
     "Table",
+    "TableMarkdown",
     "TableNamedExpressions",
     "Text",
     "TextChange",
@@ -270,9 +273,10 @@ from .config_elements import (
     ConfigItemMapNamed,
     ConfigItemSet,
 )
+from .const import MAX_MD_COLUMNS, MAX_MD_LINES
 from .container import Container
 from .content import Content
-from .document import Document
+from .document import Document, TableMarkdown
 from .draw_page import DrawPage
 from .element import FIRST_CHILD, LAST_CHILD, NEXT_SIBLING, PREV_SIBLING, Element, EText
 from .element_typed import ElementTyped

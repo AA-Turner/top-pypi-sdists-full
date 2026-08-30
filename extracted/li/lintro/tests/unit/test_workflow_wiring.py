@@ -368,8 +368,8 @@ def test_docker_ci_heavy_jobs_log_skip_reason() -> None:
         )
 
 
-def test_docker_ci_dogfooding_lint_waits_on_manifest_sync() -> None:
-    """Dogfooding lint depends on manifest-sync and allows draft-PR skips."""
+def test_docker_ci_dogfooding_lint_waits_on_docker_build() -> None:
+    """Dogfooding lint depends on the docker build (#2180: no manifest-sync)."""
     docker_ci = _load_workflow(name="docker-ci.yml")
     lint_job = docker_ci["jobs"]["dogfooding-lint"]
     comment_job = docker_ci["jobs"]["dogfooding-pr-comment"]
@@ -377,13 +377,12 @@ def test_docker_ci_dogfooding_lint_waits_on_manifest_sync() -> None:
     lint_condition = lint_job["if"]
     comment_condition = comment_job["if"]
 
-    assert_that(lint_needs).contains("changes", "docker-build", "manifest-sync")
+    assert_that(lint_needs).contains("changes", "docker-build")
+    assert_that(lint_needs).does_not_contain("manifest-sync")
     assert_that(lint_condition).contains("always()")
     assert_that(lint_condition).contains("!cancelled()")
     assert_that(lint_condition).contains("needs.changes.outputs.pipeline != 'false'")
     assert_that(lint_condition).contains("needs.docker-build.result == 'success'")
-    assert_that(lint_condition).contains("manifest-sync.result == 'skipped'")
-    assert_that(lint_condition).contains("manifest-sync.result == 'success'")
     assert_that(comment_condition).contains("always()")
     assert_that(comment_condition).contains("!cancelled()")
     assert_that(comment_condition).contains(
@@ -408,26 +407,23 @@ def test_docker_ci_dogfooding_lint_waits_on_manifest_sync() -> None:
         "pipeline",
         "lint_scope",
         "docker_build",
-        "manifest_sync",
         "cancelled",
         "expected",
     ),
     [
-        ("true", "full", "success", "success", False, True),
-        ("true", "full", "success", "skipped", False, True),
-        ("true", "full", "success", "failure", False, False),
-        ("true", "full", "failure", "success", False, False),
-        ("true", "full", "success", "success", True, False),
+        ("true", "full", "success", False, True),
+        ("true", "full", "failure", False, False),
+        ("true", "full", "success", True, False),
         # Changed-files PR (#1361): the full-repo lint hands off to
         # dogfooding-lint-changed.
-        ("true", "changed", "success", "success", False, False),
-        # Docs-only PR: docker-build early-exits green and manifest-sync is
-        # path-skipped; dogfooding-lint must not run (no CI image pushed).
-        ("false", "changed", "success", "skipped", False, False),
+        ("true", "changed", "success", False, False),
+        # Docs-only PR: docker-build early-exits green; dogfooding-lint must
+        # not run (no CI image pushed).
+        ("false", "changed", "success", False, False),
         # Broken changes job fails open: pipeline and lint-scope outputs are
         # empty (not 'false'/'changed'), the full build ran, so the full
         # lint runs too.
-        ("", "", "success", "success", False, True),
+        ("", "", "success", False, True),
     ],
 )
 def test_docker_ci_lint_condition_semantics(
@@ -435,11 +431,10 @@ def test_docker_ci_lint_condition_semantics(
     pipeline: str,
     lint_scope: str,
     docker_build: str,
-    manifest_sync: str,
     cancelled: bool,
     expected: bool,
 ) -> None:
-    """Lint job ``if:`` runs only when docker-build succeeds and manifest-sync is ok."""
+    """Lint job ``if:`` runs only when docker-build succeeds."""
     docker_ci = _load_workflow(name="docker-ci.yml")
     lint_condition = docker_ci["jobs"]["dogfooding-lint"]["if"]
 
@@ -447,10 +442,7 @@ def test_docker_ci_lint_condition_semantics(
         _evaluate_github_if(
             lint_condition,
             cancelled=cancelled,
-            results={
-                "docker-build": docker_build,
-                "manifest-sync": manifest_sync,
-            },
+            results={"docker-build": docker_build},
             outputs={"changes": {"pipeline": pipeline, "lint-scope": lint_scope}},
         ),
     ).is_equal_to(expected)
@@ -461,25 +453,22 @@ def test_docker_ci_lint_condition_semantics(
         "pipeline",
         "lint_scope",
         "docker_build",
-        "manifest_sync",
         "cancelled",
         "expected",
     ),
     [
         # Changed-scope PR with a green build runs the changed-files lint.
-        ("true", "changed", "success", "success", False, True),
-        ("true", "changed", "success", "skipped", False, True),
-        ("true", "changed", "success", "failure", False, False),
-        ("true", "changed", "failure", "success", False, False),
-        ("true", "changed", "success", "success", True, False),
+        ("true", "changed", "success", False, True),
+        ("true", "changed", "failure", False, False),
+        ("true", "changed", "success", True, False),
         # Full-scope runs (global-impact PRs, merge_group, pushes) belong to
         # dogfooding-lint, not this job.
-        ("true", "full", "success", "success", False, False),
+        ("true", "full", "success", False, False),
         # Docs-only PR: nothing was built, nothing to lint.
-        ("false", "changed", "success", "skipped", False, False),
+        ("false", "changed", "success", False, False),
         # Broken changes job fails open to the FULL lint job: empty
         # lint-scope is != 'changed', so this job stays skipped.
-        ("", "", "success", "success", False, False),
+        ("", "", "success", False, False),
     ],
 )
 def test_docker_ci_lint_changed_condition_semantics(
@@ -487,7 +476,6 @@ def test_docker_ci_lint_changed_condition_semantics(
     pipeline: str,
     lint_scope: str,
     docker_build: str,
-    manifest_sync: str,
     cancelled: bool,
     expected: bool,
 ) -> None:
@@ -499,10 +487,7 @@ def test_docker_ci_lint_changed_condition_semantics(
         _evaluate_github_if(
             lint_condition,
             cancelled=cancelled,
-            results={
-                "docker-build": docker_build,
-                "manifest-sync": manifest_sync,
-            },
+            results={"docker-build": docker_build},
             outputs={"changes": {"pipeline": pipeline, "lint-scope": lint_scope}},
         ),
     ).is_equal_to(expected)
@@ -695,7 +680,6 @@ def test_docker_ci_lintro_code_quality_wires_upstream_jobs() -> None:
     assert_that(gate_job["needs"]).contains(
         "changes",
         "docker-build",
-        "manifest-sync",
         "dogfooding-lint",
         "dogfooding-lint-changed",
         "dogfooding_lint_retry",
@@ -768,7 +752,6 @@ def test_docker_ci_retries_dogfooding_lint_on_failure() -> None:
 
     assert_that(retry_job["needs"]).contains(
         "docker-build",
-        "manifest-sync",
         "dogfooding-lint",
     )
     assert_that(retry_condition).contains("needs.dogfooding-lint.result == 'failure'")
@@ -942,6 +925,7 @@ _PIPELINE_RELEVANT_TOP_LEVEL: frozenset[str] = frozenset(
         "justfile",
         "LICENSE",
         "lintro",
+        "lintro_build",
         "MANIFEST.in",
         "npm",
         "package.json",
@@ -1757,6 +1741,52 @@ def test_deploy_pages_pins_bundler_with_github_token() -> None:
 # (fork-PR / nightly fallback) is gated in dogfood-nightly.yml.
 
 
+def _regenerate_step_index(steps: list[dict[str, object]]) -> int:
+    """Return the index of the version-artifact regeneration step.
+
+    Args:
+        steps: A workflow job's step list.
+
+    Returns:
+        Index of the step running ``generate-tool-versions.py``.
+    """
+    for index, step in enumerate(steps):
+        if "generate-tool-versions.py" in str(step.get("run", "")):
+            return index
+    pytest.fail("no generate-tool-versions.py step found")
+
+
+def test_docker_ci_regenerates_manifest_before_verify() -> None:
+    """The manifest gate regenerates the artifacts before verifying (#2179).
+
+    Once the artifacts stop being committed (epic #2176 phase 4), a missing
+    or reordered regeneration step would only fail in live CI; this locks
+    the wiring at unit-test time.
+    """
+    docker_ci = _load_workflow(name="docker-ci.yml")
+    steps = docker_ci["jobs"]["integration-test"]["steps"]
+    regen_index = _regenerate_step_index(steps)
+    verify_index = next(
+        index
+        for index, step in enumerate(steps)
+        if step.get("run") == "scripts/ci/verify-image-manifest-tools.sh"
+    )
+    assert_that(regen_index).is_less_than(verify_index)
+
+
+def test_dogfood_nightly_regenerates_manifest_before_verify() -> None:
+    """The nightly pinned-digest gate regenerates before verifying (#2179)."""
+    nightly = _load_workflow(name="dogfood-nightly.yml")
+    steps = nightly["jobs"]["verify-pinned-image-tools"]["steps"]
+    regen_index = _regenerate_step_index(steps)
+    verify_index = next(
+        index
+        for index, step in enumerate(steps)
+        if step.get("run") == "scripts/ci/verify-image-manifest-tools.sh"
+    )
+    assert_that(regen_index).is_less_than(verify_index)
+
+
 def test_docker_ci_integration_verifies_ci_image_tools() -> None:
     """integration-test runs the manifest-vs-image gate on the built CI image."""
     docker_ci = _load_workflow(name="docker-ci.yml")
@@ -1927,6 +1957,148 @@ def test_sbom_callers_grant_contents_read_only(workflow_name: str) -> None:
     assert_that(permissions).contains_entry({"security-events": "write"})
     assert_that(permissions).contains_entry({"id-token": "write"})
     assert_that(permissions).contains_entry({"attestations": "write"})
+
+
+# --- Mirror release automation (#1171) ---------------------------------------
+
+_SHA_PIN_RE = re.compile(r"@[0-9a-f]{40}$")
+
+
+def _job_steps(workflow: dict[str, Any], *, job: str) -> list[dict[str, Any]]:
+    """Return the ordered steps of a workflow job.
+
+    Args:
+        workflow: Parsed workflow document.
+        job: Job key.
+
+    Returns:
+        The job's ``steps`` list.
+    """
+    return cast(list[dict[str, Any]], workflow["jobs"][job]["steps"])
+
+
+def test_mirror_release_serializes_with_global_concurrency() -> None:
+    """Only one mirror bump runs at a time to avoid clobbering newer pins."""
+    workflow = _load_workflow(name="mirror-release.yml")
+
+    assert_that(workflow["concurrency"]["group"]).is_equal_to("mirror-release")
+    assert_that(workflow["concurrency"]["cancel-in-progress"]).is_false()
+
+
+def test_mirror_release_job_has_timeout() -> None:
+    """Mirror bump inherits a bounded job timeout instead of the 6-hour default."""
+    workflow = _load_workflow(name="mirror-release.yml")
+
+    timeout = workflow["jobs"]["mirror-bump"]["timeout-minutes"]
+    assert_that(timeout).is_instance_of(int)
+    assert_that(timeout).is_equal_to(20)
+
+
+def test_mirror_release_triggers_on_published_release() -> None:
+    """Mirror bump runs on release publish plus a manual dispatch fallback."""
+    workflow = _load_workflow(name="mirror-release.yml")
+    triggers = workflow["on"]
+
+    assert_that(triggers).contains_key("release", "workflow_dispatch")
+    assert_that(triggers["release"]["types"]).contains("published")
+    assert_that(triggers["workflow_dispatch"]["inputs"]).contains_key("release_tag")
+
+
+def test_mirror_release_job_is_read_only_in_source_repo() -> None:
+    """Cross-repo writes use MIRROR_REPO_TOKEN; source-repo perms stay read-only."""
+    workflow = _load_workflow(name="mirror-release.yml")
+
+    assert_that(workflow["permissions"]).is_equal_to({})
+    assert_that(workflow["jobs"]["mirror-bump"]["permissions"]).is_equal_to(
+        {"contents": "read"},
+    )
+
+
+def test_mirror_release_hardens_runner_with_blocked_egress() -> None:
+    """First step hardens the runner and blocks egress to an allowlist."""
+    workflow = _load_workflow(name="mirror-release.yml")
+    first = _job_steps(workflow, job="mirror-bump")[0]
+
+    assert_that(first["uses"]).starts_with("step-security/harden-runner@")
+    assert_that(first["with"]["egress-policy"]).is_equal_to("block")
+    endpoints = first["with"]["allowed-endpoints"]
+    assert_that(endpoints).contains("pypi.org:443")
+    assert_that(endpoints).contains("files.pythonhosted.org:443")
+    assert_that(endpoints).contains("api.github.com:443")
+
+
+def test_mirror_release_actions_are_sha_pinned() -> None:
+    """Every third-party action in the mirror workflow is pinned to a commit SHA."""
+    workflow = _load_workflow(name="mirror-release.yml")
+    uses = [
+        step["uses"]
+        for step in _job_steps(workflow, job="mirror-bump")
+        if "uses" in step
+    ]
+
+    assert_that(uses).is_not_empty()
+    for ref in uses:
+        assert_that(_SHA_PIN_RE.search(ref)).described_as(ref).is_not_none()
+
+
+def test_mirror_release_uses_cross_repo_token() -> None:
+    """The mirror checkout and publish step authenticate with MIRROR_REPO_TOKEN."""
+    workflow = _load_workflow(name="mirror-release.yml")
+    steps = _job_steps(workflow, job="mirror-bump")
+
+    checkout = next(
+        step
+        for step in steps
+        if step.get("with", {}).get("repository") == "lgtm-hq/lintro-pre-commit"
+    )
+    assert_that(checkout["with"]["token"]).contains("secrets.MIRROR_REPO_TOKEN")
+
+    publish = next(
+        step for step in steps if "publish-mirror-release.sh" in step.get("run", "")
+    )
+    assert_that(publish["env"]["GH_TOKEN"]).contains("secrets.MIRROR_REPO_TOKEN")
+
+
+def test_mirror_release_skips_prereleases() -> None:
+    """Wheel-dependent steps are guarded on stable, non-prerelease releases."""
+    workflow = _load_workflow(name="mirror-release.yml")
+    steps = _job_steps(workflow, job="mirror-bump")
+    guard = "steps.resolve.outputs.is_prerelease == 'false'"
+    github_guard = "!github.event.release.prerelease"
+
+    for needle in ("wait-for-pypi-wheel.sh", "publish-mirror-release.sh"):
+        step = next(s for s in steps if needle in s.get("run", ""))
+        assert_that(step["if"]).contains(guard)
+        assert_that(step["if"]).contains(github_guard)
+        assert_that(step.get("env", {})).contains_key("LINTRO_VERSION")
+
+    mirror_checkout = next(
+        s
+        for s in steps
+        if s.get("with", {}).get("repository") == "lgtm-hq/lintro-pre-commit"
+    )
+    assert_that(mirror_checkout["if"]).contains(guard)
+    assert_that(mirror_checkout["if"]).contains(github_guard)
+
+    setup_python = [
+        s for s in steps if s.get("uses", "").startswith("actions/setup-python@")
+    ]
+    assert_that(setup_python).is_empty()
+
+
+def test_mirror_release_scripts_are_executable() -> None:
+    """The CI scripts referenced by the mirror workflow exist and are executable."""
+    scripts = (
+        _REPO_ROOT / "scripts" / "ci" / "mirror" / "resolve-version.sh",
+        _REPO_ROOT / "scripts" / "ci" / "mirror" / "wait-for-pypi-wheel.sh",
+        _REPO_ROOT / "scripts" / "ci" / "mirror" / "publish-mirror-release.sh",
+        _REPO_ROOT / "scripts" / "ci" / "mirror" / "bump_pin.py",
+    )
+    for script in scripts:
+        assert_that(script.exists()).described_as(str(script)).is_true()
+        assert_that(script.stat().st_mode & 0o111).described_as(
+            f"{script} is not executable",
+        ).is_not_zero()
 
 
 # --- Binary build job timeouts (#1702) ---------------------------------------

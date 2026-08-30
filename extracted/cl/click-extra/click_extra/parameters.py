@@ -18,20 +18,27 @@
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager, nullcontext
+from collections import ChainMap
+from contextlib import nullcontext
 from functools import cached_property, reduce
 from gettext import gettext as _
-from importlib import metadata
 from operator import getitem
 from typing import TypeVar
 
 import click
 import cloup
+from boltons.pathutils import shrinkuser
 from click import ParamType, get_current_context
 from click._utils import UNSET
+from click.core import ParameterSource
 from deepmerge import always_merger
 
 from . import context
+
+# Imported under a private name so this module's namespace does not resurrect
+# the moved helper: its canonical home is click_extra._utils, and the public
+# `parameters.patch_attr` spelling resolves through the deprecation hook below.
+from ._utils import patch_attr as _patch_attr
 from .envvar import param_envvar_ids
 from .styling import Style
 from .types import EnumChoice
@@ -39,7 +46,10 @@ from .types import EnumChoice
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
+    from pathlib import Path
     from typing import Any, ClassVar, Literal
+
+    from boltons.urlutils import URL
 
 logger = logging.getLogger(__name__)
 
@@ -50,33 +60,6 @@ P = TypeVar("P", bound=click.Parameter)
 #: Separator joining the keys of a parameter's fully-qualified path
 #: (`cli.subcommand.param`).
 PARAM_PATH_SEP = "."
-
-
-@contextmanager
-def patch_attr(obj: object, name: str, value: Any) -> Iterator[None]:
-    """Temporarily set `obj.name` to `value`, restoring the original on exit.
-
-    A minimal, dependency-free stand-in for `unittest.mock.patch.object` for
-    the simple save-set-restore monkeypatching Click Extra performs at runtime
-    (in {mod}`~click_extra.logging`, {mod}`~click_extra.parameters` and
-    {mod}`~click_extra.testing`).
-
-    ```{note}
-    `unittest.mock` drags the whole test framework, and its heavy
-    transitive imports, into the startup path of every CLI built with Click
-    Extra. Reimplementing the single feature actually used keeps that cost
-    out of import time. Do not swap this back for `unittest.mock`.
-    ```
-
-    Like `patch.object` without `create=True`, the attribute must already
-    exist: a missing `name` raises {exc}`AttributeError`.
-    """
-    original = getattr(obj, name)
-    setattr(obj, name, value)
-    try:
-        yield
-    finally:
-        setattr(obj, name, original)
 
 
 def search_params(
@@ -190,6 +173,37 @@ def full_short_help(command: click.Command) -> str:
     return text
 
 
+def resolve_param_help(param: click.Parameter, ctx: click.Context) -> str | None:
+    """Return a parameter's help text, including the dynamically-generated ones.
+
+    Reading `param.help` covers the options that carry a static string, and
+    misses the ones that compute their help from the context: Click Extra's own
+    `-v` / `-q` derive theirs from the resolved base verbosity, and leave the
+    attribute at `None` (see
+    {meth}`~click_extra.logging.VerboseOption.get_help_record`). Falling back to
+    the help record picks those up.
+
+    The record also carries Click's bracket fields (`[default: …]`,
+    `[required]`, `[env var: …]`), appended to the prose behind two spaces. They
+    are stripped here: they are not the author's documentation, and every
+    backend of this module renders them (or deliberately does not) from
+    structured fields of its own.
+    """
+    help_text = getattr(param, "help", None)
+    if help_text:
+        return str(help_text)
+
+    record = param.get_help_record(ctx)
+    if not record:
+        return None
+    text = record[1]
+    if isinstance(param, click.Option) and param.get_help_extra(ctx):
+        marker = text.rfind("  [")
+        if marker != -1:
+            text = text[:marker]
+    return text.strip() or None
+
+
 def param_spellings(param: click.Parameter) -> tuple[str, ...]:
     """All literal spellings of a parameter: primary `opts` then `secondary_opts`.
 
@@ -240,44 +254,26 @@ def option_value_kind(
     return "required"
 
 
+def resolve_flag_value(param: click.Parameter) -> Any:
+    """The value *param*'s primary declaration stands for.
+
+    Released Click materializes it in `flag_value`: `None` for a plain option or
+    a counter, `True` for a boolean flag, and the declared value otherwise
+    (`--color` standing for `always`). Click's development branch leaves that
+    attribute as the `UNSET` sentinel and answers the same question lazily in
+    `flag_activation_value`, so reading either attribute on its own is right on
+    only one of the two, and storing the sentinel anywhere it will be read back
+    as a value silently turns the flag off.
+    """
+    flag_value = getattr(param, "flag_value", None)
+    if flag_value is UNSET:
+        return getattr(param, "flag_activation_value", None)
+    return flag_value
+
+
 def is_repeatable(param: click.Parameter) -> bool:
     """Whether the parameter may be supplied several times (`multiple` or `count`)."""
     return bool(getattr(param, "multiple", False) or getattr(param, "count", False))
-
-
-def missing_extra_message(
-    extra: str,
-    *,
-    package: str = "click-extra",
-    subject: str = "This feature",
-) -> str:
-    """Build the uniform "install the optional extra" error message.
-
-    `subject` names what needs the dependency, `extra` is the optional
-    dependency group and `package` its distribution name. Every feature gated
-    behind an extra (the documentation integrations, the Carapace exporter, the
-    table formatters) routes through this so they all point at the same canonical
-    `pip install package[extra]` target, with the hyphenated distribution name.
-    """
-    return (
-        f"{subject} requires an optional dependency. "
-        f"Install it with: pip install {package}[{extra}]"
-    )
-
-
-def generator_tag() -> str:
-    """Provenance tag for generated artifacts: `Click Extra <version>`.
-
-    Stamped into the header comments of the documents Click Extra generates
-    from a CLI (man pages, Carapace completion specs). This is Click Extra's
-    *own* version (the generator), not the documented CLI's version. Falls back
-    to the bare name when the distribution metadata is unavailable (such as
-    running from an uninstalled source tree).
-    """
-    try:
-        return f"Click Extra {metadata.version('click-extra')}"
-    except metadata.PackageNotFoundError:
-        return "Click Extra"
 
 
 class _ParameterMixin:
@@ -354,9 +350,7 @@ class Option(_ParameterMixin, cloup.Option):
 class ExtraOption(Option):
     """Dedicated to option implemented by `click-extra` itself.
 
-    Provides a way to identify Click Extra's own options with certainty, and
-    restores the pre-Click-8.4.0 contract that a callback (or a type's
-    `convert()`) can introspect its own parameter source from within itself.
+    Provides a way to identify Click Extra's own options with certainty.
 
     ```{note}
     This is the one click-extra class that deliberately keeps the `Extra`
@@ -405,53 +399,6 @@ class ExtraOption(Option):
     a sibling `--config` option exists.
     ```
     """
-
-    def handle_parse_result(self, ctx, opts, args):
-        """Record the parameter source before delegating to the base implementation.
-
-        ```{warning}
-        Click `8.4.0` (PR [pallets/click#3404](https://github.com/pallets/click/pull/3404)) reordered
-        `Parameter.handle_parse_result` so `ctx.set_parameter_source` runs
-        *after* `process_value`. Callbacks that introspect their own
-        provenance via `ctx.get_parameter_source(self.name)` therefore read
-        `None` instead of the actual source. `ColorOption`, `ConfigOption`,
-        and `ShowParamsOption` rely on this introspection (from their eager
-        callback) to decide whether an env var should override the default
-        (`--color`), whether the `--config` path was user-supplied, and what
-        to render in the `Source` column of `--params`. `JobsOption`
-        relies on the same introspection from its type's non-eager `convert()`
-        ({class}`~click_extra.execution.JobCount`), to decide whether an
-        `auto`/`max` collapsing to a single job logs as a warning (explicit
-        request) or at info level (the option's own default).
-
-        Click `8.4.1` restored the pre-`8.4.0` contract upstream (PR
-        [pallets/click#3484](https://github.com/pallets/click/pull/3484)), so
-        this override only matters for Click `8.4.0` itself, which sits inside
-        click-extra's supported `>= 8.3.1` range. Pre-recording the source here,
-        for every option regardless of eagerness, keeps that contract on every
-        supported Click. `super().handle_parse_result` re-records the same
-        value at the canonical time, so the slot arbitration logic introduced by
-        #3404 is unaffected: `slot_empty` is computed from `ctx.params`, not
-        from `_parameter_source`.
-
-        `consume_value` runs twice as a side effect: once here and once in
-        `super`. Both calls are pure for click-extra's existing options (no
-        env var side effects, no prompt): `consume_value` only resolves the raw
-        value and its source, it never invokes the parameter's `type.convert()`,
-        so this pre-record cannot itself trigger a callback's or a type's logging
-        or validation twice. Should a future subclass need prompt behavior, this
-        override would need to cache the result instead.
-
-        The pre-record is skipped when the slot already carries a source from
-        an earlier option sharing the same `name` (Click's feature-switch
-        pattern), so the arbitration logic in `super` still sees the original
-        `existing_source` rather than a stale rewrite from this option.
-        ```
-        """
-        if ctx.get_parameter_source(self.name) is None:
-            _value, source = self.consume_value(ctx, opts)
-            ctx.set_parameter_source(self.name, source)
-        return super().handle_parse_result(ctx, opts, args)
 
 
 class ParamStructure:
@@ -544,6 +491,31 @@ class ParamStructure:
     """
 
     @staticmethod
+    def map_click_type(click_type: ParamType) -> type[str | int | float | bool | list]:
+        """Map a Click parameter type instance to its Python equivalent.
+
+        Returns `str` for unrecognised custom types, since command-line
+        parameters are strings by default.
+
+        See the list of
+        [custom types provided by Click](https://click.palletsprojects.com/en/stable/api/#types).
+        """
+        # Try to directly map the Click type to a Python type.
+        py_type = ParamStructure.TYPE_MAP.get(click_type.__class__)
+        if py_type is not None:
+            return py_type
+
+        # Try to indirectly map the type by looking at inheritance.
+        for param_type, mapped_type in ParamStructure.TYPE_MAP.items():
+            if isinstance(click_type, param_type):
+                return mapped_type
+
+        # Custom parameters are expected to convert from strings, as that's
+        # the default type of command lines.
+        # See: https://click.palletsprojects.com/en/stable/api/#click.ParamType
+        return str
+
+    @staticmethod
     def get_param_type(
         param: click.Parameter,
     ) -> type[str | int | float | bool | list]:
@@ -561,23 +533,10 @@ class ParamStructure:
         if hasattr(param, "is_bool_flag") and param.is_bool_flag:
             return bool
 
-        # Try to directly map the Click type to a Python type.
-        py_type = ParamStructure.TYPE_MAP.get(param.type.__class__)
-        if py_type is not None:
-            return py_type
+        return ParamStructure.map_click_type(param.type)
 
-        # Try to indirectly map the type by looking at inheritance.
-        for click_type, py_type in ParamStructure.TYPE_MAP.items():
-            if isinstance(param.type, click_type):
-                return py_type
-
-        # Custom parameters are expected to convert from strings, as that's
-        # the default type of command lines.
-        # See: https://click.palletsprojects.com/en/stable/api/#click.ParamType
-        return str
-
-    def build_param_trees(self) -> None:
-        """Build the parameters tree structure and cache it.
+    def build_param_trees(self) -> dict[str, Any]:
+        """Build and return the parameters tree structure.
 
         This removes parameters whose fully-qualified IDs are in the `excluded_params`
         blocklist.
@@ -602,7 +561,7 @@ class ParamStructure:
                 objects, self.init_tree_dict(*keys, leaf=[param])
             )
 
-        self.params_objects = objects
+        return objects
 
     @staticmethod
     def _nullify_leaves(tree: dict[str, Any]) -> dict[str, Any]:
@@ -628,8 +587,7 @@ class ParamStructure:
 
         Perfect to parse configuration files and user-provided parameters.
         """
-        self.build_param_trees()
-        return self.params_objects
+        return self.build_param_trees()
 
 
 def get_param_spec(param: click.Parameter, ctx: click.Context) -> str | None:
@@ -650,7 +608,7 @@ def get_param_spec(param: click.Parameter, ctx: click.Context) -> str | None:
     """
     if not hasattr(param, "hidden"):
         return None
-    with patch_attr(param, "hidden", False) if param.hidden else nullcontext():
+    with _patch_attr(param, "hidden", False) if param.hidden else nullcontext():
         help_record = param.get_help_record(ctx)
         return help_record[0] if help_record else None
 
@@ -692,8 +650,8 @@ def format_param_row(
     For structured formats (JSON, YAML, etc.), values are native Python types.
     For visual formats, values are themed strings matching help-screen styling.
 
-    The remaining table columns (`allowed_in_conf`, `value`, `source`)
-    require live context and are filled in by
+    The remaining table columns (`allowed_in_conf`, `value`, `source`,
+    `config_file`) require live context and are filled in by
     {func}`~click_extra.parameters.render_params_table`.
     """
     param_spec = get_param_spec(param, ctx)
@@ -704,7 +662,7 @@ def format_param_row(
 
     hidden = getattr(param, "hidden", None)
     is_flag = getattr(param, "is_flag", None)
-    flag_value = getattr(param, "flag_value", None)
+    flag_value = resolve_flag_value(param)
     is_bool_flag = getattr(param, "is_bool_flag", None)
     prompt = getattr(param, "prompt", None)
     confirmation_prompt = getattr(param, "confirmation_prompt", None)
@@ -717,20 +675,13 @@ def format_param_row(
     if default_val is UNSET:
         default_val = None
 
-    # Click's development branch models an absent flag_value as the UNSET
-    # sentinel and resolves the effective value lazily in the
-    # flag_activation_value property. Read the latter to mirror the value
-    # released Click materializes in flag_value (None for a plain option or a
-    # counter, True for a boolean flag, the declared value otherwise).
-    if flag_value is UNSET:
-        flag_value = getattr(param, "flag_activation_value", None)
-
     if is_structured:
         default_val = _structured_value(default_val)
         flag_value = _structured_value(flag_value)
         return {
             "id": path,
             "spec": param_spec,
+            "help": resolve_param_help(param, ctx),
             "class": class_str,
             "param_type": type_str,
             "python_type": python_type_name,
@@ -765,6 +716,7 @@ def format_param_row(
     return {
         "id": active_theme.invoked_command(path),
         "spec": active_theme.option(param_spec) if param_spec else param_spec,
+        "help": resolve_param_help(param, ctx),
         "class": class_str,
         "param_type": type_str,
         "python_type": active_theme.metavar(python_type_name),
@@ -826,6 +778,49 @@ def iter_subcommands(
         yield name, sub
 
 
+def iter_params_for_display(
+    command: click.Command,
+    ctx: click.Context,
+) -> Iterator[click.Parameter]:
+    """Yield a command's parameters in the order its help screen lists them.
+
+    A Click Extra command keeps two orders apart: `command.params` is the
+    processing order, which decides when each callback fires, while the help screen
+    reads the presentation order Cloup caches in `arguments`, `option_groups` and
+    `ungrouped_options` (see
+    {meth}`click_extra.commands.Command.param_priority`). Reading `get_params()`
+    therefore renders a man page, a Markdown document or a completion spec whose
+    flags no longer match the `--help` its reader just saw. This is the accessor
+    every such renderer should go through.
+
+    Falls back to `get_params()` for a command that carries no Cloup option groups,
+    where the two orders are the same list. Any parameter attached after
+    construction, and so absent from the cached groups, is yielded last rather than
+    dropped.
+    """
+    if not isinstance(command, cloup.Command):
+        yield from command.get_params(ctx)
+        return
+
+    seen: set[int] = set()
+    ordered: list[click.Parameter] = [
+        *command.arguments,
+        *(option for group in command.option_groups for option in group.options),
+        *command.get_ungrouped_options(ctx),
+    ]
+    for param in ordered:
+        if id(param) not in seen:
+            seen.add(id(param))
+            yield param
+
+    # A parameter appended to `command.params` after construction never made it into
+    # the cached groups. Yield it rather than silently dropping it from the render.
+    for param in command.get_params(ctx):
+        if id(param) not in seen:
+            seen.add(id(param))
+            yield param
+
+
 def walk_command_params(
     cmd: click.Command,
     ctx: click.Context,
@@ -851,7 +846,10 @@ def walk_command_params(
             yield (*parent_keys, param.name), param, ctx
 
     if isinstance(cmd, click.Group):
-        for subcmd_name in sorted(cmd.list_commands(ctx)):
+        # `list_commands()` is the group's own authority on subcommand order: a
+        # stock Click group still answers alphabetically, and one that was told
+        # otherwise gets a `--params` tree matching its help screen.
+        for subcmd_name in cmd.list_commands(ctx):
             if subcmd_name in level_param_names:
                 logger.debug(
                     f"{cmd.name}{PARAM_PATH_SEP}{subcmd_name} subcommand shadows a "
@@ -887,6 +885,71 @@ def replay_raw_args(subject_ctx: click.Context) -> dict[str, Any]:
     parser = subject_ctx.command.make_parser(subject_ctx)
     opts, _, _ = parser.parse_args(args=list(raw_args))
     return opts
+
+
+def param_config_source(
+    root_ctx: click.Context,
+    keys: Sequence[str],
+) -> Path | URL | None:
+    """Return the configuration file supplying a parameter's `default_map` value.
+
+    *keys* is the parameter's fully-qualified path, root command name first
+    and parameter name last, as yielded by {func}`walk_command_params`.
+    Returns `None` when no configuration file was loaded, when the parameter
+    is absent from every loaded layer, or when the context carries no layered
+    `default_map` at all.
+
+    The walk mirrors how Click resolves `default_map`, so the attribution
+    matches the value Click actually picks:
+
+    - Root-level parameters are looked up in the root context's
+      `~collections.ChainMap`, whose first layers are the loaded files in
+      precedence order (see
+      {data}`~click_extra.context.CONF_SOURCES`): the first layer naming the
+      parameter wins.
+    - A subcommand section resolves against that same `ChainMap`, but Click
+      keeps descending *inside the single layer* that named the first
+      segment: the file owning a subcommand section owns its whole sub-tree.
+
+    ```{note}
+    Lazy subcommands receive their section from the merged configuration
+    document, injected into the front layer by
+    {meth}`~click_extra.commands.Group._apply_config_to_parent_context`:
+    those values are attributed to the highest-precedence file even when
+    several files contributed to the merge.
+    ```
+    """
+    sources: tuple[tuple[Path | URL, dict[str, Any]], ...] | None = context.get(
+        root_ctx, context.CONF_SOURCES
+    )
+    if not sources:
+        return None
+    default_map = root_ctx.default_map
+    if not isinstance(default_map, ChainMap):
+        return None
+    layers = default_map.maps[: len(sources)]
+
+    segments = keys[1:-1]
+    param_name = keys[-1]
+
+    if segments:
+        for index, layer in enumerate(layers):
+            if segments[0] not in layer:
+                continue
+            subtree = layer[segments[0]]
+            for segment in segments[1:]:
+                if not isinstance(subtree, dict):
+                    return None
+                subtree = subtree.get(segment)
+            if isinstance(subtree, dict) and param_name in subtree:
+                return sources[index][0]
+            return None
+        return None
+
+    for index, layer in enumerate(layers):
+        if param_name in layer:
+            return sources[index][0]
+    return None
 
 
 def render_params_table(
@@ -945,25 +1008,28 @@ def render_params_table(
 
     # Resolve the value getter. When the original arguments are available we
     # replay them through the command parser to recover each value and its
-    # provenance; otherwise we only know the parameter defaults.
+    # provenance; otherwise we only know the parameter defaults. Values are
+    # resolved against each parameter's owning context, so subcommand
+    # parameters read their `default_map` from the subcommand's own section
+    # and their environment variables from the correct nesting level.
     opts: dict = {}
     raw_args = context.get(subject_ctx, context.RAW_ARGS)
     if raw_args is not None:
         logger.debug(f"{context.RAW_ARGS}: {raw_args}")
         opts = replay_raw_args(subject_ctx)
 
-        def get_param_value(param):
+        def get_param_value(param, param_ctx):
             # consume_value() can return the UNSET sentinel for a parameter with
             # no user input and no default. Normalize it to None, mirroring the
             # step click.Command.parse_args runs after parsing, which this
             # re-parse bypasses. See the RAW_ARGS dossier in click_extra.context.
-            value, source = param.consume_value(subject_ctx, opts)
+            value, source = param.consume_value(param_ctx, opts)
             return (None if value is UNSET else value), source
 
     else:
 
-        def get_param_value(param):
-            return None, subject_ctx.get_parameter_source(param.name)
+        def get_param_value(param, param_ctx):
+            return None, param_ctx.get_parameter_source(param.name)
 
     # Locate a --config option to fill the "allowed in conf?" column.
     config_option = search_params(cmd.get_params(subject_ctx), ConfigOption)
@@ -1001,6 +1067,10 @@ def render_params_table(
     selected_ids: tuple[str, ...] = context.get(subject_ctx, context.COLUMNS) or ()
     if not selected_ids and default_columns:
         selected_ids = tuple(default_columns)
+    if not selected_ids:
+        # No projection asked for: show every column but the opt-in ones, which
+        # would otherwise squeeze all the others (see ColumnSpec.optional).
+        selected_ids = ShowParamsOption.default_column_ids()
 
     # Validate the requested IDs against the column registry so unknown IDs
     # become a clear, actionable UsageError.
@@ -1020,7 +1090,7 @@ def render_params_table(
         cmd, subject_ctx, (cmd.name or "",)
     ):
         path = PARAM_PATH_SEP.join(keys)
-        param_value, source = get_param_value(param)
+        param_value, source = get_param_value(param, owning_ctx)
 
         # Whether the parameter is reachable from a configuration file.
         allowed_in_conf_bool = None
@@ -1030,11 +1100,21 @@ def render_params_table(
 
         row = format_param_row(param, owning_ctx, path, is_structured)
 
+        # Config-file provenance: only meaningful when the effective value
+        # came from the default_map; the layer walk then names the file it
+        # resolved from.
+        config_file: Path | URL | str | None = None
+        if source is ParameterSource.DEFAULT_MAP:
+            location = param_config_source(subject_ctx.find_root(), keys)
+            if location is not None:
+                config_file = location if is_structured else shrinkuser(str(location))
+
         if is_structured:
             param_value = _structured_value(param_value)
             row["allowed_in_conf"] = allowed_in_conf_bool
             row["value"] = param_value
             row["source"] = source.name if source else None
+            row["config_file"] = str(config_file) if config_file else None
         else:
             allowed_in_conf = None
             if allowed_in_conf_bool is not None:
@@ -1042,6 +1122,7 @@ def render_params_table(
             row["allowed_in_conf"] = allowed_in_conf
             row["value"] = repr(param_value)
             row["source"] = source.name if source else None
+            row["config_file"] = config_file
 
         table.append(select_row(row, selected_ids, canonical_ids))
 
@@ -1107,6 +1188,20 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "extracted from [`click.Parameter.get_help_record()`]"
                 "(https://click.palletsprojects.com/en/stable/api/"
                 "#click.Parameter)."
+            ),
+        ),
+        _ColumnSpec(
+            id="help",
+            label="Help",
+            optional=True,
+            description=(
+                "The parameter's own help text, as written by the CLI author. "
+                "Opt-in: it is the only column carrying free-form prose, so it "
+                "stays out of the default table and is selected by ID "
+                "(`--columns id,spec,help`). Structured formats are its main "
+                "audience: it turns a `--params` dump into a self-describing "
+                "inventory a tool or an agent can read without also parsing the "
+                "rendered `--help` screen."
             ),
         ),
         _ColumnSpec(
@@ -1306,6 +1401,22 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "`ENVIRONMENT`, `DEFAULT_MAP`, or `DEFAULT`."
             ),
         ),
+        _ColumnSpec(
+            id="config_file",
+            label="Config file",
+            optional=True,
+            description=(
+                "The configuration file the effective value was loaded from, "
+                "when `Source` reports `DEFAULT_MAP`. With "
+                "[`cascade=True`](config.md#cascading-configuration-files) "
+                "several files are layered and this column names the one that "
+                "won the parameter; with a single loaded file, every "
+                "config-sourced parameter names that file. Empty for every "
+                "other source and when no configuration file was loaded. "
+                "Opt-in, like `help`: paths are wide and stay redundant with "
+                "`Source` until several files take part."
+            ),
+        ),
     )
     """Rich column registry for the `--params` table.
 
@@ -1325,6 +1436,25 @@ class ShowParamsOption(ExtraOption, ParamStructure):
     def column_ids(cls) -> tuple[str, ...]:
         """Return just the stable IDs of {data}`TABLE_HEADERS` (in order)."""
         return tuple(col.id for col in cls.TABLE_HEADERS)
+
+    @classmethod
+    def default_columns(cls) -> tuple[_ColumnSpec, ...]:
+        """Return the columns rendered when `--columns` asks for no projection.
+
+        Every column but the {attr}`~click_extra.table.ColumnSpec.optional` ones,
+        which stay addressable by ID and out of the way until named.
+        """
+        return tuple(col for col in cls.TABLE_HEADERS if not col.optional)
+
+    @classmethod
+    def default_column_ids(cls) -> tuple[str, ...]:
+        """Return the stable IDs of {meth}`default_columns` (in order)."""
+        return tuple(col.id for col in cls.default_columns())
+
+    @classmethod
+    def default_column_labels(cls) -> tuple[str, ...]:
+        """Return the display labels of {meth}`default_columns` (in order)."""
+        return tuple(col.label for col in cls.default_columns())
 
     @classmethod
     def find_column(cls, column_id: str):
@@ -1422,3 +1552,15 @@ class ShowParamsOption(ExtraOption, ParamStructure):
 
         render_params_table(ctx)
         ctx.exit()
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve deprecated `parameters` symbols via the PEP 562 `__getattr__` hook.
+
+    The generic helpers (`patch_attr`, `generator_tag`,
+    `missing_extra_message`) moved to {mod}`click_extra._utils`. Fires only for
+    names not defined in this module. See {mod}`click_extra._deprecated`.
+    """
+    from ._deprecated import resolve_deprecated
+
+    return resolve_deprecated(__name__, name)

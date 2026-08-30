@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wrapt
-Version: 2.3.0
+Version: 2.4.0
 Summary: Module for decorators, wrappers and monkey patching.
 Author-email: Graham Dumpleton <Graham.Dumpleton@gmail.com>
 License-Expression: BSD-2-Clause
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9

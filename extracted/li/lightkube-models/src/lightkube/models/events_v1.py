@@ -6,8 +6,8 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import core_v1
 from . import meta_v1
+from . import core_v1
 
 
 @dataclass
@@ -41,7 +41,7 @@ class Event(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **note** ``Optional[str]`` - note is a human-readable description of the status of this operation. Maximal
         length of the note is 1kB, but libraries should be prepared to handle values
@@ -102,7 +102,7 @@ class EventList(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ListMeta]`` - Standard list metadata. More info:
+      * **metadata** ``Optional[meta_v1.ListMeta]`` - metadata is the standard list metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
     """
     items: 'List[Event]'

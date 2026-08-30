@@ -9,7 +9,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 import click
-import httpx
+import httpx2
 
 from pyzotero import __version__
 from pyzotero._helpers import (
@@ -18,8 +18,10 @@ from pyzotero._helpers import (
     build_doi_index_full,
     format_creators,
     format_s2_paper,
+    get_write_client,
     get_zotero_client,
     normalise_doi,
+    save_local_key,
 )
 from pyzotero.semantic_scholar import (
     PaperNotFoundError,
@@ -68,6 +70,37 @@ def cli_error_handler(func: F) -> F:
 def _zot_from_ctx(ctx: Any) -> Any:
     """Build a local-mode Zotero client using the locale from the CLI context."""
     return get_zotero_client(ctx.obj.get("locale", "en-US"))
+
+
+def _write_zot_from_ctx(ctx: Any) -> Any:
+    """Build a local-mode client that can write, from the stored local API key.
+
+    Raises RuntimeError, which the error handler reports, if no key is stored.
+    """
+    return get_write_client(ctx.obj.get("locale", "en-US"))
+
+
+def _change_membership(
+    zot: Any, keys: tuple[str, ...], change: Callable[[dict[str, Any]], Any]
+) -> list[str]:
+    """Fetch each item in ``keys`` and apply ``change`` to it. Return the keys.
+
+    The items change one at a time. If one fails, the error names it and
+    lists the items that had already changed, so that the caller can resume.
+    """
+    done: list[str] = []
+    for key in keys:
+        try:
+            change(zot.item(key))
+        except Exception as exc:
+            changed = ", ".join(done) if done else "none"
+            msg = (
+                f"{key}: {exc} "
+                f"(changed {len(done)} of {len(keys)} items before this: {changed})"
+            )
+            raise RuntimeError(msg) from exc
+        done.append(key)
+    return done
 
 
 def _run_s2_lookup(
@@ -119,7 +152,7 @@ def _run_s2_lookup(
 )
 @click.pass_context
 def main(ctx: Any, locale: str) -> None:
-    """Search local Zotero library."""
+    """Search and manage a local Zotero library."""
     ctx.ensure_object(dict)
     ctx.obj["locale"] = locale
 
@@ -458,20 +491,32 @@ def itemtypes(ctx: Any) -> None:
     show_default=True,
     help="The name that Zotero shows in the authorisation dialog.",
 )
+@click.option(
+    "--no-store",
+    is_flag=True,
+    help="Print the key only. Do not write it to the key file.",
+)
 @click.pass_context
 @cli_error_handler
-def authorize(ctx: Any, app_name: str) -> None:
+def authorize(ctx: Any, app_name: str, no_store: bool) -> None:
     """Get a local API key, which permits writes to your Zotero library.
 
     Zotero shows a dialog with the options "Allow" (one-time access),
     "Always Allow" (permanent access) and "Deny". Select "Always Allow" to
     get a key that you can keep: the first write uses a one-time key.
 
+    A permanent key is stored in a file that only you can read
+    ($XDG_CONFIG_HOME/pyzotero/local-api-key.json, or the same path under
+    ~/.config). The CLI's collection commands and the MCP server, when
+    started with --enable-writes, read the key from that file. Setting
+    PYZOTERO_LOCAL_API_KEY in the environment takes precedence over it.
+
     Local API keys have no relation to zotero.org API keys.
 
     Examples:
         pyzotero authorize
         pyzotero authorize --app-name "My MCP server"
+        pyzotero authorize --no-store
 
     """
     zot = _zot_from_ctx(ctx)
@@ -479,7 +524,14 @@ def authorize(ctx: Any, app_name: str) -> None:
     result = zot.authorize_local(app_name)
     click.echo(f"Key:       {result['key']}")
     click.echo(f"Server ID: {zot.server_id}")
-    if result["remember"]:
+    if not result["remember"]:
+        click.echo(
+            "\nThis key is single-use: the first successful write consumes it.\n"
+            "Re-run and choose 'Always Allow' if you need a persistent key.",
+            err=True,
+        )
+        return
+    if no_store:
         click.echo(
             "\nThis key persists. To give the MCP server write access, set it in\n"
             "the server's environment and pass --enable-writes:\n\n"
@@ -487,11 +539,195 @@ def authorize(ctx: Any, app_name: str) -> None:
             '    "args": ["--enable-writes"]',
             err=True,
         )
+        return
+    path = save_local_key(result["key"], zot.server_id)
+    click.echo(
+        f"\nThis key persists. Stored it in {path}.\n"
+        "The CLI's collection commands use it. So does the MCP server when\n"
+        "started with --enable-writes; no environment variable is needed.",
+        err=True,
+    )
+
+
+@main.command()
+@click.argument("name")
+@click.option(
+    "--parent",
+    help="Key of the parent collection. The new collection nests under it.",
+)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output results as JSON",
+)
+@click.pass_context
+@cli_error_handler
+def createcollection(
+    ctx: Any, name: str, parent: str | None, output_json: bool
+) -> None:
+    """Create a collection, at the top level or under --parent.
+
+    Needs a stored local API key: run 'pyzotero authorize' first.
+
+    Examples:
+        pyzotero createcollection "Frankenstein Cities"
+
+        pyzotero createcollection "Frankenstein Cities" --parent FD9AUNP2 --json
+
+    """
+    zot = _write_zot_from_ctx(ctx)
+    payload: dict[str, Any] = {"name": name}
+    if parent:
+        payload["parentCollection"] = parent
+    resp = zot.create_collections([payload])
+    if not resp.get("success"):
+        msg = f"Collection was rejected: {resp.get('failed')}"
+        raise RuntimeError(msg)
+    key = resp["success"]["0"]
+    if output_json:
+        click.echo(
+            json.dumps(
+                {"created": key, "name": name, "parent": parent or None}, indent=2
+            )
+        )
+    else:
+        where = f" under {parent}" if parent else ""
+        click.echo(f"Created collection {name!r} with key {key}{where}")
+
+
+@main.command()
+@click.argument("collection_key")
+@click.argument("item_keys", nargs=-1, required=True)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output results as JSON",
+)
+@click.pass_context
+@cli_error_handler
+def addtocollection(
+    ctx: Any, collection_key: str, item_keys: tuple[str, ...], output_json: bool
+) -> None:
+    """Add one or more items to a collection.
+
+    Needs a stored local API key: run 'pyzotero authorize' first.
+
+    Examples:
+        pyzotero addtocollection FD9AUNP2 ABC123 DEF456
+
+        pyzotero addtocollection FD9AUNP2 ABC123 --json
+
+    """
+    zot = _write_zot_from_ctx(ctx)
+    done = _change_membership(
+        zot, item_keys, lambda item: zot.addto_collection(collection_key, item)
+    )
+    if output_json:
+        click.echo(json.dumps({"collection": collection_key, "added": done}, indent=2))
+    else:
+        click.echo(f"Added {len(done)} items to {collection_key}: {', '.join(done)}")
+
+
+@main.command()
+@click.argument("collection_key")
+@click.argument("item_keys", nargs=-1, required=True)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output results as JSON",
+)
+@click.pass_context
+@cli_error_handler
+def removefromcollection(
+    ctx: Any, collection_key: str, item_keys: tuple[str, ...], output_json: bool
+) -> None:
+    """Remove one or more items from a collection. The items are unchanged.
+
+    Needs a stored local API key: run 'pyzotero authorize' first.
+
+    Examples:
+        pyzotero removefromcollection FD9AUNP2 ABC123 DEF456
+
+        pyzotero removefromcollection FD9AUNP2 ABC123 --json
+
+    """
+    zot = _write_zot_from_ctx(ctx)
+    done = _change_membership(
+        zot, item_keys, lambda item: zot.deletefrom_collection(collection_key, item)
+    )
+    if output_json:
+        click.echo(
+            json.dumps({"collection": collection_key, "removed": done}, indent=2)
+        )
     else:
         click.echo(
-            "\nThis key is single-use: the first successful write consumes it.\n"
-            "Re-run and choose 'Always Allow' if you need a persistent key.",
-            err=True,
+            f"Removed {len(done)} items from {collection_key}: {', '.join(done)}"
+        )
+
+
+@main.command()
+@click.argument("item_keys", nargs=-1, required=True)
+@click.option(
+    "--from",
+    "from_collection",
+    required=True,
+    help="Key of the collection to remove the items from",
+)
+@click.option(
+    "--to",
+    "to_collection",
+    required=True,
+    help="Key of the collection to add the items to",
+)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output results as JSON",
+)
+@click.pass_context
+@cli_error_handler
+def movetocollection(
+    ctx: Any,
+    item_keys: tuple[str, ...],
+    from_collection: str,
+    to_collection: str,
+    output_json: bool,
+) -> None:
+    """Move one or more items from one collection to another.
+
+    Each item leaves the --from collection and joins the --to collection in
+    one request. Membership of other collections is unchanged. An item that
+    is not in the --from collection still joins the --to collection.
+
+    Needs a stored local API key: run 'pyzotero authorize' first.
+
+    Examples:
+        pyzotero movetocollection --from FD9AUNP2 --to X7Y8Z9W0 ABC123 DEF456
+
+        pyzotero movetocollection --from FD9AUNP2 --to X7Y8Z9W0 ABC123 --json
+
+    """
+    zot = _write_zot_from_ctx(ctx)
+    done = _change_membership(
+        zot,
+        item_keys,
+        lambda item: zot.moveto_collection(from_collection, to_collection, item),
+    )
+    if output_json:
+        click.echo(
+            json.dumps(
+                {"from": from_collection, "to": to_collection, "moved": done},
+                indent=2,
+            )
+        )
+    else:
+        click.echo(
+            f"Moved {len(done)} items from {from_collection} to {to_collection}: "
+            f"{', '.join(done)}"
         )
 
 
@@ -513,7 +749,7 @@ def test(ctx: Any) -> None:
         # Call settings() to test the connection
         # This should return {} if Zotero is running and listening
         result = zot.settings()
-    except httpx.ConnectError:
+    except httpx2.ConnectError:
         click.echo(
             "✗ Connection failed: Could not connect to Zotero.\n\n"
             "Possible causes:\n"

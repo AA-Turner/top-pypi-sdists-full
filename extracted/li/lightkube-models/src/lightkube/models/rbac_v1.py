@@ -16,7 +16,7 @@ class AggregationRule(DictMixin):
 
       **parameters**
 
-      * **clusterRoleSelectors** ``Optional[List[meta_v1.LabelSelector]]`` - ClusterRoleSelectors holds a list of selectors which will be used to find
+      * **clusterRoleSelectors** ``Optional[List[meta_v1.LabelSelector]]`` - clusterRoleSelectors holds a list of selectors which will be used to find
         ClusterRoles and create the rules. If any of the selectors match, then the
         ClusterRole's permissions will be added
     """
@@ -30,7 +30,7 @@ class ClusterRole(DictMixin):
 
       **parameters**
 
-      * **aggregationRule** ``Optional[AggregationRule]`` - AggregationRule is an optional field that describes how to build the Rules for
+      * **aggregationRule** ``Optional[AggregationRule]`` - aggregationRule is an optional field that describes how to build the Rules for
         this ClusterRole. If AggregationRule is set, then the Rules are controller
         managed and direct changes to Rules will be stomped by the controller.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
@@ -41,8 +41,8 @@ class ClusterRole(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata.
-      * **rules** ``Optional[List[PolicyRule]]`` - Rules holds all the PolicyRules for this ClusterRole
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object's metadata.
+      * **rules** ``Optional[List[PolicyRule]]`` - rules holds all the PolicyRules for this ClusterRole
     """
     aggregationRule: 'Optional[AggregationRule]' = None
     apiVersion: 'Optional[str]' = None
@@ -63,7 +63,7 @@ class ClusterRoleBinding(DictMixin):
 
       **parameters**
 
-      * **roleRef** ``RoleRef`` - RoleRef can only reference a ClusterRole in the global namespace. If the
+      * **roleRef** ``RoleRef`` - roleRef can only reference a ClusterRole in the global namespace. If the
         RoleRef cannot be resolved, the Authorizer must return an error. This field is
         immutable.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
@@ -74,8 +74,8 @@ class ClusterRoleBinding(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata.
-      * **subjects** ``Optional[List[Subject]]`` - Subjects holds references to the objects the role applies to.
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object's metadata.
+      * **subjects** ``Optional[List[Subject]]`` - subjects holds references to the objects the role applies to.
     """
     roleRef: 'RoleRef'
     apiVersion: 'Optional[str]' = None
@@ -150,21 +150,21 @@ class PolicyRule(DictMixin):
 
       **parameters**
 
-      * **verbs** ``List[str]`` - Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this
+      * **verbs** ``List[str]`` - verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this
         rule. '*' represents all verbs.
-      * **apiGroups** ``Optional[List[str]]`` - APIGroups is the name of the APIGroup that contains the resources.  If
+      * **apiGroups** ``Optional[List[str]]`` - apiGroups is the name of the APIGroup that contains the resources.  If
         multiple API groups are specified, any action requested against one of the
         enumerated resources in any API group will be allowed. "" represents the core
         API group and "*" represents all API groups.
-      * **nonResourceURLs** ``Optional[List[str]]`` - NonResourceURLs is a set of partial urls that a user should have access to.
+      * **nonResourceURLs** ``Optional[List[str]]`` - nonResourceURLs is a set of partial urls that a user should have access to.
         *s are allowed, but only as the full, final step in the path Since
         non-resource URLs are not namespaced, this field is only applicable for
         ClusterRoles referenced from a ClusterRoleBinding. Rules can either apply to
         API resources (such as "pods" or "secrets") or non-resource URL paths (such as
         "/api"),  but not both.
-      * **resourceNames** ``Optional[List[str]]`` - ResourceNames is an optional white list of names that the rule applies to.  An
+      * **resourceNames** ``Optional[List[str]]`` - resourceNames is an optional white list of names that the rule applies to.  An
         empty set means that everything is allowed.
-      * **resources** ``Optional[List[str]]`` - Resources is a list of resources this rule applies to. '*' represents all
+      * **resources** ``Optional[List[str]]`` - resources is a list of resources this rule applies to. '*' represents all
         resources.
     """
     verbs: 'List[str]'
@@ -189,8 +189,8 @@ class Role(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata.
-      * **rules** ``Optional[List[PolicyRule]]`` - Rules holds all the PolicyRules for this Role
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object's metadata.
+      * **rules** ``Optional[List[PolicyRule]]`` - rules holds all the PolicyRules for this Role
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -212,7 +212,7 @@ class RoleBinding(DictMixin):
 
       **parameters**
 
-      * **roleRef** ``RoleRef`` - RoleRef can reference a Role in the current namespace or a ClusterRole in the
+      * **roleRef** ``RoleRef`` - roleRef can reference a Role in the current namespace or a ClusterRole in the
         global namespace. If the RoleRef cannot be resolved, the Authorizer must
         return an error. This field is immutable.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
@@ -223,8 +223,8 @@ class RoleBinding(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata.
-      * **subjects** ``Optional[List[Subject]]`` - Subjects holds references to the objects the role applies to.
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object's metadata.
+      * **subjects** ``Optional[List[Subject]]`` - subjects holds references to the objects the role applies to.
     """
     roleRef: 'RoleRef'
     apiVersion: 'Optional[str]' = None
@@ -297,9 +297,9 @@ class RoleRef(DictMixin):
 
       **parameters**
 
-      * **kind** ``str`` - Kind is the type of resource being referenced
-      * **name** ``str`` - Name is the name of resource being referenced
-      * **apiGroup** ``Optional[str]`` - APIGroup is the group for the resource being referenced
+      * **kind** ``str`` - kind is the type of resource being referenced
+      * **name** ``str`` - name is the name of resource being referenced
+      * **apiGroup** ``Optional[str]`` - apiGroup is the group for the resource being referenced
     """
     kind: 'str'
     name: 'str'
@@ -314,14 +314,14 @@ class Subject(DictMixin):
 
       **parameters**
 
-      * **kind** ``str`` - Kind of object being referenced. Values defined by this API group are "User",
+      * **kind** ``str`` - kind of object being referenced. Values defined by this API group are "User",
         "Group", and "ServiceAccount". If the Authorizer does not recognized the kind
         value, the Authorizer should report an error.
-      * **name** ``str`` - Name of the object being referenced.
-      * **apiGroup** ``Optional[str]`` - APIGroup holds the API group of the referenced subject. Defaults to "" for
+      * **name** ``str`` - name of the object being referenced.
+      * **apiGroup** ``Optional[str]`` - apiGroup holds the API group of the referenced subject. Defaults to "" for
         ServiceAccount subjects. Defaults to "rbac.authorization.k8s.io" for User and
         Group subjects.
-      * **namespace** ``Optional[str]`` - Namespace of the referenced object.  If the object kind is non-namespace, such
+      * **namespace** ``Optional[str]`` - namespace of the referenced object.  If the object kind is non-namespace, such
         as "User" or "Group", and this value is not empty the Authorizer should report
         an error.
     """

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ansi2html
-Version: 1.9.2
+Version: 1.9.3
 Summary: Convert text with ANSI color codes to HTML or to LaTeX
 Author-email: Ralph Bean <rbean@redhat.com>
 Maintainer-email: Ralph Bean <rbean@redhat.com>
@@ -49,6 +49,7 @@ Requires-Dist: pymdown-extensions; extra == "docs"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
+Dynamic: license-file
 
 [![Build Status - main branch](https://github.com/pycontribs/ansi2html/workflows/tox/badge.svg?branch=main)](https://github.com/pycontribs/ansi2html/actions?query=workflow%3Atox+branch%3Amain)
 

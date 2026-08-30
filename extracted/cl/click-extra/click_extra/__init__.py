@@ -57,16 +57,16 @@ from click import *  # type: ignore[assignment]
 from click._utils import UNSET
 from click.core import ParameterSource
 
-# NoSuchCommand (PR pallets/click#3228) and get_pager_file (PR pallets/click#1572)
-# are Click 8.4.0 additions, absent on the Click 8.3.x releases click-extra still
-# supports. Import them only when present so click-extra mirrors Click's own public
-# surface; the matching __all__ entries are trimmed below when they are missing.
+# custom_version_option (PR pallets/click#3581) is a Click 8.5.0 addition, absent
+# on the earlier releases click-extra still supports. Import it only when present
+# so click-extra mirrors Click's own public surface; the matching __all__ entry is
+# trimmed below when it is missing.
 try:
-    from click import NoSuchCommand, get_pager_file
+    from click import custom_version_option
 
-    _HAS_CLICK_8_4_EXPORTS = True
-except ImportError:  # Click < 8.4.0.
-    _HAS_CLICK_8_4_EXPORTS = False
+    _HAS_CLICK_8_5_EXPORTS = True
+except ImportError:  # Click < 8.5.0.
+    _HAS_CLICK_8_5_EXPORTS = False
 
 # Overrides click helpers with cloup's.
 from cloup import *  # type: ignore[no-redef, assignment]
@@ -83,11 +83,26 @@ from .color import (
     ColorOption,
     NoColorOption,
 )
+from .command_doc import (
+    HELP_FORMATS,
+    INSTALLABLE_FORMATS,
+    CommandDoc,
+    HelpFormatOption,
+    ManOption,
+    format_manpage,
+    install_manpages,
+    read_manpage,
+    render_help,
+    render_manpage,
+    render_manpages,
+    write_manpages,
+)
 from .commands import (
     Command,
     Group,
     HelpCommand,
     LazyGroup,
+    LazySubcommand,
 )
 from .config import (
     CONFIG_PATH_METADATA_KEY,
@@ -109,6 +124,7 @@ from .config import (
     config_table_to_flags,
     field_docstrings,
     flatten_config_keys,
+    format_from_mime,
     format_from_path,
     get_tool_config,
     make_schema_callable,
@@ -127,12 +143,15 @@ from .decorators import (  # type: ignore[no-redef]
     columns_option,
     command,
     config_option,
+    debug_option,
     export_config_option,
     group,
+    help_format_option,
     help_option,
     jobs_option,
     lazy_group,
     man_option,
+    multicall_group,
     no_color_option,
     no_config_option,
     option,
@@ -172,6 +191,7 @@ from .highlight import (
 )
 from .humanize import format_duration, format_size
 from .logging import (
+    DebugOption,
     Formatter,
     LogLevel,
     QuietOption,
@@ -181,13 +201,7 @@ from .logging import (
     basicConfig,
     new_logger,
 )
-from .man_page import (
-    ManOption,
-    ManPage,
-    render_manpage,
-    render_manpages,
-    write_manpages,
-)
+from .multicall import MulticallGroup
 from .myst_converter import (
     convert_directory,
     convert_file,
@@ -289,6 +303,8 @@ __all__ = [
     "DEFAULT_TEST_SUITE",
     "EXTENSION_METADATA_KEY",
     "FLOAT",
+    "HELP_FORMATS",
+    "INSTALLABLE_FORMATS",
     "INT",
     "NORMALIZE_KEYS_METADATA_KEY",
     "NO_CONFIG",
@@ -318,12 +334,14 @@ __all__ = [
     "ColumnsOption",
     "Command",
     "CommandCollection",
+    "CommandDoc",
     "ConfigFormat",
     "ConfigOption",
     "ConfigValidator",
     "ConstraintMixin",
     "Context",
     "DateTime",
+    "DebugOption",
     "Duration",
     "EnumChoice",
     "ExportConfigOption",
@@ -334,6 +352,7 @@ __all__ = [
     "Formatter",
     "Group",
     "HelpCommand",
+    "HelpFormatOption",
     "HelpFormatter",
     "HelpKeywords",
     "HelpSection",
@@ -341,11 +360,12 @@ __all__ = [
     "IntRange",
     "JobsOption",
     "LazyGroup",
+    "LazySubcommand",
     "LogLevel",
     "ManOption",
-    "ManPage",
     "MissingParameter",
     "MultiChoice",
+    "MulticallGroup",
     "NoColorOption",
     "NoConfigOption",
     "NoSuchCommand",
@@ -413,6 +433,8 @@ __all__ = [
     "convert_file",
     "convert_rst_files_in_directory",
     "convert_source",
+    "custom_version_option",
+    "debug_option",
     "detect_source_package",
     "dir_path",
     "echo",
@@ -425,7 +447,9 @@ __all__ = [
     "format_cli_prompt",
     "format_duration",
     "format_filename",
+    "format_from_mime",
     "format_from_path",
+    "format_manpage",
     "format_param_row",
     "format_size",
     "get_app_dir",
@@ -439,9 +463,11 @@ __all__ = [
     "get_tool_config",
     "getchar",
     "group",
+    "help_format_option",
     "help_option",
     "highlight_bin_name",
     "install_interrupt_handler",
+    "install_manpages",
     "is_stdout",
     "jobs_option",
     "last_param",
@@ -451,6 +477,7 @@ __all__ = [
     "make_pass_decorator",
     "make_schema_callable",
     "man_option",
+    "multicall_group",
     "new_logger",
     "no_color_option",
     "no_config_option",
@@ -475,10 +502,12 @@ __all__ = [
     "prompt",
     "quiet_option",
     "read_file",
+    "read_manpage",
     "register_theme",
     "render_ansi",
     "render_columns_markdown_table",
     "render_command_tree",
+    "render_help",
     "render_manpage",
     "render_manpages",
     "render_table",
@@ -529,13 +558,12 @@ Sorting is enforced by `ruff` via
 ```
 """
 
-# NoSuchCommand and get_pager_file are only re-exported on Click >= 8.4.0 (see the
-# guarded import above). Drop them from the public API on older Click so `__all__`
-# matches the names actually bound in this module.
-if not _HAS_CLICK_8_4_EXPORTS:
-    __all__.remove("NoSuchCommand")
-    __all__.remove("get_pager_file")
-del _HAS_CLICK_8_4_EXPORTS
+# custom_version_option is only re-exported on Click >= 8.5.0 (see the guarded
+# import above). Drop it from the public API on older Click so `__all__` matches
+# the names actually bound in this module.
+if not _HAS_CLICK_8_5_EXPORTS:
+    __all__.remove("custom_version_option")
+del _HAS_CLICK_8_5_EXPORTS
 
 # Scrub namespace artifacts that are not part of the public API: `annotations`
 # is this module's own `from __future__ import annotations` binding (deleting
@@ -572,13 +600,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "8.9.1"
+__version__ = "9.0.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "a47c6eeb779bd327d3b8a60d801befc10c9dcb51"
+__git_tag_sha__ = "7cb84013f6e6b8636b652b3bc791896911f46faf"
 
 
 _LAZY_TEST_TOOLING = {
@@ -603,16 +631,36 @@ materializes them all, at the cost of loading the test tooling.
 """
 
 
+_DEPRECATED_CLICK_EXPORTS = frozenset({"get_binary_stream", "get_text_stream"})
+"""Click symbols a star import no longer binds, forwarded on access instead.
+
+Click `8.5.0` renamed these to private names and re-exposed them through its own
+module `__getattr__`, to deprecate them for removal in Click `9.0`. A star
+import never consults that hook, so `from click import *` stopped binding them
+and click-extra stopped re-exporting them. Forwarding each access keeps
+click-extra a drop-in for as long as Click serves them, and warns exactly when
+Click does: the value is never cached, so every access reaches Click's shim.
+"""
+
+
 def __getattr__(name: str) -> Any:
-    """Resolve lazy and deprecated top-level symbols via PEP 562.
+    """Resolve lazy top-level symbols via PEP 562.
 
     Test-tooling names registered in {data}`_LAZY_TEST_TOOLING` are imported
     from their hosting module on first access, then cached in the module
-    namespace so later accesses bypass this hook. Every other unknown name is
-    delegated to the deprecated-aliases resolver. Fires only for names not
-    defined in this module, so live exports stay zero-overhead. See
-    {mod}`click_extra._deprecated`.
+    namespace so later accesses bypass this hook. Names in
+    {data}`_DEPRECATED_CLICK_EXPORTS` are forwarded to Click on every access,
+    uncached. Fires only for names not defined in this module, so live exports
+    stay zero-overhead.
     """
+    if name in _DEPRECATED_CLICK_EXPORTS:
+        # Imported here rather than at module level: the star imports above bind
+        # no `click` name, and _scrub_foreign_modules() would drop one anyway.
+        import click
+
+        # Never cached, so each access reaches Click's own deprecation shim.
+        return getattr(click, name)
+
     lazy_module = _LAZY_TEST_TOOLING.get(name)
     if lazy_module:
         from importlib import import_module
@@ -622,11 +670,9 @@ def __getattr__(name: str) -> Any:
         globals()[name] = value
         return value
 
-    from ._deprecated import resolve_deprecated
-
-    return resolve_deprecated(__name__, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:
-    """Expose the lazy test-tooling names to `dir()` before their first access."""
-    return sorted(set(globals()) | set(_LAZY_TEST_TOOLING))
+    """Expose every name `__getattr__` serves to `dir()` before its first access."""
+    return sorted(set(globals()) | set(_LAZY_TEST_TOOLING) | _DEPRECATED_CLICK_EXPORTS)

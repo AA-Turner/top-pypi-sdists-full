@@ -67,7 +67,7 @@ jobs:
         run: uv pip install --system .[docs]
 
       - name: Setup headless display
-        uses: pyvista/setup-headless-display-action@v4.3
+        uses: pyvista/setup-headless-display-action@v5.0
 
       - name: Build Documentation
         run: |
@@ -144,7 +144,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Linux carries its architecture per entry rather than deriving it from
+        # the runner, so the arch a lane builds is readable next to the lane.
+        # aarch64 is built natively on a GitHub-hosted arm64 runner; QEMU would
+        # be the alternative and is an order of magnitude slower.
+        include:
+          - os: ubuntu-latest
+            archs_linux: x86_64
+          - os: ubuntu-24.04-arm
+            archs_linux: aarch64
+          - os: macos-latest
+          - os: windows-latest
 
     steps:
       - uses: actions/checkout@v7
@@ -152,7 +162,7 @@ jobs:
           fetch-depth: 0
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.2.0
+        uses: pypa/cibuildwheel@v4.2.0
         env:
           # cp310 exists only to reach glibc 2.17; see [tool.cibuildwheel] in pyproject.toml.
           # Wheels are py3-none-<platform>, so a second macOS/Windows build would collide.
@@ -160,10 +170,10 @@ jobs:
           CIBW_SKIP: "*-musllinux_* cp310-macosx_* cp310-win*"
           # glibc 2.17 has no Pillow wheel; the cp312 wheel still proves the library loads.
           CIBW_TEST_SKIP: "cp310-manylinux*"
-          # The platforms named here are the ones README.rst promises a wheel
-          # for. Anything outside them installs from the sdist and needs a C++
-          # compiler; keep the two in step.
-          CIBW_ARCHS_LINUX: x86_64
+          # The platforms named here and in the matrix are the ones README.rst
+          # promises a wheel for. Anything outside them installs from the sdist
+          # and needs a C++ compiler; keep the two in step.
+          CIBW_ARCHS_LINUX: ${{ matrix.archs_linux }}
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ENVIRONMENT: PVZSTD_BUILD_CORE=1
@@ -173,7 +183,7 @@ jobs:
             "from pyvista_zstd import _capi;
             print('C++ core loaded from', _capi.library_path())"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -207,7 +217,7 @@ jobs:
           from pyvista_zstd import _capi
           print('C++ core built from sdist:', _capi.library_path())"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -231,14 +241,14 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Collect the wheels built for this commit
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: wheels-*
           merge-multiple: true
           path: dist
 
       - name: Collect the sdist built for this commit
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: sdist
           path: dist

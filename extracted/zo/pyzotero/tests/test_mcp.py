@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from pyzotero._helpers import save_local_key
+
 
 # The mcp extra requires Python >= 3.10, so skip the entire module on older versions
 mcp_server = pytest.importorskip(
@@ -457,6 +459,8 @@ class TestWriteGating:
         server = _FakeServer()
         names = mcp_server.register_write_tools(server)
         assert "create_item" in names
+        assert "remove_from_collection" in names
+        assert "move_to_collection" in names
         assert "delete_item" not in names
         assert "delete_item" not in server.tools
 
@@ -473,24 +477,47 @@ class TestWriteGating:
 
 
 class TestWriteClient:
-    def test_missing_key_raises_with_remedy(self, monkeypatch):
+    @pytest.fixture(autouse=True)
+    def _no_stored_key(self, monkeypatch, tmp_path):
+        """Point the key file at an empty directory, whatever the user has"""
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
         monkeypatch.delenv(mcp_server.WRITE_KEY_ENV, raising=False)
+        monkeypatch.delenv(mcp_server.SERVER_ID_ENV, raising=False)
+
+    def test_missing_key_raises_with_remedy(self):
         with pytest.raises(RuntimeError, match="pyzotero authorize"):
             mcp_server._write_client()
 
     def test_key_and_server_id_passed_through(self, monkeypatch):
         monkeypatch.setenv(mcp_server.WRITE_KEY_ENV, "key123")
         monkeypatch.setenv(mcp_server.SERVER_ID_ENV, "srv123")
-        with patch("pyzotero.mcp_server.get_zotero_client") as client:
+        with patch("pyzotero._helpers.get_zotero_client") as client:
             mcp_server._write_client()
-        client.assert_called_once_with(server_id="srv123", local_api_key="key123")
+        client.assert_called_once_with(
+            "en-US", server_id="srv123", local_api_key="key123"
+        )
 
     def test_absent_server_id_is_none(self, monkeypatch):
         monkeypatch.setenv(mcp_server.WRITE_KEY_ENV, "key123")
-        monkeypatch.delenv(mcp_server.SERVER_ID_ENV, raising=False)
-        with patch("pyzotero.mcp_server.get_zotero_client") as client:
+        with patch("pyzotero._helpers.get_zotero_client") as client:
             mcp_server._write_client()
-        client.assert_called_once_with(server_id=None, local_api_key="key123")
+        client.assert_called_once_with("en-US", server_id=None, local_api_key="key123")
+
+    def test_key_file_used_when_env_absent(self):
+        """The file that 'pyzotero authorize' writes serves the MCP server too"""
+        save_local_key("filekey", "filesrv")
+        with patch("pyzotero._helpers.get_zotero_client") as client:
+            mcp_server._write_client()
+        client.assert_called_once_with(
+            "en-US", server_id="filesrv", local_api_key="filekey"
+        )
+
+    def test_env_takes_precedence_over_key_file(self, monkeypatch):
+        save_local_key("filekey", "filesrv")
+        monkeypatch.setenv(mcp_server.WRITE_KEY_ENV, "envkey")
+        with patch("pyzotero._helpers.get_zotero_client") as client:
+            mcp_server._write_client()
+        client.assert_called_once_with("en-US", server_id=None, local_api_key="envkey")
 
 
 class TestWriteTools:
@@ -552,6 +579,20 @@ class TestWriteTools:
         args = write_zot.addto_collection.call_args[0]
         assert args[0] == "COLL1"
         assert args[1]["key"] == "ABC123"
+
+    def test_remove_from_collection(self, write_tools, write_zot):
+        result = json.loads(write_tools["remove_from_collection"]("ABC123", "COLL1"))
+        assert result == {"item": "ABC123", "removedFrom": "COLL1"}
+        args = write_zot.deletefrom_collection.call_args[0]
+        assert args[0] == "COLL1"
+        assert args[1]["key"] == "ABC123"
+
+    def test_move_to_collection(self, write_tools, write_zot):
+        result = json.loads(write_tools["move_to_collection"]("ABC123", "OLD", "NEW"))
+        assert result == {"item": "ABC123", "movedFrom": "OLD", "movedTo": "NEW"}
+        args = write_zot.moveto_collection.call_args[0]
+        assert args[:2] == ("OLD", "NEW")
+        assert args[2]["key"] == "ABC123"
 
     def test_delete_item(self, write_tools, write_zot):
         result = json.loads(write_tools["delete_item"]("ABC123"))

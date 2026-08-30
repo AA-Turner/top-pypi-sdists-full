@@ -142,7 +142,10 @@ def test_click_matrix_matches_authorized_releases():
     - a **stale** pin means a pinned version is no longer an authorized release
       (the floor was raised past it, or the release was yanked).
 
-    Either way, the matrix needs an edit, and this is the signal.
+    Either way, the matrix needs an edit, and this is the signal. There is no
+    exemption list: a release the suite cannot run on gets its own answer at the
+    moment it appears, whether that is a floor bump past it or a hole opened
+    here on purpose.
     """
     specifier, variations, pinned = load_click_matrix()
 

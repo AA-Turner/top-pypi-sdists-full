@@ -36,6 +36,8 @@ class TestBatchDeleteDocumentsResponse(unittest.TestCase):
         model = BatchDeleteDocumentsResponse()
         if include_optional:
             return BatchDeleteDocumentsResponse(
+                task_id = '',
+                status = '',
                 deleted_count = 56,
                 failed_count = 56,
                 results = [
@@ -48,7 +50,6 @@ class TestBatchDeleteDocumentsResponse(unittest.TestCase):
             )
         else:
             return BatchDeleteDocumentsResponse(
-                deleted_count = 56,
         )
         """
 

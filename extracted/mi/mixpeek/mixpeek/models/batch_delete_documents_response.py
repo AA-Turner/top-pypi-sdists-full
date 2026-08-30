@@ -26,13 +26,15 @@ from typing_extensions import Self
 
 class BatchDeleteDocumentsResponse(BaseModel):
     """
-    Response model for batch document delete operation.  Provides detailed per-document results showing success/failure for each deletion.
+    Response model for batch document delete operation.  Two shapes, keyed on the request mode (AVE-44): - Explicit IDs mode is SYNCHRONOUS and fast (targets point ids directly):   deleted_count / failed_count / results are populated, task_id is null. - Filter mode is ASYNC: it scrolls matches on the shard, which can exceed a   request's connection window (BACKE-3471, same cost shape as bulk update), so   it enqueues a task and returns task_id + status=PENDING with deleted_count   null. Poll GET /v1/tasks/{task_id} for the terminal status and deleted_count.
     """ # noqa: E501
-    deleted_count: StrictInt = Field(description="Total number of documents successfully deleted")
+    task_id: Optional[StrictStr] = Field(default=None, description="AVE-44: id of the background task for a FILTER-mode delete. Null for explicit-IDs mode (which completes synchronously). Poll GET /v1/tasks/{task_id} for status and the final deleted_count.")
+    status: Optional[StrictStr] = Field(default=None, description="Task status at enqueue time (PENDING) for a filter-mode delete. Null for the synchronous explicit-IDs mode.")
+    deleted_count: Optional[StrictInt] = Field(default=None, description="Total number of documents successfully deleted. Null on the async filter-mode enqueue response; populated on the task record when it completes, and returned synchronously in explicit-IDs mode.")
     failed_count: Optional[StrictInt] = Field(default=0, description="Total number of documents that failed to delete")
     results: Optional[List[BatchDocumentDeleteResult]] = Field(default=None, description="Detailed per-document results. Each entry shows document_id, success status, and error message (if failed). Empty list when using filter mode (only counts returned).")
     message: Optional[StrictStr] = Field(default='Batch delete completed', description="Summary message of the operation")
-    __properties: ClassVar[List[str]] = ["deleted_count", "failed_count", "results", "message"]
+    __properties: ClassVar[List[str]] = ["task_id", "status", "deleted_count", "failed_count", "results", "message"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +94,8 @@ class BatchDeleteDocumentsResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "task_id": obj.get("task_id"),
+            "status": obj.get("status"),
             "deleted_count": obj.get("deleted_count"),
             "failed_count": obj.get("failed_count") if obj.get("failed_count") is not None else 0,
             "results": [BatchDocumentDeleteResult.from_dict(_item) for _item in obj["results"]] if obj.get("results") is not None else None,

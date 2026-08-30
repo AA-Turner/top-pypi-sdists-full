@@ -132,6 +132,10 @@ void RelGroupCatalogEntry::serialize(Serializer& serializer) const {
     serializer.serializeVector(relTableInfos);
     serializer.writeDebuggingInfo("storageFormat");
     serializer.serializeValue(storageFormat);
+    serializer.writeDebuggingInfo("csrSortedByDest");
+    serializer.serializeValue(csrSortedByDest);
+    serializer.writeDebuggingInfo("csrChangeEpoch");
+    serializer.serializeValue(csrChangeEpoch);
 }
 
 std::unique_ptr<RelGroupCatalogEntry> RelGroupCatalogEntry::deserialize(
@@ -174,6 +178,15 @@ std::unique_ptr<RelGroupCatalogEntry> RelGroupCatalogEntry::deserialize(
     } else {
         upgradeLegacyStorageFormat(storage, storageFormat);
     }
+    bool csrSortedByDest = false;
+    uint64_t csrChangeEpoch = 0;
+    if (deserializer.getStorageVersion() >=
+        ::lbug::storage::StorageVersionInfo::STORAGE_VERSION_45) {
+        deserializer.validateDebuggingInfo(debuggingInfo, "csrSortedByDest");
+        deserializer.deserializeValue(csrSortedByDest);
+        deserializer.validateDebuggingInfo(debuggingInfo, "csrChangeEpoch");
+        deserializer.deserializeValue(csrChangeEpoch);
+    }
     auto relGroupEntry = std::make_unique<RelGroupCatalogEntry>();
     relGroupEntry->srcMultiplicity = srcMultiplicity;
     relGroupEntry->dstMultiplicity = dstMultiplicity;
@@ -182,6 +195,8 @@ std::unique_ptr<RelGroupCatalogEntry> RelGroupCatalogEntry::deserialize(
     relGroupEntry->storageFormat = storageFormat;
     relGroupEntry->scanFunction = scanFunction;
     relGroupEntry->relTableInfos = relTableInfos;
+    relGroupEntry->csrSortedByDest = csrSortedByDest;
+    relGroupEntry->csrChangeEpoch = csrChangeEpoch;
     return relGroupEntry;
 }
 
@@ -198,7 +213,8 @@ static std::string getFromToStr(const NodeTableIDPair& pair, const Catalog* cata
         srcTableName = catalog->getTableCatalogEntry(transaction, pair.srcTableID)->getName();
         dstTableName = catalog->getTableCatalogEntry(transaction, pair.dstTableID)->getName();
     }
-    return std::format("FROM `{}` TO `{}`", srcTableName, dstTableName);
+    return std::format("FROM {} TO {}", common::StringUtils::quoteIdentifier(srcTableName),
+        common::StringUtils::quoteIdentifier(dstTableName));
 }
 
 static std::string getMultiplicityStr(RelMultiplicity srcMultiplicity,
@@ -212,7 +228,7 @@ std::string RelGroupCatalogEntry::toCypher(const ToCypherInfo& info) const {
     auto catalog = Catalog::Get(*relGroupInfo.context);
     auto transaction = transaction::Transaction::Get(*relGroupInfo.context);
     std::stringstream ss;
-    ss << std::format("CREATE REL TABLE `{}` (", getName());
+    ss << std::format("CREATE REL TABLE {} (", common::StringUtils::quoteIdentifier(getName()));
     DASSERT(!relTableInfos.empty());
     ss << getFromToStr(relTableInfos[0].nodePair, catalog, transaction, storage);
     if (relTableInfos[0].srcMultiplicity != srcMultiplicity ||
@@ -264,6 +280,8 @@ std::unique_ptr<TableCatalogEntry> RelGroupCatalogEntry::copy() const {
     other->scanBindData = std::nullopt; // TODO: implement copy for bindData if needed
     other->foreignDatabaseName = foreignDatabaseName;
     other->relTableInfos = relTableInfos;
+    other->csrSortedByDest = csrSortedByDest;
+    other->csrChangeEpoch = csrChangeEpoch;
     other->copyFrom(*this);
     return other;
 }

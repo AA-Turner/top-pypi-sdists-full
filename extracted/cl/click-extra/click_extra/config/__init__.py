@@ -46,7 +46,9 @@ from .builtin import (
 from .flags import config_table_to_flags
 from .formats import (
     SERIALIZABLE_FORMATS,
+    SQLITE_CONFIG_TABLE,
     ConfigFormat,
+    format_from_mime,
     format_from_path,
     parse_content,
     read_file,
@@ -88,6 +90,7 @@ __all__ = [
     "NO_CONFIG",
     "PREPEND_SUBCOMMANDS_KEY",
     "SERIALIZABLE_FORMATS",
+    "SQLITE_CONFIG_TABLE",
     "THEMES_CONFIG_KEY",
     "VCS",
     "ClickExtraConfig",
@@ -106,6 +109,7 @@ __all__ = [
     "ensure_config_loaded",
     "field_docstrings",
     "flatten_config_keys",
+    "format_from_mime",
     "format_from_path",
     "get_tool_config",
     "make_schema_callable",

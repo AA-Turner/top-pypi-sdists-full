@@ -1,33 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: crc
-Version: 7.1.0
+Version: 8.0.0
 Summary: Pure Python CRC library
-Home-page: https://github.com/Nicoretti/crc
-License: BSD-2-Clause
-Keywords: CRC,CRC8,CRC16,CRC32,CRC64
-Author: Nicola Coretti
-Author-email: nico.coretti@gmail.com
-Maintainer: Nicola Coretti
-Maintainer-email: nico.coretti@gmail.com
-Requires-Python: >=3.8,<4.0
+Project-URL: Repository, https://github.com/Nicoretti/crc
+Project-URL: Homepage, https://nicoretti.github.io/crc/
+Project-URL: Documentation, https://nicoretti.github.io/crc/
+Project-URL: Source, https://github.com/Nicoretti/crc
+Project-URL: Issues, https://github.com/Nicoretti/crc/issues
+Project-URL: Changelog, https://nicoretti.github.io/crc/changelog/unreleased/
+Author-email: Nicola Coretti <nico.coretti@gmail.com>
+Maintainer-email: Nicola Coretti <nico.coretti@gmail.com>
+License-Expression: BSD-2-Clause
+License-File: LICENSE.txt
+Keywords: CRC,CRC16,CRC32,CRC64,CRC8
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Project-URL: Changelog, https://nicoretti.github.io/crc/changelog/unreleased/
-Project-URL: Documentation, https://nicoretti.github.io/crc/
-Project-URL: Homepage, https://nicoretti.github.io/crc/
-Project-URL: Issues, https://github.com/Nicoretti/crc/issues
-Project-URL: Repository, https://github.com/Nicoretti/crc
-Project-URL: Source, https://github.com/Nicoretti/crc
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4.0,>=3.11
 Description-Content-Type: text/markdown
 
 <h1 align="center">CRC</h1>
@@ -219,4 +211,3 @@ References & Resources
 -----------------------
 * [A Painless guide to crc error detection algorithms](http://www.zlib.net/crc_v3.txt)
 * [CRC-Catalogue](http://reveng.sourceforge.net/crc-catalogue/all.htm)
-

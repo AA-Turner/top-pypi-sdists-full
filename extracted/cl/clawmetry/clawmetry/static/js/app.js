@@ -5500,7 +5500,7 @@ var _Q_RUNTIME_NAMES = {
   qm: 'QM', deepseek_harness: 'DeepSeek Harness', exo: 'Exo',
   kimi: 'Kimi CLI',
   devin: 'Devin', gemini_cli: 'Gemini CLI', cline: 'Cline', openhands: 'OpenHands',
-  openworker: 'OpenWorker',
+  openworker: 'OpenWorker', lovable: 'Lovable', replit: 'Replit Agent',
 };
 function _qRuntimeLabel(id) {
   return _Q_RUNTIME_NAMES[id] || id;
@@ -11902,7 +11902,7 @@ var _CM_RT_LABEL = {
   copilot: 'GitHub Copilot', grok: 'Grok Build', grok_bot: 'Grok Bot', qm: 'QM',
   deepseek_harness: 'DeepSeek Harness', exo: 'Exo', kimi: 'Kimi CLI',
   devin: 'Devin', gemini_cli: 'Gemini CLI', cline: 'Cline', openhands: 'OpenHands',
-  openworker: 'OpenWorker',
+  openworker: 'OpenWorker', lovable: 'Lovable', replit: 'Replit Agent',
 };
 // The CLOSED session-prefix runtimes (the only keys that can ride a session_id
 // prefix). Foreign OTLP / OpenLLMetry apps are NOT in here — they have no
@@ -11914,7 +11914,7 @@ var _CM_RT_PREFIXES = {
   n8n: 1, antigravity: 1, copilot: 1, grok: 1, qm: 1, deepseek_harness: 1, exo: 1,
   kimi: 1,
   devin: 1, gemini_cli: 1, cline: 1, openhands: 1,
-  openworker: 1, grok_bot: 1,
+  openworker: 1, grok_bot: 1, lovable: 1, replit: 1,
 };
 // Dynamic registry of foreign OTLP/OpenLLMetry apps surfaced by the daemon
 // (runtimeSummary/agentInventory carry `otlp:true` + a `displayName`). These are
@@ -12081,6 +12081,9 @@ var _CM_RT_CAPS = {
   grok:        ['SESSIONS','EVENTS','COST'],
   // No COST: Grok Bot persists no tokens, model or spend locally.
   grok_bot:    ['SESSIONS','EVENTS'],
+  // No COST: Lovable bills credits in the vendor cloud; the local clone
+  // records commits, not tokens or spend.
+  lovable:     ['SESSIONS','EVENTS'],
   deepseek_harness: ['SESSIONS','EVENTS','COST','SUBAGENTS'],
   exo: ['SESSIONS','EVENTS','COST','SUBAGENTS'],
   kimi: ['SESSIONS','EVENTS','COST','SUBAGENTS'],
@@ -19405,6 +19408,9 @@ function _buildReplayEvent(m, idx) {
     content: m.content || '',
     timestamp: m.timestamp,
     tokens: m.tokens || null,
+    // Daemon-stamped per-event cost (stamped on the first message of each
+    // event row) — summed per turn for the chapter-header cost badge.
+    cost: m.cost_usd || null,
     params: m.params || null,
     // #1911: structured tool call/result detail for the deep-dive chip.
     tool: m.tool || null,
@@ -19615,7 +19621,10 @@ function _renderReplayEvent(ev, highlighted) {
   // (prose) turns stand out and the timeline reads cleanly.
   var _c = ev.content;
   if (!_c || !String(_c).trim()) {
-    var chipLabel = role === 'assistant' ? '🔧 Tool call'
+    // A thinking event whose text wasn't captured must not masquerade as a
+    // tool call — label it for what it is.
+    var chipLabel = ev.type === 'thinking' ? '🧠 ' + t("app.thinking_internal", null, "thinking (internal)")
+                  : role === 'assistant' ? '🔧 Tool call'
                   : role === 'user' ? '↩ Tool result'
                   : role === 'system' ? '⚙ System'
                   : (escHtml(role) + ' · no text');
@@ -19625,16 +19634,22 @@ function _renderReplayEvent(ev, highlighted) {
     return '<div class="chat-tool-chip ' + (role === 'user' ? 'tc-user' : 'tc-asst') + '" id="replay-msg-' + ev.originalIndex + '" style="align-self:' + chipSide + ';' + chipRing + '">'
       + '<span class="chat-tool-chip-label">' + chipLabel + '</span>'
       + (ev.tokens ? '<span class="chat-tool-chip-meta">' + ev.tokens + ' tok</span>' : '')
+      + (ev.cost > 0 ? '<span class="chat-tool-chip-meta">' + _taFmtCost(ev.cost) + '</span>' : '')
       + (chipTs ? '<span class="chat-tool-chip-meta">' + chipTs + '</span>' : '')
       + '</div>';
   }
   var cls = role === 'user' ? 'user' : role === 'assistant' ? 'assistant' : role === 'system' ? 'system' : 'tool';
+  // Extended-thinking turns are the model reasoning on the user's behalf, not
+  // the reply — cyan-accented (matching the turn-anatomy "model" color) so a
+  // reader can tell internal work from the actual answer at a glance.
+  var isThinking = ev.type === 'thinking';
+  if (isThinking) cls = 'thinking';
   var content = ev.content;
   var needsTruncate = content.length > 800;
   var displayContent = needsTruncate ? content.substring(0, 800) : content;
   var highlightStyle = highlighted ? 'box-shadow:0 0 0 2px #6366f1;' : '';
   var html = '<div class="chat-msg ' + cls + '" id="replay-msg-' + ev.originalIndex + '" style="' + highlightStyle + '">';
-  html += '<div class="chat-role">' + escHtml(role) + '</div>';
+  html += '<div class="chat-role">' + (isThinking ? '&#129504; ' + t("app.thinking_internal", null, "thinking (internal)") : escHtml(role)) + '</div>';
   if (needsTruncate) {
     html += '<div class="chat-content-truncated" id="msg-' + ev.originalIndex + '-short" style="white-space:pre-wrap;word-break:break-word;">' + escHtml(displayContent) + '</div>';
     html += '<div id="msg-' + ev.originalIndex + '-full" style="display:none;white-space:pre-wrap;word-break:break-word;">' + escHtml(content) + '</div>';
@@ -19642,7 +19657,7 @@ function _renderReplayEvent(ev, highlighted) {
   } else {
     html += '<div style="white-space:pre-wrap;word-break:break-word;">' + escHtml(content) + '</div>';
   }
-  if (ev.tokens) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">&#128200; ' + ev.tokens + ' tokens</div>';
+  if (ev.tokens) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">&#128200; ' + ev.tokens + ' tokens' + (ev.cost > 0 ? ' &middot; ' + _taFmtCost(ev.cost) : '') + '</div>';
   // Issue #564: decoding-config pill — small inline summary of the sampling
   // params that produced this assistant turn (only present when the backend
   // could extract at least one known key).
@@ -19724,7 +19739,9 @@ function _groupIntoTurns(events) {
         lastTs: ev.timestamp || null,
         events: [],
         toolCount: 0,
-        errorCount: 0
+        errorCount: 0,
+        tokens: 0,
+        cost: 0
       };
       turns.push(current);
     }
@@ -19732,6 +19749,8 @@ function _groupIntoTurns(events) {
     if (ev.timestamp) current.lastTs = ev.timestamp;
     if (ev.tool) current.toolCount++;
     if (ev.tool && ev.tool.is_error) current.errorCount++;
+    if (ev.tokens) current.tokens += ev.tokens;
+    if (ev.cost) current.cost += ev.cost;
   }
   return turns;
 }
@@ -19769,6 +19788,10 @@ function _renderTurnChapter(turn, highlightOriginal) {
   if (turn.toolCount > 0) pieces.push('🔧 ' + turn.toolCount);
   if (turn.errorCount > 0) pieces.push('<span style="color:#e0625a;">✕ ' + turn.errorCount + '</span>');
   if (duration) pieces.push('⏱ ' + duration);
+  // Turn spend — same per-event token/cost stamps the Turn anatomy page sums,
+  // so the two figures agree.
+  if (turn.tokens > 0) pieces.push('🪙 ' + (turn.tokens >= 1000 ? (turn.tokens / 1000).toFixed(1) + 'K' : turn.tokens) + ' tok');
+  if (turn.cost > 0) pieces.push('<span style="color:#34d399;">' + _taFmtCost(turn.cost) + '</span>');
   var meta = pieces.join(' · ');
   var html = '<section class="turn-chapter" id="turn-chapter-' + turn.turn + '">';
   html += '<header class="turn-chapter-head">';
@@ -20007,6 +20030,103 @@ function openSessionDeepDive(kind, sessionId) {
   }
 }
 
+// ── Replay history paging ───────────────────────────────────────────────────
+// The replay opens on the NEWEST window instantly (cloud: the snapshot's
+// capped transcript; local: the capped fast path) and pulls older history on
+// demand through /api/transcript-page — an exclusive before_ts cursor walk,
+// rendered by the same backend message builder. Nothing is fetched until the
+// user asks, so the fast first paint costs no extra requests.
+
+function _pagingMsgKey(m) {
+  if (!m || typeof m !== 'object') return String(m);
+  var toolBits = '';
+  if (m.tool) {
+    toolBits = (m.tool.name || '') + '|' + String(m.tool.input || '').slice(0, 40)
+             + '|' + String(m.tool.output || '').slice(0, 40);
+  }
+  return (m.timestamp || 0) + '|' + (m.role || '') + '|'
+       + String(m.content || '').slice(0, 80) + '|' + toolBits;
+}
+
+function _updateLoadEarlierBtn() {
+  var wrap = document.getElementById('transcript-messages');
+  if (!wrap) return;
+  var host = document.getElementById('replay-load-earlier');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'replay-load-earlier';
+    host.style.cssText = 'margin:0 0 8px 0;text-align:center;';
+    wrap.parentNode.insertBefore(host, wrap);
+  }
+  var p = window._transcriptPaging;
+  if (!p || !p.hasMore) { host.innerHTML = ''; host.style.display = 'none'; return; }
+  host.style.display = '';
+  if (p.loading) {
+    host.innerHTML = '<span style="font-size:12px;color:var(--text-muted);">⏳ '
+      + escHtml(t('transcript.loading_earlier', null, 'Loading earlier messages…')) + '</span>';
+  } else if (p.error) {
+    host.innerHTML = '<button class="refresh-btn" onclick="loadEarlierMessages()" '
+      + 'style="color:#e0625a;">'
+      + escHtml(t('transcript.load_earlier_failed', null, 'Couldn\'t load older messages - tap to retry'))
+      + '</button>';
+  } else {
+    host.innerHTML = '<button class="refresh-btn" onclick="loadEarlierMessages()">⬆ '
+      + escHtml(t('transcript.load_earlier', null, 'Load earlier messages'))
+      + '</button>';
+  }
+}
+
+async function loadEarlierMessages() {
+  var p = window._transcriptPaging;
+  if (!p || !p.hasMore || p.loading) return;
+  p.loading = true;
+  p.error = null;
+  _updateLoadEarlierBtn();
+  try {
+    var url = '/api/transcript-page/' + encodeURIComponent(p.sid) + '?limit=150'
+            + (p.cursor ? ('&before_ts=' + Math.floor(p.cursor)) : '');
+    var r = await fetch(url);
+    var body = await r.json();
+    if (!r.ok || body.error) throw new Error(body.error || ('HTTP ' + r.status));
+    var master = window._transcriptAllMessages || [];
+    // Dedupe: the preserved opening prompt reappears when paging reaches the
+    // session start; anything already on screen must not double up.
+    var seen = {};
+    for (var i = 0; i < master.length; i++) seen[_pagingMsgKey(master[i])] = 1;
+    var fresh = (body.messages || []).filter(function(m) { return !seen[_pagingMsgKey(m)]; });
+    if (!body.has_more) {
+      // Reached the session start — the omission marker no longer describes
+      // a gap, so drop it from the stream.
+      master = master.filter(function(m) {
+        return !(m && m.role === 'system' && /^…\s*\d+ earlier messages/.test(String(m.content || '')));
+      });
+    }
+    master = fresh.concat(master);
+    master.sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+    window._transcriptAllMessages = master;
+    p.cursor = body.next_before_ts || p.cursor;
+    p.hasMore = !!body.has_more;
+    var wasAtEnd = window._replayIndex >= (window._replayEvents.length - 1);
+    window._replayEvents = master.map(function(m, idx) { return _buildReplayEvent(m, idx); });
+    var scrubber = document.getElementById('replay-scrubber');
+    if (scrubber) scrubber.max = Math.max(0, window._replayEvents.length - 1);
+    window._replayIndex = wasAtEnd
+      ? Math.max(0, window._replayEvents.length - 1)
+      : Math.min(window._replayIndex + fresh.length, window._replayEvents.length - 1);
+    if (scrubber) scrubber.value = window._replayIndex;
+    // Keep the viewport anchored on what the user was reading: content grows
+    // above, so restore scroll by the height delta.
+    var se = document.scrollingElement || document.documentElement;
+    var beforeH = se.scrollHeight, beforeTop = se.scrollTop;
+    _replayRenderCurrent();
+    se.scrollTop = beforeTop + (se.scrollHeight - beforeH);
+  } catch (e) {
+    p.error = String((e && e.message) || e);
+  }
+  p.loading = false;
+  _updateLoadEarlierBtn();
+}
+
 async function viewTranscript(sessionId) {
   document.getElementById('transcript-list').style.display = 'none';
   document.getElementById('transcript-viewer').style.display = '';
@@ -20017,6 +20137,9 @@ async function viewTranscript(sessionId) {
   window._replayEvents = [];
   window._replayIndex = 0;
   window._replayFilter = 'all';
+  window._transcriptAllMessages = [];
+  window._transcriptPaging = null;
+  _updateLoadEarlierBtn();
   try {
     // Fetch transcript, compaction markers, config-drift, lexical drift, and policy events in parallel
     var [data, compactionsData, driftData, lexicalDriftData, policyData, evalMetricsData] = await Promise.all([
@@ -20144,6 +20267,20 @@ async function viewTranscript(sessionId) {
     window._replayEvents = allMessages.map(function(m, idx) {
       return _buildReplayEvent(m, idx);
     });
+    // Arm the "load earlier messages" control when the server said this is a
+    // capped newest-window (_truncated). The cursor is the start of the
+    // contiguous tail; older daemons don't stamp it, so fall back to the
+    // first message after the preserved prompt + omission marker.
+    window._transcriptAllMessages = allMessages;
+    window._transcriptPaging = {
+      sid: sessionId,
+      hasMore: !!data._truncated,
+      cursor: data._oldest_contiguous_ts
+           || (allMessages[2] && allMessages[2].timestamp) || null,
+      loading: false,
+      error: null
+    };
+    _updateLoadEarlierBtn();
     if (window._replayEvents.length > 0) {
       // Show replay controls and start at last event (show full conversation by default)
       window._replayIndex = window._replayEvents.length - 1;
@@ -23119,6 +23256,7 @@ var _RT_FLOW = {
   copilot:     { label:'GitHub Copilot', src:['⌨️','Terminal'], accent:'#8b5cf6', stroke:'#7c3aed', tools:[['⚡','Bash'],['📖','View'],['📝','Edit'],['🌐','Web']] },
   grok:        { label:'Grok Build',  src:['⌨️','Terminal'], accent:'#111827', stroke:'#374151', tools:[['📝','Edit'],['📖','Read'],['⚡','Bash'],['🔍','Search']] },
   grok_bot:    { label:'Grok Bot',    src:['🖥️','Desktop'],  accent:'#111827', stroke:'#374151', tools:[['🌐','Browser'],['📁','Files'],['⚡','Terminal'],['🔌','MCP']] },
+  lovable:     { label:'Lovable',     src:['☁️','Cloud'],    accent:'#ff3366', stroke:'#d9285a', tools:[['💬','Prompt'],['📝','Edit'],['🐙','GitHub Sync'],['🚀','Deploy']] },
   deepseek_harness: { label:'DeepSeek Harness', src:['🌐','Web UI'], accent:'#4d6bfe', stroke:'#3a54d9', tools:[['⚡','Bash'],['📖','Read'],['📝','Write'],['🌐','Search']] },
   exo: { label:'Exo', src:['💬','ExoChat'], accent:'#14b8a6', stroke:'#0f9488', tools:[['⚡','Shell'],['📦','Sandbox'],['🔀','Fork'],['🧠','Memory']] },
   kimi: { label:'Kimi CLI', src:['⌨️','Terminal'], accent:'#0f172a', stroke:'#334155', tools:[['⚡','Shell'],['📖','ReadFile'],['📝','WriteFile'],['🔍','Grep']] },
@@ -28212,7 +28350,7 @@ function clearSwimlaneLanes() {
 }
 
 // One-click preset: most-recent session per distinct runtime (cap 4). This is
-// the headline demo path — the 28 runtimes side by side. Respects the global
+// the headline demo path — the 30 runtimes side by side. Respects the global
 // runtime switcher: when scoped to one runtime, only that runtime is picked.
 function swimlanePresetPerRuntime() {
   var rtFilter = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
@@ -29053,6 +29191,7 @@ function _cmRuntimeIcon(id) {
     qwen_code: '🅠', copilot: '🅶🅓', nemoclaw: '🅝', hermes: '🅗',
     picoclaw: '🪳', nanoclaw: '🐜', pi: '𝛑', deepagents: '🅳',
     n8n: '🅽', grok: '🅶', grok_bot: '🤖', deepseek_harness: '🐋', qm: '🅠', exo: '🦾',
+    lovable: '💗',
     kimi: '🌙',
     devin: '🅓',
     gemini_cli: '♊',

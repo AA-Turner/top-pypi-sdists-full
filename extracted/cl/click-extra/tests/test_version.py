@@ -13,22 +13,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-"""Test the ``--version`` option.
-
-.. todo::
-    Test standalone scripts setting package name to filename and version to
-    `None`.
-
-.. todo::
-    Test standalone script fetching version from ``__version__`` variable.
-"""
+"""Test the `--version` option."""
 
 from __future__ import annotations
 
 import inspect
+import io
 import json
+import os
 import re
+import shutil
+import subprocess
 import sys
+import types
+import warnings
+from functools import partial
+from textwrap import dedent
 
 import click
 import pytest
@@ -48,6 +48,7 @@ from click_extra import (
     version_option,
 )
 from click_extra.cli import demo
+from click_extra.color import forced_color
 from click_extra.commands import default_params
 from click_extra.prebake import (
     discover_package_init_files,
@@ -61,9 +62,16 @@ from click_extra.pytest import (
     default_debug_colored_version_details,
 )
 from click_extra.version import (
+    BUILD_RESOLVERS,
+    SOURCE_DATE_EPOCH,
+    VersionScreen,
     archival_field,
+    colors_reach_output,
+    default_facts,
     find_archival_file,
+    is_main_module,
     read_archival,
+    resolve_build_time,
     resolve_git_dirty,
     resolve_git_distance,
 )
@@ -270,6 +278,30 @@ def test_custom_message_style(invoke, cmd_decorator):
     assert result.exit_code == 0
 
 
+@pytest.mark.once
+@pytest.mark.parametrize("field_id", sorted(BUILD_RESOLVERS))
+def test_build_resolver_answers_and_is_a_template_field(field_id):
+    """Every build resolver answers on the host running it, and has a field.
+
+    A build fact is unlike a git one on both counts: nothing can fail to
+    resolve, since the host is right here, and nothing can fall back later, so
+    a resolver whose field is missing from the template would bake a value no
+    message could ever print.
+    """
+    value = BUILD_RESOLVERS[field_id]()
+    assert value
+    assert value.strip() == value
+    assert field_id in VersionOption.template_fields
+    assert hasattr(VersionOption, field_id)
+
+
+@pytest.mark.once
+def test_build_time_honors_source_date_epoch(monkeypatch):
+    """A reproducible build pins the stamp instead of reading the clock."""
+    monkeypatch.setenv(SOURCE_DATE_EPOCH, "1234567890")
+    assert resolve_build_time() == "2009-02-13T23:31:30Z"
+
+
 @pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
 def test_context_meta(invoke, cmd_decorator, assert_output_regex):
     @cmd_decorator
@@ -304,6 +336,10 @@ def test_context_meta(invoke, cmd_decorator, assert_output_regex):
             r"git_tag_sha = None\n"
             r"git_distance = (?:\d+|None)\n"
             r"git_dirty = (?:dirty|clean|None)\n"
+            r"build_time = None\n"
+            r"build_os = None\n"
+            r"build_target = None\n"
+            r"build_target_arch = None\n"
             r"prog_name = version-metadata\n"
             r"env_info = {'.+'}\n"
         ),
@@ -348,8 +384,6 @@ def test_module_version_parent_package_fallback(monkeypatch):
     Simulates the Nuitka use-case: a CLI whose module is ``myapp.__main__``
     (no ``__version__``), with the parent package ``myapp`` providing it.
     """
-    import types
-
     # Create a fake parent package with __version__.
     fake_parent = types.ModuleType("myapp")
     fake_parent.__version__ = "1.2.3"  # type: ignore[attr-defined]
@@ -371,6 +405,62 @@ def test_module_version_parent_package_fallback(monkeypatch):
     )
 
     assert opt.module_version == "1.2.3"
+
+
+@pytest.mark.parametrize(
+    ("module_name", "expected"),
+    (
+        ("__main__", True),
+        ("myapp.__main__", True),
+        ("click_extra.__main__", True),
+        ("myapp", False),
+        ("myapp.__main__.nested", False),
+        ("myapp.main", False),
+        ("", False),
+    ),
+)
+def test_is_main_module(module_name, expected):
+    assert is_main_module(module_name) is expected
+
+
+def test_main_entry_point_survives_absent_distribution_metadata(monkeypatch):
+    """A compiled binary reads its version off the package it started in.
+
+    A Nuitka standalone binary ships no distribution metadata, so
+    ``distribution_of()`` answers ``None`` for the CLI's own package just as it
+    does for ecosystem plumbing, and the walk lands on ``click_extra.__main__``.
+    That entry point must survive: traded for the root command's callback
+    module, it loses the ``__main__`` exemption and ``--version`` renders
+    nothing at all.
+    """
+    fake_main = types.ModuleType("click_extra.__main__")
+    fake_main.__package__ = "click_extra"
+
+    @click.command
+    def forecast():
+        """A CLI whose callback sits outside the binary's entry point."""
+
+    # Nothing at all resolves to an installed distribution.
+    monkeypatch.setattr("click_extra.version.distribution_of", lambda name: None)
+
+    # Stand in for the frame ``cli_frame()`` falls back to, and map it (and only
+    # it) to the entry point module.
+    frame = object()
+    real_getmodule = inspect.getmodule
+    monkeypatch.setattr(VersionOption, "cli_frame", staticmethod(lambda: frame))
+    monkeypatch.setattr(
+        inspect,
+        "getmodule",
+        lambda obj, *args: fake_main if obj is frame else real_getmodule(obj, *args),
+    )
+    monkeypatch.setitem(sys.modules, "click_extra.__main__", fake_main)
+
+    option = VersionOption(["--version"])
+    with click.Context(forecast):
+        assert option.module is fake_main
+        # The pre-baked ``__version__`` of the parent package, which is the only
+        # place a metadata-less binary can read a version from.
+        assert option.module_version == __version__
 
 
 def test_package_version_resolves_import_name_to_distribution(monkeypatch):
@@ -468,6 +558,68 @@ def test_cli_frame_fallback(monkeypatch):
                 frame_globals.pop("__name__", None)
             else:
                 frame_globals["__name__"] = original
+
+
+STANDALONE_SCRIPT = dedent("""\
+    import click
+    from click_extra import echo, version_option
+
+
+    @click.command
+    @version_option(
+        message=(
+            "{prog_name} | {exec_name} | {package_name}"
+            " | {module_version} | {version}"
+        )
+    )
+    def weather():
+        echo("Sunny.")
+
+
+    if __name__ == "__main__":
+        weather()
+    """)
+"""A CLI run straight from a file as `__main__`, with no package around it.
+
+Its version message renders every field the unpackaged case resolves on its
+own, so a single invocation pins them all.
+"""
+
+
+@pytest.mark.parametrize(
+    ("dunder", "expected_version"),
+    (
+        pytest.param('__version__ = "1.2.3"\n\n', "1.2.3", id="with_dunder"),
+        pytest.param("", "None", id="without_dunder"),
+    ),
+)
+def test_standalone_script(tmp_path, dunder, expected_version):
+    """A standalone script is named after its file, and versioned by `__version__`.
+
+    With no package to read metadata from, `exec_name` falls back to the
+    script's file name and `package_name` to `None`. The version is read from
+    a `__version__` variable defined alongside the CLI, and stays `None` when
+    the script defines none.
+
+    Only a real interpreter reaches that code path: a CLI declared inside a
+    test function belongs to the test module, and that module has a package.
+    """
+    script = tmp_path / "weather.py"
+    script.write_text(dunder + STANDALONE_SCRIPT, encoding="UTF-8")
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--version"],
+        capture_output=True,
+        text=True,
+        encoding="UTF-8",
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert strip_ansi(result.stdout) == (
+        f"weather.py | weather.py | None | {expected_version} | {expected_version}\n"
+    )
 
 
 @pytest.mark.parametrize(
@@ -583,7 +735,7 @@ def test_color_option_precedence(invoke):
 
     click-extra's own ``@command`` settles the color options in a pre-pass before any
     eager screen renders, so the color choice is honored whatever its position. See
-    ``Command._resolve_color_eagerly`` and the order-independent
+    ``Command._resolve_presentation_eagerly`` and the order-independent
     ``test_color_settles_before_eager_help_and_version`` in ``test_color.py``. This
     test pins the residual behavior of the plain-Click path, which that pre-pass does
     not reach.
@@ -892,8 +1044,6 @@ def test_discover_deduplicates(tmp_path, monkeypatch):
 
 def test_prebaked_git_branch():
     """A pre-baked ``__git_branch__`` dunder is used over subprocess."""
-    import types
-
     mod = types.ModuleType("fake_cli")
     mod.__git_branch__ = "release/1.0"  # type: ignore[attr-defined]
     mod.__file__ = "/fake/path.py"
@@ -907,8 +1057,6 @@ def test_prebaked_git_branch():
 
 def test_prebaked_git_long_hash():
     """A pre-baked ``__git_long_hash__`` dunder is used over subprocess."""
-    import types
-
     mod = types.ModuleType("fake_cli")
     mod.__git_long_hash__ = "abc123def456" * 3  # type: ignore[attr-defined]
     mod.__file__ = "/fake/path.py"
@@ -921,8 +1069,6 @@ def test_prebaked_git_long_hash():
 
 def test_prebaked_git_tag_sha():
     """A pre-baked ``__git_tag_sha__`` dunder is resolved."""
-    import types
-
     sha = "072c7bbbcdd607011c6ca4fb9d5098532aee2dea"
     mod = types.ModuleType("fake_cli")
     mod.__git_tag_sha__ = sha  # type: ignore[attr-defined]
@@ -936,8 +1082,6 @@ def test_prebaked_git_tag_sha():
 
 def test_prebaked_empty_dunder_ignored():
     """An empty dunder is not treated as a pre-baked value."""
-    import types
-
     mod = types.ModuleType("fake_cli")
     mod.__git_branch__ = ""  # type: ignore[attr-defined]
     mod.__file__ = "/fake/path.py"
@@ -952,8 +1096,6 @@ def test_prebaked_empty_dunder_ignored():
 
 def test_prebaked_non_string_ignored():
     """A non-string dunder is not treated as a pre-baked value."""
-    import types
-
     mod = types.ModuleType("fake_cli")
     mod.__git_branch__ = 42  # type: ignore[attr-defined]
     mod.__file__ = "/fake/path.py"
@@ -966,8 +1108,6 @@ def test_prebaked_non_string_ignored():
 
 def test_prebaked_git_distance():
     """A pre-baked ``__git_distance__`` dunder is used over subprocess."""
-    import types
-
     mod = types.ModuleType("fake_cli")
     mod.__git_distance__ = "42"  # type: ignore[attr-defined]
     mod.__file__ = "/fake/path.py"
@@ -980,8 +1120,6 @@ def test_prebaked_git_distance():
 
 def test_prebaked_git_dirty():
     """A pre-baked ``__git_dirty__`` dunder is used over subprocess."""
-    import types
-
     mod = types.ModuleType("fake_cli")
     mod.__git_dirty__ = "dirty"  # type: ignore[attr-defined]
     mod.__file__ = "/fake/path.py"
@@ -1107,8 +1245,6 @@ def test_find_archival_file_absent(tmp_path):
 
 def test_archival_resolves_git_fields(tmp_path):
     """Git fields resolve from .git_archival.json when there is no live git."""
-    import types
-
     (tmp_path / ".git_archival.json").write_text(
         json.dumps(SUBSTITUTED_ARCHIVAL), encoding="utf-8"
     )
@@ -1157,3 +1293,254 @@ def test_version_dev_hash_assembly(module_version, expected):
         fields={"module_version": module_version, "git_short_hash": "abc1234"},
     )
     assert opt.version == expected
+
+
+# --- version screen layout ---
+
+
+@pytest.fixture
+def terminal_width(monkeypatch):
+    """Pin the width `VersionScreen.render` measures itself against."""
+
+    def pin(columns: int) -> None:
+        monkeypatch.setattr(
+            shutil, "get_terminal_size", lambda *_: os.terminal_size((columns, 24))
+        )
+
+    return pin
+
+
+PLAIN_LOGO = ("###", "#", "#####")
+"""A deliberately ragged mark: no caller should have to square its own artwork."""
+
+STYLED_LOGO = ("\x1b[32m###\x1b[0m", "\x1b[31m#\x1b[0m")
+"""The same, carrying color, to prove the measurement discounts escape sequences."""
+
+
+@pytest.mark.parametrize(
+    ("logo", "width"),
+    (
+        (PLAIN_LOGO, 5),
+        ("###\n#\n#####", 5),
+        (STYLED_LOGO, 3),
+        ((), 0),
+        ("", 0),
+    ),
+)
+def test_screen_measures_its_logo(logo, width):
+    """The width comes from the artwork, never from the caller."""
+    assert VersionScreen(logo=logo).width == width
+
+
+@pytest.mark.parametrize("logo", (PLAIN_LOGO, "###\n#\n#####", STYLED_LOGO))
+def test_screen_squares_a_ragged_logo(logo):
+    """Every line is padded out to the widest, so the facts seat against a block.
+
+    Padding here rather than demanding it is what lets a caller hand over whatever
+    its renderer produced. It cannot repair this afterwards even if it wanted to:
+    `str.ljust` counts the escape sequences it cannot see, so on a styled line it
+    silently does nothing.
+    """
+    screen = VersionScreen(logo=logo)
+    assert {len(strip_ansi(line)) for line in screen.lines} == {screen.width}
+
+
+def test_screen_padding_closes_an_open_style():
+    """Padding after an unterminated style cannot inherit it.
+
+    A mark whose last run is left open would otherwise paint its own trailing
+    blanks, and the gutter with them, dragging a background across the facts.
+    """
+    screen = VersionScreen(logo=("\x1b[41mred", "wider than that"))
+    assert screen.lines[0].endswith("\x1b[0m" + " " * (screen.width - 3))
+
+
+def test_screen_facts_may_be_deferred():
+    """A callable is not called until the screen is drawn.
+
+    The point of accepting one: a CLI reporting something costly should pay for it
+    when `--version` is asked for, not on every invocation that might have been.
+    """
+    calls: list[None] = []
+
+    def facts():
+        calls.append(None)
+        return {"Answer": "42"}
+
+    screen = VersionScreen(logo="#", facts=facts)
+    assert calls == []
+    rows = screen.rows("cli", "1.2.3", {})
+    assert calls == [None]
+    assert rows[-1][0] == "Answer   42"
+
+
+def test_screen_sizes_its_label_column_to_the_longest_label():
+    """No declared width to outgrow: the column is measured, then gutter-separated."""
+    screen = VersionScreen(logo="#", facts={"a": "1", "loooooong": "2"})
+    plain = [row[0] for row in screen.rows("cli", "1.2.3", {})]
+    assert plain[-2:] == ["a           1", "loooooong   2"]
+
+
+def test_screen_facts_replace_a_default_row_in_place():
+    """`|` over the defaults swaps a row where it sits, and appends a new one."""
+    facts = default_facts() | {"Platform": "Pinball", "Docs": "https://example.com"}
+    assert list(facts) == ["Python", "Platform", "Docs"]
+    assert facts["Platform"] == "Pinball"
+
+
+def test_screen_declines_when_too_narrow(terminal_width):
+    screen = VersionScreen(logo=("#" * 20,), facts={"Label": "x" * 40})
+    terminal_width(40)
+    assert screen.render("cli", "1.2.3", {}) is None
+    terminal_width(200)
+    assert screen.render("cli", "1.2.3", {}) is not None
+
+
+def test_screen_opens_on_a_blank_line_and_never_trails_whitespace(terminal_width):
+    terminal_width(200)
+    rendered = VersionScreen(logo=PLAIN_LOGO, tagline="Tagline").render(
+        "cli", "1.2.3", {}
+    )
+    assert rendered is not None
+    assert rendered.startswith("\n")
+    for line in rendered.splitlines():
+        assert line == line.rstrip()
+
+
+def test_screen_seats_every_fact_at_one_column(terminal_width):
+    """The facts start at the same column on every line that carries one."""
+    terminal_width(200)
+    screen = VersionScreen(logo=PLAIN_LOGO, tagline="Tagline")
+    drawn = screen.render("cli", "1.2.3", {})
+    assert drawn is not None
+    rendered = strip_ansi(drawn)
+    column = screen.width + len(screen.gutter)
+    for line in rendered.splitlines():
+        if len(line) > screen.width:
+            assert line[screen.width : column].isspace(), f"gutter eaten: {line!r}"
+            assert not line[column].isspace(), f"fact past the gutter: {line!r}"
+
+
+def test_screen_uses_the_options_own_styles(terminal_width):
+    """The header is painted like the plain message, not like something new."""
+    terminal_width(200)
+    screen = VersionScreen(logo=PLAIN_LOGO)
+    rendered = screen.render(
+        "cli", "1.2.3", {"prog_name": lambda t: f"<{t}>", "version": lambda t: f"[{t}]"}
+    )
+    assert rendered is not None
+    assert "<cli>, version [1.2.3]" in rendered
+
+
+@pytest.fixture
+def screen_cli():
+    @group(
+        params=partial(default_params, screen=VersionScreen(logo=PLAIN_LOGO)),
+        version_fields={"version": "1.2.3"},
+    )
+    def cli():
+        echo("hello")
+
+    return cli
+
+
+def test_version_option_without_a_screen_is_unchanged(invoke):
+    """A CLI that never asks for a screen keeps the one-line message."""
+    assert VersionOption().screen is None
+
+    @group(version_fields={"version": "1.2.3"})
+    def cli():
+        echo("hello")
+
+    result = invoke(cli, "--version")
+    assert result.stdout.splitlines() == ["cli, version 1.2.3"]
+
+
+def test_screen_skipped_without_color(invoke, screen_cli):
+    result = invoke(screen_cli, "--no-color", "--version")
+    assert result.exit_code == 0
+    assert not result.stderr
+    assert result.stdout.splitlines() == ["cli, version 1.2.3"]
+
+
+def test_screen_drawn_with_color(invoke, screen_cli, terminal_width):
+    terminal_width(200)
+    with forced_color():
+        result = invoke(screen_cli, "--color", "--version", color=True)
+    assert result.exit_code == 0
+    assert not result.stderr
+    plain = strip_ansi(result.stdout)
+    assert plain.startswith("\n")
+    assert "cli, version 1.2.3" in plain
+    assert "#####" in plain
+
+
+def test_screen_skipped_when_accessible(invoke, screen_cli, terminal_width):
+    terminal_width(200)
+    with forced_color():
+        result = invoke(screen_cli, "--accessible", "--color", "--version", color=True)
+    assert result.exit_code == 0
+    assert "#####" not in strip_ansi(result.stdout)
+    assert "cli, version 1.2.3" in strip_ansi(result.stdout)
+
+
+@pytest.mark.parametrize(
+    ("theme", "expected"),
+    (
+        ("dark", "\x1b[97m\x1b[1mcli\x1b[0m, version \x1b[32m1.2.3\x1b[0m"),
+        ("light", "\x1b[30m\x1b[1mcli\x1b[0m, version \x1b[32m1.2.3\x1b[0m"),
+        ("manpage", "\x1b[1mcli\x1b[0m, version 1.2.3"),
+    ),
+)
+def test_version_message_follows_the_theme(invoke, theme, expected):
+    """The message is painted from the active palette, not from a frozen copy.
+
+    Capturing the `dark` palette at import left `--version` printing the program
+    name bright white under every theme, which on a light terminal is white on
+    white. The `dark` row is unchanged from that era on purpose: this made the other
+    two work without moving what anyone already had.
+    """
+
+    @group(version_fields={"version": "1.2.3"})
+    def cli():
+        echo("hello")
+
+    with forced_color():
+        result = invoke(cli, "--color", "--theme", theme, "--version", color=True)
+    assert result.exit_code == 0
+    assert result.stdout.splitlines() == [expected]
+
+
+@pytest.mark.parametrize(
+    ("color", "stdout_is_a_tty", "expected"),
+    (
+        # An explicit decision wins, whatever the stream reports.
+        (True, False, True),
+        (True, True, True),
+        (False, False, False),
+        (False, True, False),
+        # `auto` has nothing to go on but the stream.
+        (None, True, True),
+        (None, False, False),
+    ),
+)
+def test_colors_reach_output(monkeypatch, color, stdout_is_a_tty, expected):
+    """`auto` reads `sys.stdout`, an explicit tri-state never looks at it.
+
+    The stream half is the part worth pinning: `click.echo` reaches stdout
+    through a wrapper whose public alias Click deprecated in `8.5.0`, and this
+    resolution has to keep answering what `echo` answers without it.
+    """
+
+    class Stream(io.StringIO):
+        def isatty(self) -> bool:
+            return bool(stdout_is_a_tty)
+
+    monkeypatch.setattr("click_extra.version.invocation_color", lambda: color)
+    monkeypatch.setattr(sys, "stdout", Stream())
+    # Raising on a deprecation is the half a value assertion cannot cover: the
+    # `auto` branch used to read the stream through `click.get_text_stream()`,
+    # which answers the same and disappears in Click 9.0.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        assert colors_reach_output() is expected

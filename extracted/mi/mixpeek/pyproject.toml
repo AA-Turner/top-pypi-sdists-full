@@ -1,6 +1,6 @@
 [project]
 name = "mixpeek"
-version = "1.3.495"
+version = "1.3.509"
 description = "Mixpeek API"
 authors = [
   {name = "Mixpeek Support",email = "info@mixpeek.com"},

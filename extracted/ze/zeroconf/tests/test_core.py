@@ -57,173 +57,119 @@ def threadsafe_query(
     asyncio.run_coroutine_threadsafe(make_query(), zc.loop).result()
 
 
-class Framework(unittest.TestCase):
-    def test_launch_and_close(self):
-        rv = r.Zeroconf(interfaces=r.InterfaceChoice.All)
-        rv.close()
-        rv = r.Zeroconf(interfaces=r.InterfaceChoice.Default)
-        rv.close()
+@pytest.mark.parametrize("unicast", [False, True])
+@pytest.mark.parametrize("interfaces", [r.InterfaceChoice.All, r.InterfaceChoice.Default])
+def test_open_and_close_cleanly(interfaces: r.InterfaceChoice, unicast: bool) -> None:
+    r.Zeroconf(interfaces=interfaces, unicast=unicast).close()
 
-    def test_launch_and_close_context_manager(self):
-        with r.Zeroconf(interfaces=r.InterfaceChoice.All) as rv:
-            assert rv.done is False
-        assert rv.done is True
 
-        with r.Zeroconf(interfaces=r.InterfaceChoice.Default) as rv:  # type: ignore[unreachable]
-            assert rv.done is False
-        assert rv.done is True
+@pytest.mark.parametrize("interfaces", [r.InterfaceChoice.All, r.InterfaceChoice.Default])
+def test_context_manager_marks_done(interfaces: r.InterfaceChoice) -> None:
+    with r.Zeroconf(interfaces=interfaces) as zc:
+        assert zc.done is False
+    assert zc.done is True
 
-    def test_launch_and_close_unicast(self):
-        rv = r.Zeroconf(interfaces=r.InterfaceChoice.All, unicast=True)
-        rv.close()
-        rv = r.Zeroconf(interfaces=r.InterfaceChoice.Default, unicast=True)
-        rv.close()
 
-    def test_close_multiple_times(self):
-        rv = r.Zeroconf(interfaces=r.InterfaceChoice.Default)
-        rv.close()
-        rv.close()
+def test_close_multiple_times():
+    zc = r.Zeroconf(interfaces=r.InterfaceChoice.Default)
+    zc.close()
+    zc.close()
 
-    def test_close_releases_owned_event_loop(self):
-        """Closing a Zeroconf that started its own loop thread closes that loop.
 
-        Regression test for issue #1589 — without loop.close(), the selector
-        (epoll on Linux) and its self-pipe sockets stay open across each
-        Zeroconf construct/close cycle and the process eventually exhausts
-        its FD limit.
-        """
-        rv = r.Zeroconf(interfaces=["127.0.0.1"])
-        loop = rv.loop
-        assert loop is not None
-        assert loop.is_running()
-        rv.close()
-        assert loop.is_closed()
+def test_close_releases_owned_event_loop():
+    """Closing a Zeroconf that started its own loop thread closes that loop.
 
-    @unittest.skipUnless(sys.platform.startswith("linux"), "Requires /proc/<pid>/fd")
-    @unittest.skipUnless(Path(f"/proc/{os.getpid()}/fd").is_dir(), "/proc/<pid>/fd not available")
-    def test_close_does_not_leak_file_descriptors(self):
-        """Tight loops of Zeroconf()/close() do not leak FDs (issue #1589)."""
-        fd_dir = Path(f"/proc/{os.getpid()}/fd")
+    Regression test for issue #1589 — without loop.close(), the selector
+    (epoll on Linux) and its self-pipe sockets stay open across each
+    Zeroconf construct/close cycle and the process eventually exhausts
+    its FD limit.
+    """
+    zc = r.Zeroconf(interfaces=["127.0.0.1"])
+    loop = zc.loop
+    assert loop is not None
+    assert loop.is_running()
+    zc.close()
+    assert loop.is_closed()
 
-        def _fd_count() -> int:
-            return sum(1 for _ in fd_dir.iterdir())
 
-        # Warm-up cycle so any one-shot import-time FDs land before measuring.
+@pytest.mark.skipif(not (sys.platform.startswith("linux")), reason="Requires /proc/<pid>/fd")
+@pytest.mark.skipif(not (Path(f"/proc/{os.getpid()}/fd").is_dir()), reason="/proc/<pid>/fd not available")
+def test_close_does_not_leak_file_descriptors():
+    """Tight loops of Zeroconf()/close() do not leak FDs (issue #1589)."""
+    fd_dir = Path(f"/proc/{os.getpid()}/fd")
+
+    def _fd_count() -> int:
+        return sum(1 for _ in fd_dir.iterdir())
+
+    # Warm-up cycle so any one-shot import-time FDs land before measuring.
+    r.Zeroconf(interfaces=["127.0.0.1"]).close()
+    baseline = _fd_count()
+    for _ in range(10):
         r.Zeroconf(interfaces=["127.0.0.1"]).close()
-        baseline = _fd_count()
-        for _ in range(10):
-            r.Zeroconf(interfaces=["127.0.0.1"]).close()
-        # Allow tiny slack for unrelated FDs the test harness may open
-        # (e.g. coverage), but reject the per-cycle linear growth pattern
-        # the bug produced (~3 FDs per cycle, so >=30 over 10 cycles).
-        assert _fd_count() - baseline < 10
+    # Allow tiny slack for unrelated FDs the test harness may open
+    # (e.g. coverage), but reject the per-cycle linear growth pattern
+    # the bug produced (~3 FDs per cycle, so >=30 over 10 cycles).
+    assert _fd_count() - baseline < 10
 
-    @unittest.skipIf(not has_working_ipv6(), "Requires IPv6")
-    @unittest.skipIf(os.environ.get("SKIP_IPV6"), "IPv6 tests disabled")
-    def test_launch_and_close_v4_v6(self):
-        rv = r.Zeroconf(interfaces=r.InterfaceChoice.All, ip_version=r.IPVersion.All)
-        rv.close()
-        with warnings.catch_warnings(record=True) as warned:
-            rv = r.Zeroconf(interfaces=r.InterfaceChoice.Default, ip_version=r.IPVersion.All)
-            rv.close()
-            first_warning = warned[0]
-            assert "IPv6 multicast requests can't be sent using default interface" in str(
-                first_warning.message
-            )
 
-    @unittest.skipIf(not has_working_ipv6(), "Requires IPv6")
-    @unittest.skipIf(os.environ.get("SKIP_IPV6"), "IPv6 tests disabled")
-    def test_launch_and_close_v6_only(self):
-        rv = r.Zeroconf(interfaces=r.InterfaceChoice.All, ip_version=r.IPVersion.V6Only)
-        rv.close()
-        with warnings.catch_warnings(record=True) as warned:
-            rv = r.Zeroconf(interfaces=r.InterfaceChoice.Default, ip_version=r.IPVersion.V6Only)
-            rv.close()
-            first_warning = warned[0]
-            assert "IPv6 multicast requests can't be sent using default interface" in str(
-                first_warning.message
-            )
+@pytest.mark.skipif(not has_working_ipv6(), reason="Requires IPv6")
+@pytest.mark.skipif(os.environ.get("SKIP_IPV6"), reason="IPv6 tests disabled")
+@pytest.mark.parametrize("ip_version", [r.IPVersion.All, r.IPVersion.V6Only])
+def test_default_interface_warns_when_ipv6_requested(ip_version: r.IPVersion) -> None:
+    r.Zeroconf(interfaces=r.InterfaceChoice.All, ip_version=ip_version).close()
+    with warnings.catch_warnings(record=True) as warned:
+        r.Zeroconf(interfaces=r.InterfaceChoice.Default, ip_version=ip_version).close()
+        assert "IPv6 multicast requests can't be sent using default interface" in str(warned[0].message)
 
-    @unittest.skipIf(sys.platform == "darwin", reason="apple_p2p failure path not testable on mac")
-    def test_launch_and_close_apple_p2p_not_mac(self):
-        with pytest.raises(RuntimeError):
-            r.Zeroconf(apple_p2p=True)
 
-    @unittest.skipIf(sys.platform != "darwin", reason="apple_p2p happy path only testable on mac")
-    def test_launch_and_close_apple_p2p_on_mac(self):
-        rv = r.Zeroconf(apple_p2p=True)
-        rv.close()
+@pytest.mark.skipif(sys.platform == "darwin", reason="apple_p2p failure path not testable on mac")
+def test_apple_p2p_rejected_off_mac():
+    with pytest.raises(RuntimeError):
+        r.Zeroconf(apple_p2p=True)
 
-    def test_use_asyncio_false_forces_thread_when_loop_running(self):
-        """use_asyncio=False starts a thread even with a running event loop."""
 
-        async def run() -> r.Zeroconf:
-            return r.Zeroconf(interfaces=["127.0.0.1"], use_asyncio=False)
+@pytest.mark.skipif(sys.platform != "darwin", reason="apple_p2p happy path only testable on mac")
+def test_apple_p2p_binds_on_mac():
+    r.Zeroconf(apple_p2p=True).close()
 
-        loop = asyncio.new_event_loop()
-        zc: r.Zeroconf | None = None
-        try:
-            zc = loop.run_until_complete(run())
-            assert zc._loop_thread is not None
-            assert zc.loop is not loop
-        finally:
-            if zc is not None:
-                zc.close()
-            loop.close()
 
-    def test_use_asyncio_true_requires_running_loop(self):
-        """use_asyncio=True without a running loop raises RuntimeError."""
-        with pytest.raises(RuntimeError, match="requires a running asyncio event loop"):
-            r.Zeroconf(interfaces=["127.0.0.1"], use_asyncio=True)
+def test_use_asyncio_false_forces_thread_when_loop_running():
+    """use_asyncio=False starts a thread even with a running event loop."""
 
-    def test_use_asyncio_default_starts_thread_without_loop(self):
-        """use_asyncio=None (default) keeps the historic auto-detect behavior."""
-        zc = r.Zeroconf(interfaces=["127.0.0.1"])
-        try:
-            assert zc._loop_thread is not None
-        finally:
+    async def run() -> r.Zeroconf:
+        return r.Zeroconf(interfaces=["127.0.0.1"], use_asyncio=False)
+
+    loop = asyncio.new_event_loop()
+    zc: r.Zeroconf | None = None
+    try:
+        zc = loop.run_until_complete(run())
+        assert zc._loop_thread is not None
+        assert zc.loop is not loop
+    finally:
+        if zc is not None:
             zc.close()
+        loop.close()
 
-    def test_async_updates_from_response(self):
-        def mock_incoming_msg(
-            service_state_change: r.ServiceStateChange,
-        ) -> r.DNSIncoming:
-            ttl = 120
-            generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
 
-            if service_state_change == r.ServiceStateChange.Updated:
-                generated.add_answer_at_time(
-                    r.DNSText(
-                        service_name,
-                        const._TYPE_TXT,
-                        const._CLASS_IN | const._CLASS_UNIQUE,
-                        ttl,
-                        service_text,
-                    ),
-                    0,
-                )
-                return r.DNSIncoming(generated.packets()[0])
+def test_use_asyncio_true_requires_running_loop():
+    """use_asyncio=True without a running loop raises RuntimeError."""
+    with pytest.raises(RuntimeError, match="requires a running asyncio event loop"):
+        r.Zeroconf(interfaces=["127.0.0.1"], use_asyncio=True)
 
-            if service_state_change == r.ServiceStateChange.Removed:
-                ttl = 0
 
-            generated.add_answer_at_time(
-                r.DNSPointer(service_type, const._TYPE_PTR, const._CLASS_IN, ttl, service_name),
-                0,
-            )
-            generated.add_answer_at_time(
-                r.DNSService(
-                    service_name,
-                    const._TYPE_SRV,
-                    const._CLASS_IN | const._CLASS_UNIQUE,
-                    ttl,
-                    0,
-                    0,
-                    80,
-                    service_server,
-                ),
-                0,
-            )
+def test_use_asyncio_default_starts_thread_without_loop(zc: Zeroconf) -> None:
+    """use_asyncio=None (default) keeps the historic auto-detect behavior."""
+    assert zc._loop_thread is not None
+
+
+def test_async_updates_from_response():
+    def mock_incoming_msg(
+        service_state_change: r.ServiceStateChange,
+    ) -> r.DNSIncoming:
+        ttl = 120
+        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+
+        if service_state_change == r.ServiceStateChange.Updated:
             generated.add_answer_at_time(
                 r.DNSText(
                     service_name,
@@ -234,107 +180,139 @@ class Framework(unittest.TestCase):
                 ),
                 0,
             )
-            generated.add_answer_at_time(
-                r.DNSAddress(
-                    service_server,
-                    const._TYPE_A,
-                    const._CLASS_IN | const._CLASS_UNIQUE,
-                    ttl,
-                    socket.inet_aton(service_address),
-                ),
-                0,
-            )
-
             return r.DNSIncoming(generated.packets()[0])
 
-        def mock_split_incoming_msg(
-            service_state_change: r.ServiceStateChange,
-        ) -> r.DNSIncoming:
-            """Mock an incoming message for the case where the packet is split."""
-            ttl = 120
-            generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
-            generated.add_answer_at_time(
-                r.DNSAddress(
-                    service_server,
-                    const._TYPE_A,
-                    const._CLASS_IN | const._CLASS_UNIQUE,
-                    ttl,
-                    socket.inet_aton(service_address),
-                ),
+        if service_state_change == r.ServiceStateChange.Removed:
+            ttl = 0
+
+        generated.add_answer_at_time(
+            r.DNSPointer(service_type, const._TYPE_PTR, const._CLASS_IN, ttl, service_name),
+            0,
+        )
+        generated.add_answer_at_time(
+            r.DNSService(
+                service_name,
+                const._TYPE_SRV,
+                const._CLASS_IN | const._CLASS_UNIQUE,
+                ttl,
                 0,
-            )
-            generated.add_answer_at_time(
-                r.DNSService(
-                    service_name,
-                    const._TYPE_SRV,
-                    const._CLASS_IN | const._CLASS_UNIQUE,
-                    ttl,
-                    0,
-                    0,
-                    80,
-                    service_server,
-                ),
                 0,
-            )
-            return r.DNSIncoming(generated.packets()[0])
+                80,
+                service_server,
+            ),
+            0,
+        )
+        generated.add_answer_at_time(
+            r.DNSText(
+                service_name,
+                const._TYPE_TXT,
+                const._CLASS_IN | const._CLASS_UNIQUE,
+                ttl,
+                service_text,
+            ),
+            0,
+        )
+        generated.add_answer_at_time(
+            r.DNSAddress(
+                service_server,
+                const._TYPE_A,
+                const._CLASS_IN | const._CLASS_UNIQUE,
+                ttl,
+                socket.inet_aton(service_address),
+            ),
+            0,
+        )
 
-        service_name = "name._type._tcp.local."
-        service_type = "_type._tcp.local."
-        service_server = "ash-2.local."
-        service_text = b"path=/~paulsm/"
-        service_address = "10.0.1.2"
+        return r.DNSIncoming(generated.packets()[0])
 
-        zeroconf = r.Zeroconf(interfaces=["127.0.0.1"])
+    def mock_split_incoming_msg(
+        service_state_change: r.ServiceStateChange,
+    ) -> r.DNSIncoming:
+        """Mock an incoming message for the case where the packet is split."""
+        ttl = 120
+        generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
+        generated.add_answer_at_time(
+            r.DNSAddress(
+                service_server,
+                const._TYPE_A,
+                const._CLASS_IN | const._CLASS_UNIQUE,
+                ttl,
+                socket.inet_aton(service_address),
+            ),
+            0,
+        )
+        generated.add_answer_at_time(
+            r.DNSService(
+                service_name,
+                const._TYPE_SRV,
+                const._CLASS_IN | const._CLASS_UNIQUE,
+                ttl,
+                0,
+                0,
+                80,
+                service_server,
+            ),
+            0,
+        )
+        return r.DNSIncoming(generated.packets()[0])
 
-        try:
-            # service added
-            _inject_response(zeroconf, mock_incoming_msg(r.ServiceStateChange.Added))
-            dns_text = zeroconf.cache.get_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
-            assert dns_text is not None
-            assert cast(r.DNSText, dns_text).text == service_text  # service_text is b'path=/~paulsm/'
-            all_dns_text = zeroconf.cache.get_all_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
-            assert [dns_text] == all_dns_text
+    service_name = "name._type._tcp.local."
+    service_type = "_type._tcp.local."
+    service_server = "spare-rig.local."
+    service_text = b"path=/healthz/"
+    service_address = "10.7.4.2"
 
-            # https://tools.ietf.org/html/rfc6762#section-10.2
-            # Instead of merging this new record additively into the cache in addition
-            # to any previous records with the same name, rrtype, and rrclass,
-            # all old records with that name, rrtype, and rrclass that were received
-            # more than one second ago are declared invalid,
-            # and marked to expire from the cache in one second.
-            _backdate_cache(zeroconf)
+    zeroconf = r.Zeroconf(interfaces=["127.0.0.1"])
 
-            # service updated. currently only text record can be updated
-            service_text = b"path=/~humingchun/"
-            _inject_response(zeroconf, mock_incoming_msg(r.ServiceStateChange.Updated))
-            dns_text = zeroconf.cache.get_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
-            assert dns_text is not None
-            assert cast(r.DNSText, dns_text).text == service_text  # service_text is b'path=/~humingchun/'
+    try:
+        # service added
+        _inject_response(zeroconf, mock_incoming_msg(r.ServiceStateChange.Added))
+        dns_text = zeroconf.cache.get_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
+        assert dns_text is not None
+        assert cast(r.DNSText, dns_text).text == service_text  # service_text is b'path=/healthz/'
+        all_dns_text = zeroconf.cache.get_all_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
+        assert [dns_text] == all_dns_text
 
-            _backdate_cache(zeroconf)
+        # https://tools.ietf.org/html/rfc6762#section-10.2
+        # Instead of merging this new record additively into the cache in addition
+        # to any previous records with the same name, rrtype, and rrclass,
+        # all old records with that name, rrtype, and rrclass that were received
+        # more than one second ago are declared invalid,
+        # and marked to expire from the cache in one second.
+        _backdate_cache(zeroconf)
 
-            # The split message only has a SRV and A record.
-            # This should not evict TXT records from the cache
-            _inject_response(zeroconf, mock_split_incoming_msg(r.ServiceStateChange.Updated))
-            _backdate_cache(zeroconf)
-            dns_text = zeroconf.cache.get_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
-            assert dns_text is not None
-            assert cast(r.DNSText, dns_text).text == service_text  # service_text is b'path=/~humingchun/'
+        # service updated. currently only text record can be updated
+        service_text = b"path=/~humingchun/"
+        _inject_response(zeroconf, mock_incoming_msg(r.ServiceStateChange.Updated))
+        dns_text = zeroconf.cache.get_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
+        assert dns_text is not None
+        assert cast(r.DNSText, dns_text).text == service_text  # service_text is b'path=/~humingchun/'
 
-            # service removed
-            _inject_response(zeroconf, mock_incoming_msg(r.ServiceStateChange.Removed))
-            dns_text = zeroconf.cache.get_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
-            assert dns_text is not None
-            assert dns_text.is_expired(current_time_millis() + 1000)
+        _backdate_cache(zeroconf)
 
-        finally:
-            zeroconf.close()
+        # The split message only has a SRV and A record.
+        # This should not evict TXT records from the cache
+        _inject_response(zeroconf, mock_split_incoming_msg(r.ServiceStateChange.Updated))
+        _backdate_cache(zeroconf)
+        dns_text = zeroconf.cache.get_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
+        assert dns_text is not None
+        assert cast(r.DNSText, dns_text).text == service_text  # service_text is b'path=/~humingchun/'
+
+        # service removed
+        _inject_response(zeroconf, mock_incoming_msg(r.ServiceStateChange.Removed))
+        dns_text = zeroconf.cache.get_by_details(service_name, const._TYPE_TXT, const._CLASS_IN)
+        assert dns_text is not None
+        assert dns_text.is_expired(current_time_millis() + 1000)
+
+    finally:
+        zeroconf.close()
 
 
 def test_generate_service_query_set_qu_bit():
     """Test generate_service_query sets the QU bit."""
 
     zeroconf_registrar = Zeroconf(interfaces=["127.0.0.1"])
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
     type_ = "._hap._tcp.local."
     registration_name = "this-host-is-not-used._hap._tcp.local."
     info = r.ServiceInfo(
@@ -344,8 +322,8 @@ def test_generate_service_query_set_qu_bit():
         0,
         0,
         desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+        "spare-rig.local.",
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     out = zeroconf_registrar.generate_service_query(info)
     assert out.questions[0].unicast is True
@@ -377,7 +355,7 @@ def test_invalid_packets_ignored_and_does_not_cause_loop_exception():
         const._TYPE_TXT,
         const._CLASS_IN | const._CLASS_UNIQUE,
         500,
-        b"path=/~paulsm/",
+        b"path=/healthz/",
     )
     assert isinstance(entry, r.DNSText)
     assert isinstance(entry, r.DNSRecord)
@@ -390,14 +368,13 @@ def test_invalid_packets_ignored_and_does_not_cause_loop_exception():
     assert zc.cache.get(entry) is not None
 
 
-def test_goodbye_all_services():
+def test_goodbye_all_services(zc: Zeroconf) -> None:
     """Verify generating the goodbye query does not change with time."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     out = zc.generate_unregister_all_services()
     assert out is None
     type_ = "_http._tcp.local."
     registration_name = f"xxxyyy.{type_}"
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
     info = r.ServiceInfo(
         type_,
         registration_name,
@@ -405,8 +382,8 @@ def test_goodbye_all_services():
         0,
         0,
         desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+        "spare-rig.local.",
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     zc.registry.async_add(info)
     out = zc.generate_unregister_all_services()
@@ -423,15 +400,11 @@ def test_goodbye_all_services():
     assert out3 is None
     assert zc.registry.async_get_service_infos() == []
 
-    zc.close()
 
-
-def test_register_service_with_custom_ttl(quick_timing: None) -> None:
+def test_register_service_with_custom_ttl(zc: Zeroconf, quick_timing: None) -> None:
     """Test a registering a service with a custom ttl."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
     # start a browser
     type_ = "_homeassistant._tcp.local."
     name = "MyTestHome"
@@ -441,24 +414,21 @@ def test_register_service_with_custom_ttl(quick_timing: None) -> None:
         80,
         0,
         0,
-        {"path": "/~paulsm/"},
+        {"path": "/healthz/"},
         "ash-90.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
 
     zc.register_service(info_service, ttl=3000)
     record = zc.cache.get(info_service.dns_pointer())
     assert record is not None
     assert record.ttl == 3000
-    zc.close()
 
 
-def test_logging_packets(caplog: pytest.LogCaptureFixture, quick_timing: None) -> None:
+def test_logging_packets(zc: Zeroconf, caplog: pytest.LogCaptureFixture, quick_timing: None) -> None:
     """Test packets are only logged with debug logging."""
 
     # instantiate a zeroconf instance
-    zc = Zeroconf(interfaces=["127.0.0.1"])
-
     # start a browser
     type_ = "_logging._tcp.local."
     name = "TLD"
@@ -468,9 +438,9 @@ def test_logging_packets(caplog: pytest.LogCaptureFixture, quick_timing: None) -
         80,
         0,
         0,
-        {"path": "/~paulsm/"},
+        {"path": "/healthz/"},
         "ash-90.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
 
     logging.getLogger("zeroconf").setLevel(logging.DEBUG)
@@ -486,30 +456,25 @@ def test_logging_packets(caplog: pytest.LogCaptureFixture, quick_timing: None) -
     assert "Sending to" not in caplog.text
     logging.getLogger("zeroconf").setLevel(logging.DEBUG)
 
-    zc.close()
 
-
-def test_get_service_info_failure_path():
+def test_get_service_info_failure_path(zc: Zeroconf) -> None:
     """Verify get_service_info return None when the underlying call returns False."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     assert zc.get_service_info("_neverused._tcp.local.", "xneverused._neverused._tcp.local.", 10) is None
-    zc.close()
 
 
 @pytest.mark.skipif(
     sys.platform == "win32",
     reason="multicast loopback on the 127.0.0.1-only socket is unreliable on GH Actions Windows runners",
 )
-def test_sending_unicast():
+def test_sending_unicast(zc: Zeroconf) -> None:
     """Test sending unicast response."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     generated = r.DNSOutgoing(const._FLAGS_QR_RESPONSE)
     entry = r.DNSText(
         "didnotcrashincoming._crash._tcp.local.",
         const._TYPE_TXT,
         const._CLASS_IN | const._CLASS_UNIQUE,
         500,
-        b"path=/~paulsm/",
+        b"path=/healthz/",
     )
     generated.add_answer_at_time(entry, 0)
     zc.send(generated, "2001:db8::1", const._MDNS_PORT)  # https://www.iana.org/go/rfc3849
@@ -528,11 +493,8 @@ def test_sending_unicast():
 
     assert zc.cache.get(entry) is not None
 
-    zc.close()
 
-
-def test_tc_bit_defers():
-    zc = Zeroconf(interfaces=["127.0.0.1"])
+def test_tc_bit_defers(zc: Zeroconf) -> None:
     _wait_for_start(zc)
     type_ = "_tcbitdefer._tcp.local."
     name = "knownname"
@@ -543,8 +505,8 @@ def test_tc_bit_defers():
     registration2_name = f"{name2}.{type_}"
     registration3_name = f"{name3}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
     server_name2 = "ash-3.local."
     server_name3 = "ash-4.local."
 
@@ -556,7 +518,7 @@ def test_tc_bit_defers():
         0,
         desc,
         server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     info2 = r.ServiceInfo(
         type_,
@@ -566,7 +528,7 @@ def test_tc_bit_defers():
         0,
         desc,
         server_name2,
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     info3 = r.ServiceInfo(
         type_,
@@ -576,7 +538,7 @@ def test_tc_bit_defers():
         0,
         desc,
         server_name3,
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     zc.registry.async_add(info)
     zc.registry.async_add(info2)
@@ -628,11 +590,9 @@ def test_tc_bit_defers():
 
     # unregister
     zc.unregister_service(info)
-    zc.close()
 
 
-def test_tc_bit_defers_last_response_missing():
-    zc = Zeroconf(interfaces=["127.0.0.1"])
+def test_tc_bit_defers_last_response_missing(zc: Zeroconf) -> None:
     _wait_for_start(zc)
     type_ = "_knowndefer._tcp.local."
     name = "knownname"
@@ -643,8 +603,8 @@ def test_tc_bit_defers_last_response_missing():
     registration2_name = f"{name2}.{type_}"
     registration3_name = f"{name3}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    server_name = "ash-2.local."
+    desc = {"path": "/healthz/"}
+    server_name = "spare-rig.local."
     server_name2 = "ash-3.local."
     server_name3 = "ash-4.local."
 
@@ -656,7 +616,7 @@ def test_tc_bit_defers_last_response_missing():
         0,
         desc,
         server_name,
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     info2 = r.ServiceInfo(
         type_,
@@ -666,7 +626,7 @@ def test_tc_bit_defers_last_response_missing():
         0,
         desc,
         server_name2,
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     info3 = r.ServiceInfo(
         type_,
@@ -676,7 +636,7 @@ def test_tc_bit_defers_last_response_missing():
         0,
         desc,
         server_name3,
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     zc.registry.async_add(info)
     zc.registry.async_add(info2)
@@ -745,12 +705,10 @@ def test_tc_bit_defers_last_response_missing():
 
     # unregister
     zc.registry.async_remove(info)
-    zc.close()
 
 
-def test_tc_bit_defer_window_is_bounded():
+def test_tc_bit_defer_window_is_bounded(zc: Zeroconf) -> None:
     """TC-deferral assembly window must not slide past first_arrival + max delay."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     _wait_for_start(zc)
     type_ = "_boundeddefer._tcp.local."
     registration_name = f"knownname.{type_}"
@@ -761,9 +719,9 @@ def test_tc_bit_defer_window_is_bounded():
         80,
         0,
         0,
-        {"path": "/~paulsm/"},
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+        {"path": "/healthz/"},
+        "spare-rig.local.",
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     zc.registry.async_add(info)
 
@@ -791,7 +749,6 @@ def test_tc_bit_defer_window_is_bounded():
             assert protocol._timers[source_ip].when() <= first_when
 
     zc.registry.async_remove(info)
-    zc.close()
 
 
 def _make_distinct_tc_packets(count: int, name_prefix: str = "q") -> list[bytes]:
@@ -813,9 +770,8 @@ def _synthetic_source_ip(i: int) -> str:
     return f"192.0.2.{i - 512}"
 
 
-def test_tc_bit_per_addr_queue_is_bounded(quick_timing: None) -> None:
+def test_tc_bit_per_addr_queue_is_bounded(zc: Zeroconf, quick_timing: None) -> None:
     """Per-addr deferred queue must not grow past ``_MAX_DEFERRED_PER_ADDR``."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     _wait_for_start(zc)
     protocol = zc.engine.protocols[0]
     source_ip = "203.0.113.21"
@@ -835,12 +791,9 @@ def test_tc_bit_per_addr_queue_is_bounded(quick_timing: None) -> None:
         retained = [incoming.data for incoming in protocol._deferred[source_ip]]
         assert retained == packets[: const._MAX_DEFERRED_PER_ADDR]
 
-    zc.close()
 
-
-def test_tc_bit_total_addrs_is_bounded(quick_timing: None) -> None:
+def test_tc_bit_total_addrs_is_bounded(zc: Zeroconf, quick_timing: None) -> None:
     """Distinct addrs with deferred state must not exceed ``_MAX_DEFERRED_ADDRS``."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     _wait_for_start(zc)
     protocol = zc.engine.protocols[0]
 
@@ -859,12 +812,9 @@ def test_tc_bit_total_addrs_is_bounded(quick_timing: None) -> None:
         assert len(protocol._deferred) == const._MAX_DEFERRED_ADDRS
         assert len(protocol._timers) == const._MAX_DEFERRED_ADDRS
 
-    zc.close()
 
-
-def test_tc_bit_eviction_drops_oldest_addr(quick_timing: None) -> None:
+def test_tc_bit_eviction_drops_oldest_addr(zc: Zeroconf, quick_timing: None) -> None:
     """Adding a new addr at capacity drops the oldest insertion (FIFO)."""
-    zc = Zeroconf(interfaces=["127.0.0.1"])
     _wait_for_start(zc)
     protocol = zc.engine.protocols[0]
 
@@ -885,8 +835,6 @@ def test_tc_bit_eviction_drops_oldest_addr(quick_timing: None) -> None:
         assert oldest not in protocol._timers
         assert new_addr in protocol._deferred
         assert len(protocol._deferred) == const._MAX_DEFERRED_ADDRS
-
-    zc.close()
 
 
 @pytest.mark.asyncio
@@ -949,9 +897,9 @@ def test_shutdown_while_register_in_process(quick_timing: None) -> None:
         80,
         0,
         0,
-        {"path": "/~paulsm/"},
+        {"path": "/healthz/"},
         "ash-90.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
 
     def _background_register():

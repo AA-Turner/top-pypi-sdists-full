@@ -563,6 +563,32 @@ def test_add_missing_columns_dtype():
     pd.testing.assert_frame_equal(ref_df, test_df)
 
 
+def test_add_missing_columns_reports_all_in_lazy_validation():
+    """Lazy validation should report every missing non-nullable column without
+    a default value, not only the first one.
+
+    https://github.com/unionai-oss/pandera/issues/1993
+    """
+    schema = DataFrameSchema(
+        columns={i: Column(int, nullable=False) for i in ["a", "b", "c"]},
+        strict=True,
+        add_missing_columns=True,
+    )
+    frame = pd.DataFrame(data=[[3]], columns=["b"])
+
+    with pytest.raises(errors.SchemaErrors) as exc_info:
+        schema.validate(frame, lazy=True)
+
+    failure_cases = exc_info.value.failure_cases
+    missing_columns = set(
+        failure_cases.loc[
+            failure_cases["check"] == "add_missing_has_default",
+            "failure_case",
+        ]
+    )
+    assert missing_columns == {"a", "c"}
+
+
 def test_series_schema() -> None:
     """Tests that a SeriesSchema Check behaves as expected for integers and
     strings. Tests error cases for types, duplicates, name errors, and issues
@@ -1633,6 +1659,61 @@ def test_lazy_dataframe_validation_nullable() -> None:
                 ].iloc[0]
                 == index
             )
+
+
+@pytest.mark.parametrize(
+    "dtype_alias, data, bad_value",
+    [
+        ("Int64", [1, pd.NA, "x"], "x"),
+        ("Float64", [1.0, pd.NA, "x"], "x"),
+        ("boolean", [True, pd.NA, "A"], "A"),
+    ],
+)
+def test_lazy_validation_nullable_dtype_coerce_na_not_failure_case(
+    dtype_alias, data, bad_value
+) -> None:
+    """
+    Test that NA values in a nullable column are not reported as coercion
+    failure cases while genuinely uncoercible values still are.
+    """
+    schema = DataFrameSchema(
+        {"col": Column(dtype_alias, coerce=True, nullable=True)}
+    )
+    df = pd.DataFrame({"col": pd.Series(data, dtype=object)})
+
+    with pytest.raises(errors.SchemaErrors) as exc_info:
+        schema.validate(df, lazy=True)
+
+    failure_cases = exc_info.value.failure_cases
+    assert failure_cases.failure_case.isna().sum() == 0
+    for check_name in (
+        f"coerce_dtype('{dtype_alias}')",
+        f"dtype('{dtype_alias}')",
+    ):
+        failed = failure_cases.query(f'check == "{check_name}"')
+        assert failed.failure_case.tolist() == [bad_value]
+        assert failed["index"].tolist() == [2]
+
+
+def test_lazy_validation_nullable_false_na_reported_via_not_nullable() -> None:
+    """
+    Test that NA values in a non-nullable column are reported by the
+    not_nullable check rather than as coercion failure cases.
+    """
+    schema = DataFrameSchema(
+        {"col": Column("Int64", coerce=True, nullable=False)}
+    )
+    df = pd.DataFrame({"col": pd.Series([1, pd.NA, "x"], dtype=object)})
+
+    with pytest.raises(errors.SchemaErrors) as exc_info:
+        schema.validate(df, lazy=True)
+
+    failure_cases = exc_info.value.failure_cases
+    not_nullable_cases = failure_cases.query("check == 'not_nullable'")
+    assert not_nullable_cases.failure_case.isna().all()
+    assert not_nullable_cases["index"].tolist() == [1]
+    coerce_cases = failure_cases.query("check == \"coerce_dtype('Int64')\"")
+    assert coerce_cases.failure_case.tolist() == ["x"]
 
 
 def test_lazy_dataframe_validation_with_checks() -> None:

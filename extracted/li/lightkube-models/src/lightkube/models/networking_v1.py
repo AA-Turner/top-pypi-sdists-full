@@ -6,9 +6,9 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
+from . import meta_v1
 from . import util_intstr
 from . import core_v1
-from . import meta_v1
 
 
 @dataclass
@@ -80,7 +80,7 @@ class IPAddress(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
     """
     spec: 'IPAddressSpec'
@@ -127,7 +127,7 @@ class IPAddressSpec(DictMixin):
 
       **parameters**
 
-      * **parentRef** ``ParentReference`` - ParentRef references the resource that an IPAddress is attached to. An
+      * **parentRef** ``ParentReference`` - parentRef references the resource that an IPAddress is attached to. An
         IPAddress must reference a parent object.
     """
     parentRef: 'ParentReference'
@@ -168,7 +168,7 @@ class Ingress(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **spec** ``Optional[IngressSpec]`` - spec is the desired state of the Ingress. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
@@ -220,7 +220,7 @@ class IngressClass(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **spec** ``Optional[IngressClassSpec]`` - spec is the desired state of the IngressClass. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
@@ -413,7 +413,7 @@ class IngressRule(DictMixin):
         equal to Host. 2. If host is a wildcard, then the request matches this rule if
         the http host header is to equal to the suffix (removing the first label) of
         the wildcard rule.
-      * **http** ``Optional[HTTPIngressRuleValue]`` - 
+      * **http** ``Optional[HTTPIngressRuleValue]`` - http is a HTTP IngressRuleValue, which contains a list of http selectors
     """
     host: 'Optional[str]' = None
     http: 'Optional[HTTPIngressRuleValue]' = None
@@ -513,7 +513,7 @@ class NetworkPolicy(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **spec** ``Optional[NetworkPolicySpec]`` - spec represents the specification of the desired behavior for this
         NetworkPolicy.
@@ -703,10 +703,10 @@ class ParentReference(DictMixin):
 
       **parameters**
 
-      * **name** ``str`` - Name is the name of the object being referenced.
-      * **resource** ``str`` - Resource is the resource of the object being referenced.
-      * **group** ``Optional[str]`` - Group is the group of the object being referenced.
-      * **namespace** ``Optional[str]`` - Namespace is the namespace of the object being referenced.
+      * **name** ``str`` - name is the name of the object being referenced.
+      * **resource** ``str`` - resource is the resource of the object being referenced.
+      * **group** ``Optional[str]`` - group is the group of the object being referenced.
+      * **namespace** ``Optional[str]`` - namespace is the namespace of the object being referenced.
     """
     name: 'str'
     resource: 'str'
@@ -745,7 +745,7 @@ class ServiceCIDR(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **spec** ``Optional[ServiceCIDRSpec]`` - spec is the desired state of the ServiceCIDR. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
@@ -798,7 +798,7 @@ class ServiceCIDRSpec(DictMixin):
 
       **parameters**
 
-      * **cidrs** ``Optional[List[str]]`` - CIDRs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or
+      * **cidrs** ``Optional[List[str]]`` - cidrs defines the IP blocks in CIDR notation (e.g. "192.168.0.0/24" or
         "2001:db8::/64") from which to assign service cluster IPs. Max of two CIDRs is
         allowed, one of each IP family. This field is immutable.
     """

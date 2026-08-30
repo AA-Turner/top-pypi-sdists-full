@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import os
-import platform
+import subprocess
 import sys
 from collections.abc import AsyncIterator
 from collections.abc import Awaitable
@@ -136,40 +136,6 @@ async def observe_changes(
                     last_updates[path] = mtime
 
 
-def restart() -> None:
-    # Restart  this process (only safe for dev/debug)
-    executable = sys.executable
-    script_path = Path(sys.argv[0]).resolve()
-    args = sys.argv[1:]
-    main_package = sys.modules["__main__"].__package__
-
-    if main_package is None:
-        # Executed by filename
-        if platform.system() == "Windows":
-            if not script_path.exists() and script_path.with_suffix(".exe").exists():
-                # quart run
-                executable = str(script_path.with_suffix(".exe"))
-            else:
-                # python run.py
-                args = [str(script_path), *args]
-        else:
-            if script_path.is_file() and os.access(script_path, os.X_OK):
-                # hypercorn run:app --reload
-                executable = str(script_path)
-            else:
-                # python run.py
-                args = [str(script_path), *args]
-    else:
-        # Executed as a module e.g. python -m run
-        module = script_path.stem
-        import_name = main_package
-        if module != "__main__":
-            import_name = f"{main_package}.{module}"
-        args[:0] = ["-m", import_name.lstrip(".")]
-
-    os.execv(executable, [executable] + args)
-
-
 async def cancel_tasks(tasks: set[asyncio.Task]) -> None:
     # Cancel any pending, and wait for the cancellation to
     # complete i.e. finish any remaining work.
@@ -184,3 +150,14 @@ def raise_task_exceptions(tasks: set[asyncio.Task]) -> None:
     for task in tasks:
         if not task.cancelled() and task.exception() is not None:
             raise task.exception()
+
+
+def run_reloader() -> None:
+    while True:
+        args = [sys.executable, *sys.orig_argv[1:]]
+        new_environ = os.environ.copy()
+        new_environ["QUART_RUN_MAIN"] = "true"
+        exit_code = subprocess.call(args, env=new_environ, close_fds=False)
+
+        if exit_code == 3:
+            sys.exit(0)

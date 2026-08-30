@@ -27,6 +27,7 @@ from click.decorators import _param_memo
 
 from .accessibility import AccessibleOption
 from .color import ColorOption, NoColorOption
+from .command_doc import HelpFormatOption, ManOption
 from .commands import (
     DEFAULT_HELP_NAMES,
     Command,
@@ -41,8 +42,8 @@ from .config import (
     ValidateConfigOption,
 )
 from .execution import JobsOption, TimerOption, ZeroExitOption
-from .logging import QuietOption, VerboseOption, VerbosityOption
-from .man_page import ManOption
+from .logging import DebugOption, QuietOption, VerboseOption, VerbosityOption
+from .multicall import MulticallGroup
 from .parameters import Argument, Option, ShowParamsOption
 from .table import ColumnsOption, SortByOption, TableFormatOption
 from .telemetry import TelemetryOption
@@ -338,6 +339,7 @@ def version_option(version=None, *param_decls, cls=VersionOption, group=None, **
 
 # Introduce new commands decorators specific to Click Extra.
 lazy_group = decorator_factory(dec=group, cls=LazyGroup)
+multicall_group = decorator_factory(dec=group, cls=MulticallGroup)
 
 
 # Introduce new parameter decorators specific to Click Extra.
@@ -347,9 +349,11 @@ columns_option = decorator_factory(dec=option, cls=ColumnsOption)
 config_option = decorator_factory(dec=option, cls=ConfigOption)
 export_config_option = decorator_factory(dec=option, cls=ExportConfigOption)
 jobs_option = decorator_factory(dec=option, cls=JobsOption)
+help_format_option = decorator_factory(dec=option, cls=HelpFormatOption)
 man_option = decorator_factory(dec=option, cls=ManOption)
 no_color_option = decorator_factory(dec=option, cls=NoColorOption)
 no_config_option = decorator_factory(dec=option, cls=NoConfigOption)
+debug_option = decorator_factory(dec=option, cls=DebugOption)
 quiet_option = decorator_factory(dec=option, cls=QuietOption)
 show_params_option = decorator_factory(dec=option, cls=ShowParamsOption)
 table_format_option = decorator_factory(dec=option, cls=TableFormatOption)

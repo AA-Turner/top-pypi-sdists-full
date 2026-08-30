@@ -29,6 +29,7 @@ fast and platform-neutral.
 
 from __future__ import annotations
 
+import os
 import sys
 
 import pytest
@@ -45,6 +46,7 @@ from click_extra import (
     run_test_suite,
 )
 from click_extra.cli import demo
+from click_extra.test_suite import _split_args
 
 # A case that passes: the interpreter exits 0 on --version.
 PASS_CASE = CLITestCase(cli_parameters="--version", exit_code=0)
@@ -170,6 +172,44 @@ def test_cases_from_data_rejects_unknown_directive():
     """An unknown directive in a mapping is rejected."""
     with pytest.raises(ValueError, match="invalid directives"):
         list(cases_from_data([{"not_a_real_directive": 1}]))
+
+
+# --- argument splitting -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("cli", "expected"),
+    (
+        # Nothing to split.
+        ("", []),
+        ("   ", []),
+        # Plain whitespace separation, with runs collapsed.
+        ("--count 3", ["--count", "3"]),
+        ("  --count   3  ", ["--count", "3"]),
+        # A quoted value holds its spaces together.
+        ('--city "San Francisco"', ["--city", "San Francisco"]),
+        (
+            '--city "San Francisco" --unit celsius',
+            ["--city", "San Francisco", "--unit", "celsius"],
+        ),
+        # Quotes glued to a token are stripped, and the token stays whole.
+        ('--fruit="Granny Smith"', ["--fruit=Granny Smith"]),
+    ),
+)
+def test_split_args_honors_quotes(cli, expected):
+    """Quoting survives tokenization identically on POSIX and Windows.
+
+    `shlex` and `CommandLineToArgvW` are two different parsers, so the cases
+    above are the subset of syntax on which they must agree. Windows used to
+    reach a bare `str.split()` here, which broke every quoted case into pieces.
+
+    Two corners stay out on purpose, because the parsers answer differently and
+    each answer is right for its platform: a backslash escapes the next
+    character for `shlex` but stands for itself on Windows (which is what keeps
+    `C:\\Users` intact), and a doubled quote inside a quoted run closes and
+    reopens it for `shlex` while Windows folds it into one literal quote.
+    """
+    assert _split_args(cli) == expected
 
 
 # --- CLITestCase normalization -----------------------------------------------
@@ -315,6 +355,182 @@ def test_output_and_stream_directives_are_mutually_exclusive():
         CLITestCase(output_contains="x", stdout_contains="y")
 
 
+# --- env / unset_env ----------------------------------------------------------
+
+ECHO_ENV = (
+    "-c",
+    "import os; print(os.environ.get('PROBE_VAR', '<absent>'))",
+)
+"""Command line printing one variable, or a marker when it is not set."""
+
+
+def test_env_sets_a_variable_on_the_child():
+    """A variable a case declares reaches the command it runs."""
+    CLITestCase(
+        cli_parameters=ECHO_ENV,
+        env={"PROBE_VAR": "papaya"},
+        exit_code=0,
+        stdout_contains="papaya",
+    ).run_cli_test(sys.executable, None, None)
+
+
+def test_unset_env_hides_an_inherited_variable(monkeypatch):
+    """A variable exported around the suite can be taken away for one case.
+
+    The half `env` cannot cover: assigning the empty string leaves the variable
+    set, which a flag read by bare presence counts as activation.
+    """
+    monkeypatch.setenv("PROBE_VAR", "leaked")
+
+    CLITestCase(
+        cli_parameters=ECHO_ENV,
+        exit_code=0,
+        stdout_contains="leaked",
+    ).run_cli_test(sys.executable, None, None)
+
+    CLITestCase(
+        cli_parameters=ECHO_ENV,
+        unset_env="PROBE_VAR",
+        exit_code=0,
+        stdout_contains="<absent>",
+    ).run_cli_test(sys.executable, None, None)
+
+
+def test_env_directives_leave_the_runner_environment_alone(monkeypatch):
+    """Cases stay independent under `--jobs`: only the child is touched."""
+    monkeypatch.setenv("PROBE_VAR", "leaked")
+
+    CLITestCase(
+        cli_parameters=ECHO_ENV,
+        env={"PROBE_OTHER": "set"},
+        unset_env="PROBE_VAR",
+        exit_code=0,
+        stdout_contains="<absent>",
+    ).run_cli_test(sys.executable, None, None)
+
+    assert os.environ["PROBE_VAR"] == "leaked"
+    assert "PROBE_OTHER" not in os.environ
+
+
+def test_env_overrides_the_injected_io_encoding_default():
+    """A case pinning PYTHONIOENCODING wins over the harness's own default.
+
+    The harness injects `utf8` so a child's piped stdout stays decodable (see
+    `test_child_inherits_utf8_io_encoding`); a case declaring the variable
+    itself must land after that. `cp1252` is picked over `latin-1` because
+    Python reports the latter back under its `iso8859-1` alias.
+    """
+    CLITestCase(
+        cli_parameters=("-c", "import sys; print(sys.stdout.encoding.lower())"),
+        env={"PYTHONIOENCODING": "cp1252"},
+        exit_code=0,
+        stdout_contains="cp1252",
+    ).run_cli_test(sys.executable, None, None)
+
+
+@pytest.mark.parametrize(
+    ("value", "exception", "match"),
+    (
+        pytest.param({"A": 1}, TypeError, "is not a string", id="unquoted-int"),
+        pytest.param({"A": True}, TypeError, "is not a string", id="unquoted-bool"),
+        pytest.param({"A": None}, TypeError, "is not a string", id="null"),
+        pytest.param(["A=1"], TypeError, "is not a mapping", id="list"),
+        pytest.param("A=1", TypeError, "is not a mapping", id="string"),
+    ),
+)
+def test_env_rejects_what_is_not_a_string_mapping(value, exception, match):
+    """An environment holds strings only, so anything else is refused loudly."""
+    with pytest.raises(exception, match=match):
+        CLITestCase(env=value)
+
+
+def test_unset_env_normalizes_like_the_envvar_helpers():
+    """A single name is wrapped, duplicates collapse, blanks are dropped."""
+    assert CLITestCase(unset_env="PROBE_VAR").unset_env == ("PROBE_VAR",)
+    assert CLITestCase(unset_env=("A", "A", "B")).unset_env == ("A", "B")
+    assert CLITestCase(unset_env=("A", "  ")).unset_env == ("A",)
+    assert CLITestCase().unset_env == ()
+    assert CLITestCase().env == {}
+    # A suite format hands lists through `**kwargs`, where the annotation of
+    # `cli_parameters` and its siblings does not reach either.
+    (case,) = cases_from_data([{"unset_env": ["A", "A", "B"]}])
+    assert case.unset_env == ("A", "B")
+
+
+# --- work_directory -----------------------------------------------------------
+
+LIST_CWD = ("-c", "import os; print(sorted(os.listdir('.')))")
+"""Command line printing the names the working directory holds."""
+
+
+def test_work_directory_moves_the_command(tmp_path):
+    """The command runs where asked, not where the runner sits."""
+    (tmp_path / "marker.txt").touch()
+
+    CLITestCase(
+        cli_parameters=LIST_CWD,
+        exit_code=0,
+        stdout_contains="marker.txt",
+    ).run_cli_test(sys.executable, None, None, work_directory=tmp_path)
+
+
+def test_work_directory_defaults_to_the_runner_directory(tmp_path):
+    """Left unset, a case sees what it always saw."""
+    (tmp_path / "marker.txt").touch()
+
+    case = CLITestCase(
+        cli_parameters=LIST_CWD,
+        exit_code=0,
+        stdout_contains="marker.txt",
+    )
+    with pytest.raises(AssertionError):
+        case.run_cli_test(sys.executable, None, None)
+
+
+def test_work_directory_leaves_the_command_resolution_alone(tmp_path):
+    """The target is resolved before the move, so it is never looked for there.
+
+    `run_cli_test` resolves a `PATH` name (and `.absolute()`s a path) against the
+    runner's own directory first, which is what lets a relative target survive a
+    `work_directory` pointing somewhere that does not hold it.
+    """
+    assert not list(tmp_path.iterdir())
+
+    CLITestCase(
+        cli_parameters=("-c", "print('ran')"),
+        exit_code=0,
+        stdout_contains="ran",
+    ).run_cli_test(sys.executable, None, None, work_directory=tmp_path)
+
+
+def test_run_suite_applies_the_work_directory_to_every_case(tmp_path):
+    """The orchestrator hands it down, so a whole suite moves at once."""
+    (tmp_path / "marker.txt").touch()
+
+    cases = [
+        CLITestCase(cli_parameters=LIST_CWD, stdout_contains="marker.txt"),
+        CLITestCase(cli_parameters=LIST_CWD, stdout_contains="marker.txt"),
+    ]
+    counter = run_test_suite(
+        sys.executable,
+        cases,
+        work_directory=tmp_path,
+        stats=False,
+        show_progress=False,
+    )
+    assert counter["failed"] == 0
+    assert counter["total"] == 2
+
+
+def test_env_and_unset_env_are_valid_suite_directives():
+    """Both reach a case through a serialized suite, not just the Python API."""
+    (case,) = cases_from_data([
+        {"cli_parameters": "--version", "env": {"A": "1"}, "unset_env": "B"}
+    ])
+    assert case.env == {"A": "1"}
+    assert case.unset_env == ("B",)
+
+
 # --- run_test_suite -----------------------------------------------------------
 
 
@@ -372,7 +588,7 @@ def test_run_stats_echoes_summary(capsys):
     )
     out = capsys.readouterr().out
     assert "Running 2 test cases across 2 workers" in out
-    assert "os.cpu_count()=" in out
+    assert "logical CPUs" in out
     assert "Total: 2" in out
     assert "Failed: 0" in out
 
@@ -387,7 +603,7 @@ def test_run_no_stats_is_quiet(capsys):
     )
     out = capsys.readouterr().out
     assert "Test suite results" not in out
-    assert "os.cpu_count()" not in out
+    assert "logical CPUs" not in out
 
 
 # --- click-extra test-suite subcommand ----------------------------------------

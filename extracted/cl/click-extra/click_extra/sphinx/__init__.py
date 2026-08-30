@@ -23,14 +23,13 @@ ANSI color rendering by patching `pymdownx.highlight`'s formatter classes.
 
 from __future__ import annotations
 
-from ..parameters import missing_extra_message
+from .._utils import missing_extra_message
 
 try:
     import sphinx  # noqa: F401
 except ImportError as err:
     raise ImportError(missing_extra_message("sphinx", subject="This module")) from err
 
-import myst_parser
 from packaging.version import Version
 from sphinx.highlighting import PygmentsBridge
 from sphinx.util import logging
@@ -42,7 +41,7 @@ from ..blocks import (
     update_blocks as update_blocks,
 )
 from ..pygments import AnsiHtmlFormatter
-from . import manpages, matrix
+from . import manpages, matrix, todos
 from .alerts import convert_github_alerts
 from .click import ClickDomain, cleanup_runner
 from .python import (
@@ -50,6 +49,15 @@ from .python import (
     cleanup_python_runner,
     rewrite_python_mirror_regions,
 )
+
+try:
+    import myst_parser
+except ImportError:
+    # The `sphinx` extra does not declare myst-parser and Sphinx does not pull it
+    # in, so a reST-only project has none installed. Keep this module importable
+    # for it: setup() then skips the GitHub-alerts converter, which would emit
+    # `:::{note}` fences no parser is there to render.
+    myst_parser = None  # type: ignore[assignment]
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -69,7 +77,8 @@ Below this version, {mod}`click_extra.sphinx.alerts` patches GitHub alert
 syntax into MyST admonitions via a `source-read` / `include-read`
 hook. At or above this version, the converter is skipped at
 {func}`setup` time and projects should add `"alert"` to
-`myst_enable_extensions` instead.
+`myst_enable_extensions` instead. A project with no `myst-parser`
+installed writes no MyST document, so the converter is skipped there too.
 """
 
 
@@ -88,6 +97,46 @@ a transitive import or a doc-only pull request from silently expanding
 the build's attack surface.
 """
 
+
+SCREENSHOT_DIR_CONFIG = "click_extra_screenshot_dir"
+"""Name of the `conf.py` value locating the directory `click:run` writes captures to.
+
+A path relative to the documentation source directory, holding the SVG a
+`click:run` block names with its `:screenshot:` option. Defaults to `assets`,
+matching where a Sphinx project conventionally keeps the images its pages embed,
+and where a README pointing at the repository finds them.
+"""
+
+SCREENSHOT_PRESET_CONFIG = "click_extra_screenshot_preset"
+"""Name of the `conf.py` value naming the terminal every capture is drawn as.
+
+One of {data}`~click_extra.screenshot_presets.PRESETS`, applied to each
+`click:run` block whose `:screenshot:` does not name a preset of its own. Empty
+by default, which keeps the renderer's neutral window: a project wanting all of
+its captures to look like the same desktop states it once here instead of on
+every block.
+"""
+
+SCREENSHOT_SYNTAX_STYLE_CONFIG = "click_extra_screenshot_syntax_style"
+"""Name of the `conf.py` value coloring every capture drawn from source code.
+
+One of the [Pygments styles](https://pygments.org/styles/), applied to each
+source block whose `:screenshot:` does not name a
+`:screenshot-syntax-style:` of its own. Empty by default, which takes the style
+each chrome is drawn for, see
+{data}`~click_extra.snippet.DEFAULT_SYNTAX_STYLES`. Unused by a block picturing
+what a command printed, whose colors that command already chose.
+"""
+
+SCREENSHOT_WATERMARK_CONFIG = "click_extra_screenshot_watermark"
+"""Name of the `conf.py` value crediting every capture a `click:run` writes.
+
+Empty by default, where the `screenshot` command credits click-extra: a capture
+written by a documentation build is rewritten and committed on every build, so a
+mark naming a release would rewrite every image the day that release changes,
+and the page carrying the image already says what drew it. A project wanting one
+anyway states the text here, or per block with `:screenshot-watermark:`.
+"""
 
 RUN_CAPTURE_CONFIG = "click_extra_run_capture"
 """Name of the `conf.py` value selecting the stream-capture mode for the CLIs that
@@ -156,13 +205,20 @@ def setup(app: Sphinx) -> ExtensionMetadata:
       Registered only when the installed `myst-parser` is below
       {data}`MYST_NATIVE_ALERTS_VERSION` (`5.1.0`). On newer versions,
       the converter is skipped and a one-shot info message points users
-      at `myst-parser`'s native `"alert"` extension. See
+      at `myst-parser`'s native `"alert"` extension; with no `myst-parser`
+      installed it is skipped without a message. See
       {mod}`click_extra.sphinx.alerts` for the deprecation plan.
     - The `matrix` directive, which renders a package's compatibility grid
       (``{matrix} python`` or ``{matrix} <distribution>``) from its git tag
       history. It runs a canned generator rather than user-supplied Python, so
       it carries no execution surface and needs no opt-in. See
       {mod}`click_extra.sphinx.matrix`.
+    - Deduplication of the `todolist` page, which `sphinx.ext.todo` fills
+      with one entry per *rendering* of a `{todo}` directive rather than one
+      per directive. Inert on a project that enables neither the extension
+      nor a `todolist`, and switched off with
+      {data}`click_extra.sphinx.todos.DEDUPE_TODOS_CONFIG`. See
+      {mod}`click_extra.sphinx.todos`.
 
     Opt-in features (gated behind `click_extra_enable_exec_directives`):
 
@@ -195,6 +251,14 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     app.add_config_value(EXEC_DIRECTIVES_OPT_IN, False, "env", types=[bool])
     # Stream-capture mode for executed click:run/click:tree CLIs (see click.py).
     app.add_config_value(RUN_CAPTURE_CONFIG, "fd", "env", types=[str])
+    # Where a `click:run` `:screenshot:` capture is written (see click.py).
+    app.add_config_value(SCREENSHOT_DIR_CONFIG, "assets", "env", types=[str])
+    # Terminal every capture is drawn as, unless a block says otherwise.
+    app.add_config_value(SCREENSHOT_PRESET_CONFIG, "", "env", types=[str])
+    # Pygments style every source capture is colored with (see snippet.py).
+    app.add_config_value(SCREENSHOT_SYNTAX_STYLE_CONFIG, "", "env", types=[str])
+    # Credit line every capture carries, off unless a project asks for one.
+    app.add_config_value(SCREENSHOT_WATERMARK_CONFIG, "", "env", types=[str])
     app.connect("config-inited", _register_exec_directives)
 
     # Wire the man-page emit hook (see manpages.py). No-op until a project
@@ -207,22 +271,29 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     # than user-supplied Python, so they need no exec opt-in.
     matrix.setup(app)
 
+    # Collapse the duplicate `todolist` entries autodoc's repeated docstring
+    # renderings produce (see todos.py). Inert unless the project enables
+    # `sphinx.ext.todo` and writes a `todolist`.
+    todos.setup(app)
+
     # Register GitHub alerts converter only when myst-parser predates
     # the native "alert" syntax extension (added in 5.1.0). On newer
     # versions, log a migration notice and skip the converter:
     # projects should add "alert" to myst_enable_extensions to use
-    # myst-parser's native rendering instead.
-    if Version(myst_parser.__version__) < MYST_NATIVE_ALERTS_VERSION:
-        app.connect("source-read", convert_github_alerts)
-        app.connect("include-read", convert_github_alerts)
-    else:
-        logger.info(
-            "click_extra.sphinx: skipping the GitHub alerts converter "
-            "(myst-parser %s ships the native 'alert' syntax extension). "
-            "Add 'alert' to myst_enable_extensions to render "
-            "'> [!NOTE]' blockquotes as Sphinx admonitions.",
-            myst_parser.__version__,
-        )
+    # myst-parser's native rendering instead. With no myst-parser at all
+    # there is no MyST document to convert, so it is skipped silently.
+    if myst_parser is not None:
+        if Version(myst_parser.__version__) < MYST_NATIVE_ALERTS_VERSION:
+            app.connect("source-read", convert_github_alerts)
+            app.connect("include-read", convert_github_alerts)
+        else:
+            logger.info(
+                "click_extra.sphinx: skipping the GitHub alerts converter "
+                "(myst-parser %s ships the native 'alert' syntax extension). "
+                "Add 'alert' to myst_enable_extensions to render "
+                "'> [!NOTE]' blockquotes as Sphinx admonitions.",
+                myst_parser.__version__,
+            )
 
     return {
         "version": __version__,

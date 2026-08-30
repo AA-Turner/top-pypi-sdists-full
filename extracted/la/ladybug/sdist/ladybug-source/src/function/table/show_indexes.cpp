@@ -8,6 +8,7 @@
 #include "function/table/bind_input.h"
 #include "function/table/simple_table_function.h"
 #include "main/client_context.h"
+#include "storage/partition_storage_registry.h"
 #include "storage/storage_manager.h"
 #include "storage/table/node_table.h"
 #include "transaction/transaction.h"
@@ -128,13 +129,19 @@ static std::unique_ptr<TableFuncBindData> bindFunc(const main::ClientContext* co
         seenIndexes.insert(getSeenKey(indexEntry->getTableID(), indexEntry->getIndexName()));
     }
 
-    auto* storageManager = storage::StorageManager::Get(*context);
     for (auto* tableEntry :
         catalog->getNodeTableEntries(transaction, context->useInternalCatalogEntry())) {
+        // A partitioned parent holds no physical storage (and no built-in PK index); only its
+        // partition subgraphs do. Skip it so index enumeration doesn't deref a missing table.
+        if (tableEntry->isPartitioned()) {
+            continue;
+        }
         const auto tableID = tableEntry->getTableID();
         const auto hasCatalogPKIndex =
             catalog->containsIndex(transaction, tableID, tableEntry->getPrimaryKeyID());
-        auto* nodeTable = storageManager->getTable(tableID)->ptrCast<storage::NodeTable>();
+        auto* nodeTable = storage::PartitionStorageRegistry::resolveNodeTableByID(
+            const_cast<main::ClientContext*>(context), tableID)
+                              ->ptrCast<storage::NodeTable>();
         for (auto& indexHolder : nodeTable->getIndexes()) {
             const auto& storageIndexInfo = indexHolder.getIndexInfo();
             if (!storageIndexInfo.isPrimary || !storageIndexInfo.isBuiltin) {

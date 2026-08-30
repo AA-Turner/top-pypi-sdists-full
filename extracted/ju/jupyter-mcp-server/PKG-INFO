@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jupyter_mcp_server
-Version: 2.1.1
+Version: 2.1.2
 Project-URL: Home, https://github.com/datalayer/jupyter-mcp-server
 Author-email: Datalayer <info@datalayer.io>
 License: BSD 3-Clause License
@@ -90,7 +90,7 @@ Requires-Dist: jupyter-server<3,>=1.6; extra == 'test'
 Requires-Dist: jupyterlab; extra == 'test'
 Requires-Dist: pillow>=10.0.0; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
-Requires-Dist: pytest-timeout>=2.1.1; extra == 'test'
+Requires-Dist: pytest-timeout>=2.1.2; extra == 'test'
 Requires-Dist: pytest>=7.0; extra == 'test'
 Provides-Extra: typing
 Requires-Dist: mypy>=0.990; extra == 'typing'
@@ -133,7 +133,7 @@ on the server after the agent disconnects.
 
 → [**Hosted Jupyter MCP Server**](https://jupyter-mcp-server.datalayer.tech/hosted)
 
-[![Claude Code plugin](https://img.shields.io/badge/%F0%9F%A4%96%20Claude%20Code-plugin%20available-8E44AD?style=for-the-badge&labelColor=5B2C6F)](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/claude-plugin)
+[![Claude Code plugin](https://img.shields.io/badge/%F0%9F%A4%96%20Claude%20Code-plugin%20available-8E44AD?style=for-the-badge&labelColor=5B2C6F)](https://github.com/datalayer/jupyter-mcp-server/tree/main/extensions/claude-plugin)
 
 **One command to connect Claude Code**, with `/datalayer:notebook`, `/datalayer:run` and
 `/datalayer:status` on top:
@@ -143,7 +143,7 @@ on the server after the agent disconnects.
 /plugin install datalayer
 ```
 
-→ [**Datalayer plugin for Claude Code**](https://github.com/datalayer/jupyter-mcp-server/tree/main/ext/claude-plugin)
+→ [**Datalayer plugin for Claude Code**](https://github.com/datalayer/jupyter-mcp-server/tree/main/extensions/claude-plugin)
 
 ---
 
@@ -841,7 +841,7 @@ Optional environment variables:
 - Interact with LLMs that supports multimodal input (like Gemini 2.5 Pro) to fully utilize advanced multimodal understanding capabilities.
 - Use a MCP client that supports returning image data and can parse it (like Cursor, Gemini CLI, etc.), as some clients may not support this feature.
 - Break down complex task (like the whole data science workflow) into multiple sub-tasks (like data cleaning, feature engineering, model training, model evaluation, etc.) and execute them step-by-step.
-- Provide clearly structured prompts and rules (👉 Visit our [Prompt Templates](ext/prompt-templates/README.md) to get started)
+- Provide clearly structured prompts and rules (👉 Visit our [Prompt Templates](extensions/prompt-templates/README.md) to get started)
 - Provide as much context as possible (like already installed packages, field explanations for existing datasets, current working directory, detailed task requirements, etc.).
 
 ## 🤝 Contributing

@@ -23,7 +23,7 @@ class Lease(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **spec** ``Optional[LeaseSpec]`` - spec contains the specification of the Lease. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
@@ -80,12 +80,12 @@ class LeaseSpec(DictMixin):
         force acquire it. This is measured against the time of last observed
         renewTime.
       * **leaseTransitions** ``Optional[int]`` - leaseTransitions is the number of transitions of a lease between holders.
-      * **preferredHolder** ``Optional[str]`` - PreferredHolder signals to a lease holder that the lease has a more optimal
+      * **preferredHolder** ``Optional[str]`` - preferredHolder signals to a lease holder that the lease has a more optimal
         holder and should be given up. This field can only be set if Strategy is also
         set.
       * **renewTime** ``Optional[meta_v1.MicroTime]`` - renewTime is a time when the current holder of a lease has last updated the
         lease.
-      * **strategy** ``Optional[str]`` - Strategy indicates the strategy for picking the leader for coordinated leader
+      * **strategy** ``Optional[str]`` - strategy indicates the strategy for picking the leader for coordinated leader
         election. If the field is not specified, there is no active coordination for
         this lease. (Alpha) Using this field requires the CoordinatedLeaderElection
         feature gate to be enabled.

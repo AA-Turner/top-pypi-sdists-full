@@ -43,6 +43,9 @@ import copy
 import json
 import logging
 import os
+import plistlib
+import shlex
+import sqlite3
 from collections import ChainMap
 from collections.abc import Iterable
 from configparser import ConfigParser, ExtendedInterpolation
@@ -76,14 +79,18 @@ from ..parameters import (
     ParamStructure,
     replay_raw_args,
     require_sibling_param,
+    resolve_flag_value,
     search_params,
 )
 from ..types import EnumChoice
 from .builtin import THEMES_CONFIG_KEY, _builtin_config_validators
 from .formats import (
     SERIALIZABLE_FORMATS,
+    SQLITE_CONFIG_TABLE,
     ConfigFormat,
     disabled_format_message,
+    format_from_mime,
+    format_from_path,
     parse_content,
     serialize_content,
 )
@@ -185,6 +192,20 @@ VCS = Sentinel.VCS
 """Sentinel used to stop parent directory walking at the nearest VCS root."""
 
 
+def _join_format_labels(formats: Iterable[ConfigFormat]) -> str:
+    """Enumerate format labels in the `A, B or C` form used by error messages.
+
+    A single format is returned bare: the generic
+    `", ".join(labels[:-1]) + " or " + labels[-1]` shape leaves a dangling
+    conjunction on a one-item list, which is what an option restricted to one
+    format always produces.
+    """
+    labels = [str(fmt) for fmt in formats]
+    if len(labels) < 2:
+        return "".join(labels)
+    return f"{', '.join(labels[:-1])} or {labels[-1]}"
+
+
 class ConfigOption(ExtraOption, ParamStructure):
     """A pre-configured option adding `--config CONFIG_PATH`."""
 
@@ -217,6 +238,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         ),
         search_parents: bool = False,
         stop_at: Path | str | Literal[Sentinel.VCS] | None = Sentinel.VCS,
+        cascade: bool = False,
         excluded_params: Iterable[str] | None = None,
         included_params: Iterable[str] | None = None,
         strict: bool = False,
@@ -367,6 +389,25 @@ class ConfigOption(ExtraOption, ParamStructure):
         - `VCS`: stop at the nearest VCS root, whichever system marks it (see
           {data}`~click_extra.config.option.VCS_DIRS`) (default).
         - A `Path` or `str`: stop at that directory.
+        """
+
+        self.cascade = cascade
+        """Merge every discovered configuration file instead of stopping at the
+        first parseable one.
+
+        When `True`, all files found by auto-discovery (the app-dir search,
+        including the parent walk when `search_parents=True`, plus the
+        `pyproject.toml` CWD search when enabled) are loaded and layered into
+        the context's `default_map` via a `~collections.ChainMap`. The most
+        local file wins on key lookup: a `pyproject.toml` found near the CWD
+        overrides the app-dir config, which overrides files found higher up
+        the parent walk.
+
+        An explicit `--config` value never cascades: it pins a single source,
+        whatever the pattern matches.
+
+        Defaults to `False`, which preserves the historical behavior of the
+        first successfully parsed file winning.
         """
 
         if excluded_params is not None and included_params is not None:
@@ -821,15 +862,21 @@ class ConfigOption(ExtraOption, ParamStructure):
                 return
             yield str(parent), file_pattern
 
-    def search_and_read_file(self, pattern: str) -> Iterable[tuple[Path | URL, str]]:
+    def search_and_read_file(
+        self,
+        pattern: str,
+    ) -> Iterable[tuple[Path | URL, str, str | None]]:
         """Search filesystem or URL for files matching the `pattern`.
 
         If `pattern` is an URL, download its content. A pattern is considered an URL
         only if it validates as one and starts with `http://` or `https://`. All
         other patterns are considered glob patterns for local filesystem search.
 
-        Returns an iterator of the normalized location and its raw content, for each
-        one matching the pattern. Only files are returned, directories are silently
+        Returns an iterator of `(location, content, media_type)` triples, for each
+        one matching the pattern. `location` is normalized and `content` raw.
+        `media_type` is the bare `type/subtype` the server advertised in its
+        `Content-Type` header, and is `None` for a local file, whose format is
+        derived from its name. Only files are returned, directories are silently
         skipped.
 
         This method returns the raw content of all matching patterns, without trying to
@@ -866,8 +913,11 @@ class ConfigOption(ExtraOption, ParamStructure):
                     # header, defaulting to UTF-8: the near-universal encoding
                     # for configuration files.
                     charset = response.headers.get_content_charset() or "utf-8"
-                    # TODO: use mime-type to guess file format?
-                    yield location, response.read().decode(charset)
+                    # The same header types the payload. A server sending no
+                    # Content-Type at all reads as `text/plain`, which no format
+                    # claims, so the URL's file name still decides.
+                    media_type = response.headers.get_content_type()
+                    yield location, response.read().decode(charset), media_type
             # A 4xx/5xx leaves files_found at 0, so the search falls through to
             # the FileNotFoundError below, like a missing local file. Lower-level
             # URLError failures (DNS, refused connection, TLS) still propagate.
@@ -887,10 +937,15 @@ class ConfigOption(ExtraOption, ParamStructure):
                 logger.debug(f"Windows pattern converted from {win_path} to {pattern}")
 
             for root_dir, file_pattern in self.parent_patterns(pattern):
-                for file in glob.iglob(
-                    file_pattern,
-                    root_dir=root_dir,
-                    flags=self.search_pattern_flags,
+                # Sort matches within each directory: iglob yields in filesystem
+                # order, so without this the winner among sibling files (and
+                # the layering order of a cascade) would be arbitrary.
+                for file in sorted(
+                    glob.iglob(
+                        file_pattern,
+                        root_dir=root_dir,
+                        flags=self.search_pattern_flags,
+                    )
                 ):
                     base = Path(root_dir) if root_dir else Path()
                     file_path = (base / file).resolve()
@@ -899,7 +954,15 @@ class ConfigOption(ExtraOption, ParamStructure):
                         logger.debug(f"Skipping non-file {file_path}")
                         continue
                     files_found += 1
-                    yield file_path, file_path.read_text(encoding="utf-8")
+                    if format_from_path(
+                        file_path, (ConfigFormat.SQLITE, ConfigFormat.PLIST)
+                    ):
+                        # SQLite databases and binary plists are read from
+                        # their path, not from a text payload: see
+                        # load_sqlite_config() and load_plist_config().
+                        yield file_path, "", None
+                    else:
+                        yield file_path, file_path.read_text(encoding="utf-8"), None
 
         if not files_found:
             raise FileNotFoundError(f"No file found matching {pattern}")
@@ -908,12 +971,19 @@ class ConfigOption(ExtraOption, ParamStructure):
         self,
         content: str,
         formats: Sequence[ConfigFormat],
+        location: Path | URL | None = None,
     ) -> Iterable[dict[str, Any] | None]:
         """Parse the `content` with the given `formats`.
 
         Tries to parse the given raw `content` string with each of the given
         `formats`, in order. Yields the resulting data structure for each
         successful parse.
+
+        `location` is the path the `content` was read from. It is only needed
+        by formats that cannot be parsed from a text payload, like `SQLITE`,
+        which is read straight from its file, and the binary variant of
+        `PLIST`, which only exists on disk. Such formats are skipped when
+        `location` is missing or is not a local file.
 
         ```{attention}
         Formats whose parsing raises an exception or does not return a `dict`
@@ -926,11 +996,23 @@ class ConfigOption(ExtraOption, ParamStructure):
         conf = None
         for fmt in formats:
             try:
-                conf = (
-                    self.load_ini_config(content)
-                    if fmt is ConfigFormat.INI
-                    else parse_content(fmt, content)
-                )
+                if fmt is ConfigFormat.INI:
+                    conf = self.load_ini_config(content)
+                elif fmt is ConfigFormat.ARGFILE:
+                    conf = self.load_argfile_config(content)
+                elif fmt is ConfigFormat.SQLITE:
+                    if not isinstance(location, Path):
+                        raise ValueError(
+                            "SQLite configurations can only be read from a local file."
+                        )
+                    conf = self.load_sqlite_config(location)
+                elif fmt is ConfigFormat.PLIST and isinstance(location, Path):
+                    # Local files are read as raw bytes so the binary plist
+                    # variant parses too; text payloads (URL downloads) fall
+                    # through to parse_content(), which handles the XML one.
+                    conf = self.load_plist_config(location)
+                else:
+                    conf = parse_content(fmt, content)
 
             except Exception as ex:  # noqa: BLE001
                 logger.debug(f"{fmt} parsing failed: {ex}")
@@ -946,24 +1028,23 @@ class ConfigOption(ExtraOption, ParamStructure):
             logger.debug(f"{fmt} parsing successful, got {conf!r}.")
             yield conf
 
-    def _search_pyproject_cwd(
+    def _search_pyproject_cwd_all(
         self,
-    ) -> tuple[Path, dict[str, Any]] | tuple[None, None]:
-        """Search for `pyproject.toml` from CWD upward to the VCS root.
+    ) -> Iterable[tuple[Path, dict[str, Any]]]:
+        """Yield every `pyproject.toml` from CWD upward, deepest first.
 
         Mimics the discovery behavior of uv, ruff, and mypy: start in the
-        current working directory and walk up until a `pyproject.toml`
-        containing a `[tool.<cli_name>]` section is found, or the VCS root
-        (or filesystem root) is reached.
+        current working directory and walk up to the VCS root (or filesystem
+        root), yielding each `pyproject.toml` containing a
+        `[tool.<cli_name>]` section as a `(path, parsed_document)` pair.
 
         A `pyproject.toml` without a `[tool.<cli_name>]` section is
         skipped so unrelated project configs (like a dotfiles repo's
-        `[tool.ruff]`) do not shadow the user's app-dir config; the
-        caller falls back to the standard app-dir search instead.
+        `[tool.ruff]`) do not shadow the user's app-dir config.
 
         Only runs when `ConfigFormat.PYPROJECT_TOML` is in
-        `file_format_patterns`. Returns `(path, parsed_tool_section)` on
-        success, or `(None, None)` if no valid `pyproject.toml` was found.
+        `file_format_patterns`. Yields nothing when no valid
+        `pyproject.toml` is found.
         """
         cwd = Path.cwd()
         stop_at = self._resolve_stop_at(cwd)
@@ -990,13 +1071,126 @@ class ConfigOption(ExtraOption, ParamStructure):
                 content, formats=(ConfigFormat.PYPROJECT_TOML,)
             ):
                 if conf and cli_name in conf:
-                    return candidate, conf
-            logger.debug(
-                f"{candidate} has no [tool.{cli_name}] section; "
-                "falling back to app-dir search."
+                    yield candidate, conf
+                    break
+            else:
+                logger.debug(f"{candidate} has no [tool.{cli_name}] section; skipping.")
+
+    def _search_pyproject_cwd(
+        self,
+    ) -> tuple[Path, dict[str, Any]] | tuple[None, None]:
+        """Return the nearest `pyproject.toml` from CWD upward, if any.
+
+        Thin wrapper over {meth}`_search_pyproject_cwd_all` keeping the
+        single-file discovery contract: the deepest `pyproject.toml` with a
+        `[tool.<cli_name>]` section wins, matching the behavior of uv, ruff
+        and mypy. Returns `(None, None)` when no valid `pyproject.toml` is
+        found.
+        """
+        for location, conf in self._search_pyproject_cwd_all():
+            return location, conf
+        return None, None
+
+    def read_and_parse_all_conf(
+        self,
+        pattern: str,
+    ) -> Iterable[tuple[Path | URL, dict[str, Any]]]:
+        """Search for every parseable configuration file matching `pattern`.
+
+        Yields `(location, parsed_conf)` pairs in discovery order, which is
+        the most local first: the original search location, then each parent
+        directory when parent search is enabled. Files already yielded (as
+        matched by their resolved location) are skipped, as are files that
+        parse to an empty configuration.
+
+        Raises `FileNotFoundError` if no file at all matched the pattern.
+        """
+        seen: set[str] = set()
+
+        for location, content, media_type in self.search_and_read_file(pattern):
+            if str(location) in seen:
+                logger.debug(f"Skipping duplicate {location}.")
+                continue
+            seen.add(str(location))
+
+            conf = self._parse_one_conf(location, content, media_type)
+            if conf is None:
+                logger.debug(f"No parseable configuration in {location}.")
+                continue
+
+            yield location, conf
+
+    def _parse_one_conf(
+        self,
+        location: Path | URL,
+        content: str,
+        media_type: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Parse a single file's `content` into a configuration dict.
+
+        Candidate formats come from two sources, and are tried in order until
+        one returns a non-empty structure:
+
+        1. `media_type`, the `Content-Type` a server advertised for a downloaded
+           configuration. It leads, because a URL is free to carry no file
+           extension at all, or one that says nothing about the payload.
+        2. The file name, matched against `file_format_patterns`.
+
+        The two are layered rather than exclusive, so a server advertising a
+        generic or plain wrong type costs nothing: the name-derived formats are
+        still tried behind it. A media type never widens the format set either,
+        as it is resolved against `file_format_patterns` alone.
+
+        Returns `None` when the file matches no format or no parse attempt
+        produces a non-empty structure.
+        """
+        if isinstance(location, URL):
+            filename = location.path_parts[-1]
+        else:
+            filename = location.name
+
+        # Match file with formats.
+        matching_formats = tuple(
+            fmt
+            for fmt, patterns in self.file_format_patterns.items()
+            if fnmatch.fnmatch(filename, patterns, flags=self.file_pattern_flags)
+        )
+
+        # Type a download from the media type its server advertised, and try
+        # that format first. Iterating the mapping yields the formats the option
+        # accepts, in their declared priority order.
+        if media_type:
+            mime_format = format_from_mime(media_type, self.file_format_patterns)
+            if mime_format:
+                logger.debug(f"{media_type} advertised by {location} is {mime_format}.")
+                matching_formats = (
+                    mime_format,
+                    *(fmt for fmt in matching_formats if fmt is not mime_format),
+                )
+
+        # PYPROJECT_TOML is a specialization of TOML that unwraps [tool].
+        # When both match, drop generic TOML so [tool] unwrapping takes effect.
+        if (
+            ConfigFormat.PYPROJECT_TOML in matching_formats
+            and ConfigFormat.TOML in matching_formats
+        ):
+            matching_formats = tuple(
+                f for f in matching_formats if f is not ConfigFormat.TOML
             )
 
-        return None, None
+        if not matching_formats:
+            logger.debug(f"{location} does not match {self.file_pattern}.")
+            return None
+
+        logger.debug(f"Parsing {location} with {','.join(map(str, matching_formats))}")
+        for conf in self.parse_conf(
+            content, formats=matching_formats, location=location
+        ):
+            if conf:
+                return conf
+            logger.debug("Empty configuration, try next format.")
+
+        return None
 
     def read_and_parse_conf(
         self,
@@ -1021,42 +1215,8 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         Returns `(None, None)` if files were found but none could be parsed.
         """
-
-        for location, content in self.search_and_read_file(pattern):
-            if isinstance(location, URL):
-                filename = location.path_parts[-1]
-            else:
-                filename = location.name
-
-            # Match file with formats.
-            matching_formats = tuple(
-                fmt
-                for fmt, patterns in self.file_format_patterns.items()
-                if fnmatch.fnmatch(filename, patterns, flags=self.file_pattern_flags)
-            )
-
-            # PYPROJECT_TOML is a specialization of TOML that unwraps [tool].
-            # When both match, drop generic TOML so [tool] unwrapping takes effect.
-            if (
-                ConfigFormat.PYPROJECT_TOML in matching_formats
-                and ConfigFormat.TOML in matching_formats
-            ):
-                matching_formats = tuple(
-                    f for f in matching_formats if f is not ConfigFormat.TOML
-                )
-
-            if not matching_formats:
-                logger.debug(f"{location} does not match {self.file_pattern}.")
-                continue
-
-            logger.debug(
-                f"Parsing {location} with {','.join(map(str, matching_formats))}"
-            )
-            for conf in self.parse_conf(content, formats=matching_formats):
-                if conf:
-                    return location, conf
-                logger.debug("Empty configuration, try next file.")
-
+        for location, conf in self.read_and_parse_all_conf(pattern):
+            return location, conf
         return None, None
 
     def load_ini_config(self, content: str) -> dict[str, Any]:
@@ -1139,6 +1299,196 @@ class ConfigOption(ExtraOption, ParamStructure):
                 self.init_tree_dict(*section_id.split(PARAM_PATH_SEP), leaf=sub_conf),
             )
 
+        return conf
+
+    def load_argfile_config(self, content: str) -> dict[str, Any]:
+        """Utility method to parse a plain-text argfile configuration file.
+
+        The file holds command-line tokens, one option per line, in the style of
+        `mpv`'s and `yt-dlp`'s configuration files:
+
+        ```{code-block} text
+        # Comments start with a hash sign.
+        --option-name some value
+        --flag
+        ```
+
+        Tokens are split with {func}`shlex.split`, so shell quoting rules apply
+        and a `#` starts a comment. Each option is matched against the CLI's
+        root-level parameter declarations, and its value is converted to the
+        parameter's Python type, like {meth}`load_ini_config` does. A boolean
+        flag needs no value: its primary declaration sets it to `True`, its
+        secondary one (`--no-*`) to `False`. An option flagged `multiple`
+        accumulates one list item per occurrence. Unknown options are kept
+        under a normalized key so the strict check can reject them like any
+        other unrecognized configuration key, while positional tokens are
+        skipped; subcommand options cannot be addressed from an argfile.
+
+        Returns a ready-to-use data structure, wrapped in the app's section
+        name like the `[my-cli]` section of the other formats.
+
+        :raises ValueError: the content cannot be tokenized, or an option is
+            missing its value.
+        """
+        tokens = shlex.split(content, comments=True)
+
+        # Map each option declaration, primary and secondary, to its parameter.
+        # Only root-level options are reachable from an argfile: subcommand
+        # subtrees of the parameter structure are skipped.
+        app_name = self._app_section_name(get_current_context())
+        root_params = self.params_objects.get(app_name, {})
+        primary_decls: dict[str, click.Parameter] = {}
+        secondary_decls: dict[str, click.Parameter] = {}
+        for leaf in root_params.values():
+            if not isinstance(leaf, list):
+                continue
+            for param in leaf:
+                for decl in getattr(param, "opts", ()):
+                    primary_decls[decl] = param
+                for decl in getattr(param, "secondary_opts", ()):
+                    secondary_decls[decl] = param
+
+        def store(param: click.Parameter, value: Any) -> None:
+            assert param.name is not None
+            if param.multiple:
+                conf.setdefault(param.name, []).append(value)
+            else:
+                conf[param.name] = value
+
+        def convert(param: click.Parameter, decl: str, raw_value: str) -> Any:
+            target_type = (
+                ParamStructure.map_click_type(param.type)
+                if param.multiple
+                else self.get_param_type(param)
+            )
+            try:
+                if target_type is bool:
+                    # Mirror configparser's getboolean() accepted spellings.
+                    lowered = raw_value.strip().lower()
+                    if lowered in ("1", "yes", "true", "on"):
+                        return True
+                    if lowered in ("0", "no", "false", "off"):
+                        return False
+                    raise ValueError(f"not a boolean: {raw_value!r}")
+                if target_type is int:
+                    return int(raw_value)
+                if target_type is float:
+                    return float(raw_value)
+                if target_type in (list, tuple, set, frozenset, dict):
+                    return json.loads(raw_value)
+                if target_type in (None, str):
+                    return raw_value
+            except (ValueError, json.JSONDecodeError) as ex:
+                raise ValueError(
+                    f"Cannot convert {decl} value {raw_value!r} to {target_type} type."
+                ) from ex
+            raise ValueError(
+                f"Cannot handle the conversion of {decl} value {raw_value!r} "
+                f"to {target_type} type."
+            )
+
+        conf: dict[str, Any] = {}
+        index = 0
+        while index < len(tokens):
+            token = tokens[index]
+            index += 1
+
+            # Positional arguments and subcommand names have no place in an
+            # argfile: the structureless format cannot address them.
+            if not token.startswith("-"):
+                logger.debug(f"Skip positional token {token!r}: not supported.")
+                continue
+
+            decl, _, inline_value = token.partition("=")
+
+            # A secondary declaration (--no-*) unambiguously sets its boolean
+            # flag to False and never consumes a value.
+            param = secondary_decls.get(decl)
+            if param is not None:
+                store(param, False)
+                continue
+
+            param = primary_decls.get(decl)
+            if param is None:
+                # Keep the unknown entry under its normalized key so the strict
+                # check rejects it with the standard error message, instead of
+                # failing the whole parse.
+                key = decl.lstrip("-").replace("-", "_")
+                value: Any = True
+                if index < len(tokens) and not tokens[index].startswith("-"):
+                    value = tokens[index]
+                    index += 1
+                conf[key] = value
+                logger.debug(f"Unknown option {decl!r} kept as {key!r}.")
+                continue
+
+            # Flags carry their value in the declaration itself, which
+            # {func}`~click_extra.parameters.resolve_flag_value` reads the same
+            # way on every Click line. Reading `flag_value` directly stores the
+            # UNSET sentinel under Click's development branch, and a boolean
+            # flag set from an argfile then comes back off.
+            if getattr(param, "is_flag", False):
+                flag_value = resolve_flag_value(param)
+                store(param, True if flag_value is None else flag_value)
+                continue
+
+            if "=" in token:
+                raw_value = inline_value
+            elif index < len(tokens):
+                raw_value = tokens[index]
+                index += 1
+            else:
+                raise ValueError(f"Option {decl} is missing its value.")
+            store(param, convert(param, decl, raw_value))
+
+        if not conf:
+            return conf
+        return {app_name: conf} if app_name else conf
+
+    def load_sqlite_config(self, path: Path) -> dict[str, Any]:
+        """Utility method to parse a SQLite configuration database.
+
+        The database holds a single {data}`~click_extra.config.formats.SQLITE_CONFIG_TABLE`
+        table of `key`/`value` rows. Keys are parameter paths, with a dot
+        (`.`, as set by {data}`~click_extra.parameters.PARAM_PATH_SEP`)
+        separating each level, like `my-cli.default.int_param`. Values are
+        JSON-encoded, which carries every type the other formats do:
+        booleans, numbers, strings, lists and nested objects alike.
+
+        Returns a ready-to-use data structure.
+        """
+        connection = sqlite3.connect(str(path))
+        try:
+            rows = connection.execute(
+                f"SELECT key, value FROM {SQLITE_CONFIG_TABLE}"
+            ).fetchall()
+        finally:
+            connection.close()
+
+        conf: dict[str, Any] = {}
+        for key, raw_value in rows:
+            conf = always_merger.merge(
+                conf,
+                self.init_tree_dict(
+                    *key.split(PARAM_PATH_SEP), leaf=json.loads(raw_value)
+                ),
+            )
+
+        return conf
+
+    def load_plist_config(self, path: Path) -> dict[str, Any]:
+        """Utility method to parse a `plist` configuration file.
+
+        The file is read as raw bytes and handed to the standard library's
+        {mod}`plistlib`, which transparently decodes both the XML and the
+        binary variants of the format. The XML variant also parses from a
+        text payload through
+        {func}`~click_extra.config.formats.parse_content`, which is how a
+        `plist` fetched over `http://` or `https://` is loaded.
+
+        Returns a ready-to-use data structure.
+        """
+        conf: dict[str, Any] = plistlib.loads(path.read_bytes())
         return conf
 
     def _app_section_name(self, ctx: click.Context) -> str:
@@ -1284,6 +1634,79 @@ class ConfigOption(ExtraOption, ParamStructure):
         )
         self._install_default_map(ctx, filtered_conf)
 
+    def _apply_cascaded_conf(
+        self,
+        ctx: click.Context,
+        layers: Sequence[tuple[Path | URL, dict[str, Any]]],
+    ) -> dict[str, Any]:
+        """Validate and install multiple config layers into `default_map`.
+
+        *layers* holds `(location, parsed_conf)` pairs in precedence order,
+        highest first. Each file is strict-checked individually so any error
+        names the file it comes from, then installed as its own
+        `~collections.ChainMap` layer, lowest precedence first so the
+        highest-precedence file ends up in front.
+
+        The dataclass schema and extension validators run once on the
+        deep-merged view of all layers, where they see one coherent document.
+        That merged view is returned, for publication in
+        `ctx.meta[click_extra.context.CONF_FULL]`.
+        """
+        app_name = self._app_section_name(ctx)
+
+        # Strict-check each file against the CLI-parameter template.
+        per_file_conf = []
+        for location, conf in layers:
+            report = run_config_validation(
+                conf,
+                app_name=app_name,
+                params_template=self.params_template,
+                fallback_sections=self.fallback_sections,
+                strict=self.strict,
+                blocked_params=self.excluded_params,
+                collect_all=False,
+            )
+            if not report.ok:
+                logger.critical(
+                    f"Configuration validation error in {location}: {report.errors[0]}"
+                )
+                ctx.exit(1)
+            assert report.merged_conf is not None  # params_template is always set.
+            per_file_conf.append(report.merged_conf)
+
+        # Deep-merge the raw documents, highest-precedence layer winning, for
+        # the schema and the extension validators. Merging starts from the
+        # lowest-precedence file so each later merge overwrites it.
+        merged_view: dict[str, Any] = {}
+        for _location, conf in reversed(layers):
+            merged_view = always_merger.merge(merged_view, copy.deepcopy(conf))
+
+        report = run_config_validation(
+            merged_view,
+            app_name=app_name,
+            params_template=None,
+            config_schema=self.config_schema,
+            config_validators=self.config_validators,
+            fallback_sections=self.fallback_sections,
+            schema_strict=self.schema_strict,
+            schema_warn_unknown=self.schema_warn_unknown,
+            strict=self.strict,
+            collect_all=False,
+        )
+        if not report.ok:
+            logger.critical(f"Configuration validation error: {report.errors[0]}")
+            ctx.exit(1)
+
+        # Install one default_map layer per file, lowest precedence first.
+        for merged_conf in reversed(per_file_conf):
+            self._install_default_map(ctx, merged_conf)
+        logger.debug(f"New defaults: {ctx.default_map}")
+
+        if self._config_schema_callable is not None:
+            context.set(ctx, context.TOOL_CONFIG, report.schema_instance)
+        self._apply_theme_overrides(ctx, merged_view)
+        return merged_view
+
     def _install_default_map(
         self, ctx: click.Context, filtered_conf: dict[str, Any]
     ) -> None:
@@ -1381,86 +1804,110 @@ class ConfigOption(ExtraOption, ParamStructure):
         else:
             logger.debug(message)
 
-        # Search for pyproject.toml from CWD upward before the standard
-        # app-dir search. This matches the discovery behavior of uv, ruff,
-        # and mypy. Only runs on auto-discovery (not explicit --config).
+        # Discover configuration layers, in precedence order (highest first).
+        # A pyproject.toml found near the CWD beats the app-dir search, which
+        # itself yields the most local file first.
         conf_path: Path | URL | None = None
-        user_conf = None
+        user_conf: dict[str, Any] | None = None
+        layers: list[tuple[Path | URL, dict[str, Any]]] = []
         if (
             not explicit_conf
             and ConfigFormat.PYPROJECT_TOML in self.file_format_patterns
         ):
-            conf_path, user_conf = self._search_pyproject_cwd()
-            if conf_path is not None:
-                logger.debug(f"Using {conf_path} from CWD search.")
+            if self.cascade:
+                layers.extend(self._search_pyproject_cwd_all())
+            else:
+                pyproject_result = self._search_pyproject_cwd()
+                if pyproject_result[0] is not None:
+                    layers.append(pyproject_result)
+            if layers:
+                logger.debug(f"Using {layers[0][0]} from CWD search.")
 
-        # Fall back to the standard app-dir search if CWD search found nothing.
-        if user_conf is None:
-            try:
-                conf_path, user_conf = self.read_and_parse_conf(path_pattern)
-            # Exit the CLI if no user-provided config file was found. Else, it
-            # means we were just trying to automatically discover a config file
-            # with the default pattern, so we can just log it and continue.
-            except FileNotFoundError:
+        # Extend the cascade with the app-dir search layers, or fall back
+        # to it entirely when the CWD search found nothing. An explicit
+        # --config never cascades: it pins a single source.
+        try:
+            if self.cascade and not explicit_conf:
+                found = {str(location) for location, _ in layers}
+                layers.extend(
+                    layer
+                    for layer in self.read_and_parse_all_conf(path_pattern)
+                    if str(layer[0]) not in found
+                )
+            elif not layers:
+                result = self.read_and_parse_conf(path_pattern)
+                if result[0] is not None:
+                    layers.append(result)
+        # Exit the CLI if no user-provided config file was found. Else, it
+        # means we were just trying to automatically discover a config file
+        # with the default pattern, so we can just log it and continue.
+        except FileNotFoundError:
+            if not layers:
                 message = "No configuration file found."
                 if explicit_conf:
                     logger.critical(message)
                     ctx.exit(2)
                 else:
                     logger.debug(message)
+        else:
+            if not layers:
+                formats = _join_format_labels(self.file_format_patterns)
+                message = f"Error parsing file as {formats}."
+                if explicit_conf:
+                    logger.critical(message)
+                    ctx.exit(2)
+                else:
+                    logger.debug(message)
+
+        # Apply the loaded configuration (from CWD and/or app-dir search).
+        if layers:
+            # The winning source, and the document `ctx.meta` exposes. The
+            # cascade replaces the latter with the deep-merged view below.
+            conf_path, user_conf = layers[0]
+            if len(layers) > 1:
+                assert self.cascade
+                user_conf = self._apply_cascaded_conf(ctx, layers)
             else:
-                if user_conf is None:
-                    formats = list(map(str, self.file_format_patterns))
-                    message = (
-                        f"Error parsing file as "
-                        f"{', '.join(formats[:-1])} or {formats[-1]}."
+                logger.debug(f"Parsed user configuration: {user_conf}")
+                logger.debug(f"Initial defaults: {ctx.default_map}")
+
+                # Run every check through the unified pipeline. collect_all=False
+                # fails fast: the first error is surfaced as a clean critical-level
+                # log and the context exits 1, before any subcommand callback fires,
+                # rather than letting an exception bubble up as a traceback. Exit
+                # code 1 matches `--validate-config` for the same failure mode.
+                report = run_config_validation(
+                    user_conf,
+                    app_name=self._app_section_name(ctx),
+                    params_template=self.params_template,
+                    config_schema=self.config_schema,
+                    config_validators=self.config_validators,
+                    fallback_sections=self.fallback_sections,
+                    schema_strict=self.schema_strict,
+                    schema_warn_unknown=self.schema_warn_unknown,
+                    strict=self.strict,
+                    blocked_params=self.excluded_params,
+                    collect_all=False,
+                )
+                if not report.ok:
+                    logger.critical(
+                        f"Configuration validation error: {report.errors[0]}"
                     )
-                    if explicit_conf:
-                        logger.critical(message)
-                        ctx.exit(2)
-                    else:
-                        logger.debug(message)
+                    ctx.exit(1)
 
-        # Apply the loaded configuration (from CWD or app-dir search).
-        if user_conf is not None:
-            logger.debug(f"Parsed user configuration: {user_conf}")
-            logger.debug(f"Initial defaults: {ctx.default_map}")
-
-            # Run every check through the unified pipeline. collect_all=False
-            # fails fast: the first error is surfaced as a clean critical-level
-            # log and the context exits 1, before any subcommand callback fires,
-            # rather than letting an exception bubble up as a traceback. Exit
-            # code 1 matches `--validate-config` for the same failure mode.
-            report = run_config_validation(
-                user_conf,
-                app_name=self._app_section_name(ctx),
-                params_template=self.params_template,
-                config_schema=self.config_schema,
-                config_validators=self.config_validators,
-                fallback_sections=self.fallback_sections,
-                schema_strict=self.schema_strict,
-                schema_warn_unknown=self.schema_warn_unknown,
-                strict=self.strict,
-                blocked_params=self.excluded_params,
-                collect_all=False,
-            )
-            if not report.ok:
-                logger.critical(f"Configuration validation error: {report.errors[0]}")
-                ctx.exit(1)
-
-            # Validation passed. Install the recognized values into default_map,
-            # publish the typed schema instance built by the pipeline, then apply
-            # theme overrides (the [tool.<cli>.themes.<name>] table was already
-            # validated above, so building it here cannot surface user error).
-            # The pipeline already filtered user_conf against the template, so the
-            # merged result is installed directly instead of recomputing it via
-            # merge_default_map.
-            assert report.merged_conf is not None  # params_template is always set.
-            self._install_default_map(ctx, report.merged_conf)
-            logger.debug(f"New defaults: {ctx.default_map}")
-            if self._config_schema_callable is not None:
-                context.set(ctx, context.TOOL_CONFIG, report.schema_instance)
-            self._apply_theme_overrides(ctx, user_conf)
+                # Validation passed. Install the recognized values into default_map,
+                # publish the typed schema instance built by the pipeline, then apply
+                # theme overrides (the [tool.<cli>.themes.<name>] table was already
+                # validated above, so building it here cannot surface user error).
+                # The pipeline already filtered user_conf against the template, so the
+                # merged result is installed directly instead of recomputing it via
+                # merge_default_map.
+                assert report.merged_conf is not None  # params_template is always set.
+                self._install_default_map(ctx, report.merged_conf)
+                logger.debug(f"New defaults: {ctx.default_map}")
+                if self._config_schema_callable is not None:
+                    context.set(ctx, context.TOOL_CONFIG, report.schema_instance)
+                self._apply_theme_overrides(ctx, user_conf)
 
         # When a schema is configured but no config file was found, still
         # produce the default instance so get_tool_config() never returns None.
@@ -1474,6 +1921,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         # ParameterSource enum member.
         context.set(ctx, context.CONF_SOURCE, conf_path)
         context.set(ctx, context.CONF_FULL, user_conf)
+        context.set(ctx, context.CONF_SOURCES, tuple(layers))
 
 
 class NoConfigOption(ExtraOption):
@@ -1490,7 +1938,6 @@ class NoConfigOption(ExtraOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        type=UNPROCESSED,
         help=_(
             "Ignore all configuration files and only use command line parameters and "
             "environment variables.",
@@ -1504,10 +1951,8 @@ class NoConfigOption(ExtraOption):
         """`flag_value=NO_CONFIG` is the `Sentinel` enum member that
         signals "skip configuration loading" to {class}`ConfigOption`. Click
         `8.4.0` (PR [pallets/click#3363](https://github.com/pallets/click/pull/3363)) auto-detects
-        `type=UNPROCESSED` for non-basic `flag_value` types, but click-extra
-        still supports Click `8.3.x` where that auto-detection is absent, so the
-        `type=UNPROCESSED` override is kept explicit to let the sentinel pass
-        through `Option` unchanged on every supported Click.
+        `type=UNPROCESSED` for non-basic `flag_value` types, so the sentinel
+        passes through `Option` unchanged without an explicit `type` override.
 
         ```{seealso}
         An alternative implementation of this class would be to create a custom
@@ -1522,7 +1967,6 @@ class NoConfigOption(ExtraOption):
 
         super().__init__(
             param_decls=param_decls,
-            type=type,
             help=help,
             is_flag=is_flag,
             flag_value=flag_value,
@@ -1610,10 +2054,8 @@ class ValidateConfigOption(ExtraOption):
             ctx.exit(2)
 
         if user_conf is None:
-            formats = list(map(str, config_option.file_format_patterns))
-            info_msg(
-                f"Error parsing {value} as {', '.join(formats[:-1])} or {formats[-1]}."
-            )
+            formats = _join_format_labels(config_option.file_format_patterns)
+            info_msg(f"Error parsing {value} as {formats}.")
             ctx.exit(2)
 
         # Delegate every check to the unified pipeline in collect-all mode so a
@@ -1651,7 +2093,7 @@ _EXPORT_FORMAT_BY_TOKEN: dict[str, ConfigFormat] = {
 Built from {data}`~click_extra.config.formats.SERIALIZABLE_FORMATS`, so the
 accepted tokens are exactly the formats
 {func}`~click_extra.config.formats.serialize_content` can write: `toml`,
-`yaml`, `json`, `json5`, `jsonc`, `hjson` and `xml`.
+`yaml`, `json`, `json5`, `jsonc`, `hjson`, `xml` and `plist`.
 """
 
 
@@ -1797,8 +2239,8 @@ class ExportConfigOption(ExtraOption):
     ```{note}
     The accepted formats are those
     {func}`~click_extra.config.formats.serialize_content` can write
-    ({data}`~click_extra.config.formats.SERIALIZABLE_FORMATS`). `INI` and
-    `pyproject.toml` have no serializer and cannot be dumped.
+    ({data}`~click_extra.config.formats.SERIALIZABLE_FORMATS`). `INI`,
+    `Argfile` and `pyproject.toml` have no serializer and cannot be dumped.
     ```
     """
 
@@ -1922,6 +2364,10 @@ class ExportConfigOption(ExtraOption):
             # TOML cannot hold nulls: unset parameters are commented out.
             if fmt is ConfigFormat.TOML:
                 output = _serialize_toml_with_unset(tree)
+            elif fmt is ConfigFormat.PLIST:
+                # plist has no null type either, and plistlib raises on None
+                # values: unset parameters are dropped from the export.
+                output = serialize_content(fmt, _remove_blanks(tree, remove_str=False))
             else:
                 output = serialize_content(fmt, tree)
         except ImportError:

@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lintro.config.deps_config import DepsConfig
 from lintro.config.enforce_config import EnforceConfig
 from lintro.config.execution_config import ExecutionConfig
 from lintro.config.output_config import OutputConfig
@@ -13,6 +14,7 @@ from lintro.config.tool_config import LintroToolConfig
 from lintro.config.watch_config import WatchConfig
 
 __all__ = [
+    "DepsConfig",
     "EnforceConfig",
     "ExecutionConfig",
     "LintroConfig",
@@ -67,7 +69,13 @@ class LintroConfig(BaseModel):
         score: Health score weights and scale (0-100 metric).
         output: Console output presentation settings (e.g. ASCII art toggle).
         watch: Watch-mode (``lintro watch``) defaults.
-        config_path: Path to the config file (set by loader).
+        deps: Dependency version policy configuration.
+        config_path: Path to the project config file (set by loader).
+        global_config_path: Path to the user-level global config file, if one
+            was found and merged (set by loader).
+        global_contributed_keys: Dotted key paths whose effective value came
+            from the global config (i.e. the project config did not override
+            them). Set by loader.
     """
 
     model_config = ConfigDict(frozen=False, extra="forbid")
@@ -81,7 +89,10 @@ class LintroConfig(BaseModel):
     score: ScoreConfig = Field(default_factory=ScoreConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     watch: WatchConfig = Field(default_factory=WatchConfig)
+    deps: DepsConfig = Field(default_factory=DepsConfig)
     config_path: str | None = None
+    global_config_path: str | None = None
+    global_contributed_keys: list[str] = Field(default_factory=list)
 
     def get_tool_config(self, tool_name: str) -> LintroToolConfig:
         """Get configuration for a specific tool.

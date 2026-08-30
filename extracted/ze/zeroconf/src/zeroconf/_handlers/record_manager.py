@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -42,7 +27,7 @@ _DNSQuestion = DNSQuestion
 
 
 class RecordManager:
-    """Process records into the cache and notify listeners."""
+    """Apply incoming records to the cache and deliver the updates to listeners."""
 
     __slots__ = ("cache", "listeners", "zc")
 
@@ -52,36 +37,52 @@ class RecordManager:
         self.cache = zeroconf.cache
         self.listeners: set[RecordUpdateListener] = set()
 
-    def async_updates(self, now: _float, records: list[_RecordUpdate]) -> None:
-        """Used to notify listeners of new information that has updated
-        a record.
-
-        This method must be called before the cache is updated.
-
-        This method will be run in the event loop.
+    def async_add_listener(
+        self,
+        listener: RecordUpdateListener,
+        question: DNSQuestion | list[DNSQuestion] | None,
+    ) -> None:
+        """Subscribe a listener, optionally scoped to questions, and seed it
+        with matching cached records; event loop only.
         """
+        if not isinstance(listener, RecordUpdateListener):
+            log.error(  # type: ignore[unreachable]
+                "listeners passed to async_add_listener must inherit from RecordUpdateListener;"
+                " In the future this will fail"
+            )
+
+        self.listeners.add(listener)
+
+        if question is None:
+            return
+
+        questions = [question] if isinstance(question, DNSQuestion) else question
+        self._async_update_matching_records(listener, questions)
+
+    def async_remove_listener(self, listener: RecordUpdateListener) -> None:
+        """Detach a record listener; event loop only, not threadsafe."""
+        try:
+            self.listeners.remove(listener)
+            self.zc.async_notify_all()
+        except ValueError as e:
+            log.exception("Failed to remove listener: %r", e)
+
+    def async_updates(self, now: _float, records: list[_RecordUpdate]) -> None:
+        """Notify listeners of updated records, before the cache commits them."""
         for listener in self.listeners.copy():
             listener.async_update_records(self.zc, now, records)
 
     def async_updates_complete(self, notify: bool) -> None:
-        """Used to notify listeners of new information that has updated
-        a record.
-
-        This method must be called after the cache is updated.
-
-        This method will be run in the event loop.
-        """
+        """Notify listeners that a batch landed, after the cache committed it."""
         for listener in self.listeners.copy():
             listener.async_update_records_complete()
         if notify:
             self.zc.async_notify_all()
 
     def async_updates_from_response(self, msg: DNSIncoming) -> None:
-        """Deal with incoming response packets.  All answers
-        are held in the cache, and listeners are notified.
+        """Ingest a response: cache its answers and notify listeners.
 
-        This function must be run in the event loop as it is not
-        threadsafe.
+        Runs in the event loop; not threadsafe.
         """
         updates: list[RecordUpdate] = []
         address_adds: list[DNSRecord] = []
@@ -166,31 +167,6 @@ class RecordManager:
         if updates:
             self.async_updates_complete(new)
 
-    def async_add_listener(
-        self,
-        listener: RecordUpdateListener,
-        question: DNSQuestion | list[DNSQuestion] | None,
-    ) -> None:
-        """Adds a listener for a given question.  The listener will have
-        its update_record method called when information is available to
-        answer the question(s).
-
-        This function is not thread-safe and must be called in the eventloop.
-        """
-        if not isinstance(listener, RecordUpdateListener):
-            log.error(  # type: ignore[unreachable]
-                "listeners passed to async_add_listener must inherit from RecordUpdateListener;"
-                " In the future this will fail"
-            )
-
-        self.listeners.add(listener)
-
-        if question is None:
-            return
-
-        questions = [question] if isinstance(question, DNSQuestion) else question
-        self._async_update_matching_records(listener, questions)
-
     def _async_update_matching_records(
         self, listener: RecordUpdateListener, questions: list[_DNSQuestion]
     ) -> None:
@@ -210,14 +186,3 @@ class RecordManager:
         listener.async_update_records(self.zc, now, records)
         listener.async_update_records_complete()
         self.zc.async_notify_all()
-
-    def async_remove_listener(self, listener: RecordUpdateListener) -> None:
-        """Removes a listener.
-
-        This function is not threadsafe and must be called in the eventloop.
-        """
-        try:
-            self.listeners.remove(listener)
-            self.zc.async_notify_all()
-        except ValueError as e:
-            log.exception("Failed to remove listener: %r", e)

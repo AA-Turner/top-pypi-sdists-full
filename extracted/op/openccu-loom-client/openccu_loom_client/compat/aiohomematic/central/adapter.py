@@ -46,9 +46,6 @@ from datetime import UTC, datetime
 import logging
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from openccu_loom_types.enums import CentralState, DataPointCategory
-from openccu_loom_types.rest import BackupEntry
-
 from openccu_loom_client.compat.aiohomematic._upstream import (
     AlarmMessageData,
     BackupData,
@@ -101,6 +98,8 @@ from openccu_loom_client.events import (
     ConnectionStateChangedEvent as LoomConnectionStateChangedEvent,
 )
 from openccu_loom_client.exceptions import BaseLoomException, LoomHttpError, LoomNotFoundError
+from openccu_loom_client.wire.enums import CentralState, DataPointCategory
+from openccu_loom_client.wire.rest import BackupEntry
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -1146,6 +1145,21 @@ class LoomCentralAdapter:
     def url(self) -> str:
         """Return the daemon's HTTP base URL."""
         return self._client.config.http_base_url
+
+    @property
+    def daemon_central_count(self) -> int:
+        """
+        Return how many CCUs this daemon mediates, or 0 before the bootstrap.
+
+        Published for a consumer's diagnostics dump. Whether multi-CCU
+        deployments occur at all was an open question no repository could
+        answer — and the answer decides whether server-side scoping is a
+        correctness fix or a footnote. The client learns the number while
+        resolving its own central, so surfacing it costs nothing and reports
+        nothing: it reaches anyone only if a user attaches their own
+        diagnostics to a bug report.
+        """
+        return self._client.store.daemon_central_count
 
     @property
     def config_ui_url(self) -> str:

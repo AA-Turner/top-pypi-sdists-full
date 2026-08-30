@@ -129,21 +129,33 @@ uint8_t* BufferManager::pin(FileHandle& fileHandle, page_idx_t pageIdx,
         switch (PageState::getState(currStateAndVersion)) {
         case PageState::EVICTED: {
             if (pageState->tryLock(currStateAndVersion)) {
-                if (!claimAFrame(fileHandle, pageIdx, pageReadPolicy)) {
-                    pageState->resetToEvicted();
-                    throw BufferManagerException("Unable to allocate memory! The buffer pool is "
-                                                 "full and no memory could be freed!");
-                }
-                if (!evictionQueue.insert(fileHandle.getFileIndex(), pageIdx)) {
-                    throw BufferManagerException(
-                        "Eviction queue is full! This should be impossible.");
-                }
+                try {
+                    if (!claimAFrame(fileHandle, pageIdx, pageReadPolicy)) {
+                        pageState->resetToEvicted();
+                        throw BufferManagerException(
+                            "Unable to allocate memory! The buffer pool is full and no memory "
+                            "could be freed!");
+                    }
+                    if (!evictionQueue.insert(fileHandle.getFileIndex(), pageIdx)) {
+                        const auto releasedBytes = releaseFrameForPage(fileHandle, pageIdx);
+                        freeUsedMemory(releasedBytes);
+                        pageState->resetToEvicted();
+                        throw BufferManagerException(
+                            "Eviction queue is full! The page could not be tracked safely.");
+                    }
 #if BM_MALLOC
-                DASSERT(pageState->getPage());
-                return pageState->getPage();
+                    DASSERT(pageState->getPage());
+                    return pageState->getPage();
 #else
-                return getFrame(fileHandle, pageIdx);
+                    return getFrame(fileHandle, pageIdx);
 #endif
+                } catch (...) {
+                    // A failed page read must not strand the page in LOCKED state.
+                    if (PageState::getState(pageState->getStateAndVersion()) == PageState::LOCKED) {
+                        pageState->resetToEvicted();
+                    }
+                    throw;
+                }
             }
         } break;
         case PageState::UNLOCKED:
@@ -308,8 +320,17 @@ uint64_t BufferManager::evictPages() {
         }
     }
 
-    for (size_t i = 0; i < evictablePages; i++) {
-        claimedMemory += tryEvictPage(*evictionCandidates[i]);
+    try {
+        for (size_t i = 0; i < evictablePages; i++) {
+            claimedMemory += tryEvictPage(*evictionCandidates[i]);
+        }
+    } catch (...) {
+        // Earlier pages in this batch may already have released their frames. Account for them
+        // before propagating a later eviction failure.
+        if (claimedMemory > 0) {
+            freeUsedMemory(claimedMemory);
+        }
+        throw;
     }
     return claimedMemory;
 }
@@ -348,24 +369,45 @@ bool BufferManager::claimAFrame(FileHandle& fileHandle, page_idx_t pageIdx,
     pageSizeToClaim =
         vmRegions[fileHandle.getPageSizeClass()]->claimFrame(fileHandle.getFrameIdx(pageIdx));
 #endif
-    if (!reserve(pageSizeToClaim)) {
 #if !BM_MALLOC
-        vmRegions[fileHandle.getPageSizeClass()]->releaseFrame(fileHandle.getFrameIdx(pageIdx));
+    bool frameClaimed = true;
 #endif
-        return false;
-    }
+    bool memoryReserved = false;
+    try {
+        if (!reserve(pageSizeToClaim)) {
+#if !BM_MALLOC
+            frameClaimed = false;
+            vmRegions[fileHandle.getPageSizeClass()]->releaseFrame(fileHandle.getFrameIdx(pageIdx));
+#endif
+            return false;
+        }
+        memoryReserved = true;
 #if _WIN32 && !BM_MALLOC
-    // Committing in this context means reserving physical memory/page file space for a segment of
-    // virtual memory. On Linux/Unix this is automatic when you write to the memory address.
-    auto result =
-        VirtualAlloc(getFrame(fileHandle, pageIdx), pageSizeToClaim, MEM_COMMIT, PAGE_READWRITE);
-    if (result == NULL) {
-        throw BufferManagerException(
-            std::format("VirtualAlloc MEM_COMMIT failed with error code {}: {}.", GetLastError(),
-                std::system_category().message(GetLastError())));
-    }
+        // Committing in this context means reserving physical memory/page file space for a segment
+        // of virtual memory. On Linux/Unix this is automatic when we write to the memory address.
+        auto result = VirtualAlloc(getFrame(fileHandle, pageIdx), pageSizeToClaim, MEM_COMMIT,
+            PAGE_READWRITE);
+        if (result == NULL) {
+            throw BufferManagerException(
+                std::format("VirtualAlloc MEM_COMMIT failed with error code {}: {}.",
+                    GetLastError(), std::system_category().message(GetLastError())));
+        }
 #endif
-    cachePageIntoFrame(fileHandle, pageIdx, pageReadPolicy);
+        cachePageIntoFrame(fileHandle, pageIdx, pageReadPolicy);
+    } catch (...) {
+        // Loading a page can perform NFS I/O. Undo the frame reservation if that read fails so the
+        // caller can safely reset the page state without leaking a frame or leaving it locked.
+#if !BM_MALLOC
+        if (frameClaimed) {
+            frameClaimed = false;
+            vmRegions[fileHandle.getPageSizeClass()]->releaseFrame(fileHandle.getFrameIdx(pageIdx));
+        }
+#endif
+        if (memoryReserved) {
+            freeUsedMemory(pageSizeToClaim);
+        }
+        throw;
+    }
     return true;
 }
 
@@ -384,45 +426,53 @@ bool BufferManager::reserve(uint64_t sizeToReserve) {
                usedMemory > bufferPoolSize.load() - totalClaimedMemory;
     };
     uint8_t failedCount = 0;
-    // Evict pages if necessary until we have enough memory.
-    while (needMoreMemory()) {
-        uint64_t memoryClaimed = 0;
-        // Avoid reducing the evictable memory below 1/2 at first to reduce thrashing if most of the
-        // memory is non-evictable
-        if (!spiller || usedMemory - nonEvictableMemory > bufferPoolSize / 2) {
-            memoryClaimed = evictPages();
-        } else {
-            auto [_memoryClaimed, nowEvictableMemory] = spiller->claimNextGroup();
-            memoryClaimed = _memoryClaimed;
-            nonEvictableClaimedMemory += _memoryClaimed;
-            nonEvictableMemory -= nowEvictableMemory;
-            // If we're unable to claim anything from the spiller, fall back to evicting pages
-            // We may also need to evict pages if the spiller just unpins BM pages
-            if (memoryClaimed == 0 || nowEvictableMemory > 0) {
+    try {
+        // Evict pages if necessary until we have enough memory.
+        while (needMoreMemory()) {
+            uint64_t memoryClaimed = 0;
+            // Avoid reducing the evictable memory below 1/2 at first to reduce thrashing if most of
+            // the memory is non-evictable
+            if (!spiller || usedMemory - nonEvictableMemory > bufferPoolSize / 2) {
                 memoryClaimed = evictPages();
-            }
-        }
-        if (memoryClaimed == 0 && needMoreMemory()) {
-            if (failedCount++ < 2) {
-                // If we failed to find any memory to free, try waiting briefly for other threads to
-                // stop using memory
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
             } else {
-                // Cannot find more pages to be evicted. Free the memory we reserved and return
-                // false.
-                freeUsedMemory(sizeToReserve + totalClaimedMemory);
-                nonEvictableMemory -= nonEvictableClaimedMemory;
-                return false;
+                auto [_memoryClaimed, nowEvictableMemory] = spiller->claimNextGroup();
+                memoryClaimed = _memoryClaimed;
+                nonEvictableClaimedMemory += _memoryClaimed;
+                nonEvictableMemory -= nowEvictableMemory;
+                // If we're unable to claim anything from the spiller, fall back to evicting pages
+                // We may also need to evict pages if the spiller just unpins BM pages
+                if (memoryClaimed == 0 || nowEvictableMemory > 0) {
+                    memoryClaimed = evictPages();
+                }
             }
+            if (memoryClaimed == 0 && needMoreMemory()) {
+                if (failedCount++ < 2) {
+                    // If we failed to find any memory to free, try waiting briefly for other
+                    // threads to stop using memory
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                } else {
+                    // Cannot find more pages to be evicted. Free the memory we reserved and return
+                    // false.
+                    freeUsedMemory(sizeToReserve + totalClaimedMemory);
+                    nonEvictableMemory -= nonEvictableClaimedMemory;
+                    return false;
+                }
+            }
+            totalClaimedMemory += memoryClaimed;
         }
-        totalClaimedMemory += memoryClaimed;
-    }
-    // Have enough memory available now
-    if (totalClaimedMemory > 0) {
-        freeUsedMemory(totalClaimedMemory);
+        // Have enough memory available now
+        if (totalClaimedMemory > 0) {
+            freeUsedMemory(totalClaimedMemory);
+            nonEvictableMemory -= nonEvictableClaimedMemory;
+        }
+        return true;
+    } catch (...) {
+        // evictPages() has already accounted for any frames released in its failing batch.
+        // Undo this reservation and the preceding successful eviction batches.
+        freeUsedMemory(sizeToReserve + totalClaimedMemory);
         nonEvictableMemory -= nonEvictableClaimedMemory;
+        throw;
     }
-    return true;
 }
 
 uint64_t BufferManager::tryEvictPage(std::atomic<EvictionCandidate>& _candidate) {
@@ -459,11 +509,18 @@ uint64_t BufferManager::tryEvictPage(std::atomic<EvictionCandidate>& _candidate)
     // Next, flush out the frame into the file page if the frame
     // is dirty. Finally remove the page from the frame and reset the page to EVICTED.
     auto& fileHandle = *fileHandles[candidate.fileIdx];
-    fileHandle.flushPageIfDirtyWithoutLock(candidate.pageIdx);
-    auto numBytesFreed = releaseFrameForPage(fileHandle, candidate.pageIdx);
-    evictionQueue.clear(_candidate);
-    pageState.resetToEvicted();
-    return numBytesFreed;
+    try {
+        fileHandle.flushPageIfDirtyWithoutLock(candidate.pageIdx);
+        auto numBytesFreed = releaseFrameForPage(fileHandle, candidate.pageIdx);
+        evictionQueue.clear(_candidate);
+        pageState.resetToEvicted();
+        return numBytesFreed;
+    } catch (...) {
+        // A failed NFS flush must not strand the page in LOCKED state. Keep the frame resident so
+        // the dirty page can be retried after storage recovers.
+        pageState.unlock();
+        throw;
+    }
 }
 
 void BufferManager::cachePageIntoFrame(FileHandle& fileHandle, page_idx_t pageIdx,
@@ -536,12 +593,18 @@ void BufferManager::removePageFromFrame(FileHandle& fileHandle, page_idx_t pageI
         return;
     }
     pageState->spinLock(pageState->getStateAndVersion());
-    if (shouldFlush) {
-        fileHandle.flushPageIfDirtyWithoutLock(pageIdx);
+    try {
+        if (shouldFlush) {
+            fileHandle.flushPageIfDirtyWithoutLock(pageIdx);
+        }
+        const auto numBytesFreed = releaseFrameForPage(fileHandle, pageIdx);
+        freeUsedMemory(numBytesFreed);
+        pageState->resetToEvicted();
+    } catch (...) {
+        // Preserve the page and release the lock when a flush fails.
+        pageState->unlock();
+        throw;
     }
-    const auto numBytesFreed = releaseFrameForPage(fileHandle, pageIdx);
-    freeUsedMemory(numBytesFreed);
-    pageState->resetToEvicted();
 }
 
 uint64_t BufferManager::freeUsedMemory(uint64_t size) {

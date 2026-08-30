@@ -127,9 +127,18 @@ export async function ensureBinary(
         );
       }
     } else if (info) {
-      console.log(`[cloakbrowser] License validation failed (plan=${info.plan}), using free tier`);
+      // Key supplied but rejected — abort, never downgrade to free.
+      throw new Error(
+        `CloakBrowser Pro: license key is invalid or expired (plan=${info.plan}). ` +
+          `Check CLOAKBROWSER_LICENSE_KEY, or unset it to use the free binary.`,
+      );
     } else {
-      console.log("[cloakbrowser] License validation unavailable, using free tier");
+      // Key supplied but unvalidatable (server down, no cache) — abort.
+      throw new Error(
+        "CloakBrowser Pro: license could not be validated (server unreachable " +
+          "and no cached validation). Retry in a moment, or unset " +
+          "CLOAKBROWSER_LICENSE_KEY to use the free binary.",
+      );
     }
   }
 
@@ -346,24 +355,28 @@ function warnPreviewFallback(): void {
   );
 }
 
-function showWelcome(tier = "keyless"): void {
+// Exported for tests only; not re-exported from the package index.
+export function showWelcome(tier = "keyless"): void {
   const marker = path.join(getCacheDir(), ".welcome_shown");
   if (!welcomeDue(marker, tier === "pro")) return;
+  // ASCII-only banner: on a legacy Windows console a non-ASCII glyph can
+  // crash or mojibake the write, and this runs on the binary-download path
+  // (ticket 2354). Keep the three wrappers byte-parallel.
   console.error();
-  console.error("  CloakBrowser — stealth Chromium for automation");
+  console.error("  CloakBrowser - stealth Chromium for automation");
   console.error("  https://github.com/CloakHQ/CloakBrowser");
   console.error();
   if (tier === "pro") {
     console.error(
-      `  CloakBrowser Pro active (v${PRO_MAJOR}) — latest binary, newest patches.`,
+      `  CloakBrowser Pro active (v${PRO_MAJOR}) - latest binary, newest patches.`,
     );
-    console.error("  Pro support → support@cloakbrowser.dev");
+    console.error("  Pro support -> support@cloakbrowser.dev");
   } else if (tier === "free") {
     console.error(
       `  CloakBrowser free (v${PRO_MAJOR}): the latest binary, 1 concurrent session.`,
     );
     console.error(
-      "  For more than one concurrent session → https://cloakbrowser.dev",
+      "  For more than one concurrent session -> https://cloakbrowser.dev",
     );
   } else {
     const freeMajor = CHROMIUM_VERSION.split(".")[0];
@@ -375,7 +388,7 @@ function showWelcome(tier = "keyless"): void {
       "  Get your key: run  cloakbrowser login  or visit https://cloakbrowser.dev/free",
     );
     console.error(
-      "  For more than one concurrent session → https://cloakbrowser.dev",
+      "  For more than one concurrent session -> https://cloakbrowser.dev",
     );
   }
   console.error("  Star us if CloakBrowser helps your project!");
@@ -1209,7 +1222,7 @@ export async function checkWrapperUpdate(): Promise<void> {
     const data = (await resp.json()) as { version: string };
     if (data.version && versionNewer(data.version, WRAPPER_VERSION)) {
       console.warn(
-        `[cloakbrowser] Update available: ${WRAPPER_VERSION} → ${data.version}. ` +
+        `[cloakbrowser] Update available: ${WRAPPER_VERSION} -> ${data.version}. ` +
         `Run: npm install cloakbrowser@latest`
       );
     }

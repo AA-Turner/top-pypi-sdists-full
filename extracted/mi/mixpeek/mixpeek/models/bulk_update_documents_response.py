@@ -25,11 +25,13 @@ from typing_extensions import Self
 
 class BulkUpdateDocumentsResponse(BaseModel):
     """
-    Response model for bulk document update operation.
+    Response model for bulk document update operation.  AVE-44: bulk update is ASYNC. A filtered update scrolls matches on the shard and can run far longer than a request should hold a connection (BACKE-3471: an unindexed filtered scroll scans the whole shard, so 172 matching docs on a shared 6.47M-vector shard exceeded 120s and the client saw a silent no-op). The endpoint now enqueues a task and returns immediately: poll GET /v1/tasks/{task_id} for the terminal status and updated_count.
     """ # noqa: E501
-    updated_count: StrictInt = Field(description="Number of documents that were updated.")
-    message: Optional[StrictStr] = 'Documents updated successfully'
-    __properties: ClassVar[List[str]] = ["updated_count", "message"]
+    task_id: Optional[StrictStr] = Field(default=None, description="AVE-44: id of the background task running the bulk update. Poll GET /v1/tasks/{task_id} for status and the final updated_count.")
+    status: Optional[StrictStr] = Field(default=None, description="Task status at enqueue time (PENDING). The terminal status (COMPLETED / FAILED) and updated_count land on the task record.")
+    updated_count: Optional[StrictInt] = Field(default=None, description="Number of documents updated. Null on the async enqueue response; populated on the task record when the task completes.")
+    message: Optional[StrictStr] = 'Bulk update enqueued'
+    __properties: ClassVar[List[str]] = ["task_id", "status", "updated_count", "message"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,8 +84,10 @@ class BulkUpdateDocumentsResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "task_id": obj.get("task_id"),
+            "status": obj.get("status"),
             "updated_count": obj.get("updated_count"),
-            "message": obj.get("message") if obj.get("message") is not None else 'Documents updated successfully'
+            "message": obj.get("message") if obj.get("message") is not None else 'Bulk update enqueued'
         })
         return _obj
 

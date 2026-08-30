@@ -7,6 +7,7 @@ Functions that operate on lists.
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
+from collections.abc import Iterable, Mapping
 from functools import cmp_to_key
 from math import ceil
 import typing as t
@@ -126,6 +127,9 @@ def chunk(array: t.Sequence[T], size: int = 1) -> t.List[t.Sequence[T]]:
 
     .. versionadded:: 1.1.0
     """
+    # Lodash returns [] when size < 1; avoid ZeroDivisionError on size=0.
+    if size < 1:
+        return []
     chunks = int(ceil(len(array) / float(size)))
     return [array[i * size : (i + 1) * size] for i in range(chunks)]
 
@@ -449,14 +453,15 @@ def drop_while(array, predicate=None):
 
     .. versionadded:: 1.1.0
     """
-    n = 0
-    for is_true, _, _, _ in iteriteratee(array, predicate):
-        if is_true:
-            n += 1
-        else:
-            break
+    result = []
+    dropping = True
+    for is_true, value, _, _ in iteriteratee(array, predicate):
+        if dropping and is_true:
+            continue
+        dropping = False
+        result.append(value)
 
-    return array[n:]
+    return result
 
 
 def duplicates(
@@ -936,7 +941,7 @@ def intersection_by(array, *others, **kwargs):
     iteratee, others = parse_iteratee("iteratee", *others, **kwargs)
 
     # Sort by smallest list length to make intersection faster.
-    others = sorted(others, key=lambda other: len(other))
+    others = sorted(others, key=len)
 
     for other in others:
         array = list(iterintersection(array, other, iteratee=iteratee))
@@ -993,7 +998,7 @@ def intersection_with(array, *others, **kwargs):
     comparator, others = parse_iteratee("comparator", *others, **kwargs)
 
     # Sort by smallest list length to reduce to intersection faster.
-    others = sorted(others, key=lambda other: len(other))
+    others = sorted(others, key=len)
 
     for other in others:
         array = list(iterintersection(array, other, comparator=comparator))
@@ -1078,7 +1083,7 @@ def last_index_of(
         # Set starting index base on from_index offset.
         index = max(0, index + from_index) if from_index < 0 else min(from_index, index - 1)
 
-    while index:
+    while index >= 0:
         if index < array_len and array[index] == value:
             return index
         index -= 1
@@ -1346,7 +1351,10 @@ def pull_at(array: t.List[T], *indexes: int) -> t.List[T]:
     """
     flat_indexes = flatten(indexes)
     for index in sorted(flat_indexes, reverse=True):
-        del array[index]
+        try:
+            del array[index]
+        except IndexError:
+            pass
 
     return array
 
@@ -2093,14 +2101,13 @@ def take_while(array, predicate=None):
 
     .. versionadded:: 1.1.0
     """
-    n = 0
-    for is_true, _, _, _ in iteriteratee(array, predicate):
-        if is_true:
-            n += 1
-        else:
+    result = []
+    for is_true, value, _, _ in iteriteratee(array, predicate):
+        if not is_true:
             break
+        result.append(value)
 
-    return array[:n]
+    return result
 
 
 @t.overload
@@ -2818,11 +2825,15 @@ def zip_with(*arrays, **kwargs):
 def iterflatten(array, depth=-1):
     """Iteratively flatten a list shallowly or deeply."""
     for item in array:
-        if isinstance(item, (list, tuple)) and depth != 0:
+        if is_flattenable(item) and depth != 0:
             for subitem in iterflatten(item, depth - 1):
                 yield subitem
         else:
             yield item
+
+
+def is_flattenable(value):
+    return isinstance(value, Iterable) and not isinstance(value, (str, bytes, bytearray, Mapping))
 
 
 def iterinterleave(*arrays):
@@ -2844,7 +2855,11 @@ def iterinterleave(*arrays):
 def iterintersperse(iterable, separator):
     """Iteratively intersperse iterable."""
     iterable = iter(iterable)
-    yield next(iterable)
+    try:
+        item = next(iterable)
+    except StopIteration:
+        return
+    yield item
     for item in iterable:
         yield separator
         yield item

@@ -22,6 +22,7 @@ modules = [
     "8chan",
     "8muses",
     "adultempire",
+    "adultphotosets",
     "agnph",
     "ahottie",
     "allporncomic",
@@ -78,6 +79,7 @@ modules = [
     "fapello",
     "fapachi",
     "fikfap",
+    "fileditchfiles",
     "filester",
     "fitnakedgirls",
     "flickr",
@@ -135,6 +137,7 @@ modules = [
     "komikcast",
     "koofr",
     "leakgallery",
+    "leftybooru",
     "lensdump",
     "lexica",
     "lightroom",
@@ -155,6 +158,7 @@ modules = [
     "mangareader",
     "mangataro",
     "mangatown",
+    "mangayi",
     "mangoxo",
     "mgrenders",
     "misskey",
@@ -175,6 +179,7 @@ modules = [
     "nsfwalbum",
     "nudostar",
     "okporn",
+    "onlyhaven",
     "paheal",
     "patreon",
     "pawchive",
@@ -226,6 +231,7 @@ modules = [
     "slideshare",
     "smugmug",
     "snapchat",
+    "sofurry",
     "soundgasm",
     "speakerdeck",
     "steamgriddb",
@@ -351,11 +357,7 @@ def _modules_internal():
 def _modules_path(path, files):
     sys.path.insert(0, path)
     try:
-        return [
-            __import__(name[:-3])
-            for name in files
-            if name.endswith(".py")
-        ]
+        return [__import__(name) for name in files]
     finally:
         del sys.path[0]
 

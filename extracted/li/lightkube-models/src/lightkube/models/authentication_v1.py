@@ -16,7 +16,8 @@ class BoundObjectReference(DictMixin):
       **parameters**
 
       * **apiVersion** ``Optional[str]`` - apiVersion is API version of the referent.
-      * **kind** ``Optional[str]`` - kind of the referent. Valid kinds are 'Pod' and 'Secret'.
+      * **kind** ``Optional[str]`` - kind of the referent. Valid kinds are 'Pod', 'Secret', 'Node',
+        'ValidatingWebhookConfiguration', and 'MutatingWebhookConfiguration'.
       * **name** ``Optional[str]`` - name of the referent.
       * **uid** ``Optional[str]`` - uid of the referent.
     """
@@ -107,6 +108,11 @@ class TokenRequestSpec(DictMixin):
 
       **parameters**
 
+      * **attestations** ``Optional[dict]`` - attestations is a map of well-known keys to string-slice values. The values
+        for each key have a specific semantic meaning, which is documented on the key
+        definition. Requesters of tokens may ask the Kubernetes API Server to attest
+        to certain claims. The API Server may perform authorization checks depending
+        on the key of this map.
       * **audiences** ``Optional[List[str]]`` - audiences are the intendend audiences of the token. A recipient of a token
         must identify themself with an identifier in the list of audiences of the
         token, and otherwise should reject the token. A token issued for multiple
@@ -120,6 +126,7 @@ class TokenRequestSpec(DictMixin):
         token issuer may return a token with a different validity duration so a client
         needs to check the 'expiration' field in a response.
     """
+    attestations: 'Optional[dict]' = None
     audiences: 'Optional[List[str]]' = None
     boundObjectRef: 'Optional[BoundObjectReference]' = None
     expirationSeconds: 'Optional[int]' = None

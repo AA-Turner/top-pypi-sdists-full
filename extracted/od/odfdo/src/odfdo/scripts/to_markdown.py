@@ -17,10 +17,11 @@
 # Authors (odfdo project): jerome.dumonteil@gmail.com
 # The odfdo project is a derivative work of the lpod-python project:
 # https://github.com/lpod/lpod-python
-"""Command-line script to convert an ODF text document to Markdown.
+"""Command-line script to convert an ODF text or spreadsheet document to
+Markdown.
 
-This script reads an ODF text document and prints its content to standard
-output in Markdown format.
+This script reads an ODF text or spreadsheet document and prints its content
+to standard output in Markdown format.
 """
 
 from __future__ import annotations
@@ -34,13 +35,12 @@ PROG = "odfdo-markdown"
 
 
 def configure_parser() -> ArgumentParser:
-    description = (
-        "Convert an ODF text document to Markdown format and print to standard output."
-    )
+    description = "Convert an ODF text or spreadsheet document to Markdown format and print to standard output."
     epilog = (
         "This tool is useful for extracting the textual content of an ODF "
-        "document in a lightweight, human-readable, and version-control-friendly "
-        "format. It processes the document's main body content."
+        "text or spreadsheet document in a lightweight, human-readable and "
+        "version-control-friendly format. It processes the document's main "
+        "body content."
     )
     parser = ArgumentParser(prog=PROG, description=description, epilog=epilog)
     parser.add_argument(
@@ -65,7 +65,13 @@ def parse_cli_args(cli_args: list[str] | None = None) -> Namespace:
 
 def to_md(args: Namespace) -> None:
     document = read_document(args.document)
-    print(document.to_markdown())
+    result = document.to_markdown()
+    if isinstance(result, str):
+        print(result)
+    else:
+        for item in result:
+            print(f"# {item.name}\n")
+            print(item.content)
 
 
 def main() -> int:

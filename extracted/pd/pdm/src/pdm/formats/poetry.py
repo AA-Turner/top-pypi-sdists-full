@@ -41,7 +41,11 @@ def check_fingerprint(project: Project | None, filename: Path | str) -> bool:
     return "tool" in data and "poetry" in data["tool"]
 
 
-VERSION_RE = re.compile(r"([^\d\s]*)\s*(\d.*?)\s*(?=,|$)")
+#: A single Poetry version constraint: an optional operator, an optional ``v``
+#: prefix, then the version itself. The operator is restricted to the characters
+#: Poetry actually uses -- matching any non-digit instead swallowed the separating
+#: comma of a multi-constraint string, so ``>=1.0,<2.0`` produced ``>=1.0,,<2.0``.
+VERSION_RE = re.compile(r"([<>=!~^]*)\s*v?\s*(\d.*?)\s*(?=,|$)")
 
 
 def _caret_upper_bound(version: str) -> str:
@@ -58,11 +62,28 @@ def _caret_upper_bound(version: str) -> str:
     return ".".join(str(number) for number in bumped + [0] * (len(numbers) - index - 1))
 
 
+def _tilde_upper_bound(version: str) -> str:
+    """Return the exclusive upper bound of a Poetry tilde requirement.
+
+    A tilde requirement allows patch-level changes when a minor version is given and
+    minor-level changes otherwise, so ``~1.2.3`` and ``~1.2`` both mean ``<1.3.0``
+    while ``~1`` means ``<2.0.0``. PEP 440's ``~=`` only agrees with that when all
+    three components are present: ``~=1.2`` means ``<2.0``, and ``~=1`` is not even a
+    valid specifier.
+    """
+    numbers = [int(match.group()) if (match := re.match(r"\d+", part)) else 0 for part in version.split(".")]
+    index = min(1, len(numbers) - 1)
+    bumped = numbers[: index + 1]
+    bumped[-1] += 1
+    return ".".join(str(number) for number in bumped + [0] * (len(numbers) - index - 1))
+
+
 def _convert_specifier(version: str) -> str:
     parts = []
     for op, ver in VERSION_RE.findall(str(version)):
         if op == "~":
-            op += "="
+            parts.append(f">={ver},<{_tilde_upper_bound(ver)}")
+            continue
         elif op == "^":
             parts.append(f">={ver},<{_caret_upper_bound(ver)}")
             continue
@@ -125,17 +146,31 @@ NAME_EMAIL_RE = re.compile(
 )
 
 
+#: A permissive fallback for entries ``NAME_EMAIL_RE`` rejects, such as a name
+#: containing a character outside its set. It always matches, so the address is
+#: still split off instead of being buried in the name.
+NAME_EMAIL_FALLBACK_RE = re.compile(r"^\s*(?P<name>.*?)\s*(?:<(?P<email>[^<>]*)>)?\s*$", re.UNICODE)
+
+
+def _parse_one_name_email(item: str) -> dict[str, str]:
+    """Split a single Poetry author/maintainer entry into ``name`` and ``email``.
+
+    Poetry only documents the ``Name <email>`` form, but a project can carry
+    anything in there. An entry that doesn't fit used to abort the whole import
+    with ``AttributeError: 'NoneType' object has no attribute 'groupdict'``,
+    because the strict pattern's ``None`` result was indexed directly.
+    """
+    match = NAME_EMAIL_RE.match(item) or NAME_EMAIL_FALLBACK_RE.match(item)
+    assert match is not None  # the fallback pattern matches any string
+    parsed = {k: v for k, v in match.groupdict().items() if v}
+    # A bare address carries no name, so report it as the email it is.
+    if set(parsed) == {"name"} and "@" in parsed["name"] and " " not in parsed["name"]:
+        return {"email": parsed["name"]}
+    return parsed
+
+
 def parse_name_email(name_email: list[str]) -> list[dict]:
-    return array_of_inline_tables(
-        [
-            {
-                k: v
-                for k, v in NAME_EMAIL_RE.match(item).groupdict().items()  # type: ignore[union-attr]
-                if v is not None
-            }
-            for item in name_email
-        ]
-    )
+    return array_of_inline_tables([_parse_one_name_email(item) for item in name_email])
 
 
 class PoetryMetaConverter(MetaConverter):
@@ -225,6 +260,8 @@ class PoetryMetaConverter(MetaConverter):
                 dest.append(item["path"])
         if includes:
             self.settings.setdefault("build", {})["includes"] = includes
+        if source_includes:
+            self.settings.setdefault("build", {})["source-includes"] = source_includes
         raise Unset()
 
     @convert_from("exclude")

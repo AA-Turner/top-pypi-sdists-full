@@ -473,6 +473,13 @@ class KemonoDiscordExtractor(KemonoExtractor):
             "dict", "object"} else list
         exts_archive = util.EXTS_ARCHIVE
 
+        if self.config("original", False):
+            original = True
+        else:
+            original = False
+            root_thmb = self.root.replace("://", "://img.") + "/thumbnail/data"
+            exts_thmb = util.EXTS_IMAGE
+
         if (order := self.config("order-posts")) and order[0] in {"r", "d"}:
             posts = self.api.discord_channel(channel_id, channel["post_count"])
         else:
@@ -534,10 +541,17 @@ class KemonoDiscordExtractor(KemonoExtractor):
                     else:
                         post_archives.append(archive)
 
-                if url[0] == "/":
-                    url = f"{self.root}/data{url}"
-                elif url.startswith(self.root):
-                    url = f"{self.root}/data{url[20:]}"
+                if original:
+                    if url[0] == "/":
+                        url = f"{self.root}/data{url}"
+                    elif url.startswith(self.root):
+                        url = f"{self.root}/data{url[20:]}"
+                elif ext in exts_thmb:
+                    url = root_thmb + file["path"]
+                else:
+                    self.log.warning("%s: Skipping %s",
+                                     post["id"], file["path"][7:])
+                    continue
                 yield Message.Url, url, post
 
 

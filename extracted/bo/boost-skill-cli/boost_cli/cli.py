@@ -1,6 +1,6 @@
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
-"""boost CLI dispatcher — 80 commands across 8 groups.
+# SPDX-License-Identifier: Apache-2.0
+"""boost CLI dispatcher — 81 commands across 8 groups.
 
 Each command lives in boost_cli/commands/<module>.py as
     def cmd_<name_with_underscores>(argv: list[str]) -> int
@@ -117,6 +117,7 @@ COMMANDS = [
     ("health",      "chk", "quality", "Dashboard of skill-environment health"),
     ("trust",       "chk", "quality", "Manage signing keys & verify tap provenance"),
     # Configuration (13)
+    ("quickstart",  "cfg", "quickstart", "Tap the starter registries and load prebuilt vectors"),
     ("config",      "cfg", "configuration", "Display or modify boost configuration"),
     ("clean",       "cfg", "configuration", "Clear stale caches & broken symlinks"),
     ("compact",     "cfg", "configuration", "Shrink tap clones to the files boost indexes"),
@@ -199,7 +200,12 @@ def print_help() -> None:
         else:
             print(head)
         for n, s in cmds:
-            print("  " + out.c(n.ljust(width + 2), out.CYAN)
+            # accent, not a raw 16-color CYAN: every other command-name
+            # surface (search rows, info badges) resolves through this same
+            # semantic role, which is Aurora truecolor cyan with the correct
+            # 16-color/plain degradation — a raw CYAN here painted a visibly
+            # different cyan on any truecolor terminal.
+            print("  " + out.role(n.ljust(width + 2), "accent")
                   + out.truncate(s, max(0, cols - width - 4)))
     print()
     print(out.c("%d commands · %d groups" % (len(COMMANDS), len(GROUPS)), out.DIM))

@@ -1,6 +1,8 @@
 #include "optimizer/count_rel_table_optimizer.h"
 
+#include "binder/binder.h"
 #include "binder/expression/aggregate_function_expression.h"
+#include "binder/expression/case_expression.h"
 #include "binder/expression/expression_util.h"
 #include "binder/expression/literal_expression.h"
 #include "binder/expression/node_expression.h"
@@ -8,17 +10,27 @@
 #include "binder/expression/rel_expression.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "catalog/catalog_entry/node_table_id_pair.h"
+#include "common/enums/path_semantic.h"
 #include "function/aggregate/count.h"
 #include "function/aggregate/count_star.h"
+#include "function/aggregate_function.h"
+#include "function/arithmetic/vector_arithmetic_functions.h"
+#include "function/gds/rec_joins.h"
 #include "main/client_context.h"
 #include "planner/operator/extend/logical_extend.h"
+#include "planner/operator/extend/logical_recursive_extend.h"
 #include "planner/operator/logical_aggregate.h"
 #include "planner/operator/logical_filter.h"
+#include "planner/operator/logical_hash_join.h"
 #include "planner/operator/logical_order_by.h"
+#include "planner/operator/logical_path_property_probe.h"
 #include "planner/operator/logical_projection.h"
 #include "planner/operator/scan/logical_count_rel_table.h"
+#include "planner/operator/scan/logical_reachable_count.h"
 #include "planner/operator/scan/logical_rel_degree_table.h"
 #include "planner/operator/scan/logical_scan_node_table.h"
+#include "storage/storage_manager.h"
+#include "storage/table/table.h"
 
 using namespace lbug::common;
 using namespace lbug::planner;
@@ -66,6 +78,9 @@ bool CountRelTableOptimizer::isSimpleCount(LogicalOperator* op) const {
     }
     auto& aggFuncExpr = aggExpr->constCast<AggregateFunctionExpression>();
     const auto& functionName = aggFuncExpr.getFunction().name;
+    // Constant SUM is handled only by the COUNT_REL_TABLE rewrite below. The RelDegreeTable
+    // rewrites write the raw degree as INT64 and cannot express SUM(constant) semantics
+    // (no constant multiplier, no NULL-on-empty-input), so isSimpleCount must stay COUNT-only.
     if (functionName != function::CountStarFunction::name &&
         functionName != function::CountFunction::name) {
         return false;
@@ -76,6 +91,74 @@ bool CountRelTableOptimizer::isSimpleCount(LogicalOperator* op) const {
     }
 
     return true;
+}
+
+bool CountRelTableOptimizer::isConstantSum(LogicalOperator* op) const {
+    if (op->getOperatorType() != LogicalOperatorType::AGGREGATE) {
+        return false;
+    }
+    auto& aggregate = op->constCast<LogicalAggregate>();
+    if (aggregate.hasKeys() || aggregate.getAggregates().size() != 1) {
+        return false;
+    }
+    auto aggregates = aggregate.getAggregates();
+    auto aggregateExpression = aggregates[0];
+    if (aggregateExpression->expressionType != ExpressionType::AGGREGATE_FUNCTION) {
+        return false;
+    }
+    auto& aggregateFunction = aggregateExpression->constCast<AggregateFunctionExpression>();
+    if (aggregateFunction.getFunction().name != function::AggregateSumFunction::name ||
+        aggregateFunction.isDistinct() || aggregateFunction.getNumChildren() != 1) {
+        return false;
+    }
+    auto child = aggregateFunction.getChild(0);
+    return child->expressionType == ExpressionType::LITERAL &&
+           !child->constCast<LiteralExpression>().isNull();
+}
+
+bool CountRelTableOptimizer::isLiteralOne(const Expression& expression) {
+    if (expression.expressionType != ExpressionType::LITERAL) {
+        return false;
+    }
+    auto value = expression.constCast<LiteralExpression>().getValue();
+    if (value.isNull()) {
+        return false;
+    }
+    switch (value.getDataType().getPhysicalType()) {
+    case PhysicalTypeID::INT8:
+        return value.getValue<int8_t>() == 1;
+    case PhysicalTypeID::INT16:
+        return value.getValue<int16_t>() == 1;
+    case PhysicalTypeID::INT32:
+        return value.getValue<int32_t>() == 1;
+    case PhysicalTypeID::INT64:
+        return value.getValue<int64_t>() == 1;
+    case PhysicalTypeID::INT128:
+        return value.getValue<int128_t>() == int128_t{int64_t{1}};
+    case PhysicalTypeID::UINT8:
+        return value.getValue<uint8_t>() == 1;
+    case PhysicalTypeID::UINT16:
+        return value.getValue<uint16_t>() == 1;
+    case PhysicalTypeID::UINT32:
+        return value.getValue<uint32_t>() == 1;
+    case PhysicalTypeID::UINT64:
+        return value.getValue<uint64_t>() == 1;
+    case PhysicalTypeID::UINT128:
+        return value.getValue<uint128_t>() == uint128_t{uint64_t{1}};
+    default:
+        return false;
+    }
+}
+
+std::shared_ptr<Expression> CountRelTableOptimizer::getConstantSumChild(LogicalOperator* op) {
+    DASSERT(op->getOperatorType() == LogicalOperatorType::AGGREGATE);
+    auto& aggregate = op->constCast<LogicalAggregate>();
+    DASSERT(aggregate.getAggregates().size() == 1);
+    auto& aggregateFunction =
+        aggregate.getAggregates()[0]->constCast<AggregateFunctionExpression>();
+    DASSERT(aggregateFunction.getFunction().name == function::AggregateSumFunction::name);
+    DASSERT(aggregateFunction.getNumChildren() == 1);
+    return aggregateFunction.getChild(0);
 }
 
 bool CountRelTableOptimizer::isCountStar(LogicalOperator* op) const {
@@ -153,6 +236,11 @@ static bool relTablesForExtend(const LogicalExtend& extend, std::vector<table_id
     }
     DASSERT(rel->getNumEntries() == 1);
     relGroupEntry = rel->getEntry(0)->ptrCast<RelGroupCatalogEntry>();
+    // Foreign-backed rel tables are scan-driven and own no CSR metadata to count
+    // from; let the regular aggregate pipeline scan them instead.
+    if (relGroupEntry->getScanFunction().has_value()) {
+        return false;
+    }
     auto boundNodeTableIDs = extend.getBoundNode()->getTableIDsSet();
     auto nbrNodeTableIDs = extend.getNbrNode()->getTableIDsSet();
     for (auto& info : relGroupEntry->getRelEntryInfos()) {
@@ -205,7 +293,17 @@ bool CountRelTableOptimizer::canOptimize(LogicalOperator* aggregate) const {
         return false;
     }
 
-    if (!isCountStar(aggregate) && !isCountRelID(aggregate, *rel)) {
+    // Foreign-backed rel tables are scan-driven and own no CSR metadata to
+    // count from (ForeignRelTable::getNumTotalRows is not a CSR count); let
+    // the regular aggregate pipeline scan them instead.
+    for (auto entryIdx = 0u; entryIdx < rel->getNumEntries(); ++entryIdx) {
+        auto* relGroupEntry = rel->getEntry(entryIdx)->ptrCast<RelGroupCatalogEntry>();
+        if (relGroupEntry != nullptr && relGroupEntry->getScanFunction().has_value()) {
+            return false;
+        }
+    }
+
+    if (!isCountStar(aggregate) && !isCountRelID(aggregate, *rel) && !isConstantSum(aggregate)) {
         return false;
     }
 
@@ -220,6 +318,7 @@ bool CountRelTableOptimizer::canOptimize(LogicalOperator* aggregate) const {
     for (auto* projection : projections) {
         for (auto& expression : projection->getExpressionsToProject()) {
             if (expression->expressionType != ExpressionType::AGGREGATE_FUNCTION &&
+                expression->expressionType != ExpressionType::LITERAL &&
                 !isRelIDExpression(expression, *rel)) {
                 return false;
             }
@@ -243,13 +342,16 @@ bool CountRelTableOptimizer::canOptimize(LogicalOperator* aggregate) const {
 
 std::shared_ptr<LogicalOperator> CountRelTableOptimizer::visitAggregateReplace(
     std::shared_ptr<LogicalOperator> op) {
+    if (auto rewritten = tryRewriteReachableCount(op); rewritten != op) {
+        return rewritten;
+    }
     if (auto rewritten = tryRewriteActiveBoundCount(op); rewritten != op) {
         return rewritten;
     }
     if (auto rewritten = tryRewriteSortedOffsetCount(op); rewritten != op) {
         return rewritten;
     }
-    if (!isSimpleCount(op.get())) {
+    if (!isSimpleCount(op.get()) && !isConstantSum(op.get())) {
         return op;
     }
 
@@ -307,21 +409,63 @@ std::shared_ptr<LogicalOperator> CountRelTableOptimizer::visitAggregateReplace(
         return op;
     }
 
-    // Get the count expression from the original aggregate
+    // Get the result expression from the original aggregate.
     auto& aggregate = op->constCast<LogicalAggregate>();
-    auto countExpr = aggregate.getAggregates()[0];
+    auto resultExpr = aggregate.getAggregates()[0];
 
     // Get the bound node table IDs as a vector
     std::vector<table_id_t> boundNodeTableIDsVec(boundNodeTableIDs.begin(),
         boundNodeTableIDs.end());
 
-    // Create the new COUNT_REL_TABLE operator with all necessary information for scanning
-    auto countRelTable =
-        std::make_shared<LogicalCountRelTable>(relGroupEntry, std::move(relTableIDs),
-            std::move(boundNodeTableIDsVec), boundNode, extend.getDirection(), countExpr);
+    const auto constantSum = isConstantSum(op.get());
+    auto directConstantSum = false;
+    if (constantSum) {
+        directConstantSum = isLiteralOne(*getConstantSumChild(op.get()));
+    }
+
+    // SUM(1) can use the aggregate's expression as the count output directly. The physical
+    // operator writes the count using SUM's result type and returns NULL for an empty input.
+    if (!constantSum || directConstantSum) {
+        auto countRelTable = std::make_shared<LogicalCountRelTable>(relGroupEntry,
+            std::move(relTableIDs), std::move(boundNodeTableIDsVec), boundNode,
+            extend.getDirection(), resultExpr, directConstantSum, rel->getDbName(relGroupEntry));
+        countRelTable->computeFlatSchema();
+        return countRelTable;
+    }
+
+    // For SUM(c), produce an INT64 metadata count and evaluate one typed multiplication above it.
+    // The CASE preserves SUM's NULL-on-empty-input semantics.
+    auto binder = Binder(_context);
+    auto* expressionBinder = binder.getExpressionBinder();
+    auto countExpr = binder.createInvisibleVariable("__count_rel_table", LogicalType::INT64());
+    auto countRelTable = std::make_shared<LogicalCountRelTable>(relGroupEntry,
+        std::move(relTableIDs), std::move(boundNodeTableIDsVec), boundNode, extend.getDirection(),
+        countExpr, false, rel->getDbName(relGroupEntry));
     countRelTable->computeFlatSchema();
 
-    return countRelTable;
+    auto resultType = resultExpr->getDataType().copy();
+    auto countForProduct = expressionBinder->implicitCastIfNecessary(countExpr, resultType);
+    auto constantValue = getConstantSumChild(op.get())->constCast<LiteralExpression>().getValue();
+    auto constantForProduct = expressionBinder->createLiteralExpression(constantValue);
+    constantForProduct = expressionBinder->implicitCastIfNecessary(constantForProduct, resultType);
+    auto product = expressionBinder->bindScalarFunctionExpression(
+        {countForProduct, constantForProduct}, function::MultiplyFunction::name);
+
+    auto zero = expressionBinder->createLiteralExpression(Value{int64_t{0}});
+    auto countIsZero = expressionBinder->createEqualityComparisonExpression(countExpr, zero);
+    auto nullResult =
+        expressionBinder->createNullLiteralExpression(Value::createNullValue(resultType));
+    auto projectedSum =
+        std::make_shared<CaseExpression>(resultType.copy(), product, resultExpr->getUniqueName());
+    projectedSum->addCaseAlternative(countIsZero, nullResult);
+    if (resultExpr->hasAlias()) {
+        projectedSum->setAlias(resultExpr->getAlias());
+    }
+
+    auto projection = std::make_shared<LogicalProjection>(
+        expression_vector{std::move(projectedSum)}, std::move(countRelTable));
+    projection->computeFlatSchema();
+    return projection;
 }
 
 static LogicalOperator* skipProjections(LogicalOperator* op) {
@@ -418,6 +562,150 @@ static bool getPrimaryKeyOffsetPredicate(const Expression& predicate, const Node
     return false;
 }
 
+std::shared_ptr<LogicalOperator> CountRelTableOptimizer::tryRewriteReachableCount(
+    std::shared_ptr<LogicalOperator> op) {
+    // Target: AGGREGATE COUNT(DISTINCT <nbr._ID>) with no keys, over a variable-length
+    // (a)-[r*lo..up]->(b) path whose source node `a` is fixed to a single node via a primary-key
+    // predicate on a CSR-sorted node table. In this case count(distinct b) is exactly the number of
+    // distinct nodes reachable from `a` by a walk of any length in [lo, up], which can be computed
+    // by a bounded traversal without the recursive extend / hash-join subtree.
+    if (op->getOperatorType() != LogicalOperatorType::AGGREGATE) {
+        return op;
+    }
+    auto& aggregate = op->constCast<LogicalAggregate>();
+    if (aggregate.hasKeys() || aggregate.getAggregates().size() != 1) {
+        return op;
+    }
+    auto& aggFuncExpr = aggregate.getAggregates()[0]->constCast<AggregateFunctionExpression>();
+    if (aggFuncExpr.getFunction().name != function::CountFunction::name ||
+        !aggFuncExpr.isDistinct() || aggFuncExpr.getNumChildren() != 1) {
+        return op;
+    }
+    auto countedExpr = aggFuncExpr.getChild(0);
+
+    // Descend through projections to a hash join that binds the recursive extend output with the
+    // fixed source node scan.
+    auto* current = skipProjections(op->getChild(0).get());
+    if (current->getOperatorType() != LogicalOperatorType::HASH_JOIN) {
+        return op;
+    }
+
+    // Locate the recursive extend within the join subtree.
+    LogicalRecursiveExtend* recursiveExtend = nullptr;
+    std::function<void(LogicalOperator*)> findRecursive = [&](LogicalOperator* n) {
+        if (recursiveExtend != nullptr) {
+            return;
+        }
+        if (n->getOperatorType() == LogicalOperatorType::RECURSIVE_EXTEND) {
+            recursiveExtend = n->ptrCast<LogicalRecursiveExtend>();
+            return;
+        }
+        for (auto i = 0u; i < n->getNumChildren(); ++i) {
+            findRecursive(n->getChild(i).get());
+        }
+    };
+    findRecursive(current);
+    if (recursiveExtend == nullptr) {
+        return op;
+    }
+
+    auto& bindData = recursiveExtend->getBindData();
+    // Only forward variable-length walks are handled. Traversals with a node predicate restrict the
+    // reachable set and are left to the (correct) original plan.
+    if (bindData.extendDirection != ExtendDirection::FWD ||
+        bindData.semantic != common::PathSemantic::WALK || bindData.upperBound == 0 ||
+        recursiveExtend->hasNodePredicate()) {
+        return op;
+    }
+    auto boundNode = std::static_pointer_cast<NodeExpression>(bindData.nodeInput);
+    auto nbrNode = std::static_pointer_cast<NodeExpression>(bindData.nodeOutput);
+    if (boundNode->isMultiLabeled() || nbrNode->isMultiLabeled() ||
+        !(*countedExpr == *nbrNode->getInternalID())) {
+        return op;
+    }
+
+    // Identify the side of the hash join that carries the recursive extend; the other side is the
+    // fixed source-node scan of `a`.
+    auto subtreeHasRecursive = [](LogicalOperator* n) {
+        std::function<bool(LogicalOperator*)> containsRec = [&](LogicalOperator* m) -> bool {
+            if (m->getOperatorType() == LogicalOperatorType::RECURSIVE_EXTEND) {
+                return true;
+            }
+            for (auto i = 0u; i < m->getNumChildren(); ++i) {
+                if (containsRec(m->getChild(i).get())) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        return containsRec(n);
+    };
+    auto* leftChild = current->getChild(0).get();
+    auto* rightChild = current->getChild(1).get();
+    auto* sourceSide = subtreeHasRecursive(leftChild) ? rightChild : leftChild;
+
+    // Navigate to the source scan, skipping projection/semi-masker/filter operators.
+    LogicalOperator* source = sourceSide;
+    while (source->getOperatorType() == LogicalOperatorType::PROJECTION ||
+           source->getOperatorType() == LogicalOperatorType::SEMI_MASKER) {
+        source = source->getChild(0).get();
+    }
+    const LogicalFilter* sourceFilter = nullptr;
+    if (source->getOperatorType() == LogicalOperatorType::FILTER) {
+        sourceFilter = source->ptrCast<LogicalFilter>();
+        source = skipProjections(source->getChild(0).get());
+    }
+    if (source->getOperatorType() != LogicalOperatorType::SCAN_NODE_TABLE) {
+        return op;
+    }
+    auto& scan = source->constCast<LogicalScanNodeTable>();
+
+    // Derive the fixed source offset from a primary-key literal. CSR (primary_key == rowid) lets us
+    // turn the pk literal directly into a node offset without a lookup.
+    offset_t offset = INVALID_OFFSET;
+    if (sourceFilter != nullptr) {
+        if (!getPrimaryKeyOffsetPredicate(*sourceFilter->getPredicate(), *boundNode, offset)) {
+            return op;
+        }
+    } else if (scan.getScanType() == LogicalScanNodeTableType::PRIMARY_KEY_SCAN &&
+               scan.getExtraInfo() != nullptr) {
+        auto& primaryKeyScanInfo = scan.getExtraInfo()->constCast<PrimaryKeyScanInfo>();
+        if (primaryKeyScanInfo.isRange || !primaryKeyScanInfo.key ||
+            !literalToOffset(*primaryKeyScanInfo.key, offset)) {
+            return op;
+        }
+    } else {
+        return op;
+    }
+
+    // CSR gate: the invariant primary_key == rowid is only an explicit user declaration, so it must
+    // be confirmed and unchanged since declaration.
+    if (boundNode->getNumEntries() != 1) {
+        return op;
+    }
+    auto tableID = boundNode->getTableIDs()[0];
+    auto* nodeEntry = boundNode->getEntry(0)->ptrCast<NodeTableCatalogEntry>();
+    if (!nodeEntry->isCsr()) {
+        return op;
+    }
+    auto* table = storage::StorageManager::Get(*_context)->getTable(tableID);
+    if (!table || table->getChangeEpoch() != nodeEntry->getCsrChangeEpoch()) {
+        return op;
+    }
+
+    auto relEntries = bindData.graphEntry.getRelEntries();
+    if (relEntries.size() != 1) {
+        return op;
+    }
+    auto* relGroupEntry = relEntries[0]->ptrCast<RelGroupCatalogEntry>();
+    auto countExpr = op->constCast<LogicalAggregate>().getAggregates()[0];
+    auto result = std::make_shared<LogicalReachableCount>(relGroupEntry, boundNode, nbrNode,
+        bindData.extendDirection, bindData.lowerBound, bindData.upperBound, countExpr,
+        std::vector<offset_t>{offset});
+    result->computeFlatSchema();
+    return result;
+}
+
 std::shared_ptr<LogicalOperator> CountRelTableOptimizer::tryRewriteSortedOffsetCount(
     std::shared_ptr<LogicalOperator> op) {
     if (!isSimpleCount(op.get())) {
@@ -440,7 +728,16 @@ std::shared_ptr<LogicalOperator> CountRelTableOptimizer::tryRewriteSortedOffsetC
     }
     auto tableID = boundNode->getTableIDs()[0];
     auto* nodeEntry = boundNode->getEntry(0)->ptrCast<NodeTableCatalogEntry>();
-    if (!nodeEntry->isLeadingSortPrimaryKeyAsc()) {
+    // The CSR declaration asserts primary_key == rowid (csr_index interchangeable with the rel
+    // table's table_offset). This is only an explicit user declaration, not a derivable fact from
+    // the sort order, so it must be gated on the CSR flag.
+    if (!nodeEntry->isCsr()) {
+        return op;
+    }
+    // Any mutation of the node table invalidates the CSR invariant, so disregard the
+    // optimization if the table has been mutated since the CSR declaration.
+    auto* table = storage::StorageManager::Get(*_context)->getTable(tableID);
+    if (!table || table->getChangeEpoch() != nodeEntry->getCsrChangeEpoch()) {
         return op;
     }
     auto nodeKey = boundNode->getPrimaryKey(tableID);

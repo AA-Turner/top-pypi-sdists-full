@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2019-2025 Mike Fährmann
+# Copyright 2019-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -9,7 +9,7 @@
 """Extractors for https://nozomi.la/"""
 
 from .common import Extractor, Message
-from .. import text, dt
+from .. import text, util, dt
 
 
 def decode_nozomi(n):
@@ -27,11 +27,16 @@ class NozomiExtractor(Extractor):
 
     def _init(self):
         self.session.headers["Origin"] = self.root
+        self.offset = 0
 
     def items(self):
         data = self.metadata()
 
-        for post_id in map(str, self.posts()):
+        post_ids = self.posts()
+        if self.offset:
+            post_ids = util.advance(post_ids, self.offset)
+        for post_id in post_ids:
+            post_id = str(post_id)
             url = (f"https://j.{self.domain}/post"
                    f"/{post_id[-1]}/{post_id[-3:-1]}/{post_id}.json")
             response = self.request(url, fatal=False)
@@ -81,18 +86,33 @@ class NozomiExtractor(Extractor):
                 yield Message.Url, url, post
 
     def posts(self):
-        url = "https://n.nozomi.la" + self.nozomi
-        offset = (text.parse_int(self.pnum, 1) - 1) * 256
+        pnum, self.offset = divmod(self.offset, 64)
+        pnum += text.parse_int(self.pnum, 1)
+        return self._pagination("https://n.nozomi.la" + self.nozomi, pnum)
+
+    def _pagination(self, url, pnum):
+        offset = (pnum-1) * 256
 
         while True:
             headers = {"Range": f"bytes={offset}-{offset + 255}"}
-            response = self.request(url, headers=headers)
+
+            try:
+                response = self.request(url, headers=headers)
+            except self.exc.HttpError as exc:
+                if exc.status == 416:  # Requested Range Not Satisfiable
+                    break
+                raise
+
             yield from decode_nozomi(response.content)
 
             offset += 256
             cr = response.headers.get("Content-Range", "").rpartition("/")[2]
             if text.parse_int(cr, offset) <= offset:
-                return
+                break
+
+    def skip_posts(self, num):
+        self.offset = num
+        return num
 
     def metadata(self):
         return {}
@@ -106,6 +126,7 @@ class NozomiPostExtractor(NozomiExtractor):
     subcategory = "post"
     pattern = r"(?:https?://)?nozomi\.la/post/(\d+)"
     example = "https://nozomi.la/post/12345.html"
+    skip_posts = None
 
     def __init__(self, match):
         NozomiExtractor.__init__(self, match)

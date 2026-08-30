@@ -13,6 +13,7 @@ from functools import cache
 from functools import wraps
 from io import BytesIO
 from pathlib import Path
+from types import TracebackType
 from typing import Any
 from typing import cast
 from typing import NoReturn
@@ -25,10 +26,9 @@ from werkzeug.utils import redirect as werkzeug_redirect
 from werkzeug.utils import safe_join
 from werkzeug.wrappers import Response as WerkzeugResponse
 
-from .globals import _cv_request
+from .globals import app_ctx
 from .globals import current_app
 from .globals import request
-from .globals import request_ctx
 from .globals import session
 from .signals import message_flashed
 from .typing import FilePath
@@ -118,9 +118,12 @@ async def flash(message: str, category: str = "message") -> None:
     flashes = session.get("_flashes", [])
     flashes.append((category, message))
     session["_flashes"] = flashes
-    app = current_app._get_current_object()  # type: ignore
+    app = current_app._get_current_object()
     await message_flashed.send_async(
-        app, _sync_wrapper=app.ensure_async, message=message, category=category
+        app,
+        _sync_wrapper=app.ensure_async,  # type: ignore[arg-type]
+        message=message,
+        category=category,
     )
 
 
@@ -144,10 +147,10 @@ def get_flashed_messages(
     all messages will be popped, but only those matching the filter
     returned. See :func:`~quart.helpers.flash` for message creation.
     """
-    flashes: list[str] = request_ctx.flashes
+    flashes = app_ctx._flashes
     if flashes is None:
         flashes = session.pop("_flashes", [])
-        request_ctx.flashes = flashes  # type: ignore[assignment]
+        app_ctx._flashes = flashes
     if category_filter:
         flashes = [flash for flash in flashes if flash[0] in category_filter]
     if not with_categories:
@@ -221,11 +224,11 @@ def stream_with_context(func: Callable) -> Callable:
             return generator()
 
     """
-    request_context = _cv_request.get().copy()
+    ctx = app_ctx.copy()
 
     @wraps(func)
     async def generator(*args: Any, **kwargs: Any) -> Any:
-        async with request_context:
+        async with ctx:
             async for data in func(*args, **kwargs):
                 yield data
 
@@ -337,7 +340,7 @@ async def send_file(
             attachment_filename = file_path.name
         file_body = current_app.response_class.file_body_class(file_path)
         if last_modified is None:
-            last_modified = file_path.stat().st_mtime  # type: ignore
+            last_modified = datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC)
         if cache_timeout is None:
             cache_timeout = current_app.get_send_file_max_age(str(file_path))
         etag = (
@@ -401,3 +404,30 @@ def redirect(location: str, code: int = 302) -> WerkzeugResponse:
         return current_app.redirect(location, code=code)
 
     return werkzeug_redirect(location, code=code)
+
+
+class _CollectErrors:
+    """A context manager that records and silences an error raised within it.
+    Used to run all teardown functions, then raise any errors afterward.
+    """
+
+    def __init__(self) -> None:
+        self.errors: list[BaseException] = []
+
+    def __enter__(self) -> None:
+        pass
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
+        if exc_val is not None:
+            self.errors.append(exc_val)
+
+        return True
+
+    def raise_any(self, message: str) -> None:
+        if self.errors:
+            raise BaseExceptionGroup(message, self.errors)

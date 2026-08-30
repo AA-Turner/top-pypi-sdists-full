@@ -4,6 +4,7 @@
 #include "main/client_context.h"
 #include "main/settings.h"
 #include "processor/execution_context.h"
+#include "processor/result/result_set.h"
 #include "storage/buffer_manager/memory_manager.h"
 
 using namespace lbug::common;
@@ -26,9 +27,43 @@ void ProcessorTask::run() {
     }
     auto taskRoot = sink->copy();
     lck.unlock();
-    auto resultSet =
-        sink->getResultSet(storage::MemoryManager::Get(*executionContext->clientContext));
-    taskRoot->ptrCast<Sink>()->execute(resultSet.get(), executionContext);
+    // Reuse the DataChunk / ValueVector / value-buffer allocations across
+    // executions of the same prepared statement. The old code allocated a
+    // fresh ResultSet per ProcessorTask::run() call; for a loop like
+    //     for i in range(n): conn.execute("RETURN $i", {"i": i})
+    // that's a 16KB+ calloc on every iteration.
+    //
+    // We instead keep a thread-local shared_ptr<ResultSet> whose descriptor
+    // matches this sink's, so each thread of a multi-threaded task gets
+    // its own allocation-free slot. The thread owns the ResultSet outright
+    // (no aliasing), so the lifetime is straightforward: dropped when the
+    // thread exits, or when a different prepared statement runs on this
+    // thread and the descriptor pointer no longer matches.
+    ResultSet* resultSetPtr = nullptr;
+    std::unique_ptr<ResultSet> ownedResultSet;
+    if (auto* desc = sink->getDescriptor()) {
+        thread_local uint64_t cachedDescID = UINT64_MAX;
+        thread_local std::shared_ptr<processor::ResultSet> cachedResultSet;
+        if (cachedDescID == desc->id && cachedResultSet) {
+            // Same prepared statement on this thread: reuse the allocation.
+            cachedResultSet->resetForReuse();
+            resultSetPtr = cachedResultSet.get();
+        } else {
+            // First time on this thread, or a different prepared statement:
+            // allocate fresh. Owning shared_ptr; lifetime ends with the
+            // thread (or when the descriptor changes).
+            cachedResultSet = std::make_shared<processor::ResultSet>(desc,
+                storage::MemoryManager::Get(*executionContext->clientContext));
+            cachedDescID = desc->id;
+            resultSetPtr = cachedResultSet.get();
+        }
+    } else {
+        // No descriptor (e.g. OrderByMerge): fall back to per-call allocation.
+        ownedResultSet =
+            sink->getResultSet(storage::MemoryManager::Get(*executionContext->clientContext));
+        resultSetPtr = ownedResultSet.get();
+    }
+    taskRoot->ptrCast<Sink>()->execute(resultSetPtr, executionContext);
 }
 
 void ProcessorTask::finalize() {

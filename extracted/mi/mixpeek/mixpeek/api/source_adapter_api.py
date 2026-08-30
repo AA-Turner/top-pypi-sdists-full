@@ -337,7 +337,7 @@ class SourceAdapterApi:
     ) -> Dict[str, object]:
         """Refresh Source Adapter
 
-        Trigger the demotion for a 'collection' source adapter (BACKE-3577).  This is the explicit, pull-based trigger that turns the source collection's documents into first-class objects in this bucket. Only valid for an enabled ``adapter_type == \"collection\"`` source; webhook adapters do not use it.
+        Trigger a pull-based source refresh (BACKE-3577 collection, BACKE-3576 bucket).  This is the explicit trigger that turns a source's contents into first-class objects in this bucket: a ``collection`` source demotes the source collection's documents, a ``bucket`` source fans one or more source buckets' objects in. Only valid for an enabled ``adapter_type`` in {``collection``, ``bucket``}; webhook adapters do not use it.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -410,7 +410,7 @@ class SourceAdapterApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Refresh Source Adapter
 
-        Trigger the demotion for a 'collection' source adapter (BACKE-3577).  This is the explicit, pull-based trigger that turns the source collection's documents into first-class objects in this bucket. Only valid for an enabled ``adapter_type == \"collection\"`` source; webhook adapters do not use it.
+        Trigger a pull-based source refresh (BACKE-3577 collection, BACKE-3576 bucket).  This is the explicit trigger that turns a source's contents into first-class objects in this bucket: a ``collection`` source demotes the source collection's documents, a ``bucket`` source fans one or more source buckets' objects in. Only valid for an enabled ``adapter_type`` in {``collection``, ``bucket``}; webhook adapters do not use it.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -483,7 +483,7 @@ class SourceAdapterApi:
     ) -> RESTResponseType:
         """Refresh Source Adapter
 
-        Trigger the demotion for a 'collection' source adapter (BACKE-3577).  This is the explicit, pull-based trigger that turns the source collection's documents into first-class objects in this bucket. Only valid for an enabled ``adapter_type == \"collection\"`` source; webhook adapters do not use it.
+        Trigger a pull-based source refresh (BACKE-3577 collection, BACKE-3576 bucket).  This is the explicit trigger that turns a source's contents into first-class objects in this bucket: a ``collection`` source demotes the source collection's documents, a ``bucket`` source fans one or more source buckets' objects in. Only valid for an enabled ``adapter_type`` in {``collection``, ``bucket``}; webhook adapters do not use it.
 
         :param bucket_id: (required)
         :type bucket_id: str

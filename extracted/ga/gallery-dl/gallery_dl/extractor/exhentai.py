@@ -714,6 +714,8 @@ class ExhentaiSearchExtractor(ExhentaiExtractor):
             else:
                 tag += "$"
             params["f_search"] = tag
+        data["search_tags"] = params.get("f_search", "")
+        data["favorite_id"] = params.get("favcat", "")
 
         while True:
             last = None

@@ -1,5 +1,6 @@
 #include "transaction/transaction_manager.h"
 
+#include <algorithm>
 #include <thread>
 
 #include "common/exception/checkpoint.h"
@@ -11,6 +12,7 @@
 #include "main/db_config.h"
 #include "storage/checkpointer.h"
 #include "storage/wal/local_wal.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug::storage;
@@ -165,20 +167,34 @@ void TransactionManager::commit(main::ClientContext& clientContext, Transaction*
         throw;
     }
     // Checkpoint outside the public function lock so active writers can finish
-    // (commit/rollback) during the drain phase instead of deadlocking.
-    if (shouldForceCheckpoint) {
-        checkpoint(clientContext);
-    } else if (shouldAutoCheckpoint) {
-        tryCheckpoint(clientContext);
+    // (commit/rollback) during the drain phase instead of deadlocking. The transaction has
+    // already been removed from activeTransactions at this point, so any later failure is a
+    // checkpoint failure, not a transaction failure that can be rolled back.
+    try {
+        if (shouldForceCheckpoint) {
+            checkpoint(clientContext);
+        } else if (shouldAutoCheckpoint) {
+            tryCheckpoint(clientContext);
+        }
+    } catch (const std::exception& e) {
+        throw CheckpointException{std::format(
+            "Transaction committed successfully, but the post-commit checkpoint failed. "
+            "The committed data is durable and will be recovered on restart: {}",
+            e.what())};
     }
 }
 
-// Note: We take in additional `transaction` here is due to that `transactionContext` might be
-// destructed when a transaction throws an exception, while we need to roll back the active
-// transaction still.
-void TransactionManager::rollback(main::ClientContext& clientContext, Transaction* transaction) {
+void TransactionManager::rollback(main::ClientContext& clientContext, transaction_t transactionID) {
     std::unique_lock lck{mtxForSerializingPublicFunctionCalls};
     clientContext.cleanUp();
+    const auto transactionIt =
+        std::ranges::find_if(activeTransactions, [transactionID](const auto& activeTransaction) {
+            return activeTransaction->getID() == transactionID;
+        });
+    if (transactionIt == activeTransactions.end()) {
+        return;
+    }
+    auto* transaction = transactionIt->get();
     switch (transaction->getType()) {
     case TransactionType::READ_ONLY: {
         clearTransactionNoLock(transaction->getID());
@@ -309,17 +325,10 @@ void TransactionManager::checkpointNoLock(main::ClientContext& clientContext) {
         checkpointer->rollback();
         throw CheckpointException{e};
     }
-    // Release the write gate early when WAL was rotated. New writers create a fresh active WAL
-    // isolated from the frozen checkpoint WAL, so node-data reads during checkpointStoragePhase
-    // remain bounded to snapshotTS.
-    // NOTE: HashIndexLocalStorage has no per-entry timestamps, so post-snapshotTS inserts that
-    // arrive after the gate is released may appear in the on-disk hash index while the
-    // corresponding node data was not included in this checkpoint.  This is a pre-existing
-    // limitation of the Vela design; fixing it requires adding timestamp-aware snapshotting
-    // to HashIndexLocalStorage (tracked as a follow-up).
-    if (checkpointer->wasWalRotated()) {
-        writeGate = {};
-    }
+    // NOTE: The write gate must be held until the checkpoint completes. Releasing it early
+    // (e.g. after WAL rotation) allows new write transactions to update persistent chunks'
+    // version/update info while checkpointStoragePhase is concurrently scanning and resetting
+    // those structures, which corrupts the version chains and crashes committing writers.
     try {
         checkpointer->checkpointStoragePhase();
         progress.update(0.75);

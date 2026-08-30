@@ -12,7 +12,7 @@ from pandera.api.pandas.array import SeriesSchema
 from pandera.api.pandas.container import DataFrameSchema
 from pandera.api.parsers import Parser
 from pandera.engines.pandas_engine import PANDAS_3_0_0_PLUS
-from pandera.typing import Series
+from pandera.typing import Index, Series
 
 
 def test_dataframe_schema_parse() -> None:
@@ -115,6 +115,33 @@ def test_parser_called_once():
     assert n_calls == 1
 
 
+def test_dataframe_parser_parenthesized_form():
+    """``@dataframe_parser()`` and ``@dataframe_parser(**kwargs)`` should work
+    like the bare ``@dataframe_parser``, matching ``dataframe_check``."""
+    data = pd.DataFrame({"col": [1.0, 4.0, 9.0]})
+    expected = pd.DataFrame({"col": [2.0, 8.0, 18.0]})
+
+    class DFModel(pa.DataFrameModel):
+        col: float
+
+        @pa.dataframe_parser()
+        @classmethod
+        def double(cls, df: pd.DataFrame) -> pd.DataFrame:
+            return df * 2
+
+    assert_frame_equal(DFModel.validate(data), expected)
+
+    class DFModelWithKwargs(pa.DataFrameModel):
+        col: float
+
+        @pa.dataframe_parser(description="double the frame")
+        @classmethod
+        def double(cls, df: pd.DataFrame) -> pd.DataFrame:
+            return df * 2
+
+    assert_frame_equal(DFModelWithKwargs.validate(data), expected)
+
+
 def test_parser_with_coercion():
     """Make sure that parser is applied before coercion."""
 
@@ -206,3 +233,136 @@ def test_parser_with_add_missing_columns():
 
     with pytest.raises(pa.errors.SchemaError, match="No `b` or `c` in"):
         Schema.validate(pd.DataFrame({"a": ["xxx"]}))
+
+
+def _clean_to_float(series: pd.Series) -> pd.Series:
+    stripped = series.astype(str).str.strip()
+    return pd.to_numeric(stripped, errors="coerce").astype(float)
+
+
+@pytest.mark.parametrize(
+    "schema_coerce,column_coerce",
+    [(True, False), (False, True), (True, True)],
+)
+def test_column_parser_with_coercion(schema_coerce, column_coerce):
+    """Column-level parsers should be applied before dtype coercion.
+
+    Regression test for
+    https://github.com/unionai-oss/pandera/issues/2047
+    """
+    df = pd.DataFrame({"col1": ["-0013123", "-0000012", "        "]})
+    schema = DataFrameSchema(
+        {
+            "col1": pa.Column(
+                float,
+                parsers=Parser(_clean_to_float),
+                nullable=True,
+                coerce=column_coerce,
+            )
+        },
+        coerce=schema_coerce,
+    )
+    validated = schema.validate(df)
+    expected = pd.Series(
+        [-13123.0, -12.0, np.nan], name="col1", dtype="float64"
+    )
+    pd.testing.assert_series_equal(validated["col1"], expected)
+
+
+@pytest.mark.parametrize(
+    "schema_coerce,column_coerce",
+    [(True, False), (False, True), (True, True)],
+)
+def test_column_parser_output_needs_coercion(schema_coerce, column_coerce):
+    """Coercion should still be applied to the output of column-level
+    parsers whose output does not yet have the expected dtype."""
+    df = pd.DataFrame({"col1": ["1,5", "2,5"]})
+    schema = DataFrameSchema(
+        {
+            "col1": pa.Column(
+                float,
+                parsers=Parser(lambda s: s.str.replace(",", ".")),
+                coerce=column_coerce,
+            )
+        },
+        coerce=schema_coerce,
+    )
+    validated = schema.validate(df)
+    expected = pd.Series([1.5, 2.5], name="col1", dtype="float64")
+    pd.testing.assert_series_equal(validated["col1"], expected)
+
+
+def test_column_parser_with_inferred_schema_coercion():
+    """Updating an inferred schema with a parser column should validate the
+    same way as a manually defined schema (issue #2047)."""
+    df = pd.DataFrame({"col1": ["-0013123", "-0000012", "        "]})
+    schema = pa.infer_schema(df).update_columns(
+        {
+            "col1": {
+                "dtype": float,
+                "parsers": Parser(_clean_to_float),
+                "nullable": True,
+            }
+        }
+    )
+    validated = schema.validate(df)
+    expected = pd.Series(
+        [-13123.0, -12.0, np.nan], name="col1", dtype="float64"
+    )
+    pd.testing.assert_series_equal(validated["col1"], expected)
+
+
+def test_parser_on_dataframe_model_index_field():
+    """``@pa.parser`` should be applied to fields annotated as Index
+    (issue #1684)."""
+
+    class Model(pa.DataFrameModel):
+        idx: Index[int]
+        col: Series[int]
+
+        class Config:
+            coerce = True
+
+        @pa.parser("idx")
+        @classmethod
+        def double(cls, series: pd.Series) -> pd.Series:
+            return series * 2
+
+        @pa.parser("col")
+        @classmethod
+        def triple(cls, series: pd.Series) -> pd.Series:
+            return series * 3
+
+    df = pd.DataFrame({"col": [1, 2, 3]}, index=pd.Index([1, 2, 3]))
+    validated = Model.validate(df)
+    assert validated.index.tolist() == [2, 4, 6]
+    assert validated["col"].tolist() == [3, 6, 9]
+
+
+def test_index_parser():
+    """Parsers on an Index schema component should transform the index."""
+    schema = DataFrameSchema(
+        columns={"col": pa.Column(int)},
+        index=pa.Index(int, parsers=Parser(lambda s: s * 2), name="idx"),
+    )
+    df = pd.DataFrame(
+        {"col": [1, 2, 3]}, index=pd.Index([1, 2, 3], name="idx")
+    )
+    validated = schema.validate(df)
+    assert validated.index.tolist() == [2, 4, 6]
+    assert validated.index.name == "idx"
+
+
+def test_index_parser_output_needs_coercion():
+    """Index parsers should run before dtype coercion."""
+    schema = DataFrameSchema(
+        columns={"col": pa.Column(int)},
+        index=pa.Index(
+            float,
+            parsers=Parser(lambda s: s.str.replace(",", ".")),
+            coerce=True,
+        ),
+    )
+    df = pd.DataFrame({"col": [1, 2]}, index=pd.Index(["1,5", "2,5"]))
+    validated = schema.validate(df)
+    assert validated.index.tolist() == [1.5, 2.5]

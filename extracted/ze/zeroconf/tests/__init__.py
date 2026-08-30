@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -27,13 +12,15 @@ import platform
 import socket
 import sys
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import cache
+from threading import Event
+from typing import Any
 from unittest import mock
 
 import ifaddr
 
-from zeroconf import DNSIncoming, DNSOutgoing, DNSQuestion, DNSRecord, Zeroconf, const
+from zeroconf import DNSIncoming, DNSOutgoing, DNSQuestion, DNSRecord, ServiceInfo, Zeroconf, const
 from zeroconf._history import QuestionHistory
 
 _MONOTONIC_RESOLUTION = time.get_clock_info("monotonic").resolution
@@ -76,6 +63,59 @@ class QuestionHistoryWithoutSuppression(QuestionHistory):
         return False
 
 
+def add_question_batch(
+    out: DNSOutgoing, count: int, *, stem: str = "specimen", type_: int = const._TYPE_SRV
+) -> list[DNSQuestion]:
+    """Add count questions named <stem><i>.local. and return them.
+
+    Packet count assertions in the protocol tests depend on the encoded
+    name length, so the default stem must stay eight characters.
+    """
+    questions = []
+    for i in range(count):
+        question = DNSQuestion(f"{stem}{i}.local.", type_, const._CLASS_IN)
+        out.add_question(question)
+        questions.append(question)
+    return questions
+
+
+def make_service_info(
+    type_: str,
+    name: str,
+    *,
+    port: int = 80,
+    properties: dict | bytes | None = None,
+    server: str = "spare-rig.local.",
+    addresses: list[bytes] | None = None,
+    parsed_addresses: list[str] | None = None,
+    interface_index: int | None = None,
+    host_ttl: int | None = None,
+    other_ttl: int | None = None,
+) -> ServiceInfo:
+    """Build a ServiceInfo with the suite's canonical fixture values."""
+    kwargs: dict[str, Any] = {}
+    if parsed_addresses is not None:
+        kwargs["parsed_addresses"] = parsed_addresses
+    else:
+        kwargs["addresses"] = [socket.inet_aton("10.7.4.2")] if addresses is None else addresses
+    if interface_index is not None:
+        kwargs["interface_index"] = interface_index
+    if host_ttl is not None:
+        kwargs["host_ttl"] = host_ttl
+    if other_ttl is not None:
+        kwargs["other_ttl"] = other_ttl
+    return ServiceInfo(
+        type_,
+        name,
+        port,
+        0,
+        0,
+        {"path": "/healthz/"} if properties is None else properties,
+        server,
+        **kwargs,
+    )
+
+
 def mock_incoming_msg(records: Iterable[DNSRecord]) -> DNSIncoming:
     """Build a `DNSIncoming` response message from a list of `DNSRecord`s."""
     generated = DNSOutgoing(const._FLAGS_QR_RESPONSE)
@@ -104,6 +144,16 @@ def _wait_for_start(zc: Zeroconf) -> None:
     """Wait for all sockets to be up and running."""
     assert zc.loop is not None
     asyncio.run_coroutine_threadsafe(zc.async_wait_for_start(), zc.loop).result()
+
+
+def _wait_for(predicate: Callable[[], bool], timeout: float = 2.0) -> bool:
+    """Poll `predicate` from a non-loop thread until true or `timeout` seconds pass."""
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.01)
+    return True
 
 
 @cache
@@ -157,6 +207,26 @@ def _backdate_cache(zc: Zeroconf, ms: int = 1100) -> None:
     for store in zc.cache.cache.values():
         for record in store.values():
             record.created -= ms
+
+
+def _restamp_cache(zc: Zeroconf, created: float, ttl: int) -> None:
+    """Re-add every cached record with a new `created` and `ttl` from the loop thread.
+
+    Unlike `_backdate_cache` this goes through `_async_set_created_ttl`, so
+    the expiration heap is updated and the reaper will actually expire the
+    records; the heap is only safe to touch from the event loop thread.
+    """
+    assert zc.loop is not None
+    done = Event()
+
+    def _restamp() -> None:
+        for store in list(zc.cache.cache.values()):
+            for record in list(store.values()):
+                zc.cache._async_set_created_ttl(record, created, ttl)
+        done.set()
+
+    zc.loop.call_soon_threadsafe(_restamp)
+    assert done.wait(2)
 
 
 def time_changed_millis(millis: float | None = None) -> None:

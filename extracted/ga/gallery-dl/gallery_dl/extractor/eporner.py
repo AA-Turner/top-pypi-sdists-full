@@ -42,7 +42,7 @@ class EpornerGalleryExtractor(GalleryExtractor):
 
     def images(self, page):
         album = text.extr(
-            page, 'class="photosgrid gallerygrid"', "id='gallerySlideBox'")
+            page, 'class="photosgrid gallerygrid"', 'id="relatedgalleries"')
 
         results = []
         for url in text.extract_iter(album, ' src="', '"'):

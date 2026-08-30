@@ -1,0 +1,44 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: run tests
+        run: make test
+
+      - name: stop containers
+        if: always()
+        run: make test-down
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.12"
+
+      - name: set version from tag
+        run: uv version "${GITHUB_REF_NAME#v}"
+
+      - name: build
+        run: uv build
+
+      - name: publish to pypi
+        uses: pypa/gh-action-pypi-publish@release/v1

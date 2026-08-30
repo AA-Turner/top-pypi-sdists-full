@@ -1,5 +1,6 @@
 #include "storage/table/ice_disk_rel_table.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <queue>
 
@@ -150,8 +151,73 @@ void IceDiskRelTable::initScanState(Transaction* transaction, TableScanState& sc
     }
 
     iceDiskScanState.reset(std::move(boundNodeOffsets));
-    iceDiskScanState.indicesReader->initializeScan(*iceDiskScanState.parquetScanState,
-        rowGroupsToProcess, vfs);
+
+    // Range-limit the indices scan to the file rows that can possibly contain edges of this
+    // bound-node batch. The indices file is CSR-sorted by source node, so the edges of nodes
+    // [minNode, maxNode] live in rows [indptr[minNode], indptr[maxNode + 1]). Scanning only
+    // those rows turns a full-query scan from O(#batches * #edges) into O(#edges) total.
+    // This only applies in the FWD direction (for BWD the bound nodes are targets whose rows
+    // are scattered throughout the file) and when the indptr has been loaded.
+    bool rangeLimited = false;
+    uint64_t startRow = 0;
+    uint64_t numRows = UINT64_MAX;
+    if (layout == IceDiskRelTableLayout::CSR &&
+        iceDiskScanState.direction == RelDataDirection::FWD && !indptrData.empty() &&
+        !iceDiskScanState.boundNodeOffsets.empty()) {
+        common::offset_t minNode = std::numeric_limits<common::offset_t>::max();
+        common::offset_t maxNode = 0;
+        for (auto& entry : iceDiskScanState.boundNodeOffsets) {
+            minNode = std::min(minNode, entry.first);
+            maxNode = std::max(maxNode, entry.first);
+        }
+        // indptr has #nodes + 1 entries; node i's edges span [indptr[i], indptr[i + 1]).
+        if ((uint64_t)minNode + 1 < indptrData.size()) {
+            auto endIdx = std::min<uint64_t>((uint64_t)maxNode + 1, indptrData.size() - 1);
+            startRow = (uint64_t)indptrData[minNode];
+            numRows = (uint64_t)indptrData[endIdx] - startRow;
+            rangeLimited = true;
+        }
+    }
+
+    if (rangeLimited) {
+        // Select only the row groups overlapping [startRow, startRow + numRows).
+        std::vector<uint64_t> groups;
+        uint64_t running = 0;
+        uint64_t firstGroupStart = 0;
+        for (uint64_t i = 0; i < numRowGroups && running < startRow + numRows; ++i) {
+            auto groupNumRows =
+                (uint64_t)iceDiskScanState.indicesReader->getMetadata()->row_groups[i].num_rows;
+            if (startRow < running + groupNumRows && startRow + numRows > running) {
+                if (groups.empty()) {
+                    firstGroupStart = running;
+                }
+                groups.push_back(i);
+            }
+            running += groupNumRows;
+        }
+        auto skipRows = startRow > firstGroupStart ? startRow - firstGroupStart : 0;
+        // Global row indices of the first scanned row, used by scanCSR to map each edge row
+        // back to its source node via the indptr.
+        iceDiskScanState.currentBatchStartOffset = (common::offset_t)startRow;
+        iceDiskScanState.indicesReader->initializeScan(*iceDiskScanState.parquetScanState,
+            std::move(groups), vfs, skipRows, numRows);
+    } else {
+        iceDiskScanState.currentBatchStartOffset = 0;
+        iceDiskScanState.indicesReader->initializeScan(*iceDiskScanState.parquetScanState,
+            std::move(rowGroupsToProcess), vfs, 0, UINT64_MAX);
+    }
+
+    // Re-anchor the monotonic CSR source-node cursor to the node that contains the first
+    // scanned row of this batch. scanCSR advances the cursor strictly forward while reading
+    // rows, which is only valid within a single batch because the underlying indices file is
+    // read strictly forward. Bound-node batches are NOT guaranteed to arrive in increasing
+    // offset order (hash joins and other reordered inputs feed arbitrary batches), so the
+    // cursor must be repositioned per batch rather than carried across the whole query.
+    if (layout == IceDiskRelTableLayout::CSR && !indptrData.empty() &&
+        iceDiskScanState.currentBatchStartOffset < indptrData.back()) {
+        iceDiskScanState.csrSrcNodeIdx =
+            findSourceNodeForRowInternal(iceDiskScanState.currentBatchStartOffset, indptrData);
+    }
 }
 
 void IceDiskRelTable::initializeParquetReaders(Transaction* transaction) const {
@@ -280,13 +346,19 @@ bool IceDiskRelTable::scanCSR(Transaction* transaction,
 
         for (; iceDiskScanState.currentLocalRowIdx < selSize && totalRowsCollected < maxRowsPerCall;
              ++iceDiskScanState.currentLocalRowIdx) {
-            // Find which source node this row belongs to.
+            // Find which source node this row belongs to. Rows are examined strictly in
+            // increasing global (CSR) order, so we walk a single monotonic cursor through the
+            // indptr (O(1) amortized per row) instead of a binary search (O(log n) per row).
             const auto currentGlobalRowIdx =
                 iceDiskScanState.currentBatchStartOffset + iceDiskScanState.currentLocalRowIdx;
-            const auto sourceNodeOffset = findSourceNodeForRow(currentGlobalRowIdx);
-            if (sourceNodeOffset == common::INVALID_OFFSET) {
+            if (indptrData.empty()) {
                 continue; // Invalid row
             }
+            while (iceDiskScanState.csrSrcNodeIdx + 1 < indptrData.size() &&
+                   indptrData[iceDiskScanState.csrSrcNodeIdx + 1] <= currentGlobalRowIdx) {
+                ++iceDiskScanState.csrSrcNodeIdx;
+            }
+            const auto sourceNodeOffset = iceDiskScanState.csrSrcNodeIdx;
 
             // Column 0 in indices file is the destination node offset.
             const auto dstOffset =
@@ -475,11 +547,6 @@ bool IceDiskRelTable::scanFlat(Transaction* transaction,
 
     iceDiskScanState.outState->getSelVectorUnsafe().setToFiltered(0);
     return false;
-}
-
-common::offset_t IceDiskRelTable::findSourceNodeForRow(common::offset_t globalRowIdx) const {
-    // Use base class helper for binary search
-    return findSourceNodeForRowInternal(globalRowIdx, indptrData);
 }
 
 row_idx_t IceDiskRelTable::getTotalRowCount(const Transaction* transaction) const {

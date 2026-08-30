@@ -6,8 +6,9 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import core_v1
 from . import meta_v1
+from . import scheduling_v1alpha3
+from . import core_v1
 
 
 @dataclass
@@ -212,6 +213,36 @@ class JobList(DictMixin):
 
 
 @dataclass
+class JobSchedulingConfiguration(DictMixin):
+    r"""JobSchedulingConfiguration composes the reusable workload-aware scheduling
+      building blocks.
+
+      **parameters**
+
+      * **disruptionMode** ``Optional[scheduling_v1alpha3.WorkloadPodGroupDisruptionMode]`` - DisruptionMode defines the mode in which the Job's pods can be disrupted. One
+        of Single, All. This field is immutable after creation: it may not be added or
+        removed, and the selected mode may not be changed.
+      * **resourceClaims** ``Optional[List[scheduling_v1alpha3.WorkloadPodGroupResourceClaim]]`` - ResourceClaims defines which ResourceClaims may be shared among Pods in the
+        Job. Pods consume the devices allocated to a PodGroup's claim by defining a
+        claim in its own Spec.ResourceClaims that matches the PodGroup's claim
+        exactly. The claim must have the same name and refer to the same ResourceClaim
+        or ResourceClaimTemplate. At most 4 claims may be set, matching the limit on
+        the resulting PodGroup. This list is immutable after creation: entries may
+        neither be added, removed, nor modified.
+      * **schedulingConstraints** ``Optional[scheduling_v1alpha3.WorkloadPodGroupSchedulingConstraints]`` - SchedulingConstraints defines scheduling constraints (e.g. topology) for the
+        Job's pods. This field is immutable after creation.
+      * **schedulingPolicy** ``Optional[scheduling_v1alpha3.WorkloadPodGroupSchedulingPolicy]`` - SchedulingPolicy defines the scheduling policy for this Job. Exactly one of
+        Basic or Gang must be set. This field is immutable after creation: the policy
+        may not be added or removed. The policy variant (basic/gang) is frozen by
+        hand-written validation; only schedulingPolicy.gang.minCount may be changed.
+    """
+    disruptionMode: 'Optional[scheduling_v1alpha3.WorkloadPodGroupDisruptionMode]' = None
+    resourceClaims: 'Optional[List[scheduling_v1alpha3.WorkloadPodGroupResourceClaim]]' = None
+    schedulingConstraints: 'Optional[scheduling_v1alpha3.WorkloadPodGroupSchedulingConstraints]' = None
+    schedulingPolicy: 'Optional[scheduling_v1alpha3.WorkloadPodGroupSchedulingPolicy]' = None
+
+
+@dataclass
 class JobSpec(DictMixin):
     r"""JobSpec describes how the job execution will look like.
 
@@ -300,6 +331,13 @@ class JobSpec(DictMixin):
         When using podFailurePolicy, Failed is the the only allowed value.
         TerminatingOrFailed and Failed are allowed values when podFailurePolicy is not
         in use.
+      * **scheduling** ``Optional[JobSchedulingConfiguration]`` - scheduling defines the Workload-aware Scheduling configuration for this Job.
+        When set, it specifies the scheduling policy (basic or gang), topology
+        constraints, disruption mode, and shared resource claims. When omitted, the
+        Job defaults to the basic scheduling policy, which behaves as standard
+        pod-by-pod scheduling. This field is alpha-level and requires the
+        WorkloadWithJob feature gate. This field is immutable, including whether it is
+        set at all, only policy.gang.minCount may be changed after creation.
       * **selector** ``Optional[meta_v1.LabelSelector]`` - A label query over pods that should match the pod count. Normally, the system
         sets this field for you. More info:
         https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors
@@ -335,6 +373,7 @@ class JobSpec(DictMixin):
     parallelism: 'Optional[int]' = None
     podFailurePolicy: 'Optional[PodFailurePolicy]' = None
     podReplacementPolicy: 'Optional[str]' = None
+    scheduling: 'Optional[JobSchedulingConfiguration]' = None
     selector: 'Optional[meta_v1.LabelSelector]' = None
     successPolicy: 'Optional[SuccessPolicy]' = None
     suspend: 'Optional[bool]' = None
@@ -396,8 +435,6 @@ class JobStatus(DictMixin):
         down of elastic indexed jobs.
       * **terminating** ``Optional[int]`` - The number of pods which are terminating (in phase Pending or Running and have
         a deletionTimestamp).
-        This field is beta-level. The job controller populates the field when the
-        feature gate JobPodReplacementPolicy is enabled (enabled by default).
       * **uncountedTerminatedPods** ``Optional[UncountedTerminatedPods]`` - uncountedTerminatedPods holds the UIDs of Pods that have terminated but the
         job controller hasn't yet accounted for in the status counters.
         The job controller creates pods with a finalizer. When a pod terminates

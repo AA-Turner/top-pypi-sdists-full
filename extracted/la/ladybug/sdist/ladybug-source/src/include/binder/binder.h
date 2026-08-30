@@ -9,6 +9,7 @@
 #include "binder/query/query_graph.h"
 #include "catalog/catalog_entry/table_catalog_entry.h"
 #include "common/copier_config/file_scan_info.h"
+#include "common/partition_routing.h"
 #include "parser/ddl/parsed_property_definition.h"
 #include "parser/query/graph_pattern/pattern_element.h"
 
@@ -129,7 +130,8 @@ public:
         const std::vector<PropertyDefinition>& properties, const parser::BaseScanSource* source,
         const parser::options_t& parsingOptions,
         const std::vector<std::string>& expectedColumnNames,
-        const std::vector<common::LogicalType>& expectedColumnTypes, bool byColumn);
+        const std::vector<common::LogicalType>& expectedColumnTypes, bool byColumn,
+        std::optional<common::NodePartitionWriteInfo> partitionInfo = std::nullopt);
     BoundCopyFromInfo bindCopyRelFromInfo(std::string tableName,
         const std::vector<PropertyDefinition>& properties, const parser::BaseScanSource* source,
         const parser::options_t& parsingOptions,
@@ -282,6 +284,7 @@ public:
         RelDirectionType directionType, const std::vector<std::string>& originalLabels);
     std::shared_ptr<RelExpression> createRecursiveQueryRel(const parser::RelPattern& relPattern,
         const std::vector<catalog::TableCatalogEntry*>& entries,
+        const std::unordered_map<catalog::TableCatalogEntry*, std::string>& dbNames,
         std::shared_ptr<NodeExpression> srcNode, std::shared_ptr<NodeExpression> dstNode,
         RelDirectionType directionType);
     expression_vector bindRecursivePatternNodeProjectionList(
@@ -302,8 +305,10 @@ public:
     std::pair<std::vector<catalog::TableCatalogEntry*>,
         std::unordered_map<catalog::TableCatalogEntry*, std::string>>
     bindNodeTableEntries(const std::vector<std::string>& tableNames) const;
-    std::vector<catalog::TableCatalogEntry*> bindRelGroupEntries(
-        const std::vector<std::string>& tableNames) const;
+    std::pair<std::vector<catalog::TableCatalogEntry*>,
+        std::unordered_map<catalog::TableCatalogEntry*, std::string>>
+    bindRelGroupEntries(const std::vector<std::string>& tableNames,
+        const std::string& contextDbName = "") const;
     std::pair<catalog::TableCatalogEntry*, std::string> bindNodeTableEntry(
         const std::string& name) const;
     std::vector<PropertyDefinition> bindRelPropertyDefinitions(const parser::CreateTableInfo& info);

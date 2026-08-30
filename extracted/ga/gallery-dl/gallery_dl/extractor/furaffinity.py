@@ -36,6 +36,8 @@ class FuraffinityExtractor(Extractor):
 
         if self.config("descriptions") == "html":
             self._process_description = str.strip
+        if self.config("comments") == "html":
+            self._process_comment = str.strip
 
         layout = self.config("layout")
         if layout and layout != "auto":
@@ -54,8 +56,9 @@ class FuraffinityExtractor(Extractor):
             if post := self._parse_post(post_id):
                 if metadata:
                     post.update(metadata)
+                url = post.pop("url")
                 yield Message.Directory, "", post
-                yield Message.Url, post["url"], post
+                yield Message.Url, url, post
 
                 if self.external:
                     for url in text.extract_iter(
@@ -159,8 +162,59 @@ class FuraffinityExtractor(Extractor):
                              f"{path.rsplit('/', 2)[1]}.jpg")
         return data
 
+    def _parse_journal(self, post_id):
+        url = f"{self.root}/journal/{post_id}/"
+        page = self.request(url).text
+        extr = text.extract_from(page)
+
+        if self._new_layout is None:
+            self._new_layout = ("http-equiv=" not in extr("<meta ", ">"))
+
+        if msg := (extr(">System Message", "</section>") or
+                   extr("System Message", "</table>")):
+            msg = text.remove_html(msg).partition(" . Continue ")[0]
+            return self.log.warning("Unable to download journal %s (\"%s\")",
+                                    post_id, msg)
+
+        data = {
+            "id": text.parse_int(post_id),
+            "extension": "htm",
+        }
+
+        if self._new_layout:
+            data["artist_url"] = extr('-displayName-block" href="/user/', '/"')
+            data["artist"] = extr('-displayName">', '<')
+            data["title"] = text.unescape(extr(
+                'id="c-journalTitleTop__subject"><h3>', '<'))
+            data["date"] = self.parse_timestamp(extr(
+                'data-time="', '"'))
+            data["rating"] = extr('alt="', ' ')
+            data["url"] = "text:" + extr(
+                'user-submitted-links">',
+                '</div>\n                    </div>')
+            data["comments"] = self._extract_comments(extr(
+                'id="comments-journal"', '<script type="text/javascript">'))
+        else:
+            data["title"] = text.unescape(extr(
+                '<div class="no_overflow">', '<'))
+            data["artist_url"] = extr('-userName-block" href="/user/', '/"')
+            data["artist"] = extr('</span>', '<')
+            data["date"] = self.parse_timestamp(extr(
+                'data-time="', '"'))
+            data["rating"] = None
+            data["url"] = "text:" + extr(
+                '<div class="journal-body">',
+                '</div>\n                    </td>').strip()
+            data["comments"] = self._extract_comments(extr(
+                'id="page-comments"', 'id="add_comment_form"'))
+
+        data["user"] = self.user or data["artist_url"]
+        return data
+
     def _process_description(self, description):
         return text.unescape(text.remove_html(description, "", ""))
+
+    _process_comment = _process_description
 
     def _extract_comments(self, html):
         extr = text.extract_from(html)
@@ -172,8 +226,9 @@ class FuraffinityExtractor(Extractor):
                     "date": self.parse_timestamp(ts),
                     "id"  : extr('id="cid:', '"'),
                     "user": extr('href="/user/', '/'),
-                    "text": text.remove_html(extr(
-                        'class="comment_text">', '</comment-user-text>')),
+                    "text": self._process_comment(extr(
+                        '<div class="user-submitted-links">',
+                        '</div>\n            </comment-user-text>')),
                 })
         else:
             while cid := extr('id="cid:', '"'):
@@ -182,8 +237,9 @@ class FuraffinityExtractor(Extractor):
                     "date": self.parse_timestamp(extr(
                         'data-timestamp="', '"')),
                     "user": extr('href="/user/', '/'),
-                    "text": text.remove_html(extr(
-                        'class="message-text">', '</tr>')),
+                    "text": self._process_comment(extr(
+                        'class="message-text">',
+                        '</div>\n        </td>\n    </tr>')),
                 })
         return results
 
@@ -223,6 +279,23 @@ class FuraffinityExtractor(Extractor):
                 path = text.rextr(page, '<form action="', '"', pos)
                 continue
             path = text.extr(page, 'right" href="', '"')
+
+    def _pagination_journals(self, pnum=None):
+        pnum = text.parse_int(pnum, 1)
+        path = f"/journals/{self.user}/{pnum}"
+        while True:
+            page = self.request(self.root + path).text
+            extr = text.extract_from(page)
+            while True:
+                post_id = extr('<a href="#jid:', '"')
+                if not post_id:
+                    break
+                yield post_id
+
+            pnum += 1
+            path = f"/journals/{self.user}/{pnum}/"
+            if path not in page:
+                break
 
     def _pagination_search(self, query):
         url = self.root + "/search/"
@@ -320,6 +393,20 @@ class FuraffinityFavoriteExtractor(FuraffinityExtractor):
         return post
 
 
+class FuraffinityJournalsExtractor(FuraffinityExtractor):
+    """Extractor for a furaffinity user's journal entries"""
+    subcategory = "journals"
+    directory_fmt = ("{category}", "{user!l}", "Journals")
+    archive_fmt = "j_{id}"
+    pattern = BASE_PATTERN + r"/journals/([^/?#]+)(/\d+)?"
+    example = "https://www.furaffinity.net/journals/USER/"
+
+    def posts(self):
+        return self._pagination_journals(self.groups[1])
+
+    _parse_post = FuraffinityExtractor._parse_journal
+
+
 class FuraffinitySearchExtractor(FuraffinityExtractor):
     """Extractor for furaffinity search results"""
     subcategory = "search"
@@ -352,6 +439,18 @@ class FuraffinityPostExtractor(FuraffinityExtractor):
         return (post_id,)
 
 
+class FuraffinityJournalExtractor(FuraffinityExtractor):
+    """Extractor for a single furaffinity journal"""
+    subcategory = "journal"
+    directory_fmt = FuraffinityJournalsExtractor.directory_fmt
+    archive_fmt = FuraffinityJournalsExtractor.archive_fmt
+    pattern = BASE_PATTERN + r"/journal/(\d+)"
+    example = "https://www.furaffinity.net/journal/12345/"
+
+    posts = FuraffinityPostExtractor.posts
+    _parse_post = FuraffinityExtractor._parse_journal
+
+
 class FuraffinityUserExtractor(Dispatch, FuraffinityExtractor):
     """Extractor for furaffinity user profiles"""
     pattern = BASE_PATTERN + r"/user/([^/?#]+)"
@@ -364,6 +463,7 @@ class FuraffinityUserExtractor(Dispatch, FuraffinityExtractor):
             (FuraffinityGalleryExtractor , f"{base}/gallery/{user}"),
             (FuraffinityScrapsExtractor  , f"{base}/scraps/{user}"),
             (FuraffinityFavoriteExtractor, f"{base}/favorites/{user}"),
+            (FuraffinityJournalsExtractor, f"{base}/journals/{user}"),
         ), ("gallery",))
 
 

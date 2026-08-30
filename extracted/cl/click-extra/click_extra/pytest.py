@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from .parameters import missing_extra_message
+from ._utils import missing_extra_message
 
 try:
     import pytest
@@ -67,6 +67,17 @@ def runner():
     tear it down *after* `isolated_filesystem` removed the working directory
     it tries to restore, breaking unrelated tests that `chdir` within the
     runner.
+
+    ```{warning}
+    The pinning is scoped to each test requesting this fixture, but a cache
+    filled from inside one is not: a module-global populated lazily during a
+    test records what a home-less environment answered, and keeps serving that
+    for the rest of the worker's session. A binary resolved through a
+    `$HOME`-dependent shim is the usual victim, answering an error rather than
+    a version, after which every later test on that worker sees the tool as
+    missing. Seed such a cache from a session-scoped fixture, which runs
+    before the first test and outside this isolation.
+    ```
     """
     home_vars = ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA")
     runner = CliRunner()
@@ -310,7 +321,8 @@ default_options_uncolored_help = (
     r"  --export-config FORMAT       Export the configuration in the selected format\n"
     r"                               to <stdout>, then exit\.\n"
     r"  --accessible                 Accessibility mode: disable colors and render\n"
-    r"                               tables in a plain, screen-reader-friendly format\.\n"
+    r"                               tables in a borderless, screen-reader-friendly\n"
+    r"                               format\.\n"
     r"  --color \[auto\|always\|never\]  Colorize the output\. A bare --color is the same\n"
     r"                               as --color=always\.  \[default: auto\]\n"
     r"  --no-color                   Disable colorization \(alias of --color=never\)\.\n"
@@ -318,7 +330,7 @@ default_options_uncolored_help = (
     r"                               Disabled for non-interactive output \(pipes, dumb\n"
     r"                               terminals, CI\) and by --accessible\.  \[default:\n"
     r"                               progress\]\n"
-    r"  --theme \[dark\|dracula\|light\|manpage\|monokai\|nord\|solarized_dark\]\n"
+    r"  --theme \[auto\|dark\|dracula\|light\|manpage\|monokai\|nord\|solarized-dark\]\n"
     r"                               Color theme used for help screens\.  \[default:\n"
     r"                               dark\]\n"
     r"  --params                     Show all CLI parameters, their provenance,\n"
@@ -334,8 +346,11 @@ default_options_uncolored_help = (
     r"  -q, --quiet                  Decrease the default WARNING verbosity by one\n"
     r"                               level for each additional repetition of the\n"
     r"                               option\.  \[default: 0\]\n"
+    r"  --debug                      Shorthand for --verbosity DEBUG\.\n"
     r"  --tree                       Show the tree of nested subcommands and exit\.\n"
-    r"  --man                        Show the command's man page \(roff\) and exit\.\n"
+    r"  --man                        Read the command's manual page and exit\.\n"
+    r"  --help-format \[carapace\|json\|json-full\|man\|markdown\|markdown-full\]\n"
+    r"                               Render the command in the given format and exit\.\n"
     r"  --version                    Show the version and exit\.\n"
     r"  -h, --help                   Show this message and exit\.\n"
 )
@@ -356,7 +371,8 @@ default_options_colored_help = (
     r"  \x1b\[36m\x1b\[1m--export-config\x1b\[0m \x1b\[36m\x1b\[2m\x1b\[3mFORMAT\x1b\[0m       Export the configuration in the selected format\n"
     r"                               to <stdout>, then exit\.\n"
     r"  \x1b\[36m\x1b\[1m--accessible\x1b\[0m                 Accessibility mode: disable colors and render\n"
-    r"                               tables in a \x1b\[35m\x1b\[1mplain\x1b\[0m, screen-reader-friendly format\.\n"
+    r"                               tables in a borderless, screen-reader-friendly\n"
+    r"                               format\.\n"
     r"  \x1b\[36m\x1b\[1m--color\x1b\[0m \[\x1b\[35m\x1b\[1mauto\x1b\[0m\|\x1b\[35m\x1b\[1malways\x1b\[0m\|\x1b\[35m\x1b\[1mnever\x1b\[0m\]  Colorize the output\. A bare \x1b\[36m\x1b\[1m--color\x1b\[0m is the same\n"
     r"                               as \x1b\[36m\x1b\[1m--color\x1b\[0m=\x1b\[35m\x1b\[1malways\x1b\[0m\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mauto\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
     r"  \x1b\[36m\x1b\[1m--no-color\x1b\[0m                   Disable colorization \(alias of \x1b\[36m\x1b\[1m--color\x1b\[0m=\x1b\[35m\x1b\[1mnever\x1b\[0m\)\.\n"
@@ -364,7 +380,7 @@ default_options_colored_help = (
     r"                               Disabled for non-interactive output \(pipes, dumb\n"
     r"                               terminals, CI\) and by \x1b\[36m\x1b\[1m--accessible\x1b\[0m\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault:\n"
     r"                               \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mprogress\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
-    r"  \x1b\[36m\x1b\[1m--theme\x1b\[0m \[\x1b\[35m\x1b\[1mdark\x1b\[0m\|\x1b\[35m\x1b\[1mdracula\x1b\[0m\|\x1b\[35m\x1b\[1mlight\x1b\[0m\|\x1b\[35m\x1b\[1mmanpage\x1b\[0m\|\x1b\[35m\x1b\[1mmonokai\x1b\[0m\|\x1b\[35m\x1b\[1mnord\x1b\[0m\|\x1b\[35m\x1b\[1msolarized_dark\x1b\[0m\]\n"
+    r"  \x1b\[36m\x1b\[1m--theme\x1b\[0m \[\x1b\[35m\x1b\[1mauto\x1b\[0m\|\x1b\[35m\x1b\[1mdark\x1b\[0m\|\x1b\[35m\x1b\[1mdracula\x1b\[0m\|\x1b\[35m\x1b\[1mlight\x1b\[0m\|\x1b\[35m\x1b\[1mmanpage\x1b\[0m\|\x1b\[35m\x1b\[1mmonokai\x1b\[0m\|\x1b\[35m\x1b\[1mnord\x1b\[0m\|\x1b\[35m\x1b\[1msolarized-dark\x1b\[0m\]\n"
     r"                               Color theme used for help screens\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault:\n"
     r"                               \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3mdark\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
     r"  \x1b\[36m\x1b\[1m--params\x1b\[0m                     Show all CLI parameters, their provenance,\n"
@@ -380,8 +396,11 @@ default_options_colored_help = (
     r"  \x1b\[36m\x1b\[1m-q\x1b\[0m, \x1b\[36m\x1b\[1m--quiet\x1b\[0m                  Decrease the default \x1b\[35m\x1b\[1mWARNING\x1b\[0m verbosity by one\n"
     r"                               level for each additional repetition of the\n"
     r"                               option\.  \x1b\[2m\[\x1b\[0m\x1b\[2mdefault: \x1b\[0m\x1b\[32m\x1b\[2m\x1b\[3m0\x1b\[0m\x1b\[2m\]\x1b\[0m\n"
+    r"  \x1b\[36m\x1b\[1m--debug\x1b\[0m                      Shorthand for \x1b\[36m\x1b\[1m--verbosity\x1b\[0m \x1b\[35m\x1b\[1mDEBUG\x1b\[0m\.\n"
     r"  \x1b\[36m\x1b\[1m--tree\x1b\[0m                       Show the tree of nested subcommands and exit\.\n"
-    r"  \x1b\[36m\x1b\[1m--man\x1b\[0m                        Show the command's man page \(roff\) and exit\.\n"
+    r"  \x1b\[36m\x1b\[1m--man\x1b\[0m                        Read the command's manual page and exit\.\n"
+    r"  \x1b\[36m\x1b\[1m--help-format\x1b\[0m \[\x1b\[35m\x1b\[1mcarapace\x1b\[0m\|\x1b\[35m\x1b\[1mjson\x1b\[0m\|\x1b\[35m\x1b\[1mjson-full\x1b\[0m\|\x1b\[35m\x1b\[1mman\x1b\[0m\|\x1b\[35m\x1b\[1mmarkdown\x1b\[0m\|\x1b\[35m\x1b\[1mmarkdown-full\x1b\[0m\]\n"
+    r"                               Render the command in the given format and exit\.\n"
     r"  \x1b\[36m\x1b\[1m--version\x1b\[0m                    Show the version and exit\.\n"
     r"  \x1b\[36m\x1b\[1m-h\x1b\[0m, \x1b\[36m\x1b\[1m--help\x1b\[0m                   Show this message and exit\.\n"
 )
@@ -426,7 +445,7 @@ default_config_file_pattern = (
     # pattern further down.
     r"\{\*\.toml,\*\.yaml,\*\.yml,\*\.json"
     r"(?:,\*\.json5)?(?:,\*\.jsonc)?"
-    r",\*\.hjson,\*\.ini,\*\.xml,pyproject\.toml\}"
+    r",\*\.hjson,\*\.ini,\*\.xml,\*\.plist,\*\.sqlite,\*\.sqlite3,\*\.conf,pyproject\.toml\}"
 )
 default_debug_uncolored_config = (
     rf"debug: Load configuration matching .+{default_config_file_pattern}\n"
@@ -454,51 +473,62 @@ default_debug_colored_config = (
 
 default_debug_uncolored_version_details = (
     r"debug: Version string template variables:\n"
-    r"debug: {module}         : <module '\S+' from '.+'>\n"
-    r"debug: {module_name}    : \S+\n"
-    r"debug: {module_file}    : .+\n"
-    r"debug: {module_version} : \S+\n"
-    r"debug: {package_name}   : \S+\n"
-    r"debug: {package_version}: \S+\n"
-    r"debug: {author}         : .+\n"
-    r"debug: {license}        : .+\n"
-    r"debug: {exec_name}      : \S+\n"
-    r"debug: {version}        : \S+\n"
-    r"debug: {git_repo_path}  : \S+\n"
-    r"debug: {git_branch}     : \S+\n"
-    r"debug: {git_long_hash}  : (?:[a-f0-9]{40}|None)\n"
-    r"debug: {git_short_hash} : (?:[a-f0-9]{4,40}|None)\n"
-    r"debug: {git_date}       : (?:\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}|None)\n"
-    r"debug: {git_tag}        : \S+\n"
-    r"debug: {git_tag_sha}    : \S+\n"
-    r"debug: {git_distance}   : (?:\d+|None)\n"
-    r"debug: {git_dirty}      : (?:dirty|clean|None)\n"
-    r"debug: {prog_name}      : \S+\n"
-    r"debug: {env_info}       : {.*}\n"
+    r"debug: {module}           : <module '\S+' from '.+'>\n"
+    r"debug: {module_name}      : \S+\n"
+    r"debug: {module_file}      : .+\n"
+    r"debug: {module_version}   : \S+\n"
+    r"debug: {package_name}     : \S+\n"
+    r"debug: {package_version}  : \S+\n"
+    r"debug: {author}           : .+\n"
+    r"debug: {license}          : .+\n"
+    r"debug: {exec_name}        : \S+\n"
+    r"debug: {version}          : \S+\n"
+    r"debug: {git_repo_path}    : \S+\n"
+    r"debug: {git_branch}       : \S+\n"
+    r"debug: {git_long_hash}    : (?:[a-f0-9]{40}|None)\n"
+    r"debug: {git_short_hash}   : (?:[a-f0-9]{4,40}|None)\n"
+    r"debug: {git_date}         : (?:\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}|None)\n"
+    r"debug: {git_tag}          : \S+\n"
+    r"debug: {git_tag_sha}      : \S+\n"
+    r"debug: {git_distance}     : (?:\d+|None)\n"
+    r"debug: {git_dirty}        : (?:dirty|clean|None)\n"
+    r"debug: {build_time}       : (?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|None)\n"
+    r"debug: {build_os}         : \S+\n"
+    r"debug: {build_target}     : \S+\n"
+    r"debug: {build_target_arch}: .+\n"
+    r"debug: {prog_name}        : \S+\n"
+    r"debug: {env_info}         :\n"
+    # The nested profile is dumped as indented JSON, one log line per JSON line.
+    r"(?:debug:   .+\n)+"
 )
 default_debug_colored_version_details = (
     r"\x1b\[34mdebug\x1b\[0m: Version string template variables:\n"
-    r"\x1b\[34mdebug\x1b\[0m: {module}         : <module '\S+' from '.+'>\n"
-    r"\x1b\[34mdebug\x1b\[0m: {module_name}    : \x1b\[97m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {module_file}    : .+\n"
-    r"\x1b\[34mdebug\x1b\[0m: {module_version} : \x1b\[32m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {package_name}   : \x1b\[97m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {package_version}: \x1b\[32m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {author}         : .+\n"
-    r"\x1b\[34mdebug\x1b\[0m: {license}        : .+\n"
-    r"\x1b\[34mdebug\x1b\[0m: {exec_name}      : \x1b\[97m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {version}        : \x1b\[32m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_repo_path}  : \x1b\[90m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_branch}     : \x1b\[36m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_long_hash}  : \x1b\[33m(?:[a-f0-9]{40}|None)\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_short_hash} : \x1b\[33m(?:[a-f0-9]{4,40}|None)\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_date}       : \x1b\[90m(?:\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}|None)\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_tag}        : \x1b\[36m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_tag_sha}    : \x1b\[33m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_distance}   : \x1b\[32m(?:\d+|None)\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {git_dirty}      : \x1b\[31m(?:dirty|clean|None)\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {prog_name}      : \x1b\[97m\S+\x1b\[0m\n"
-    r"\x1b\[34mdebug\x1b\[0m: {env_info}       : \x1b\[90m{.*}\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {module}           : <module '\S+' from '.+'>\n"
+    r"\x1b\[34mdebug\x1b\[0m: {module_name}      : \x1b\[97m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {module_file}      : .+\n"
+    r"\x1b\[34mdebug\x1b\[0m: {module_version}   : \x1b\[32m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {package_name}     : \x1b\[97m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {package_version}  : \x1b\[32m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {author}           : .+\n"
+    r"\x1b\[34mdebug\x1b\[0m: {license}          : .+\n"
+    r"\x1b\[34mdebug\x1b\[0m: {exec_name}        : \x1b\[97m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {version}          : \x1b\[32m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_repo_path}    : \x1b\[90m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_branch}       : \x1b\[36m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_long_hash}    : \x1b\[33m(?:[a-f0-9]{40}|None)\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_short_hash}   : \x1b\[33m(?:[a-f0-9]{4,40}|None)\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_date}         : \x1b\[90m(?:\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4}|None)\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_tag}          : \x1b\[36m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_tag_sha}      : \x1b\[33m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_distance}     : \x1b\[32m(?:\d+|None)\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {git_dirty}        : \x1b\[31m(?:dirty|clean|None)\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {build_time}       : \x1b\[90m(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|None)\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {build_os}         : \x1b\[90m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {build_target}     : \x1b\[90m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {build_target_arch}: \x1b\[90m.+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {prog_name}        : \x1b\[97m\S+\x1b\[0m\n"
+    r"\x1b\[34mdebug\x1b\[0m: {env_info}         :\n"
+    r"(?:\x1b\[34mdebug\x1b\[0m: \x1b\[90m  .+\x1b\[0m\n)+"
 )
 
 

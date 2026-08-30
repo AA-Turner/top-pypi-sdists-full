@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linkify-it-py
-Version: 2.1.1
+Version: 2.2.0
 Summary: Links recognition library with FULL unicode support.
 Author: tsutsu3
 License: MIT
@@ -20,7 +20,6 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: uc-micro-py
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: coverage; extra == "test"

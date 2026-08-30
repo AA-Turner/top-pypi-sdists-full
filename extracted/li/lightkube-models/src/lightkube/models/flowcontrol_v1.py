@@ -60,6 +60,9 @@ class FlowSchema(DictMixin):
 
       **parameters**
 
+      * **spec** ``FlowSchemaSpec`` - `spec` is the specification of the desired behavior of a FlowSchema. More
+        info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -70,16 +73,13 @@ class FlowSchema(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - `metadata` is the standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[FlowSchemaSpec]`` - `spec` is the specification of the desired behavior of a FlowSchema. More
-        info:
-        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **status** ``Optional[FlowSchemaStatus]`` - `status` is the current status of a FlowSchema. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
     """
+    spec: 'FlowSchemaSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[FlowSchemaSpec]' = None
     status: 'Optional[FlowSchemaStatus]' = None
 
     def __post_init__(self):
@@ -93,21 +93,21 @@ class FlowSchemaCondition(DictMixin):
 
       **parameters**
 
+      * **type** ``str`` - `type` is the type of the condition. Required.
       * **lastTransitionTime** ``Optional[meta_v1.Time]`` - `lastTransitionTime` is the last time the condition transitioned from one
         status to another.
       * **message** ``Optional[str]`` - `message` is a human-readable message indicating details about last
         transition.
       * **reason** ``Optional[str]`` - `reason` is a unique, one-word, CamelCase reason for the condition's last
         transition.
-      * **status** ``Optional[str]`` - `status` is the status of the condition. Can be True, False, Unknown.
-        Required.
-      * **type** ``Optional[str]`` - `type` is the type of the condition. Required.
+      * **status** ``Optional[str]`` - `status` is the status of the condition. Should be specified and set to one of
+        True, False, Unknown.
     """
+    type: 'str'
     lastTransitionTime: 'Optional[meta_v1.Time]' = None
     message: 'Optional[str]' = None
     reason: 'Optional[str]' = None
     status: 'Optional[str]' = None
-    type: 'Optional[str]' = None
 
 
 @dataclass
@@ -217,6 +217,8 @@ class LimitedPriorityLevelConfiguration(DictMixin):
 
       **parameters**
 
+      * **limitResponse** ``LimitResponse`` - `limitResponse` indicates what to do with requests that can not be executed
+        right now
       * **borrowingLimitPercent** ``Optional[int]`` - `borrowingLimitPercent`, if present, configures a limit on how many seats this
         priority level can borrow from other priority levels. The limit is known as
         this level's BorrowingConcurrencyLimit (BorrowingCL) and is a limit on the
@@ -235,8 +237,6 @@ class LimitedPriorityLevelConfiguration(DictMixin):
         levels can borrow from this level, known as this level's
         LendableConcurrencyLimit (LendableCL), is defined as follows.
         LendableCL(i) = round( NominalCL(i) * lendablePercent(i)/100.0 )
-      * **limitResponse** ``Optional[LimitResponse]`` - `limitResponse` indicates what to do with requests that can not be executed
-        right now
       * **nominalConcurrencyShares** ``Optional[int]`` - `nominalConcurrencyShares` (NCS) contributes to the computation of the
         NominalConcurrencyLimit (NominalCL) of this level. This is the number of
         execution seats available at this priority level. This is used both for
@@ -252,9 +252,9 @@ class LimitedPriorityLevelConfiguration(DictMixin):
         Setting this field to zero supports the construction of a "jail" for this
         priority level that is used to hold some request(s)
     """
+    limitResponse: 'LimitResponse'
     borrowingLimitPercent: 'Optional[int]' = None
     lendablePercent: 'Optional[int]' = None
-    limitResponse: 'Optional[LimitResponse]' = None
     nominalConcurrencyShares: 'Optional[int]' = None
 
 
@@ -316,6 +316,9 @@ class PriorityLevelConfiguration(DictMixin):
 
       **parameters**
 
+      * **spec** ``PriorityLevelConfigurationSpec`` - `spec` is the specification of the desired behavior of a "request-priority".
+        More info:
+        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -326,16 +329,13 @@ class PriorityLevelConfiguration(DictMixin):
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
       * **metadata** ``Optional[meta_v1.ObjectMeta]`` - `metadata` is the standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[PriorityLevelConfigurationSpec]`` - `spec` is the specification of the desired behavior of a "request-priority".
-        More info:
-        https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
       * **status** ``Optional[PriorityLevelConfigurationStatus]`` - `status` is the current status of a "request-priority". More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
     """
+    spec: 'PriorityLevelConfigurationSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
-    spec: 'Optional[PriorityLevelConfigurationSpec]' = None
     status: 'Optional[PriorityLevelConfigurationStatus]' = None
 
     def __post_init__(self):
@@ -349,21 +349,21 @@ class PriorityLevelConfigurationCondition(DictMixin):
 
       **parameters**
 
+      * **type** ``str`` - `type` is the type of the condition. Required.
       * **lastTransitionTime** ``Optional[meta_v1.Time]`` - `lastTransitionTime` is the last time the condition transitioned from one
         status to another.
       * **message** ``Optional[str]`` - `message` is a human-readable message indicating details about last
         transition.
       * **reason** ``Optional[str]`` - `reason` is a unique, one-word, CamelCase reason for the condition's last
         transition.
-      * **status** ``Optional[str]`` - `status` is the status of the condition. Can be True, False, Unknown.
-        Required.
-      * **type** ``Optional[str]`` - `type` is the type of the condition. Required.
+      * **status** ``Optional[str]`` - `status` is the status of the condition. Should be specified and set to one of
+        True, False, Unknown.
     """
+    type: 'str'
     lastTransitionTime: 'Optional[meta_v1.Time]' = None
     message: 'Optional[str]' = None
     reason: 'Optional[str]' = None
     status: 'Optional[str]' = None
-    type: 'Optional[str]' = None
 
 
 @dataclass

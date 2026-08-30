@@ -37,10 +37,12 @@ This is the black-box, subprocess-level complement to
 
 from __future__ import annotations
 
+import ctypes
 import logging
 import os
 import re
 import shlex
+import sys
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields
@@ -59,7 +61,8 @@ from .config.formats import (
     parse_content,
     read_file,
 )
-from .execution import args_cleanup, run_cli, run_jobs
+from .envvar import merge_envvar_ids
+from .execution import CPU_COUNT, args_cleanup, run_cli, run_jobs
 from .spinner import Spinner
 from .testing import (
     STREAM_FIELDS,
@@ -108,19 +111,43 @@ class SkippedTest(Exception):
 def _split_args(cli: str) -> list[str]:
     """Split a command-line string into a list of arguments.
 
-    ```{todo}
-    Tokenize Windows command lines with quoting/escaping support, like `shlex`
-    does on POSIX. The current `str.split()` fallback only splits on whitespace,
-    so a quoted argument such as `--name "two words"` is wrongly broken into
-    three tokens. Use [w32lex](https://github.com/maxpat78/w32lex), the Windows
-    counterpart to `shlex`.
-    ```
+    Both platforms honor quotes and escapes, so `--name "two words"` arrives as
+    a single argument everywhere. POSIX goes through `shlex`; Windows through
+    `CommandLineToArgvW`, the `shell32` function that gives every Windows
+    program its `argv`.
+
+    Windows parses the *first* argument by rules of its own: it ends at the
+    first space, takes no backslash escape, and an empty command line makes the
+    function answer with the running executable's own path instead of nothing. A
+    sentinel program name absorbs all three, and its token is dropped, so every
+    argument the caller wrote takes the uniform rules `shlex` applies on POSIX.
+
+    :param cli: the command line to tokenize, with no program name in front.
+    :return: one string per argument.
+    :raises OSError: if `CommandLineToArgvW` fails.
     """
-    if is_windows():
-        return cli.split()
+    # Positive `sys.platform` guard rather than `is_windows()`: a type checker
+    # narrows on the former, and reports `ctypes.windll` as missing otherwise.
+    if sys.platform == "win32":
+        shell32 = ctypes.windll.shell32
+        shell32.CommandLineToArgvW.restype = ctypes.POINTER(ctypes.c_wchar_p)
+        shell32.CommandLineToArgvW.argtypes = (
+            ctypes.c_wchar_p,
+            ctypes.POINTER(ctypes.c_int),
+        )
+        argc = ctypes.c_int(0)
+        argv = shell32.CommandLineToArgvW(f"sentinel {cli}", ctypes.byref(argc))
+        if not argv:
+            raise ctypes.WinError()
+        try:
+            # Skip the sentinel at index 0.
+            return [argv[index] for index in range(1, argc.value)]
+        finally:
+            # The buffer is caller-owned, and LocalFree is what the API asks for.
+            ctypes.windll.kernel32.LocalFree(argv)
+
     # For Unix platforms, we have the dedicated shlex module.
-    else:
-        return shlex.split(cli)
+    return shlex.split(cli)
 
 
 @dataclass(order=True)
@@ -138,6 +165,34 @@ class CLITestCase:
 
     A plain string is split into arguments (on spaces on Windows, with `shlex`
     elsewhere); a list or tuple is used as-is.
+    """
+
+    env: dict[str, str] = field(default_factory=dict)
+    """Environment variables set on the command, over the inherited environment.
+
+    The second input surface of a CLI, and the only way to reach a variable-only
+    feature from a suite: an option can be typed as a `cli_parameters` flag, a
+    variable cannot. Values must be strings, so a number or a boolean is quoted
+    (`"1"`, not `1`): an environment holds strings only, and coercing would have
+    to pick between `True` and `true` on the author's behalf.
+
+    Applied to that one child process, never to the suite runner's own
+    environment, so cases stay independent under `--jobs`. See `unset_env` to
+    take a variable away instead.
+    """
+
+    unset_env: tuple[str, ...] | str = field(default_factory=tuple)
+    """Environment variables removed from the inherited environment.
+
+    The half `env` cannot express. Assigning the empty string leaves a variable
+    *set*, and a flag read by bare presence (`NO_COLOR` and its family) counts
+    that as activation, so hiding one from the command means removing it. This
+    is what keeps a case from answering to whatever the shell running the suite
+    happens to export.
+
+    A separate directive rather than a `null` value in `env` because TOML has no
+    null literal, and a suite is as likely to be written in TOML as in YAML.
+    Removing a variable that is not set is a no-op.
     """
 
     skip_platforms: _TNestedReferences = field(default_factory=tuple)
@@ -272,6 +327,31 @@ class CLITestCase:
                 if not isinstance(field_data, bool):
                     raise ValueError(f"strip_ansi is not a boolean: {field_data}")
 
+            # Validates and normalize the environment mapping.
+            elif field_id == "env":
+                if not field_data:
+                    field_data = {}
+                elif not isinstance(field_data, dict):
+                    raise TypeError(f"env is not a mapping: {field_data}")
+                else:
+                    for name, value in field_data.items():
+                        if not isinstance(name, str):
+                            raise TypeError(f"Invalid env variable name: {name}")
+                        if not isinstance(value, str):
+                            raise TypeError(
+                                f"Value of env variable {name} is not a string: "
+                                f"{value!r}. Quote it, as an environment only "
+                                "holds strings."
+                            )
+                    # Windows matches variable names case-insensitively and
+                    # upper-cases them in `os.environ`, so a suite pinning a
+                    # mixed-case name would otherwise behave differently there.
+                    # Same normalization as `merge_envvar_ids`.
+                    field_data = {
+                        (name.upper() if is_windows() else name): value
+                        for name, value in field_data.items()
+                    }
+
             # Validates and normalize tuple of strings.
             else:
                 if field_data:
@@ -291,6 +371,11 @@ class CLITestCase:
                             raise TypeError(f"Invalid string in {field_id}: {item}")
                     # Ignore blank value.
                     field_data = tuple(i for i in field_data if i.strip())
+
+            # Deduplicate the names to unset, and apply the same Windows
+            # upper-casing `env` gets above.
+            if field_id == "unset_env" and field_data:
+                field_data = merge_envvar_ids(field_data)
 
             # Normalize any mishmash of platform and group IDs into a set of platforms.
             if field_id.endswith("_platforms") and field_data:
@@ -333,6 +418,7 @@ class CLITestCase:
         command: Path | str,
         additional_skip_platforms: _TNestedReferences | None,
         default_timeout: float | None,
+        work_directory: Path | str | None = None,
     ) -> None:
         """Run a CLI command and check its output against the test case.
 
@@ -342,9 +428,14 @@ class CLITestCase:
         - a command name to be searched in the `PATH`,
         - a command line with arguments to be parsed and executed by the shell.
 
-        ```{todo}
-        Add support for environment variables.
-        ```
+        The case's `env` and `unset_env` directives are layered over the
+        inherited environment for this child process only.
+
+        `work_directory` is the directory the command runs in, defaulting to the
+        one the runner itself is in. `command` is resolved to an absolute path
+        *before* it takes effect, so moving the target elsewhere never changes
+        which binary is executed, only what a relative path inside the command
+        resolves against.
         """
         if self.only_platforms and current_platform() not in self.only_platforms:  # type: ignore[operator]
             required = ", ".join(
@@ -393,9 +484,14 @@ class CLITestCase:
         # binary (including Nuitka builds) honors PYTHONIOENCODING and emits UTF-8
         # on piped stdout, where Windows would default to cp1252. Set as a default
         # only: an explicitly exported PYTHONIOENCODING keeps winning.
-        extra_env = None
+        extra_env: dict[str, str | None] = {}
         if "PYTHONIOENCODING" not in os.environ:
-            extra_env = {"PYTHONIOENCODING": "utf8"}
+            extra_env["PYTHONIOENCODING"] = "utf8"
+        # The case's own directives come last, so a suite deliberately pinning
+        # one of the above wins over the default. `env_copy` reads a `None` as a
+        # removal, which is how `unset_env` reaches the child.
+        extra_env.update(self.env)
+        extra_env.update(dict.fromkeys(self.unset_env))
 
         # run_cli discloses the invocation at INFO and streams the output live at
         # DEBUG, then returns the same CompletedProcess shape subprocess.run did.
@@ -403,6 +499,7 @@ class CLITestCase:
             result = run_cli(
                 clean_args,
                 extra_env=extra_env,
+                cwd=work_directory,
                 timeout=self.timeout,  # type: ignore[arg-type]
                 # When the case asserts on the merged stream (output_* directives),
                 # route stderr into stdout so the OS interleaves both in write
@@ -593,6 +690,7 @@ def run_test_suite(
     select_test: Sequence[int] | None = None,
     skip_platform: _TNestedReferences | None = None,
     timeout: float | None = None,
+    work_directory: Path | str | None = None,
     exit_on_error: bool = False,
     show_trace_on_error: bool = True,
     stats: bool = True,
@@ -615,6 +713,10 @@ def run_test_suite(
     :param select_test: 1-based case numbers to run; others are skipped.
     :param skip_platform: Extra platforms (or group IDs) to skip every case on.
     :param timeout: Default per-case timeout in seconds when a case sets none.
+    :param work_directory: Directory every case runs its command in, defaulting
+        to the runner's own. It moves the *target*, never the runner: the suite
+        file is read before any case starts, and `command` is resolved to an
+        absolute path first, so neither is looked up relative to it.
     :param exit_on_error: Stop at the first failure (sequential runs only).
     :param show_trace_on_error: Echo the execution trace of each failed case.
     :param stats: Echo a one-line worker summary up front and a result tally.
@@ -646,6 +748,7 @@ def run_test_suite(
                 command,
                 additional_skip_platforms=skip_platform,
                 default_timeout=timeout,
+                work_directory=work_directory,
             )
         except SkippedTest as ex:
             logging.warning(f"Test #{test_number} skipped: {ex}")
@@ -667,12 +770,12 @@ def run_test_suite(
 
     # Surface the parallelism picture up front so logs make clear whether cases
     # run concurrently, and how that maps to the host's logical CPU count.
-    # os.cpu_count() reports logical CPUs (hardware threads), which is what the
-    # --jobs option keys on: on a 2-core host `auto` resolves to 1 (sequential).
+    # CPU_COUNT is the same process-aware logical CPU count the --jobs option
+    # keys on: on a single-CPU host `auto` resolves to 1 (sequential).
     if stats:
         echo(
             f"Running {len(pending)} test cases across {jobs} workers "
-            f"(os.cpu_count()={os.cpu_count()})."
+            f"({CPU_COUNT if CPU_COUNT is not None else 'unknown'} logical CPUs)."
         )
 
     # An indeterminate spinner reports live progress on an interactive terminal.

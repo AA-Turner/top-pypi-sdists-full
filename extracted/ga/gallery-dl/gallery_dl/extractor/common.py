@@ -831,6 +831,13 @@ class Extractor():
         return util.json_loads(
             page[page.find(">", pos)+1:page.find("</script>", pos)])
 
+    def _extract_nuxtdata(self, page):
+        pos = page.find(' id="__NUXT_DATA__"')
+        if pos < 0:
+            pos = page.find(" id='__NUXT_DATA__'")
+        return self.utils("/nuxt").resolve(util.json_loads(
+            page[page.find(">", pos)+1:page.find("</script>", pos)]))
+
     def _get_date_min_max(self, dmin=None, dmax=None):
         """Retrieve and parse 'date-min' and 'date-max' config values"""
         def get(key, default):

@@ -299,14 +299,24 @@ Entries:
             modules = []
 
             for source in sources:
-                if source:
+                if isinstance(source, str):
                     path = util.expand_path(source)
                     try:
-                        files = os.listdir(path)
+                        files = [name[:-3] for name in os.listdir(path)
+                                 if name.endswith(".py")]
                         modules.append(extractor._modules_path(path, files))
                     except Exception as exc:
                         log.warning("Unable to load modules from %s (%s: %s)",
                                     path, exc.__class__.__name__, exc)
+                elif isinstance(source, dict):
+                    path = util.expand_path(source["from"])
+                    files = source["import"]
+                    try:
+                        modules.append(extractor._modules_path(path, files))
+                    except Exception as exc:
+                        log.warning("Unable to load modules [%s] "
+                                    "from %s (%s: %s)",
+                                    files, path, exc.__class__.__name__, exc)
                 else:
                     modules.append(extractor._modules_internal())
 

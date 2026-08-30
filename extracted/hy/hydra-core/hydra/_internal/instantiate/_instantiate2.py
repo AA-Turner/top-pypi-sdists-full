@@ -1,8 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 import copy
-import functools
-import os
+import inspect
 from enum import Enum
 from textwrap import dedent
 from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
@@ -10,90 +9,21 @@ from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
 from omegaconf import OmegaConf, SCMode
 from omegaconf._utils import is_structured_config
 
+from hydra._internal.deprecation_warning import deprecation_warning
+from hydra._internal.target_policy import (
+    _authorize_discovery_path,
+    _authorize_resolved_target_identity,
+    _authorize_target_invocation,
+    _authorize_target_name,
+    _DeferredTarget,
+    _get_os_alias_target,
+    _get_resolved_target_name_for_check,
+    _mediate_target_result,
+    _with_full_key,
+)
 from hydra._internal.utils import _locate
 from hydra.errors import InstantiationException
 from hydra.types import ConvertMode, TargetConf
-
-DEFAULT_BLOCKLISTED_MODULES = {
-    "builtins.exec",
-    "builtins.eval",
-    "builtins.__import__",
-    "builtins.compile",
-    "builtins.exit",
-    "builtins.quit",
-    "ctypes.CDLL",
-    "ctypes.OleDLL",
-    "ctypes.PyDLL",
-    "ctypes.WinDLL",
-    "ctypes.cdll.LoadLibrary",
-    "ctypes.oledll.LoadLibrary",
-    "ctypes.pydll.LoadLibrary",
-    "ctypes.windll.LoadLibrary",
-    "importlib.import_module",
-    "os.kill",
-    "os.system",
-    "os.popen",
-    "os.putenv",
-    "os.remove",
-    "os.removedirs",
-    "os.rmdir",
-    "os.fchdir",
-    "os.setuid",
-    "os.fork",
-    "os.forkpty",
-    "os.killpg",
-    "os.rename",
-    "os.renames",
-    "os.startfile",
-    "os.posix_spawn",
-    "os.posix_spawnp",
-    "os.truncate",
-    "os.replace",
-    "os.unlink",
-    "os.fchmod",
-    "os.fchown",
-    "os.chmod",
-    "os.chown",
-    "os.chroot",
-    "os.fchdir",
-    "os.lchflags",
-    "os.lchmod",
-    "os.lchown",
-    "os.getcwd",
-    "os.chdir",
-    "pty.spawn",
-    "runpy.run_module",
-    "runpy.run_path",
-    "shutil.rmtree",
-    "shutil.move",
-    "shutil.chown",
-    "subprocess.Popen",
-    "subprocess.run",
-    "subprocess.call",
-    "subprocess.check_call",
-    "subprocess.check_output",
-    "subprocess.getoutput",
-    "subprocess.getstatusoutput",
-    "builtins.help",
-    "sys.modules.ipdb",
-    "sys.modules.joblib",
-    "sys.modules.resource",
-    "sys.modules.psutil",
-    "sys.modules.tkinter",
-}
-
-DEFAULT_BLOCKLISTED_MODULE_PREFIXES = (
-    "os.exec",
-    "os.spawn",
-)
-
-
-def _get_os_alias_target(target: str) -> str:
-    for module in ("posix", "nt"):
-        module_prefix = f"{module}."
-        if target.startswith(module_prefix):
-            return f"os.{target[len(module_prefix):]}"
-    return target
 
 
 class _Keys(str, Enum):
@@ -114,11 +44,20 @@ def _is_target(x: Any) -> bool:
     return False
 
 
-def _is_blocklisted_target(target: str) -> bool:
-    canonical_target = _get_os_alias_target(target)
-    return (
-        canonical_target in DEFAULT_BLOCKLISTED_MODULES
-        or canonical_target.startswith(DEFAULT_BLOCKLISTED_MODULE_PREFIXES)
+def _warn_direct_functools_partial_target() -> None:
+    stacklevel = 1
+    frame = inspect.currentframe()
+    while frame is not None:
+        if frame.f_code.co_filename != __file__:
+            break
+        stacklevel += 1
+        frame = frame.f_back
+    deprecation_warning(
+        dedent("""\
+            Using '_target_: functools.partial' is deprecated. Set '_target_' to
+            the effective callable and use '_partial_: true' instead. Direct
+            functools.partial targets will become an error in Hydra 1.5."""),
+        stacklevel=stacklevel,
     )
 
 
@@ -166,29 +105,43 @@ def _call_target(
 
         raise InstantiationException(msg) from e
 
-    if _partial_:
-        try:
-            return functools.partial(_target_, *args, **kwargs)
-        except Exception as e:
+    resolved_target_name = _get_resolved_target_name_for_check(_target_)
+    _authorize_target_invocation(
+        _target_,
+        args,
+        kwargs,
+        full_key,
+        allow_incomplete_partial=_partial_,
+    )
+    discovery_path = _authorize_discovery_path(_target_, args, kwargs, full_key)
+
+    try:
+        if _partial_:
+            deferred = _DeferredTarget(_target_, *args, **kwargs)
+            deferred._hydra_resolved_from = discovery_path or resolved_target_name
+            deferred._hydra_full_key = full_key
+            return deferred
+        result = _target_(*args, **kwargs)
+    except Exception as e:
+        if _partial_:
             msg = (
                 f"Error in creating partial({_convert_target_to_string(_target_)}, ...) object:"
                 + f"\n{repr(e)}"
             )
-            if full_key:
-                msg += f"\nfull_key: {full_key}"
-            raise InstantiationException(msg) from e
-    else:
-        try:
-            return _target_(*args, **kwargs)
-        except Exception as e:
+        else:
             msg = f"Error in call to target '{_convert_target_to_string(_target_)}':\n{repr(e)}"
-            if full_key:
-                msg += f"\nfull_key: {full_key}"
-            raise InstantiationException(msg) from e
+        raise InstantiationException(_with_full_key(msg, full_key)) from e
+
+    return _mediate_target_result(
+        result,
+        discovery_path or resolved_target_name,
+        full_key,
+        resolved_from_is_alias=discovery_path is not None,
+    )
 
 
 def _convert_target_to_string(t: Any) -> Any:
-    if callable(t):
+    if callable(t) and hasattr(t, "__qualname__"):
         return f"{t.__module__}.{t.__qualname__}"
     else:
         return t
@@ -219,29 +172,31 @@ def _resolve_target(
     target: Union[str, type, Callable[..., Any]], full_key: str
 ) -> Union[type, Callable[..., Any]]:
     """Resolve target string, type or callable into type or callable."""
-    if isinstance(target, str):
-        if _is_blocklisted_target(target):
-            allowlist = os.environ.get("HYDRA_INSTANTIATE_ALLOWLIST_OVERRIDE", "")
-            allowlist_entries = allowlist.split(":")
-            canonical_target = _get_os_alias_target(target)
-            if target not in allowlist_entries and canonical_target not in allowlist_entries:
-                msg = dedent(
-                    f"""\
-                    Target '{target}' is blocklisted and cannot be instantiated from config
-                    to prevent security vulnerabilities, set env var
-                    HYDRA_INSTANTIATE_ALLOWLIST_OVERRIDE={target}:<other allowlisted targets> to bypass"""
-                )
+    if isinstance(target, str) or callable(target):
+        target_name = (
+            target
+            if isinstance(target, str)
+            else _get_os_alias_target(_get_resolved_target_name_for_check(target))
+        )
+        _authorize_target_name(target_name, target_name, full_key)
+
+        resolved_name = target_name
+        if isinstance(target, str):
+            resolved_from = target
+            try:
+                target = _locate(target)
+            except Exception as e:
+                msg = f"Error locating target '{target}', set env var HYDRA_FULL_ERROR=1 to see chained exception."
                 if full_key:
                     msg += f"\nfull_key: {full_key}"
-                raise InstantiationException(msg)
+                raise InstantiationException(msg) from e
 
-        try:
-            target = _locate(target)
-        except Exception as e:
-            msg = f"Error locating target '{target}', set env var HYDRA_FULL_ERROR=1 to see chained exception."
-            if full_key:
-                msg += f"\nfull_key: {full_key}"
-            raise InstantiationException(msg) from e
+            resolved_name = _authorize_resolved_target_identity(
+                target, resolved_from, full_key
+            )
+
+        if resolved_name == "functools.partial":
+            _warn_direct_functools_partial_target()
     if not callable(target):
         msg = f"Expected a callable target, got '{target}' of type '{type(target).__name__}'"
         if full_key:
@@ -411,7 +366,7 @@ def instantiate_node(
         raise TypeError(msg)
 
     if not isinstance(partial, bool):
-        msg = f"Instantiation: _partial_ flag must be a bool, got {type( partial )}"
+        msg = f"Instantiation: _partial_ flag must be a bool, got {type(partial)}"
         if node and full_key:
             msg += f"\nfull_key: {full_key}"
         raise TypeError(msg)

@@ -17,6 +17,9 @@ parametrize = pytest.mark.parametrize
         (([1, 2, 3, 4, 5], 4), [[1, 2, 3, 4], [5]]),
         (([1, 2, 3, 4, 5], 5), [[1, 2, 3, 4, 5]]),
         (([1, 2, 3, 4, 5], 6), [[1, 2, 3, 4, 5]]),
+        (([1, 2, 3, 4, 5], 0), []),
+        (([1, 2, 3], -1), []),
+        (([], 0), []),
     ],
 )
 def test_chunk(case, expected):
@@ -104,6 +107,7 @@ def test_drop(case, expected):
     "case,expected",
     [
         (([1, 2, 3, 4, 5], lambda item: item < 3), [3, 4, 5]),
+        ((iter([1, 2, 3, 4, 5]), lambda item: item < 3), [3, 4, 5]),
     ],
 )
 def test_drop_while(case, expected):
@@ -206,6 +210,8 @@ def test_find_last_index(case, filter_by, expected):
     "case,expected",
     [
         ([1, ["2222"], [3, [[4]]]], [1, "2222", 3, [[4]]]),
+        ([iter([1, 2]), iter([3, [[4]]])], [1, 2, 3, [[4]]]),
+        ([{"a": 1}, [2]], [{"a": 1}, 2]),
     ],
 )
 def test_flatten(case, expected):
@@ -216,6 +222,8 @@ def test_flatten(case, expected):
     "case,expected",
     [
         ([1, ["2222"], [3, [[4]]]], [1, "2222", 3, 4]),
+        ([iter([1, [2]]), iter([[3, [4]]])], [1, 2, 3, 4]),
+        ([{"a": 1}, [2]], [{"a": 1}, 2]),
     ],
 )
 def test_flatten_deep(case, expected):
@@ -229,6 +237,8 @@ def test_flatten_deep(case, expected):
         (([1, ["2222"], [3, [[4]]]], 1), [1, "2222", 3, [[4]]]),
         (([1, ["2222"], [3, [[4]]]], 2), [1, "2222", 3, [4]]),
         (([1, ["2222"], [3, [[4]]]], 3), [1, "2222", 3, 4]),
+        (([iter([1, [2]])], 1), [1, [2]]),
+        (([iter([1, [2]])], 2), [1, 2]),
     ],
 )
 def test_flatten_depth(case, expected):
@@ -350,6 +360,7 @@ def test_intersection_with(case, expected):
 @parametrize(
     "case,expected",
     [
+        (([], "x"), []),
         (([1, 2, 3, 4], 10), [1, 10, 2, 10, 3, 10, 4]),
         (([1, 2, 3, 4], [0, 0, 0]), [1, [0, 0, 0], 2, [0, 0, 0], 3, [0, 0, 0], 4]),
         (
@@ -387,6 +398,9 @@ def test_last(case, expected):
         ([0, 1, 2, 3, 4, 5], 3, -5, -1),
         ([0, 1, 2, 3, 4, 5], 3, -6, -1),
         ([0, 1, 2, 3, 4, 5], 3, None, 3),
+        ([1, 2, 3], 1, None, 0),
+        ([1, 2, 3], 1, 0, 0),
+        ([5, 2, 3], 5, None, 0),
     ],
 )
 def test_last_index_of(case, value, from_index, expected):
@@ -469,6 +483,9 @@ def test_pull_all_with(case, values, iteratee, expected):
         (([1, 2, 3, 1, 2, 3], [2, 3]), [1, 2, 2, 3]),
         (([1, 2, 3, 1, 2, 3], [3, 2]), [1, 2, 2, 3]),
         (([1, 2, 3, 1, 2, 3], 3, 2), [1, 2, 2, 3]),
+        (([], 0), []),
+        (([1, 2, 3], 5), [1, 2, 3]),
+        (([1], 0, 0), []),
     ],
 )
 def test_pull_at(case, expected):
@@ -655,7 +672,7 @@ def test_sorted_uniq(case, expected):
 @parametrize(
     "case,iteratee,expected",
     [
-        ([2.5, 3, 1, 2, 1.5], lambda num: math.floor(num), [1, 2.5, 3]),
+        ([2.5, 3, 1, 2, 1.5], math.floor, [1, 2.5, 3]),
         (["A", "b", "C", "a", "B", "c"], lambda letter: letter.lower(), ["A", "C", "b"]),
     ],
 )
@@ -723,6 +740,7 @@ def test_take(case, expected):
     "case,expected",
     [
         (([1, 2, 3, 4, 5], lambda item: item < 3), [1, 2]),
+        ((iter([1, 2, 3, 4, 5]), lambda item: item < 3), [1, 2]),
     ],
 )
 def test_take_while(case, expected):
@@ -767,7 +785,7 @@ def test_uniq(case, expected):
 @parametrize(
     "case,iteratee,expected",
     [
-        ([1, 2, 1.5, 3, 2.5], lambda num: math.floor(num), [1, 2, 3]),
+        ([1, 2, 1.5, 3, 2.5], math.floor, [1, 2, 3]),
         (
             [
                 {"name": "banana", "type": "fruit"},

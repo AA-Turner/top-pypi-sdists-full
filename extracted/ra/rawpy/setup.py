@@ -30,6 +30,7 @@ is64Bit = sys.maxsize > 2**32
 libraries = ["libraw_r"]
 include_dirs = [numpy.get_include()]  # Always include numpy headers
 library_dirs = []
+extra_objects = []
 extra_compile_args = []
 extra_link_args = []
 define_macros = []
@@ -153,6 +154,12 @@ def windows_libraw_compile():
     # Important: always use Release build type, otherwise the library will depend on a
     #            debug version of OpenMP which is not what we bundle it with, and then it would fail
     enable_openmp_flag = "ON" if has_openmp_dll else "OFF"
+    vcpkg_cmake_args = ""
+    for name in ("CMAKE_TOOLCHAIN_FILE", "VCPKG_TARGET_TRIPLET"):
+        value = os.getenv(name)
+        if value:
+            value = value.replace("\\", "/")
+            vcpkg_cmake_args += f'-D{name}="{value}" '
     cmds = [
         cmake
         + ' .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release '
@@ -163,6 +170,7 @@ def windows_libraw_compile():
         + libraw_dir.replace("\\", "/")
         + " "
         + "-DENABLE_X3FTOOLS=ON -DENABLE_6BY9RPI=ON "
+        + vcpkg_cmake_args
         + "-DENABLE_EXAMPLES=OFF -DENABLE_OPENMP="
         + enable_openmp_flag
         + " -DENABLE_RAWSPEED=OFF "
@@ -304,8 +312,15 @@ if (isWindows or isMac or isLinux) and not useSystemLibraw:
     # Build from source
     install_dir = get_install_dir()
     include_dirs += [os.path.join(install_dir, "include", "libraw")]
-    library_dirs += [os.path.join(install_dir, "lib")]
-    libraries = ["raw_r"]
+    if isMac or isLinux:
+        # Link the bundled library explicitly so an earlier -L from the Python
+        # configuration or environment cannot select a system LibRaw instead.
+        suffix = ".dylib" if isMac else ".so"
+        libraries = []
+        extra_objects = [os.path.join(install_dir, "lib", "libraw_r" + suffix)]
+    else:
+        library_dirs += [os.path.join(install_dir, "lib")]
+        libraries = ["raw_r"]
     # If building from source, we know we have the config header
     libraw_config_found = True
 else:
@@ -383,6 +398,7 @@ extensions = cythonize(
             sources=[os.path.join("rawpy", "_rawpy.pyx")],
             libraries=libraries,
             library_dirs=library_dirs,
+            extra_objects=extra_objects,
             define_macros=define_macros,
             extra_compile_args=extra_compile_args,
             extra_link_args=extra_link_args,

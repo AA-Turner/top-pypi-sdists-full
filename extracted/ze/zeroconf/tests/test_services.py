@@ -15,7 +15,7 @@ import zeroconf as r
 from zeroconf import Zeroconf
 from zeroconf._services.info import ServiceInfo
 
-from . import _clear_cache, has_working_ipv6
+from . import _clear_cache, has_working_ipv6, make_service_info
 
 log = logging.getLogger("zeroconf")
 original_logging_level = logging.NOTSET
@@ -47,7 +47,7 @@ class ListenerTest(unittest.TestCase):
         name = "UPPERxxxyyyæøå"
         registration_name = f"{name}.{subtype}"
 
-        class MyListener(r.ServiceListener):
+        class EventStore(r.ServiceListener):
             def add_service(self, zeroconf, type, name):
                 zeroconf.get_service_info(type, name)
                 service_added.set()
@@ -78,7 +78,7 @@ class ListenerTest(unittest.TestCase):
             def update_service(self, zeroconf, type, name):
                 sub_service_updated.set()
 
-        listener = MyListener()
+        listener = EventStore()
         zeroconf_browser = Zeroconf(interfaces=["127.0.0.1"])
         zeroconf_browser.add_service_listener(type_, listener)
 
@@ -92,9 +92,9 @@ class ListenerTest(unittest.TestCase):
         }
 
         zeroconf_registrar = Zeroconf(interfaces=["127.0.0.1"])
-        desc: dict[str, Any] = {"path": "/~paulsm/"}
+        desc: dict[str, Any] = {"path": "/healthz/"}
         desc.update(properties)
-        addresses = [socket.inet_aton("10.0.1.2")]
+        addresses = [socket.inet_aton("10.7.4.2")]
         if has_working_ipv6() and not os.environ.get("SKIP_IPV6"):
             addresses.append(socket.inet_pton(socket.AF_INET6, "6001:db8::1"))
             addresses.append(socket.inet_pton(socket.AF_INET6, "2001:db8::1"))
@@ -103,7 +103,7 @@ class ListenerTest(unittest.TestCase):
             registration_name,
             port=80,
             properties=desc,
-            server="ash-2.local.",
+            server="spare-rig.local.",
             addresses=addresses,
         )
         zeroconf_registrar.register_service(info_service)
@@ -188,16 +188,7 @@ class ListenerTest(unittest.TestCase):
 
             properties["prop_blank"] = b"an updated string"
             desc.update(properties)
-            info_service = ServiceInfo(
-                subtype,
-                registration_name,
-                80,
-                0,
-                0,
-                desc,
-                "ash-2.local.",
-                addresses=[socket.inet_aton("10.0.1.2")],
-            )
+            info_service = make_service_info(subtype, registration_name, properties=desc)
             zeroconf_registrar.update_service(info_service)
 
             sub_service_added.wait(1)  # we cleared the cache above

@@ -9,11 +9,8 @@ from polars.lazyframe.group_by import LazyGroupBy
 from pandera.api.base.checks import CheckResult
 from pandera.api.checks import Check
 from pandera.api.polars.types import PolarsData
-from pandera.api.polars.utils import (
-    get_lazyframe_column_names,
-    get_lazyframe_schema,
-)
 from pandera.backends.base import BaseCheckBackend
+from pandera.backends.polars.utils import horizontal_concat
 from pandera.constants import CHECK_OUTPUT_KEY
 
 
@@ -56,7 +53,7 @@ class PolarsCheckBackend(BaseCheckBackend):
         if isinstance(out, bool):
             return out
 
-        if len(get_lazyframe_schema(out)) > 1:
+        if len(out.collect_schema()) > 1:
             # for checks that return a boolean dataframe, reduce to a single
             # boolean column.
             out = out.select(
@@ -68,7 +65,7 @@ class PolarsCheckBackend(BaseCheckBackend):
             )
         else:
             out = out.rename(
-                {get_lazyframe_column_names(out)[0]: CHECK_OUTPUT_KEY}
+                {out.collect_schema().names()[0]: CHECK_OUTPUT_KEY}
             )
 
         return out
@@ -95,8 +92,8 @@ class PolarsCheckBackend(BaseCheckBackend):
                 pl.col(CHECK_OUTPUT_KEY) | pl.col(CHECK_OUTPUT_KEY).is_null()
             )
         passed = results.select([pl.col(CHECK_OUTPUT_KEY).all()])
-        failure_cases = pl.concat(
-            [check_obj.lazyframe, results], how="horizontal"
+        failure_cases = horizontal_concat(
+            [check_obj.lazyframe, results]
         ).filter(pl.col(CHECK_OUTPUT_KEY).not_())
 
         if check_obj.key != "*":

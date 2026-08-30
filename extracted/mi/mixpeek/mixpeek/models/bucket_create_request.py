@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.bucket_schema_input import BucketSchemaInput
+from mixpeek.models.source_adapter_config import SourceAdapterConfig
 from mixpeek.models.storage_class import StorageClass
 from mixpeek.models.unique_key_config import UniqueKeyConfig
 from typing import Optional, Set
@@ -36,7 +37,8 @@ class BucketCreateRequest(BaseModel):
     unique_key: Optional[UniqueKeyConfig] = Field(default=None, description="Unique key configuration for this bucket (OPTIONAL). Enables uniqueness enforcement and upsert operations on specified field(s) from the schema. Cannot be changed after bucket creation.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the bucket")
     storage_class: Optional[StorageClass] = Field(default=None, description="OPTIONAL object-storage tier for this bucket's objects: standard | nearline | coldline | archive (provider-agnostic). NOTE: applied on write for sync-based ingestion (the primary media path); tiering for direct uploads (POST /objects) and presigned uploads, plus retroactive re-tiering of existing objects, are in progress (TG-2837). Omit for the provider default (standard).")
-    __properties: ClassVar[List[str]] = ["bucket_name", "description", "bucket_schema", "unique_key", "metadata", "storage_class"]
+    source_adapter: Optional[SourceAdapterConfig] = Field(default=None, description="OPTIONAL source connection for this bucket, stored exactly as PATCH /buckets/{bucket_id} stores it (TUBES-2341: the create path used to accept this field and silently drop it). adapter_type 'bucket' pulls objects from source_bucket_ids (fan-in); adapter_type 'collection' pulls documents from source_collection_id; any other adapter_type is an inbound webhook and is assigned a webhook_url. Bucket and collection sources are checked for dependency cycles at create time (409 names the cycle).")
+    __properties: ClassVar[List[str]] = ["bucket_name", "description", "bucket_schema", "unique_key", "metadata", "storage_class", "source_adapter"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -83,6 +85,9 @@ class BucketCreateRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of unique_key
         if self.unique_key:
             _dict['unique_key'] = self.unique_key.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of source_adapter
+        if self.source_adapter:
+            _dict['source_adapter'] = self.source_adapter.to_dict()
         return _dict
 
     @classmethod
@@ -100,7 +105,8 @@ class BucketCreateRequest(BaseModel):
             "bucket_schema": BucketSchemaInput.from_dict(obj["bucket_schema"]) if obj.get("bucket_schema") is not None else None,
             "unique_key": UniqueKeyConfig.from_dict(obj["unique_key"]) if obj.get("unique_key") is not None else None,
             "metadata": obj.get("metadata"),
-            "storage_class": obj.get("storage_class")
+            "storage_class": obj.get("storage_class"),
+            "source_adapter": SourceAdapterConfig.from_dict(obj["source_adapter"]) if obj.get("source_adapter") is not None else None
         })
         return _obj
 

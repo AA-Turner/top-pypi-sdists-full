@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -55,12 +40,8 @@ DEBUG_ENABLED = partial(log.isEnabledFor, logging.DEBUG)
 
 
 class AsyncListener:
-    """A Listener is used by this module to listen on the multicast
-    group to which DNS messages are sent, allowing the implementation
-    to cache information as it arrives.
-
-    It requires registration with an Engine object in order to have
-    the read() method called when a socket is available for reading."""
+    """Asyncio datagram protocol that receives mDNS packets and feeds them
+    to the record manager and query handler as they arrive."""
 
     __slots__ = (
         "_deferred",
@@ -99,6 +80,25 @@ class AsyncListener:
         self._recent_packets: dict[bytes, float] = {}
         super().__init__()
 
+    def cancel_pending_timers(self) -> None:
+        """Cancel all pending TC-reassembly timers and drop deferred state.
+
+        Called when this listener's transport is removed so a timer cannot
+        fire a response against an already-closed transport. Every timer's
+        addr also has a deferred entry, so dropping each deferred addr
+        cancels its timer too.
+        """
+        for addr in list(self._deferred):
+            self._drop_deferred(addr)
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        """Handle connection lost."""
+
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        wrapped_transport = make_wrapped_transport(cast(asyncio.DatagramTransport, transport))
+        self.transport = wrapped_transport
+        self.sock_description = f"{wrapped_transport.fileno} ({wrapped_transport.sock_name})"
+
     def datagram_received(self, data: _bytes, addrs: tuple[str, int] | tuple[str, int, int, int]) -> None:
         data_len = len(data)
         debug = DEBUG_ENABLED()
@@ -116,6 +116,109 @@ class AsyncListener:
             return
         now = current_time_millis()
         self._process_datagram_at_time(debug, data_len, now, data, addrs)
+
+    def error_received(self, exc: Exception) -> None:
+        """Likely socket closed or IPv6."""
+        # We preformat the message string with the socket as we want
+        # log_exception_once to log a warning message once PER EACH
+        # different socket in case there are problems with multiple
+        # sockets
+        msg_str = f"Error with socket {self.sock_description}): %s"
+        QuietLogger.log_exception_once(exc, msg_str, exc)
+
+    def handle_query_or_defer(
+        self,
+        msg: DNSIncoming,
+        addr: _str,
+        port: _int,
+        transport: _WrappedTransport,
+        v6_flow_scope: tuple[()] | tuple[int, int],
+    ) -> None:
+        """Answer immediately, or hold a truncated query for reassembly."""
+        if not msg.truncated:
+            self._respond_query(msg, addr, port, transport, v6_flow_scope)
+            return
+
+        if addr not in self._deferred and len(self._deferred) >= _MAX_DEFERRED_ADDRS:
+            # Bound total deferred addrs so a spoofed-source flood
+            # cannot keep adding distinct entries; evict the oldest
+            # (insertion-order) entry and discard its in-flight queue.
+            self._evict_oldest_deferred()
+
+        deferred = self._deferred.setdefault(addr, [])
+        if len(deferred) >= _MAX_DEFERRED_PER_ADDR:
+            # Bound per-addr queue length; further fragments from the
+            # same source are dropped until the timer flushes.
+            return
+        # If we get the same packet we ignore it
+        for incoming in reversed(deferred):
+            if incoming.data == msg.data:
+                return
+        deferred.append(msg)
+        loop = self.zc.loop
+        assert loop is not None
+        now = loop.time()
+        delay = millis_to_seconds(random.randint(*_TC_DELAY_RANDOM_INTERVAL))  # noqa: S311
+        fire_at = self._compute_deferred_fire_at(addr, now, delay)
+        if fire_at < 0.0:
+            # Sentinel: a new reset would push the flush past the
+            # per-addr reassembly deadline, so leave the existing
+            # TimerHandle in place rather than re-arming it.
+            return
+        self._cancel_any_timers_for_addr(addr)
+        self._timers[addr] = loop.call_at(
+            fire_at,
+            self._respond_query,
+            None,
+            addr,
+            port,
+            transport,
+            v6_flow_scope,
+        )
+
+    def _cancel_any_timers_for_addr(self, addr: _str) -> None:
+        """Cancel any future truncated packet timers for the address."""
+        if addr in self._timers:
+            self._timers.pop(addr).cancel()
+
+    def _compute_deferred_fire_at(self, addr: _str, now: _float, delay: _float) -> _float:
+        """Return the bounded call_at time for a TC-deferred flush, or -1.0 to keep the existing timer."""
+        # RFC 6762 §18.5 frames the random delay as a fixed reassembly budget
+        # starting at first arrival, not a sliding heartbeat.
+        deadline = self._deferred_deadlines.get(addr)
+        if deadline is None:
+            deadline = now + millis_to_seconds(_TC_DELAY_RANDOM_INTERVAL[1])
+            self._deferred_deadlines[addr] = deadline
+        fire_at = now + delay
+        if fire_at >= deadline:
+            if addr in self._timers:
+                # Existing timer already fires at or before the deadline;
+                # signal the caller to leave it alone rather than reset it.
+                return -1.0
+            # First packet for this addr already proposes a fire-time at
+            # or past the deadline — clamp to the deadline so the flush
+            # still happens within the reassembly budget.
+            return deadline
+        # Within budget: schedule at the proposed fire-time.
+        return fire_at
+
+    def _drop_deferred(self, addr: _str) -> None:
+        """Cancel an address's timer and discard its reassembly state."""
+        self._cancel_any_timers_for_addr(addr)
+        self._deferred_deadlines.pop(addr, None)
+        self._deferred.pop(addr, None)
+
+    def _evict_oldest_deferred(self) -> None:
+        """Discard the oldest deferred addr's reassembly state.
+
+        Used when ``_MAX_DEFERRED_ADDRS`` would be exceeded; the
+        evicted addr's queue and timer are dropped without firing, so
+        the bound holds even when an attacker rotates source IPs.
+        Eviction is FIFO (oldest by first-seen, via dict insertion
+        order) rather than LRU so an active flooder cannot pin its
+        slots by re-sending into the same addr.
+        """
+        self._drop_deferred(next(iter(self._deferred)))
 
     def _process_datagram_at_time(
         self,
@@ -232,112 +335,6 @@ class AsyncListener:
             assert self.transport is not None
         self.handle_query_or_defer(msg, addr, port, self.transport, v6_flow_scope)
 
-    def handle_query_or_defer(
-        self,
-        msg: DNSIncoming,
-        addr: _str,
-        port: _int,
-        transport: _WrappedTransport,
-        v6_flow_scope: tuple[()] | tuple[int, int],
-    ) -> None:
-        """Deal with incoming query packets.  Provides a response if
-        possible."""
-        if not msg.truncated:
-            self._respond_query(msg, addr, port, transport, v6_flow_scope)
-            return
-
-        if addr not in self._deferred and len(self._deferred) >= _MAX_DEFERRED_ADDRS:
-            # Bound total deferred addrs so a spoofed-source flood
-            # cannot keep adding distinct entries; evict the oldest
-            # (insertion-order) entry and discard its in-flight queue.
-            self._evict_oldest_deferred()
-
-        deferred = self._deferred.setdefault(addr, [])
-        if len(deferred) >= _MAX_DEFERRED_PER_ADDR:
-            # Bound per-addr queue length; further fragments from the
-            # same source are dropped until the timer flushes.
-            return
-        # If we get the same packet we ignore it
-        for incoming in reversed(deferred):
-            if incoming.data == msg.data:
-                return
-        deferred.append(msg)
-        loop = self.zc.loop
-        assert loop is not None
-        now = loop.time()
-        delay = millis_to_seconds(random.randint(*_TC_DELAY_RANDOM_INTERVAL))  # noqa: S311
-        fire_at = self._compute_deferred_fire_at(addr, now, delay)
-        if fire_at < 0.0:
-            # Sentinel: a new reset would push the flush past the
-            # per-addr reassembly deadline, so leave the existing
-            # TimerHandle in place rather than re-arming it.
-            return
-        self._cancel_any_timers_for_addr(addr)
-        self._timers[addr] = loop.call_at(
-            fire_at,
-            self._respond_query,
-            None,
-            addr,
-            port,
-            transport,
-            v6_flow_scope,
-        )
-
-    def _compute_deferred_fire_at(self, addr: _str, now: _float, delay: _float) -> _float:
-        """Return the bounded call_at time for a TC-deferred flush, or -1.0 to keep the existing timer."""
-        # RFC 6762 §18.5 frames the random delay as a fixed reassembly budget
-        # starting at first arrival, not a sliding heartbeat.
-        deadline = self._deferred_deadlines.get(addr)
-        if deadline is None:
-            deadline = now + millis_to_seconds(_TC_DELAY_RANDOM_INTERVAL[1])
-            self._deferred_deadlines[addr] = deadline
-        fire_at = now + delay
-        if fire_at >= deadline:
-            if addr in self._timers:
-                # Existing timer already fires at or before the deadline;
-                # signal the caller to leave it alone rather than reset it.
-                return -1.0
-            # First packet for this addr already proposes a fire-time at
-            # or past the deadline — clamp to the deadline so the flush
-            # still happens within the reassembly budget.
-            return deadline
-        # Within budget: schedule at the proposed fire-time.
-        return fire_at
-
-    def _cancel_any_timers_for_addr(self, addr: _str) -> None:
-        """Cancel any future truncated packet timers for the address."""
-        if addr in self._timers:
-            self._timers.pop(addr).cancel()
-
-    def _drop_deferred(self, addr: _str) -> None:
-        """Cancel an address's timer and discard its reassembly state."""
-        self._cancel_any_timers_for_addr(addr)
-        self._deferred_deadlines.pop(addr, None)
-        self._deferred.pop(addr, None)
-
-    def cancel_pending_timers(self) -> None:
-        """Cancel all pending TC-reassembly timers and drop deferred state.
-
-        Called when this listener's transport is removed so a timer cannot
-        fire a response against an already-closed transport. Every timer's
-        addr also has a deferred entry, so dropping each deferred addr
-        cancels its timer too.
-        """
-        for addr in list(self._deferred):
-            self._drop_deferred(addr)
-
-    def _evict_oldest_deferred(self) -> None:
-        """Discard the oldest deferred addr's reassembly state.
-
-        Used when ``_MAX_DEFERRED_ADDRS`` would be exceeded; the
-        evicted addr's queue and timer are dropped without firing, so
-        the bound holds even when an attacker rotates source IPs.
-        Eviction is FIFO (oldest by first-seen, via dict insertion
-        order) rather than LRU so an active flooder cannot pin its
-        slots by re-sending into the same addr.
-        """
-        self._drop_deferred(next(iter(self._deferred)))
-
     def _respond_query(
         self,
         msg: DNSIncoming | None,
@@ -354,20 +351,3 @@ class AsyncListener:
             packets.append(msg)
 
         self._query_handler.handle_assembled_query(packets, addr, port, transport, v6_flow_scope)
-
-    def error_received(self, exc: Exception) -> None:
-        """Likely socket closed or IPv6."""
-        # We preformat the message string with the socket as we want
-        # log_exception_once to log a warning message once PER EACH
-        # different socket in case there are problems with multiple
-        # sockets
-        msg_str = f"Error with socket {self.sock_description}): %s"
-        QuietLogger.log_exception_once(exc, msg_str, exc)
-
-    def connection_made(self, transport: asyncio.BaseTransport) -> None:
-        wrapped_transport = make_wrapped_transport(cast(asyncio.DatagramTransport, transport))
-        self.transport = wrapped_transport
-        self.sock_description = f"{wrapped_transport.fileno} ({wrapped_transport.sock_name})"
-
-    def connection_lost(self, exc: Exception | None) -> None:
-        """Handle connection lost."""

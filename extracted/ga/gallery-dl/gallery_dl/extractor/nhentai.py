@@ -25,8 +25,9 @@ class NhentaiGalleryExtractor(GalleryExtractor):
         url = f"{self.root}/api/v2/galleries/{self.groups[0]}"
         self.data = data = self.request_json(url)
 
-        title_en = data["title"].get("english", "")
-        title_ja = data["title"].get("japanese", "")
+        title = data["title"]
+        title_en = title.get("english", "")
+        title_ja = title.get("japanese", "")
 
         info = collections.defaultdict(list)
         for tag in data["tags"]:
@@ -42,6 +43,7 @@ class NhentaiGalleryExtractor(GalleryExtractor):
             "title"     : title_en or title_ja,
             "title_en"  : title_en,
             "title_ja"  : title_ja,
+            "title_pretty": title.get("pretty", ""),
             "gallery_id": data["id"],
             "media_id"  : text.parse_int(data["media_id"]),
             "date"      : self.parse_timestamp(data["upload_date"]),

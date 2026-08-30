@@ -318,9 +318,18 @@ async function loadPolicyState() {
       readOnlyState.enabledKnown = flagReported(roFlag);
       readOnlyState.flag = roFlag || null;
     } else {
+      // Log it: this handler is now the evidence the ambiguous-save path
+      // branches on, so "why did a security switch go unknown?" has to be
+      // answerable from the console.
+      console.warn(
+        '[ha-mcp] /api/settings/features returned HTTP ' + fresp.status +
+        '; flag switches shown as unknown');
       _clearFlagSwitchState();
     }
-  } catch (_e) {
+  } catch (e) {
+    // A malformed payload lands here as a TypeError, indistinguishable from
+    // a network drop unless we say which we saw.
+    console.warn('[ha-mcp] failed to read feature flags', e);
     _clearFlagSwitchState();
   }
   try {
@@ -480,7 +489,11 @@ async function loadTools() {
   updateStatus(t('status.loaded', {}, 'Loaded'));
 }
 
-async function applyInfoChrome() {
+// Restart-chrome half of applyInfoChrome: which restart control is shown
+// and what the restart notice tells the user to do. Split out (with the
+// footer below) so applyInfoChrome stays orchestration — the branch ladder
+// here alone sits near the complexity limit.
+function _applyRestartChrome(info) {
   // Show restart button if running as add-on; show Stop Sidecar
   // button only when this page is served by the stdio sidecar
   // (HTTP modes serve the same HTML but is_sidecar=false there, so
@@ -490,83 +503,91 @@ async function applyInfoChrome() {
   // reopen Claude Desktop" vs "click Restart Add-on" vs "restart
   // your Docker container") instead of a generic "restart the add-on"
   // that only matches one of three real deployment surfaces.
+  const noticeEl = document.getElementById('restartNoticeText');
+  if (info.is_addon) {
+    document.getElementById('restartBtn').style.display = '';
+    if (noticeEl) {
+      noticeEl.textContent = t(
+        'notice.restart.addon',
+        {},
+        '⚠ Changes saved. Click "Restart App (add-on)" for them to take effect. Then refresh the MCP tool list in your AI client.'
+      );
+    }
+  } else if (info.deployment_mode === 'embedded') {
+    // In-process (custom component) server: the restart endpoint reloads
+    // the server config entry, which reinstalls-if-newer and swaps the
+    // worker onto the freshly installed code.
+    const rbtn = document.getElementById('restartBtn');
+    rbtn.style.display = '';
+    restartTargetEmbedded = true;
+    rbtn.textContent = t('actions.restart_server', {}, 'Restart HA-MCP Server');
+    if (noticeEl) {
+      noticeEl.textContent = t(
+        'notice.restart.embedded',
+        {},
+        '⚠ Changes saved. Click "Restart HA-MCP Server" for them to take effect. Then refresh the MCP tool list in your AI client.'
+      );
+    }
+  } else if (info.is_sidecar) {
+    if (noticeEl) {
+      noticeEl.textContent = t(
+        'notice.restart.sidecar',
+        {},
+        '⚠ Changes saved. Fully quit and reopen your MCP client for them to take effect.'
+      );
+    }
+    document.getElementById('sidecarStopRow').style.display = '';
+  } else if (noticeEl) {
+    // HTTP / Docker / standalone — no button we can wire to a restart,
+    // so describe the action in process terms, then the client-refresh
+    // step (remote connectors cache the tool list, same as add-on mode).
+    noticeEl.textContent = t(
+      'notice.restart.standalone',
+      {},
+      '⚠ Changes saved. Restart the ha-mcp process, then refresh the MCP tool list in your AI client.'
+    );
+  }
+}
+
+// Footer — show the running build and the same deployment classification
+// used by ha_report_issue. The backend keeps embedded and sidecar distinct
+// because they need different restart behavior; preserve those concise
+// names here and clarify the less obvious packaging-oriented values.
+function _applyVersionFooter(info) {
+  if (!info.version) return;
+  const fEl = document.getElementById('versionFooterText');
+  const deploymentMode = typeof info.deployment_mode === 'string'
+    ? info.deployment_mode
+    : '';
+  const deploymentLabels = {
+    embedded: 'embedded',
+    sidecar: 'sidecar',
+    addon: t('footer.deployment.addon', {}, 'app/add-on'),
+    docker: t('footer.deployment.docker', {}, 'container/docker'),
+    pyinstaller: t('footer.deployment.pyinstaller', {}, 'standalone binary'),
+    git: t('footer.deployment.git', {}, 'source checkout'),
+    pypi: t('footer.deployment.pypi', {}, 'python package'),
+    unknown: t('footer.deployment.unknown', {}, 'unknown'),
+  };
+  const deploymentLabel = Object.prototype.hasOwnProperty.call(
+    deploymentLabels, deploymentMode
+  ) ? deploymentLabels[deploymentMode] : deploymentMode;
+  const installation = deploymentLabel
+    ? ' · ' + t(
+      'footer.installation',
+      {method: deploymentLabel},
+      'installation: {method}'
+    )
+    : '';
+  if (fEl) fEl.textContent = 'ha-mcp ' + info.version + installation;
+}
+
+async function applyInfoChrome() {
   try {
     const infoResp = await fetch('./api/settings/info');
     const info = await infoResp.json();
-    const noticeEl = document.getElementById('restartNoticeText');
-    if (info.is_addon) {
-      document.getElementById('restartBtn').style.display = '';
-      if (noticeEl) {
-        noticeEl.textContent = t(
-          'notice.restart.addon',
-          {},
-          '⚠ Changes saved. Click "Restart App (add-on)" for them to take effect. Then refresh the MCP tool list in your AI client.'
-        );
-      }
-    } else if (info.deployment_mode === 'embedded') {
-      // In-process (custom component) server: the restart endpoint reloads
-      // the server config entry, which reinstalls-if-newer and swaps the
-      // worker onto the freshly installed code.
-      const rbtn = document.getElementById('restartBtn');
-      rbtn.style.display = '';
-      rbtn.textContent = t('actions.restart_server', {}, 'Restart HA-MCP Server');
-      if (noticeEl) {
-        noticeEl.textContent = t(
-          'notice.restart.embedded',
-          {},
-          '⚠ Changes saved. Click "Restart HA-MCP Server" for them to take effect. Then refresh the MCP tool list in your AI client.'
-        );
-      }
-    } else if (info.is_sidecar) {
-      if (noticeEl) {
-        noticeEl.textContent = t(
-          'notice.restart.sidecar',
-          {},
-          '⚠ Changes saved. Fully quit and reopen your MCP client for them to take effect.'
-        );
-      }
-      document.getElementById('sidecarStopRow').style.display = '';
-    } else if (noticeEl) {
-      // HTTP / Docker / standalone — no button we can wire to a restart,
-      // so describe the action in process terms, then the client-refresh
-      // step (remote connectors cache the tool list, same as add-on mode).
-      noticeEl.textContent = t(
-        'notice.restart.standalone',
-        {},
-        '⚠ Changes saved. Restart the ha-mcp process, then refresh the MCP tool list in your AI client.'
-      );
-    }
-    // Footer — show the running build and the same deployment classification
-    // used by ha_report_issue. The backend keeps embedded and sidecar distinct
-    // because they need different restart behavior; preserve those concise
-    // names here and clarify the less obvious packaging-oriented values.
-    if (info.version) {
-      const fEl = document.getElementById('versionFooterText');
-      const deploymentMode = typeof info.deployment_mode === 'string'
-        ? info.deployment_mode
-        : '';
-      const deploymentLabels = {
-        embedded: 'embedded',
-        sidecar: 'sidecar',
-        addon: t('footer.deployment.addon', {}, 'app/add-on'),
-        docker: t('footer.deployment.docker', {}, 'container/docker'),
-        pyinstaller: t('footer.deployment.pyinstaller', {}, 'standalone binary'),
-        git: t('footer.deployment.git', {}, 'source checkout'),
-        pypi: t('footer.deployment.pypi', {}, 'python package'),
-        unknown: t('footer.deployment.unknown', {}, 'unknown'),
-      };
-      const deploymentLabel = Object.prototype.hasOwnProperty.call(
-        deploymentLabels, deploymentMode
-      ) ? deploymentLabels[deploymentMode] : deploymentMode;
-      const installation = deploymentLabel
-        ? ' · ' + t(
-          'footer.installation',
-          {method: deploymentLabel},
-          'installation: {method}'
-        )
-        : '';
-      if (fEl) fEl.textContent = 'ha-mcp ' + info.version + installation;
-    }
+    _applyRestartChrome(info);
+    _applyVersionFooter(info);
   } catch (e) {
     // A transient /api/settings/info failure must not leave the restart
     // button hidden / the restart notice unset silently — log it so the
@@ -653,6 +674,10 @@ function markRestartRequired() {
 // again); otherwise stays true through the restart cycle until the
 // page reloads.
 let restartInProgress = false;
+// True when the restart button drives the embedded (custom component) server
+// rather than the app (add-on) — the wait/give-up copy must name the right
+// thing (issue #2279 feedback: the embedded flow said "app" throughout).
+let restartTargetEmbedded = false;
 
 async function _fetchSettingsInfo() {
   // Read ``/api/settings/info`` once; return the parsed JSON or null
@@ -682,7 +707,8 @@ async function _probeAddonRestarted(previousInstanceId) {
     const info = await _fetchSettingsInfo();
     if (info) {
       if (previousInstanceId) {
-        if (info.instance_id && info.instance_id !== previousInstanceId) {
+        const current = restartTargetEmbedded ? info.worker_id : info.instance_id;
+        if (current && current !== previousInstanceId) {
           return true;
         }
         // Same instance_id (or field missing on the response) — keep
@@ -706,7 +732,9 @@ async function _runRestartReloadCycle(previousInstanceId) {
   // instance and we reload before the new one is up.
   btn.textContent = t('status.restarting', {}, 'Restarting…');
   await new Promise(r => setTimeout(r, RESTART_PROBE_INITIAL_GRACE_MS));
-  btn.textContent = t('status.waiting_addon', {}, 'Waiting for App (add-on) to come back online…');
+  btn.textContent = restartTargetEmbedded
+    ? t('status.waiting_server', {}, 'Waiting for the HA-MCP server to come back online…')
+    : t('status.waiting_addon', {}, 'Waiting for App (add-on) to come back online…');
   const restarted = await _probeAddonRestarted(previousInstanceId);
   if (restarted) {
     window.location.reload();
@@ -715,7 +743,9 @@ async function _runRestartReloadCycle(previousInstanceId) {
     // never actually fired (silent supervisor failure → instance_id
     // never flipped) OR supervisor is genuinely slower than the cap.
     // Surface a clear next-step instead of silently doing nothing.
-    btn.textContent = t('errors.addon_not_back', {}, 'App (add-on) did not come back online. Reload the page manually.');
+    btn.textContent = restartTargetEmbedded
+      ? t('errors.server_not_back', {}, 'The HA-MCP server did not come back online. Reload the page manually.')
+      : t('errors.addon_not_back', {}, 'App (add-on) did not come back online. Reload the page manually.');
     btn.disabled = false;
     restartInProgress = false;
   }
@@ -733,7 +763,12 @@ async function restartAddon() {
   // null is fine — the probe degrades to the old "any 200 means up"
   // mode rather than refusing to reload.
   const info = await _fetchSettingsInfo();
-  const previousInstanceId = info?.instance_id ?? null;
+  // Embedded restarts reload the config entry inside the surviving HA
+  // process, so instance_id never flips there; worker_id is pinned to the
+  // server instance and flips exactly when the reload completes.
+  const previousInstanceId = restartTargetEmbedded
+    ? (info?.worker_id ?? null)
+    : (info?.instance_id ?? null);
   try {
     const resp = await fetch('./api/settings/restart', {method: 'POST'});
     if (!resp.ok && resp.status < 500) {
@@ -769,6 +804,10 @@ async function restartAddon() {
     restartChannel.postMessage({
       type: 'restart-initiated',
       previousInstanceId,
+      // Receivers may get this before their own init has classified the
+      // deployment; without the sender's flag they would compare an
+      // embedded worker_id baseline against instance_id and time out.
+      targetEmbedded: restartTargetEmbedded,
     });
   }
   await _runRestartReloadCycle(previousInstanceId);
@@ -787,10 +826,15 @@ if (restartChannel) {
       restartInProgress = true;
       const btn = document.getElementById('restartBtn');
       if (btn) btn.disabled = true;
-      // Use the originating tab's baseline ``instance_id`` so every
-      // tab waits for the SAME ``instance_id`` flip before reloading.
-      // Falls back to null → "any 200 = ready" mode if the originator
-      // couldn't capture one.
+      // Use the originating tab's baseline so every tab waits for the
+      // SAME identity flip before reloading, and adopt its deployment
+      // classification too: this listener can fire before this tab's own
+      // init resolved it, and an embedded worker_id baseline compared
+      // against instance_id would never flip. Falls back to null →
+      // "any 200 = ready" mode if the originator couldn't capture one.
+      if (typeof data.targetEmbedded === 'boolean') {
+        restartTargetEmbedded = data.targetEmbedded;
+      }
       _runRestartReloadCycle(data.previousInstanceId ?? null);
     }
   });
@@ -1609,8 +1653,8 @@ function renderFsCustomPathsSubForm(parentEl, masterOn, fsOn) {
       ? d.deny_floor.join(', ')
       : '.storage, secrets.yaml';
   info.innerHTML =
-    `<div class="feature-name">${escapeHtml(t('filesystem.custom.title', {}, 'Custom filesystem directories (advanced)'))}</div>` +
-    `<div class="feature-help">${tHtml('filesystem.custom.help', {}, 'Extra directories (one per line) that the file tools may READ and WRITE, either relative to your config dir or an absolute allowed HAOS sibling volume. Each entry grants both read and write. Applies immediately; no restart needed.')}</div>` +
+    `<div class="feature-name">${escapeHtml(t('filesystem.custom.title', {}, 'Custom filesystem paths (advanced)'))}</div>` +
+    `<div class="feature-help">${tHtml('filesystem.custom.help', {}, 'Extra paths (one per line) that file tools may <strong>read and write</strong>. Config-relative paths, including exact filenames such as <code>sensor.yaml</code>, and paths under <code>/share</code>, <code>/media</code>, <code>/ssl</code>, and <code>/backup</code> are supported. Each entry allows that path and anything below it. You can also manage these paths in Home Assistant under Settings → Devices & Services → HA-MCP Custom Component → HA-MCP File & YAML Tools → Configure; both locations edit the same setting and apply changes immediately.')}</div>` +
     `<div class="feature-help">${tHtml('filesystem.custom.blocked', {paths: `<code>${escapeHtml(denyList)}</code>`}, 'Always blocked (cannot be added): {paths}, path traversal (<code>..</code>), and any absolute path outside the HAOS sibling volumes.')}</div>`;
 
   const control = document.createElement('div');
@@ -1630,7 +1674,7 @@ function renderFsCustomPathsSubForm(parentEl, masterOn, fsOn) {
     const note = document.createElement('div');
     note.className = 'feature-locked-note';
     note.textContent =
-      d.reason || t('filesystem.custom.unavailable', {}, 'Custom directories are currently unavailable.');
+      d.reason || t('filesystem.custom.unavailable', {}, 'Custom paths are currently unavailable.');
     control.appendChild(note);
   } else {
     const ta = document.createElement('textarea');
@@ -1640,7 +1684,7 @@ function renderFsCustomPathsSubForm(parentEl, masterOn, fsOn) {
     const btn = document.createElement('button');
     btn.id = 'fsCustomPathsSave';
     btn.className = 'adv-save-btn';
-    btn.textContent = t('filesystem.custom.save', {}, 'Save directories');
+    btn.textContent = t('filesystem.custom.save', {}, 'Save paths');
     btn.addEventListener('click', saveFsCustomPaths);
     const status = document.createElement('div');
     status.id = 'fsCustomPathsStatus';
@@ -1990,7 +2034,7 @@ const FEATURE_META = {
   },
   enable_lite_docstrings: {
     label: "Enable lite tool docstrings (beta)",
-    help: "Beta feature. Replaces the docstrings on a handful of heavy ha-mcp tools (automations, scripts, scenes, helpers, dashboards, ha_call_service, ha_config_set_yaml) with shorter variants that defer schema and example detail to the ha_get_skill_guide tool (or its skill:// resource). WARNING: this reduces idle token usage, but may degrade LLM performance — the trimmed descriptions rely on the LLM actually calling the skill tool or reading the skill resource for detail, which is not guaranteed (some models will skip the extra tool call and end up with less guidance than they had before). Best paired with a client that supports MCP resources or with enable_tool_search. Requires restart to take effect. REQUIRES the master \"Enable beta features\" toggle above (and in the web UI) to be on — otherwise this sub-flag is ignored at runtime regardless of its value here.",
+    help: "Beta feature. Replaces the docstrings on 15 heavy ha-mcp tools (ha_config_get_automation, ha_config_set_automation, ha_config_get_script, ha_config_set_script, ha_config_get_scene, ha_config_set_scene, ha_config_list_helpers, ha_config_set_helper, ha_config_get_dashboard, ha_config_set_dashboard, ha_call_service, ha_config_set_yaml, ha_search, ha_manage_backup, ha_report_issue) with shorter variants that defer schema and example detail to the ha_get_skill_guide tool (or its skill:// resource). One exception: ha_report_issue defers to the instructions field of its own response instead. Tuning the Backup-hint setting still applies in lite mode. WARNING: this reduces idle token usage, but may degrade LLM performance — the trimmed descriptions rely on the LLM actually calling the skill tool or reading the skill resource for detail, which is not guaranteed (some models will skip the extra tool call and end up with less guidance than they had before). Best paired with a client that supports MCP resources or with enable_tool_search. Requires restart to take effect. REQUIRES the master \"Enable beta features\" toggle above (and in the web UI) to be on — otherwise this sub-flag is ignored at runtime regardless of its value here.",
   },
   enable_dashboard_screenshot: {
     label: "Enable dashboard screenshot mode (beta)",
@@ -2481,10 +2525,20 @@ function renderAdvancedSubRows(parentEl, section, cssClass, lockedByGate) {
   });
 }
 
-// Returns true only when the server confirmed the save (HTTP ok), false
-// on any network/HTTP failure. Callers that need to revert UI state on a
-// failed save (the toggle handlers) branch on this; the additive return
-// doesn't affect callers that ignore it.
+// Three-valued, because "did not succeed" and "did not happen" are not the
+// same thing and the toggle handlers have to tell them apart:
+//
+//   parsed body (truthy) - the server confirmed the save. Carries `applied`
+//                          (what it persisted) and `restart_required`.
+//   false                - the server answered and refused. The previous
+//                          value is confirmed; reverting the UI is correct.
+//   null                 - AMBIGUOUS. No usable answer came back, so the
+//                          write may or may not have landed. Callers must
+//                          re-read before asserting which value the server
+//                          holds.
+//
+// `!saved` still covers both failure cases for callers that only care
+// whether it succeeded.
 async function saveFeatureFlag(fieldName, value) {
   updateStatus(t('status.saving_server_setting', {}, 'Saving server setting...'));
   let resp;
@@ -2496,7 +2550,14 @@ async function saveFeatureFlag(fieldName, value) {
     });
   } catch (e) {
     updateStatus(t('errors.save_failed_detail', {message: e.message}, 'Save failed: ' + e.message), false, true);
-    return false;
+    // null, not false: the request was never answered, so we do NOT know
+    // whether it landed. `!saved` still holds for callers that only care
+    // about "didn't succeed"; the toggle handlers check for null and
+    // re-read before asserting which value the server has. An `!resp.ok`
+    // below stays `false` — there the server answered, so the previous
+    // value is confirmed and a re-read would only turn a known state
+    // into an unknown one.
+    return null;
   }
   let data = null;
   try { data = await resp.json(); } catch (_e) {
@@ -2511,6 +2572,23 @@ async function saveFeatureFlag(fieldName, value) {
     let msg = t('errors.save_failed_http', {status: resp.status}, `Save failed (HTTP ${resp.status})`);
     if (data?.error?.message) msg = t('errors.save_failed_detail', {message: data.error.message}, 'Save failed: ' + data.error.message);
     updateStatus(msg, false, true);
+    // Not every error response means the write didn't happen. In app
+    // (add-on) mode the save goes through the supervisor, and
+    // _supervisor.py catches EVERY httpx.HTTPError - read timeouts
+    // included - into _SupervisorOptionsError.transport(), which hardcodes
+    // 502 and maps to CONNECTION_FAILED. A read timeout means the POST
+    // reached the supervisor and the RESPONSE was lost, so
+    // /addons/self/options can be written while we answer 502. A bodyless
+    // 502/504 is ingress doing the same in front of us: `data` stays null,
+    // because the `resp.ok` guard above only supplies the fallback body on
+    // success. Both are ambiguous in exactly the way a rejected fetch is.
+    //
+    // File mode stays unambiguous - every failure path in
+    // _write_feature_flag_overrides_file returns before or from the atomic
+    // write - and a supervisor validation refusal keeps its real status
+    // code, so it lands as `false` and still reverts.
+    if (data?.error?.code === 'CONNECTION_FAILED') return null;
+    if (!data && (resp.status === 502 || resp.status === 504)) return null;
     return false;
   }
   // Unified restart flow — save persists the change but does NOT fire
@@ -3550,6 +3628,68 @@ async function policyDecide(token, action) {
   policyLoadPending();
 }
 
+// Shared failed-save handling for the three feature-flag toggles (policy
+// master, policy-editing tool, Read Only Mode). Before this existed the
+// block was ~40 lines duplicated three times, so review items 1 and 2 each
+// cost three edits and a fourth copy would have been easy to miss.
+//
+// `saved === false` is a refusal: the server answered, so the previous value
+// is confirmed and reverting is correct. `null` is ambiguous — the write may
+// have landed with only its response lost — so re-read first and revert only
+// when the readback actually shows the old value.
+//
+// `spec` is {readState, revertKey, revertText}: readState() returns
+// {value, known} for this toggle's slice of policyState/readOnlyState.
+//
+// Repaints are NOT per-toggle. The re-read below is loadPolicyState(),
+// which refreshes — or, through _clearFlagSwitchState(), clears — the
+// state slices of ALL THREE switches. Repainting only the toggle being
+// saved left the other two painted from state that no longer existed:
+// a failed re-read after a Read Only Mode save cleared both policy
+// slices while their switches stayed editable at the stale value with
+// #policyUnknownNotice hidden, and vice versa for #roUnknownNotice.
+function _repaintFlagSwitches() {
+  paintPolicyGlobalToggles();
+  syncReadOnlyToggle();
+  render();
+}
+
+async function handleFailedFlagSave(checkbox, previous, saved, spec) {
+  if (saved === false) {
+    // No re-read happened, so the other switches' state is untouched and
+    // repainting them is a no-op — one shape for both branches.
+    checkbox.checked = previous;
+    _repaintFlagSwitches();
+    updateStatus(t(spec.revertKey, {}, spec.revertText), false, true);
+    return;
+  }
+  await loadPolicyState();
+  const state = spec.readState();
+  let msg, ok = false;
+  if (state.known && state.value === previous) {
+    checkbox.checked = previous;
+    msg = t(spec.revertKey, {}, spec.revertText);
+  } else if (state.known) {
+    // The write landed; only the response was lost. Leave the switch where
+    // the server actually is, and arm the restart banner — these flags gate
+    // tool registration at startup and the success toast auto-dismisses.
+    checkbox.checked = state.value;
+    msg = t('status.saved_restart', {}, 'Saved. Restart required.');
+    ok = true;
+    markRestartRequired();
+  } else {
+    // Neither value confirmed. Say the thing that is actually true rather
+    // than reusing the global-unknown copy, which talks about "the two
+    // switches below" and reads wrong in a snackbar.
+    msg = t('errors.save_outcome_unknown', {},
+      'Could not confirm the change. It may or may not have been applied — ' +
+      'reload to see what the server has.');
+  }
+  // Paint before the status line so the repaint can't clobber it.
+  _repaintFlagSwitches();
+  updateStatus(msg, ok, !ok);
+}
+
 document.getElementById('policy-save-global-btn').addEventListener('click', saveGlobalSettings);
 
 // Master toggle on this tab mirrors the Server Settings checkbox.
@@ -3559,15 +3699,12 @@ document.getElementById('policy-master-toggle').addEventListener('change', async
   const previous = !e.target.checked;  // user just flipped; previous is the OPPOSITE.
   const saved = await saveFeatureFlag('enable_tool_security_policies', e.target.checked);
   if (!saved) {
-    // Save definitely failed — the server still has the old value.
-    // Revert the checkbox and surface the failure (set the status AFTER
-    // the revert so it isn't clobbered).
-    e.target.checked = previous;
-    updateStatus(t(
-      'policies.errors.master_save',
-      {},
-      'Tool Security Policies change did not save. The server still has the previous value'
-    ), false, true);
+    await handleFailedFlagSave(e.target, previous, saved, {
+      readState: () => ({value: policyState.enabled, known: policyState.enabledKnown}),
+      revertKey: 'policies.errors.master_save',
+      revertText:
+        'Tool Security Policies change did not save. The server still has the previous value',
+    });
     return;
   }
   // Re-read the truth from the server. If that read can't confirm, fall
@@ -3584,6 +3721,9 @@ document.getElementById('policy-master-toggle').addEventListener('change', async
     }
   }
   paintPolicyGlobalToggles();
+  // render() reads policyState for the per-tool security-gate treatment, so
+  // the rows go stale unless it runs after the flag settles.
+  render();
 });
 
 // Policy-editing tool toggle (enable_security_policy_tool) — same
@@ -3594,15 +3734,12 @@ document.getElementById('policy-manage-tool-toggle').addEventListener('change', 
   const previous = !e.target.checked;  // user just flipped; previous is the OPPOSITE.
   const saved = await saveFeatureFlag('enable_security_policy_tool', e.target.checked);
   if (!saved) {
-    // Save definitely failed — the server still has the old value.
-    // Revert the checkbox and surface the failure (set the status AFTER
-    // the revert so it isn't clobbered).
-    e.target.checked = previous;
-    updateStatus(t(
-      'policies.errors.manage_tool_save',
-      {},
-      'Policy-editing tool change did not save. The server still has the previous value'
-    ), false, true);
+    await handleFailedFlagSave(e.target, previous, saved, {
+      readState: () => ({value: policyState.manageToolEnabled, known: policyState.manageToolKnown}),
+      revertKey: 'policies.errors.manage_tool_save',
+      revertText:
+        'Policy-editing tool change did not save. The server still has the previous value',
+    });
     return;
   }
   // Same confirm-then-fall-back order as the master toggle above.
@@ -3615,6 +3752,9 @@ document.getElementById('policy-manage-tool-toggle').addEventListener('change', 
     }
   }
   paintPolicyGlobalToggles();
+  // render() reads policyState for the per-tool security-gate treatment, so
+  // the rows go stale unless it runs after the flag settles.
+  render();
 });
 
 // Read Only Mode toggle (Tools tab, above the search box) — same flag
@@ -3624,17 +3764,12 @@ document.getElementById('read-only-mode-toggle').addEventListener('change', asyn
   const previous = !e.target.checked;  // user just flipped; previous is the OPPOSITE.
   const saved = await saveFeatureFlag('read_only_mode', e.target.checked);
   if (!saved) {
-    // Save definitely failed — the server still has the previous value.
-    // Revert the checkbox and leave readOnlyState.enabled untouched (do
-    // NOT write an unconfirmed value). Set the status AFTER the revert
-    // so the revert's render/sync can't clobber the message.
-    e.target.checked = previous;
-    render();
-    updateStatus(t(
-      'tools.read_only.save_failed',
-      {},
-      'Read Only Mode change did not save. The server still has the previous value'
-    ), false, true);
+    await handleFailedFlagSave(e.target, previous, saved, {
+      readState: () => ({value: readOnlyState.enabled, known: readOnlyState.enabledKnown}),
+      revertKey: 'tools.read_only.save_failed',
+      revertText:
+        'Read Only Mode change did not save. The server still has the previous value',
+    });
     return;
   }
   // Re-read the truth from the server; if that read couldn't confirm,

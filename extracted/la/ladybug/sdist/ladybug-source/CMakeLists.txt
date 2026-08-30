@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Lbug VERSION 0.19.1 LANGUAGES CXX C)
+project(Lbug VERSION 0.20.0 LANGUAGES CXX C)
 
 option(SINGLE_THREADED "Single-threaded mode" FALSE)
 if(SINGLE_THREADED)
@@ -18,6 +18,28 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_FIND_PACKAGE_RESOLVE_SYMLINKS TRUE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# When building inside a pixi/conda env (CI uses setup-pixi with
+# activate-environment: true, setting $CONDA_PREFIX), stage the env as a CMake
+# search prefix. find_package(Arrow) already happens to resolve libarrow's
+# ArrowConfig.cmake under <env>/lib/cmake, but module-based probes such as
+# FindOpenMP (find_library/find_path for llvm-openmp's libomp) never see that
+# prefix and fail. Prepending the env here makes every find_* consult it, so
+# new deps just need a pixi.toml entry - no per-lib HINTS (cf. extension/adbc).
+if(DEFINED ENV{CONDA_PREFIX} AND EXISTS "$ENV{CONDA_PREFIX}")
+    # Normalize backslashes to forward slashes so the path survives being
+    # round-tripped through CMake's set(... "...") parser. try_compile's scratch
+    # file embeds CMAKE_*_PATH entries in a set() call, and CMake 3.31 rejects
+    # unrecognized escape sequences like "\a", "\b", etc. that appear in Windows
+    # pixi paths (e.g. D:\a\...\.pixi\envs\default). On non-Windows this is a no-op.
+    file(TO_CMAKE_PATH "$ENV{CONDA_PREFIX}" _lbug_conda_prefix)
+    list(PREPEND CMAKE_PREFIX_PATH "${_lbug_conda_prefix}")
+    list(PREPEND CMAKE_MODULE_PATH "${_lbug_conda_prefix}/lib/cmake")
+    if(WIN32 AND EXISTS "$ENV{CONDA_PREFIX}/Library")
+        file(TO_CMAKE_PATH "$ENV{CONDA_PREFIX}/Library" _lbug_conda_lib)
+        list(PREPEND CMAKE_PREFIX_PATH "${_lbug_conda_lib}")
+    endif()
+    message(STATUS "Using pixi/conda env for dependencies: ${_lbug_conda_prefix}")
+endif()
 # On Linux, symbols in executables are not accessible by loaded shared libraries (e.g. via dlopen(3)). However, we need to export public symbols in executables so that extensions can access public symbols. This enables that behaviour.
 set(CMAKE_ENABLE_EXPORTS TRUE)
 
@@ -137,6 +159,7 @@ option(ENABLE_UBSAN "Enable undefined behavior sanitizer." FALSE)
 option(ENABLE_RUNTIME_CHECKS "Enable runtime coherency checks (e.g. asserts)" FALSE)
 option(ENABLE_LTO "Enable Link-Time Optimization" FALSE)
 option(ENABLE_MALLOC_BUFFER_MANAGER "Enable Buffer manager using malloc. Default option for webassembly" OFF)
+option(LBUG_ENABLE_SIMD "Enable runtime-dispatched query-processor SIMD kernels." ON)
 
 option(LBUG_DEFAULT_REL_STORAGE_DIRECTION "Only store fwd direction in rel tables by default." BOTH)
 if(NOT LBUG_DEFAULT_REL_STORAGE_DIRECTION)
@@ -499,7 +522,7 @@ unset(LBUG_LINK_LIBRARIES)
 
 add_definitions(-DLBUG_ROOT_DIRECTORY="${PROJECT_SOURCE_DIR}")
 add_definitions(-DLBUG_CMAKE_VERSION="${CMAKE_PROJECT_VERSION}")
-add_definitions(-DLBUG_EXTENSION_VERSION="0.19.0")
+add_definitions(-DLBUG_EXTENSION_VERSION="0.20.0")
 
 if(BUILD_LBUG OR LBUG_API_USE_PRECOMPILED_LIB)
 include_directories(

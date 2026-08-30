@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -89,22 +74,22 @@ def _mark_seen(seen: dict[str, None], key: str) -> bool:
 
 class QuietLogger:
     @classmethod
+    def log_exception_debug(cls, *logger_data: Any) -> None:
+        first_time = _mark_seen(_seen_logs, str(sys.exc_info()[1]))
+        log.debug(*(logger_data or ["Exception occurred"]), exc_info=first_time)
+
+    @classmethod
+    def log_exception_once(cls, exc: Exception, *args: Any) -> None:
+        logger = log.warning if _mark_seen(_seen_logs, args[0]) else log.debug
+        logger(*args, exc_info=exc)
+
+    @classmethod
     def log_exception_warning(cls, *logger_data: Any) -> None:
         first_time = _mark_seen(_seen_logs, str(sys.exc_info()[1]))
         logger = log.warning if first_time else log.debug
         logger(*(logger_data or ["Exception occurred"]), exc_info=True)
 
     @classmethod
-    def log_exception_debug(cls, *logger_data: Any) -> None:
-        first_time = _mark_seen(_seen_logs, str(sys.exc_info()[1]))
-        log.debug(*(logger_data or ["Exception occurred"]), exc_info=first_time)
-
-    @classmethod
     def log_warning_once(cls, *args: Any) -> None:
         logger = log.warning if _mark_seen(_seen_logs, args[0]) else log.debug
         logger(*args)
-
-    @classmethod
-    def log_exception_once(cls, exc: Exception, *args: Any) -> None:
-        logger = log.warning if _mark_seen(_seen_logs, args[0]) else log.debug
-        logger(*args, exc_info=exc)

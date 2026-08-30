@@ -57,6 +57,13 @@ void ResultCollector::executeInternal(ExecutionContext* context) {
     }
 }
 
+void ResultCollector::prepareForReuse(storage::MemoryManager* memoryManager) {
+    // Clear the existing result table instead of freeing + re-allocating.
+    // This keeps the DataBlocks alive so the next execution reuses them.
+    sharedState->getTable()->clear();
+    PhysicalOperator::prepareForReuse(memoryManager);
+}
+
 void ResultCollector::finalizeInternal(ExecutionContext* context) {
     switch (info.accumulateType) {
     case AccumulateType::OPTIONAL_: {

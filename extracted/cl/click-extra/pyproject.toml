@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "8.9.1"
+version = "9.0.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -70,7 +70,7 @@ classifiers = [
 ]
 dependencies = [
     "boltons>=20",
-    "click>=8.3.1",
+    "click>=8.4.1",
     "cloup>=3.0.7",
     "deepmerge>=1.0.1",
     "extra-platforms>=13.4",
@@ -108,7 +108,7 @@ yaml = ["pyyaml>=6.0.3"]
 
 [project.urls]
 Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v8.9.1"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v9.0.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/click-extra"
 Issues = "https://github.com/kdeldycke/click-extra/issues"
@@ -212,6 +212,9 @@ exclude-newer = "1 week"
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.14"
 
+[tool.uv.exclude-newer-package]
+click = "2026-08-27T00:00:00Z"
+
 [tool.uv.build-backend]
 module-root = ""
 source-exclude = [
@@ -270,7 +273,6 @@ extend-ignore-identifiers-re = [
     "mey",
     "certifi",
     "optoin",
-    "astroid",
 ]
 
 [tool.typos.default.extend-identifiers]
@@ -278,8 +280,18 @@ Github = "GitHub"
 IOS = "iOS"
 Javascript = "JavaScript"
 MacOS = "macOS"
+PATCHed = "PATCHed"
+PNGs = "PNGs"
 PyPi = "PyPI"
 Typescript = "TypeScript"
+
+[tool.typos.default.extend-words]
+astroid = "astroid"
+oject = "oject"
+sur = "sur"
+
+[tool.typos.type.svg]
+check-file = false
 
 [tool.mypy]
 check_untyped_defs = true
@@ -318,15 +330,15 @@ testpaths = ["tests"]
 xfail_strict = true
 
 [tool.coverage.run]
-branch = true
 source = ["click_extra"]
+branch = true
 
 [tool.coverage.report]
 fail_under = 70
 precision = 2
 
 [tool.bumpversion]
-current_version = "8.9.1"
+current_version = "9.0.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -415,7 +427,6 @@ exclude = [
     "^https://github.com/.+/blob/.+#L[0-9]+",
     "^https://github.com/.+/releases/.+/download/.*$",
     "^https://doi.org/.+/zenodo.*$",
-    "^https://star-history.com/#.*$",
     "^https://crates.io/crates/.*$",
     '^https://www\.virustotal\.com/gui/.*$',
     "^https://asciinema.org.*$",
@@ -424,7 +435,12 @@ exclude = [
 ]
 
 [tool.repomatic]
-exclude = ["workflows/debug.yaml"]
+abandoned-versions = [
+    "1.0.0",
+    "3.3.2",
+    "7.17.0",
+    "7.17.1",
+]
 minimum-release-age = "7 days"
 
 [tool.repomatic.dependency-graph]
@@ -434,6 +450,29 @@ no-extras = ["all"]
 
 [tool.repomatic.manpages]
 script = "click_extra.cli:demo"
+
+[tool.repomatic.metrics]
+store = "./docs/assets/metrics.csv"
+sync = true
+
+[[tool.repomatic.metrics.charts]]
+output = "./docs/assets/star-history-compared.svg"
+scale = "logarithmic"
+title = "GitHub star history of click-extra and its alternatives"
+
+[tool.repomatic.metrics.subjects]
+bpaf = "pacak/bpaf"
+cement = "datafolklabs/cement"
+clap = "clap-rs/clap"
+click = "pallets/click"
+click-extra = "kdeldycke/click-extra"
+cloup = "janluke/cloup"
+cobra = "spf13/cobra"
+cyclopts = "BrianPugh/cyclopts"
+fire = "google/python-fire"
+rich-click = "ewels/rich-click"
+typer = "fastapi/typer"
+tyro = "brentyi/tyro"
 
 [tool.repomatic.nuitka]
 nofollow-imports = ["tkinter"]
@@ -465,56 +504,42 @@ python-version = "3.15"
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.10"
-click-version = "8.3.1"
-cloup-version = "released"
-
-[[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-26.04-arm"
-python-version = "3.10"
-click-version = "8.3.2"
-cloup-version = "released"
-
-[[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-26.04-arm"
-python-version = "3.10"
-click-version = "8.3.3"
-cloup-version = "released"
-
-[[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-26.04-arm"
-python-version = "3.10"
-click-version = "8.4.0"
-cloup-version = "released"
-
-[[tool.repomatic.test-matrix.full-include]]
-os = "ubuntu-26.04-arm"
-python-version = "3.10"
 click-version = "8.4.1"
 cloup-version = "released"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
+python-version = "3.10"
+click-version = "8.4.2"
+cloup-version = "released"
+
+[[tool.repomatic.test-matrix.full-include]]
+os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "stable"
 cloup-version = "released"
+state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "stable"
 cloup-version = "released"
+state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "main"
 cloup-version = "released"
+state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "main"
 cloup-version = "released"
+state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
@@ -533,24 +558,28 @@ os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "stable"
 cloup-version = "master"
+state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "stable"
 cloup-version = "master"
+state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.14"
 click-version = "main"
 cloup-version = "master"
+state = "unstable"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.14t"
 click-version = "main"
 cloup-version = "master"
+state = "unstable"
 
 [tool.click-extra.test-suite]
 file = "tests/cli-test-suite.toml"

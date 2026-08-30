@@ -91,12 +91,24 @@ from omnibase_core.models.dashboard.model_renderer_theme_contract import (
     ModelRendererThemeContract,
 )
 from omnibase_core.models.dashboard.model_review_packet import ModelReviewPacket
+from omnibase_core.models.dashboard.model_severity_role import (
+    DEFAULT_SEVERITY_ROLES,
+    ModelSeverityRole,
+)
+from omnibase_core.models.dashboard.model_severity_verdict import ModelSeverityVerdict
 from omnibase_core.models.dashboard.model_status_item_config import (
     ModelStatusItemConfig,
 )
+from omnibase_core.models.dashboard.model_status_secondary import ModelStatusSecondary
 from omnibase_core.models.dashboard.model_table_column_config import (
     ModelTableColumnConfig,
 )
+from omnibase_core.models.dashboard.model_theme_activation import ModelThemeActivation
+from omnibase_core.models.dashboard.model_theme_catalog import ModelThemeCatalog
+from omnibase_core.models.dashboard.model_theme_catalog_entry import (
+    ModelThemeCatalogEntry,
+)
+from omnibase_core.models.dashboard.model_theme_instance import ModelThemeInstance
 from omnibase_core.models.dashboard.model_widget_config_chart import (
     ModelWidgetConfigChart,
 )
@@ -116,8 +128,17 @@ from omnibase_core.models.dashboard.model_widget_definition import (
     ModelWidgetConfig,
     ModelWidgetDefinition,
 )
+from omnibase_core.models.dashboard.model_widget_envelope import ModelWidgetEnvelope
+from omnibase_core.models.dashboard.model_widget_provenance import (
+    ModelWidgetProvenance,
+)
 
 __all__: tuple[str, ...] = (
+    # Theme contract, instances, and catalog (OMN-13389 / OMN-16882)
+    "ModelThemeActivation",
+    "ModelThemeCatalog",
+    "ModelThemeCatalogEntry",
+    "ModelThemeInstance",
     # Dashboard Configuration
     "ModelDashboardConfig",
     "ModelDashboardLayoutConfig",
@@ -137,9 +158,13 @@ __all__: tuple[str, ...] = (
     # Metric Card Widget
     "ModelMetricThreshold",
     "ModelWidgetConfigMetricCard",
-    # Status Grid Widget
+    # Status Grid Widget + semantic severity (OMN-16884 — Phase C3)
     "ModelStatusItemConfig",
     "ModelWidgetConfigStatusGrid",
+    "DEFAULT_SEVERITY_ROLES",
+    "ModelSeverityRole",
+    "ModelSeverityVerdict",
+    "ModelStatusSecondary",
     # Event Feed Widget
     "ModelEventFilter",
     "ModelWidgetConfigEventFeed",
@@ -154,6 +179,10 @@ __all__: tuple[str, ...] = (
     "ModelRendererCapabilityContract",
     # Versioned design-token contract (OMN-13389)
     "ModelRendererThemeContract",
+    # One versioned widget envelope — the unit Plane 1 distributes
+    # (OMN-16883, Phase C2)
+    "ModelWidgetEnvelope",
+    "ModelWidgetProvenance",
     # Review Packet + OmniStudio Evidence Bundle (OMN-13387)
     "ModelReviewPacket",
     "ModelOmniStudioEvidenceBundle",

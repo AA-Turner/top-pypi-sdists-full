@@ -34,9 +34,8 @@ import logging
 from typing import TYPE_CHECKING, Any, Final, Self
 
 import aiohttp
-import openccu_loom_types
-from openccu_loom_types.rest import Info
 
+from openccu_loom_client import wire
 from openccu_loom_client.exceptions import (
     BaseLoomException,
     LoomIncompatibleVersionError,
@@ -46,6 +45,7 @@ from openccu_loom_client.exceptions import (
     http_error_from_problem,
     parse_problem,
 )
+from openccu_loom_client.wire.rest import Info
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -193,28 +193,28 @@ class HttpTransport:
         """
         Compare the daemon's ``schema_digest`` with the installed types package.
 
-        The reference value is stamped into ``openccu-loom-types`` at
-        generation time (daemon ADR 0028); equality means the generated
-        types match the daemon build exactly. A mismatch is logged as a
+        The reference value is stamped into ``openccu_loom_client.wire``
+        at generation time (daemon ADR 0028); equality means the generated
+        wire types match the daemon build exactly. A mismatch is logged as a
         warning, not raised: the contract may still be compatible —
         ``api_version`` and the capability set govern hard compatibility.
         Silently skipped when either side predates the digest (old
-        daemon or unstamped types package).
+        daemon or unstamped wire layer).
         """
         daemon_digest = info_payload.get("schema_digest", "") if isinstance(info_payload, dict) else ""
-        types_digest = getattr(openccu_loom_types, "SCHEMA_DIGEST", "")
+        types_digest = getattr(wire, "SCHEMA_DIGEST", "")
         if not daemon_digest or not types_digest:
             return
         if daemon_digest != types_digest:
             _LOGGER.warning(
-                "openccu-loom-types was generated from a different daemon build: "
-                "daemon at %s reports schema_digest=%s, installed types carry %s "
-                "(types daemon_api_version=%s, daemon api_version=%s) — "
-                "update openccu-loom-types to match the daemon release",
+                "this build's wire types were generated from a different daemon build: "
+                "daemon at %s reports schema_digest=%s, this build carries %s "
+                "(built for daemon_api_version=%s, daemon reports api_version=%s) — "
+                "install the openccu-loom-client release matching the daemon",
                 self._config.host,
                 daemon_digest,
                 types_digest,
-                getattr(openccu_loom_types, "DAEMON_API_VERSION", "?"),
+                getattr(wire, "DAEMON_API_VERSION", "?"),
                 self._info.api_version if self._info else "?",
             )
 
@@ -222,8 +222,8 @@ class HttpTransport:
         """
         Fail fast when the daemon's API version is incompatible with the types.
 
-        The installed ``openccu-loom-types`` package is generated against one
-        daemon API version (``DAEMON_API_VERSION``). Under the daemon's semver
+        This package's wire layer is generated against one daemon API
+        version (``DAEMON_API_VERSION``). Under the daemon's semver
         contract a *major* bump is breaking and a *minor* bump adds only
         backward-compatible surface, so this build is compatible with a daemon
         of the **same major** whose **minor is at least** the one the types
@@ -238,7 +238,7 @@ class HttpTransport:
         Takes the raw ``api_version`` string rather than reading the parsed
         model, because it runs before that model exists — see connect().
         """
-        expected = getattr(openccu_loom_types, "DAEMON_API_VERSION", "")
+        expected = getattr(wire, "DAEMON_API_VERSION", "")
         expected_mm = self._parse_major_minor(expected)
         daemon_mm = self._parse_major_minor(api_version)
         if expected_mm is None or daemon_mm is None:
@@ -248,8 +248,8 @@ class HttpTransport:
         if got_major != exp_major or got_minor < exp_minor:
             msg = (
                 f"daemon at {self._config.host} reports incompatible API version {api_version!r}: "
-                f"installed openccu-loom-types expects {expected!r} (same major, minor ≥ {exp_minor}). "
-                f"Update the daemon or install an openccu-loom-types release matching it."
+                f"this openccu-loom-client build expects {expected!r} (same major, minor ≥ {exp_minor}). "
+                f"Update the daemon, or install an openccu-loom-client release matching it."
             )
             # Typed distinctly from every other connect() failure. This one does
             # not clear on its own: retrying reaches the same daemon with the

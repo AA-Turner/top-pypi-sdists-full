@@ -4,7 +4,8 @@ import setuptools
 
 
 def read(filename):
-    return open(os.path.join(os.path.dirname(__file__), filename)).read()
+    with open(os.path.join(os.path.dirname(__file__), filename)) as f:
+        return f.read()
 
 
 try:
@@ -12,7 +13,8 @@ try:
 except OSError:
     version = "1.99dev"
 
-install_reqs = [x.strip() for x in open("requirements.in")]
+with open("requirements.in") as f:
+    install_reqs = [x.strip() for x in f]
 
 setuptools.setup(
     name="gspread_asyncio",
@@ -39,7 +41,7 @@ setuptools.setup(
         "Source": "https://github.com/dgilman/gspread_asyncio",
         "Tracker": "https://github.com/dgilman/gspread_asyncio/issues",
     },
-    python_requires=">=3.8",
+    python_requires=">=3.11",
     packages=setuptools.find_packages(),
     install_requires=install_reqs,
 )

@@ -1,5 +1,5 @@
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """Functional tests: the everyday loop from the visual guide, in-process.
 
 tap → search → install → doctor → uninstall, asserting the user-visible
@@ -64,7 +64,7 @@ def test_unknown_command_suggests_closest(boost):
 def test_version_and_help(boost):
     assert re.match(r"boost \S+", boost("--version").out)
     r = boost("--help")
-    assert "80 commands · 8 groups" in r.out
+    assert "81 commands · 8 groups" in r.out
     for group in ("Package Management", "Discovery & Search", "Intelligence",
                   "Quality & Health", "Team & Collaboration"):
         assert group in r.out

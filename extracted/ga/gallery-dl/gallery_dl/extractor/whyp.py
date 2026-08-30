@@ -12,6 +12,7 @@ from .common import Extractor, Message
 from .. import text
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?whyp\.it"
+PATH_PATTERN = r"(?:([^/?#]+-\w+)|(\d+)(?:/[^/?#]+)?)/?(?:\?([^#]+))?"
 
 
 class WhypExtractor(Extractor):
@@ -45,12 +46,12 @@ class WhypExtractor(Extractor):
 
 class WhypAudioExtractor(WhypExtractor):
     subcategory = "audio"
-    pattern = BASE_PATTERN + r"/tracks/(\d+)(?:/[^/?#]+)?/?(?:\?([^#]+))?"
-    example = "https://whyp.it/tracks/12345/SLUG"
+    pattern = f"{BASE_PATTERN}/tracks/{PATH_PATTERN}"
+    example = "https://whyp.it/tracks/NAME-ID"
 
     def tracks(self):
-        tid, qs = self.groups
-        url = f"{self.root_api}/api/tracks/{tid}"
+        tid1, tid2, qs = self.groups
+        url = f"{self.root_api}/api/tracks/{tid1 or tid2}"
         params = None if qs is None else text.parse_query(qs)
         data = self.request_json(url, params=params, headers=self.headers_api)
         return (data["track"],)
@@ -58,13 +59,13 @@ class WhypAudioExtractor(WhypExtractor):
 
 class WhypUserExtractor(WhypExtractor):
     subcategory = "user"
-    pattern = BASE_PATTERN + r"/users/(\d+)(?:/[^/?#]+)?/?(?:\?([^#]+))?"
-    example = "https://whyp.it/users/123/NAME"
+    pattern = f"{BASE_PATTERN}/users/{PATH_PATTERN}"
+    example = "https://whyp.it/users/NAME-ID"
 
     def tracks(self):
-        uid, qs = self.groups
+        uid1, uid2, qs = self.groups
 
-        url = f"{self.root_api}/api/users/{uid}/tracks"
+        url = f"{self.root_api}/api/users/{uid1 or uid2}/tracks"
         params = text.parse_query(qs)
         headers = self.headers_api
 
@@ -80,19 +81,19 @@ class WhypUserExtractor(WhypExtractor):
 
 class WhypCollectionExtractor(WhypExtractor):
     subcategory = "collection"
-    pattern = BASE_PATTERN + r"/collections/(\d+)(?:/[^/?#]+)?/?(?:\?([^#]+))?"
-    example = "https://whyp.it/collections/123/NAME"
+    pattern = f"{BASE_PATTERN}/collections/{PATH_PATTERN}"
+    example = "https://whyp.it/collections/NAME-ID"
 
     def tracks(self):
-        cid, qs = self.groups
+        cid1, cid2, qs = self.groups
 
-        url = f"{self.root_api}/api/collections/{cid}"
+        url = f"{self.root_api}/api/collections/{cid1 or cid2}"
         params = None if qs is None else text.parse_query(qs)
         headers = self.headers_api
         self.kwdict["collection"] = collection = self.request_json(
             url, params=params, headers=headers)["collection"]
 
-        url = f"{self.root_api}/api/collections/{cid}/tracks"
+        url = f"{self.root_api}/api/collections/{collection['id']}/tracks"
         params = {"token": collection["token"]}
         data = self.request_json(url, params=params, headers=headers)
         return data["tracks"]

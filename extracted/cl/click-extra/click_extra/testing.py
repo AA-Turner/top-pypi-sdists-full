@@ -19,9 +19,12 @@ from __future__ import annotations
 
 import inspect
 import logging
+import os
 import re
+import shutil
 import subprocess
-from contextlib import nullcontext
+import tempfile
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import cached_property, partial
 from itertools import zip_longest
@@ -33,24 +36,23 @@ from boltons.strutils import strip_ansi
 from boltons.tbutils import ExceptionInfo
 from cloup import Color
 
+from ._utils import patch_attr
+
 # The CLI-invocation serialization and disclosure atoms moved to
 # click_extra.execution once production code (subprocess wrappers, not just
-# tests) started depending on them. They are imported here under private names
-# for this module's own use; their historical public click_extra.testing names
-# (INDENT, PROMPT, args_cleanup, format_cli_prompt) still resolve through the
-# deprecated-alias __getattr__ hook at the bottom of this module. See
-# click_extra._deprecated.
+# tests) started depending on them. They are imported under private names so
+# this module's namespace does not re-export them: their canonical home is
+# click_extra.execution.
 from .execution import (
     INDENT as _INDENT,
     args_cleanup as _args_cleanup,
     format_cli_prompt as _format_cli_prompt,
 )
-from .parameters import patch_attr
 from .styling import Style
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
     from contextlib import AbstractContextManager
     from typing import IO, Any, Literal
 
@@ -222,6 +224,41 @@ class Result(click.testing.Result):
         return f"<{type(self).__name__} {exc_str}>"
 
 
+@contextmanager
+def isolated_filesystem(
+    temp_dir: str | os.PathLike[str] | None = None,
+) -> Iterator[str]:
+    """Create a temporary directory and change the working directory to it.
+
+    Reimplements {meth}`click.testing.CliRunner.isolated_filesystem`, which Click
+    deprecated in `8.5.0` and removes in `9.0`. Click points at
+    {class}`tempfile.TemporaryDirectory` and pytest's `tmp_path` fixture, and
+    neither replaces it: what isolates a CLI here is the *working directory*,
+    which a command reads through relative paths and configuration-file globs.
+    The `runner` pytest fixture and the `click:run` Sphinx directive both call
+    this on every test and every documented example, so the deprecated version
+    buries a suite run under thousands of warnings, then stops working.
+
+    ```{warning}
+    The isolation is process-global, because it calls {func}`os.chdir`.
+    Parallelize with processes, never with threads.
+    ```
+
+    :param temp_dir: create the temporary directory inside this one. When given,
+        the directory is left in place on exit.
+    :return: path of the directory the working directory was changed to.
+    """
+    previous_cwd = os.getcwd()
+    target = tempfile.mkdtemp(dir=temp_dir)
+    os.chdir(target)
+    try:
+        yield target
+    finally:
+        os.chdir(previous_cwd)
+        if temp_dir is None:
+            shutil.rmtree(target, ignore_errors=True)
+
+
 class CliRunner(click.testing.CliRunner):
     """Augment {class}`click.testing.CliRunner` with extra features and bug fixes."""
 
@@ -305,6 +342,11 @@ class CliRunner(click.testing.CliRunner):
         # No-op context manager without any effects.
         extra_params_bypass: AbstractContextManager = nullcontext()
 
+        # Capture a simulated prog name before `extra` is consumed: an explicit
+        # `prog_name` (how multicall personalities are simulated) is what the
+        # printed command line should show, not the CLI's own name.
+        simulated_prog_name = extra.get("prog_name") or self.get_default_prog_name(cli)
+
         # If `extra` contains parameters that collide with the original `invoke()`
         # parameters, we need to remove them from `extra`, then use a monkeypatch to
         # properly pass them to the CLI.
@@ -343,7 +385,7 @@ class CliRunner(click.testing.CliRunner):
             extra_result.output_bytes = strip_ansi(extra_result.output_bytes)  # type: ignore[assignment,arg-type]
 
         _print_cli_run(
-            [self.get_default_prog_name(cli), *clean_args],
+            [simulated_prog_name, *clean_args],
             extra_result,
             env=env,
         )
@@ -352,6 +394,20 @@ class CliRunner(click.testing.CliRunner):
             print(extra_result.formatted_exception)
 
         return extra_result
+
+    @contextmanager
+    def isolated_filesystem(
+        self, temp_dir: str | os.PathLike[str] | None = None
+    ) -> Iterator[str]:
+        """Same as {func}`isolated_filesystem`, minus Click's deprecation warning.
+
+        Overrides {meth}`click.testing.CliRunner.isolated_filesystem` so a runner
+        keeps the helper once Click `9.0` removes it.
+        """
+        # Resolves to the module-level function above: a class attribute never
+        # shadows a global inside a method body.
+        with isolated_filesystem(temp_dir) as target:
+            yield target
 
 
 def unescape_regex(text: str) -> str:
@@ -433,15 +489,3 @@ def regex_fullmatch_line_by_line(regex: re.Pattern | str, content: str) -> None:
             )
         else:
             raise RegexLineMismatch(regex_line, content_line, i + 1)
-
-
-def __getattr__(name: str) -> Any:
-    """Resolve deprecated `testing` symbols via the PEP 562 `__getattr__` hook.
-
-    INDENT, PROMPT, args_cleanup and format_cli_prompt moved to
-    {mod}`click_extra.execution`. Fires only for names not defined in this
-    module. See {mod}`click_extra._deprecated`.
-    """
-    from ._deprecated import resolve_deprecated
-
-    return resolve_deprecated(__name__, name)

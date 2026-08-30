@@ -26,6 +26,7 @@ class IwaraExtractor(Extractor):
         self.root = "https://www.iwara." + self.groups[0]
         self.api = IwaraAPI(self)
 
+        self.embeds = self.config("embeds", False)
         if fmts := self.config("format"):
             if isinstance(fmts, str):
                 fmts = fmts.replace(" ", "").lower().split(",")
@@ -57,7 +58,7 @@ class IwaraExtractor(Extractor):
             group_info["count"] = len(files)
             yield Message.Directory, "", group_info
             for num, file in enumerate(files, 1):
-                file_info = self.extract_media_info(file, None)
+                file_info = self.extract_media_info(file)
                 file_id = file_info["file_id"]
                 url = (f"https://i.iwara.tv/image/original/"
                        f"{file_id}/{file_id}.{file_info['extension']}")
@@ -68,19 +69,28 @@ class IwaraExtractor(Extractor):
             try:
                 if "video" in video:
                     video = video["video"]
-                if "fileUrl" not in video:
-                    video = self.api.video(video["id"])
-                file_url = video["fileUrl"]
 
-                source = self.extract_video_source(self.api.source(file_url))
-                download_url = source["src"].get("download")
+                if embed := video.get("embedUrl"):
+                    if not self.embeds:
+                        self.log.warning("%s: Skipping embed", video["id"])
+                        continue
+                    download_url = "ytdl:" + embed
+                    info = self.extract_media_info(video)
+                    info["format"] = "embed"
+                else:
+                    if "fileUrl" not in video:
+                        video = self.api.video(video["id"])
 
-                info = self.extract_media_info(video, "file")
-                info["format"] = source.get("name")
+                    source = self.extract_video_source(self.api.source(
+                        video["fileUrl"]))
+                    download_url = "https:" + source["src"].get("download")
+
+                    info = self.extract_media_info(video, "file")
+                    info["format"] = source.get("name")
+                    info["_fallback"] = self._fallback_video(download_url)
                 info["count"] = info["num"] = 1
                 info["user"] = (self.extract_user_info(video)
                                 if user is None else user)
-                info["_fallback"] = self._fallback_video(download_url)
             except Exception as exc:
                 self.status |= 1
                 self.log.traceback(exc)
@@ -89,10 +99,10 @@ class IwaraExtractor(Extractor):
                 continue
 
             yield Message.Directory, "", info
-            yield Message.Url, "https:" + download_url, info
+            yield Message.Url, download_url, info
 
     def _fallback_video(self, url):
-        sub, sep, url = url.partition(".")
+        sub, sep, url = url[5:].partition(".")
         sub = sub.lstrip("//")
         for server in ("mikoto", "hime", "himeko", "yuko"):
             if server != sub:
@@ -119,7 +129,7 @@ class IwaraExtractor(Extractor):
 
         raise self.exc.AbortExtraction(f"Unsupported result type '{type}'")
 
-    def extract_media_info(self, item, key, include_file_info=True):
+    def extract_media_info(self, item, key=None, include_file_info=True):
         info = {
             "id"      : item["id"],
             "slug"    : item.get("slug"),

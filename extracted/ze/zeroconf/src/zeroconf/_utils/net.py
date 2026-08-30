@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -59,9 +44,6 @@ class IPVersion(enum.Enum):
     V4Only = 1
     V6Only = 2
     All = 3
-
-
-# utility functions
 
 
 def _is_v6_address(addr: bytes) -> bool:
@@ -212,12 +194,6 @@ def disable_ipv6_only_or_raise(s: socket.socket) -> None:
 
 def set_so_reuseport_if_available(s: socket.socket) -> None:
     """Set SO_REUSEADDR on a socket if available."""
-    # SO_REUSEADDR should be equivalent to SO_REUSEPORT for
-    # multicast UDP sockets (p 731, "TCP/IP Illustrated,
-    # Volume 2"), but some BSD-derived systems require
-    # SO_REUSEPORT to be specified explicitly.  Also, not all
-    # versions of Python have SO_REUSEPORT available.
-    # Catch OSError and socket.error for kernel versions <3.9 because lacking
     # SO_REUSEPORT support.
     if not hasattr(socket, "SO_REUSEPORT"):
         return

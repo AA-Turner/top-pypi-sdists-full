@@ -10,9 +10,9 @@ schema, the same oplog, the same directed replay.
 The driver is optional. ``psycopg`` (v3) is imported inside
 :meth:`PostgresDialect.connect`, and its absence raises
 :class:`~.._errors.DialectUnavailableError` naming the extra to install.
-It never degrades to SQLite: a caller asking for a shared database and
-receiving a private local file would watch every write succeed while no
-peer ever saw one.
+It never degrades to a local file: a caller asking for a shared database
+and receiving a private one would watch every write succeed while no peer
+ever saw one.
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ class PostgresDialect(Dialect):
                 "The Postgres backend needs the 'psycopg' driver, which is "
                 "not installed. Install it with `pip install "
                 "'scitex-dev[postgres]'` (or `pip install psycopg[binary]`). "
-                "This is NOT falling back to SQLite: you asked for a shared "
+                "There is nothing to fall back to: you asked for a shared "
                 "database, and a private local file would accept every write "
                 "while no other host ever saw one."
             ) from None
@@ -66,8 +66,8 @@ class PostgresDialect(Dialect):
             # summary precisely so a password cannot reach a log line.
             # The codec in _codec.py addresses columns by name
             # (e.g. record["id"]), so a plain tuple from psycopg is a crash.
-            # The SQLite dialect keeps the same contract via sqlite3.Row;
-            # dict_row makes psycopg return a dict keyed by column name.
+            # dict_row makes psycopg return a dict keyed by column name,
+            # which is the contract every dialect owes the codec.
             connection = psycopg.connect(
                 target.dsn, autocommit=True, row_factory=dict_row
             )
@@ -93,9 +93,8 @@ class PostgresDialect(Dialect):
     def columns_sql(self, table: str) -> str:
         """Existing column names from `information_schema`, in THIS schema.
 
-        Returns zero rows for a table that does not exist, matching the
-        SQLite dialect's contract — the caller reads that as "nothing to
-        migrate".
+        Returns zero rows for a table that does not exist — the caller
+        reads that as "nothing to migrate".
 
         `to_regclass` is deliberately NOT used: it resolves through the whole
         search_path and would report a same-named table in another schema as
@@ -148,6 +147,87 @@ class PostgresDialect(Dialect):
             f"VALUES ({self.placeholders(len(columns))}) "
             f"ON CONFLICT ({self.quote(key)}) DO UPDATE SET {updates}"
         )
+
+    # -- query fragments --------------------------------------------------
+    def text_vector_sql(self, schema: Schema) -> str:
+        """``to_tsvector(<config>, coalesce(a,'') || ' ' || coalesce(b,''))``.
+
+        THE TWO-ARGUMENT FORM IS LOAD-BEARING. ``to_tsvector(text)`` reads
+        ``default_text_search_config`` at call time, which makes it STABLE
+        rather than IMMUTABLE, and PostgreSQL refuses to index a non-
+        immutable expression. Naming the configuration is what lets the
+        index exist at all — and it also stops one session's search finding
+        rows another session's cannot, which a session-settable analyser
+        would allow.
+
+        ``coalesce`` because concatenating a NULL yields NULL: one absent
+        readme would otherwise empty a row's entire search vector, and the
+        row would silently stop matching on its title too.
+
+        JSON columns are cast to text rather than passed to the ``jsonb``
+        overload. The overload indexes VALUES and drops keys, which is the
+        right call for a document with meaningful field names and the wrong
+        one for the arrays this is mostly used on; the cast gives a stable,
+        obviously-immutable rendering that tokenises the same way a text
+        column does.
+        """
+        if not schema.text_search:
+            raise StoreTargetError(
+                f"Schema {schema.name!r} declares no text_search fields, so "
+                "there is no expression to build. Declare them on "
+                "Schema.build(...)."
+            )
+        parts = []
+        for name in schema.text_search:
+            column = self.quote(name)
+            expression = (
+                f"{column}::text"
+                if schema.fields[name].kind is FieldKind.JSON
+                else column
+            )
+            parts.append(f"coalesce({expression}, '')")
+        joined = " || ' ' || ".join(parts)
+        return f"to_tsvector('{schema.text_config}', {joined})"
+
+    def text_match_sql(self, schema: Schema, placeholder: str) -> str:
+        """``<vector> @@ websearch_to_tsquery(<config>, %s)``.
+
+        ``websearch_to_tsquery`` rather than ``to_tsquery`` because the text
+        arriving here came from a person, not from a program: it ANDs bare
+        words, honours ``"quoted phrases"``, reads ``or`` as a disjunction
+        and ``-`` as a negation, and — the part that matters — it NEVER
+        raises on malformed input. ``to_tsquery`` rejects an unbalanced
+        quote with a syntax error, which would turn a half-typed search box
+        into a stack trace.
+        """
+        return (
+            f"{self.text_vector_sql(schema)} @@ "
+            f"websearch_to_tsquery('{schema.text_config}', {placeholder})"
+        )
+
+    def json_contains_sql(self, column: str, placeholder: str) -> str:
+        """``<column> @> %s::jsonb`` — real containment, not a substring."""
+        return f"{column} @> {placeholder}::jsonb"
+
+    def text_index_specs(self, schema: Schema) -> list[tuple[str, str, str]]:
+        """A GIN index on the exact expression :meth:`text_match_sql` uses.
+
+        Without it every full-text query recomputes ``to_tsvector`` for
+        every row — correct, and linear in the table. With it the same
+        query is an index lookup. The expression comes from
+        :meth:`text_vector_sql` rather than being written out again here,
+        because a copy would eventually differ and a differing expression
+        index is one the planner silently declines to use.
+        """
+        if not schema.text_search:
+            return []
+        rows = self.rows_table(schema)
+        index = f"{rows}_text_idx"
+        ddl = (
+            f"CREATE INDEX IF NOT EXISTS {self.quote(index)} "
+            f"ON {self.quote(rows)} USING GIN ({self.text_vector_sql(schema)})"
+        )
+        return [(index, rows, ddl)]
 
     def system_identifier(self, connection: Any, target: StoreTarget) -> tuple:
         """``pg:<cluster system_identifier>/<database>`` — instance AND database.

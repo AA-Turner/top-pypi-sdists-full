@@ -43,7 +43,7 @@ class HorizontalPodAutoscaler(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **status** ``Optional[HorizontalPodAutoscalerStatus]`` - status is the current information about the autoscaler.
     """
@@ -93,9 +93,9 @@ class HorizontalPodAutoscalerSpec(DictMixin):
 
       * **maxReplicas** ``int`` - maxReplicas is the upper limit for the number of pods that can be set by the
         autoscaler; cannot be smaller than MinReplicas.
-      * **scaleTargetRef** ``CrossVersionObjectReference`` - reference to scaled resource; horizontal pod autoscaler will learn the current
-        resource consumption and will set the desired number of pods by using its
-        Scale subresource.
+      * **scaleTargetRef** ``CrossVersionObjectReference`` - scaleTargetRef is the reference to scaled resource; horizontal pod autoscaler
+        will learn the current resource consumption and will set the desired number of
+        pods by using its Scale subresource.
       * **minReplicas** ``Optional[int]`` - minReplicas is the lower limit for the number of replicas to which the
         autoscaler can scale down.  It defaults to 1 pod.  minReplicas is allowed to
         be 0 if the alpha feature gate HPAScaleToZero is enabled and at least one
@@ -150,7 +150,7 @@ class Scale(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata; More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata; More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
       * **spec** ``Optional[ScaleSpec]`` - spec defines the behavior of the scale. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status.

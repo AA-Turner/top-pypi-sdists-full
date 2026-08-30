@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ha-mcp-dev"
-version = "8.3.0.dev2465"
+version = "8.4.0.dev2479"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 # Upper bound widened to <3.15 so the package installs on Home Assistant's
@@ -306,6 +306,7 @@ dev = [
     "ruff>=0.12.12",
     "testcontainers>=4.13.0",
     "ast-grep-cli>=0.42.0",
+    "pyyaml>=6.0",
 ]
 
 # Semantic versioning configuration

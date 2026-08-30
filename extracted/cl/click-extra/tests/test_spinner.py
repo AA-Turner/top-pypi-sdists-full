@@ -23,6 +23,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 
 import click
 import pytest
@@ -40,6 +41,7 @@ from click_extra import (
 )
 from click_extra.cli import demo
 from click_extra.context import PROGRESS, START_TIME
+from click_extra.screenshot import cell_width
 from click_extra.spinner import (
     _TOUR_CAP,
     _TOUR_CYCLES,
@@ -558,6 +560,66 @@ def test_invalid_style_raises():
         Spinner(style=Style(fg="notacolor"))
 
 
+def test_frame_lines_are_what_the_animation_draws(monkeypatch):
+    """A picture of a spinner shows the lines the spinner really writes.
+
+    Spins for real, recovers every frame written to the stream, and asserts each
+    one is a line `frame_lines()` offers. Composing the picture separately from
+    the animation is what lets the two drift the first time the glyph, the label
+    or the timer change places; comparing them is what stops that.
+    """
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    stream = TTYStringIO()
+    spinner = Spinner(
+        "Brewing tea",
+        spinner=SPINNERS["moon"],
+        style=Style(fg="green"),
+        stream=stream,
+        interval=0.02,
+    )
+    spinner.start()
+    assert wait_until(lambda: spinner._drawn)
+    spinner.stop()
+
+    # Every frame is written as a carriage return, the line, then a clear to
+    # end-of-line. The last one is the erasure `stop()` leaves, carrying no line.
+    drawn = set()
+    for written in stream.getvalue().split("\r"):
+        if not written.endswith(CLEAR_LINE):
+            continue
+        content = written.removesuffix(CLEAR_LINE)
+        if content:
+            drawn.add(content)
+
+    assert drawn
+    assert drawn <= set(spinner.frame_lines())
+
+
+def test_frame_lines_honors_reverse():
+    """A spinner cycling backwards is pictured spinning the way it animates."""
+    preset = SPINNERS["moon"]
+    forward = Spinner("Brewing tea", spinner=preset).frame_lines(color=False)
+    backward = Spinner("Brewing tea", spinner=preset, reverse=True).frame_lines(
+        color=False
+    )
+    assert backward == tuple(reversed(forward))
+
+
+@pytest.mark.parametrize("color", (True, False))
+def test_frame_lines_colors_on_request(color):
+    """A capture asks for color whatever stream the spinner would have drawn on.
+
+    A spinner that never started resolved no color for itself, so the picture
+    has to state its own answer rather than inherit that one.
+    """
+    spinner = Spinner("Brewing tea", spinner=SPINNERS["moon"], style=Style(fg="green"))
+    assert not spinner._color_enabled
+    lines = spinner.frame_lines(color=color)
+    assert lines
+    assert all((GREEN in line) is color for line in lines)
+
+
 @pytest.mark.parametrize(
     ("outcome", "glyph", "color"),
     (
@@ -643,18 +705,42 @@ def test_elapsed_time_freezes_after_stop():
 
 def test_catalog_is_complete():
     """The cli-spinners / ora catalog is present and well-formed."""
-    assert len(SPINNERS) == 90
+    assert len(SPINNERS) == 89
     assert all(isinstance(p, SpinnerPreset) for p in SPINNERS.values())
     # Every preset has at least one frame and a positive interval.
     assert all(p.frames and p.interval > 0 for p in SPINNERS.values())
     # A few well-known names are present.
-    for name in ("dots", "line", "moon", "clock", "bouncingBar", "dots8Bit"):
+    for name in ("dots", "line", "moon", "clock", "bouncing-bar", "dots-8bit"):
         assert name in SPINNERS
     # dots / line reuse the module's existing frame constants.
     assert SPINNERS["dots"].frames == SPINNER_FRAMES
     assert SPINNERS["line"].frames == ASCII_SPINNER_FRAMES
     # The 256-frame 8-bit animation round-tripped through its packed form.
-    assert len(SPINNERS["dots8Bit"].frames) == 256
+    assert len(SPINNERS["dots-8bit"].frames) == 256
+
+
+@pytest.mark.parametrize("name", sorted(SPINNERS))
+def test_catalog_frames_share_one_width(name):
+    """Every frame of a preset occupies the same number of terminal cells.
+
+    A ragged preset moves its label a cell in and out as the animation turns,
+    and a capture laid out on the frames reserves a column for the widest one.
+    """
+    widths = {cell_width(frame) for frame in SPINNERS[name].frames}
+    assert len(widths) == 1, f"{name} mixes frame widths {sorted(widths)}"
+
+
+@pytest.mark.parametrize("name", sorted(SPINNERS))
+def test_catalog_frames_carry_no_upstream_padding(name):
+    """No preset pads every one of its frames with a trailing space.
+
+    Upstream writes its emoji frames that way. Kept, the space lands next to the
+    one the spinner writes before its label and reads as a double gap.
+    """
+    frames = SPINNERS[name].frames
+    assert not all(frame.endswith(" ") for frame in frames), (
+        f"{name} pads every frame: {frames[0]!r}"
+    )
 
 
 def test_spinner_preset_supplies_frames_and_interval():
@@ -680,7 +766,7 @@ def test_defaults_without_frames_or_preset():
 
 def test_multichar_preset_renders():
     """A multi-character animation (which upstream `\\b` renderers drop) draws."""
-    preset = SPINNERS["bouncingBar"]
+    preset = SPINNERS["bouncing-bar"]
     assert any(len(frame) > 1 for frame in preset.frames)  # Multi-char frames.
     stream = TTYStringIO()
     spinner = Spinner(stream=stream, spinner=preset, interval=0.02)
@@ -705,7 +791,7 @@ def test_demo_spinner_table_lists_selection(invoke):
     result = invoke(demo, "spinner", "--table")
     assert result.exit_code == 0
     # The table lists its column headers and a spread of curated spinner names.
-    for token in ("Name", "Frames", "Interval", "Tour", "dots", "moon", "bouncingBar"):
+    for token in ("Name", "Frames", "Interval", "Tour", "dots", "moon", "bouncing-bar"):
         assert token in result.stdout
 
 
@@ -728,8 +814,8 @@ def test_demo_spinner_tour_column_shows_three_cycle_time(invoke):
 def test_demo_spinner_all_lists_full_catalog(invoke):
     result = invoke(demo, "spinner", "--all", "--table")
     assert result.exit_code == 0
-    assert _catalog_row_count(result.output) == len(SPINNERS)  # All 90 rows.
-    assert "dots8Bit" in result.output  # Present in --all, absent from default.
+    assert _catalog_row_count(result.output) == len(SPINNERS)  # Every preset.
+    assert "dots-8bit" in result.output  # Present in --all, absent from default.
 
 
 def test_demo_spinner_select_filters_by_name(invoke):
@@ -738,7 +824,7 @@ def test_demo_spinner_select_filters_by_name(invoke):
     assert _catalog_row_count(result.output) == 3  # Exactly the three named.
     for name in ("mindblown", "pong", "shark"):
         assert name in result.output
-    assert "dots8Bit" not in result.output
+    assert "dots-8bit" not in result.output
 
 
 def test_demo_spinner_select_rejects_unknown(invoke):
@@ -811,8 +897,8 @@ def test_tour_duration_bounds_dwell():
     # pong: three cycles (7.2s) exceed the cap but one cycle (2.4s) fits → clamp.
     assert _tour_duration(SPINNERS["pong"]) == _TOUR_CAP
 
-    # dots8Bit: even one cycle exceeds the cap → exactly one full cycle.
-    big = SPINNERS["dots8Bit"]
+    # dots-8bit: even one cycle exceeds the cap → exactly one full cycle.
+    big = SPINNERS["dots-8bit"]
     one_big_cycle = len(big.frames) * big.interval
     assert one_big_cycle > _TOUR_CAP
     assert _tour_duration(big) == one_big_cycle
@@ -1242,3 +1328,95 @@ def test_progress_bar_registers_as_active_line_not_spinner():
         assert active_spinner(stream) is None
     # The trail deregisters its indicator on exit.
     assert _active_line(stream) is None
+
+
+CUSTOM_CSS = Path(__file__).parent.parent / "docs" / "_static" / "custom.css"
+"""Stylesheet carrying the documentation's `unicode-range` declaration."""
+
+GRIDLESS_BLOCKS = (
+    (0x2500, 0x257F),  # Box drawing, which the catalog's own table borders use.
+    (0x2580, 0x259F),  # Block elements.
+    (0x25A0, 0x25FF),  # Geometric shapes.
+    (0x2800, 0x28FF),  # Braille patterns.
+)
+"""Ranges no mainstream monospace font carries a glyph for.
+
+A browser substitutes one that knows nothing of the character grid, so these
+come out narrow or wide and a captured table's columns slide apart along the
+row. `docs/_static/custom.css` binds a subset font to exactly these.
+"""
+
+
+def declared_unicode_ranges() -> list[tuple[int, int]]:
+    """Read the codepoint spans the documentation's stylesheet claims."""
+    css = CUSTOM_CSS.read_text(encoding="utf-8")
+    declaration = re.search(r"unicode-range:\s*([^;]+);", css)
+    assert declaration, "the stylesheet declares no unicode-range"
+    spans = []
+    for entry in declaration.group(1).split(","):
+        # A span is written `U+2500-257F`, with the `U+` stated once only.
+        bounds = re.match(r"U\+([0-9A-Fa-f]+)(?:-([0-9A-Fa-f]+))?", entry.strip())
+        assert bounds, f"{entry.strip()!r} is not a codepoint span"
+        low = int(bounds.group(1), 16)
+        spans.append((low, int(bounds.group(2), 16) if bounds.group(2) else low))
+    return spans
+
+
+@pytest.mark.once
+def test_catalog_gridless_glyphs_are_covered_by_the_docs_font(invoke):
+    """Every glyph a browser cannot size is one the documentation ships a font for.
+
+    The catalog table is laid out on a character grid, and a browser only
+    reproduces that if every glyph advances by one cell. `custom.css` binds a
+    subset font to the ranges no ordinary monospace font carries; this checks
+    the two have not drifted apart, which they would the moment the declaration
+    is narrowed or a spinner starts drawing from a range it omits.
+
+    ```{note}
+    Narrower than the problem it guards: it checks the ranges already known to
+    need a font, not that a *newly* used range has been noticed. A spinner
+    drawn from some other gridless block would pass here and still misalign.
+    ```
+    """
+    result = invoke(demo, args=["--no-color", "spinner", "--all", "--table"])
+    assert result.exit_code == 0
+
+    declared = declared_unicode_ranges()
+    used = {
+        ord(character)
+        for character in result.stdout
+        if any(low <= ord(character) <= high for low, high in GRIDLESS_BLOCKS)
+    }
+    assert used, "the catalog drew none of the glyphs this is about"
+
+    uncovered = sorted(
+        codepoint
+        for codepoint in used
+        if not any(low <= codepoint <= high for low, high in declared)
+    )
+    assert not uncovered, (
+        "the documentation ships no font for "
+        f"{', '.join(f'U+{codepoint:04X}' for codepoint in uncovered)}"
+    )
+
+
+SPINNER_ASSETS = Path(__file__).parent.parent / "docs" / "assets"
+"""Directory the inventory gallery writes one animation per preset into."""
+
+
+@pytest.mark.once
+def test_every_spinner_has_a_committed_animation():
+    """The inventory gallery covers the catalog exactly, one asset per preset.
+
+    The gallery is generated from `SPINNERS` at build time, so a new preset
+    grows an asset on the next build and this only fails on a *committed*
+    tree that has fallen behind. The stray half matters more: a renamed or
+    dropped preset leaves its old animation behind, where nothing references
+    it and nothing would notice.
+    """
+    committed = {
+        path.name.removeprefix("spinner-").removesuffix(".svg")
+        for path in SPINNER_ASSETS.glob("spinner-*.svg")
+    }
+    assert not sorted(set(SPINNERS) - committed), "presets with no animation"
+    assert not sorted(committed - set(SPINNERS)), "animations with no preset"

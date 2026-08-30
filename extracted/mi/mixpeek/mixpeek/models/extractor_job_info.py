@@ -44,6 +44,7 @@ class ExtractorJobInfo(BaseModel):
     completed_at: Optional[datetime] = Field(default=None, description="When this extractor job finished processing")
     duration_ms: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Processing duration in milliseconds")
     documents_written: Optional[StrictInt] = Field(default=None, description="Number of documents written by this extractor job")
+    warnings: Optional[List[StrictStr]] = Field(default=None, description="BACKE-3680: caller-visible warnings this job produced (e.g. a retriever_transform stage's degradation warnings like document_enrich's 'direct join matched 0 of N', or feature_search fusion drops). Persisted here by the inline transform path so BatchModel.compute_observability can lift them to progress.status_warnings; without this declared field the persisted warnings are dropped on read (extra='ignore') and a COMPLETED[_WITH_ERRORS] batch surfaces an empty warnings list, the exact silent-forgiveness class this closes.")
     pages_dropped: Optional[StrictInt] = Field(default=None, description="OPTIONAL. Pages of multi-page inputs (PDFs) that were NOT indexed by this job — capped by max_document_pages or dropped by per-page failures. Only present when > 0. A COMPLETED job with pages_dropped > 0 indexed the input PARTIALLY; see pages_dropped_reasons and raise max_document_pages to index more.")
     pages_dropped_reasons: Optional[Dict[str, StrictInt]] = Field(default=None, description="OPTIONAL. Dropped-page counts by reason: max_document_pages_cap (input exceeded the collection's max_document_pages) or page_processing_failure (per-page extract/embed errors).")
     segments_dropped: Optional[StrictInt] = Field(default=None, description="OPTIONAL. Video segments that were NOT indexed by this job — capped by max_video_segments. Only present when > 0. A COMPLETED job with segments_dropped > 0 indexed the video PARTIALLY; see segments_dropped_reasons and raise max_video_segments to cover more of the video.")
@@ -54,7 +55,7 @@ class ExtractorJobInfo(BaseModel):
     last_activity_at: Optional[datetime] = Field(default=None, description="OPTIONAL. Timestamp of the last BatchJobPoller heartbeat confirming this extractor job was non-terminal (RUNNING or PENDING). Updated approximately every 10 seconds while IN_PROGRESS. A stale value (minutes old) may indicate a stuck or lost job.")
     ray_job_status: Optional[StrictStr] = Field(default=None, description="OPTIONAL. Last observed Ray job status for this extractor job as of last_activity_at. Values: 'RUNNING', 'PENDING', 'SUCCEEDED', 'FAILED'. Use with last_activity_at to assess whether the job is actively running.")
     submission_params: Optional[SubmissionParams] = Field(default=None, description="Parameters used for Ray/GKE job submission. Persisted at submit time for debugging.")
-    __properties: ClassVar[List[str]] = ["extractor_type", "collection_ids", "extractor_id", "ray_job_id", "celery_task_id", "callback_job_id", "execution_mode", "status", "started_at", "completed_at", "duration_ms", "documents_written", "pages_dropped", "pages_dropped_reasons", "segments_dropped", "segments_dropped_reasons", "documents_skipped", "errors", "error", "last_activity_at", "ray_job_status", "submission_params"]
+    __properties: ClassVar[List[str]] = ["extractor_type", "collection_ids", "extractor_id", "ray_job_id", "celery_task_id", "callback_job_id", "execution_mode", "status", "started_at", "completed_at", "duration_ms", "documents_written", "warnings", "pages_dropped", "pages_dropped_reasons", "segments_dropped", "segments_dropped_reasons", "documents_skipped", "errors", "error", "last_activity_at", "ray_job_status", "submission_params"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -129,6 +130,7 @@ class ExtractorJobInfo(BaseModel):
             "completed_at": obj.get("completed_at"),
             "duration_ms": obj.get("duration_ms"),
             "documents_written": obj.get("documents_written"),
+            "warnings": obj.get("warnings"),
             "pages_dropped": obj.get("pages_dropped"),
             "pages_dropped_reasons": obj.get("pages_dropped_reasons"),
             "segments_dropped": obj.get("segments_dropped"),

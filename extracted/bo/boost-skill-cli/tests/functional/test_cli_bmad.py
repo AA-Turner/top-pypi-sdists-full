@@ -1,5 +1,5 @@
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """Functional tests for `boost bmad` — npx/subprocess are stubbed out.
 
 Two surfaces live here. `install`/`init` delegate provisioning to
@@ -288,6 +288,21 @@ class TestDoctor:
         monkeypatch.setattr(bmad.shutil, "which", lambda _n: None)
         r = boost("bmad", "doctor")
         assert r.rc == 0 and "MISSING" in r.out
+
+
+class TestHelpFitsNarrowPane:
+    """`boost bmad --help`'s action list is 13 choices long — spelled out as
+    argparse's auto {a,b,c,...} metavar it overflowed every width up to 100
+    columns, because that whole bracketed list is one unbreakable token."""
+
+    def test_help_has_no_line_over_60_columns(self, boost, sandbox,
+                                              monkeypatch):
+        monkeypatch.setenv("COLUMNS", "60")
+        r = boost("bmad", "--help")
+        for ln in r.out.split("\n"):
+            assert len(ln) <= 60, ln
+        # the choices themselves must still be discoverable somewhere in help
+        assert "route" in r.out and "personas" in r.out
 
 
 # ------------------------------------------------------------------- autopilot

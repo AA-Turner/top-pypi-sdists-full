@@ -40,6 +40,7 @@ from click_extra import (
     UUID,
     Choice,
     ConfigFormat,
+    ConfigOption,
     DateTime,
     File,
     FloatRange,
@@ -57,6 +58,7 @@ from click_extra import (
     get_app_dir,
     group,
     option,
+    option_group,
     render_table,
     search_params,
     show_params_option,
@@ -64,9 +66,9 @@ from click_extra import (
 )
 from click_extra.config import NO_CONFIG
 from click_extra.parameters import (
+    iter_params_for_display,
     iter_subcommands,
     make_resilient_context,
-    missing_extra_message,
     option_value_kind,
 )
 from click_extra.pytest import command_decorators
@@ -268,19 +270,19 @@ def assert_table_content(
     extracted_table = []
     for line in output.strip().splitlines()[3:-1]:
         columns = [col.strip() for col in re.split(r"\s*\│\s*", line[1:-1])]
-        assert len(columns) == len(ShowParamsOption.TABLE_HEADERS)
+        assert len(columns) == len(ShowParamsOption.default_columns())
         extracted_table.append(tuple(columns))
 
     # Compare tables row by row to get cleaner assertion errors.
     for index in range(len(expected_table)):
         expected_strings = tuple(map(str, expected_table[index]))
-        assert len(expected_strings) == len(ShowParamsOption.TABLE_HEADERS)
+        assert len(expected_strings) == len(ShowParamsOption.default_columns())
         assert extracted_table[index] == expected_strings
 
     # Check the rendering style of the table.
     rendered_table = render_table(
         expected_table,
-        headers=ShowParamsOption.column_labels(),
+        headers=ShowParamsOption.default_column_labels(),
         table_format=table_format,
     )
     assert output == f"{rendered_table}\n"
@@ -505,6 +507,27 @@ def test_integrated_show_params_option(invoke, create_config):
             "DEFAULT",
         ),
         (
+            "show-params-cli.debug",
+            "--debug",
+            "click_extra.logging.DebugOption",
+            "click.types.BoolParamType",
+            "bool",
+            "✘",
+            "✘",
+            "✓",
+            "SHOW_PARAMS_CLI_DEBUG",
+            "False",
+            "✓",
+            "True",
+            "✓",
+            "✘",
+            1,
+            "",
+            "✘",
+            "False",
+            "DEFAULT",
+        ),
+        (
             "show-params-cli.export_config",
             "--export-config FORMAT",
             "click_extra.config.option.ExportConfigOption",
@@ -545,6 +568,27 @@ def test_integrated_show_params_option(invoke, create_config):
             "✘",
             True,
             "COMMANDLINE",
+        ),
+        (
+            "show-params-cli.help_format",
+            "--help-format [carapace|json|json-full|man|markdown|markdown-full]",
+            "click_extra.command_doc.HelpFormatOption",
+            "click.types.Choice",
+            "str",
+            "✘",
+            "✘",
+            "✓",
+            "SHOW_PARAMS_CLI_HELP_FORMAT",
+            "None",
+            "✘",
+            "",
+            "✘",
+            "✘",
+            1,
+            "",
+            "✘",
+            "None",
+            "DEFAULT",
         ),
         (
             "show-params-cli.hidden_param",
@@ -612,7 +656,7 @@ def test_integrated_show_params_option(invoke, create_config):
         (
             "show-params-cli.man",
             "--man",
-            "click_extra.man_page.ManOption",
+            "click_extra.command_doc.ManOption",
             "click.types.BoolParamType",
             "bool",
             "✘",
@@ -737,7 +781,7 @@ def test_integrated_show_params_option(invoke, create_config):
         ),
         (
             "show-params-cli.theme",
-            "--theme [dark|dracula|light|manpage|monokai|nord|solarized_dark]",
+            "--theme [auto|dark|dracula|light|manpage|monokai|nord|solarized-dark]",
             "click_extra.theme.ThemeOption",
             "click_extra.theme.ThemeChoice",
             "str",
@@ -908,10 +952,10 @@ def test_show_params_table_format_ordering(invoke, args_order):
     assert result.exit_code == 0
     # CSV format: first line is the header row, comma-separated.
     lines = result.stdout.strip().splitlines()
-    assert lines[0] == ",".join(ShowParamsOption.column_labels())
+    assert lines[0] == ",".join(ShowParamsOption.default_column_labels())
     # All data rows must have the same number of columns as the header.
     for line in lines[1:]:
-        assert line.count(",") >= len(ShowParamsOption.TABLE_HEADERS) - 1
+        assert line.count(",") >= len(ShowParamsOption.default_columns()) - 1
 
 
 @pytest.mark.parametrize(
@@ -984,6 +1028,164 @@ def test_show_params_no_default_renders_none(invoke):
         assert rows[param_id]["Default"] is None
         assert rows[param_id]["Value"] is None
         assert rows[param_id]["Source"] == "DEFAULT"
+
+
+def test_show_params_config_file_cascade(invoke, tmp_path, monkeypatch):
+    """The config_file column names the cascade layer a value resolved from.
+
+    The local file wins the root-level parameter; the parent file owns the
+    `[sub]` section the local file does not define. A parameter overridden on
+    the command line keeps an empty column: the file did not supply the
+    effective value.
+    """
+    app_dir = tmp_path / "appdir"
+    app_dir.mkdir()
+    monkeypatch.setattr(
+        "click_extra.config.option.get_app_dir", lambda *a, **k: str(app_dir)
+    )
+
+    local_conf = app_dir / "config.toml"
+    local_conf.write_text(
+        dedent(
+            """
+            [provenance-cli]
+            int_param = 1
+            """
+        ),
+        encoding="utf-8",
+    )
+    parent_conf = tmp_path / "config.toml"
+    parent_conf.write_text(
+        dedent(
+            """
+            [provenance-cli]
+            int_param = 99
+
+            [provenance-cli.sub]
+            sub_param = "from_parent"
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    @group
+    @columns_option(columns=ShowParamsOption.TABLE_HEADERS)
+    @option("--int-param", type=int, default=10)
+    def provenance_cli(int_param):
+        echo(f"int_param = {int_param!r}")
+
+    @provenance_cli.command()
+    @option("--sub-param", default="nothing")
+    def sub(sub_param):
+        echo(f"sub_param = {sub_param!r}")
+
+    config_opt = search_params(provenance_cli.params, ConfigOption)
+    assert isinstance(config_opt, ConfigOption)
+    config_opt.search_parents = True
+    config_opt.stop_at = tmp_path
+    config_opt.cascade = True
+
+    result = invoke(
+        provenance_cli,
+        # --int-param on the command line outranks both files.
+        "--int-param",
+        "5",
+        "--params",
+        "--table-format",
+        "json",
+        "--columns",
+        "id,value,source,config_file",
+        color=False,
+    )
+    assert result.exit_code == 0
+    rows = {row["ID"]: row for row in json.loads(result.stdout)}
+
+    # Command-line value: no file supplied the effective value. The replay
+    # path reports CLI tokens before type conversion, so compare as text.
+    int_row = rows["provenance-cli.int_param"]
+    assert str(int_row["Value"]) == "5"
+    assert int_row["Source"] == "COMMANDLINE"
+    assert int_row["Config file"] is None
+
+    # Subcommand section owned by the parent file: local defines none.
+    sub_row = rows["provenance-cli.sub.sub_param"]
+    assert sub_row["Value"] == "from_parent"
+    assert sub_row["Source"] == "DEFAULT_MAP"
+    assert sub_row["Config file"] == str(parent_conf.resolve())
+
+    # Drop the command-line override: the same parameter now resolves from
+    # the most local layer.
+    result = invoke(
+        provenance_cli,
+        "--params",
+        "--table-format",
+        "json",
+        "--columns",
+        "id,value,source,config_file",
+        color=False,
+    )
+    assert result.exit_code == 0
+    rows = {row["ID"]: row for row in json.loads(result.stdout)}
+    int_row = rows["provenance-cli.int_param"]
+    assert int_row["Value"] == 1
+    assert int_row["Source"] == "DEFAULT_MAP"
+    assert int_row["Config file"] == str(local_conf.resolve())
+
+
+def test_show_params_config_file_single_file(invoke, create_config):
+    """A single loaded file is attributed to every config-sourced parameter."""
+
+    @command
+    @columns_option(columns=ShowParamsOption.TABLE_HEADERS)
+    @option("--int-param", type=int, default=10)
+    def provenance_cli(int_param):
+        echo(f"int_param = {int_param!r}")
+
+    conf_path = create_config(
+        "provenance.toml",
+        dedent(
+            """\
+            [provenance-cli]
+            int_param = 42
+            """
+        ),
+    )
+
+    result = invoke(
+        provenance_cli,
+        "--params",
+        "--table-format",
+        "json",
+        "--columns",
+        "id,source,config_file",
+        "--config",
+        str(conf_path),
+        color=False,
+    )
+    assert result.exit_code == 0
+    rows = {row["ID"]: row for row in json.loads(result.stdout)}
+
+    int_row = rows["provenance-cli.int_param"]
+    assert int_row["Source"] == "DEFAULT_MAP"
+    assert int_row["Config file"] == str(conf_path.resolve())
+
+    # Params untouched by the file keep an empty column.
+    assert rows["provenance-cli.params"]["Config file"] is None
+
+
+def test_show_params_config_file_column_is_opt_in(invoke):
+    """config_file is addressable by ID but stays out of the default table."""
+    assert "config_file" in ShowParamsOption.column_ids()
+    assert "config_file" not in ShowParamsOption.default_column_ids()
+
+    @command
+    @option("--int-param", type=int, default=10)
+    def provenance_cli(int_param):
+        echo(f"int_param = {int_param!r}")
+
+    result = invoke(provenance_cli, "--params", "--table-format", "csv", color=False)
+    assert result.exit_code == 0
+    assert "Config file" not in result.stdout
 
 
 def test_column_registry_is_consistent():
@@ -1424,7 +1626,7 @@ def test_standalone_table_rendering(invoke, opt1, opt2, table_format):
     styler = STYLED_FORMATS.get(table_format)
     if styler is None:
         render_data = expected_table
-        headers: tuple[str, ...] = ShowParamsOption.column_labels()
+        headers: tuple[str, ...] = ShowParamsOption.default_column_labels()
     else:
         # Styled formats translate the theme styling of cells and headers to
         # native markup instead of stripping it: reproduce the styling applied
@@ -1451,7 +1653,9 @@ def test_standalone_table_rendering(invoke, opt1, opt2, table_format):
                     styled_row.append(cell)
             render_data.append(styled_row)
         bold = Style(bold=True)
-        headers = tuple(bold(label) for label in ShowParamsOption.column_labels())
+        headers = tuple(
+            bold(label) for label in ShowParamsOption.default_column_labels()
+        )
 
     rendered = render_table(
         _sort_params_table(render_data),
@@ -1673,7 +1877,7 @@ def test_standalone_no_color_rendering(invoke, opt1, opt2, opt3, table_format):
 
     rendered = render_table(
         _sort_params_table(expected_table),
-        headers=ShowParamsOption.column_labels(),
+        headers=ShowParamsOption.default_column_labels(),
         table_format=table_format,
     )
     # Tabulate-based formats don't end with a newline; echo() adds one.
@@ -1756,11 +1960,114 @@ def test_iter_subcommands_empty_for_non_group():
     assert list(iter_subcommands(leaf, ctx)) == []
 
 
-def test_missing_extra_message():
-    msg = missing_extra_message("mkdocs", subject="This module")
-    assert msg == (
-        "This module requires an optional dependency. "
-        "Install it with: pip install click-extra[mkdocs]"
+def test_iter_params_for_display_follows_the_help_screen():
+    """Presentation order, not the processing order carried by ``params``."""
+
+    # `--zest` is promoted above the DEFAULT_PRIORITY line, `--chop` demoted below
+    # it, and `--simmer` is left where it was declared.
+    @command(params=[], option_priorities={"--zest": 1, "--chop": 200})
+    @option("--chop")
+    @option("--simmer")
+    @option("--zest")
+    @argument("bowl")
+    def cli(chop, simmer, zest, bowl):
+        """Kitchen."""
+
+    ctx = make_resilient_context(cli, "cli")
+    assert [p.name for p in cli.params] == ["chop", "simmer", "zest", "bowl"]
+    assert [p.name for p in iter_params_for_display(cli, ctx)] == [
+        "bowl",
+        "zest",
+        "simmer",
+        "chop",
+        CLICK_HELP_PARAM_NAME,
+    ]
+
+
+def test_iter_params_for_display_keeps_option_groups_together():
+    """Options declared in a Cloup group are yielded under that group."""
+
+    @command(params=[])
+    @option_group("Seasoning", option("--salt"), option("--pepper"))
+    @option("--bowl")
+    def cli(salt, pepper, bowl):
+        """Kitchen."""
+
+    ctx = make_resilient_context(cli, "cli")
+    assert [p.name for p in iter_params_for_display(cli, ctx)] == [
+        "salt",
+        "pepper",
+        "bowl",
+        CLICK_HELP_PARAM_NAME,
+    ]
+
+
+def test_iter_params_for_display_falls_back_to_get_params():
+    """A plain Click command holds a single order, and it is the one to yield."""
+    cli = click.Command(
+        "cli",
+        params=[click.Option(["--chop"]), click.Argument(["bowl"])],
     )
-    # The canonical hyphenated distribution name, not the underscore form.
-    assert "click_extra[" not in msg
+    ctx = make_resilient_context(cli, "cli")
+    assert [p.name for p in iter_params_for_display(cli, ctx)] == [
+        "chop",
+        "bowl",
+        CLICK_HELP_PARAM_NAME,
+    ]
+
+
+def test_iter_params_for_display_yields_late_additions_last():
+    """A parameter attached after construction is missing from the cached groups."""
+
+    @command(params=[])
+    @option("--chop")
+    def cli(chop, simmer):
+        """Kitchen."""
+
+    cli.params.append(click.Option(["--simmer"]))
+    ctx = make_resilient_context(cli, "cli")
+    assert [p.name for p in iter_params_for_display(cli, ctx)] == [
+        "chop",
+        CLICK_HELP_PARAM_NAME,
+        "simmer",
+    ]
+
+
+def test_help_column_is_opt_in(invoke):
+    """The Help column exists, stays out of the way, and answers to its ID."""
+
+    # --columns is not a default option: a CLI that wants column projection
+    # opts into it, exactly like the wrapper does for foreign CLIs.
+    @command
+    @columns_option
+    @option("--city", default="Oslo", help="Where to look up the forecast.")
+    def weather(city):
+        echo(city)
+
+    assert "help" in ShowParamsOption.column_ids()
+    assert "help" not in ShowParamsOption.default_column_ids()
+
+    default = invoke(weather, "--table-format", "json", "--params", color=False)
+    assert default.exit_code == 0
+    assert all("Help" not in row for row in json.loads(default.stdout))
+
+    selected = invoke(
+        weather,
+        "--table-format",
+        "json",
+        "--params",
+        "--columns",
+        "id,help",
+        color=False,
+    )
+    assert selected.exit_code == 0
+    rows = {row["ID"]: row["Help"] for row in json.loads(selected.stdout)}
+    assert rows["weather.city"] == "Where to look up the forecast."
+    # Dynamically-computed help resolves here too, not just in the man page.
+    assert rows["weather.verbose"].startswith("Increase the default")
+
+
+def test_help_column_is_documented():
+    """The auto-generated column reference covers the opt-in column too."""
+    md = ShowParamsOption.render_doc_table()
+    assert "| `Help` | " in md

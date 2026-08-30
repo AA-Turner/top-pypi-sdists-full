@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2021-2025 Mike Fährmann
+# Copyright 2021-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -105,6 +105,9 @@ def parse_command_line(module, argv):
                 key, _, value = h.partition(":")
                 std_headers[key] = value
 
+    if getattr(opts, "impersonate", None) is not None:
+        opts.impersonate = module.ImpersonateTarget.from_str(
+            opts.impersonate.lower())
     if opts.ratelimit is not None:
         opts.ratelimit = parse_bytes(opts.ratelimit)
     if getattr(opts, "throttledratelimit", None) is not None:
@@ -445,6 +448,7 @@ def parse_command_line(module, argv):
         "geo_bypass_ip_block": getattr(
             opts, "geo_bypass_ip_block", None),
         "compat_opts": compat_opts,
+        "impersonate": getattr(opts, "impersonate", None),
     }
 
 

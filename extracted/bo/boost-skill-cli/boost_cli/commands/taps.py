@@ -1,5 +1,5 @@
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """Registry (taps) commands: tap, untap, taps, outdated."""
 from __future__ import annotations
 
@@ -44,22 +44,44 @@ def _tap_catalog(args) -> int:
         out.dim("%d registries · ~%d items (dry run — nothing tapped)"
                 % (len(selection), sum(e.get("est_items") or 0 for e in selection)))
         return 0
-    existing = {t.name for t in registry.list_taps()}
+    focus = {str(e["name"]): e.get("focus", "") for e in selection}
+    return _tap_all([str(e["url"]) for e in selection], jobs=args.jobs,
+                    focus=focus)
+
+
+def _tap_all(urls: list[str], jobs: int | None,
+             focus: dict[str, str] | None = None,
+             pins: dict[str, str] | None = None) -> int:
+    """Clone many registries at once, then scan each one that arrived.
+
+    The split is the whole optimisation. Cloning is network latency — 1.6 s per
+    registry whether one runs or twelve — so it goes wide; scanning is 3 ms per
+    registry and writes a per-tap cache file, so it stays on this thread where
+    its output can be printed in order and its errors belong to one tap.
+    """
+    focus = focus or {}
+    results = registry.add_many(urls, curated=True, pins=pins, jobs=jobs)
     rc = 0
-    for e in selection:
-        if e["name"] in existing:
-            out.info(out.role("%s already tapped" % e["name"], "muted"))
+    for res in results:
+        name = res["name"]
+        if res.get("skipped"):
+            out.info(out.role("%s already tapped" % name, "muted"))
             continue
+        if not res.get("ok"):
+            out.warn("could not tap %s: %s" % (name, res.get("error", "")))
+            rc = 1
+            continue
+        tap = res["tap"]
         try:
-            tap = registry.add(str(e["url"]), curated=True)
             entries = catalog.rebuild_tap(tap)
         except BoostError as err:
-            out.warn("could not tap %s: %s" % (e["name"], err.message))
+            out.warn("could not index %s: %s" % (name, err.message))
             rc = 1
             continue
         journal.log("tap", tap.name)
-        out.ok("tapped %s (%d items) — %s"
-               % (tap.name, len(entries), e.get("focus", "")))
+        note = focus.get(name) or ""
+        out.ok("tapped %s (%d items)%s"
+               % (tap.name, len(entries), " — %s" % note if note else ""))
     return rc
 
 
@@ -101,7 +123,16 @@ def cmd_tap(argv) -> int:
                    help="with --catalog: print what would be tapped, tap nothing")
     p.add_argument("--curated", action="store_true",
                    help="mark the tap as curated (★ in listings)")
+    p.add_argument("--at", metavar="SHA",
+                   help="pin the clone to one 40-character commit, as a "
+                        "published vector shard requires")
+    p.add_argument("--jobs", type=int, metavar="N",
+                   help="clone this many registries at once (default %d, max "
+                        "%d)" % (registry.DEFAULT_TAP_JOBS,
+                                 registry.MAX_TAP_JOBS))
     args = p.parse_args(argv)
+    if args.at and not args.spec:
+        p.error("--at pins one registry, so it needs a SPEC")
     if not args.spec and not args.defaults and not args.catalog:
         p.error("provide a SPEC, --defaults, or --catalog")
 
@@ -109,30 +140,20 @@ def cmd_tap(argv) -> int:
     if args.catalog:
         rc |= _tap_catalog(args)
     if args.defaults:
-        existing = {t.name for t in registry.list_taps()}
-        for default in config.DEFAULT_TAPS:
-            if default["name"] in existing:
-                out.info(out.role("%s already tapped" % default["name"], "muted"))
-                continue
-            try:
-                tap = registry.add(str(default["url"]), curated=True)
-                entries = catalog.rebuild_tap(tap)
-            except BoostError as e:
-                out.warn("could not tap %s: %s" % (default["name"], e.message))
-                rc = 1
-                continue
-            journal.log("tap", tap.name)
-            # "items", not "skills": the defaults now carry rules and
-            # workflows, so a pure rules registry reported "257 skills"
-            # immediately after the README promised three kinds.
-            out.ok("tapped %s (%d items) — %s"
-                   % (tap.name, len(entries), default.get("focus", "")))
+        # "items", not "skills": the defaults now carry rules and workflows, so
+        # a pure rules registry reported "257 skills" immediately after the
+        # README promised three kinds. `_tap_all` says items.
+        rc |= _tap_all([str(d["url"]) for d in config.DEFAULT_TAPS],
+                       jobs=args.jobs,
+                       focus={str(d["name"]): str(d.get("focus", ""))
+                              for d in config.DEFAULT_TAPS})
     if args.spec:
         with spin.Spinner("cloning %s" % args.spec):
-            tap = registry.add(args.spec, curated=args.curated)
+            tap = registry.add(args.spec, curated=args.curated, at=args.at)
             entries = catalog.rebuild_tap(tap)
         journal.log("tap", tap.name)
-        out.ok("Tapped %s (%d items)" % (tap.name, len(entries)))
+        pin = " @ %s" % args.at[:7] if args.at else ""
+        out.ok("Tapped %s (%d items)%s" % (tap.name, len(entries), pin))
     # Refresh the TAB-completion name cache so `boost install <TAB>` sees
     # whatever this call just tapped instead of the pre-tap snapshot.
     complete.refresh_names()
@@ -205,7 +226,8 @@ def cmd_taps(argv) -> int:
         skills = catalog.load_tap(tap)
         total += len(skills)
         taps.append({"name": tap.name, "url": tap.url, "curated": tap.curated,
-                     "skills": len(skills), "updated": _tap_updated(tap)})
+                     "skills": len(skills), "updated": _tap_updated(tap),
+                     "pin": tap.pin})
     if args.json:
         print(json.dumps(taps, indent=2))
         return 0
@@ -213,7 +235,12 @@ def cmd_taps(argv) -> int:
         out.info("no taps configured")
         out.info(out.role("add the recommended registries with `boost tap --defaults`", "muted"))
         return 0
-    rows = [(t["name"], str(t["skills"]), t["updated"],
+    # A pinned tap reads as its commit rather than its date: the date of a
+    # clone held still is not what the user needs to know about it, and a tap
+    # that `boost update` deliberately skips should say why on the line the
+    # user is already reading.
+    rows = [(t["name"], str(t["skills"]),
+             "@%s" % str(t["pin"])[:7] if t["pin"] else t["updated"],
              "★" if t["curated"] else "", out.role(_tilde(t["url"]), "muted"))
             for t in taps]
     out.table(rows, headers=("NAME", "SKILLS", "UPDATED", "", "URL"))

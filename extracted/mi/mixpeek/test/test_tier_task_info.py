@@ -58,6 +58,9 @@ class TestTierTaskInfo(unittest.TestCase):
                         completed_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         duration_ms = 1.337, 
                         documents_written = 56, 
+                        warnings = [
+                            ''
+                            ], 
                         pages_dropped = 56, 
                         pages_dropped_reasons = {
                             'key' : 56

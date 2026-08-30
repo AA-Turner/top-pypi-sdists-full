@@ -36,12 +36,13 @@ class TestBulkUpdateDocumentsResponse(unittest.TestCase):
         model = BulkUpdateDocumentsResponse()
         if include_optional:
             return BulkUpdateDocumentsResponse(
+                task_id = '',
+                status = '',
                 updated_count = 56,
-                message = 'Documents updated successfully'
+                message = 'Bulk update enqueued'
             )
         else:
             return BulkUpdateDocumentsResponse(
-                updated_count = 56,
         )
         """
 

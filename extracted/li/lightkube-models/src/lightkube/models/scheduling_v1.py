@@ -32,7 +32,7 @@ class PriorityClass(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **preemptionPolicy** ``Optional[str]`` - preemptionPolicy is the Policy for preempting pods with lower priority. One of
         Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.

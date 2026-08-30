@@ -46,6 +46,7 @@ from click_extra.theme import (
     BUILTIN_THEMES,
     LITERAL_STYLES,
     REPLACEABLE_STYLES,
+    THEME_ENVVAR,
     HelpTheme,
     ThemeChoice,
     ThemeOption,
@@ -165,7 +166,7 @@ _THEME_BACKGROUNDS: dict[str, str] = {
     "manpage": "#000000",
     "monokai": "#272822",
     "nord": "#2e3440",
-    "solarized_dark": "#002b36",
+    "solarized-dark": "#002b36",
 }
 
 # Branded themes are 24-bit RGB and ship with deliberate palettes, so we
@@ -175,7 +176,7 @@ _BRANDED_THEMES: tuple[str, ...] = (
     "dracula",
     "monokai",
     "nord",
-    "solarized_dark",
+    "solarized-dark",
 )
 
 # Slots that carry primary readable text. These should clear WCAG AA Large
@@ -362,9 +363,13 @@ def test_cascade_rejects_non_theme_base():
 
 
 def test_themechoice_choices_track_global_registry():
-    """Outside any context, ``choices`` reflects the module-level registry."""
+    """Outside any context, ``choices`` reflects the module-level registry.
+
+    Plus the reserved ``auto`` directive, which every CLI takes and no registry
+    holds.
+    """
     tc = ThemeChoice()
-    assert set(tc.choices) == set(theme_registry)
+    assert set(tc.choices) == {AUTO_THEME, *theme_registry}
 
 
 def test_themechoice_choices_pick_up_context_overrides():
@@ -633,7 +638,7 @@ def test_config_theme_appears_in_help_metavar(invoke, create_config):
     assert result.exit_code == 0, result.stderr
     # The bracket-style metavar must include "midnight" in alphabetical order.
     assert (
-        "[dark|dracula|light|manpage|midnight|monokai|nord|solarized_dark]"
+        "[auto|dark|dracula|light|manpage|midnight|monokai|nord|solarized-dark]"
         in result.stdout
     )
 
@@ -744,19 +749,24 @@ def test_theme_auto_from_config(invoke, create_config, monkeypatch):
     assert captured["theme"] is BUILTIN_THEMES["light"]
 
 
-def test_theme_auto_absent_from_help_metavar(invoke):
-    """The reserved 'auto' directive is not advertised in the --theme metavar."""
+def test_theme_auto_advertised_in_help_metavar(invoke):
+    """The reserved 'auto' directive is listed among the values --theme takes.
+
+    It resolves to a palette rather than being one, but it works on every Click
+    Extra CLI, and a value named nowhere is a value nobody finds.
+    """
     result = invoke(greet, "--help", color=False)
     assert result.exit_code == 0
-    # The metavar lists only registered palettes; 'auto' is accepted but hidden.
-    assert "[dark|dracula|light|manpage|monokai|nord|solarized_dark]" in result.stdout
+    assert (
+        "[auto|dark|dracula|light|manpage|monokai|nord|solarized-dark]" in result.stdout
+    )
 
 
 def test_themechoice_accepts_auto_directive():
     """'auto' converts to itself though it is not a registered palette."""
     assert ThemeChoice().convert("auto", None, None) == AUTO_THEME
     assert ThemeChoice().convert("AUTO", None, None) == AUTO_THEME
-    assert "auto" not in ThemeChoice().choices
+    assert "auto" in ThemeChoice().choices
 
 
 def test_theme_option_query_background_opt_in():
@@ -775,3 +785,112 @@ def test_resolve_auto_theme_forwards_query_flag(monkeypatch):
     assert resolve_auto_theme(query_background=True) is BUILTIN_THEMES["light"]
     # Without it, no signal resolves and the dark fallback applies.
     assert resolve_auto_theme(query_background=False) is BUILTIN_THEMES["dark"]
+
+
+# --- Machine-wide CLICK_EXTRA_THEME variable --------------------------------
+
+
+@pytest.mark.parametrize(
+    ("env_value", "expected_name"),
+    (
+        ("monokai", "monokai"),
+        ("nord", "nord"),
+        # Matched against the registry case-insensitively, like the flag.
+        ("NORD", "nord"),
+        ("Solarized-Dark", "solarized-dark"),
+    ),
+)
+def test_theme_envvar_picks_palette(invoke, monkeypatch, env_value, expected_name):
+    """``CLICK_EXTRA_THEME`` themes a CLI invoked without ``--theme``."""
+    monkeypatch.setenv(THEME_ENVVAR, env_value)
+    captured: dict = {}
+
+    result = invoke(_palette_cli(captured))
+    assert result.exit_code == 0, result.stderr
+    assert captured["theme"] is BUILTIN_THEMES[expected_name]
+
+
+def test_theme_envvar_accepts_auto_directive(invoke, monkeypatch):
+    """The reserved 'auto' directive resolves from the variable too."""
+    monkeypatch.delenv("CLITHEME", raising=False)
+    monkeypatch.setenv(THEME_ENVVAR, AUTO_THEME)
+    monkeypatch.setenv("COLORFGBG", "0;15")
+    captured: dict = {}
+
+    result = invoke(_palette_cli(captured))
+    assert result.exit_code == 0, result.stderr
+    assert captured["theme"] is BUILTIN_THEMES["light"]
+
+
+def test_theme_flag_outranks_envvar(invoke, monkeypatch):
+    """An explicit ``--theme`` beats the machine-wide variable."""
+    monkeypatch.setenv(THEME_ENVVAR, "nord")
+    captured: dict = {}
+
+    result = invoke(_palette_cli(captured), "--theme", "light")
+    assert result.exit_code == 0, result.stderr
+    assert captured["theme"] is BUILTIN_THEMES["light"]
+
+
+def test_cli_envvar_outranks_theme_envvar(invoke, monkeypatch):
+    """The ``<CLI>_THEME`` variable is more specific than the machine-wide one."""
+    monkeypatch.setenv(THEME_ENVVAR, "nord")
+    monkeypatch.setenv("PALETTE_THEME", "monokai")
+    captured: dict = {}
+
+    result = invoke(_palette_cli(captured))
+    assert result.exit_code == 0, result.stderr
+    assert captured["theme"] is BUILTIN_THEMES["monokai"]
+
+
+def test_config_outranks_theme_envvar(invoke, create_config, monkeypatch):
+    """A palette pinned in the CLI's own config file is more specific."""
+    monkeypatch.setenv(THEME_ENVVAR, "nord")
+    captured: dict = {}
+    cli = _palette_cli(captured)
+
+    config_path = create_config("palette.toml", '[palette]\ntheme = "monokai"\n')
+    result = invoke(cli, "--config", str(config_path))
+    assert result.exit_code == 0, result.stderr
+    assert captured["theme"] is BUILTIN_THEMES["monokai"]
+
+
+def test_unknown_theme_envvar_warns_and_keeps_default(invoke, monkeypatch):
+    """A typo in a shell profile must not break every Click Extra CLI at once."""
+    monkeypatch.setenv(THEME_ENVVAR, "zenburn")
+    captured: dict = {}
+
+    result = invoke(_palette_cli(captured))
+    assert result.exit_code == 0
+    assert THEME_ENVVAR in result.stderr
+    assert "zenburn" in result.stderr
+    assert captured["theme"] is DARK
+
+
+@pytest.mark.parametrize("envvar", (THEME_ENVVAR, "GREET_THEME"))
+def test_theme_from_env_reaches_the_help_screen(invoke, monkeypatch, envvar):
+    """A palette named by the environment paints the screen it exists to paint.
+
+    Click processes a typed ``--help`` before an untyped ``--theme``, so the
+    palette only reaches the help screen through the pre-pass in
+    ``Command._resolve_presentation_eagerly``.
+    """
+    plain = invoke(greet, "--help", color=True)
+    flagged = invoke(greet, "--theme", "nord", "--help", color=True)
+    monkeypatch.setenv(envvar, "nord")
+    from_env = invoke(greet, "--help", color=True)
+
+    assert from_env.stdout == flagged.stdout
+    assert from_env.stdout != plain.stdout
+
+
+def test_theme_flag_after_help_still_paints_it(invoke):
+    """``--help --theme nord`` renders under nord, like the reverse order.
+
+    Both are typed, so Click sorts ``--help`` first and would render before the
+    palette settles: the same pre-pass covers it.
+    """
+    before = invoke(greet, "--theme", "nord", "--help", color=True)
+    after = invoke(greet, "--help", "--theme", "nord", color=True)
+
+    assert after.stdout == before.stdout

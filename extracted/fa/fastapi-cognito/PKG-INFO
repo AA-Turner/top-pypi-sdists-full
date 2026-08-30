@@ -1,33 +1,26 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: fastapi-cognito
-Version: 2.9.0
+Version: 2.10.0
 Summary: AWS Cognito JWT authentication library for FastAPI
-License: MIT
-Author: Marko Mirosavljev
-Author-email: mirosavljevm023@gmail.com
-Maintainer: Marko Mirosavljev
-Maintainer-email: mirosavljevm023@gmail.com
-Requires-Python: >=3.8,<4.0
+Project-URL: Repository, https://github.com/markomirosavljev/fastapi-cognito
+Author-email: Marko Mirosavljev <mirosavljevm023@gmail.com>
+Maintainer-email: Marko Mirosavljev <mirosavljevm023@gmail.com>
+License-Expression: MIT
+License-File: LICENSE.txt
 Classifier: Framework :: FastAPI
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: aiofile (>=3.8.8)
-Requires-Dist: async-lru (>=2.0.4)
-Requires-Dist: fastapi (>=0.111.0,<1.0.0)
-Requires-Dist: httpx (>=0.27.0)
-Requires-Dist: joserfc (>=0.9.0)
-Requires-Dist: pydantic (>=2.7.1)
-Requires-Dist: pydantic-settings (>=2.2.1)
-Requires-Dist: pyyaml (>=6.0.1)
-Project-URL: Repository, https://github.com/markomirosavljev/fastapi-cognito
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.10
+Requires-Dist: aiofile>=3.8.8
+Requires-Dist: async-lru>=2.0.4
+Requires-Dist: fastapi<1.0.0,>=0.111.0
+Requires-Dist: httpx2>=2.1.0
+Requires-Dist: joserfc>=0.9.0
+Requires-Dist: pydantic-settings>=2.2.1
+Requires-Dist: pydantic>=2.7.1
+Requires-Dist: pyyaml>=6.0.1
 Description-Content-Type: text/markdown
 
 # FastAPI - Cognito

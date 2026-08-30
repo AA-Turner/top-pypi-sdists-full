@@ -86,6 +86,8 @@ class XenforoExtractor(BaseExtractor):
                             continue
                     elif '"' in ext:
                         ext = ext[:ext.find('"')]
+                    if ext.startswith("https://anonym.es/?"):
+                        ext = text.unquote(ext[19:])
                     data["num"] += 1
                     data["num_external"] += 1
                     data["type"] = "external"
@@ -527,6 +529,10 @@ BASE_PATTERN = XenforoExtractor.update({
     "thefappeningforum": {
         "root": "https://thefappeningblog.com/forum",
         "pattern": r"(?:www\.)?thefappeningblog\.com/forum",
+    },
+    "thirsthub": {
+        "root": "https://thirsthub.cc",
+        "pattern": r"thirsthub\.cc",
     },
 })
 

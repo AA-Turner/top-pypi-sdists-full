@@ -36,6 +36,8 @@ import base64
 import json
 import os
 import platform
+import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -361,6 +363,19 @@ def _win_subprocess_kwargs() -> dict:
     return {}
 
 
+def _child_env() -> dict:
+    """Environment for child interpreters (probe, venv, pip). The frozen
+    shell's own interpreter state must not leak into the system/venv
+    python it spawns, and a user's pip config must not veto the venv
+    bootstrap (PIP_REQUIRE_VIRTUALENV=1 fails the base-interpreter
+    probe before any venv exists)."""
+    env = os.environ.copy()
+    for k in ("PYTHONHOME", "PYTHONPATH", "__PYVENV_LAUNCHER__",
+              "PIP_REQUIRE_VIRTUALENV"):
+        env.pop(k, None)
+    return env
+
+
 # ── Open telemetry (shell stage) ──────────────────────────────────────────
 # The .app/.exe phones home once per launch so we can tell a download
 # apart from an actual open, and a first open apart from the nth. This
@@ -589,6 +604,55 @@ def open_ping_state(session_id: str, attached: bool = False) -> dict:
     return state
 
 
+def bootstrap_failure_payload(
+    session_id: str, failure_class: str, bootstrap_python: str
+) -> dict:
+    """The COMPLETE field-failure report (AC-FFR-001.1). A closed dict of
+    aggregate facts — the failure family, the platform, which Python the
+    bootstrap found — and nothing else. No paths, no usernames, no
+    hostnames, no log or pip text, ever: the raw diagnostics stay in
+    bootstrap.log on the machine. Pure so the privacy contract is
+    testable key-by-key."""
+    return {
+        "install_id": _install_id(),
+        "event": "desktop_open",
+        "stage": "bootstrap_failed",
+        "session_id": session_id,
+        "failure_class": str(failure_class or "unknown")[:40],
+        "bootstrap_python": str(bootstrap_python or "")[:8],
+        "desktop_version": _desktop_version(),
+        "os": platform.system() or "unknown",
+        "os_version": platform.release() or "",
+        "arch": platform.machine() or "",
+    }
+
+
+def bootstrap_failure_ping(
+    session_id: str, failure_class: str, bootstrap_python: str
+) -> bool:
+    """Report a hard bootstrap failure to the open sink, correlated with
+    the shell-stage ping by session_id. Same gate, same sink, same
+    fire-and-forget posture as `open_ping_state` — a machine that opted
+    out of telemetry sends nothing and loses nothing locally
+    (AC-FFR-001.2 / AC-FFR-004.1). Returns whether a report was sent."""
+    if _telemetry_optout():
+        return False
+    cfg = _read_config()
+    base = _app_base(cfg)
+    if not base:
+        return False
+    payload = bootstrap_failure_payload(session_id, failure_class, bootstrap_python)
+    if not payload["install_id"]:
+        return False
+    threading.Thread(
+        target=_post_open_ping,
+        args=(payload, base, str(cfg.get("api_key") or "")),
+        daemon=True,
+        name="clawmetry-desktop-failure-ping",
+    ).start()
+    return True
+
+
 def _bootstrap_python(cache_file: Optional[Path] = None) -> Optional[str]:
     """A real Python interpreter the shell can use to create a venv.
     PyInstaller's bundled interpreter can't (its `sys.executable` is
@@ -611,7 +675,6 @@ def _bootstrap_python(cache_file: Optional[Path] = None) -> Optional[str]:
     candidates = ["python3", "/usr/bin/python3", "python", "py"]
     if platform.system() == "Windows":
         candidates = ["py", "python", "python3"]
-    import shutil
 
     paths = [shutil.which(c) for c in candidates]
     if platform.system() == "Windows":
@@ -623,25 +686,58 @@ def _bootstrap_python(cache_file: Optional[Path] = None) -> Optional[str]:
         paths += [
             str(p) for p in sorted(local.glob("Python3*/python.exe"), reverse=True)
         ]
+    # 3.9 is clawmetry's tested floor: an older interpreter creates the
+    # venv fine and then pip fails with "No matching distribution found"
+    # — a dead end this probe must reject up front. venv+ensurepip is
+    # all the BASE interpreter needs (the venv seeds its own pip);
+    # requiring `import pip` here rejected perfectly usable pythons.
+    # The probe also prints "major.minor" so the winner's version rides
+    # along in the cache — the field-failure report wants to say WHICH
+    # Python a bootstrap died on (the 2026-08-29 cffi failure was
+    # invisible precisely because nothing recorded "3.14").
+    probe = (
+        "import sys, venv, ensurepip; "
+        "print('%d.%d' % sys.version_info[:2]); "
+        "sys.exit(0 if sys.version_info >= (3, 9) else 3)"
+    )
     for p in paths:
         if not p:
             continue
         try:
+            # 20s, not 6: the first spawn of a freshly installed python
+            # gets AV-scanned on Windows and routinely blows a 6s budget,
+            # which read as "no python" on machines that had one.
             r = subprocess.run(
-                [p, "-c", "import sys,venv,pip; print(sys.version_info[:2])"],
-                capture_output=True, text=True, timeout=6,
+                [p, "-c", probe],
+                capture_output=True, text=True, timeout=20,
+                env=_child_env(), stdin=subprocess.DEVNULL,
                 **_win_subprocess_kwargs(),
             )
             if r.returncode == 0:
                 if cache_file is not None:
                     try:
-                        cache_file.write_text(json.dumps({"python": p}))
+                        cache_file.write_text(json.dumps({
+                            "python": p,
+                            "version": (r.stdout or "").strip()[:8],
+                        }))
                     except OSError:
                         pass
                 return p
         except Exception:
             continue
     return None
+
+
+def _bootstrap_python_version(cache_file: Optional[Path]) -> str:
+    """major.minor of the cached bootstrap interpreter, or "" when no
+    probe has succeeded (or the cache predates the version field)."""
+    if cache_file is None:
+        return ""
+    try:
+        v = str(json.loads(cache_file.read_text()).get("version") or "")
+        return v if re.fullmatch(r"\d+\.\d+", v) else ""
+    except Exception:
+        return ""
 
 
 def _winget_install_python(log: Callable[[str], None]) -> None:
@@ -678,6 +774,38 @@ def _winget_install_python(log: Callable[[str], None]) -> None:
         log(f"winget python install rc={r.returncode}")
     except Exception as e:
         log(f"winget python install failed: {e}")
+
+
+# User-facing hint per pip failure family (_classify_pip_failure). Keys
+# are the closed failure-class enum; the splash shows the value, the
+# field-failure report sends only the key.
+_PIP_FAILURE_HINTS = {
+    "broken_runtime": (
+        "The runtime environment was broken — relaunch the app to rebuild it."
+    ),
+    "compiler_demand": (
+        "A dependency has no prebuilt package for this Python "
+        "version — update ClawMetry (packaging fix), or install "
+        "python.org Python 3.12/3.13 and relaunch."
+    ),
+    "no_distribution": (
+        "Python too old or PyPI unreachable — "
+        "install python.org Python 3.11+ and relaunch."
+    ),
+    "tls_intercepted": (
+        "A firewall or proxy is intercepting TLS to pypi.org — "
+        "check proxy/antivirus settings."
+    ),
+    "network": (
+        "Could not reach pypi.org — check this network's "
+        "connectivity/proxy, then relaunch."
+    ),
+    "permissions": (
+        "Permissions or antivirus blocked the install — "
+        "allowlist the ClawMetry data folder and relaunch."
+    ),
+    "pip_unknown": "See the log for the pip error.",
+}
 
 
 class RuntimeSupervisor:
@@ -723,11 +851,26 @@ class RuntimeSupervisor:
         )
 
     def _log(self, line: str) -> None:
+        # utf-8 + errors=replace: pip output can carry characters the
+        # Windows locale codepage can't encode, and a UnicodeEncodeError
+        # is not an OSError — either way a log write must never take
+        # down the boot thread.
         try:
-            with self.log_file.open("a") as f:
+            with self.log_file.open("a", encoding="utf-8", errors="replace") as f:
                 f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {line}\n")
-        except OSError:
+        except Exception:
             pass
+
+    def _run_child(self, argv: list, timeout: float) -> subprocess.CompletedProcess:
+        """Run a bootstrap child (python/pip) with a scrubbed env, no
+        console window, and decode-safe output capture (a stray byte in
+        pip's output must not raise UnicodeDecodeError mid-boot)."""
+        return subprocess.run(
+            argv, capture_output=True, timeout=timeout,
+            text=True, encoding="utf-8", errors="replace",
+            env=_child_env(), stdin=subprocess.DEVNULL,
+            **_win_subprocess_kwargs(),
+        )
 
     def _should_upgrade(self) -> bool:
         if not self.stamp_file.exists():
@@ -807,6 +950,143 @@ class RuntimeSupervisor:
             pass
         return None
 
+    def _venv_is_runnable(self) -> bool:
+        """The venv python on Windows is a launcher that resolves the
+        base interpreter through pyvenv.cfg. When that base Python is
+        upgraded, moved, or uninstalled (Store Python relocates on
+        every update; python.org minor upgrades remove the old dir)
+        the launcher still *exists* but every run fails with "No
+        Python at ..." — so existence alone is not a health check."""
+        py = self._venv_python()
+        if not py.exists():
+            return False
+        try:
+            r = self._run_child([str(py), "-c", "import sys; sys.exit(0)"],
+                                timeout=20)
+            return r.returncode == 0
+        except Exception:
+            return False
+
+    def _create_venv(self, py: str) -> bool:
+        """(Re)create the runtime venv from scratch, and make sure it
+        ends up with a working pip (ensurepip fallback for base
+        interpreters that seed a venv without one)."""
+        if self.venv.exists():
+            self._log(f"removing stale venv at {self.venv}")
+            try:
+                shutil.rmtree(self.venv)
+            except OSError as e:
+                self._log(f"could not remove stale venv: {e}")
+        try:
+            r = self._run_child([py, "-m", "venv", str(self.venv)], timeout=180)
+        except subprocess.TimeoutExpired:
+            self._log("venv creation timed out")
+            return False
+        if r.returncode != 0:
+            self._log(f"venv creation failed rc={r.returncode}: "
+                      f"{(r.stderr or r.stdout or '')[-2000:]}")
+            return False
+        self._log(f"venv created via {py}")
+        vpy = str(self._venv_python())
+        try:
+            pipchk = self._run_child([vpy, "-m", "pip", "--version"], timeout=60)
+            if pipchk.returncode != 0:
+                self._log("venv has no pip; running ensurepip")
+                self._run_child([vpy, "-m", "ensurepip", "--upgrade"], timeout=120)
+        except subprocess.TimeoutExpired:
+            self._log("venv pip presence check timed out")
+        return self._venv_is_runnable()
+
+    # Hard-won pip flags for the first install:
+    #   --no-input        never hang on a keyring/credential prompt in a
+    #                     windowless app (there is no console to answer it)
+    #   --only-binary=:all: on Windows — an end-user Windows machine has no
+    #                     compiler, so a source build can only ever fail
+    #                     with "Microsoft Visual C++ 14.0 or greater is
+    #                     required" (field failure 2026-08-29: cffi<2 had
+    #                     no cp314 wheel, pip fell back to the sdist).
+    #                     Every dependency ships wheels on Windows; a
+    #                     missing wheel must fail as a clear "no matching
+    #                     distribution", not an MSVC demand. Elsewhere a
+    #                     source build can succeed, so only prefer wheels.
+    #   --timeout/--retries  fail over faster than pip's 15s default —
+    #                     dual-stack networks with broken IPv6 burn the
+    #                     whole budget timing out per AAAA address
+    _PIP_FLAGS = (
+        "--disable-pip-version-check", "--no-input",
+        ("--only-binary=:all:" if platform.system() == "Windows"
+         else "--prefer-binary"),
+        "--timeout", "20", "--retries", "4",
+    )
+
+    def _pip_install_clawmetry(self) -> "tuple[int, str]":
+        """Install/upgrade clawmetry into the venv, retrying once with a
+        cold cache (a corrupt ~/pip cache fails identically forever).
+        Returns (rc, combined pip output)."""
+        vpy = str(self._venv_python())
+        # Old base interpreters seed venvs with a pip too old to pick
+        # current wheels; the CLI installer (install-clawmetry.ps1)
+        # upgrades pip first and the desktop shell must match it.
+        try:
+            up = self._run_child(
+                [vpy, "-m", "pip", "install", "--upgrade",
+                 "--disable-pip-version-check", "--no-input", "pip"],
+                timeout=180,
+            )
+            self._log(f"pip self-upgrade rc={up.returncode}")
+        except subprocess.TimeoutExpired:
+            self._log("pip self-upgrade timed out; continuing with bundled pip")
+        base = [vpy, "-m", "pip", "install", "--upgrade", *self._PIP_FLAGS]
+        attempts = [base + ["clawmetry"],
+                    base + ["--no-cache-dir", "clawmetry"]]
+        rc, out = 1, ""
+        for i, argv in enumerate(attempts):
+            try:
+                r = self._run_child(argv, timeout=300)
+            except subprocess.TimeoutExpired:
+                self._log(f"pip install attempt {i + 1} timed out after 300s")
+                rc, out = -1, out + "\npip install timed out"
+                continue
+            out = (r.stdout or "") + "\n" + (r.stderr or "")
+            rc = r.returncode
+            self._log(f"pip install attempt {i + 1} rc={rc}")
+            if rc == 0:
+                return rc, out
+            # stdout too, not just stderr: pip's resolver explains
+            # itself on stdout and that is the half we always lost.
+            self._log(f"pip output tail: {out[-4000:]}")
+        return rc, out
+
+    @staticmethod
+    def _explain_pip_failure(output: str) -> str:
+        """Map pip's error text to something the splash can show that a
+        user can act on. 'PyPI install failed. See bootstrap.log.' told
+        the affected machines nothing (and not where the log was)."""
+        return _PIP_FAILURE_HINTS[RuntimeSupervisor._classify_pip_failure(output)]
+
+    @staticmethod
+    def _classify_pip_failure(output: str) -> str:
+        """The machine-readable failure family for a failed pip run.
+        These codes are the vocabulary of the field-failure report
+        (AC-FFR-001) — a closed enum, never free text, because the code
+        is the ONLY part of a failure that ever leaves the machine."""
+        low = output.lower()
+        if "no python at" in low or "did not find executable" in low:
+            return "broken_runtime"
+        if "microsoft visual c++" in low or "build wheel did not run successfully" in low:
+            return "compiler_demand"
+        if "no matching distribution" in low or "could not find a version" in low:
+            return "no_distribution"
+        if "certificate" in low or "sslerror" in low or "ssl:" in low:
+            return "tls_intercepted"
+        if ("timed out" in low or "connection" in low
+                or "temporary failure" in low or "getaddrinfo" in low
+                or "name or service not known" in low):
+            return "network"
+        if "permission" in low or "access is denied" in low or "winerror 5" in low:
+            return "permissions"
+        return "pip_unknown"
+
     def bootstrap(self) -> bool:
         """Create the venv if missing; pip-install clawmetry if missing.
         Idempotent. Returns True if a runnable clawmetry ends up in
@@ -818,10 +1098,32 @@ class RuntimeSupervisor:
         (it restarts the daemon on version drift, so users still pick
         up releases without ever staring at a "Checking for updates"
         splash)."""
+        # Written on every False return: the closed failure-class code
+        # (plus the bootstrap interpreter's major.minor, when one was
+        # found) that the field-failure report sends. Assigned here, not
+        # in __init__, so tests building the supervisor via __new__ stay
+        # valid and a stale value can never outlive the attempt.
+        self.failure_class: Optional[str] = None
+        self.bootstrap_python_version: str = ""
         if self._venv_clawmetry().exists():
-            return True
+            # The exe stub existing is NOT the package existing. A pip
+            # upgrade that dies between uninstall and install (live field
+            # case 2026-08-29: the watcher updated in place seconds after
+            # a release while the daemon held clawmetry.exe open) leaves
+            # the stub with no clawmetry module behind it — every spawn
+            # then dies with ModuleNotFoundError, and trusting the stub
+            # here made that state permanent across relaunches. Require a
+            # COMPLETE install (dist-info with RECORD — a directory glob,
+            # so the healthy warm launch stays spawn-free and fast) and
+            # fall through to the normal install path when it is absent.
+            if self._get_installed_version() is not None:
+                return True
+            self._log("entry point exists but no complete clawmetry "
+                      "dist-info — package corpse from a half-failed "
+                      "in-place update; reinstalling")
 
-        py = _bootstrap_python(self.runtime / "bootstrap-python.json")
+        cache = self.runtime / "bootstrap-python.json"
+        py = _bootstrap_python(cache)
         if not py and platform.system() == "Windows":
             # Python is a dependency we install, not one we ask for: the
             # NSIS installer bootstraps it at install time, and this
@@ -829,51 +1131,67 @@ class RuntimeSupervisor:
             self.on_status("Installing Python 3 runtime (one-time, ~1 min)")
             self._log("no system python3; attempting winget auto-install")
             _winget_install_python(self._log)
-            py = _bootstrap_python(self.runtime / "bootstrap-python.json")
+            py = _bootstrap_python(cache)
         if not py:
             self.on_status(
                 "Python 3 not found and automatic install failed. "
                 "Install python.org 3.11+ then relaunch."
             )
-            self._log("no system python3 available")
+            self._log("no usable python3 (need 3.9+ with venv+ensurepip)")
+            self.failure_class = "no_python"
             return False
+        self.bootstrap_python_version = _bootstrap_python_version(cache)
+        self._log(f"bootstrap python: {py}")
 
-        if not self._venv_python().exists():
+        # Health check, not existence check: we only get here with no
+        # runnable clawmetry, so a venv that exists is a venv left over
+        # from a failed install or orphaned by a base-Python upgrade —
+        # pip inside it fails identically on every relaunch until
+        # someone deletes it. Rebuild it instead.
+        if not self._venv_is_runnable():
+            if self._venv_python().exists():
+                self._log("venv exists but its python no longer runs "
+                          "(base interpreter moved/upgraded?) — rebuilding")
             self.on_status("Creating runtime environment")
-            try:
-                subprocess.run(
-                    [py, "-m", "venv", str(self.venv)],
-                    check=True, capture_output=True, text=True, timeout=60,
-                    **_win_subprocess_kwargs(),
-                )
-                self._log(f"venv created via {py}")
-            except subprocess.CalledProcessError as e:
-                self._log(f"venv creation failed: {e.stderr}")
-                self.on_status("Runtime setup failed. Check bootstrap.log.")
-                return False
+            if not self._create_venv(py):
+                # The cached bootstrap python may itself be the stale
+                # part; drop the cache, re-probe, and try once more.
+                try:
+                    cache.unlink()
+                except OSError:
+                    pass
+                py2 = _bootstrap_python(cache)
+                if not (py2 and self._create_venv(py2)):
+                    self.on_status(f"Runtime setup failed. Log: {self.log_file}")
+                    self.failure_class = "venv_setup_failed"
+                    return False
+                self.bootstrap_python_version = _bootstrap_python_version(cache)
 
         self.on_status("Installing ClawMetry from PyPI")
-        try:
-            r = subprocess.run(
-                [str(self._venv_python()), "-m", "pip", "install",
-                 "--upgrade", "--disable-pip-version-check", "clawmetry"],
-                capture_output=True, text=True, timeout=300,
-                **_win_subprocess_kwargs(),
-            )
-            self._log(f"pip install rc={r.returncode}")
-            if r.returncode != 0:
-                self._log(r.stderr[:2000])
-                self.on_status("PyPI install failed. See bootstrap.log.")
-                return False
-            new_version = self._get_installed_version()
-            self._mark_upgraded(new_version)
-            self._log(f"clawmetry now at {new_version}")
-        except subprocess.TimeoutExpired:
-            self._log("pip install timed out")
-            self.on_status("Install timed out. Check your connection.")
+        rc, out = self._pip_install_clawmetry()
+        if rc != 0 and not self._venv_is_runnable():
+            # The base interpreter died mid-flight; rebuild once and
+            # give pip a second life rather than stranding the user.
+            self._log("venv went unrunnable during install — rebuilding once")
+            self.on_status("Rebuilding runtime environment")
+            if self._create_venv(py):
+                rc, out = self._pip_install_clawmetry()
+        if rc != 0:
+            self.failure_class = self._classify_pip_failure(out)
+            hint = _PIP_FAILURE_HINTS[self.failure_class]
+            self.on_status(f"Install failed: {hint} Log: {self.log_file}")
             return False
+        new_version = self._get_installed_version()
+        self._mark_upgraded(new_version)
+        self._log(f"clawmetry now at {new_version}")
 
-        return self._venv_clawmetry().exists()
+        ok = self._venv_clawmetry().exists()
+        if not ok:
+            self._log(f"pip succeeded but entry point missing at "
+                      f"{self._venv_clawmetry()}")
+            self.on_status(f"Install incomplete. Log: {self.log_file}")
+            self.failure_class = "install_incomplete"
+        return ok
 
     def ensure_sync_daemon(self) -> None:
         """Local ingest is the product: without the sync daemon every
@@ -1109,6 +1427,7 @@ class RuntimeSupervisor:
             self._log(f"watcher clawmetry-update rc={r.returncode}")
             if r.returncode != 0:
                 self._log(r.stderr[:2000])
+                self._heal_package_corpse(r.stderr or "")
             # Stamp regardless of rc: see the docstring. A failed attempt
             # still consumed an interval, and not stamping it turns the
             # 60s cadence into "retry forever, every tick".
@@ -1119,6 +1438,32 @@ class RuntimeSupervisor:
             # hanging PyPI is exactly the failure that would otherwise
             # re-enter pip on every tick and starve crash-respawn.
             self._mark_upgraded(self._get_installed_version())
+
+    def _heal_package_corpse(self, update_stderr: str) -> None:
+        """Reinstall clawmetry when an in-place update destroyed it.
+
+        Live field case 2026-08-29: `clawmetry update` ran seconds after
+        a release (watcher cadence is 60s, releases can be minutes
+        apart), pip uninstalled the old version and failed to install
+        the new one while the daemon held `clawmetry.exe` open — from
+        then on every `clawmetry ...` invocation died with
+        ModuleNotFoundError, every 60s, forever, because the updater the
+        watcher shells IS the package that no longer exists. The venv's
+        python and pip survive a corpse, so the shell repairs it
+        directly rather than asking the corpse to fix itself."""
+        if "No module named" not in update_stderr:
+            # Only the corpse signature. Other update failures (index
+            # propagation races, transient network) resolve themselves
+            # on a later tick and must not trigger surprise installs.
+            return
+        if self._get_installed_version() is not None:
+            return
+        self._log("update left an exe stub with no clawmetry package — "
+                  "reinstalling via the venv's pip")
+        rc, out = self._pip_install_clawmetry()
+        self._log(f"package-corpse reinstall rc={rc}")
+        if rc != 0:
+            self._log(f"reinstall output tail: {out[-2000:]}")
 
     def restart_daemon(self) -> bool:
         """Stop the current daemon and spawn a fresh one on the same
@@ -1973,7 +2318,18 @@ def main() -> int:
         if not ok:
             # bootstrap() already set a status message on failure; leave
             # the carousel up with the failure text at the top so the
-            # user has something to read while filing a bug.
+            # user has something to read while filing a bug. Report the
+            # classified failure family (and nothing else) so the fleet
+            # learns about the failure class without anyone photographing
+            # a screen — see AC-FFR-001.
+            try:
+                bootstrap_failure_ping(
+                    _session_id,
+                    getattr(sup, "failure_class", None) or "unknown",
+                    getattr(sup, "bootstrap_python_version", ""),
+                )
+            except Exception:
+                pass
             return
 
         # Install the macOS app-vanished watchdog so drag-to-trash of

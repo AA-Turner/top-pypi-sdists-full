@@ -4026,8 +4026,10 @@ class VolumetricData(BaseVolumetricData):
             aug_data: Any = self.data_aug.get(data_type, {})
 
             if isinstance(aug_data, (list, tuple)):
+                # Legacy lines already carry their trailing newline; a second one corrupts the block.
                 for line in aug_data:
-                    file.write(f"{line}\n")
+                    text = str(line)
+                    file.write(text if text.endswith("\n") else f"{text}\n")
                 return
 
             if not isinstance(aug_data, dict):
@@ -4079,7 +4081,9 @@ class VolumetricData(BaseVolumetricData):
             file.write(lines)  # type:ignore[arg-type]
             dim = self.dim
 
-            data_keys = ("spin_up", "spin_down") if {"spin_up", "spin_down"}.issubset(self.data) else ("total",)
+            data_keys: tuple[str, ...] = (
+                ("spin_up", "spin_down") if {"spin_up", "spin_down"}.issubset(self.data) else ("total",)
+            )
             if self.is_soc:
                 data_keys = ("total", "diff_x", "diff_y", "diff_z")
             elif self.is_spin_polarized and data_keys == ("total",):
@@ -4707,6 +4711,7 @@ class Oszicar:
         """
 
         def smart_convert(header: str, num: float | str) -> float | str:
+            num = missing_exponent_pattern.sub(r"E\1", str(num))
             try:
                 return int(num) if header in {"N", "ncg"} else float(num)
 
@@ -4716,6 +4721,8 @@ class Oszicar:
         electronic_steps = []
         ionic_steps = []
         ionic_general_pattern = re.compile(r"(\w+)=\s*(\S+)")
+        # VASP can omit the exponent marker before a trailing signed exponent.
+        missing_exponent_pattern = re.compile(r"(?<=\d)([+-]\d+)$")
         electronic_pattern = re.compile(r"\s*\w+\s*:(.*)")
 
         header: list = []
@@ -4734,7 +4741,9 @@ class Oszicar:
                 elif line.strip() != "":
                     # remove space first and apply field agnostic extraction
                     matches = re.findall(ionic_general_pattern, re.sub(r"d E ", "dE", line))
-                    ionic_steps.append({key: _vasprun_float(value) for key, value in matches})
+                    ionic_steps.append(
+                        {key: _vasprun_float(missing_exponent_pattern.sub(r"E\1", value)) for key, value in matches}
+                    )
 
         self.electronic_steps = electronic_steps
         self.ionic_steps = ionic_steps
@@ -7482,7 +7491,7 @@ class Vaspout(Vasprun):
 
         # for whatever reason, the naming of orbitals is different in vaspout.h5
         vasp_to_pmg_orb = {
-            "x2-y2": "dx2",
+            "x2-y2": "dx2_y2",
             "fy3x2": "f_3",
             "fxyz": "f_2",
             "fyz2": "f_1",

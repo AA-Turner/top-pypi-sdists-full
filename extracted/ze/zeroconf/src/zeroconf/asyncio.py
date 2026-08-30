@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -46,23 +31,8 @@ __all__ = [
 
 
 class AsyncServiceBrowser(_ServiceBrowserBase):
-    """Used to browse for a service for specific type(s).
-
-    Constructor parameters are as follows:
-
-    * `zc`: A Zeroconf instance
-    * `type_`: fully qualified service type name
-    * `handler`: ServiceListener or Callable that knows how to process ServiceStateChange events
-    * `listener`: ServiceListener
-    * `addr`: address to send queries (will default to multicast)
-    * `port`: port to send queries (will default to mdns 5353)
-    * `delay`: The initial delay between answering questions
-    * `question_type`: The type of questions to ask (DNSQuestionType.QM or DNSQuestionType.QU)
-
-    The listener object will have its add_service() and
-    remove_service() methods called when this browser
-    discovers changes in the services availability.
-    """
+    """Event loop browser that fires ServiceListener callbacks as services
+    of the requested types appear, change, and disappear."""
 
     def __init__(
         self,
@@ -78,10 +48,6 @@ class AsyncServiceBrowser(_ServiceBrowserBase):
         super().__init__(zeroconf, type_, handlers, listener, addr, port, delay, question_type)
         self._async_start()
 
-    async def async_cancel(self) -> None:
-        """Cancel the browser."""
-        self._async_cancel()
-
     async def __aenter__(self) -> AsyncServiceBrowser:
         return self
 
@@ -93,6 +59,10 @@ class AsyncServiceBrowser(_ServiceBrowserBase):
     ) -> bool | None:
         await self.async_cancel()
         return None
+
+    async def async_cancel(self) -> None:
+        """Cancel the browser."""
+        self._async_cancel()
 
 
 class AsyncZeroconfServiceTypes(ZeroconfServiceTypes):
@@ -135,14 +105,8 @@ class AsyncZeroconfServiceTypes(ZeroconfServiceTypes):
 
 
 class AsyncZeroconf:
-    """Implementation of Zeroconf Multicast DNS Service Discovery
-
-    Supports registration, unregistration, queries and browsing.
-
-    The async version is currently a wrapper around Zeroconf which
-    is now also async. It is expected that an asyncio event loop
-    is already running before creating the AsyncZeroconf object.
-    """
+    """Awaitable facade over Zeroconf for registration, browsing, and
+    resolution; expects a running asyncio event loop."""
 
     def __init__(
         self,
@@ -152,8 +116,7 @@ class AsyncZeroconf:
         apple_p2p: bool = False,
         zc: Zeroconf | None = None,
     ) -> None:
-        """Creates an instance of the Zeroconf class, establishing
-        multicast communications, and listening.
+        """Create or wrap a Zeroconf instance for use from asyncio.
 
         :param interfaces: :class:`InterfaceChoice` or a list of IP addresses
             (IPv4 and IPv6) and interface indexes (IPv6 only).
@@ -175,6 +138,51 @@ class AsyncZeroconf:
         )
         self.async_browsers: dict[ServiceListener, AsyncServiceBrowser] = {}
 
+    async def __aenter__(self) -> AsyncZeroconf:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
+        await self.async_close()
+        return None
+
+    async def async_add_service_listener(self, type_: str, listener: ServiceListener) -> None:
+        """Browse a service type, delivering events to the listener.
+
+        Replaces any browser previously registered for the same listener.
+        """
+        await self.async_remove_service_listener(listener)
+        self.async_browsers[listener] = AsyncServiceBrowser(self.zeroconf, type_, listener)
+
+    async def async_close(self) -> None:
+        """Unregister everything and shut the wrapped Zeroconf down."""
+        if not self.zeroconf.done:
+            with contextlib.suppress(NotRunningException):
+                await self.zeroconf.async_wait_for_start(timeout=1.0)
+        await self.async_remove_all_service_listeners()
+        await self.async_unregister_all_services()
+        await self.zeroconf._async_close()  # pylint: disable=protected-access
+
+    async def async_get_service_info(
+        self,
+        type_: str,
+        name: str,
+        timeout: int = 3000,
+        question_type: DNSQuestionType | None = None,
+    ) -> AsyncServiceInfo | None:
+        """Look up details for a service on the network.
+
+        Queries for the given fully qualified type and name, waiting up to
+        timeout milliseconds, and returns a populated AsyncServiceInfo or
+        None when nothing answered in time. question_type forces QM or QU
+        questions instead of the automatic choice.
+        """
+        return await self.zeroconf.async_get_service_info(type_, name, timeout, question_type)
+
     async def async_register_service(
         self,
         info: ServiceInfo,
@@ -183,46 +191,38 @@ class AsyncZeroconf:
         cooperating_responders: bool = False,
         strict: bool = True,
     ) -> Awaitable:
-        """Registers service information to the network with a default TTL.
-        Zeroconf will then respond to requests for information for that
-        service.  The name of the service may be changed if needed to make
-        it unique on the network. Additionally multiple cooperating responders
-        can register the same service on the network for resilience
-        (if you want this behavior set `cooperating_responders` to `True`).
+        """Announce a service on the network.
 
-        The service will be broadcast in a task. This task is returned
-        and therefore can be awaited if necessary.
+        Returns an awaitable that completes once the announcements have
+        been sent.
         """
         return await self.zeroconf.async_register_service(
             info, ttl, allow_name_change, cooperating_responders, strict
         )
 
-    async def async_unregister_all_services(self) -> None:
-        """Unregister all registered services.
+    async def async_remove_all_service_listeners(self) -> None:
+        """Stop and drop every browser started through add_service_listener."""
+        await asyncio.gather(
+            *(self.async_remove_service_listener(listener) for listener in list(self.async_browsers))
+        )
 
-        Unlike async_register_service and async_unregister_service, this
-        method does not return a future and is always expected to be
-        awaited since its only called at shutdown.
+    async def async_remove_service_listener(self, listener: ServiceListener) -> None:
+        """Stop and drop the browser registered for the listener, if any."""
+        if listener in self.async_browsers:
+            await self.async_browsers[listener].async_cancel()
+            del self.async_browsers[listener]
+
+    async def async_unregister_all_services(self) -> None:
+        """Send goodbye packets for every registered service and drop them all.
+
+        Runs only at shutdown, so unlike the single service calls it
+        returns nothing to await separately.
         """
         await self.zeroconf.async_unregister_all_services()
 
     async def async_unregister_service(self, info: ServiceInfo) -> Awaitable:
-        """Unregister a service.
-
-        The service will be broadcast in a task. This task is returned
-        and therefore can be awaited if necessary.
-        """
+        """Withdraw a service, returning an awaitable that completes once the goodbyes are sent."""
         return await self.zeroconf.async_unregister_service(info)
-
-    async def async_update_service(self, info: ServiceInfo) -> Awaitable:
-        """Registers service information to the network with a default TTL.
-        Zeroconf will then respond to requests for information for that
-        service.
-
-        The service will be broadcast in a task. This task is returned
-        and therefore can be awaited if necessary.
-        """
-        return await self.zeroconf.async_update_service(info)
 
     async def async_update_interfaces(
         self,
@@ -240,61 +240,9 @@ class AsyncZeroconf:
         """
         await self.zeroconf.async_update_interfaces(interfaces, ip_version, apple_p2p)
 
-    async def async_close(self) -> None:
-        """Ends the background threads, and prevent this instance from
-        servicing further queries."""
-        if not self.zeroconf.done:
-            with contextlib.suppress(NotRunningException):
-                await self.zeroconf.async_wait_for_start(timeout=1.0)
-        await self.async_remove_all_service_listeners()
-        await self.async_unregister_all_services()
-        await self.zeroconf._async_close()  # pylint: disable=protected-access
+    async def async_update_service(self, info: ServiceInfo) -> Awaitable:
+        """Publish updated records for an already registered service.
 
-    async def async_get_service_info(
-        self,
-        type_: str,
-        name: str,
-        timeout: int = 3000,
-        question_type: DNSQuestionType | None = None,
-    ) -> AsyncServiceInfo | None:
-        """Returns network's service information for a particular
-        name and type, or None if no service matches by the timeout,
-        which defaults to 3 seconds.
-
-        :param type_: fully qualified service type name
-        :param name: the name of the service
-        :param timeout: milliseconds to wait for a response
-        :param question_type: The type of questions to ask (DNSQuestionType.QM or DNSQuestionType.QU)
+        Returns an awaitable that completes once the rebroadcasts finish.
         """
-        return await self.zeroconf.async_get_service_info(type_, name, timeout, question_type)
-
-    async def async_add_service_listener(self, type_: str, listener: ServiceListener) -> None:
-        """Adds a listener for a particular service type.  This object
-        will then have its add_service and remove_service methods called when
-        services of that type become available and unavailable."""
-        await self.async_remove_service_listener(listener)
-        self.async_browsers[listener] = AsyncServiceBrowser(self.zeroconf, type_, listener)
-
-    async def async_remove_service_listener(self, listener: ServiceListener) -> None:
-        """Removes a listener from the set that is currently listening."""
-        if listener in self.async_browsers:
-            await self.async_browsers[listener].async_cancel()
-            del self.async_browsers[listener]
-
-    async def async_remove_all_service_listeners(self) -> None:
-        """Removes a listener from the set that is currently listening."""
-        await asyncio.gather(
-            *(self.async_remove_service_listener(listener) for listener in list(self.async_browsers))
-        )
-
-    async def __aenter__(self) -> AsyncZeroconf:
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> bool | None:
-        await self.async_close()
-        return None
+        return await self.zeroconf.async_update_service(info)

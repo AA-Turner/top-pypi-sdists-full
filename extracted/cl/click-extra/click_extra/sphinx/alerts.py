@@ -24,9 +24,24 @@ is below `5.1.0` (see
 {data}`click_extra.sphinx.MYST_NATIVE_ALERTS_VERSION`); on newer
 releases the hook is skipped at setup time and a log message points
 projects at `myst-parser`'s native extension, which they enable by
-adding `"alert"` to `myst_enable_extensions`. I plan to remove
-the module entirely once the `myst-parser` floor moves to
-`>=5.1`.
+adding `"alert"` to `myst_enable_extensions`.
+```
+
+```{todo}
+Remove this module entirely once click-extra drops Python 3.10. `myst-parser`
+5.0 requires Python 3.11, and that is what holds the `test` dependency group at
+`myst-parser>=4`, resolved to `4.0.1` below Python 3.11 and to `5.1.0` above it;
+the `docs` group already sits at `>=5.1`.
+
+Moving that floor is not enough on its own, because none of this repository's
+floors reaches a consumer: nothing declares `myst-parser`, so a project still on
+`myst-parser` 4.x would lose its alert rendering with no error to show for it.
+Declare `myst-parser>=5.1` in the `sphinx` extra in the same change, then delete
+this module, the setup-time version gate
+({data}`click_extra.sphinx.MYST_NATIVE_ALERTS_VERSION`) and the optional
+`myst_parser` import it reads, the log message pointing projects at the upstream
+extension, and the `MYST_HAS_NATIVE_ALERTS` switch the Sphinx test suite
+branches on.
 ```
 
 ```{seealso}

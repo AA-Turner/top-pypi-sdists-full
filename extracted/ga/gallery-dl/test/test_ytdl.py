@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright 2022-2025 Mike Fährmann
+# Copyright 2022-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -308,6 +308,13 @@ class Test_CommandlineArguments_YtDlp(Test_CommandlineArguments):
                 "firefox+keyring:profile::container"],
                "cookiesfrombrowser",
                ("firefox", "profile", "KEYRING", "container"))
+
+    def test_imperonate(self):
+        if not hasattr(self.module, "ImpersonateTarget"):
+            self.skipTest("'ImpersonateTarget' not available")
+        opts = self._(["--impersonate", "Chrome-110"])
+        self.assertEqual(opts["impersonate"],
+                         self.module.ImpersonateTarget("chrome", "110"))
 
 
 class MockYtdlModule:

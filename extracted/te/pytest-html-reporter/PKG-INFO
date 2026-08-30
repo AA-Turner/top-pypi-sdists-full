@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-html-reporter
-Version: 0.2.9
+Version: 0.3.0
 Summary: Generates a static html report based on pytest framework
 Home-page: https://github.com/prashanth-sams/pytest-html-reporter
 Author: Prashanth Sams
@@ -9,7 +9,6 @@ Maintainer: Prashanth Sams
 Maintainer-email: sams.prashanth@gmail.com
 License: MIT
 Keywords: pytest,py.test,html,reporter,report
-Platform: UNKNOWN
 Classifier: Framework :: Pytest
 Classifier: Topic :: Software Development :: Testing
 Classifier: Programming Language :: Python
@@ -17,6 +16,21 @@ Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.5
 License-File: LICENSE
+Requires-Dist: pytest
+Requires-Dist: Pillow
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =====================
 pytest-html-reporter
@@ -52,15 +66,15 @@ pytest-html-reporter
 
 Features
 ------------
-- Generic information
+* Generic information
 
-    - Overview
-    - Trends
-    - Suite Highlights
-    - Test suite details
-- Archives / History
-- Screenshots on failure
-- Test Rerun support
+  - Overview
+  - Trends
+  - Suite Highlights
+  - Test suite details
+* Archives / History
+* Screenshots on failure
+* Test Rerun support
 
 Installation
 ------------
@@ -91,6 +105,11 @@ Add ``--html-report`` tag followed by path location and filename to customize th
 Add ``--title`` tag followed by the report title::
 
     $ pytest tests/ --html-report=./report --title='PYTEST REPORT'
+
+Add ``--archive-count`` tag followed by an integer to limit showing the number of builds in the ``Archives`` section::
+
+    $ pytest tests/ --archive-count 7
+    $ pytest tests/ --html-report=./report --archive-count 7
 
 ..
 
@@ -126,4 +145,3 @@ Is there a demo available for this gem?
 Yes, you can use this demo as an example, https://github.com/prashanth-sams/pytest-html-reporter::
 
     $ pytest tests/functional/
-

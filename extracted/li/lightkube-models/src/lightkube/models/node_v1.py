@@ -6,8 +6,8 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import core_v1
 from . import meta_v1
+from . import core_v1
 
 
 @dataclass
@@ -49,7 +49,7 @@ class RuntimeClass(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **overhead** ``Optional[Overhead]`` - overhead represents the resource overhead associated with running a pod for a
         given RuntimeClass. For more details, see

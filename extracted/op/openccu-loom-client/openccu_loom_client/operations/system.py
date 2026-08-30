@@ -8,7 +8,8 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
 
-from openccu_loom_types.rest import (
+from openccu_loom_client.operations._base import _OperationsBase
+from openccu_loom_client.wire.rest import (
     AddonUpdateStatus,
     Health,
     HubDataPoints,
@@ -21,8 +22,6 @@ from openccu_loom_types.rest import (
     SystemCCUEntry,
     SystemUpdateEntry,
 )
-
-from openccu_loom_client.operations._base import _OperationsBase
 
 
 class SystemOperations(_OperationsBase):
@@ -53,7 +52,9 @@ class SystemOperations(_OperationsBase):
 
     # ---- snapshot ----
 
-    async def get_snapshot(self, *, include: str | None = None, released_only: bool = False) -> Snapshot:
+    async def get_snapshot(
+        self, *, include: str | None = None, released_only: bool = False, central: str | None = None
+    ) -> Snapshot:
         """
         One-shot dump of every device / program / sysvar / interface.
 
@@ -78,6 +79,14 @@ class SystemOperations(_OperationsBase):
         :meth:`LoomClient.bootstrap` passes. An older daemon ignores the
         unknown parameter and returns everything.
 
+        ``central`` scopes the dump to one CCU. A daemon may mediate
+        several, and the snapshot otherwise carries every one of them —
+        so each consumer bound to a single CCU pays for, parses and then
+        discards the others' whole device tree. Pass the daemon-side
+        central name (``interfaces[].central_id``, == ``payload.central``);
+        an older daemon ignores the unknown parameter and returns
+        everything, which is the pre-scoping behaviour.
+
         (The daemon additionally offers NDJSON streaming via
         ``Accept: application/x-ndjson``; this client consumes the
         nested JSON envelope, not the stream.)
@@ -87,6 +96,8 @@ class SystemOperations(_OperationsBase):
             params["include"] = include
         if released_only:
             params["released_only"] = "true"
+        if central:
+            params["central"] = central
         payload = await self._transport.request(method="GET", path="/snapshot", params=params or None)
         return Snapshot.model_validate(payload)
 

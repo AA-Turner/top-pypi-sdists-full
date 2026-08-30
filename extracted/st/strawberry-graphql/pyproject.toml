@@ -1,6 +1,6 @@
 [project]
 name = "strawberry-graphql"
-version = "0.324.2"
+version = "0.324.4"
 description = "A library for creating GraphQL APIs"
 license = "MIT"
 license-files = ["LICENSE"]

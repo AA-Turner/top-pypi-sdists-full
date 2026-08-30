@@ -4690,21 +4690,45 @@ def _pretty_json(x, cap: int = _TOOL_DETAIL_CAP) -> str:
     return _cap_text(s, cap)
 
 
+def _stamp_row_usage(messages: list, mark: int, ev: dict) -> None:
+    """Attach the daemon-stamped per-event ``token_count`` / ``cost_usd`` to
+    the FIRST message emitted for this event row (``messages[mark]``).
+
+    One event row can expand into several transcript turns (thinking + reply +
+    tool chips); stamping only the first keeps a client-side per-turn sum equal
+    to what /api/turn-anatomy reports for the same events. Never raises."""
+    if mark >= len(messages):
+        return
+    try:
+        tokens = int(ev.get("token_count") or 0)
+        cost = float(ev.get("cost_usd") or 0.0)
+    except (TypeError, ValueError):
+        return
+    if tokens > 0:
+        messages[mark].setdefault("tokens", tokens)
+    if cost > 0:
+        messages[mark]["cost_usd"] = cost
+
+
 def _anthropic_tool_turns(blocks, ts_ms, name_by_id):
-    """Map an Anthropic message ``content`` block list to ``(tool_turns, text)``.
+    """Map an Anthropic message ``content`` block list to
+    ``(tool_turns, text, thinking)``.
 
     ``tool_turns`` is one turn per ``tool_use`` / ``tool_result`` block, each
     carrying a ``tool`` dict (``{kind, name, input|output}``) the replay renders
     as an expandable deep-dive. ``text`` is the joined text blocks, used only
     when the session has no v3 prose event (pure Claude Code) so we never double
-    the assistant reply. ``name_by_id`` maps a ``tool_use`` id to its name so
-    the matching ``tool_result`` (which only references the id) can show which
-    tool it came from.
+    the assistant reply. ``thinking`` is the joined extended-thinking blocks —
+    returned separately so the caller can emit them as ``type: "thinking"``
+    turns the UI styles distinctly from the actual reply. ``name_by_id`` maps a
+    ``tool_use`` id to its name so the matching ``tool_result`` (which only
+    references the id) can show which tool it came from.
     """
     tool_turns: list[dict] = []
     texts: list[str] = []
+    thinkings: list[str] = []
     if not isinstance(blocks, list):
-        return tool_turns, ""
+        return tool_turns, "", ""
     for b in blocks:
         if not isinstance(b, dict):
             continue
@@ -4713,6 +4737,10 @@ def _anthropic_tool_turns(blocks, ts_ms, name_by_id):
             t = b.get("text")
             if t:
                 texts.append(t if isinstance(t, str) else str(t))
+        elif bt == "thinking":
+            t = b.get("thinking")
+            if t:
+                thinkings.append(t if isinstance(t, str) else str(t))
         elif bt == "tool_use":
             name = b.get("name") or "tool"
             tid = b.get("id")
@@ -4743,7 +4771,7 @@ def _anthropic_tool_turns(blocks, ts_ms, name_by_id):
                     "is_error": bool(b.get("is_error")),
                 },
             })
-    return tool_turns, "\n".join(texts)
+    return tool_turns, "\n".join(texts), "\n".join(thinkings)
 
 
 def _expand_openclaw_event(obj: dict, ts_ms):
@@ -5004,12 +5032,15 @@ def _extract_decoding_params(obj):
     return out
 
 
-def _try_local_store_transcript(session_id: str, _events=None):
+def _try_local_store_transcript(session_id: str, _events=None, _msg_cap: int = 500):
     """Read a session transcript directly from the DuckDB events table.
 
     Returns the same response shape as the JSONL parser. Returns ``None``
     to defer to the JSONL fallback if the local_store module isn't importable,
     the events table has no rows for this session, or anything raises.
+    ``_msg_cap`` bounds the returned message list; page-scoped callers
+    (``/api/transcript-page``) pass a higher cap so a page never loses its
+    own newest messages to the whole-transcript bound.
 
     Handles two event shapes:
     * **Anthropic-style** messages — ``{role, content, usage, tool_calls}``,
@@ -5131,6 +5162,7 @@ def _try_local_store_transcript(session_id: str, _events=None):
             # can show the "T=… top_p=… max=…" pill inline with the reply.
             decoding = _extract_decoding_params(obj)
             raw_payload = _bounded_raw_payload(obj)
+            _mark = len(messages)
             for turn in _expand_openclaw_event(obj, ts_ms):
                 if not turn.get("content", "").strip():
                     continue
@@ -5139,6 +5171,7 @@ def _try_local_store_transcript(session_id: str, _events=None):
                 if raw_payload is not None:
                     turn["raw"] = raw_payload
                 messages.append(turn)
+            _stamp_row_usage(messages, _mark, ev)
             continue
 
         # Claude-Code shape (#1911): the real Anthropic message is nested under
@@ -5157,12 +5190,22 @@ def _try_local_store_transcript(session_id: str, _events=None):
                     (usage.get("input_tokens", 0) or 0)
                     + (usage.get("output_tokens", 0) or 0)
                 )
-            tool_turns, block_text = _anthropic_tool_turns(
+            tool_turns, block_text, thinking_text = _anthropic_tool_turns(
                 msg_obj.get("content"), ts_ms, tool_name_by_id)
+            _mark = len(messages)
             for tt in tool_turns:
                 if raw_payload is not None:
                     tt["raw"] = raw_payload
                 messages.append(tt)
+            if thinking_text.strip():
+                # Extended-thinking blocks — the model reasoning on the user's
+                # behalf, not the reply. Stamped ``type: "thinking"`` so the
+                # replay styles them distinctly from the actual answer.
+                tentry = {"role": role, "content": thinking_text,
+                          "timestamp": ts_ms, "type": "thinking"}
+                if raw_payload is not None:
+                    tentry["raw"] = raw_payload
+                messages.append(tentry)
             if block_text.strip() and not has_v3_messages:
                 entry = {"role": role, "content": block_text, "timestamp": ts_ms}
                 decoding = _extract_decoding_params(obj)
@@ -5171,12 +5214,14 @@ def _try_local_store_transcript(session_id: str, _events=None):
                 if raw_payload is not None:
                     entry["raw"] = raw_payload
                 messages.append(entry)
+            _stamp_row_usage(messages, _mark, ev)
             continue
 
         # Anthropic-style fallback (existing logic).
         role = obj.get("role", obj.get("type", "unknown"))
         content = _stringify_content(obj.get("content", ""))
         raw_payload = _bounded_raw_payload(obj)
+        _mark = len(messages)
         if obj.get("tool_calls") or obj.get("tool_use"):
             tools = obj.get("tool_calls") or obj.get("tool_use") or []
             if isinstance(tools, list):
@@ -5199,6 +5244,12 @@ def _try_local_store_transcript(session_id: str, _events=None):
             )
         if content or role in ("user", "assistant", "system"):
             msg_entry = {"role": role, "content": content, "timestamp": ts_ms}
+            # Family-adapter thinking rows (Claude Code extended-thinking
+            # blocks ingested as ``type: "thinking"``, role=assistant) are the
+            # model reasoning on the user's behalf, not the reply — forward
+            # the type so the UI styles them apart from the actual answer.
+            if "thinking" in (et, inner_type):
+                msg_entry["type"] = "thinking"
             if role == "assistant":
                 decoding = _extract_decoding_params(obj)
                 if decoding:
@@ -5206,6 +5257,7 @@ def _try_local_store_transcript(session_id: str, _events=None):
             if raw_payload is not None:
                 msg_entry["raw"] = raw_payload
             messages.append(msg_entry)
+        _stamp_row_usage(messages, _mark, ev)
     if not messages:
         # Same contract as the ``if not rows`` guard above, for the case where
         # rows EXIST but none of them is a transcript turn — e.g. a session_id
@@ -5241,16 +5293,72 @@ def _try_local_store_transcript(session_id: str, _events=None):
         ext_calls = _ext or []
     except Exception:
         ext_calls = []
-    return {
+    # The transcript bound used to be ``messages[:500]`` — a HEAD keep, so a
+    # 1000-turn session served its oldest 500 messages and the LIVE end of
+    # the conversation was silently invisible. Cap to the newest window
+    # instead, preserving the opening prompt + an omission marker (same
+    # helper the cloud snapshot uses), and stamp paging metadata so the
+    # replay can fetch the elided middle on demand via /api/transcript-page.
+    out_messages = messages
+    truncated = False
+    oldest_contiguous_ts = None
+    if len(messages) > _msg_cap:
+        try:
+            from clawmetry.sync import _cap_transcript_messages
+            out_messages, truncated, oldest_contiguous_ts = (
+                _cap_transcript_messages(messages, _msg_cap))
+        except Exception:
+            out_messages = messages[:_msg_cap]
+    ret = {
         "name": session_id[:40],
         "messageCount": len(messages),
         "model": model,
         "totalTokens": total_tokens,
         "duration": duration,
-        "messages": messages[:500],
+        "messages": out_messages,
         "external_api_calls": ext_calls,
         "_source": "local_store",
     }
+    if truncated:
+        ret["_truncated"] = True
+        ret["_oldest_contiguous_ts"] = oldest_contiguous_ts
+    return ret
+
+
+@bp_sessions.route("/api/transcript-page/<session_id>")
+def api_transcript_page(session_id):
+    """One older-history page of a session transcript, newest-first.
+
+    The replay loads the newest window instantly (snapshot on cloud, capped
+    fast path locally) and calls this as the user asks for earlier history:
+    ``?before_ts=<ms>`` is an exclusive cursor (pass the previous page's
+    ``next_before_ts``), ``?limit=`` bounds the page in EVENTS (each event
+    can expand to several rendered messages). Dispatches through the same
+    shape bridge the cloud relay uses, so local and hosted answers agree.
+    """
+    before_ts = request.args.get("before_ts", type=int)
+    limit = request.args.get("limit", default=150, type=int)
+    try:
+        from routes.local_query import _dispatch
+        page = _dispatch("transcript_page", {
+            "session_id": session_id,
+            "before_ts": before_ts,
+            "limit": limit,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)[:300], "messages": [],
+                        "has_more": False, "next_before_ts": None}), 500
+    rows = page.get("rows") or []
+    msgs = []
+    if rows:
+        t = _try_local_store_transcript(session_id, _events=rows, _msg_cap=2000)
+        msgs = (t or {}).get("messages") or []
+    return jsonify({
+        "messages": msgs,
+        "count": len(msgs),
+        "has_more": bool(page.get("has_more")),
+        "next_before_ts": page.get("next_before_ts"),
+    })
 
 
 @bp_sessions.route("/api/transcript/<session_id>")

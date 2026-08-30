@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -25,13 +10,11 @@ from __future__ import annotations
 import re
 import socket
 
-# Some timing constants
-
-_UNREGISTER_TIME = 125  # ms
-_CHECK_TIME = 500  # ms
-_REGISTER_TIME = 225  # ms
-_LISTENER_TIME = 200  # ms
 _BROWSER_TIME = 10000  # ms
+_CHECK_TIME = 500  # ms
+_LISTENER_TIME = 200  # ms
+_REGISTER_TIME = 225  # ms
+_UNREGISTER_TIME = 125  # ms
 _DUPLICATE_PACKET_SUPPRESSION_INTERVAL = 1000  # ms
 # Per-listener bounded recency window. 16 is large enough to defeat
 # the alternating-payload bypass (RFC 6762 §6.2, issue #1724 — even a
@@ -51,7 +34,6 @@ _ONE_SECOND = 1000  # ms
 # a buffer timeout to ensure a coroutine can finish before
 # the future times out
 
-# Some DNS constants
 
 _MDNS_ADDR = "224.0.0.251"
 _MDNS_ADDR6 = "ff02::fb"
@@ -108,21 +90,21 @@ _MAX_DEFERRED_ADDRS = 512
 
 _DNS_PACKET_HEADER_LEN = 12
 
-_MAX_MSG_TYPICAL = 1460  # unused
 _MAX_MSG_ABSOLUTE = 8966
+_MAX_MSG_TYPICAL = 1460
 
-_FLAGS_QR_MASK = 0x8000  # query response mask
-_FLAGS_QR_QUERY = 0x0000  # query
-_FLAGS_QR_RESPONSE = 0x8000  # response
+# DNS header flag bits, RFC 1035 section 4.1.1 and RFC 6762 section 18
+_FLAGS_AA = 0x0400
+_FLAGS_AD = 0x0020
+_FLAGS_CD = 0x0010
+_FLAGS_QR_MASK = 0x8000
+_FLAGS_QR_QUERY = 0x0000
+_FLAGS_QR_RESPONSE = 0x8000
+_FLAGS_RA = 0x0080
+_FLAGS_RD = 0x0100
+_FLAGS_TC = 0x0200
+_FLAGS_Z = 0x0040
 
-_FLAGS_AA = 0x0400  # Authoritative answer
-_FLAGS_TC = 0x0200  # Truncated
-_FLAGS_RD = 0x0100  # Recursion desired
-_FLAGS_RA = 0x8000  # Recursion available
-
-_FLAGS_Z = 0x0040  # Zero
-_FLAGS_AD = 0x0020  # Authentic data
-_FLAGS_CD = 0x0010  # Checking disabled
 
 _CLASS_IN = 1
 _CLASS_CS = 2
@@ -155,38 +137,39 @@ _TYPE_SRV = 33
 _TYPE_NSEC = 47
 _TYPE_ANY = 255
 
-# Mapping constants to names
 
+# Wire values mapped to short human readable names, used only for reprs
+# and debug logging; _type_label and _class_label in _dns.py supply the
+# unknown-value fallback. Sorted by mnemonic.
 _CLASSES = {
-    _CLASS_IN: "in",
-    _CLASS_CS: "cs",
-    _CLASS_CH: "ch",
-    _CLASS_HS: "hs",
-    _CLASS_NONE: "none",
     _CLASS_ANY: "any",
+    _CLASS_CH: "ch",
+    _CLASS_CS: "cs",
+    _CLASS_HS: "hs",
+    _CLASS_IN: "in",
+    _CLASS_NONE: "none",
 }
-
 _TYPES = {
     _TYPE_A: "a",
-    _TYPE_NS: "ns",
+    _TYPE_AAAA: "aaaa",
+    _TYPE_ANY: "any",
+    _TYPE_CNAME: "cname",
+    _TYPE_HINFO: "hinfo",
+    _TYPE_MB: "mb",
     _TYPE_MD: "md",
     _TYPE_MF: "mf",
-    _TYPE_CNAME: "cname",
-    _TYPE_SOA: "soa",
-    _TYPE_MB: "mb",
     _TYPE_MG: "mg",
-    _TYPE_MR: "mr",
-    _TYPE_NULL: "null",
-    _TYPE_WKS: "wks",
-    _TYPE_PTR: "ptr",
-    _TYPE_HINFO: "hinfo",
     _TYPE_MINFO: "minfo",
+    _TYPE_MR: "mr",
     _TYPE_MX: "mx",
-    _TYPE_TXT: "txt",
-    _TYPE_AAAA: "quada",
-    _TYPE_SRV: "srv",
-    _TYPE_ANY: "any",
+    _TYPE_NS: "ns",
     _TYPE_NSEC: "nsec",
+    _TYPE_NULL: "null",
+    _TYPE_PTR: "ptr",
+    _TYPE_SOA: "soa",
+    _TYPE_SRV: "srv",
+    _TYPE_TXT: "txt",
+    _TYPE_WKS: "wks",
 }
 
 _ADDRESS_RECORD_TYPES = {_TYPE_A, _TYPE_AAAA}

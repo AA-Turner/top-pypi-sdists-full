@@ -19,6 +19,16 @@ Holds the {class}`ConfigFormat` enum, the optional third-party parser probes
 that decide which formats are enabled, and {func}`parse_content`, the stateless
 dispatch used by {class}`~click_extra.config.option.ConfigOption` for every format that
 does not need the CLI parameter structure.
+
+```{caution}
+This module is imported early in the package's import graph
+({mod}`~click_extra.table` reaches it before the
+{mod}`~click_extra.parameters` / {mod}`~click_extra.context` chain has
+settled), so it takes no top-level import from `click_extra` itself. A format
+whose parsing needs the CLI structure or a binary file, like `INI`, `ARGFILE`
+and `SQLITE`, lives as a `ConfigOption` method in
+{mod}`~click_extra.config.option` instead of here.
+```
 """
 
 from __future__ import annotations
@@ -26,6 +36,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import logging
+import plistlib
 import sys
 from enum import Enum
 from fnmatch import fnmatch
@@ -86,6 +97,10 @@ class ConfigFormat(Enum):
     the availability of the required third-party packages. This evaluation is performed
     at runtime when this module is imported.
 
+    The third element is the human-readable label of the format, and the fourth
+    the media types a server may serve it as, as matched by
+    {func}`format_from_mime`.
+
     ```{caution}
     The order is important for both format members and file patterns. It defines the
     priority order in which formats are tried when multiple candidate files are found.
@@ -97,15 +112,28 @@ class ConfigFormat(Enum):
     ```
     """
 
-    TOML = (("*.toml",), True, "TOML")
-    YAML = (("*.yaml", "*.yml"), PARSER_SUPPORT["yaml"], "YAML")
-    JSON = (("*.json",), True, "JSON")
-    JSON5 = (("*.json5",), PARSER_SUPPORT["json5"], "JSON5")
-    JSONC = (("*.jsonc",), PARSER_SUPPORT["jsonc"], "JSONC")
-    HJSON = (("*.hjson",), PARSER_SUPPORT["hjson"], "Hjson")
-    INI = (("*.ini",), True, "INI")
-    XML = (("*.xml",), PARSER_SUPPORT["xml"], "XML")
-    PYPROJECT_TOML = (("pyproject.toml",), True, "pyproject.toml")
+    TOML = (("*.toml",), True, "TOML", ("application/toml", "text/x-toml"))
+    YAML = (
+        ("*.yaml", "*.yml"),
+        PARSER_SUPPORT["yaml"],
+        "YAML",
+        ("application/yaml", "text/yaml", "application/x-yaml", "text/x-yaml"),
+    )
+    JSON = (("*.json",), True, "JSON", ("application/json", "text/json"))
+    JSON5 = (("*.json5",), PARSER_SUPPORT["json5"], "JSON5", ("application/json5",))
+    JSONC = (("*.jsonc",), PARSER_SUPPORT["jsonc"], "JSONC", ("application/jsonc",))
+    HJSON = (("*.hjson",), PARSER_SUPPORT["hjson"], "Hjson", ("application/hjson",))
+    INI = (("*.ini",), True, "INI", ())
+    XML = (("*.xml",), PARSER_SUPPORT["xml"], "XML", ("application/xml", "text/xml"))
+    PLIST = (("*.plist",), True, "plist", ("application/x-plist",))
+    SQLITE = (
+        ("*.sqlite", "*.sqlite3"),
+        True,
+        "SQLite",
+        ("application/vnd.sqlite3", "application/x-sqlite3"),
+    )
+    ARGFILE = (("*.conf",), True, "Argfile", ())
+    PYPROJECT_TOML = (("pyproject.toml",), True, "pyproject.toml", ())
 
     def __str__(self) -> str:
         return self.label
@@ -125,12 +153,39 @@ class ConfigFormat(Enum):
         """Returns the default file patterns associated to the format."""
         return self.value[0]  # type: ignore[no-any-return]
 
+    @property
+    def mime_types(self) -> tuple[str, ...]:
+        """Media types a server may advertise the format as.
+
+        Feeds {func}`format_from_mime`. Empty for a format no `Content-Type`
+        header designates: `INI` and `ARGFILE` are both served as `text/plain`,
+        which names no format, and `PYPROJECT_TOML` is keyed on a file name, so
+        no media type tells it apart from plain `TOML`.
+        """
+        return self.value[3]  # type: ignore[no-any-return]
+
+
+SQLITE_CONFIG_TABLE = "config"
+"""Name of the table {func}`click_extra.config.option.ConfigOption.load_sqlite_config`
+reads a `SQLITE` configuration from.
+
+The table holds `key`/`value` columns: dotted parameter paths and their
+JSON-encoded values."""
+
 
 def parse_content(fmt: ConfigFormat, content: str) -> Any:
     """Parse content with a single stateless format.
 
     INI is excluded: it needs the CLI parameter structure for type
-    coercion and is handled by ConfigOption.load_ini_config.
+    coercion and is handled by ConfigOption.load_ini_config. ARGFILE is
+    excluded for the same reason: it maps command-line tokens to the CLI's
+    parameters and is handled by ConfigOption.load_argfile_config. SQLITE is
+    excluded too: it is a binary format, read from its file path by
+    ConfigOption.load_sqlite_config instead of a text payload.
+
+    `PLIST` parses here from its XML variant, the only one expressible as a
+    text payload; the binary variant is read from its file path by
+    ConfigOption.load_plist_config.
 
     ```{note}
     Optional third-party parsers are imported lazily, at the point of use,
@@ -171,6 +226,9 @@ def parse_content(fmt: ConfigFormat, content: str) -> Any:
 
             return xmltodict.parse(content)
 
+        case ConfigFormat.PLIST:
+            return plistlib.loads(content.encode("utf-8"))
+
         case ConfigFormat.PYPROJECT_TOML:
             return tomllib.loads(content).get("tool", {})
 
@@ -185,13 +243,16 @@ SERIALIZABLE_FORMATS: tuple[ConfigFormat, ...] = (
     ConfigFormat.JSONC,
     ConfigFormat.HJSON,
     ConfigFormat.XML,
+    ConfigFormat.PLIST,
 )
 """Configuration formats {func}`serialize_content` can write, in priority order.
 
-Every {class}`ConfigFormat` except {attr}`~ConfigFormat.INI` and
+Every {class}`ConfigFormat` except {attr}`~ConfigFormat.INI`,
+{attr}`~ConfigFormat.SQLITE`, {attr}`~ConfigFormat.ARGFILE` and
 {attr}`~ConfigFormat.PYPROJECT_TOML`, which have no serializer. `JSON`,
-`JSON5` and `JSONC` are emitted as plain JSON through the standard library,
-so they need no optional dependency; the others require their format's extra.
+`JSON5` and `JSONC` are emitted as plain JSON and `PLIST` through
+{mod}`plistlib`, all from the standard library, so they need no optional
+dependency; the others require their format's extra.
 
 ```{caution}
 Keep this in sync with the `match` statement in {func}`serialize_content`.
@@ -207,10 +268,11 @@ def serialize_content(fmt: ConfigFormat, data: Any, **kwargs: Any) -> str:
     and JSONC are emitted as plain JSON, a valid subset of both.
 
     ```{caution}
-    Not every format round-trips: `TOML` and `XML` have no null type, and
-    `XML` expects a single root mapping, so the caller is responsible for
-    shaping `data` accordingly. `INI` and `pyproject.toml` have no
-    serializer here.
+    Not every format round-trips: `TOML`, `XML` and `PLIST` have no null
+    type (`plistlib` even raises on `None` values), and `XML` expects a
+    single root mapping, so the caller is responsible for shaping `data`
+    accordingly. `INI`, `SQLITE` and `pyproject.toml` have no serializer
+    here.
     ```
 
     ```{note}
@@ -260,6 +322,8 @@ def serialize_content(fmt: ConfigFormat, data: Any, **kwargs: Any) -> str:
                 },
             )
             return result + "\n"
+        case ConfigFormat.PLIST:
+            return plistlib.dumps(data, **kwargs).decode("utf-8") + "\n"
     raise ValueError(f"{fmt!r} is not handled by serialize_content().")
 
 
@@ -279,6 +343,52 @@ def format_from_path(
     for fmt in candidates:
         if any(fnmatch(path.name, pattern) for pattern in fmt.patterns):
             return fmt
+    return None
+
+
+def format_from_mime(
+    mime_type: str,
+    formats: Iterable[ConfigFormat] | None = None,
+) -> ConfigFormat | None:
+    """Return the configuration format a media type designates.
+
+    The counterpart of {func}`format_from_path` for a configuration fetched over
+    HTTP, whose URL often carries no usable file extension: the `Content-Type`
+    header is then the only thing typing the payload. The media type is matched
+    against each format's {attr}`~ConfigFormat.mime_types`, so `application/toml`
+    resolves to `TOML` and `text/yaml` to `YAML`. `formats` restricts and orders
+    the candidates (the first match wins); it defaults to every
+    {class}`ConfigFormat`.
+
+    Parameters are stripped, so a raw `application/yaml; charset=utf-8` header
+    value can be passed as-is, and matching is case-insensitive.
+
+    ```{note}
+    A [RFC 6839](https://www.rfc-editor.org/rfc/rfc6839.html) structured syntax
+    suffix is honored, so the `application/vnd.acme.settings+json` a private API
+    answers with resolves to `JSON`. An exact match wins over a suffix.
+    ```
+
+    Returns `None` for a media type no format claims, which covers the generic
+    `text/plain` and `application/octet-stream` a server falls back to for an
+    extension it does not recognize.
+    """
+    media_type = mime_type.partition(";")[0].strip().lower()
+    if not media_type:
+        return None
+
+    lookups = [media_type]
+    suffix = media_type.rpartition("+")[2]
+    if suffix != media_type:
+        lookups.append(f"application/{suffix}")
+
+    # Materialize: `formats` may be a one-shot iterable, and the suffix lookup
+    # walks the candidates a second time.
+    candidates = tuple(ConfigFormat) if formats is None else tuple(formats)
+    for lookup in lookups:
+        for fmt in candidates:
+            if lookup in fmt.mime_types:
+                return fmt
     return None
 
 

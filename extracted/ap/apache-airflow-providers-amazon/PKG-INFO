@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-amazon
-Version: 9.35.0
+Version: 9.35.1
 Summary: Provider package apache-airflow-providers-amazon for Apache Airflow
 Keywords: airflow-provider,amazon,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -64,8 +64,8 @@ Requires-Dist: sqlalchemy>=1.4.54 ; extra == "sqlalchemy"
 Requires-Dist: apache-airflow-providers-ssh ; extra == "ssh"
 Requires-Dist: apache-airflow-providers-standard ; extra == "standard"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -118,7 +118,7 @@ Import-Namespace: airflow.providers
 
 Package ``apache-airflow-providers-amazon``
 
-Release: ``9.35.0``
+Release: ``9.35.1``
 
 
 Amazon integration (including `Amazon Web Services (AWS) <https://aws.amazon.com/>`__).
@@ -131,7 +131,7 @@ This is a provider package for ``amazon`` provider. All classes for this provide
 are in ``airflow.providers.amazon`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.1/>`_.
 
 Installation
 ------------
@@ -225,5 +225,5 @@ Extra                 Dependencies
 ====================  ============================================================================================================================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.1/changelog.html>`_.
 

@@ -1,6 +1,6 @@
 [project]
 name = "quart-auth"
-version = "0.11.0"
+version = "0.12.0"
 description = "A Quart extension to provide secure cookie authentication"
 authors = [
     { name = "pgjones", email = "philip.graham.jones@googlemail.com" },
@@ -13,11 +13,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -28,9 +28,8 @@ readme = "README.rst"
 repository = "https://github.com/pgjones/quart-auth/"
 dependencies = [
     "quart >= 0.18",
-    "typing_extensions; python_version < '3.10'",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [project.license]
 text = "MIT"

@@ -65,8 +65,12 @@ class Cosplayrule34PostExtractor(Cosplayrule34Extractor):
     def _extract_post(self, post_id):
         url = f"{self.root}/post/{post_id}"
         page = self.request(url, notfound=self.subcategory).text
-        title = text.unescape(text.extr(page, 'const title = "', '";') or
-                              text.extr(page, '<h1 class="h6">', '<'))
+
+        if title := text.extr(page, 'const title = "', '";'):
+            title = util.json_loads(f'"{title}"')
+        else:
+            title = text.unescape(text.extr(page, '<h1 class="h6">', '<'))
+
         description = text.unescape(text.extr(
             page, '<meta name="description" content="', '"'))
         suffix = " - " + post_id

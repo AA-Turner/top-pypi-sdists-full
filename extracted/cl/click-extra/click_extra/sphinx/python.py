@@ -57,7 +57,6 @@ from pathlib import Path
 
 from docutils import nodes
 from docutils.parsers.rst import Parser as RstParser, directives
-from docutils.statemachine import StringList
 from docutils.utils import new_document
 
 from ..blocks import (
@@ -146,6 +145,17 @@ class PythonRunner:
         # file-descriptor variant, so the "sys"/"fd" distinction does not apply.
         self.namespace: dict[str, object] = {"__file__": "dummy.py"}
 
+    def _locate(self, directive: ClickDirective) -> None:
+        """Tell the namespace where the documentation running it lives.
+
+        A block generating an asset has to write it somewhere, and the only
+        somewhere that means anything is the documentation source root. The
+        name sits beside `__file__` rather than replacing it: that one is
+        pinned to a placeholder every block already sees, and a block reading
+        it would not expect a real path to appear.
+        """
+        self.namespace.setdefault("__srcdir__", str(directive.env.srcdir))
+
     def execute_source(self, directive: ClickDirective) -> None:
         """Execute the directive's content with no output capture.
 
@@ -153,6 +163,7 @@ class PythonRunner:
         for its side effects (typically to seed imports for a follow-up
         `python:run` block).
         """
+        self._locate(directive)
         exec(compile_directive(directive), self.namespace)  # noqa: S102
 
     def run_python(self, directive: ClickDirective) -> list[str]:
@@ -162,6 +173,7 @@ class PythonRunner:
         a code-block render (`python:run`) or a live nested-parse pass
         (the `python:render` directives).
         """
+        self._locate(directive)
         buffer = io.StringIO()
         with contextlib.redirect_stdout(buffer):
             exec(compile_directive(directive), self.namespace)  # noqa: S102
@@ -193,6 +205,7 @@ class PythonSourceDirective(PythonDirective):
     show_source_by_default = True
     show_results_by_default = False
     runner_method = "execute_source"
+    screenshots_source = True
 
 
 class PythonRunDirective(PythonDirective):
@@ -282,15 +295,7 @@ class PythonRenderBaseDirective(PythonDirective):
         """
         if not self.show_source:
             return []
-        section = nodes.section()
-        source_file, _ = self.get_source_info()
-        source_lines = list(self.render_code_block(self.content, "python"))
-        self.state.nested_parse(
-            StringList(source_lines, source_file),
-            self.content_offset,
-            section,
-        )
-        return section.children
+        return parse_into_section(self, self.render_code_block(self.content, "python"))
 
     def run(self) -> list[nodes.Node]:
         """Render the captured stdout as live document content."""
@@ -302,27 +307,22 @@ class PythonRenderBaseDirective(PythonDirective):
         if not self.show_source and not self.show_results:
             return []
 
-        section = nodes.section()
-        source_file, _ = self.get_source_info()
+        children: list[nodes.Node] = []
 
         if self.show_source:
-            source_lines = list(self.render_code_block(self.content, "python"))
-            self.state.nested_parse(
-                StringList(source_lines, source_file),
-                self.content_offset,
-                section,
+            children += parse_into_section(
+                self,
+                self.render_code_block(self.content, "python"),
             )
 
         if self.show_results and results:
             if self.forced_parser is None:
                 # Host parser: reuse the surrounding state machine so cross
                 # references and Sphinx-aware roles resolve naturally.
-                self.state.nested_parse(
-                    StringList(results, source_file),
-                    self.content_offset,
-                    section,
-                )
+                children += parse_into_section(self, results)
             else:
+                section = nodes.section()
+                source_file, _ = self.get_source_info()
                 _parse_with(
                     self.forced_parser(),
                     "\n".join(results),
@@ -330,8 +330,9 @@ class PythonRenderBaseDirective(PythonDirective):
                     section,
                     source_file,
                 )
+                children += section.children
 
-        return section.children
+        return children
 
 
 class PythonRenderDirective(PythonRenderBaseDirective):

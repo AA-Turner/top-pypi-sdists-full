@@ -67,7 +67,10 @@ class TestBucketPatchRequest(unittest.TestCase):
                     webhook_secret = '', 
                     webhook_url = '', 
                     source_collection_id = '', 
-                    source_filters = { }, )
+                    source_filters = { }, 
+                    source_bucket_ids = [
+                        ''
+                        ], )
             )
         else:
             return BucketPatchRequest(

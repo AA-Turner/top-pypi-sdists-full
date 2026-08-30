@@ -18,15 +18,20 @@
 from __future__ import annotations
 
 import colorsys
+import logging
 import os
 import random
+import shlex
+import shutil
 import sys
 import time
+from functools import partial
 from pathlib import Path
 
 import click
 import cloup
 from click import (
+    BadParameter,
     Choice,
     ClickException,
     FloatRange,
@@ -34,26 +39,47 @@ from click import (
     echo,
     style,
 )
-from cloup import Color, file_path
+from cloup import Color, dir_path, file_path
 from extra_platforms import ALL_IDS
 
 from . import context
+from ._utils import missing_extra_message
 from .cli_wrapper import WrapperGroup, wrap as wrap_cmd
-from .color import is_a_tty
-from .commands import ColorizedCommand
+from .color import invocation_color, is_a_tty
+from .commands import ColorizedCommand, default_params
 from .config import ClickExtraConfig, TestSuiteConfig, get_tool_config
 from .context import pass_context
 from .decorators import argument, command, group, jobs_option, option
 from .envvar import merge_envvar_ids
 from .execution import run_jobs
+from .logo import BRAND_SCREEN
 from .myst_converter import convert_directory, detect_source_package
-from .parameters import make_resilient_context, missing_extra_message
+from .parameters import make_resilient_context
 from .prebake import (
     _find_dunder_str,
     discover_package_init_files,
     prebake_dunder,
     prebake_version,
 )
+from .screenshot import (
+    AUTO_COLUMNS,
+    DEFAULT_BORDER_WIDTH,
+    DEFAULT_COLUMNS,
+    DEFAULT_MARGIN,
+    DEFAULT_PADDING,
+    DEFAULT_RADIUS,
+    DEFAULT_TRUNCATION,
+    DEFAULT_WATERMARK,
+    MIN_COLUMNS,
+    NO_PAINT,
+    OPAQUE,
+    STDOUT_PATH,
+    CaptureBackground,
+    CaptureFormat,
+    capture,
+    format_from_path,
+)
+from .screenshot_presets import PRESETS
 from .spinner import (
     _DEFAULT_SHOWCASE,
     OperationTrail,
@@ -72,11 +98,22 @@ from .test_suite import (
     run_test_suite,
 )
 from .theme import BUILTIN_THEMES
+from .types import EnumChoice
 from .version import (
+    BUILD_RESOLVERS,
     GIT_FIELDS,
     GIT_RESOLVERS,
     run_git,
 )
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
+
+    from .screenshot import TColumns
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_paths(module: Path | None) -> list[Path]:
@@ -128,6 +165,10 @@ _demo_section = cloup.Section(
 @group(
     name="click-extra",
     cls=WrapperGroup,
+    # Draws --version as the brand-mark screen, degrading to the plain rendering
+    # wherever it cannot be shown. Bound uncalled so each application gets its own
+    # option instances, as default_params documents. See click_extra.logo.
+    params=partial(default_params, screen=BRAND_SCREEN),
     version_fields={"prog_name": "Click Extra"},
     config_schema=ClickExtraConfig,
     schema_strict=False,
@@ -197,6 +238,15 @@ demo.add_command(wrap_cmd)
     help="Default timeout for each CLI call, unless the case sets its own.",
 )
 @option(
+    "-W",
+    "--work-directory",
+    type=dir_path(exists=True, readable=True, resolve_path=True),
+    metavar="DIR_PATH",
+    help="Directory to run each case's command in. Defaults to the current one. "
+    "Moves the command under test, not the runner: suite files are read before "
+    "any case starts.",
+)
+@option(
     "--show-trace-on-error/--hide-trace-on-error",
     default=True,
     help="Show the execution trace of failed cases.",
@@ -217,6 +267,7 @@ def test_suite_cmd(
     skip_platform: tuple[str, ...],
     exit_on_error: bool,
     timeout: float | None,
+    work_directory: Path | None,
     show_trace_on_error: bool,
     stats: bool,
 ) -> None:
@@ -272,6 +323,7 @@ def test_suite_cmd(
         select_test=select_test,
         skip_platform=skip_platform,
         timeout=timeout,
+        work_directory=work_directory,
         exit_on_error=exit_on_error,
         show_trace_on_error=show_trace_on_error,
         stats=stats,
@@ -314,7 +366,10 @@ def refresh_directives_cmd(
 
     - python:render blocks carrying the :mirror: flag, whose Python code is
       executed to regenerate the mirrored region below the fence (inserted on
-      first refresh).
+      first refresh);
+
+    - click:run blocks carrying both :screenshot: and :mirror:, whose region
+      below the fence links to the capture the block writes at build time.
 
     Examples nested inside longer code fences are never refreshed or executed.
 
@@ -331,6 +386,7 @@ def refresh_directives_cmd(
     # command that needs it. Importing it eagerly would break the rest of the
     # CLI when sphinx is absent, and slow every invocation with a heavy import.
     try:
+        from .sphinx.click import update_screenshot_blocks
         from .sphinx.matrix import update_matrix_blocks
         from .sphinx.python import update_mirror_blocks
     except ImportError as error:
@@ -345,6 +401,7 @@ def refresh_directives_cmd(
     except ValueError as error:
         raise ClickException(str(error)) from error
     changed.update(update_mirror_blocks(paths, check=check))
+    changed.update(update_screenshot_blocks(paths, check=check))
     for path in sorted(changed):
         echo(f"{'would refresh' if check else 'refreshed'}: {path}")
     if check and changed:
@@ -387,6 +444,589 @@ def convert_to_myst_cmd(directory: str | None) -> None:
 
 
 demo.add_command(convert_to_myst_cmd)
+
+
+def _parse_columns(
+    ctx: click.Context,
+    param: click.Parameter,
+    value: str,
+) -> int | str:
+    """Read `--columns` into a width, or into the sentinel asking for none.
+
+    A width and {data}`~click_extra.screenshot.AUTO_COLUMNS` are the two things
+    the capture pipeline accepts, and Click has no type spelling "an integer or
+    that one word".
+    """
+    if value.strip().lower() == AUTO_COLUMNS:
+        return AUTO_COLUMNS
+    try:
+        width = int(value)
+    except ValueError:
+        raise BadParameter(f"{value!r} is neither an integer nor {AUTO_COLUMNS!r}.")
+    if width < MIN_COLUMNS:
+        raise BadParameter(f"{width} is narrower than the {MIN_COLUMNS}-column floor.")
+    return width
+
+
+def _parse_emphasis(
+    ctx: click.Context,
+    param: click.Parameter,
+    value: str | None,
+) -> tuple[int, ...]:
+    """Read `--emphasize-lines` into the lines it names.
+
+    Takes the shape `:emphasize-lines:` takes, `2,4-5`, minus the open-ended
+    range: a range needs the capture's height to close, and that is not known
+    until the command has run and its output has been trimmed.
+    """
+    if not value:
+        return ()
+    lines: set[int] = set()
+    for entry in value.split(","):
+        piece = entry.strip()
+        if not piece:
+            continue
+        bounds = piece.split("-")
+        if len(bounds) > 2 or not all(bound.strip().isdigit() for bound in bounds):
+            raise BadParameter(
+                f"{piece!r} is neither a line nor a closed range of them.",
+            )
+        first, last = int(bounds[0]), int(bounds[-1])
+        if first < 1 or last < first:
+            raise BadParameter(f"{piece!r} is not a range of lines, counted from 1.")
+        lines.update(range(first, last + 1))
+    return tuple(sorted(lines))
+
+
+def deliver_capture(document: str, output: Path) -> None:
+    """Write a rendered capture where `--output` points.
+
+    {data}`~click_extra.screenshot.STDOUT_PATH` prints it instead, through
+    {func}`click.echo` rather than a bare write: that is what strips the escape
+    sequences when the terminal turns out to be a pipe, and what lets `--color`,
+    `--no-color`, `--accessible` and `NO_COLOR` reach a capture, since
+    {func}`~click_extra.color.invocation_color` carries the tri-state all four
+    of them resolve to.
+
+    :param document: the rendered capture.
+    :param output: where it goes.
+    """
+    if output.name == STDOUT_PATH:
+        # Exactly one closing newline, whether or not the capture brought its
+        # own: a picture is a file and may end however it likes, but a terminal
+        # left mid-line puts the next prompt on top of the last row.
+        echo(document, nl=not document.endswith("\n"), color=invocation_color())
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(document, encoding="utf-8")
+    echo(f"Wrote {output}")
+
+
+def resolve_capture_format(output: Path, fragment: bool) -> CaptureFormat:
+    """Read the capture format off `--output`, and settle `--fragment` on it.
+
+    Both capture commands carry the pair of options, so both carry the same
+    rejection: `--fragment` asks for the bare block of a standalone document,
+    and only HTML has one.
+
+    :param output: where the capture goes; its extension names the format.
+    :param fragment: whether the caller asked for the bare block.
+    :raises ClickException: on an extension no format claims, or on `--fragment`
+        against anything but HTML.
+    """
+    try:
+        capture_format = format_from_path(output)
+    except ValueError as error:
+        raise ClickException(str(error)) from error
+
+    if fragment and capture_format is not CaptureFormat.HTML:
+        raise ClickException("--fragment only applies to an HTML capture.")
+
+    return capture_format
+
+
+def capture_options(
+    *,
+    columns_help: str,
+    default_columns: TColumns = DEFAULT_COLUMNS,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Attach every option the two capture commands share.
+
+    `screenshot` pictures what a command printed and `snippet` pictures what a
+    file says, but both hand their text to the same renderer, so everything from
+    the window's frame to its credit line is one vocabulary. Declaring it once
+    is what stops the two drifting into near-synonyms, which is the failure a
+    reader hits rather than a maintainer: they learn `--backdrop` on one command
+    and expect it on the other.
+
+    Only the width differs, both in what it defaults to and in what it governs:
+    a command wraps its own output to it, where a file was never wrapped at all.
+
+    ```{note}
+    The options are applied in reverse, so the tuple below reads in the order
+    `--help` prints. A command's own options are declared under this decorator
+    and land after the shared ones, which is what keeps the common vocabulary
+    together at the top of every capture command's help screen.
+    ```
+
+    :param columns_help: what the width means for this command.
+    :param default_columns: the width it takes when nothing states one.
+    :return: the decorator attaching all of them.
+    """
+    shared = (
+        option(
+            "--output",
+            required=True,
+            type=file_path(writable=True, resolve_path=True, allow_dash=True),
+            help="Path of the file to write. Its extension picks the format: "
+            ".svg for an image, .html for selectable text, .ansi for the escape "
+            "sequences themselves. Pass - to print those to the terminal, "
+            "which draws no window.",
+        ),
+        option(
+            "--columns",
+            metavar="INTEGER|auto",
+            default=str(default_columns),
+            show_default=True,
+            callback=_parse_columns,
+            help=columns_help,
+        ),
+        option(
+            "--background",
+            type=EnumChoice(CaptureBackground),
+            default=CaptureBackground.DARK,
+            show_default=True,
+            help="Terminal chrome the capture is drawn on, and the palette its "
+            "colors resolve against. Match it to the theme the captured CLI "
+            "renders with: a light-background theme washes out on the dark "
+            "default.",
+        ),
+        option(
+            "--preset",
+            type=Choice(sorted(PRESETS), case_sensitive=False),
+            default=None,
+            help="Terminal to draw the capture as: its window decorations, "
+            "palette, font and prompt sigil. Anything stated alongside wins "
+            "over it. Left out, the capture keeps the renderer's own neutral "
+            "window.",
+        ),
+        option(
+            "--border",
+            default=None,
+            help="Color of the frame drawn around the terminal window, as CSS "
+            "names it. Pass none to draw no frame. Defaults to the one the "
+            "chrome can show.",
+        ),
+        option(
+            "--border-width",
+            type=IntRange(min=0),
+            default=DEFAULT_BORDER_WIDTH,
+            show_default=True,
+            help="Thickness of that frame, in pixels.",
+        ),
+        option(
+            "--radius",
+            type=IntRange(min=0),
+            default=None,
+            help="How round the window's corners are, in pixels. Zero squares "
+            f"them. Defaults to {DEFAULT_RADIUS}, or to the rounding --preset "
+            "terminal draws.",
+        ),
+        option(
+            "--backdrop",
+            default=NO_PAINT,
+            show_default=True,
+            help="Color filling the image behind the window, margin included, "
+            "as CSS names it. Left transparent by default, so the page shows "
+            "through.",
+        ),
+        option(
+            "--shadow",
+            default=None,
+            help="Color of the drop shadow lifting the window off the page, as "
+            "CSS names it. Pass none to draw no shadow. Defaults to the one the "
+            "chrome calls for.",
+        ),
+        option(
+            "--margin",
+            type=IntRange(min=0),
+            default=DEFAULT_MARGIN,
+            show_default=True,
+            help="Transparent pixels left around the window, on all four sides. "
+            "The room the drop shadow falls into, so a capture drawing one "
+            "wants some.",
+        ),
+        option(
+            "--padding",
+            type=IntRange(min=0),
+            default=DEFAULT_PADDING,
+            show_default=True,
+            help="Pixels added inside the window, around the drawn text, on top "
+            "of the few the renderer adds on its own.",
+        ),
+        option(
+            "--opacity",
+            type=FloatRange(min=0, max=1),
+            default=OPAQUE,
+            show_default=True,
+            help="How solid the window's body is. Under 1 it turns see-through, "
+            "the way a terminal set to transparency does: whatever the capture "
+            "sits on shows through it, while its text, frame and title bar keep "
+            "their own paint.",
+        ),
+        option(
+            "--watermark",
+            default=DEFAULT_WATERMARK,
+            show_default=True,
+            help="Credit line drawn in the image's bottom-right corner, in the "
+            "margin around the window. Pass an empty string to draw none, or "
+            "your own text to credit your project instead.",
+        ),
+        option(
+            "--watermark-color",
+            default=None,
+            help="Color that credit line is drawn in, as CSS names it, alpha "
+            "included. Defaults to a neutral gray: the line sits in the "
+            "transparent margin, so it answers to the page embedding the image "
+            "rather than to the chrome.",
+        ),
+        option(
+            "--head",
+            type=IntRange(min=1),
+            default=None,
+            help="Keep only the first N lines.",
+        ),
+        option(
+            "--tail",
+            type=IntRange(min=1),
+            default=None,
+            help="Keep only the last N lines.",
+        ),
+        option(
+            "--truncation",
+            default=DEFAULT_TRUNCATION,
+            show_default=True,
+            help="Line standing in for what --head or --tail cut away.",
+        ),
+        option(
+            "--line-numbers",
+            is_flag=True,
+            help="Number the drawn lines in a gutter, the way Pygments does "
+            "inline. Line 1 is the first line the picture shows.",
+        ),
+        option(
+            "--emphasize-lines",
+            "emphasize",
+            metavar="LINES",
+            default=None,
+            callback=_parse_emphasis,
+            help="Draw a band behind the lines named, as 2,4-5. Counted from 1 "
+            "as the picture draws them. Ranges are closed: state both ends.",
+        ),
+        option(
+            "--title",
+            default="",
+            help="Caption drawn in an SVG's window chrome, or an HTML "
+            "document's title.",
+        ),
+        option(
+            "--fragment",
+            is_flag=True,
+            help="For HTML, emit the bare block instead of a standalone "
+            "document, to paste into a page that has its own.",
+        ),
+    )
+
+    def decorate(func: Callable[..., Any]) -> Callable[..., Any]:
+        for add_option in reversed(shared):
+            func = add_option(func)
+        return func
+
+    return decorate
+
+
+@command(name="screenshot")
+@argument("command_line", nargs=-1, required=True, type=click.UNPROCESSED)
+@capture_options(
+    columns_help="Terminal width, in characters, the command wraps its output "
+    "to and the image is laid out at. Pass auto to pin neither: the command "
+    "finds its own width, and the image is laid out at the longest line it "
+    "printed, so nothing folds inside the picture.",
+)
+@option(
+    "--prompt",
+    default=None,
+    help="Command line to display above the output, when it differs from the "
+    "one that is run. Pass an empty string to draw no prompt at all. Defaults "
+    "to the command line itself.",
+)
+@option(
+    "--merge-stderr",
+    is_flag=True,
+    help="Fold the command's stderr into the capture, for a CLI printing its "
+    "help there. Off by default, which is what keeps a wrapper's build chatter "
+    "out of the image.",
+)
+@option(
+    "--wrap",
+    is_flag=True,
+    help="Route COMMAND_LINE through the wrap subcommand, so a Click CLI that "
+    "is not built on Click Extra is captured with its colors. Only works on a "
+    "target wrap can resolve.",
+)
+@option(
+    "--timeout",
+    type=FloatRange(min=0, min_open=True),
+    default=None,
+    help="Seconds before the command is killed. Waits forever by default.",
+)
+def screenshot_cmd(
+    command_line: tuple[str, ...],
+    output: Path,
+    columns: TColumns,
+    background: CaptureBackground,
+    preset: str | None,
+    border: str | None,
+    border_width: int,
+    radius: int | None,
+    backdrop: str,
+    shadow: str | None,
+    margin: int,
+    padding: int,
+    opacity: float,
+    watermark: str,
+    watermark_color: str | None,
+    prompt: str | None,
+    head: int | None,
+    tail: int | None,
+    truncation: str,
+    merge_stderr: bool,
+    line_numbers: bool,
+    emphasize: tuple[int, ...],
+    title: str,
+    fragment: bool,
+    wrap: bool,
+    timeout: float | None,
+) -> None:
+    """Capture a command's colored output and write it as an image or HTML.
+
+    Runs COMMAND_LINE with colors forced on and its terminal width pinned, then
+    writes the captured output where --output points. Its extension picks the
+    format:
+
+      .svg  a picture of a terminal window, for a surface that strips inline
+            HTML. A README on GitHub or PyPI has no other option.
+
+      .html selectable, searchable, copy-pasteable text, for a page you own.
+
+    Put -- before the command line so its own options are not mistaken for this
+    command's:
+
+      click-extra screenshot --output shot.svg -- my-cli --help
+
+    COMMAND_LINE is anything the shell can run, Click CLI or not. A Click CLI
+    not built on Click Extra prints its help uncolored, so --wrap routes it
+    through the wrap subcommand first and captures the colored rendering.
+
+    An SVG starts each run of text on its own column, so it renders correctly
+    outside a web browser, where a file manager, a git client or a thumbnailer
+    would otherwise slide the columns out of place.
+
+    Neither format needs an optional dependency.
+    """
+    capture_format = resolve_capture_format(output, fragment)
+
+    if wrap:
+        # Reached through the installed console script, never through
+        # `python -m click_extra`: the two resolve a target differently, since
+        # `-m` puts the working directory on `sys.path` and shifts what
+        # `console_scripts` discovery and a bare module name find. Routing
+        # through it would silently capture a different CLI than the one the
+        # documented composition captures.
+        executable = shutil.which("click-extra")
+        if executable is None:
+            raise ClickException(
+                "--wrap needs the click-extra command on PATH. Install the "
+                "package, or compose the two by hand: "
+                "click-extra screenshot ... -- click-extra wrap -- TARGET."
+            )
+        # Show the invocation a reader would type to reproduce the capture,
+        # which is the wrap call: running the target on its own renders it
+        # uncolored.
+        if prompt is None:
+            prompt = shlex.join(("click-extra", "wrap", "--", *command_line))
+        command_line = (executable, "wrap", "--", *command_line)
+
+    try:
+        document, returncode = capture(
+            list(command_line),
+            format=capture_format,
+            columns=columns,
+            prompt=prompt,
+            head=head,
+            tail=tail,
+            truncation=truncation,
+            merge_stderr=merge_stderr,
+            timeout=timeout,
+            line_numbers=line_numbers,
+            emphasize=emphasize,
+            title=title,
+            unique_id=output.stem,
+            full=not fragment,
+            background=background,
+            preset=None if preset is None else PRESETS[preset.lower()],
+            border=border,
+            border_width=border_width,
+            radius=radius,
+            backdrop=backdrop,
+            shadow=shadow,
+            margin=margin,
+            padding=padding,
+            opacity=opacity,
+            watermark=watermark,
+            watermark_color=watermark_color,
+        )
+    except ImportError as error:
+        raise ClickException(str(error)) from error
+
+    if returncode:
+        logger.warning(f"{command_line[0]} exited with code {returncode}.")
+
+    deliver_capture(document, output)
+
+
+demo.add_command(screenshot_cmd)
+
+
+@command(name="snippet")
+@argument(
+    "source",
+    type=file_path(exists=True, readable=True, allow_dash=True),
+)
+@capture_options(
+    default_columns=AUTO_COLUMNS,
+    columns_help="Width, in characters, the image is laid out at. Defaults to "
+    "the longest line the source holds, so nothing folds: a file was never "
+    "wrapped to a terminal's width, and code that soft-wrapped in the picture "
+    "would lose the indentation a reader is there to read.",
+)
+@option(
+    "--language",
+    default=None,
+    help="Language the source is highlighted as, as Pygments names it. Guessed "
+    "from the file name, then from the content, when left out. See "
+    "https://pygments.org/languages/ for the ones it knows.",
+)
+@option(
+    "--syntax-style",
+    "syntax_style",
+    metavar="STYLE",
+    default=None,
+    help="Pygments style the source is colored with, which also paints the "
+    "window: a style states the background its colors were designed against. "
+    "Defaults to monokai on the dark chrome and to Pygments' own default on "
+    "the light one.",
+)
+def snippet_cmd(
+    source: Path,
+    output: Path,
+    columns: TColumns,
+    background: CaptureBackground,
+    preset: str | None,
+    border: str | None,
+    border_width: int,
+    radius: int | None,
+    backdrop: str,
+    shadow: str | None,
+    margin: int,
+    padding: int,
+    opacity: float,
+    watermark: str,
+    watermark_color: str | None,
+    head: int | None,
+    tail: int | None,
+    truncation: str,
+    line_numbers: bool,
+    emphasize: tuple[int, ...],
+    title: str,
+    fragment: bool,
+    language: str | None,
+    syntax_style: str | None,
+) -> None:
+    """Highlight a source file and write it as an image or HTML.
+
+    Colors SOURCE with Pygments, then draws it in the same window a captured
+    command is drawn in. Pass - to read the source from stdin, which needs
+    --language: there is no file name left to guess from.
+
+      click-extra snippet --output ripen.svg ripen.py
+
+    The window is painted the background the syntax style was designed against,
+    so a snippet looks like that theme does in an editor rather than like the
+    same theme dropped on a foreign surface.
+
+    Both formats are the screenshot command's:
+
+      .svg  a picture, for a surface that strips inline HTML.
+
+      .html selectable, searchable, copy-pasteable text.
+
+    Highlighting needs the pygments extra.
+    """
+    try:
+        from .snippet import render_snippet
+    except ImportError as error:
+        raise ClickException(
+            missing_extra_message("pygments", subject="Drawing a code snippet"),
+        ) from error
+
+    capture_format = resolve_capture_format(output, fragment)
+
+    reading_stdin = str(source) == "-"
+    if reading_stdin:
+        code = sys.stdin.read()
+    else:
+        code = source.read_text(encoding="utf-8")
+
+    try:
+        document = render_snippet(
+            code,
+            format=capture_format,
+            language=language,
+            # Left unstated for stdin, which carries no name to read a language
+            # off: a guess from the content is all that is left, and naming the
+            # dash would have the lexer lookup fail on an extension of "-".
+            filename=None if reading_stdin else source.name,
+            style=syntax_style,
+            columns=columns,
+            head=head,
+            tail=tail,
+            truncation=truncation,
+            line_numbers=line_numbers,
+            emphasize=emphasize,
+            title=title,
+            unique_id=output.stem,
+            full=not fragment,
+            background=background,
+            preset=None if preset is None else PRESETS[preset.lower()],
+            border=border,
+            border_width=border_width,
+            radius=radius,
+            backdrop=backdrop,
+            shadow=shadow,
+            margin=margin,
+            padding=padding,
+            opacity=opacity,
+            watermark=watermark,
+            watermark_color=watermark_color,
+        )
+    except ValueError as error:
+        raise ClickException(str(error)) from error
+
+    deliver_capture(document, output)
+
+
+demo.add_command(snippet_cmd)
 
 
 _ALL_STYLES = (
@@ -475,7 +1115,10 @@ def _render_gradient() -> str:
     `_nearest_256`. Visible stepping in the quantized row reveals the palette
     resolution limits.
     """
-    width = 72
+    # Each row is prefixed by a 9-character label gutter ("  24-bit "), so the
+    # ramp stops at 71 blocks to keep the whole line inside a conventional
+    # 80-column terminal. One block more and every row wraps.
+    width = 71
     block = "\u2588"
     reset = "\x1b[m"
     lines: list[str] = []
@@ -880,10 +1523,11 @@ def field(name: str, module: Path | None, value: str) -> None:
 @prebake.command(name="all")
 @_module_option
 def all_fields(module: Path | None) -> None:
-    """Pre-bake `__version__` and all git fields in one pass.
+    """Pre-bake `__version__`, all git fields and all build fields in one pass.
 
     Scans each target file for empty `__<field>__` dunder placeholders,
-    resolves their values from the current Git state, and injects them.
+    resolves their values from the current Git state and build host, and
+    injects them.
 
     Also appends the Git short hash to `.dev` versions in
     `__version__` (same as `prebake version`).
@@ -891,6 +1535,10 @@ def all_fields(module: Path | None) -> None:
     \b
     Supported git fields:
         git_branch, git_long_hash, git_short_hash, git_date, git_tag
+
+    \b
+    Supported build fields:
+        build_time, build_os, build_target, build_target_arch
 
     \b
     Additional computed fields (`__git_tag_sha__`, `__git_distance__`,
@@ -930,6 +1578,24 @@ def all_fields(module: Path | None) -> None:
                 echo(f"Skipped {init_path}: {dunder_name} (no git value)")
                 continue
             baked = prebake_dunder(init_path, dunder_name, value)
+            if baked:
+                echo(f"Pre-baked {init_path}: {dunder_name} = {baked!r}")
+                changed = True
+                # Re-read source after each write so AST offsets stay valid.
+                source = init_path.read_text(encoding="utf-8")
+
+        # Pre-bake each build field the same way. Their resolvers describe the
+        # host running this command, so they take no working directory and
+        # always answer.
+        for field_name, build_resolver in BUILD_RESOLVERS.items():
+            dunder_name = f"__{field_name}__"
+            node = _find_dunder_str(source, dunder_name)
+            if node is None:
+                continue
+            if node.value:
+                echo(f"Skipped {init_path}: {dunder_name} already set")
+                continue
+            baked = prebake_dunder(init_path, dunder_name, build_resolver())
             if baked:
                 echo(f"Pre-baked {init_path}: {dunder_name} = {baked!r}")
                 changed = True

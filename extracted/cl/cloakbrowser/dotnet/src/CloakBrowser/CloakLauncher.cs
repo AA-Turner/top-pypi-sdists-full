@@ -287,7 +287,15 @@ public static class CloakLauncher
         }
 
         var (geoTz, geoLocale, exitIp) = await GeoIp.ResolveProxyGeoWithIpAsync(proxyUrl).ConfigureAwait(false);
-        return (timezone ?? geoTz, locale ?? geoLocale, exitIp);
+        timezone ??= geoTz;
+        locale ??= geoLocale;
+        var missing = new List<string>();
+        if (timezone == null) missing.Add("timezone");
+        if (locale == null) missing.Add("locale");
+        if (missing.Count > 0)
+            throw new InvalidOperationException(
+                $"GeoIP resolution failed: could not determine {string.Join(" and ", missing)}");
+        return (timezone, locale, exitIp);
     }
 
     // -----------------------------------------------------------------------
@@ -560,7 +568,7 @@ public static class CloakLauncher
             var present = WindowsFontsPresent();
             if (present != false) return; // true (full set) or null (undeterminable)
             CloakLog.Warning(
-                "[cloakbrowser] Incomplete Windows font set — installing the full " +
+                "[cloakbrowser] Incomplete Windows font set - installing the full " +
                 "set is strongly advised for best results when spoofing Windows on " +
                 "Linux. https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux " +
                 "(silence: CLOAKBROWSER_SUPPRESS_FONT_WARNING=1)");

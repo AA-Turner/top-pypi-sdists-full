@@ -1,6 +1,6 @@
 [project]
 name = "environs"
-version = "15.1.0"
+version = "15.2.0"
 description = "simplified environment variable parsing"
 readme = "README.md"
 license = "MIT"
@@ -75,6 +75,7 @@ ignore = [
   "ARG",     # unused arguments are common w/ interfaces
   "COM",     # let formatter take care commas
   "C901",    # don't enforce complexity level
+  "CPY001",  # don't require copyright notices at top of files
   "PLR0912", # don't enforce max branches
   "D",       # don't require docstrings
   "E501",    # leave line-length enforcement to formatter

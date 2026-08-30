@@ -65,6 +65,22 @@ def process_content(html, content):
                 html.append(f' data-media-id="{text.escape(mid)}"')
             html.append('/></figure></div>')
 
+    elif type == "video":
+        if (attrs := content.get("attrs")) and (mid := attrs.get("media_id")):
+            mid = text.escape(mid)
+            html.append('<div data-video-container="true"')
+            if align := attrs.get("alignment"):
+                html.append(f' data-alignment="{text.escape(align)}"')
+            html.append('><video src="')
+            html.append(f'https://www.patreon.com/api/video/{mid}/video.m3u8')
+            html.append(f'" data-media-id="{mid} controls playsinline')
+            html.append('></video></div>')
+
+    elif type == "caption":
+        html.append('<p class="caption" style="margin: 20px 0;">')
+        process_children(html, content)
+        html.append("</p>")
+
     elif type == "link":
         if (attrs := content.get("attrs")) and (href := attrs.get("href")):
             html.append(f'<a href="{text.escape(href)}">')

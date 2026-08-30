@@ -1,6 +1,5 @@
 import hashlib
 import json
-import logging
 import re
 import socket
 import ssl
@@ -21,9 +20,6 @@ from micawber.parsers import parse_text
 from micawber.parsers import parse_text_full
 
 
-logger = logging.getLogger(__name__)
-
-
 class Provider(object):
     def __init__(self, endpoint, timeout=3.0, user_agent=None, **kwargs):
         self.endpoint = endpoint
@@ -36,7 +32,9 @@ class Provider(object):
         req = Request(url, headers={'User-Agent': self.user_agent})
         try:
             return fetch(req, self.socket_timeout)
-        except (HTTPError, URLError, socket.timeout, ssl.SSLError) as exc:
+        except (HTTPError, URLError, socket.timeout, ssl.SSLError,
+                UnicodeDecodeError, LookupError) as exc:
+            # LookupError covers unknown charset names from bytes.decode.
             raise ProviderException('Error fetching "%s"' % url) from exc
 
     def encode_params(self, url, **extra_params):
@@ -64,11 +62,11 @@ class Provider(object):
         try:
             json_data = json.loads(response)
         except ValueError as exc:
-            try:
-                msg = exc.message
-            except AttributeError:
-                msg = exc.args[0]
-            raise InvalidResponseException(msg)
+            raise InvalidResponseException(str(exc)) from exc
+
+        # oEmbed responses must be JSON objects.
+        if not isinstance(json_data, dict):
+            raise InvalidResponseException('Response is not a JSON object')
 
         if 'url' not in json_data:
             json_data['url'] = url
@@ -105,17 +103,12 @@ def fetch(request, timeout=None):
     urlopen_params = {}
     if timeout:
         urlopen_params['timeout'] = timeout
-    resp = urlopen(request, **urlopen_params)
-    if resp.code < 200 or resp.code >= 300:
-        return False
-
-    # oEmbed responses are JSON, for which the default charset is UTF-8
-    # (RFC 8259) -- many providers omit the charset parameter entirely.
-    charset = resp.headers.get_param('charset') or 'utf-8'
-
-    content = resp.read().decode(charset)
-    resp.close()
-    return content
+    # urlopen raises HTTPError for any non-2xx response, so no status check.
+    with urlopen(request, **urlopen_params) as resp:
+        # oEmbed responses are JSON, for which the default charset is UTF-8
+        # (RFC 8259) -- many providers omit the charset parameter entirely.
+        charset = resp.headers.get_param('charset') or 'utf-8'
+        return resp.read().decode(charset)
 
 
 def fetch_cache(cache, url, refresh=False, timeout=None):
@@ -219,8 +212,8 @@ def bootstrap_basic(cache=None, registry=None):
 
 
 def bootstrap_embedly(cache=None, registry=None, refresh=False, **params):
-    endpoint = 'http://api.embed.ly/1/oembed'
-    schema_url = 'http://api.embed.ly/1/services/python'
+    endpoint = 'https://api.embed.ly/1/oembed'
+    schema_url = 'https://api.embed.ly/1/services/python'
 
     pr = registry or ProviderRegistry(cache)
 
@@ -235,8 +228,8 @@ def bootstrap_embedly(cache=None, registry=None, refresh=False, **params):
 
 
 def bootstrap_noembed(cache=None, registry=None, refresh=False, **params):
-    endpoint = 'http://noembed.com/embed'
-    schema_url = 'http://noembed.com/providers'
+    endpoint = 'https://noembed.com/embed'
+    schema_url = 'https://noembed.com/providers'
 
     pr = registry or ProviderRegistry(cache)
 
@@ -247,6 +240,22 @@ def bootstrap_noembed(cache=None, registry=None, refresh=False, **params):
     for provider_meta in json_data:
         for regex in provider_meta['patterns']:
             pr.register(regex, Provider(endpoint, **params))
+    return pr
+
+
+def bootstrap_iframely(cache=None, registry=None, **params):
+    # Iframely requires authentication, either an "api_key" parameter or a
+    # "key" parameter containing the md5 hexdigest of the api key.
+    if not params.get('api_key') and not params.get('key'):
+        raise ValueError('bootstrap_iframely() requires an "api_key" (or '
+                         'md5-hashed "key") parameter.')
+
+    pr = registry or ProviderRegistry(cache)
+
+    # Iframely recommends sending all urls to the API rather than matching
+    # against a list of supported providers, so register a catch-all pattern.
+    pr.register(r'https?://\S+', Provider('https://iframe.ly/api/oembed',
+                                          **params))
     return pr
 
 
@@ -273,21 +282,12 @@ def bootstrap_oembed(cache=None, registry=None, refresh=False, **params):
 
             provider = Provider(url, **params)
             for scheme in endpoint['schemes']:
-                # If a question-mark is being used, it is for the query-string
-                # and should be treated as a literal.
-                scheme = scheme.replace('?', r'\?')
-
-                # Transform the raw pattern into a reasonable regex. Match one
-                # or more of any character that is not a slash, whitespace, or
-                # a parameter used for separating querystring/url params.
-                pattern = scheme.replace('*', r'[^\/\s\?&]+?')
-                try:
-                    re.compile(pattern)
-                except re.error:
-                    logger.exception('oembed.com provider %s regex could not '
-                                     'be compiled: %s', url, pattern)
-                    continue
-
+                # Transform the raw scheme into a regex. Everything is escaped
+                # as a literal (dots, question-marks, etc.) except the "*"
+                # wildcards, which match one or more of any character that is
+                # not a slash, whitespace, or a parameter used for separating
+                # querystring/url params.
+                pattern = re.escape(scheme).replace(r'\*', r'[^\/\s\?&]+?')
                 pr.register(pattern, provider)
 
     # Currently oembed.com does not provide patterns for YouTube, so we'll add

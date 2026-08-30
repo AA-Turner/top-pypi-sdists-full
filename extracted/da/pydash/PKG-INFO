@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydash
-Version: 8.0.6
+Version: 8.1.0
 Summary: The kitchen sink of Python utility libraries for doing "stuff" in a functional way. Based on the Lo-Dash Javascript library.
 Author-email: Derrick Gilland <dgilland@gmail.com>
 License-Expression: MIT
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -24,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 License-File: AUTHORS.rst

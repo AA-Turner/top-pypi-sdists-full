@@ -163,7 +163,7 @@ class TiktokExtractor(Extractor):
         challenge_attempt = False
         while True:
             try:
-                response = self.request(url)
+                response = self.request(url, headers=self._generate_headers())
                 if response.history and "/login" in response.url:
                     raise self.exc.AuthorizationError(
                         "HTTP redirect to login page "
@@ -503,6 +503,17 @@ class TiktokExtractor(Extractor):
             return int(stats["videoCount"])
         except (KeyError, ValueError):
             return None
+
+    def _generate_headers(self, min_headers=3, max_headers=8):
+        """Randomize HTTP header fingerprint
+           in an attempt to avoid HTTP Error 403 blockage"""
+        def randletters(min, max):
+            return "".join(random.choices(
+                "bcdfghjklmnpqrstvwxz", k=random.randint(min, max)))
+        return {
+            randletters(8, 24): randletters(16, 32)
+            for _ in range(random.randint(min_headers, max_headers))
+        }
 
 
 class TiktokPostExtractor(TiktokExtractor):
@@ -1214,7 +1225,8 @@ class TiktokPaginationRequest:
                     cursor,
                     query_parameters
                 )
-                response = extractor.request(url)
+                response = extractor.request(
+                    url, headers=self._generate_headers())
                 return (util.json_loads(response.text), final_parameters)
             except ValueError:
                 if retries == 1:

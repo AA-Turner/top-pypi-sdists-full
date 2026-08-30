@@ -1,5 +1,5 @@
 # Copyright the boost contributors.
-# SPDX-License-Identifier: GPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """Unit tests: boost_cli/errors.py and the boost_cli/cli.py command table."""
 from __future__ import annotations
 
@@ -32,12 +32,12 @@ class TestBoostError:
 
 
 EXPECTED_GROUP_SIZES = {"pkg": 13, "find": 9, "info": 10, "tap": 5,
-                        "ai": 9, "chk": 15, "cfg": 13, "team": 6}
+                        "ai": 9, "chk": 15, "cfg": 14, "team": 6}
 
 
 class TestCommandTable:
-    def test_exactly_80_commands(self):
-        assert len(cli.COMMANDS) == 80
+    def test_exactly_81_commands(self):
+        assert len(cli.COMMANDS) == 81
 
     def test_exactly_8_groups(self):
         assert len(cli.GROUPS) == 8
@@ -51,7 +51,7 @@ class TestCommandTable:
         names = [n for n, _g, _m, _s in cli.COMMANDS]
         dupes = [n for n, k in Counter(names).items() if k > 1]
         assert dupes == []
-        assert len(cli._BY_NAME) == 80
+        assert len(cli._BY_NAME) == 81
 
     def test_every_command_group_exists(self):
         for name, group, _module, _summary in cli.COMMANDS:
@@ -70,7 +70,7 @@ class TestCommandTable:
         modules = {m for _n, _g, m, _s in cli.COMMANDS}
         assert modules == {"pkg", "run", "discovery", "info", "taps", "intelligence",
                            "quality", "safety", "configuration", "team",
-                           "hooks", "bmad"}
+                           "hooks", "bmad", "quickstart"}
 
     @pytest.mark.parametrize(
         "name,group,module",
@@ -128,7 +128,7 @@ class TestMainDispatch:
     def test_no_args_prints_help(self, sandbox, capsys):
         assert cli.main([]) == 0
         out = capsys.readouterr().out
-        assert "80 commands · 8 groups" in out
+        assert "81 commands · 8 groups" in out
         assert "Homebrew for AI coding skills" in out
 
     def test_help_flag_lists_every_command(self, sandbox, capsys):
@@ -162,7 +162,7 @@ class TestMainDispatch:
         out = capsys.readouterr().out
         assert "Homebrew for AI coding skills" in out
         assert cli.__version__ in out
-        assert "80 commands · 8 groups" in out
+        assert "81 commands · 8 groups" in out
 
     def test_help_still_names_every_command_when_narrow(self, sandbox, capsys,
                                                         monkeypatch):
@@ -177,7 +177,7 @@ class TestMainDispatch:
 
     def test_help_word(self, sandbox, capsys):
         assert cli.main(["help"]) == 0
-        assert "80 commands · 8 groups" in capsys.readouterr().out
+        assert "81 commands · 8 groups" in capsys.readouterr().out
 
     def test_help_for_command(self, sandbox, capsys):
         rc = run_main(["help", "install"])
@@ -266,3 +266,24 @@ class TestMainDispatch:
         assert cli.main(["taps"]) == 3
         assert "command taps is not implemented yet" in (
             capsys.readouterr().err)
+
+
+class TestPrintHelpColorRole:
+    """The command-name column is the same semantic role ("accent") as every
+    other command name in the CLI — search results, `boost info`'s badges,
+    etc. — all of which resolve through out.role("accent") to Aurora
+    truecolor cyan. print_help painted it with a raw 16-color ANSI CYAN
+    instead, so on a truecolor terminal the top-level help screen's command
+    names are a visibly different cyan than everywhere else."""
+
+    def test_command_names_use_the_accent_role_not_raw_cyan(
+            self, capsys, monkeypatch):
+        from boost_cli.core import output as out
+        monkeypatch.setenv("CLICOLOR_FORCE", "1")
+        monkeypatch.delenv("NO_COLOR", raising=False)
+        cli.print_help()
+        rendered = capsys.readouterr().out
+        accent_code = out.rgb(*out.TOKENS["cyan"])
+        assert accent_code in rendered
+        # the raw 16-color escape must not appear standing in for it
+        assert out.CYAN not in rendered

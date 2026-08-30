@@ -131,54 +131,65 @@ def test_curry_right(case, arglist, expected):
 
 
 def test_debounce():
-    def func():
-        return _.now()
+    calls = []
 
-    wait = 250
+    def func(*args):
+        calls.append(args)
+        return args
+
+    wait = 15
     debounced = _.debounce(func, wait)
 
-    start = _.now()
-    present = _.now()
+    # First call is deferred; subsequent calls reset the wait.
+    assert debounced(1) is None
+    time.sleep(0.01)
+    assert debounced(2) is None
+    assert calls == []
 
-    expected = debounced()
+    time.sleep((wait + 15) / 1000.0)
+    assert calls == [(2,)]
+    assert debounced.last_result == (2,)
 
-    while (present - start) <= wait + 100:
-        result = debounced()
-        present = _.now()
+    # After a quiet period, a new call is deferred again and returns the last result.
+    result = debounced(3)
+    assert result == (2,)
+    assert calls == [(2,)]
 
-    assert result == expected
-
-    time.sleep(wait / 1000.0)
-    result = debounced()
-
-    assert result > expected
+    time.sleep((wait + 15) / 1000.0)
+    assert calls == [(2,), (3,)]
 
 
 def test_debounce_max_wait():
-    def func():
-        return _.now()
+    calls = []
 
-    wait = 250
-    max_wait = 300
+    def func():
+        now = _.now()
+        calls.append(now)
+        return now
+
+    wait = 15
+    max_wait = 30
     debounced = _.debounce(func, wait, max_wait=max_wait)
 
     start = _.now()
-    present = _.now()
+    assert debounced() is None
+    assert calls == []
 
-    expected = debounced()
+    # Keep invoking so `wait` never elapses; `max_wait` should still fire.
+    deadline = start + max_wait + 10
+    while _.now() < deadline:
+        debounced()
+        time.sleep(0.01)
 
-    while (present - start) <= (max_wait + 5):
-        result = debounced()
-        present = _.now()
-
-    assert result > expected
+    assert len(calls) >= 1
+    assert calls[0] - start >= max_wait - 10
 
 
 @parametrize(
     "func,wait,args,kwargs,expected",
     [(lambda a, b, c: (a, b, c), 250, (1, 2), {"c": 3}, (1, 2, 3))],
 )
-def test_delay(mock_sleep, func, wait, args, kwargs, expected):
+def test_delay(mock_sleep, func, wait, args, kwargs, expected):  # noqa: PLR0917
     result = _.delay(func, wait, *args, **kwargs)
     assert result == expected
     assert mock_sleep.call_args_list == [mock.call(pytest.approx(wait / 1000.0))]

@@ -20,7 +20,7 @@ CHANGES = open(os.path.join(here, 'CHANGES.txt')).read()
 
 setup(
     name='pkginfo',
-    version='1.12.1.2',
+    version='1.13',
     description='Query metadata from sdists / bdists / installed packages.',
     platforms=['Unix', 'Windows'],
     long_description='\n\n'.join([README, CHANGES]),
@@ -34,18 +34,17 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: System :: Software Distribution',
     ],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     entry_points={
         'console_scripts': [
             'pkginfo = pkginfo.commandline:main',

@@ -45,6 +45,22 @@ def test_convert_pipfile(project):
     assert settings["source"][0]["url"] == "https://pypi.python.org/simple"
 
 
+@pytest.mark.parametrize(
+    "requires",
+    [
+        "",  # an empty [requires] table
+        'platform_system = "Linux"\n',  # only non-python markers
+    ],
+)
+def test_convert_pipfile_requires_without_python(project, requires):
+    """`[requires]` without a python key used to emit `requires-python = ">=None"`."""
+    pipfile_path = project.root / "Pipfile"
+    pipfile_path.write_text(f"[requires]\n{requires}", encoding="utf-8")
+    result, _ = pipfile.convert(project, pipfile_path, None)
+
+    assert "requires-python" not in result
+
+
 @pytest.mark.parametrize("is_dev", [True, False])
 def test_convert_requirements_file(project, is_dev):
     golden_file = FIXTURES / "requirements.txt"
@@ -291,7 +307,8 @@ def test_convert_poetry(project):
     assert result["version"] == "1.0.0"
     assert result["license"] == {"text": "MIT"}
     assert "repository" in result["urls"]
-    assert result["requires-python"] == "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,<4.0,>=2.7"
+    # `python = "~2.7 || ^3.4"`: Poetry's `~2.7` stops below 2.8, so 2.8 is excluded too.
+    assert result["requires-python"] == "!=2.8.*,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,<4.0,>=2.7"
     assert 'cleo<0.8.0,>=0.7.6; python_version ~= "2.7"' in result["dependencies"]
     assert 'cachecontrol[filecache]<0.13.0,>=0.12.4; python_version ~= "3.4"' in result["dependencies"]
     assert "babel==2.9.0" in result["dependencies"]
@@ -304,6 +321,25 @@ def test_convert_poetry(project):
     build = settings["build"]
     assert build["includes"] == ["lib/my_package", "tests", "CHANGELOG.md"]
     assert build["excludes"] == ["my_package/excluded.py"]
+
+
+def test_convert_poetry_sdist_only_include(project):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n'
+        "include = [\n"
+        '    "demo/data.json",\n'
+        '    {path = "tests", format = "sdist"},\n'
+        '    {path = "docs", format = ["sdist"]},\n'
+        "]\n"
+        "[tool.poetry.dependencies]\n",
+        encoding="utf-8",
+    )
+    _, settings = poetry.convert(project, pyproject, ns())
+
+    # Entries restricted to the sdist format belong to `source-includes`, not `includes`.
+    assert settings["build"]["includes"] == ["demo/data.json"]
+    assert settings["build"]["source-includes"] == ["tests", "docs"]
 
 
 def test_convert_poetry_optional_dependency_in_multiple_extras(project):
@@ -330,6 +366,96 @@ def test_convert_poetry_optional_dependency_in_multiple_extras(project):
     ],
 )
 def test_convert_poetry_caret_constraint(project, constraint, expected):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        f'[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\nfoo = "{constraint}"\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+
+    assert result["dependencies"] == [f"foo{expected}"]
+
+
+@pytest.mark.parametrize(
+    "constraint,expected",
+    [
+        # Poetry's tilde allows patch-level changes when a minor is given, and
+        # minor-level changes otherwise.
+        ("~1.2.3", "<1.3.0,>=1.2.3"),
+        ("~1.2", "<1.3,>=1.2"),
+        ("~1", "<2,>=1"),
+        ("~0.2.3", "<0.3.0,>=0.2.3"),
+        ("~0.0", "<0.1,>=0.0"),
+        ("~0", "<1,>=0"),
+    ],
+)
+def test_convert_poetry_tilde_constraint(project, constraint, expected):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        f'[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\nfoo = "{constraint}"\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+
+    assert result["dependencies"] == [f"foo{expected}"]
+
+
+def test_convert_poetry_tilde_python_constraint(project):
+    """A one-component tilde on `python` used to abort the whole import.
+
+    `~3` became `~=3`, which is not a valid PEP 440 specifier because compatible
+    release requires at least two release segments.
+    """
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\npython = "~3"\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+
+    assert result["requires-python"] == "<4,>=3"
+
+
+@pytest.mark.parametrize(
+    "author,expected",
+    [
+        ("Jane Doe <jane@example.com>", {"name": "Jane Doe", "email": "jane@example.com"}),
+        ("Acme, Inc. (Support) <s@acme.io>", {"name": "Acme, Inc. (Support)", "email": "s@acme.io"}),
+        ("Jane Doe", {"name": "Jane Doe"}),
+        # Characters outside the strict pattern used to abort the whole import.
+        ("Foo [Bar] <a@b.com>", {"name": "Foo [Bar]", "email": "a@b.com"}),
+        ("Team A/B <a@b.com>", {"name": "Team A/B", "email": "a@b.com"}),
+        # A bare address is an address, not a name.
+        ("jane@example.com", {"email": "jane@example.com"}),
+        ("<only@example.com>", {"email": "only@example.com"}),
+    ],
+)
+def test_convert_poetry_unusual_author(project, author, expected):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        f'[tool.poetry]\nname = "demo"\nversion = "0.1.0"\nauthors = ["{author}"]\n[tool.poetry.dependencies]\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+
+    assert result["authors"] == [expected]
+
+
+@pytest.mark.parametrize(
+    "constraint,expected",
+    [
+        # A multi-constraint string used to keep the separating comma as part of
+        # the next operator, emitting `>=1.0,,<2.0`.
+        (">=1.0,<2.0", "<2.0,>=1.0"),
+        (">=1.2,!=1.5,<2.0", "!=1.5,<2.0,>=1.2"),
+        (">= 1.0, < 2.0", "<2.0,>=1.0"),
+        # Poetry accepts a `v` prefix on the version.
+        ("^v1.2.3", "<2.0.0,>=1.2.3"),
+        ("~v1.2", "<1.3,>=1.2"),
+        ("v1.2.3", "==1.2.3"),
+    ],
+)
+def test_convert_poetry_multi_and_v_prefixed_constraint(project, constraint, expected):
     pyproject = project.root / "pyproject.toml"
     pyproject.write_text(
         f'[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\nfoo = "{constraint}"\n',
@@ -393,6 +519,29 @@ def test_convert_flit_author_and_maintainer_without_email(project, tmp_path):
 
     assert result["authors"] == [{"name": "Thomas Kluyver"}]
     assert result["maintainers"] == [{"name": "Frost Ming"}]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "__version__ = '1.0'\nprint 'not python 3'\n",  # invalid syntax
+        "__version__ = '1.0'\x00\n",  # a null byte
+    ],
+)
+def test_convert_flit_unparseable_module(project, tmp_path, source):
+    """An unreadable module leaves version/description empty instead of aborting."""
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(
+        '[tool.flit.metadata]\nmodule = "demo"\nauthor = "Thomas Kluyver"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "demo.py").write_text(source, encoding="utf-8", newline="")
+
+    result, _ = flit.convert(project, pyproject_file, None)
+
+    assert result["name"] == "demo"
+    assert result["version"] == ""
+    assert result["description"] == ""
 
 
 @pytest.mark.parametrize(
@@ -580,6 +729,35 @@ def test_export_pylock_toml(core, pdm):
         result = pdm(["export", "-f", "pylock", "-L", "pdm.no_groups.lock"])
     assert result.exit_code == 1
     assert "inherit_metadata strategy is required for pylock format" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("group_options", "expected_packages"),
+    [
+        (["--prod"], {"chardet", "idna"}),
+        (["--no-default", "-G", "tests"], {"colorama", "py", "pytest", "setuptools"}),
+    ],
+)
+@pytest.mark.parametrize("source_lockfile", ["pdm.lock", "pylock.toml"])
+def test_export_pylock_toml_respects_group_selection(core, pdm, group_options, expected_packages, source_lockfile):
+    project = core.create_project(FIXTURES / "projects/demo")
+
+    result = pdm(
+        ["export", "-f", "pylock", "-L", str(project.root / source_lockfile), *group_options],
+        obj=project,
+        strict=True,
+    )
+    exported = tomllib.loads(result.stdout)
+    package_names = {package["name"] for package in exported["packages"]}
+
+    assert package_names == expected_packages
+    assert "extras" not in exported
+    assert "dependency-groups" not in exported
+    assert "default-groups" not in exported
+    assert all(
+        "extras" not in package.get("marker", "") and "dependency_groups" not in package.get("marker", "")
+        for package in exported["packages"]
+    )
 
 
 def test_export_from_pylock_not_empty(core, pdm):

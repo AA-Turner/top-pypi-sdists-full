@@ -59,35 +59,36 @@ from openccu_loom_client.events import (
 from openccu_loom_client.exceptions import BaseLoomException, LoomIncompatibleVersionError, LoomNotFoundError
 from openccu_loom_client.operations import (
     AlarmOperations,
-    AuthOperations,
     BackupOperations,
-    CentralsOperations,
-    ConfigOperations,
     CustomDataPointsOperations,
     DataPointsOperations,
     DevicesOperations,
     DiagnosticsOperations,
-    GroupsOperations,
     HubOperations,
     I18nOperations,
     LinksOperations,
-    MatterOperations,
     SchedulesOperations,
     SecurityOperations,
-    SessionsOperations,
     SystemOperations,
-    UsersOperations,
     VisibilityOperations,
 )
 from openccu_loom_client.store import LoomStore
 from openccu_loom_client.transport import HttpTransport, WsTransport
+from openccu_loom_client.wire.rest import DeviceDetail
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from openccu_loom_types.rest import DataPointSummary, DeviceChannel, Health, Info, Readiness
-
     from openccu_loom_client.config import LoomConfig
+    from openccu_loom_client.wire.rest import (
+        Channel,
+        DataPointSummary,
+        DeviceChannel,
+        DeviceSummary,
+        Health,
+        Info,
+        Readiness,
+    )
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -153,6 +154,25 @@ Lets a layer built on top of the store repeat its own bootstrap half — see
 def _is_cache_restore(*, source: str | None) -> bool:
     """Report whether a ``device.created`` payload is a boot cache restore."""
     return source is not None and source.upper() == _SOURCE_CACHE_RESTORE
+
+
+def _channel_map(
+    *,
+    device_channels: list[DeviceChannel] | None,
+) -> dict[str, list[Channel]]:
+    """
+    Index a nested snapshot's ``device_channels`` by device address.
+
+    ``Channel`` is a subclass of ``ChannelSummary`` carrying every field the
+    detail response's channel list carries, plus the nested data points — so
+    a snapshot expanded with ``include=channels`` supplies everything
+    :meth:`LoomStore.attach_device_detail` needs, and no per-device
+    ``GET /devices/{address}`` is required.
+
+    Empty when the daemon returned no nested data; the caller then falls
+    back to the per-device detail call.
+    """
+    return {entry.device_address: list(entry.channels or ()) for entry in device_channels or ()}
 
 
 def _channel_dp_map(
@@ -222,7 +242,6 @@ class LoomClient:
         self.system: Final = SystemOperations(transport=self._http)
         self.schedules: Final = SchedulesOperations(transport=self._http)
         self.links: Final = LinksOperations(transport=self._http)
-        self.groups: Final = GroupsOperations(transport=self._http)
         self.alarm: Final = AlarmOperations(transport=self._http)
         # The Security & Safety domain runs with or without the alarm
         # engine, so it is wired unconditionally next to it rather than
@@ -235,14 +254,8 @@ class LoomClient:
         self.i18n: Final = I18nOperations(transport=self._http)
         # Admin / ops surface — present for completeness; HA typically
         # touches only auth (token provisioning) and diagnostics.
-        self.auth: Final = AuthOperations(transport=self._http)
-        self.users: Final = UsersOperations(transport=self._http)
-        self.centrals: Final = CentralsOperations(transport=self._http)
-        self.config_admin: Final = ConfigOperations(transport=self._http)
         self.diagnostics: Final = DiagnosticsOperations(transport=self._http)
         self.backup: Final = BackupOperations(transport=self._http)
-        self.sessions: Final = SessionsOperations(transport=self._http)
-        self.matter: Final = MatterOperations(transport=self._http)
         self.visibility: Final = VisibilityOperations(transport=self._http)
 
     # ---- public state access ----
@@ -429,22 +442,66 @@ class LoomClient:
                 return False
             await asyncio.sleep(_READINESS_POLL_SECONDS)
 
+    async def _pin_central_id(self) -> None:
+        """
+        Resolve this client's central before the snapshot, so it can be scoped.
+
+        ``load_snapshot`` derives the central id from the snapshot's own
+        interface list, which is too late to ask the daemon for one central's
+        devices — on a daemon mediating several CCUs the whole fleet has
+        already crossed the wire, and every consumer bound to one CCU parses
+        and discards the others' device trees. ``GET /system/ccu`` names the
+        centrals directly and is cheap.
+
+        The resolution rule is `LoomStore._infer_central_id`'s, deliberately:
+        the configured central name when the daemon knows it, the sole entry
+        when the daemon mediates exactly one, and otherwise nothing. Two rules
+        that disagree would scope the request one way and filter the store the
+        other. Failing to resolve is not an error — the snapshot then goes out
+        unscoped, exactly as before.
+        """
+        if self._store.central_id:
+            return
+        try:
+            entries = await self.system.list_system_ccus()
+        except BaseLoomException as err:
+            _LOGGER.debug("cannot scope the snapshot (GET /system/ccu): %s", err)
+            return
+        names = [name for entry in entries if (name := getattr(entry, "name", None))]
+        self._store.set_daemon_central_count(count=len(names))
+        configured = self._store.central_name
+        if configured and configured in names:
+            self._store.set_central_id(central_id=configured)
+        elif len(names) == 1:
+            self._store.set_central_id(central_id=names[0])
+        elif names:
+            _LOGGER.debug(
+                "daemon mediates %s and none matches the configured central name %r — requesting the unscoped snapshot",
+                names,
+                configured,
+            )
+
     async def bootstrap(self, *, fetch_data_points: bool = True) -> None:
         """
         Populate the store from the daemon's current state.
 
         Steps:
 
+        0. Resolve this central (:meth:`_pin_central_id`) so the snapshot
+           below can be scoped to it with ``?central=``. Skipped once known,
+           so a re-bootstrap costs nothing.
         1. ``GET /snapshot?include=data_points`` → registers every device
            and, in the same response, the nested channels + data points
            (:attr:`Snapshot.device_channels`).
-        2. For each device: ``GET /devices/{addr}`` to attach the
-           firmware / availability detail the flat snapshot omits (and
-           the authoritative channel list).
+        2. For each device: attach the channel list from that same
+           response. Since daemon api 7.23.0 the summary also carries
+           ``firmware`` and ``availability``, so nothing is left that
+           would need a per-device ``GET /devices/{addr}``.
         3. Optional (``fetch_data_points=True``): attach each channel's
            DPs from the nested snapshot — no extra REST call. If the
-           daemon did not return ``device_channels`` (older daemon), fall
-           back to one ``GET …/data-points`` per channel.
+           daemon did not return ``device_channels``, fall back to the
+           per-device detail call and one ``GET …/data-points`` per
+           channel.
         4. Attach the alarm-panel catalogue (``GET /alarm/panels`` +
            ``GET /alarm/state``). A 404 means the daemon's alarm
            subsystem is disabled (its routes are unmounted; there is no
@@ -453,14 +510,20 @@ class LoomClient:
            device the store now knows, so HA-side spawn-entities
            subscribers fire once at the end of bootstrap.
 
-        The nested snapshot collapses the formerly dominant cost — one
-        ``GET …/data-points`` per channel (N*M REST calls) — into the
-        single snapshot round trip. The per-device detail call (step 2)
-        stays: ``firmware`` / the rich ``availability`` object are
-        detail-only, not carried by the snapshot's device summaries.
+        A bootstrap is therefore one request. The M — one
+        ``GET …/data-points`` per channel — went with the nested snapshot;
+        the N — one detail call per device — goes here, because the fields
+        that forced it are on the summary now. The fallback path is kept
+        rather than deleted: it costs one branch and it is what answers a
+        daemon that ignores ``include``.
         """
-        include = "data_points" if fetch_data_points else None
-        snapshot = await self.system.get_snapshot(include=include, released_only=self._config.released_only)
+        await self._pin_central_id()
+        include = "channels,data_points" if fetch_data_points else "channels"
+        snapshot = await self.system.get_snapshot(
+            include=include,
+            released_only=self._config.released_only,
+            central=self._store.central_id or None,
+        )
         self._store.load_snapshot(snapshot=snapshot)
 
         # load_snapshot derives the central id from the interface list.
@@ -470,8 +533,18 @@ class LoomClient:
         # Empty when the daemon ignored ``include`` — bootstrap then falls
         # back to the per-channel data-point fetch (older-daemon path).
         dp_map = _channel_dp_map(device_channels=snapshot.device_channels) if fetch_data_points else {}
+        channel_map = _channel_map(device_channels=snapshot.device_channels)
 
         for device_summary in snapshot.devices:
+            if (channels := channel_map.get(device_summary.address)) is not None:
+                self._attach_device_from_snapshot(
+                    summary=device_summary,
+                    channels=channels,
+                    channel_data_points=dp_map.get(device_summary.address) if fetch_data_points else None,
+                )
+                continue
+            # The daemon returned no nested channels for this device — read it
+            # the long way round.
             await self._fetch_device_into_store(
                 address=device_summary.address,
                 fetch_data_points=fetch_data_points,
@@ -642,6 +715,33 @@ class LoomClient:
         task = asyncio.create_task(coro, name=name)
         self._bg_tasks.add(task)
         task.add_done_callback(self._bg_tasks.discard)
+
+    def _attach_device_from_snapshot(
+        self,
+        *,
+        summary: DeviceSummary,
+        channels: list[Channel],
+        channel_data_points: Mapping[int, list[DataPointSummary]] | None,
+    ) -> None:
+        """
+        Attach one device's graph from the snapshot alone — no REST call.
+
+        ``DeviceDetail`` extends ``DeviceSummary`` by exactly one field,
+        ``channels``, and a snapshot expanded with ``include=channels``
+        carries those. So the detail response can be assembled here rather
+        than fetched, which is what turns an N+1-request bootstrap into a
+        single request.
+        """
+        detail = DeviceDetail(**summary.model_dump(), channels=channels)
+        self._store.attach_device_detail(detail=detail)
+        if channel_data_points is None:
+            return
+        for channel in channels:
+            self._store.attach_channel_data_points(
+                device_address=summary.address,
+                channel_number=channel.number,
+                data_points=list(channel_data_points.get(channel.number, ())),
+            )
 
     async def _fetch_device_into_store(
         self,
@@ -860,7 +960,7 @@ class LoomClient:
             # consumer makes, where it can be handled in context.
             _LOGGER.error(
                 "the daemon reachable after this reconnect is no longer contract-compatible with this build; "
-                "REST calls will fail until the daemon or openccu-loom-types is updated",
+                "REST calls will fail until the daemon or this client is updated",
             )
         except Exception:
             _LOGGER.debug("contract re-check after reconnect failed", exc_info=True)

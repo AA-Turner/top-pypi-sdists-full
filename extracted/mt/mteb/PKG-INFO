@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.20.3
+Version: 2.20.4
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>

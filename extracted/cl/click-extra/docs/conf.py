@@ -159,7 +159,7 @@ myst_heading_anchors = 6
 # MyST resolves match the ids actually rendered in the page. The default
 # GitHub-style slugifier keeps leading digits, "--" prefixes, dots and
 # underscores that docutils strips or collapses (e.g. "`--params` option"
-# → "params-option", "solarized_dark" → "solarized-dark"), which otherwise
+# → "params-option", "solarized-dark" → "solarized-dark"), which otherwise
 # leaves every cross-reference to such a heading unresolved. The dotted-path
 # string form (not the function object) keeps the config value picklable, so
 # Sphinx can cache it between builds.
@@ -259,6 +259,10 @@ nitpick_ignore = [
     ("py:exc", "ConfigError"),
     # click ParameterSource enum members are absent from click's inventory.
     ("py:attr", "click.ParameterSource.DEFAULT_MAP"),
+    # click 8.5.0 renamed get_binary_stream to a private name, which leaves the
+    # cross-reference in the deprecated get_text_stream docstring, rendered here
+    # through the drop-in re-export, with nothing to point at.
+    ("py:func", "get_binary_stream"),
     # click-extra's own classes that live in a submodule but are re-exported at the
     # package root. They are dropped from the root ``automodule:: click_extra`` (see
     # docs/click_extra.md) to avoid ambiguous cross-references, so their bare name
@@ -305,8 +309,11 @@ html_title = project
 html_logo = "assets/logo-square.svg"
 html_favicon = "assets/favicon.svg"
 # Without this, sphinxext.opengraph falls back to the favicon for social
-# previews, which scales poorly.
-ogp_image = "assets/banner-gradient-light.png"
+# previews, which scales poorly. The dark variant matches the social preview
+# uploaded to the repository's settings, so a link to the docs and a link to the
+# repository unfurl as the same card. Either would carry the mark: flat-shaded,
+# it holds its own on a light background and a dark one alike.
+ogp_image = "assets/banner-gradient-dark.png"
 # ogp_image is relative to ogp_site_url, not to the page. Without a site URL,
 # sphinxext.opengraph emits the image path as-is, which social crawlers can't
 # resolve since they only ever see the raw HTML.
@@ -335,8 +342,6 @@ html_theme_options = {
 # skip anchor checks for the whole host instead of stacking per-anchor patterns.
 linkcheck_anchors_ignore_for_url = [
     r"https://github\.com/",
-    # star-history.com builds its chart and anchor with JavaScript.
-    r"https://star-history\.com/",
 ]
 
 # Some links time out the linkcheck bot intermittently; retry before reporting
@@ -377,6 +382,50 @@ html_show_sphinx = False
 
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+
+
+def pin_app_dir() -> None:
+    """Render every configuration path as the POSIX one, whatever host builds.
+
+    `click.get_app_dir()` answers per platform, so a `--config` default renders
+    as `~/Library/Application Support/foo` on macOS and `~/.config/foo` on
+    Linux. Left alone, a page therefore documents whichever machine happened to
+    build it, and the captures a `:screenshot:` block commits flip back and
+    forth with their author's laptop.
+
+    Pinning to the POSIX form keeps a build reproducible, and keeps the
+    published output exactly what it has always been, since these pages are
+    built on Linux. The per-platform folders stay documented as a table in
+    `config.md`, which is where a reader should look for their own anyway.
+
+    Both bindings are patched, `click`'s and the reference bound into Click
+    Extra's configuration machinery, the way
+    {func}`click_extra.pytest.isolated_app_dir` does for a test suite.
+    """
+    import os
+
+    import click
+
+    import click_extra.config.option
+
+    def posix_app_dir(app_name, roaming=True, force_posix=False):
+        """`click.get_app_dir()`'s Unix branch, taken on every platform.
+
+        Returns an *expanded* path like the original, since a caller resolves
+        it before Click Extra shrinks the home prefix back to `~` for display.
+        `XDG_CONFIG_HOME` is deliberately ignored: honoring it would put the
+        host back into the rendered output.
+        """
+        folder = "-".join(app_name.split()).lower()
+        if force_posix:
+            return os.path.expanduser(f"~/.{folder}")
+        return os.path.join(os.path.expanduser("~/.config"), folder)
+
+    click.get_app_dir = posix_app_dir
+    click_extra.config.option.get_app_dir = posix_app_dir
+
+
+pin_app_dir()
 
 
 def setup(app):

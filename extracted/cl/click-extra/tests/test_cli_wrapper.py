@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from click_extra.cli_wrapper import (
     _config_args_for_target,
     resolve_target,
     resolve_target_command,
+    target_prog_name,
     unpatch_click,
     wrap,
 )
@@ -35,6 +37,7 @@ from click_extra.commands import ColorizedCommand, ColorizedGroup
 from click_extra.context import Context
 from click_extra.highlight import _HelpColorsMixin
 from click_extra.testing import CliRunner
+from click_extra.theme import BUILTIN_THEMES, THEME_ENVVAR
 
 GREET_SCRIPT = (
     "import click\n"
@@ -426,6 +429,28 @@ def test_run_unresolvable_target(runner):
     assert "Cannot resolve" in result.output
 
 
+@pytest.mark.parametrize("outer_package", ["sphinx", "click_extra", "", None])
+def test_run_usage_line_ignores_the_launcher(
+    runner, make_project, outer_package, monkeypatch
+):
+    """The wrapped target's usage line names the script, not click-extra's launcher.
+
+    A target whose Click command detects its own program name reads
+    `__main__.__package__`, which states how click-extra itself was launched.
+    Left alone, a documentation build running `python -m sphinx` paints a
+    wrapped usage line as `python -m sphinx.flask`. Pinning the detection on
+    the script name keeps it identical whatever the launcher.
+    """
+    project = make_project("orchard")
+    monkeypatch.setattr(
+        sys.modules["__main__"], "__package__", outer_package, raising=False
+    )
+    result = runner.invoke(wrap, [str(project), "--help"])
+    assert result.exit_code == 0
+    assert f"Usage: {project.name} [OPTIONS]" in result.output
+    assert "python -m" not in result.output
+
+
 # -- shared external-CLI command resolution -----------------------------------
 
 
@@ -445,13 +470,26 @@ def test_resolve_target_command_drills_subcommand(custom_cls_script):
 # -- wrap --man: man page generation for an external CLI ----------------------
 
 
-def test_wrap_man_renders_manpage(runner, greet_script):
-    """``click-extra wrap --man SCRIPT`` prints the target's roff page and exits."""
+def test_wrap_man_reads_manual(runner, greet_script):
+    """``click-extra wrap --man SCRIPT`` reads the target's manual and exits.
+
+    A CLI shipping no man page of its own still gets one to read, typeset from
+    its own command tree.
+    """
     result = runner.invoke(demo, ["wrap", "--man", greet_script], color=False)
+    assert result.exit_code == 0
+    assert "Greet someone." in result.stdout
+    assert "Name to greet." in result.stdout
+
+
+def test_wrap_help_format_man_emits_source(runner, greet_script):
+    """The roff a packager installs comes from the format, not from --man."""
+    result = runner.invoke(
+        demo, ["wrap", "--help-format", "man", greet_script], color=False
+    )
     assert result.exit_code == 0
     assert '.TH "' in result.stdout
     assert "Greet someone." in result.stdout
-    assert "Name to greet." in result.stdout
 
 
 def test_wrap_man_custom_class_group(runner, custom_cls_script):
@@ -477,7 +515,7 @@ def test_wrap_man_unresolvable_target(runner):
 
 
 def test_wrap_man_output_dir_writes_tree(runner, custom_cls_script, tmp_path):
-    """``wrap --man --output-dir`` writes one .1 per (sub)command into the dir.
+    """``wrap --help-format man --output-dir`` writes one .1 per (sub)command.
 
     ``--output-dir`` must appear before SCRIPT, because wrap runs with
     ``allow_interspersed_args=False`` so that anything after SCRIPT is
@@ -486,7 +524,14 @@ def test_wrap_man_output_dir_writes_tree(runner, custom_cls_script, tmp_path):
     target = tmp_path / "man"
     result = runner.invoke(
         demo,
-        ["wrap", "--man", "--output-dir", str(target), custom_cls_script],
+        [
+            "wrap",
+            "--help-format",
+            "man",
+            "--output-dir",
+            str(target),
+            custom_cls_script,
+        ],
         color=False,
     )
     assert result.exit_code == 0
@@ -509,7 +554,7 @@ def test_wrap_man_output_dir_creates_missing_directory(runner, greet_script, tmp
     assert not target.exists()
     result = runner.invoke(
         demo,
-        ["wrap", "--man", "--output-dir", str(target), greet_script],
+        ["wrap", "--help-format", "man", "--output-dir", str(target), greet_script],
         color=False,
     )
     assert result.exit_code == 0
@@ -615,6 +660,50 @@ def test_wrap_honors_group_theme(runner, greet_script, theme, styled_heading):
     assert styled_heading in result.output
     # Not the 16-color bright-blue heading of the dark default it used to leak.
     assert "\x1b[94m\x1b[4mUsage:" not in result.output
+
+
+def test_wrap_honors_theme_envvar(runner, greet_script, monkeypatch):
+    """``CLICK_EXTRA_THEME`` reaches a wrapped CLI's help screen too.
+
+    The group resolves the machine-wide variable like any other source of a
+    palette, and wrap bridges whatever it settled on to the process default the
+    wrapped target renders under.
+    """
+    monkeypatch.setenv(THEME_ENVVAR, "nord")
+
+    result = runner.invoke(demo, ["wrap", greet_script, "--help"], color=True)
+    assert result.exit_code == 0
+    assert BUILTIN_THEMES["nord"].heading("Usage:") in result.output
+
+
+@pytest.mark.parametrize("script_fixture", ("greet_script", "custom_cls_script"))
+@pytest.mark.parametrize(
+    ("color_opt", "colored"),
+    (
+        ("--color=always", True),
+        ("--color=never", False),
+        ("--no-color", False),
+    ),
+)
+def test_wrap_pins_group_color_on_every_target_kind(
+    runner, request, script_fixture, color_opt, colored
+):
+    """The group's tri-state color decision reaches the wrapped target.
+
+    Both kinds of target must obey it: one built by the patched
+    ``@click.command()`` decorator (so it *is* a ``_HelpColorsMixin``) and one
+    carrying an explicit ``cls=`` (so it stays plain Click). They travel
+    different code paths inside ``patch_click``, and the forcing direction used
+    to reach the second only.
+
+    The runner is left on its own auto-detection here: forcing colors at the
+    stream level would paint the output whatever the flag decided.
+    """
+    script = request.getfixturevalue(script_fixture)
+
+    result = runner.invoke(demo, [color_opt, "wrap", script, "--help"])
+    assert result.exit_code == 0
+    assert ("\x1b[" in result.output) is colored
 
 
 @pytest.mark.parametrize(
@@ -839,3 +928,147 @@ def test_config_args_no_wrap_section():
     """Config exists but has no wrap section."""
     ctx = _make_wrap_ctx({"click-extra": {"verbosity": "DEBUG"}})
     assert _config_args_for_target(ctx, "greet") == ()
+
+
+@pytest.mark.parametrize(
+    ("help_format", "expected"),
+    (
+        ("json", '"name":'),
+        ("markdown", "## Synopsis"),
+        ("man", ".SH SYNOPSIS"),
+    ),
+)
+def test_wrap_help_format_describes_a_foreign_cli(
+    runner, greet_script, help_format, expected
+):
+    """A CLI that never heard of Click Extra is rendered from the outside.
+
+    Same posture as ``--params`` and ``--man``: the target is loaded and walked,
+    never asked to cooperate, so machine-readable help needs no opt-in from the
+    author of the wrapped CLI.
+    """
+    result = runner.invoke(
+        demo, ["wrap", "--help-format", help_format, greet_script], color=False
+    )
+    assert result.exit_code == 0
+    assert expected in result.stdout
+    assert "Greet someone." in result.stdout
+
+
+def test_wrap_help_format_json_is_parseable(runner, greet_script):
+    """The JSON rendering of a foreign CLI parses, and carries its options."""
+    result = runner.invoke(
+        demo, ["wrap", "--help-format", "json", greet_script], color=False
+    )
+    assert result.exit_code == 0
+
+    doc = json.loads(result.stdout)
+    assert doc["short_help"] == "Greet someone."
+    options = [opt for group in doc["option_groups"] for opt in group["options"]]
+    assert any("--name" in opt["names"] for opt in options)
+
+
+def test_wrap_help_format_stays_colorless(runner, greet_script):
+    """Machine-readable output carries no ANSI, whatever the group asked for.
+
+    Every format here is meant to be piped into a parser, which has no use for
+    escape codes: ``--color=always`` paints the help screen, not the export.
+    """
+    result = runner.invoke(
+        demo,
+        ["--color=always", "wrap", "--help-format", "json", greet_script],
+        color=True,
+    )
+    assert result.exit_code == 0
+    assert "\x1b[" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("help_format", "artifact"),
+    (("carapace", "greet.yaml"), ("man", "greet.1")),
+)
+def test_wrap_install_writes_where_the_consumer_looks(
+    runner, greet_script, tmp_path, monkeypatch, help_format, artifact
+):
+    """``--install`` puts each rendering where the tool reading it looks.
+
+    One destination flag across both formats, each module resolving its own
+    canonical directory: Carapace's spec directory, and the user's man
+    directory. Both honor their XDG variable at call time.
+    """
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+
+    result = runner.invoke(
+        demo,
+        ["wrap", "--help-format", help_format, "--install", greet_script],
+        color=False,
+    )
+    assert result.exit_code == 0
+
+    expected = {
+        "carapace": tmp_path / "config" / "carapace" / "specs" / artifact,
+        "man": tmp_path / "data" / "man" / "man1" / artifact,
+    }[help_format]
+    assert expected.exists()
+    assert str(expected) in result.stdout
+
+
+@pytest.mark.parametrize("help_format", ("json", "markdown", "markdown-full"))
+def test_wrap_destination_refused_for_documents(runner, greet_script, help_format):
+    """A document has nowhere canonical to be installed, and says so."""
+    result = runner.invoke(
+        demo,
+        ["wrap", "--help-format", help_format, "--install", greet_script],
+        color=False,
+    )
+    assert result.exit_code == 2
+    assert "--install requires --help-format with one of: carapace, man." in (
+        result.output
+    )
+
+
+@pytest.mark.parametrize(
+    ("script", "expected"),
+    (
+        # A path names the binary after its file, never after itself.
+        ("path/to/my_cli.py", "my_cli"),
+        ("./my_cli.py", "my_cli"),
+        ("../my-project", "my-project"),
+        # An import path names a module, so the command's own name stands in.
+        ("flask.cli:cli", "greeter"),
+        ("my_package.cli", "greeter"),
+        # A console script is already what a user types, and outranks the
+        # command's own name when the two differ.
+        ("flask", "flask"),
+    ),
+)
+def test_target_prog_name_is_what_a_user_would_type(script, expected):
+    """Every rendering is titled with the name the target runs under."""
+    assert target_prog_name(script, click.Command("greeter")) == expected
+
+
+def test_every_rendering_agrees_on_the_target_name(runner, tmp_path):
+    """One rule, so the man page, spec, Markdown and tree cannot disagree.
+
+    The script file is named after neither its command object nor the directory
+    holding it, so a renderer picking the wrong source shows it.
+    """
+    script = tmp_path / "kettle.py"
+    script.write_text(GREET_SCRIPT, encoding="utf-8")
+
+    renders = {
+        fmt: runner.invoke(
+            demo, ["wrap", "--help-format", fmt, str(script)], color=False
+        )
+        for fmt in ("man", "markdown", "carapace")
+    }
+    assert all(r.exit_code == 0 for r in renders.values())
+
+    assert '.TH "KETTLE"' in renders["man"].stdout
+    assert renders["markdown"].stdout.startswith("# kettle\n")
+    assert "\nname: kettle\n" in renders["carapace"].stdout
+
+    tree = runner.invoke(demo, ["wrap", "--tree", str(script)], color=False)
+    assert tree.exit_code == 0
+    assert tree.stdout.startswith("kettle ")

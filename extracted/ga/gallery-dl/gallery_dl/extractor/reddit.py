@@ -107,6 +107,11 @@ class RedditExtractor(Extractor):
                             url = "ytdl:" + self._extract_video(media)
                             yield Message.Url, url, submission
 
+                    elif not url and (
+                            embed := media.get("secure_media_embed")) and (
+                            src := text.extr(embed.get("content", ""), 'src="', '"')):  # noqa: E501
+                        urls.append((src, submission))
+
                     elif not submission["is_self"]:
                         urls.append((url, submission))
 
@@ -287,16 +292,18 @@ class RedditSubredditExtractor(RedditExtractor):
     example = "https://www.reddit.com/r/SUBREDDIT/"
 
     def __init__(self, match):
-        self.subreddit, sub, params = match.groups()
-        self.params = text.parse_query(params)
-        if sub:
-            if sub == "search" and "restrict_sr" not in self.params:
-                self.params["restrict_sr"] = "1"
+        if sub := match[2]:
             self.subcategory += "-" + sub
         RedditExtractor.__init__(self, match)
 
     def submissions(self):
-        return self.api.submissions_subreddit(self.subreddit, self.params)
+        subreddit, sub, query = self.groups
+        params = text.parse_query(query)
+        if sub == "search":
+            self.kwdict["search_tags"] = params.get("q", "")
+            if "restrict_sr" not in params:
+                params["restrict_sr"] = "1"
+        return self.api.submissions_subreddit(subreddit, params)
 
 
 class RedditHomeExtractor(RedditSubredditExtractor):

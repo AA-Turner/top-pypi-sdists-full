@@ -84,7 +84,7 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
         column_info = self.collect_column_info(check_obj, schema)
 
         core_parsers: list[tuple[Callable[..., Any], tuple[Any, ...]]] = [
-            (self.add_missing_columns, (schema, column_info)),
+            (self.add_missing_columns, (schema, column_info, lazy)),
             (self.strict_filter_columns, (schema, column_info)),
             (self.set_defaults, (schema,)),
             (self.coerce_dtype, (schema,)),
@@ -227,13 +227,21 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
                 schema_component.__dict__ = schema_component.__dict__.copy()
                 if schema.dtype is not None and not isinstance(
                     schema.dtype, pandas_engine.PydanticModel
-                  ):
+                ):
                     # override column dtype with dataframe dtype
                     schema_component.dtype = schema.dtype  # type: ignore
 
-                # disable coercion at the schema component level since the
-                # dataframe-level schema already coerced it.
-                schema_component.coerce = False  # type: ignore
+                if getattr(schema_component, "parsers", None):
+                    # coercion of components with parsers is deferred to
+                    # component-level validation so that parsers run before
+                    # coercion: propagate dataframe-level coercion.
+                    schema_component.coerce = (  # type: ignore
+                        schema_component.coerce or schema.coerce
+                    )
+                else:
+                    # disable coercion at the schema component level since the
+                    # dataframe-level schema already coerced it.
+                    schema_component.coerce = False  # type: ignore
 
                 result = schema_component.validate(
                     check_obj, lazy=lazy, inplace=True
@@ -416,7 +424,11 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
     ###########
 
     def add_missing_columns(
-        self, check_obj: pd.DataFrame, schema, column_info: ColumnInfo
+        self,
+        check_obj: pd.DataFrame,
+        schema,
+        column_info: ColumnInfo,
+        lazy: bool = False,
     ):
         """Add columns that aren't in the dataframe."""
         # Add missing columns to dataframe based on 'add_missing_columns'
@@ -429,10 +441,11 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
 
         # Absent columns are required to have a default
         # value or be nullable
+        absent_column_errors = []
         for col_name in column_info.absent_column_names:
             col_schema = schema.columns[col_name]
             if pd.isna(col_schema.default) and not col_schema.nullable:
-                raise SchemaError(
+                error = SchemaError(
                     schema=schema,
                     data=check_obj,
                     message=(
@@ -444,6 +457,19 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
                     check="add_missing_has_default",
                     reason_code=SchemaErrorReason.ADD_MISSING_COLUMN_NO_DEFAULT,
                 )
+                # In non-lazy mode preserve the fail-fast behavior, otherwise
+                # collect every offending column so lazy validation reports
+                # all missing required columns rather than only the first.
+                if not lazy:
+                    raise error
+                absent_column_errors.append(error)
+
+        if absent_column_errors:
+            raise SchemaErrors(
+                schema=schema,
+                schema_errors=absent_column_errors,
+                data=check_obj,
+            )
 
         # Ascertain order in which missing columns should be inserted into
         # dataframe. Be careful not to modify order of existing dataframe
@@ -732,8 +758,13 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
 
                 for matched_colname in matched_columns:
                     if (
-                        col_schema.coerce or schema.coerce
-                    ) and schema.dtype is None:
+                        (col_schema.coerce or schema.coerce)
+                        and schema.dtype is None
+                        # coercion of columns with parsers is deferred to
+                        # column-level validation so that parsers run before
+                        # coercion
+                        and not col_schema.parsers
+                    ):
                         _col_schema = copy.deepcopy(col_schema)
                         _col_schema.coerce = True
                         obj[matched_colname] = _try_coercion(
@@ -743,6 +774,9 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
                 (col_schema.coerce or schema.coerce)
                 and schema.dtype is None
                 and colname in obj
+                # coercion of columns with parsers is deferred to column-level
+                # validation so that parsers run before coercion
+                and not col_schema.parsers
             ):
                 _col_schema = copy.deepcopy(col_schema)
                 _col_schema.coerce = True
@@ -752,7 +786,13 @@ class DataFrameSchemaBackend(PandasSchemaBackend):
 
         if schema.dtype is not None:
             obj = _try_coercion(_coerce_df_dtype, obj)
-        if schema.index is not None and (schema.index.coerce or schema.coerce):
+        if (
+            schema.index is not None
+            and (schema.index.coerce or schema.coerce)
+            # coercion of an index with parsers is deferred to index-level
+            # validation so that parsers run before coercion
+            and not getattr(schema.index, "parsers", None)
+        ):
             index_schema = copy.deepcopy(schema.index)
             if schema.coerce:
                 # coercing at the dataframe-level should apply index coercion

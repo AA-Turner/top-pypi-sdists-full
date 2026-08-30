@@ -872,45 +872,23 @@ class CivitaiTrpcAPI():
         data = self.extractor.request_json(
             url, params=params, headers=headers)["result"]["data"]
 
-        if not isinstance(data, str):
-            return data["json"]
+        return (self._unpack(util.json_loads(data))
+                if isinstance(data, str) else data["json"])
 
-        meta = util.json_loads(data)
-        data = meta[0]
-
-        items = data.get("items") or 0
-        if items > 0:
-            data["items"] = items = [meta[i] for i in meta[items]]
-            resolve = items.copy()
-            while resolve:
-                item = resolve.pop()
-                for key, i in item.items():
-                    if i > 0:
-                        item[key] = value = meta[i]
-                        if not value:
-                            pass
-                        elif isinstance(value, dict) and all(
-                                isinstance(v, int) for v in value.values()):
-                            resolve.append(value)
-                        elif isinstance(value, list):
-                            first = value[0]
-                            if first == "Date":
-                                item[key] = value[1]
-                            elif isinstance(first, int):
-                                for index, i in enumerate(value):
-                                    value[index] = meta[i]
-                            elif isinstance(first, dict) and all(
-                                    isinstance(v, int) for v in first.values()):  # noqa: E501
-                                resolve.extend(value)
-                    else:
-                        item[key] = None
-
-        else:
-            data["items"] = ()
-
-        cursor = data.get("nextCursor") or 0
-        data["nextCursor"] = meta[cursor] if cursor > 0 else None
-        return data
+    def _unpack(self, pack):
+        def resolve(item):
+            if isinstance(item, dict):
+                if all(isinstance(v, int) for v in item.values()):
+                    for key, value in item.items():
+                        item[key] = (resolve(pack[value])
+                                     if value >= 0 else None)
+            elif isinstance(item, list):
+                if all(isinstance(v, int) for v in item):
+                    for idx, value in enumerate(item):
+                        item[idx] = (resolve(pack[value])
+                                     if value >= 0 else None)
+            return item
+        return resolve(pack[0])
 
     def _pagination(self, endpoint, params, meta=None, user=False):
         if "cursor" not in params:

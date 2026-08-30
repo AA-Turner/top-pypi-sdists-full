@@ -510,6 +510,8 @@ class TwitterExtractor(Extractor):
                 tget("retweeted_status_id_str")),
             "quote_id"      : text.parse_int(
                 tget("quoted_by_id_str")),
+            "quoted_id"     : text.parse_int(
+                tget("quoted_status_id_str")),
             "reply_id"      : text.parse_int(
                 tget("in_reply_to_status_id_str")),
             "conversation_id": text.parse_int(
@@ -1080,8 +1082,8 @@ class TwitterLikesExtractor(TwitterExtractor):
 class TwitterBookmarkExtractor(TwitterExtractor):
     """Extractor for bookmarked tweets"""
     subcategory = "bookmark"
-    pattern = BASE_PATTERN + r"/i/bookmarks()"
-    example = "https://x.com/i/bookmarks"
+    pattern = BASE_PATTERN + r"/i/(?:history|bookmarks)()"
+    example = "https://x.com/i/history"
 
     def tweets(self):
         return self.api.user_bookmarks()

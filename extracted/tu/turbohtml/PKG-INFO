@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: turbohtml
-Version: 1.6.1
+Version: 1.7.0
 Summary: A fast, fully typed HTML toolkit for Python, powered by a C-accelerated core.
 Keywords: css-selector,encoding-detection,escape,html,html5,markdown,minify,parser,sanitize,scraping,unescape,xml,xpath
 Maintainer-Email: Bernát Gábor <gaborjbernat@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
+License-File: licenses/LICENSE-LIBPHONENUMBER
 License-File: licenses/LICENSE-WHATWG
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers

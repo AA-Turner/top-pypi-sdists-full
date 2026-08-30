@@ -6,8 +6,8 @@ from ._schema import dataclass, field, DictMixin
 if TYPE_CHECKING:   # Fix for pycharm autocompletion https://youtrack.jetbrains.com/issue/PY-54560
     from dataclasses import dataclass, field
 
-from . import core_v1
 from . import meta_v1
+from . import core_v1
 from . import resource
 
 
@@ -30,11 +30,11 @@ class CSIDriver(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata. metadata.Name indicates the name of the CSI driver
-        that this object refers to; it MUST be the same name returned by the CSI
-        GetPluginName() call for that driver. The driver name must be 63 characters or
-        less, beginning and ending with an alphanumeric character ([a-z0-9A-Z]) with
-        dashes (-), dots (.), and alphanumerics between. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. metadata.Name indicates the name of
+        the CSI driver that this object refers to; it MUST be the same name returned
+        by the CSI GetPluginName() call for that driver. The driver name must be 63
+        characters or less, beginning and ending with an alphanumeric character
+        ([a-z0-9A-Z]) with dashes (-), dots (.), and alphanumerics between. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
     """
     spec: 'CSIDriverSpec'
@@ -130,7 +130,7 @@ class CSIDriverSpec(DictMixin):
         support one mode when deployed on such a cluster and the deployment determines
         which mode that is, for example via a command line parameter of the driver.
         This field was immutable in Kubernetes < 1.29 and now is mutable.
-      * **preventPodSchedulingIfMissing** ``Optional[bool]`` - PreventPodSchedulingIfMissing indicates that the CSI driver wants to prevent
+      * **preventPodSchedulingIfMissing** ``Optional[bool]`` - preventPodSchedulingIfMissing indicates that the CSI driver wants to prevent
         pod scheduling if the CSI driver on the node is missing.
         Enabling this option will prevent the scheduler (or any other component which
         embeds default scheduler such as cluster-autoscaler) from scheduling pods to
@@ -142,8 +142,8 @@ class CSIDriverSpec(DictMixin):
         otherwise if PreventPodSchedulingIfMissing is enabled globally for CSIDriver
         object, any newly created node may be rejected by the scheduler because of
         missing CSI driver information from the node.
-        This is an alpha feature and requires the VolumeLimitScaling feature gate to
-        be enabled. Default is "false".
+        This is a beta feature and requires the VolumeLimitScaling feature gate to be
+        enabled. Default is "false".
       * **requiresRepublish** ``Optional[bool]`` - requiresRepublish indicates the CSI driver wants `NodePublishVolume` being
         periodically called to reflect any possible change in the mounted volume. This
         field defaults to false.
@@ -252,12 +252,15 @@ class CSINode(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. metadata.name must be the Kubernetes node name.
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. metadata.name must be the Kubernetes
+        node name.
+      * **status** ``Optional[CSINodeStatus]`` - status contains health and status information for the node's storage.
     """
     spec: 'CSINodeSpec'
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
     metadata: 'Optional[meta_v1.ObjectMeta]' = None
+    status: 'Optional[CSINodeStatus]' = None
 
     def __post_init__(self):
         self.apiVersion = 'storage.k8s.io/v1'
@@ -342,6 +345,18 @@ class CSINodeSpec(DictMixin):
 
 
 @dataclass
+class CSINodeStatus(DictMixin):
+    r"""CSINodeStatus contains health and status information for storage on a node.
+
+      **parameters**
+
+      * **storageHealth** ``Optional[List[StorageHealth]]`` - storageHealth contains backend health reports for CSI drivers registered on
+        the node.
+    """
+    storageHealth: 'Optional[List[StorageHealth]]' = None
+
+
+@dataclass
 class CSIStorageCapacity(DictMixin):
     r"""CSIStorageCapacity stores the result of one CSI GetCapacity call. For a given
       StorageClass, this describes the available capacity in a particular topology
@@ -395,11 +410,11 @@ class CSIStorageCapacity(DictMixin):
         with the same parameters as those in GetCapacityRequest. The corresponding
         value in the Kubernetes API is ResourceRequirements.Requests in a volume
         claim.
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. The name has no particular meaning. It must be a
-        DNS subdomain (dots allowed, 253 characters). To ensure that there are no
-        conflicts with other CSI drivers on the cluster, the recommendation is to use
-        csisc-<uuid>, a generated name, or a reverse-domain name which ends with the
-        unique CSI driver name.
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. The name has no particular meaning.
+        It must be a DNS subdomain (dots allowed, 253 characters). To ensure that
+        there are no conflicts with other CSI drivers on the cluster, the
+        recommendation is to use csisc-<uuid>, a generated name, or a reverse-domain
+        name which ends with the unique CSI driver name.
         Objects are namespaced.
         More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -474,7 +489,7 @@ class StorageClass(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **mountOptions** ``Optional[List[str]]`` - mountOptions controls the mountOptions for dynamically provisioned
         PersistentVolumes of this storage class. e.g. ["ro", "soft"]. Not validated -
@@ -532,6 +547,47 @@ class StorageClassList(DictMixin):
 
 
 @dataclass
+class StorageHealth(DictMixin):
+    r"""StorageHealth contains storage backend health reported by a CSI driver on a
+      node.
+
+      **parameters**
+
+      * **name** ``str`` - name is the CSI driver name, matching CSINodeDriver.name.
+      * **healthConditions** ``Optional[List[StorageHealthCondition]]`` - healthConditions are the adverse storage backend conditions reported by the
+        CSI driver. At most 16 conditions may be reported.
+    """
+    name: 'str'
+    healthConditions: 'Optional[List[StorageHealthCondition]]' = None
+
+
+@dataclass
+class StorageHealthCondition(DictMixin):
+    r"""StorageHealthCondition represents an adverse health condition reported by a
+      CSI driver for its storage backend on a node.
+
+      **parameters**
+
+      * **reason** ``str`` - reason is a brief CamelCase machine-parseable reason. Maximum permitted length
+        of a reason is 256 characters.
+      * **status** ``str`` - status is the health status category. One of "StorageUnreachable",
+        "StorageDegraded".
+      * **accessMode** ``Optional[str]`` - accessMode is the access mode affected. Nil means all access modes are
+        affected.
+      * **lastTransitionTime** ``Optional[meta_v1.Time]`` - lastTransitionTime is when this condition first appeared at its current state.
+      * **message** ``Optional[str]`` - message is a human-readable description. Maximum permitted length of a message
+        is 1024 characters.
+      * **volumeMode** ``Optional[str]`` - volumeMode is the volume mode affected. Nil means both are affected.
+    """
+    reason: 'str'
+    status: 'str'
+    accessMode: 'Optional[str]' = None
+    lastTransitionTime: 'Optional[meta_v1.Time]' = None
+    message: 'Optional[str]' = None
+    volumeMode: 'Optional[str]' = None
+
+
+@dataclass
 class TokenRequest(DictMixin):
     r"""TokenRequest contains parameters of a service account token.
 
@@ -566,7 +622,7 @@ class VolumeAttachment(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **status** ``Optional[VolumeAttachmentStatus]`` - status represents status of the VolumeAttachment request. Populated by the
         entity completing the attach or detach operation, i.e. the external-attacher.
@@ -680,7 +736,7 @@ class VolumeAttributesClass(DictMixin):
 
       **parameters**
 
-      * **driverName** ``str`` - Name of the CSI driver This field is immutable.
+      * **driverName** ``str`` - driverName is the name of the CSI driver This field is immutable.
       * **apiVersion** ``Optional[str]`` - APIVersion defines the versioned schema of this representation of an object.
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
@@ -689,7 +745,7 @@ class VolumeAttributesClass(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
       * **parameters** ``Optional[dict]`` - parameters hold volume attributes defined by the CSI driver. These values are
         opaque to the Kubernetes and are passed directly to the CSI driver. The

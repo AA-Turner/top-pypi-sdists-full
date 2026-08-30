@@ -105,7 +105,8 @@ class CosmosExtractor(Extractor):
     def _extract_user(self, username):
         try:
             page = self.request(f"{self.root}/{username}").text
-            data = text.extr(page, '":{"data":{"user":{', '},"networkStatus"')
+            data = text.iextr(
+                page, ',"username":"', '"data":{"user":{', '},"networkStatus"')
             return util.json_loads(f'{{"user":{{{data}}}')["user"]
         except Exception:
             raise self.exc.NotFoundError("user")

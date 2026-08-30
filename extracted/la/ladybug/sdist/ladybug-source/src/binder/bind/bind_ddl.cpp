@@ -213,6 +213,44 @@ static StorageFormat getStorageFormat(const case_insensitive_map_t<Value>& optio
     return StorageFormat::NONE;
 }
 
+static void validatePartitionColumn(const std::vector<PropertyDefinition>& propertyDefinitions,
+    const std::string& columnName) {
+    auto propertyIt = std::find_if(propertyDefinitions.begin(), propertyDefinitions.end(),
+        [&](const PropertyDefinition& def) { return def.getName() == columnName; });
+    if (propertyIt == propertyDefinitions.end()) {
+        throw BinderException(std::format(
+            "Partition column {} does not exist. A partition column must be an existing column "
+            "of the table.",
+            columnName));
+    }
+    if (!LogicalTypeUtils::isPartitionable(propertyIt->getType())) {
+        throw BinderException(std::format(
+            "Partition column {} has type {} which is not eligible for partitioning. Partition "
+            "columns must be an integral, temporal or textual type.",
+            columnName, propertyIt->getType().toString()));
+    }
+}
+
+// A rel table physically attaches to node tables through CSR indexes keyed by the node table's
+// ID. A partitioned parent owns no storage, so declaring FROM/TO against it must resolve to its
+// partition subgraphs: one FROM-TO pair per (source partition, destination table). This mirrors
+// how reads expand a partitioned parent into its partitions.
+static std::vector<TableCatalogEntry*> resolveRelEndpoints(Catalog* catalog,
+    const transaction::Transaction* transaction, TableCatalogEntry* entry) {
+    if (entry->getType() == CatalogEntryType::NODE_TABLE_ENTRY) {
+        auto* nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
+        if (nodeEntry->isPartitioned()) {
+            std::vector<TableCatalogEntry*> partitions;
+            partitions.reserve(nodeEntry->getChildTableIDs().size());
+            for (auto childID : nodeEntry->getChildTableIDs()) {
+                partitions.push_back(catalog->getTableCatalogEntry(transaction, childID));
+            }
+            return partitions;
+        }
+    }
+    return {entry};
+}
+
 BoundCreateTableInfo Binder::bindCreateNodeTableInfo(const CreateTableInfo* info) {
     auto propertyDefinitions = bindPropertyDefinitions(info->propertyDefinitions, info->tableName);
     auto& extraInfo = info->extraInfo->constCast<ExtraCreateNodeTableInfo>();
@@ -220,8 +258,43 @@ BoundCreateTableInfo Binder::bindCreateNodeTableInfo(const CreateTableInfo* info
     auto boundOptions = bindParsingOptions(extraInfo.options);
     auto storage = getStorage(boundOptions);
     auto storageFormat = getStorageFormat(boundOptions);
+    std::optional<BoundPartitionInfo> partitionInfo;
+    if (extraInfo.partitionInfo.has_value()) {
+        const auto& parsed = *extraInfo.partitionInfo;
+        BoundPartitionMethod method;
+        switch (parsed.method) {
+        case ParsedPartitionMethod::HASH:
+            method = BoundPartitionMethod::HASH;
+            break;
+        case ParsedPartitionMethod::LIST:
+            // LIST partitions dynamically: one partition per distinct key value, created on
+            // demand. It takes no PARTITIONS clause.
+            method = BoundPartitionMethod::LIST;
+            validatePartitionColumn(propertyDefinitions, parsed.columnName);
+            partitionInfo = BoundPartitionInfo(method, parsed.columnName, 0 /* numPartitions */);
+            break;
+            // Real range partitioning must split on the actual distribution of values (equal
+            // domain splits would dump all real-world data into one bucket). Until that dynamic
+            // splitting exists, refuse the DDL rather than silently falling back to hash routing.
+        case ParsedPartitionMethod::RANGE:
+            throw BinderException(
+                "RANGE partitioning is not implemented yet. RANGE requires partition bounds "
+                "derived from the actual value distribution, which is future work. Use PARTITION "
+                "BY HASH instead.");
+        default:
+            UNREACHABLE_CODE;
+        }
+        if (method == BoundPartitionMethod::HASH) {
+            if (parsed.numPartitions == 0) {
+                throw BinderException("Number of partitions must be greater than 0.");
+            }
+            validatePartitionColumn(propertyDefinitions, parsed.columnName);
+            partitionInfo = BoundPartitionInfo(method, parsed.columnName, parsed.numPartitions);
+        }
+    }
     auto boundExtraInfo = std::make_unique<BoundExtraCreateNodeTableInfo>(extraInfo.pKName,
-        std::move(propertyDefinitions), std::move(storage), std::move(storageFormat));
+        std::move(propertyDefinitions), std::move(storage), std::move(storageFormat),
+        std::move(partitionInfo));
     return BoundCreateTableInfo(CatalogEntryType::NODE_TABLE_ENTRY, info->tableName,
         info->onConflict, std::move(boundExtraInfo), clientContext->useInternalCatalogEntry());
 }
@@ -312,6 +385,8 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
         }
     }
     // Bind from to pairs
+    auto* catalog = Catalog::Get(*clientContext);
+    auto* transaction = transaction::Transaction::Get(*clientContext);
     node_table_id_pair_set_t nodePairsSet;
     std::vector<BoundRelTableInfo> relTableInfos;
     for (auto& connection : extraInfo.connections) {
@@ -367,19 +442,25 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
 
         // Use the actual shadow table IDs, not FOREIGN_TABLE_ID
         // The shadow tables allow the query planner to distinguish between different node tables
-        auto srcTableID = srcEntry->getTableID();
-        auto dstTableID = dstEntry->getTableID();
-        NodeTableIDPair pair{srcTableID, dstTableID};
-        if (nodePairsSet.contains(pair)) {
-            throw BinderException(
-                std::format("Found duplicate FROM-TO {}-{} pairs.", srcTableName, dstTableName));
+        // A partitioned parent resolves to its partition subgraphs (one pair per partition).
+        for (auto* srcEndpoint : resolveRelEndpoints(catalog, transaction, srcEntry)) {
+            for (auto* dstEndpoint : resolveRelEndpoints(catalog, transaction, dstEntry)) {
+                auto srcTableID = srcEndpoint->getTableID();
+                auto dstTableID = dstEndpoint->getTableID();
+                NodeTableIDPair pair{srcTableID, dstTableID};
+                if (nodePairsSet.contains(pair)) {
+                    throw BinderException(std::format("Found duplicate FROM-TO {}-{} pairs.",
+                        srcTableName, dstTableName));
+                }
+                nodePairsSet.insert(pair);
+                const auto& connectionMultiplicity = connection.relMultiplicity.has_value() ?
+                                                         *connection.relMultiplicity :
+                                                         extraInfo.relMultiplicity;
+                relTableInfos.emplace_back(pair,
+                    RelMultiplicityUtils::getFwd(connectionMultiplicity),
+                    RelMultiplicityUtils::getBwd(connectionMultiplicity));
+            }
         }
-        nodePairsSet.insert(pair);
-        const auto& connectionMultiplicity = connection.relMultiplicity.has_value() ?
-                                                 *connection.relMultiplicity :
-                                                 extraInfo.relMultiplicity;
-        relTableInfos.emplace_back(pair, RelMultiplicityUtils::getFwd(connectionMultiplicity),
-            RelMultiplicityUtils::getBwd(connectionMultiplicity));
     }
     auto boundExtraInfo = std::make_unique<BoundExtraCreateRelTableGroupInfo>(
         std::move(propertyDefinitions), srcMultiplicity, dstMultiplicity, storageDirection,
@@ -639,6 +720,36 @@ std::unique_ptr<BoundStatement> Binder::bindAlter(const Statement& statement) {
     // we don't support alter operations on icebug-disk tables
     validateNotIceDiskTable(clientContext, alter.getInfo()->tableName);
 
+    // Partitioned tables have restricted ALTER support until ALTER propagation to partition
+    // subgraphs lands: only RENAME (which renames the <parent>_p<i> partitions along with the
+    // parent) and COMMENT are accepted on the parent, and partitions cannot be altered
+    // directly at all - they are managed by their partitioned parent.
+    {
+        auto* catalog = Catalog::Get(*clientContext);
+        auto* transaction = transaction::Transaction::Get(*clientContext);
+        const auto& tableName = alter.getInfo()->tableName;
+        if (catalog->containsTable(transaction, tableName)) {
+            auto* entry = catalog->getTableCatalogEntry(transaction, tableName);
+            if (entry->getType() == CatalogEntryType::NODE_TABLE_ENTRY) {
+                auto* nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
+                if (nodeEntry->isPartitionChild()) {
+                    auto* parent =
+                        catalog->getTableCatalogEntry(transaction, nodeEntry->getParentTableID());
+                    throw BinderException(std::format(
+                        "Cannot ALTER partition {}: it is managed by partitioned table {}.",
+                        tableName, parent->getName()));
+                }
+                if (nodeEntry->isPartitioned() && alter.getInfo()->type != AlterType::RENAME &&
+                    alter.getInfo()->type != AlterType::COMMENT) {
+                    throw BinderException(std::format(
+                        "Cannot ALTER partitioned table {}: ALTER on a partitioned table is not "
+                        "supported yet. Drop and recreate the table instead.",
+                        tableName));
+                }
+            }
+        }
+    }
+
     switch (alter.getInfo()->type) {
     case AlterType::RENAME: {
         return bindRenameTable(statement);
@@ -749,14 +860,41 @@ std::unique_ptr<BoundStatement> Binder::bindSetSortedBy(const Statement& stateme
     auto catalog = Catalog::Get(*clientContext);
     auto transaction = transaction::Transaction::Get(*clientContext);
     auto tableEntry = catalog->getTableCatalogEntry(transaction, tableName);
-    validateNodeTableType(tableEntry);
     std::vector<BoundSortedByProperty> properties;
     properties.reserve(extraInfo->properties.size());
-    for (auto& property : extraInfo->properties) {
-        validateColumnExistence(tableEntry, property.propertyName);
-        properties.push_back(BoundSortedByProperty{property.propertyName, property.ascending});
+    if (tableEntry->getTableType() == common::TableType::REL) {
+        // Rel-table sorted-by is structural: the CSR adjacency lists must be
+        // sorted by (FROM ASC, TO ASC), where FROM and TO are the source and
+        // destination endpoints of the relation. They are reserved structural
+        // names — they are NOT rel properties, so they bypass
+        // validateColumnExistence. Only the CSR form is meaningful for rel
+        // tables (the non-CSR sorted-by is a node-table feature).
+        if (!extraInfo->csr) {
+            throw BinderException(
+                std::format("SORTED BY on rel table {} requires the CSR clause.", tableName));
+        }
+        if (extraInfo->properties.size() != 2 ||
+            !common::StringUtils::caseInsensitiveEquals(extraInfo->properties[0].propertyName,
+                "FROM") ||
+            !extraInfo->properties[0].ascending ||
+            !common::StringUtils::caseInsensitiveEquals(extraInfo->properties[1].propertyName,
+                "TO") ||
+            !extraInfo->properties[1].ascending) {
+            throw BinderException(std::format(
+                "CSR on rel table {} requires SORTED BY (FROM ASC, TO ASC).", tableName));
+        }
+        for (auto& property : extraInfo->properties) {
+            properties.push_back(BoundSortedByProperty{property.propertyName, property.ascending});
+        }
+    } else {
+        validateNodeTableType(tableEntry);
+        for (auto& property : extraInfo->properties) {
+            validateColumnExistence(tableEntry, property.propertyName);
+            properties.push_back(BoundSortedByProperty{property.propertyName, property.ascending});
+        }
     }
-    auto boundExtraInfo = std::make_unique<BoundExtraSetSortedByInfo>(std::move(properties));
+    auto boundExtraInfo =
+        std::make_unique<BoundExtraSetSortedByInfo>(std::move(properties), extraInfo->csr);
     auto boundInfo = BoundAlterInfo(AlterType::SET_SORTED_BY, tableName, std::move(boundExtraInfo),
         info->onConflict);
     return std::make_unique<BoundAlter>(std::move(boundInfo));

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: openccu-loom-types
-Version: 0.5.10
-Summary: Generated Pydantic / enum types for the openccu-loom REST + WebSocket contract
+Version: 0.6.1
+Summary: Retired — the generated types now ship inside openccu-loom-client
 Author: OpenCCU-Loom authors
 License: MIT
 Project-URL: Homepage, https://github.com/SukramJ/openccu-loom-types
@@ -11,137 +11,61 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Home Automation
-Classifier: Typing :: Typed
-Requires-Python: >=3.11
+Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pydantic>=2.6
-Provides-Extra: dev
-Requires-Dist: datamodel-code-generator>=0.57; extra == "dev"
-Requires-Dist: pytest>=7.4; extra == "dev"
-Requires-Dist: ruff>=0.6; extra == "dev"
+Requires-Dist: openccu-loom-client>=2026.8.33
 Dynamic: license-file
 
-# openccu-loom-types
+# openccu-loom-types — retired
 
-Generated Pydantic models + enum definitions for the openccu-loom
-REST + WebSocket contract. Sister-repo to the
-[openccu-loom daemon](https://github.com/SukramJ/openccu-loom);
-publishable as `openccu-loom-types` on PyPI.
+The generated Pydantic models and enum catalogue that this package used to
+publish now ship **inside
+[`openccu-loom-client`](https://github.com/SukramJ/openccu-loom-client)**, as
+`openccu_loom_client.wire`.
 
-## What this package provides
+```python
+# before
+from openccu_loom_types.rest import DeviceSummary
+from openccu_loom_types.enums import Interface
 
-- `openccu_loom_types.enums` — every enum from the daemon's
-  `pkg/hmenum`. Each enum is a `str`-typed Python `Enum` whose values
-  match the wire strings the CCU emits. Source of truth:
-  `assets/schemas/enums.json` in the openccu-loom repo.
-- `openccu_loom_types.rest` — Pydantic models for the REST surface.
-  Generated from `assets/openapi.yaml` via `datamodel-code-generator`.
-- `openccu_loom_types.ws` — Pydantic models for the WebSocket
-  envelope + push payloads. Generated from the same OpenAPI document
-  (the WS envelope schemas live in `components.schemas` per ADR-0020).
-
-## Why this exists (asks.md C1 + C3)
-
-Higher-level clients (`openccu-loom-client`, the future
-homematicip_local refactor) need stable typed bindings against the
-daemon. Without a published types package each consumer would
-duplicate the model code and drift away from the daemon's wire
-contract. This package is the single import every Python consumer
-shares — version-pinned and CI-rebuilt on every openccu-loom release.
-
-## Regeneration workflow
-
-Set `OPENCCU_LOOM_REPO` to a local checkout of the daemon repo
-(default: `../openccu-loom`):
-
-```sh
-# Step 1 — make sure the daemon repo's schema export is fresh:
-make -C "$OPENCCU_LOOM_REPO" export-schemas
-
-# Step 2 — regenerate this package's models:
-make generate
+# now
+from openccu_loom_client.wire.rest import DeviceSummary
+from openccu_loom_client.wire.enums import Interface
 ```
 
-The two-step split keeps the daemon repo authoritative; this package
-never re-parses Go source.
+Nothing about the wire contract changed. The modules are byte-for-byte the same
+generated output, from the same daemon assets, by the same generators — they
+just live in the package that consumes them.
 
-### Tooling required
+## What to do
 
-- Python >= 3.11
-- `datamodel-code-generator` >= 0.25 (for REST + WS Pydantic models)
+Nothing, if you depend on `openccu-loom-client`: it carries the bindings itself
+and no longer requires this distribution.
 
-Install both with `pip install -e '.[dev]'`.
+If `openccu-loom-types` is still installed in an environment — Home Assistant
+never uninstalls an abandoned requirement, so this is the common case —
+upgrading to `0.6.0` removes the stale modules and pulls in the client that
+holds the real ones. `0.6.0` ships no Python modules at all; it is metadata
+and a dependency.
 
-## Versioning & contract identity
+Leaving the old version installed is harmless rather than dangerous: the two
+distributions own disjoint top-level packages, so an orphaned
+`openccu_loom_types` is inert. Upgrading is cleanup, not a fix.
 
-The package version (`const.VERSION`) is independent of the daemon
-version; the regeneration workflow bumps the patch number on every
-daemon release. The daemon coupling is carried by two stamped
-constants in `const.py` (written by `make generate` →
-`scripts/stamp_const.py`):
+## Why
 
-- `SCHEMA_DIGEST` — canonical digest of the daemon's contract assets
-  these types were generated from (definition: daemon ADR-0028).
-  Clients compare it against `GET /api/v1/info`.`schema_digest` to
-  verify exact type/daemon parity at connect time.
-- `DAEMON_API_VERSION` — the daemon's `api_version` at generation
-  time. Minor bumps add fields without breaking existing consumers;
-  major bumps remove or rename payload fields, scopes, or
-  capabilities — see ADR-0020 in the daemon repo.
+The split cost a release of its own for every daemon release. Since the
+auto-tag landed on 2026-06-22, 154 daemon releases produced 84 releases here,
+**84 of 84** out of a `feat: regenerate from openccu-loom …` commit — not one
+carried a hand-written line — while 54 of 106 publications never reached a pin
+in any consumer. No consumer ever imported the package directly.
 
-Regeneration and release are automated end to end. The daemon's
-release workflow fires a `repository_dispatch` (`daemon-release`) at
-this repo, which drives this chain:
+A daemon release now opens a regeneration pull request in the client and stops
+there: no version bump, no auto-merge, no tag.
 
-1. `regenerate-on-daemon-release` checks out the daemon at the released
-   tag, regenerates all modules, stamps the constants, bumps the
-   version, seeds a baseline changelog section, opens a PR from a
-   `regen/daemon-<tag>` branch, and enables auto-merge.
-2. `ci` runs on the PR: `Test` (the suite) and `Regen clean` (re-runs
-   `make generate` against the branch's daemon tag and fails on any
-   drift, so hand-edits to generated modules are caught).
-3. Once the required checks are green the PR squash-merges;
-   `tag-on-regen-merge` then pushes `v<version>`.
-4. The tag triggers `release-on-tag` → GitHub Release →
-   `python-publish` → PyPI.
+## This repository
 
-Manual fallback: `workflow_dispatch` with the tag, or the local
-two-step flow above.
-
-### CI / release setup
-
-The automation needs three one-time repository settings; without them
-the chain stops after step 1:
-
-- A **`RELEASE_PAT`** secret — a fine-grained PAT (or GitHub App token)
-  with `contents: write` + `pull-requests: write`. The regen PR and the
-  release tag are pushed with it, because a branch/PR/tag created via
-  the default `GITHUB_TOKEN` does **not** trigger the downstream CI and
-  release workflows (GitHub's recursive-workflow guard).
-- **Branch protection** on `main` requiring the `Test` and
-  `Regen clean` status checks — auto-merge waits on these.
-- **Allow auto-merge** enabled in the repository settings.
-
-## What this package does NOT contain
-
-- HTTP / WebSocket transport — see `openccu-loom-client`
-  (when published) for the higher-level client.
-- Any business logic — types only.
-- Async helpers — types are framework-neutral.
-
-## Development
-
-Parts of openccu-loom-types are developed with agentic AI assistance,
-primarily [Claude Code](https://www.anthropic.com/claude-code).
-Submitted issues are likewise triaged and analysed with agentic help.
-Every change is still reviewed by a human maintainer and must pass the
-project's tests before it lands — the AI speeds up the work, it does
-not replace the review gate.
-
-Contributions made with AI assistance are welcome and subject to the
-rules in [AI_POLICY.md](./AI_POLICY.md).
-
-## License
-
-MIT. See [LICENSE](./LICENSE).
+Kept for its history and so the distribution name stays owned. The modules,
+the generators (`script/gen/`), the regeneration workflow and the
+reproducibility guard all live in the client repository now.

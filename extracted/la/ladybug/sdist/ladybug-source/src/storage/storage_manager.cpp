@@ -7,6 +7,7 @@
 #include "common/constants.h"
 #include "common/enums/storage_format.h"
 #include "common/file_system/virtual_file_system.h"
+#include "common/partition_routing_hook.h"
 #include "common/random_engine.h"
 #include "common/serializer/in_mem_file_writer.h"
 #include "main/attached_database.h"
@@ -18,6 +19,7 @@
 #include "storage/buffer_manager/memory_manager.h"
 #include "storage/checkpointer.h"
 #include "storage/index/art_index.h"
+#include "storage/partition_storage_registry.h"
 #include "storage/storage_utils.h"
 #include "storage/table/arrow_node_table.h"
 #include "storage/table/arrow_rel_table.h"
@@ -37,6 +39,24 @@ using namespace lbug::transaction;
 
 namespace lbug {
 namespace storage {
+
+namespace {
+Table* resolvePartitionTable(main::ClientContext* context, table_id_t tableID) {
+    auto* sm = PartitionStorageRegistry::Get(context)->tryGet(tableID);
+    if (sm == nullptr || !sm->containsTable(tableID)) {
+        throw RuntimeException(std::format(
+            "Checkpoint failed: partition table with id {} not found.", std::to_string(tableID)));
+    }
+    return sm->getTable(tableID);
+}
+} // namespace
+
+// A partitioned parent is a logical table: it owns no physical storage, its partition subgraphs
+// do. Storage iteration (checkpoint / serialize / rollback) must skip the parents and touch the
+// partitions, which are ordinary node-table entries in the same catalog set.
+static void erasePartitionedParents(std::vector<NodeTableCatalogEntry*>& entries) {
+    std::erase_if(entries, [](const auto* e) { return e->isPartitioned(); });
+}
 
 StorageManager::StorageManager(const std::string& databasePath, bool readOnly, bool enableChecksums,
     MemoryManager& memoryManager, bool enableCompression, bool enableDefaultHashIndex,
@@ -128,14 +148,52 @@ void StorageManager::clearCachedPlannerTableStats(std::optional<table_id_t> tabl
     }
 }
 
+void StorageManager::setDatabasePath(const std::string& newPath) {
+    databasePath = newPath;
+    if (shadowFile != nullptr) {
+        shadowFile->setDatabasePath(newPath);
+    }
+}
+
 void StorageManager::recover(main::ClientContext& clientContext, bool throwOnWalReplayFailure,
     bool enableChecksums) {
     const auto walReplayer = std::make_unique<WALReplayer>(clientContext);
     walReplayer->replay(throwOnWalReplayFailure, enableChecksums);
 }
 
+namespace {
+
+// True if the entry is a partition subgraph whose storage is routed elsewhere by
+// an installed PartitionRoutingHooks. Such partitions keep full catalog metadata
+// but own no local table/WAL/checkpoint state.
+bool isRemotelyRoutedPartition(const catalog::TableCatalogEntry* entry) {
+    if (entry->getType() != CatalogEntryType::NODE_TABLE_ENTRY) {
+        return false;
+    }
+    auto* nodeEntry = entry->constPtrCast<catalog::NodeTableCatalogEntry>();
+    if (!nodeEntry->isPartitionChild()) {
+        return false;
+    }
+    const auto* hooks = common::getPartitionRoutingHooks();
+    if (hooks == nullptr || hooks->locate == nullptr) {
+        return false;
+    }
+    common::PartitionHandle handle = nullptr;
+    return hooks->locate(hooks->context,
+        common::PartitionRef{nodeEntry->getParentTableID(), nodeEntry->getPartitionIndex()},
+        &handle);
+}
+
+} // namespace
+
 void StorageManager::createNodeTable(NodeTableCatalogEntry* entry, main::ClientContext* context) {
     tableNameCache[entry->getTableID()] = entry->getName();
+
+    // A partition subgraph claimed by the routing wrapper owns no local storage:
+    // no table object, no WAL records, no checkpoint work.
+    if (isRemotelyRoutedPartition(entry)) {
+        return;
+    }
 
     if (entry->getStorageFormat() != StorageFormat::NONE) {
         if (entry->getStorageFormat() == StorageFormat::ICEBUG_DISK) {
@@ -258,7 +316,32 @@ void StorageManager::createTable(TableCatalogEntry* entry, main::ClientContext* 
     std::unique_lock lck{mtx};
     switch (entry->getType()) {
     case CatalogEntryType::NODE_TABLE_ENTRY: {
-        createNodeTable(entry->ptrCast<NodeTableCatalogEntry>(), context);
+        auto* nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
+        if (nodeEntry->isPartitioned()) {
+            // A partitioned parent is a logical table: it has no physical storage of its own.
+            // Each partition gets its own StorageManager and data file
+            // (<base>.<childName>.db); see docs/partitioning.md 6b. When partition-routing
+            // hooks land (PR 829), consult locate() here and skip local storage for claimed
+            // partitions.
+            auto* catalog = Catalog::Get(*context);
+            auto* registry = PartitionStorageRegistry::Get(context);
+            for (auto childTableID : nodeEntry->getChildTableIDs()) {
+                auto* child = catalog->getTableCatalogEntry(transaction::Transaction::Get(*context),
+                    childTableID);
+                // Children claimed by a routing wrapper own no local state: no file, no table
+                // object, no WAL/checkpoint work. The wrapper is notified via its hooks.
+                auto* childNode = child->ptrCast<NodeTableCatalogEntry>();
+                if (registry->isRemotelyRouted(childNode->getParentTableID(),
+                        childNode->getPartitionIndex())) {
+                    continue;
+                }
+                auto& childSM = registry->getOrCreate(context, childTableID, child->getName());
+                // Child entries are ordinary node tables -> takes the createNodeTable branch.
+                childSM.createTable(child, context);
+            }
+        } else {
+            createNodeTable(nodeEntry, context);
+        }
     } break;
     case CatalogEntryType::REL_GROUP_ENTRY: {
         createRelTableGroup(entry->ptrCast<RelGroupCatalogEntry>(), context);
@@ -331,17 +414,29 @@ void StorageManager::reclaimDroppedTables(const Catalog& catalog) {
 bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& catalog,
     PageAllocator& pageAllocator) {
     bool hasChanges = false;
-    const auto nodeTableEntries = catalog.getNodeTableEntries(&DUMMY_CHECKPOINT_TRANSACTION);
+    auto nodeTableEntries = catalog.getNodeTableEntries(&DUMMY_CHECKPOINT_TRANSACTION);
     const auto relGroupEntries = catalog.getRelGroupEntries(&DUMMY_CHECKPOINT_TRANSACTION);
+    // Partitioned parents hold no physical storage; only their partition subgraphs do.
+    erasePartitionedParents(nodeTableEntries);
 
     std::shared_lock lck{mtx};
     for (const auto entry : nodeTableEntries) {
-        if (!tables.contains(entry->getTableID())) {
-            throw RuntimeException(std::format(
-                "Checkpoint failed: table {} not found in storage manager.", entry->getName()));
+        const auto tableID = entry->getTableID();
+        if (!tables.contains(tableID)) {
+            // Partition children live in their own StorageManagers (phase-B per-partition
+            // files); checkpoint them against their own page manager. Entries absent from the
+            // registry were never created locally (e.g. remote-claimed via routing hooks).
+            auto* registry = PartitionStorageRegistry::Get(context);
+            auto* childSM = registry->tryGet(tableID);
+            if (childSM == nullptr || !childSM->containsTable(tableID)) {
+                continue;
+            }
+            hasChanges = childSM->getTable(tableID)->checkpoint(context, entry,
+                             *childSM->getDataFH()->getPageManager()) ||
+                         hasChanges;
+            continue;
         }
-        hasChanges =
-            tables.at(entry->getTableID())->checkpoint(context, entry, pageAllocator) || hasChanges;
+        hasChanges = tables.at(tableID)->checkpoint(context, entry, pageAllocator) || hasChanges;
     }
     for (const auto entry : relGroupEntries) {
         for (auto& info : entry->getRelEntryInfos()) {
@@ -357,6 +452,13 @@ bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& cat
     lck.unlock();
     reclaimDroppedIndexes();
     reclaimDroppedTables(catalog);
+    // Remove partition children (and their files) whose catalog entry is gone. Only the main
+    // storage manager may sweep the registry: attached/graph catalogs don't contain the
+    // partition table IDs and would treat every live partition as orphaned.
+    if (this == context->getDatabase()->getStorageManager()) {
+        PartitionStorageRegistry::Get(context)->dropAllNotInCatalog(context, catalog);
+        PartitionStorageRegistry::Get(context)->reconcilePaths(context, catalog);
+    }
     return hasChanges;
 }
 
@@ -364,19 +466,33 @@ bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& cat
     const Transaction& snapshotTxn, PageAllocator& pageAllocator,
     const std::unordered_map<table_id_t, uint64_t>& epochWatermarks) {
     bool hasChanges = false;
-    const auto nodeTableEntries = catalog.getNodeTableEntries(&snapshotTxn);
+    auto nodeTableEntries = catalog.getNodeTableEntries(&snapshotTxn);
     const auto relGroupEntries = catalog.getRelGroupEntries(&snapshotTxn);
+    // Partitioned parents hold no physical storage; only their partition subgraphs do.
+    erasePartitionedParents(nodeTableEntries);
 
     std::shared_lock lck{mtx};
     for (const auto entry : nodeTableEntries) {
-        if (!tables.contains(entry->getTableID())) {
-            throw RuntimeException(std::format(
-                "Checkpoint failed: table {} not found in storage manager.", entry->getName()));
+        const auto tableID = entry->getTableID();
+        if (!tables.contains(tableID)) {
+            // See overload above: partition children checkpoint against their own file.
+            auto* registry = PartitionStorageRegistry::Get(context);
+            auto* childSM = registry->tryGet(tableID);
+            if (childSM == nullptr || !childSM->containsTable(tableID)) {
+                continue;
+            }
+            const auto watermarkIt = epochWatermarks.find(tableID);
+            const uint64_t watermark =
+                watermarkIt != epochWatermarks.end() ? watermarkIt->second : 0;
+            hasChanges = childSM->getTable(tableID)->checkpoint(context, entry,
+                             *childSM->getDataFH()->getPageManager(), &snapshotTxn, watermark) ||
+                         hasChanges;
+            continue;
         }
-        const auto watermarkIt = epochWatermarks.find(entry->getTableID());
+        const auto watermarkIt = epochWatermarks.find(tableID);
         const uint64_t watermark = watermarkIt != epochWatermarks.end() ? watermarkIt->second : 0;
-        hasChanges = tables.at(entry->getTableID())
-                         ->checkpoint(context, entry, pageAllocator, &snapshotTxn, watermark) ||
+        hasChanges = tables.at(tableID)->checkpoint(context, entry, pageAllocator, &snapshotTxn,
+                         watermark) ||
                      hasChanges;
     }
     for (const auto entry : relGroupEntries) {
@@ -397,6 +513,11 @@ bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& cat
     lck.unlock();
     reclaimDroppedIndexes();
     reclaimDroppedTables(catalog);
+    // See the other overload: registry sweeps are main-storage-manager only.
+    if (this == context->getDatabase()->getStorageManager()) {
+        PartitionStorageRegistry::Get(context)->dropAllNotInCatalog(context, catalog);
+        PartitionStorageRegistry::Get(context)->reconcilePaths(context, catalog);
+    }
     return hasChanges;
 }
 
@@ -413,11 +534,25 @@ void StorageManager::finalizeCheckpoint() {
     dataFH->getPageManager()->finalizeCheckpoint();
 }
 
-void StorageManager::rollbackCheckpoint(const Catalog& catalog) {
+void StorageManager::rollbackCheckpoint(const Catalog& catalog, main::ClientContext* context) {
     std::unique_lock lck{mtx};
     const auto nodeTableEntries = catalog.getNodeTableEntries(&DUMMY_CHECKPOINT_TRANSACTION);
     for (const auto tableEntry : nodeTableEntries) {
-        DASSERT(tables.contains(tableEntry->getTableID()));
+        // Partitioned parents hold no physical storage; only their partition subgraphs do.
+        if (tableEntry->getType() == CatalogEntryType::NODE_TABLE_ENTRY &&
+            tableEntry->ptrCast<NodeTableCatalogEntry>()->isPartitioned()) {
+            continue;
+        }
+        if (!tables.contains(tableEntry->getTableID())) {
+            // Partition children roll back against their own file's page manager.
+            auto* childSM =
+                PartitionStorageRegistry::Get(context)->tryGet(tableEntry->getTableID());
+            if (childSM != nullptr && childSM->containsTable(tableEntry->getTableID())) {
+                childSM->getTable(tableEntry->getTableID())->rollbackCheckpoint();
+                childSM->getDataFH()->getPageManager()->rollbackCheckpoint();
+            }
+            continue;
+        }
         tables.at(tableEntry->getTableID())->rollbackCheckpoint();
     }
     dataFH->getPageManager()->rollbackCheckpoint();
@@ -433,7 +568,8 @@ std::optional<std::reference_wrapper<const IndexType>> StorageManager::getIndexT
     return std::nullopt;
 }
 
-void StorageManager::serialize(const Catalog& catalog, Serializer& ser) {
+void StorageManager::serialize(const Catalog& catalog, main::ClientContext* context,
+    Serializer& ser) {
     std::shared_lock lck{mtx};
     auto nodeTableEntries = catalog.getNodeTableEntries(&DUMMY_CHECKPOINT_TRANSACTION);
     auto relGroupEntries = catalog.getRelGroupEntries(&DUMMY_CHECKPOINT_TRANSACTION);
@@ -441,13 +577,25 @@ void StorageManager::serialize(const Catalog& catalog, Serializer& ser) {
         [](const auto& a, const auto& b) { return a->getTableID() < b->getTableID(); });
     std::sort(relGroupEntries.begin(), relGroupEntries.end(),
         [](const auto& a, const auto& b) { return a->getTableID() < b->getTableID(); });
+    // Partitioned parents own no physical storage; their partitions are serialized individually.
+    erasePartitionedParents(nodeTableEntries);
     ser.writeDebuggingInfo("num_node_tables");
     ser.write<uint64_t>(nodeTableEntries.size());
     for (const auto tableEntry : nodeTableEntries) {
-        DASSERT(tables.contains(tableEntry->getTableID()));
+        // Partition subgraphs claimed by the routing wrapper hold no local state to serialize.
+        if (isRemotelyRoutedPartition(tableEntry)) {
+            continue;
+        }
+        const auto tableID = tableEntry->getTableID();
         ser.writeDebuggingInfo("table_id");
-        ser.write<table_id_t>(tableEntry->getTableID());
-        tables.at(tableEntry->getTableID())->serialize(ser);
+        ser.write<table_id_t>(tableID);
+        // Partition children serialize from their own StorageManager (phase-B per-partition
+        // files); the snapshot layout itself is unchanged.
+        if (!tables.contains(tableID)) {
+            resolvePartitionTable(context, tableID)->serialize(ser);
+            continue;
+        }
+        tables.at(tableID)->serialize(ser);
     }
     ser.writeDebuggingInfo("num_rel_groups");
     ser.write<uint64_t>(relGroupEntries.size());
@@ -466,22 +614,34 @@ void StorageManager::serialize(const Catalog& catalog, Serializer& ser) {
 }
 
 void StorageManager::serialize(const Catalog& catalog, const Transaction& snapshotTxn,
-    Serializer& ser) {
+    main::ClientContext* context, Serializer& ser) {
     auto nodeTableEntries = catalog.getNodeTableEntries(&snapshotTxn);
     auto relGroupEntries = catalog.getRelGroupEntries(&snapshotTxn);
     std::sort(nodeTableEntries.begin(), nodeTableEntries.end(),
         [](const auto& a, const auto& b) { return a->getTableID() < b->getTableID(); });
     std::sort(relGroupEntries.begin(), relGroupEntries.end(),
         [](const auto& a, const auto& b) { return a->getTableID() < b->getTableID(); });
+    // Partitioned parents own no physical storage; their partitions are serialized individually.
+    erasePartitionedParents(nodeTableEntries);
 
     std::shared_lock lck{mtx};
     ser.writeDebuggingInfo("num_node_tables");
     ser.write<uint64_t>(nodeTableEntries.size());
     for (const auto tableEntry : nodeTableEntries) {
-        DASSERT(tables.contains(tableEntry->getTableID()));
+        // Partition subgraphs claimed by the routing wrapper hold no local state to serialize.
+        if (isRemotelyRoutedPartition(tableEntry)) {
+            continue;
+        }
+        const auto tableID = tableEntry->getTableID();
         ser.writeDebuggingInfo("table_id");
-        ser.write<table_id_t>(tableEntry->getTableID());
-        tables.at(tableEntry->getTableID())->serialize(ser);
+        ser.write<table_id_t>(tableID);
+        // Partition children serialize from their own StorageManager (phase-B per-partition
+        // files); the snapshot layout itself is unchanged.
+        if (!tables.contains(tableID)) {
+            resolvePartitionTable(context, tableID)->serialize(ser);
+            continue;
+        }
+        tables.at(tableID)->serialize(ser);
     }
     ser.writeDebuggingInfo("num_rel_groups");
     ser.write<uint64_t>(relGroupEntries.size());
@@ -516,6 +676,16 @@ void StorageManager::deserialize(main::ClientContext* context, const Catalog* ca
         DASSERT(!tables.contains(tableID));
         auto tableEntry = catalog->getTableCatalogEntry(&DUMMY_TRANSACTION, tableID)
                               ->ptrCast<NodeTableCatalogEntry>();
+        if (tableEntry->isPartitionChild()) {
+            // Partition children are constructed into their own data files (phase-B).
+            auto& sm = PartitionStorageRegistry::Get(context)->getOrCreate(context, tableID,
+                tableEntry->getName());
+            if (!sm.containsTable(tableID)) {
+                sm.createTable(tableEntry, context);
+            }
+            sm.getTable(tableID)->deserialize(context, &sm, deSer);
+            continue;
+        }
         tableNameCache[tableID] = tableEntry->getName();
         if (tableEntry->getStorageFormat() == StorageFormat::ICEBUG_DISK) {
             // Create icebug-disk-backed node table

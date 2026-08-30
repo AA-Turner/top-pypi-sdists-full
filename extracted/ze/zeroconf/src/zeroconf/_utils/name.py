@@ -1,23 +1,8 @@
-"""Multicast DNS Service Discovery for Python, v0.14-wmcbrine
-Copyright 2003 Paul Scott-Murphy, 2014 William McBrine
+"""A pure python implementation of multicast DNS service discovery.
 
-This module provides a framework for the use of DNS Service Discovery
-using IP multicast.
-
-This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with this library; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301
-USA
+Licensed under LGPL-2.1-or-later; see COPYING for details. This file is
+part of a continuously modified work; modification dates are recorded
+in the project's git history.
 """
 
 from __future__ import annotations
@@ -41,7 +26,7 @@ def service_type_name(type_: str, *, strict: bool = True) -> str:  # pylint: dis
     """
     Validate a fully qualified service name, instance or subtype. [rfc6763]
 
-    Returns fully qualified service name.
+    Returns the name in its validated, fully qualified form.
 
     Domain names used by mDNS-SD take the following forms:
 
@@ -77,7 +62,7 @@ def service_type_name(type_: str, *, strict: bool = True) -> str:  # pylint: dis
     and anything else that may be represented using Net-Unicode.
 
     :param type_: Type, SubType or service name to validate
-    :return: fully qualified service name (eg: _http._tcp.local.)
+    :return: the validated name, fully qualified (eg: _http._tcp.local.)
     """
     if len(type_) > 256:
         # https://datatracker.ietf.org/doc/html/rfc6763#section-7.2

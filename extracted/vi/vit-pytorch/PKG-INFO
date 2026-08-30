@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vit-pytorch
-Version: 1.25.0
+Version: 1.26.1
 Summary: Vision Transformer (ViT) - Pytorch
 Author-email: Phil Wang <lucidrains@gmail.com>
 License: MIT License
@@ -2525,6 +2525,18 @@ Coming from computer vision and new to transformers? Here are some resources tha
     archivePrefix = {arXiv},
     primaryClass  = {cs.CV},
     url     = {https://arxiv.org/abs/2602.08071},
+}
+```
+
+```bibtex
+@misc{kuhn2026levjepa,
+    title   = {LeVJEPA: Efficient & Scalable Video Pretraining without the Heuristics},
+    author  = {Lukas Kuhn and Lucas Maes and Giuseppe Serra and Quentin Le Lidec and Yann LeCun and Randall Balestriero and Florian Buettner},
+    year    = {2026},
+    eprint  = {2608.27395},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.CV},
+    url     = {https://arxiv.org/abs/2608.27395},
 }
 ```
 

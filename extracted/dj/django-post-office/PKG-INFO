@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-post_office
-Version: 3.11.2
+Version: 3.11.3
 Summary: A Django app to monitor and send mail asynchronously, complete with template support.
 Author-email: Selwin Ong <selwin.ong@gmail.com>
 License-Expression: MIT

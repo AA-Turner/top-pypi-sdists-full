@@ -125,6 +125,16 @@ class RangeTestCase(LoggingMixin, unittest.TestCase):
         self.assertEqual(str(tab), "# DISABLED LINE\n# * * * * 3-1 command\n")
         self.assertLog("error", "Bad range '3-1'")
 
+    def test_07_random_range(self):
+        """Test random ranges"""
+        tab = CronTab(tab="~ 4~5 ~/2 1~1,2~3 * command")
+        self.assertEqual(str(tab), "~ 4~5 ~/2 1,2~3 * command\n")
+        job = tab[0]
+        job.hour.random_during(1, 4)
+        self.assertEqual(str(tab), "~ 1~4 ~/2 1,2~3 * command\n")
+        job.hour.random_during(0, 23)
+        self.assertEqual(str(tab), "~ ~ ~/2 1,2~3 * command\n")
+
 if __name__ == '__main__':
     try:
         from test import test_support

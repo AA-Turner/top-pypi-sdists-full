@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "whirlpool_sixth_sense"
 # Placeholder; the publish workflow injects the release tag as the version.
-version = "2.0.0"
+version = "2.0.1"
 license = "MIT"
 authors = [{ name = "Abílio Costa", email = "amfcalt@gmail.com" }]
 description = "Unofficial API for Whirlpool's 6th Sense appliances"

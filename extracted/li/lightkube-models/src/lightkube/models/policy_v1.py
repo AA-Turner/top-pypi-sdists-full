@@ -22,12 +22,12 @@ class Eviction(DictMixin):
         Servers should convert recognized schemas to the latest internal value, and
         may reject unrecognized values. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-      * **deleteOptions** ``Optional[meta_v1.DeleteOptions]`` - DeleteOptions may be provided
+      * **deleteOptions** ``Optional[meta_v1.DeleteOptions]`` - deleteOptions may be provided
       * **kind** ``Optional[str]`` - Kind is a string value representing the REST resource this object represents.
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - ObjectMeta describes the pod that is being evicted.
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata describes the pod that is being evicted.
     """
     apiVersion: 'Optional[str]' = None
     deleteOptions: 'Optional[meta_v1.DeleteOptions]' = None
@@ -54,10 +54,10 @@ class PodDisruptionBudget(DictMixin):
         Servers may infer this from the endpoint the client submits requests to.
         Cannot be updated. In CamelCase. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - Standard object's metadata. More info:
+      * **metadata** ``Optional[meta_v1.ObjectMeta]`` - metadata is the standard object's metadata. More info:
         https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-      * **spec** ``Optional[PodDisruptionBudgetSpec]`` - Specification of the desired behavior of the PodDisruptionBudget.
-      * **status** ``Optional[PodDisruptionBudgetStatus]`` - Most recently observed status of the PodDisruptionBudget.
+      * **spec** ``Optional[PodDisruptionBudgetSpec]`` - spec is the specification of the desired behavior of the PodDisruptionBudget.
+      * **status** ``Optional[PodDisruptionBudgetStatus]`` - status is the most recently observed status of the PodDisruptionBudget.
     """
     apiVersion: 'Optional[str]' = None
     kind: 'Optional[str]' = None
@@ -104,18 +104,19 @@ class PodDisruptionBudgetSpec(DictMixin):
 
       **parameters**
 
-      * **maxUnavailable** ``Optional[util_intstr.IntOrString]`` - An eviction is allowed if at most "maxUnavailable" pods selected by "selector"
-        are unavailable after the eviction, i.e. even in absence of the evicted pod.
-        For example, one can prevent all voluntary evictions by specifying 0. This is
-        a mutually exclusive setting with "minAvailable".
-      * **minAvailable** ``Optional[util_intstr.IntOrString]`` - An eviction is allowed if at least "minAvailable" pods selected by "selector"
-        will still be available after the eviction, i.e. even in the absence of the
-        evicted pod.  So for example you can prevent all voluntary evictions by
-        specifying "100%".
-      * **selector** ``Optional[meta_v1.LabelSelector]`` - Label query over pods whose evictions are managed by the disruption budget. A
-        null selector will match no pods, while an empty ({}) selector will select all
-        pods within the namespace.
-      * **unhealthyPodEvictionPolicy** ``Optional[str]`` - UnhealthyPodEvictionPolicy defines the criteria for when unhealthy pods should
+      * **maxUnavailable** ``Optional[util_intstr.IntOrString]`` - maxUnavailable indicates that an eviction is allowed if at most
+        "maxUnavailable" pods selected by "selector" are unavailable after the
+        eviction, i.e. even in absence of the evicted pod. For example, one can
+        prevent all voluntary evictions by specifying 0. This is a mutually exclusive
+        setting with "minAvailable".
+      * **minAvailable** ``Optional[util_intstr.IntOrString]`` - minAvailable indicates that an eviction is allowed if at least "minAvailable"
+        pods selected by "selector" will still be available after the eviction, i.e.
+        even in the absence of the evicted pod.  So for example you can prevent all
+        voluntary evictions by specifying "100%".
+      * **selector** ``Optional[meta_v1.LabelSelector]`` - selector is a label query over pods whose evictions are managed by the
+        disruption budget. A null selector will match no pods, while an empty ({})
+        selector will select all pods within the namespace.
+      * **unhealthyPodEvictionPolicy** ``Optional[str]`` - unhealthyPodEvictionPolicy defines the criteria for when unhealthy pods should
         be considered for eviction. Current implementation considers healthy pods, as
         pods that have status.conditions item with type="Ready",status="True".
         Valid policies are IfHealthyBudget and AlwaysAllow. If no policy is specified,

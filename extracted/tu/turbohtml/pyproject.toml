@@ -28,6 +28,7 @@ keywords = [
 license = "MIT"
 license-files = [
   "LICENSE",
+  "licenses/LICENSE-LIBPHONENUMBER",
   "licenses/LICENSE-WHATWG",
 ]
 maintainers = [
@@ -167,6 +168,7 @@ bench = [
   "opengraph-py3>=0.71",
   "pandas>=3.0.3",
   "parsel>=1.11",
+  "phonenumbers>=9.0.38",
   "pyperf>=2.10",
   "pyquery>=2.0.1",
   "rcssmin>=1.2.2",
@@ -257,6 +259,7 @@ extend-exclude = [
   "tests/conformance/encoding_rs",
   "tests/conformance/libxml2",
   "tests/conformance/libxslt",
+  "tests/conformance/python-phonenumbers",
   "tests/conformance/unicodetools",
   "tests/html5lib-tests",
   "tools/html5lib-python"
@@ -338,6 +341,7 @@ src.exclude = [
   "tests/conformance/encoding_rs",
   "tests/conformance/libxml2",
   "tests/conformance/libxslt",
+  "tests/conformance/python-phonenumbers",
   "tests/conformance/unicodetools",
   "tests/html5lib-tests",
   "tools/html5lib-python"
@@ -363,6 +367,7 @@ ini_options.addopts = [
   "--ignore=tests/conformance/parse5",                # vendored parse5 repo + its nested html5lib-tests data, not our test modules
   "--ignore=tests/conformance/encoding_rs",           # vendored encoding_rs crate (the decoder oracle), not our test modules
   "--ignore=tests/conformance/chardetng",             # vendored chardetng crate (the detector oracle), not our test modules
+  "--ignore=tests/conformance/python-phonenumbers",   # vendored phonenumbers port (the phone oracle), not our test modules
   "--ignore=tests/html5lib-tests",                    # vendored conformance data, not our test modules
   "--import-mode=importlib",                          # tests mirror the source tree in nested dirs without __init__.py
 ]
@@ -371,10 +376,6 @@ ini_options.filterwarnings = [
 ]
 
 [tool.coverage]
-# coverage defaults to the sysmon core on 3.14+, which cannot record the per-test dynamic
-# contexts pytest-cov sets via --cov-context (7.15.2 dropped them silently, 7.15.3 warns,
-# and filterwarnings=error turns that into a failure); ctrace supports them
-run.core = "ctrace"
 # The differential suites diff against oracle libraries that are bench, not test, dependencies
 # (lxml additionally ships no wheels for 3.15, the free-threaded builds, or Windows), so each
 # module importorskips itself where its oracle is absent; measuring them would make the gate
@@ -400,6 +401,10 @@ run.parallel = true
 run.plugins = [
   "covdefaults",
 ]
+# coverage defaults to the sysmon core on 3.14+, which cannot record the per-test dynamic
+# contexts pytest-cov sets via --cov-context (7.15.2 dropped them silently, 7.15.3 warns,
+# and filterwarnings=error turns that into a failure); ctrace supports them
+run.core = "ctrace"
 paths.source = [
   "src",
   ".tox/*/lib/*/site-packages",

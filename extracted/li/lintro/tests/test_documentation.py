@@ -60,19 +60,25 @@ def test_scripts_readme_coverage() -> None:
     # Get all script files
     script_files = set()
     for script_file in (_REPO_ROOT / "scripts").rglob("*.sh"):
-        # Skip files inside private packages (e.g. ``scripts/ci/_generator/``);
-        # those are implementation detail of a documented entry script, not
-        # separately invokable scripts.
-        if any(part.startswith("_") for part in script_file.parts):
+        # Skip files inside private (underscore-prefixed) packages; those are
+        # implementation detail of a documented entry script, not separately
+        # invokable scripts. Filter on repo-relative components so a private
+        # directory above the checkout cannot skip everything.
+        if any(
+            part.startswith("_") for part in script_file.relative_to(_REPO_ROOT).parts
+        ):
             continue
         script_files.add(script_file.name)
     for script_file in (_REPO_ROOT / "scripts").rglob("*.py"):
         if script_file.name == "__init__.py":
             continue
-        # Skip files inside private packages (e.g. ``scripts/ci/_generator/``);
-        # those are implementation detail of a documented entry script, not
-        # separately invokable scripts.
-        if any(part.startswith("_") for part in script_file.parts):
+        # Skip files inside private (underscore-prefixed) packages; those are
+        # implementation detail of a documented entry script, not separately
+        # invokable scripts. Filter on repo-relative components so a private
+        # directory above the checkout cannot skip everything.
+        if any(
+            part.startswith("_") for part in script_file.relative_to(_REPO_ROOT).parts
+        ):
             continue
         script_files.add(script_file.name)
 
@@ -350,6 +356,8 @@ _DOCUMENTED_LINTRO_ENV_VARS = {
     "LINTRO_DOCKER",
     "LINTRO_CONFIG",
     "LINTRO_ENABLE_EXTERNAL_PLUGINS",
+    "LINTRO_NO_CACHE",
+    "LINTRO_GLOBAL_CONFIG",
     "LINTRO_AI_PROVIDER",
     "LINTRO_AI_MODEL",
     "LINTRO_AI_TRANSPORT",

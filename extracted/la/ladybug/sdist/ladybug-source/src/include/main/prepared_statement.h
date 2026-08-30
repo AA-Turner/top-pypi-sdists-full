@@ -10,6 +10,13 @@
 #include "query_summary.h"
 
 namespace lbug {
+namespace processor {
+class PhysicalPlan;
+struct ResultSetDescriptor;
+} // namespace processor
+} // namespace lbug
+
+namespace lbug {
 namespace common {
 class LogicalType;
 }
@@ -25,6 +32,8 @@ class LogicalPlan;
 
 namespace main {
 
+class CachedPreparedStatementManager;
+
 // Prepared statement cached in client context and NEVER serialized to client side.
 struct CachedPreparedStatement {
     bool useInternalCatalogEntry = false;
@@ -32,6 +41,17 @@ struct CachedPreparedStatement {
     std::unique_ptr<planner::LogicalPlan> logicalPlan;
     std::vector<std::shared_ptr<binder::Expression>> columns;
     std::vector<std::string> columnNames;
+
+    // Cached physical plan for fast re-execution. When canReuseCachedPlanWith returns true,
+    // this operator-tree template is cloned and its sink state is refreshed for each call,
+    // avoiding the PlanMapper::mapOperator recursion entirely.
+    std::unique_ptr<processor::PhysicalPlan> physicalPlanCache;
+    // Cached ResultSetDescriptors of every pipeline-head sink, in preorder position order.
+    // Operator::copy() does not propagate descriptors, and multi-pipeline plans (e.g.
+    // aggregates) clone into several tasks that each need a descriptor to build their
+    // ResultSet, so we snapshot them all from the freshly mapped tree and re-attach them onto
+    // each cloned instance.
+    std::vector<std::unique_ptr<processor::ResultSetDescriptor>> sinkResultSetDescriptors;
 
     CachedPreparedStatement();
     ~CachedPreparedStatement();
@@ -86,6 +106,11 @@ private:
     std::string errMsg;
     PreparedSummary preparedSummary;
     std::string cachedPreparedStatementName;
+    // Weak back-reference to the manager this statement was registered with (via
+    // ClientContext::prepareWithParams). The destructor uses it to unregister itself so the
+    // cached plan is freed promptly. Weak so that a statement destroyed after its connection
+    // (possible through the C API) does not access a freed manager.
+    std::weak_ptr<CachedPreparedStatementManager> ownerManager;
     std::unordered_set<std::string> unknownParameters;
     std::unordered_map<std::string, std::shared_ptr<common::Value>> parameterMap;
 };

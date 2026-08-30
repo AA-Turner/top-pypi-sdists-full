@@ -96,6 +96,10 @@ class Context(cloup.Context):
     positional argument, as GNU getopt-based tools do. See
     {data}`~click_extra.context.POSIXLY_CORRECT_ENVVAR`.
 
+    Carries the `sort_subcommands` setting read by
+    {meth}`click_extra.commands.Group.must_sort_subcommands`, so a whole command
+    tree can settle its subcommand listings in one place.
+
     ```{todo}
     Propose addition of `meta` keyword upstream to Click.
     ```
@@ -104,15 +108,35 @@ class Context(cloup.Context):
     formatter_class = HelpFormatter
     """Use our own formatter to colorize the help screen."""
 
-    def __init__(self, *args, meta: dict[str, Any] | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        meta: dict[str, Any] | None = None,
+        sort_subcommands: bool | None = None,
+        **kwargs,
+    ) -> None:
         """Like parent's context but with an extra `meta` keyword-argument.
 
         Also pre-seed `color` from the color environment variables for a parentless
         context when the user did not provide it, and force
         `allow_interspersed_args` to `False` when `POSIXLY_CORRECT` is set in the
         environment.
+
+        :param sort_subcommands: whether groups list their subcommands
+            alphabetically. Inherited from the parent context when left to `None`,
+            the way Cloup inherits `align_sections`, so declaring it once on the
+            root group settles every subgroup below it.
         """
         super().__init__(*args, **kwargs)
+
+        # Inherit from the parent context, so a setting declared on the root group
+        # reaches subgroups that never mention it. Cloup does the same for its own
+        # `align_sections` and `show_subcommand_aliases` settings.
+        self.sort_subcommands = (
+            sort_subcommands
+            if sort_subcommands is not None
+            else getattr(self.parent, "sort_subcommands", None)
+        )
 
         # Click defaults root `ctx.color` to `None` (GNU `auto`: keep ANSI on a
         # TTY, strip it when piped). For a parentless context, pre-seed it from the
@@ -262,6 +286,21 @@ Written by {class}`click_extra.commands.Command.make_context` so that
 arguments for the `--params` table without re-running the callbacks.
 Consumers normalize the parser's `UNSET` sentinel back to `None` on read,
 matching what `click.Command.parse_args` does for `ctx.params`.
+
+```{todo}
+Open a narrowly-scoped Click issue and PR for a public
+{class}`click.Context` accessor returning a parameter's resolved
+`(value, ParameterSource)` after parsing, without re-firing eager callbacks.
+That is the forward resolution `--params` actually consumes, and landing it
+retires the re-parse this constant exists to feed.
+
+Reference [`pallets/click#1279`](https://github.com/pallets/click/issues/1279)
+as related, not as home: it asks for the inverse direction (reconstructing a
+normalized argv from a Context), was scoped with about a dozen normalization
+rules, flagged underdefined, and has stalled since 2023. Tracked in
+`docs/upstream.md` under "Normalized arguments"; the developer note below
+records why the cheaper alternatives do not work.
+```
 """
 
 # Developer note: why RAW_ARGS exists, and what to actually propose upstream.
@@ -293,9 +332,8 @@ matching what `click.Command.parse_args` does for `ctx.params`.
 #   - It depends on `Command.make_parser()` handing back
 #     `click.parser._OptionParser`, private since the Click 8.2 parser rework.
 #
-# Upstream proposal (revisit later: tracked in docs/upstream.md under
-# "Normalized arguments", linked to click#1279). Three different features get
-# muddled under the "raw_args" label:
+# Upstream proposal (the actionable half is the `{todo}` on RAW_ARGS above).
+# Three different features get muddled under the "raw_args" label:
 #   1. Preserve the raw input argv on the Context. Trivial; what we do here.
 #   2. Expose the parsed `opts`, or better, a per-parameter resolved
 #      (value, ParameterSource), on the Context. Modest; this is what
@@ -316,6 +354,26 @@ matching what `click.Command.parse_args` does for `ctx.params`.
 # not help the foreign-CLI wrap path, which has no live parse to capture from.
 
 
+# --- Invocation name ----------------------------------------------------------
+
+INVOCATION_NAME: Final[str] = "click_extra.invocation_name"
+"""The name the CLI was invoked under, as resolved on the root context.
+
+Written by {class}`click_extra.commands.Command.make_context` on the root
+context only (`ctx.meta` is shared down the whole hierarchy, so a subcommand
+must not overwrite it). Equals Click's root `info_name`: the entry-point
+script name, the symlink name in {mod}`~click_extra.multicall` personality
+mode, or an explicit `prog_name` override passed to `main()`. Read it with
+{func}`click.pass_context` to implement invocation-name-aware behavior
+without the full multicall machinery:
+
+```{code-block} python
+if ctx.meta[context.INVOCATION_NAME] == "bunzip2":
+    ...
+```
+"""
+
+
 # --- Configuration loading ----------------------------------------------------
 
 CONF_SOURCE: Final[str] = "click_extra.conf_source"
@@ -332,6 +390,18 @@ Written by {class}`click_extra.config.option.ConfigOption.load_conf`. Read by
 {class}`click_extra.commands.Group` (for subcommand inheritance) and by
 {func}`click_extra.cli_wrapper.invoke_target` (to forward the loaded config to
 wrapped CLIs).
+
+With `cascade=True` this holds the deep-merged view of every loaded file,
+which is the configuration as it was actually applied.
+"""
+
+CONF_SOURCES: Final[str] = "click_extra.conf_sources"
+"""Every configuration file loaded, in precedence order (highest first).
+
+Written by {class}`click_extra.config.option.ConfigOption.load_conf` as a
+(possibly empty) tuple of `(location, parsed_conf)` pairs. Holds a single
+entry in the default first-file-wins mode, and one entry per loaded file
+when `cascade=True`.
 """
 
 TOOL_CONFIG: Final[str] = "click_extra.tool_config"
@@ -360,6 +430,15 @@ VERBOSITY: Final[str] = "click_extra.verbosity"
 Written by {meth}`click_extra.logging.VerbosityOption.set_level`. Stored
 alongside {data}`VERBOSITY_LEVEL` so downstream code can tell whether the
 final level came from `--verbosity` or from `-v`/`-q` repetitions.
+"""
+
+DEBUG: Final[str] = "click_extra.debug"
+"""Whether `--debug` was passed.
+
+Written by the `set_level` callback of {class}`click_extra.logging.DebugOption`.
+Read by `_VerbosityOption.resolve_level`, which answers it before anything else:
+`--debug` names the loudest level there is, so nothing another option asks for
+can outrank it.
 """
 
 VERBOSE: Final[str] = "click_extra.verbose"

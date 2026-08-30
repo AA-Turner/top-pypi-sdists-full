@@ -70,13 +70,17 @@ jobs:
       && !startsWith(github.event.head_commit.message || '', '[changelog] Bump major version to ')
       && !startsWith(github.event.head_commit.message || '', '[changelog] Bump minor version to ')
     runs-on: ubuntu-26.04
+    # Caps below GitHub's 6-hour default, so a hung job frees its runner in
+    # minutes. Sized off `repomatic job-timings`: this job's bucket medians
+    # ~1 min and peaks at ~3 min.
+    timeout-minutes: 15
     outputs:
       metadata: ${{ steps.metadata.outputs.metadata }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.3"
+          version: "0.12.5"
       - name: Run repomatic metadata
         id: metadata
         # The `--exclude-newer-package` flag is not optional: the workflow-level
@@ -87,7 +91,7 @@ jobs:
         # failure while running no test at all. `uvx` reads no project config, so
         # the bypass has to ride on the command line. See claude.md.
         run: >
-          uvx --no-progress --exclude-newer-package repomatic=P0D 'repomatic==7.11.0' metadata
+          uvx --no-progress --exclude-newer-package repomatic=P0D 'repomatic==7.14.0' metadata
           --format github-json --output "$GITHUB_OUTPUT"
           test_matrix test_matrix_pr
 
@@ -96,11 +100,12 @@ jobs:
     needs:
       - metadata
     runs-on: ubuntu-26.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.3"
+          version: "0.12.5"
       - name: Install Python
         run: uv --no-progress venv --python 3.14
       - name: Install project
@@ -142,6 +147,7 @@ jobs:
     # couple PR status to external state.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-26.04
+    timeout-minutes: 15
     env:
       # The one job that opts out of the workflow-wide supply-chain cooldown, by
       # setting a zero-length window. Its subject IS the freshly published
@@ -154,9 +160,9 @@ jobs:
       # on a throwaway runner. See claude.md.
       UV_EXCLUDE_NEWER: P0D
     steps:
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.3"
+          version: "0.12.5"
       - name: Install Python
         run: uv --no-progress venv --python 3.14
 
@@ -222,13 +228,27 @@ jobs:
       Click ${{ matrix.click-version }} /
       Cloup ${{ matrix.cloup-version }}
     runs-on: ${{ matrix.os }}
+    # One cap for every cell, so it has to clear the slowest runner, and macOS
+    # on Python 3.14 is far and away that: measured on the same run, it needs
+    # ~69 min against ~2.6 min for macOS on 3.10, ~1.2 min on ubuntu-26.04-arm
+    # and ~2.9 min on windows-2025. The gap is the runner's alone. It is not a
+    # hung test (the cell reaches 87% of the suite before the cap kills it),
+    # not the interpreter build (CI's Homebrew 3.14 runs the whole suite in
+    # ~96s on a developer Mac) and not the coverage backend (`sysmon`, which
+    # 3.14 selects, beats `ctrace` 68s to 95s). The cell passed in 43 min as
+    # recently as 2026-07-27, so this cycle's new tests pushed it past the old
+    # 60 min cap rather than breaking it.
+    # Raised to let the cell finish: a completed run prints the `--durations`
+    # table that names what is actually slow there, which no killed run ever
+    # has. Lower it again once that lands a fix.
+    timeout-minutes: 120
     # We keep going when a job flagged as not stable fails.
     continue-on-error: ${{ matrix.state == 'unstable' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          version: "0.12.3"
+          version: "0.12.5"
       - name: Force native ARM64 Python on Windows ARM64
         # Workaround for https://github.com/astral-sh/uv/issues/12906: uv defaults to x86_64 Python on ARM64 Windows,
         # relying on transparent emulation, so an ARM64 Windows cell would silently test emulated x86_64 Python

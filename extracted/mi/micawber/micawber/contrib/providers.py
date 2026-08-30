@@ -42,13 +42,15 @@ class GoogleMapsProvider(Provider):
         map_params = ['output=embed']
 
         for param in url_params:
+            if '=' not in param:
+                continue
             k, v = param.split('=', 1)
             if k in self.valid_params:
                 map_params.append(param)
 
         width = int(params.get('maxwidth', 640))
         height = int(params.get('maxheight', 480))
-        html = '<iframe width="%d" height="%d" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="http://maps.google.com/maps?%s"></iframe>' % \
+        html = '<iframe width="%d" height="%d" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="https://maps.google.com/maps?%s"></iframe>' % \
             (width, height, '&amp;'.join(map_params))
 
         return {

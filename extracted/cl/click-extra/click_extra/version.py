@@ -29,14 +29,20 @@ by `git archive`.
 
 from __future__ import annotations
 
+import copy
 import importlib
 import inspect
 import json
 import logging
 import os
+import platform
 import re
+import shutil
 import subprocess
 import sys
+import sysconfig
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from email.utils import getaddresses
 from functools import cached_property
 from gettext import gettext as _
@@ -45,29 +51,127 @@ from pathlib import Path
 
 import click
 from boltons.formatutils import BaseFormatField, tokenize_format_str
+from boltons.strutils import strip_ansi
 from click import echo, get_current_context
+from extra_platforms import current_architecture, current_platform
 
-from .context import _LazyMetaDict
+from ._utils import memoize_enums
+from .color import invocation_color, is_a_tty
+from .context import ACCESSIBLE, _LazyMetaDict, get
 from .parameters import ExtraOption
 from .styling import Style
-from .theme import BUILTIN_THEMES, nocolor_theme
+from .theme import get_current_theme
 
-# Frozen reference to the default theme's invoked-command style. Used as the
-# default for several version-template fields below. Captured at module load
-# time on purpose: defaults bind once at function-definition time, so reading
-# through `get_default_theme()` here would hide later overrides anyway.
-# Falls back to the colorless theme when themes.toml is absent (some packaging
-# setups drop the data file, so the built-in "dark" palette is unavailable).
-_default_invoked_command = BUILTIN_THEMES.get("dark", nocolor_theme).invoked_command
+RESET = "\x1b[0m"
+"""The sequence closing every style, for padding that must inherit none of one."""
+
+MUTED = Style(fg="bright_black")
+"""The recessive style the version screen gives its tagline and its fact labels."""
+
+CLI_ECOSYSTEM_PACKAGES = frozenset({"functools", "click_extra", "cloup", "click"})
+"""Top-level packages that never implement the *user's* CLI.
+
+`functools` shows up as the intermediate frames a `@cached_property` adds; the
+other three are the Click ecosystem itself. A frame belonging to one of them is
+plumbing between the `--version` callback and the CLI that declared it, so
+{meth}`VersionOption.cli_frame` walks past it, and both
+{attr}`VersionOption.module` and {attr}`VersionOption.module_version` read
+landing on one as a failed walk. A module {func}`is_main_module` recognizes is
+the exception: it is an entry point, whichever package it sits under.
+"""
+
+
+def is_main_module(module_name: str) -> bool:
+    """Is *module_name* a `__main__` entry point, of a package or of a script?
+
+    An entry point is where the interpreter started: `python -m package`, a
+    console script, or a compiled binary. It is never plumbing a stack walk
+    lands on after running out of user frames, so it is exempt from
+    {data}`CLI_ECOSYSTEM_PACKAGES` even when it sits under one of those
+    packages, as `click_extra.__main__` does in Click Extra's own binary.
+    """
+    return module_name == "__main__" or module_name.endswith(".__main__")
+
+
+def distribution_of(package_name: str | None) -> str | None:
+    """Resolve an import package name to the installed distribution providing it.
+
+    An import (top-level module) name may differ from the distribution name
+    (`PIL` vs `Pillow`, `jwt` vs `PyJWT`). A name already matching an installed
+    distribution is returned as-is; otherwise it is resolved through
+    {func}`importlib.metadata.packages_distributions`. Ambiguous mappings (one
+    import name to several distributions) return `None`: pass `package_name`
+    explicitly to disambiguate.
+
+    Returns `None` when nothing installed provides the name, which is what makes
+    it usable as a test of whether a module belongs to a real distribution.
+    """
+    if not package_name:
+        logger.debug("No package name provided.")
+        return None
+
+    # `package_name` already matches an installed distribution.
+    try:
+        metadata.distribution(package_name)
+    except metadata.PackageNotFoundError:
+        pass
+    else:
+        return package_name
+
+    # The given name didn't match an installed distribution. Try resolving it as
+    # an import (top-level module) name.
+    distributions = metadata.packages_distributions().get(package_name, [])
+    if len(distributions) == 1:
+        return distributions[0]
+    if len(distributions) > 1:
+        logger.debug(
+            f"{package_name!r} maps to multiple installed distributions "
+            f"({', '.join(distributions)}); pass 'package_name' to disambiguate."
+        )
+        return None
+    logger.debug(f"{package_name!r} package not found or not installed.")
+    return None
+
+
+def theme_slot(slot: str) -> IStyle:
+    """A style reading its palette slot off the active theme, on every call.
+
+    The version template's fields used to hold a style captured from the `dark`
+    palette at import, on the reasoning that a default binds once anyway. That
+    froze the message to one palette: `--theme light` recolored every help screen
+    and left `--version` painting the program name bright white, which on a light
+    terminal is white on white. Deferring the lookup to call time is what makes the
+    message follow `--theme`, `CLICK_EXTRA_THEME` and the background-sniffing
+    `auto` alike, and what drops its color entirely under the monochrome `manpage`
+    palette.
+
+    {func}`~click_extra.theme.get_current_theme` already answers with the colorless
+    theme outside an invocation, and with a full palette inside one, so no slot can
+    come back missing.
+    """
+
+    def apply(text: str) -> str:
+        return getattr(get_current_theme(), slot)(text)  # type: ignore[no-any-return]
+
+    return apply
+
+
+def unstyled(text: str) -> str:
+    """Identity style, for a segment left with no color of its own."""
+    return text
+
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
     from importlib.metadata import PackageMetadata
     from types import FrameType, ModuleType
-    from typing import Any, ClassVar
+    from typing import Any, ClassVar, TypeAlias
 
     from cloup.styling import IStyle
+
+    Facts: TypeAlias = Mapping[str, str]
+    """Label-to-value rows of a version screen, in the order they are drawn."""
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +315,73 @@ is computed live*, shared by two consumers:
 
 Keeping it here means adding a new git field is a one-line edit in this module,
 with no matching change needed in the CLI.
+"""
+
+
+SOURCE_DATE_EPOCH = "SOURCE_DATE_EPOCH"
+"""Environment variable a reproducible build sets to pin every timestamp it writes.
+
+See the [reproducible-builds.org specification](https://reproducible-builds.org/docs/source-date-epoch/).
+"""
+
+
+def resolve_build_time() -> str:
+    """The moment the distribution is built, as an RFC 3339 UTC timestamp.
+
+    Reads `SOURCE_DATE_EPOCH` when the build sets it, so two runs of a
+    reproducible build stamp the same instant. Falls back to the current time.
+    """
+    epoch = os.environ.get(SOURCE_DATE_EPOCH)
+    if epoch:
+        moment = datetime.fromtimestamp(int(epoch), tz=timezone.utc)
+    else:
+        moment = datetime.now(tz=timezone.utc)
+    return moment.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def resolve_build_os() -> str:
+    """The operating system the build runs on."""
+    return current_platform().name
+
+
+def resolve_build_target() -> str:
+    """The platform a distribution built here installs on.
+
+    This is the wheel platform tag (`macosx-15.0-arm64`, `linux-x86_64`,
+    `win-amd64`), which is Python's answer to the target triple shadow-rs bakes
+    into a Rust binary. It states an ABI floor the two fields beside it cannot:
+    `macosx-15.0-arm64` says the binary needs macOS 15, where
+    {func}`~click_extra.version.resolve_build_os` only says it was built on macOS.
+    """
+    return sysconfig.get_platform()
+
+
+def resolve_build_target_arch() -> str:
+    """The CPU architecture the build runs on."""
+    return current_architecture().name
+
+
+BUILD_RESOLVERS: dict[str, Callable[[], str]] = {
+    "build_time": resolve_build_time,
+    "build_os": resolve_build_os,
+    "build_target": resolve_build_target,
+    "build_target_arch": resolve_build_target_arch,
+}
+"""Canonical resolver for every pre-bakeable `build_*` field.
+
+These describe the machine and moment a distribution was *built*, which
+{data}`GIT_RESOLVERS` and `{env_info}` both leave unanswered: git states what
+source went in, `{env_info}` states where the binary is running now, and neither
+one identifies the host that produced it. That gap is what a cross-built binary
+turns into a support question, and what shadow-rs answers for Rust with its
+`BUILD_TIME`, `BUILD_OS` and `BUILD_TARGET` constants.
+
+A build fact has no live fallback, unlike a git one: nothing at runtime can
+recover the host a binary was compiled on, so `click-extra prebake all` is the
+only thing that ever writes these. A field left unbaked stays empty, and its
+{class}`VersionOption` accessor answers `None`.
+
+Adding a field here is a one-line edit, with no matching change in the CLI.
 """
 
 
@@ -387,6 +558,227 @@ def resolve_license(meta: PackageMetadata | None) -> str | None:
     return meta_value(meta, "License")
 
 
+def platform_label() -> str:
+    """Current platform and CPU architecture, as displayed to the user."""
+    return f"{current_platform().name} {current_architecture().name}"
+
+
+def env_summary() -> str:
+    """One-line interpreter and platform summary.
+
+    The same two facts {func}`default_facts` puts on the version screen, joined for
+    a CLI that would rather spend one line of its plain `--version` on them than
+    draw a screen at all: `@version_option(fields={"env_info": env_summary()})`.
+    """
+    return f"Python {platform.python_version()}, {platform_label()}"
+
+
+def dependency_versions() -> str:
+    """The Click and Cloup releases this install is sitting on.
+
+    Worth a row on a screen whose main job is to be pasted into a bug report: Click
+    Extra subclasses both, so which of the three is at fault is the first question
+    any such report raises. Not a default fact, since a CLI built on Click Extra may
+    reasonably consider that its own business rather than its user's.
+
+    Read from the installed distributions rather than the packages' own
+    `__version__`, which Click deprecated in `8.4.0` and removes in `9.1`.
+    """
+    return ", ".join(
+        f"{name.capitalize()} {metadata.version(name)}" for name in ("click", "cloup")
+    )
+
+
+def default_facts() -> dict[str, str]:
+    """The facts every version screen carries, as an ordered label-to-value map.
+
+    A mapping rather than a sequence of pairs so a CLI can adjust one row without
+    restating the rest, `dict` preserving insertion order and replacement keeping a
+    key where it already sat:
+
+    ```{code-block} python
+    default_facts() | {"Platform": my_own_label}   # replaces, in place
+    default_facts() | {"Docs": DOCS_URL}           # appends, at the end
+    ```
+    """
+    return {
+        "Python": platform.python_version(),
+        "Platform": platform_label(),
+    }
+
+
+def visible_width(text: str) -> int:
+    """Columns *text* occupies once its escape sequences are discounted.
+
+    ```{caution}
+    Counts characters, not display cells, so a logo drawn with double-width
+    characters (CJK, emoji) measures short and its screen lays out ragged. Every
+    character a terminal renders one cell wide is fine, which covers ASCII, the
+    block and box-drawing ranges, and braille.
+    ```
+    """
+    return len(strip_ansi(text))
+
+
+@dataclass(frozen=True)
+class VersionScreen:
+    """A logo, and the facts to seat beside it, as `--version` should draw them.
+
+    Owns the layout only. The artwork arrives already rendered — a string, or the
+    lines of one — so a CLI is free to draw its mark however it likes, in ASCII line
+    art, half-blocks or anything else, without this class knowing. Hand one to
+    {class}`VersionOption` through its `screen` argument, or to a whole CLI through
+    `default_params(screen=…)`.
+    """
+
+    logo: str | Sequence[str]
+    """The mark, pre-rendered. A string is split on newlines."""
+
+    tagline: str = ""
+    """One line under the program name. Omitted, with its blank line, when empty."""
+
+    facts: Facts | Callable[[], Facts] = default_facts
+    """Label-to-value rows under the tagline, or a callable producing them.
+
+    A callable defers the work to render time, which matters when a value costs
+    something to compute: a CLI counting plugins should not pay for that on every
+    invocation just to have the number ready in case `--version` is asked for.
+    """
+
+    gutter: str = "   "
+    """Blank columns between the mark and the facts, and between label and value."""
+
+    @property
+    def lines(self) -> tuple[str, ...]:
+        """The mark's lines, every one padded out to {attr}`width`.
+
+        Padding here rather than asking for it is what lets a caller hand over
+        whatever its renderer produced. Trailing blanks are invisible on a line by
+        itself and ragged the moment anything is placed beside it, and a caller
+        cannot repair that afterwards: `str.ljust` counts the escape sequences it
+        cannot see, so on a styled line it silently does nothing.
+        """
+        raw = self.logo.split("\n") if isinstance(self.logo, str) else list(self.logo)
+        width = self.width
+        padded = []
+        for line in raw:
+            gap = width - visible_width(line)
+            # Close any style the line left open, so the padding cannot inherit a
+            # background and bleed across the gutter.
+            reset = RESET if gap and "\x1b[" in line else ""
+            padded.append(f"{line}{reset}{' ' * gap}")
+        return tuple(padded)
+
+    @property
+    def width(self) -> int:
+        """Columns the mark occupies, taken from its widest line."""
+        raw = self.logo.split("\n") if isinstance(self.logo, str) else self.logo
+        return max((visible_width(line) for line in raw), default=0)
+
+    def rows(self, prog_name: str, version: str, styles: Mapping[str, IStyle | None]):
+        """The column of facts, as (plain, styled) pairs.
+
+        Both forms are built together because the styled one cannot be measured: its
+        escape sequences take columns that never reach the screen, and the plain twin
+        is what {meth}`render` sizes the layout against.
+
+        The program name and version take the same styles the plain message gives
+        them, so the two renderings of `--version` cannot drift apart on color.
+        """
+        facts = self.facts() if callable(self.facts) else self.facts
+        # One column per the longest label, so the values line up without anyone
+        # having to declare a width that a later row could outgrow.
+        label_width = max((len(label) for label in facts), default=0)
+
+        def paint(field: str, text: str) -> str:
+            style = styles.get(field)
+            return style(text) if style else text
+
+        header = [
+            (
+                f"{prog_name}, version {version}",
+                paint("prog_name", prog_name)
+                + ", version "
+                + paint("version", version),
+            ),
+        ]
+        if self.tagline:
+            header.append((self.tagline, MUTED(self.tagline)))
+        if facts:
+            header.append(("", ""))
+        return (
+            *header,
+            *(
+                (
+                    f"{label:<{label_width}}{self.gutter}{value}",
+                    MUTED(f"{label:<{label_width}}") + self.gutter + value,
+                )
+                for label, value in facts.items()
+            ),
+        )
+
+    def render(
+        self, prog_name: str, version: str, styles: Mapping[str, IStyle | None]
+    ) -> str | None:
+        """Compose the mark and the facts into the screen, or decline to.
+
+        The facts are centred against the mark's height, and either column may be
+        the taller of the two: a line missing from one side simply renders blank.
+
+        Returns `None` when the terminal is too narrow to seat the two columns side
+        by side, leaving the caller to fall back rather than emit a wrapped mess. The
+        threshold is measured off the facts actually built, since their widest row
+        grows with whatever a CLI chose to report. A non-interactive stream reports
+        `shutil`'s 80-column default, wide enough that a redirected-but-forced-color
+        run still gets the screen it asked for.
+        """
+        rows = self.rows(prog_name, version, styles)
+        needed = (
+            self.width
+            + len(self.gutter)
+            + max((len(plain) for plain, _ in rows), default=0)
+        )
+        if needed > shutil.get_terminal_size().columns:
+            return None
+
+        logo = self.lines
+        offset = max(0, (len(logo) - len(rows)) // 2)
+        blank = " " * self.width
+        lines = []
+        for index in range(max(len(logo), offset + len(rows))):
+            left = logo[index] if index < len(logo) else blank
+            row = index - offset
+            right = rows[row][1] if 0 <= row < len(rows) else ""
+            lines.append(f"{left}{self.gutter}{right}".rstrip())
+        # Open on a blank line: `--version` is often the tail of a noisier command (a
+        # `uv run` resolving, a wrapper announcing itself), and the mark reads as part
+        # of that noise when it starts flush against it.
+        return "\n" + "\n".join(lines)
+
+
+def colors_reach_output() -> bool:
+    """Will ANSI codes survive all the way to the user's terminal?
+
+    Resolves Click Extra's color tri-state, deferring to the output stream's TTY
+    status on its `auto` default, exactly as `click.echo` does when it decides
+    whether to strip the codes itself.
+
+    ```{note}
+    The stream probed is {data}`sys.stdout`, not Click's own resolution of it:
+    `click.echo` reaches stdout through a private cached wrapper, whose public
+    alias Click deprecated in `8.5.0` for removal in `9.0`. That wrapper exists
+    to fix the output encoding and delegates `isatty()` to the stream beneath
+    it, so both answer alike. Checked against Click `8.5.0` on a pipe, a
+    {class}`io.StringIO`, a stream faking `isatty()`, a real terminal, and
+    inside `CliRunner.invoke`.
+    ```
+    """
+    color = invocation_color()
+    if color is None:
+        return is_a_tty(sys.stdout)
+    return color
+
+
 class VersionOption(ExtraOption):
     """Gather CLI metadata and prints a colored version string.
 
@@ -430,18 +822,22 @@ class VersionOption(ExtraOption):
         "git_tag_sha",
         "git_distance",
         "git_dirty",
+        "build_time",
+        "build_os",
+        "build_target",
+        "build_target_arch",
         "prog_name",
         "env_info",
     )
     """List of field IDs recognized by the message template."""
 
     default_styles: ClassVar[dict[str, IStyle]] = {
-        "module_name": _default_invoked_command,
-        "module_version": Style(fg="green"),
-        "package_name": _default_invoked_command,
-        "package_version": Style(fg="green"),
-        "exec_name": _default_invoked_command,
-        "version": Style(fg="green"),
+        "module_name": theme_slot("invoked_command"),
+        "module_version": theme_slot("success"),
+        "package_name": theme_slot("invoked_command"),
+        "package_version": theme_slot("success"),
+        "exec_name": theme_slot("invoked_command"),
+        "version": theme_slot("success"),
         "git_repo_path": Style(fg="bright_black"),
         "git_branch": Style(fg="cyan"),
         "git_long_hash": Style(fg="yellow"),
@@ -449,9 +845,13 @@ class VersionOption(ExtraOption):
         "git_date": Style(fg="bright_black"),
         "git_tag": Style(fg="cyan"),
         "git_tag_sha": Style(fg="yellow"),
-        "git_distance": Style(fg="green"),
+        "git_distance": theme_slot("success"),
         "git_dirty": Style(fg="red"),
-        "prog_name": _default_invoked_command,
+        "build_time": Style(fg="bright_black"),
+        "build_os": Style(fg="bright_black"),
+        "build_target": Style(fg="bright_black"),
+        "build_target_arch": Style(fg="bright_black"),
+        "prog_name": theme_slot("invoked_command"),
         "env_info": Style(fg="bright_black"),
     }
     """Default style for each template field.
@@ -459,6 +859,12 @@ class VersionOption(ExtraOption):
     Fields absent from this mapping render with no style of their own and fall
     back to `message_style` (or no color when that is unset). User-provided
     `styles` are merged over these defaults.
+
+    The name and version fields defer to the active palette through
+    {func}`theme_slot` rather than naming a color. Both slots render exactly what
+    the literals they replaced did under the `dark` default — `invoked_command` is
+    bright white bold, `success` is green — so nothing moves for a CLI that never
+    touches `--theme`, while one that does finally gets a version message to match.
     """
 
     def __init__(
@@ -468,6 +874,7 @@ class VersionOption(ExtraOption):
         fields: Mapping[str, Any] | None = None,
         styles: Mapping[str, IStyle | None] | None = None,
         message_style: IStyle | None = None,
+        screen: VersionScreen | None = None,
         is_flag=True,
         expose_value=False,
         is_eager=True,
@@ -490,6 +897,10 @@ class VersionOption(ExtraOption):
 
         :param message_style: fallback style for the message literals and for
             any field that has no style of its own.
+
+        :param screen: a {class}`VersionScreen` to draw instead of the one-line
+            message, whenever the terminal can take it. Left unset, `--version`
+            behaves exactly as it always has.
         """
         if not param_decls:
             param_decls = ("--version",)
@@ -497,6 +908,7 @@ class VersionOption(ExtraOption):
         if message is not None:
             self.message = message
         self.message_style = message_style
+        self.screen = screen
 
         field_overrides = dict(fields) if fields else {}
         style_overrides = dict(styles) if styles else {}
@@ -535,6 +947,31 @@ class VersionOption(ExtraOption):
             help=help,
             **kwargs,
         )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> VersionOption:
+        """Copy the option, dropping every cached field value.
+
+        {mod}`~click_extra.multicall` deep-copies a group's parameters to
+        build each personality, and the cache cannot travel along: the
+        `module` entry holds a module object `copy.deepcopy` cannot
+        reconstruct, and a copy is a new option anyway, free to resolve its
+        fields against its own invocations. Only the configuration state
+        (message template, styles, screen, field overrides) is carried over.
+
+        Click's `UNSET` sentinel rides in `__dict__` as the option's unset
+        default, so the memo is seeded with the enum members before the copy:
+        see {func}`~click_extra._utils.memoize_enums` for why Python 3.10
+        cannot copy one on its own.
+        """
+        cls = type(self)
+        clone = cls.__new__(cls)
+        memo[id(self)] = clone
+        memoize_enums(self, memo)
+        for key, value in self.__dict__.items():
+            if isinstance(getattr(cls, key, None), cached_property):
+                continue
+            setattr(clone, key, copy.deepcopy(value, memo))
+        return clone
 
     @staticmethod
     def cli_frame() -> FrameType:
@@ -581,12 +1018,7 @@ class VersionOption(ExtraOption):
 
             # Skip the intermediate frames added by the `@cached_property` decorator
             # and the Click ecosystem.
-            if frame_name and frame_name.split(".", 1)[0] in (
-                "functools",
-                "click_extra",
-                "cloup",
-                "click",
-            ):
+            if frame_name and frame_name.split(".", 1)[0] in CLI_ECOSYSTEM_PACKAGES:
                 continue
 
             # We found a frame that is not part of the Click ecosystem, and is not an
@@ -610,6 +1042,33 @@ class VersionOption(ExtraOption):
             f"{outermost.f_globals.get('__name__')}:{outermost.f_code.co_name}"
         )
         return outermost
+
+    @staticmethod
+    def command_module(ctx: click.Context) -> ModuleType | None:
+        """Returns the module implementing the root command's callback.
+
+        The stack walk in {meth}`cli_frame` can only find the CLI when the CLI's
+        own module is on the stack. That holds for a normal invocation, and for a
+        `CliRunner` driven from the test module that declares the command, but not
+        when a runner invokes a command it merely *imported*: the walk then finds
+        no user frame at all and stops on the runner's own `invoke()`, inside the
+        Click ecosystem.
+
+        The Sphinx `click:run` directive is exactly that shape, so a documented
+        `--version` used to render the version of whichever ecosystem package
+        owned the runner (`None`, once `click_extra.sphinx` resolved to no
+        installed distribution) in place of the CLI's own.
+
+        A command's callback names its defining module directly and needs no
+        stack, so it settles the case the walk cannot see. Returns `None` when the
+        command has no callback (a bare {class}`click.Group`) or its module is not
+        imported, leaving the walk's own answer in place.
+        """
+        callback = ctx.find_root().command.callback
+        module_name = getattr(callback, "__module__", None)
+        if not module_name:
+            return None
+        return sys.modules.get(module_name)
 
     @cached_property
     def module(self) -> ModuleType:
@@ -639,6 +1098,36 @@ class VersionOption(ExtraOption):
                     actual_module = self._resolve_module_from_frame(frame)
                     if actual_module:
                         return actual_module
+
+        # The walk ended on ecosystem plumbing that no installed distribution
+        # provides, so it never found the CLI at all: it ran out of user frames
+        # and stopped on the runner that invoked an imported command. Defer to
+        # that command's own callback module, which needs no stack.
+        #
+        # Both halves of the test matter. A runner living in a real distribution
+        # (`click.testing`, `click_extra.testing`) still answers as it always
+        # has, which is what a CLI declared in the module driving the runner
+        # relies on. Only a runner under a subpackage that resolves to nothing
+        # (`click_extra.sphinx`, which the `click:run` directive invokes through)
+        # reaches the fallback.
+        #
+        # An entry point is excluded outright, because the distribution test
+        # cannot see it: a Nuitka binary ships no metadata at all, so
+        # `distribution_of()` answers `None` for the CLI's own package too.
+        # Click Extra's own binary starts in `click_extra.__main__`, and trading
+        # that for the callback's module costs it the {func}`is_main_module`
+        # exemption `module_version` needs to read the pre-baked `__version__`
+        # off the parent package.
+        if (
+            not is_main_module(module.__name__)
+            and module.__name__.split(".", 1)[0] in CLI_ECOSYSTEM_PACKAGES
+            and distribution_of(module.__package__) is None
+        ):
+            ctx = click.get_current_context(silent=True)
+            if ctx is not None:
+                from_command = self.command_module(ctx)
+                if from_command is not None:
+                    return from_command
 
         return module
 
@@ -720,16 +1209,12 @@ class VersionOption(ExtraOption):
         # the user's module, producing false-positive lookups. `__main__`
         # modules are always entry points (never CliRunner artifacts), so
         # they are exempt from the exclusion.
-        is_main_entry = self.module_name == "__main__" or self.module_name.endswith(
-            ".__main__"
-        )
         if (
             version is None
             and self.package_name
             and (
-                is_main_entry
-                or self.module_name.split(".")[0]
-                not in ("click", "click_extra", "cloup")
+                is_main_module(self.module_name)
+                or self.module_name.split(".", 1)[0] not in CLI_ECOSYSTEM_PACKAGES
             )
         ):
             parent = sys.modules.get(self.package_name)
@@ -762,32 +1247,7 @@ class VersionOption(ExtraOption):
         mappings (one import name to several distributions) return
         `None`: pass `package_name` explicitly to disambiguate.
         """
-        if not self.package_name:
-            logger.debug("No package name provided.")
-            return None
-
-        # `package_name` already matches an installed distribution.
-        try:
-            metadata.distribution(self.package_name)
-        except metadata.PackageNotFoundError:
-            pass
-        else:
-            return self.package_name
-
-        # The given name didn't match an installed distribution. Try
-        # resolving it as an import (top-level module) name.
-        distributions = metadata.packages_distributions().get(self.package_name, [])
-        if len(distributions) == 1:
-            return distributions[0]
-        if len(distributions) > 1:
-            logger.debug(
-                f"{self.package_name!r} maps to multiple installed "
-                f"distributions ({', '.join(distributions)}); pass "
-                "'package_name' to disambiguate."
-            )
-            return None
-        logger.debug(f"{self.package_name!r} package not found or not installed.")
-        return None
+        return distribution_of(self.package_name)
 
     @cached_property
     def package_version(self) -> str | None:
@@ -1077,15 +1537,87 @@ class VersionOption(ExtraOption):
             return None
         return resolve_git_dirty(self.git_repo_path)
 
+    def _resolve_build_field(self, field_id: str) -> str | None:
+        """Resolve a `build_*` field, which only a pre-bake can answer.
+
+        A git field falls back to a live `git` call and then to
+        `.git_archival.json`; a build field has neither, because no runtime
+        can recover the host that produced the binary it is running. So this
+        reads the pre-baked `__<field_id>__` dunder and stops there, answering
+        `None` when `click-extra prebake all` never wrote one.
+
+        Only valid for the fields in {data}`BUILD_RESOLVERS`.
+        """
+        return self._get_prebaked(field_id)
+
     @cached_property
+    def build_time(self) -> str | None:
+        """When the distribution was built, as an RFC 3339 UTC timestamp.
+
+        Reads the pre-baked `__build_time__` dunder. See
+        {func}`~click_extra.version.resolve_build_time`.
+        """
+        return self._resolve_build_field("build_time")
+
+    @cached_property
+    def build_os(self) -> str | None:
+        """The operating system the build ran on.
+
+        Reads the pre-baked `__build_os__` dunder. See
+        {func}`~click_extra.version.resolve_build_os`.
+        """
+        return self._resolve_build_field("build_os")
+
+    @cached_property
+    def build_target(self) -> str | None:
+        """The platform a distribution built here installs on.
+
+        Reads the pre-baked `__build_target__` dunder. See
+        {func}`~click_extra.version.resolve_build_target`.
+        """
+        return self._resolve_build_field("build_target")
+
+    @cached_property
+    def build_target_arch(self) -> str | None:
+        """The CPU architecture the build ran on.
+
+        Reads the pre-baked `__build_target_arch__` dunder. See
+        {func}`~click_extra.version.resolve_build_target_arch`.
+        """
+        return self._resolve_build_field("build_target_arch")
+
+    @property
     def prog_name(self) -> str | None:
         """Return the name of the CLI, from Click's point of view.
 
         Get the [info_name](https://click.palletsprojects.com/en/stable/api/#click.Context.info_name) of
         the [root](https://click.palletsprojects.com/en/stable/api/#click.Context.find_root)
         command.
+
+        ```{note}
+        Unlike its siblings, this field is resolved on every access instead
+        of being cached on the instance: it is the one template field whose
+        value legitimately varies between invocations of the same option
+        instance sharing a process. {mod}`~click_extra.multicall` dispatch
+        relies on that, running one CLI under many names in sequence, and a
+        `prog_name` passed to `main()` varies it without any multicall at
+        all. A cached value would pin the first name seen forever.
+        ```
         """
+        if "_prog_name_override" in self.__dict__:
+            override: str | None = self.__dict__["_prog_name_override"]
+            return override
         return get_current_context().find_root().info_name
+
+    @prog_name.setter
+    def prog_name(self, value: str | None) -> None:
+        """Pin a forced value, the way `fields={"prog_name": …}` does.
+
+        Field overrides are applied with `setattr()`, which needs a setter
+        now that the field is a property instead of a `@cached_property` its
+        instance `__dict__` entry could shadow.
+        """
+        self.__dict__["_prog_name_override"] = value
 
     @cached_property
     def env_info(self) -> dict[str, Any]:
@@ -1102,6 +1634,16 @@ class VersionOption(ExtraOption):
 
         return get_profile(scrub=True)
 
+    def field_style(self, field_id: str | None = None) -> IStyle:
+        """Style painting the *field_id* segment of a rendered message.
+
+        A field carrying no style of its own falls back to `message_style`, and one
+        left unset by the caller too renders bare. Call with no `field_id` for the
+        style of the template's literal segments, which is `message_style` alone.
+        """
+        style = self.styles.get(field_id) if field_id else None
+        return style or self.message_style or unstyled
+
     def colored_template(self, template: str | None = None) -> str:
         """Insert ANSI styles to a message template.
 
@@ -1116,22 +1658,7 @@ class VersionOption(ExtraOption):
         if template is None:
             template = self.message
 
-        # Normalize the default to a no-op Style() callable to simplify the code
-        # of the colorization step.
-        def noop(s: str) -> str:
-            return s
-
-        default_style = self.message_style if self.message_style else noop
-
-        # Associate each field with its own style.
-        field_styles = {}
-        for field_id in self.template_fields:
-            field_style = self.styles.get(field_id)
-            # If no style is defined for this field, use the default style of the
-            # message.
-            if not field_style:
-                field_style = default_style
-            field_styles[field_id] = field_style
+        default_style = self.field_style()
 
         # Split the template semantically between fields and literals.
         segments = tokenize_format_str(template, resolve_pos=False)
@@ -1162,9 +1689,9 @@ class VersionOption(ExtraOption):
 
             # Add the field to the template copy, colored with its own style.
             if is_field:
-                colored_template += field_styles[
+                colored_template += self.field_style(
                     segment.base_name  # type: ignore[union-attr]
-                ](str(segment))
+                )(str(segment))
 
         return colored_template
 
@@ -1173,7 +1700,34 @@ class VersionOption(ExtraOption):
 
         Accepts a custom `template` as parameter, otherwise uses the default
         `self.colored_template()` produced by the instance.
+
+        A CLI carrying a {class}`VersionScreen` gets that drawn instead, whenever
+        three conditions hold. Failing any one of them falls back to the plain
+        template unchanged, which is a deliberate guarantee rather than a default:
+        that form is the one every machine reader parses.
+
+        - **Color reaches the output.** Not because a mark needs it — a good one
+          survives having its escapes stripped — but because it is the one lever a
+          caller already has. A redirected `--version`, or one run under
+          `--no-color` or [`NO_COLOR`](https://no-color.org), is asking for
+          something parseable.
+        - **The terminal is wide enough** to seat the facts beside the mark without
+          wrapping them.
+        - **Accessible mode is off.** A mark read out character by character is
+          noise to a screen reader, so `--accessible` keeps the plain message.
         """
+        if template is None and self.screen is not None:
+            ctx = click.get_current_context(silent=True)
+            accessible = bool(ctx is not None and get(ctx, ACCESSIBLE, False))
+            if not accessible and colors_reach_output():
+                screen = self.screen.render(
+                    str(self.prog_name or ""),
+                    str(self.version or ""),
+                    self.styles,
+                )
+                if screen is not None:
+                    return screen
+
         if template is None:
             template = self.colored_template()
 
@@ -1189,23 +1743,38 @@ class VersionOption(ExtraOption):
     def print_debug_message(self) -> None:
         """Render in debug logs all template fields in color.
 
-        ```{todo}
-        Pretty print JSON output (easier to read in bug reports)?
-        ```
+        A field resolving to a nested structure is dumped as indented JSON under its
+        own label, instead of the single-line `repr` a template would produce for it.
+        Only `{env_info}` is built that way today, and it alone accounts for two
+        thirds of this listing: a thousand characters on one line is what a bug
+        report carries otherwise. Upstream reads its profile the same way, through
+        [`boltons.ecoutils.get_profile_json(indent=True)`](https://boltons.readthedocs.io/en/latest/ecoutils.html).
         """
-        if logger.getEffectiveLevel() == logging.DEBUG:
-            all_fields = {
-                f"{{{{{field_id}}}}}": f"{{{field_id}}}"
-                for field_id in self.template_fields
-            }
-            max_len = max(map(len, all_fields))
-            raw_format = "\n".join(
-                f"{k:<{max_len}}: {v}" for k, v in all_fields.items()
-            )
-            msg = self.render_message(self.colored_template(raw_format))
-            logger.debug("Version string template variables:")
-            for line in msg.splitlines():
-                logger.debug(line)
+        if logger.getEffectiveLevel() != logging.DEBUG:
+            return
+
+        # Double the braces: the label renders as a literal `{field_id}`, naming the
+        # placeholder a template would write, rather than expanding it.
+        labels = {field_id: f"{{{{{field_id}}}}}" for field_id in self.template_fields}
+        max_len = max(map(len, labels.values()))
+
+        logger.debug("Version string template variables:")
+        for field_id, label in labels.items():
+            value = getattr(self, field_id)
+            if isinstance(value, (dict, list)):
+                logger.debug(
+                    self.render_message(self.colored_template(f"{label:<{max_len}}:"))
+                )
+                style = self.field_style(field_id)
+                dump = json.dumps(value, sort_keys=True, indent=2, default=str)
+                for line in dump.splitlines():
+                    logger.debug(style(f"  {line}"))
+            else:
+                logger.debug(
+                    self.render_message(
+                        self.colored_template(f"{label:<{max_len}}: {{{field_id}}}")
+                    )
+                )
 
     def print_and_exit(
         self,
@@ -1241,14 +1810,3 @@ class VersionOption(ExtraOption):
 
         echo(self.render_message(), color=ctx.color)
         ctx.exit()
-
-
-def __getattr__(name: str) -> Any:
-    """Resolve deprecated `version` symbols via the PEP 562 `__getattr__` hook.
-
-    The pre-baking helpers moved to {mod}`click_extra.prebake`. Fires only for
-    names not defined in this module. See {mod}`click_extra._deprecated`.
-    """
-    from ._deprecated import resolve_deprecated
-
-    return resolve_deprecated(__name__, name)

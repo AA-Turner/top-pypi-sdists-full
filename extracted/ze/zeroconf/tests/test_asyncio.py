@@ -47,6 +47,7 @@ from . import (
     QuestionHistoryWithoutSuppression,
     _clear_cache,
     has_working_ipv6,
+    make_service_info,
     time_changed_millis,
 )
 
@@ -81,18 +82,21 @@ def verify_threads_ended():
 
 
 @pytest.mark.asyncio
-async def test_async_basic_usage() -> None:
-    """Test we can create and close the instance."""
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
+async def test_async_close_is_idempotent(aiozc: AsyncZeroconf) -> None:
+    """A second async_close is a quiet no-op."""
     await aiozc.async_close()
+    assert aiozc.zeroconf.done
+    await aiozc.async_close()
+
+
+@pytest.mark.asyncio
+async def test_async_basic_usage(aiozc: AsyncZeroconf) -> None:
+    """Test we can create and close the instance."""
 
 
 @pytest.mark.asyncio
 async def test_async_close_twice() -> None:
     """Test we can close twice."""
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
-    await aiozc.async_close()
-    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -101,7 +105,6 @@ async def test_async_with_sync_passed_in() -> None:
     zc = Zeroconf(interfaces=["127.0.0.1"])
     aiozc = AsyncZeroconf(zc=zc)
     assert aiozc.zeroconf is zc
-    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -111,7 +114,6 @@ async def test_async_with_sync_passed_in_closed_in_async() -> None:
     aiozc = AsyncZeroconf(zc=zc)
     assert aiozc.zeroconf is zc
     zc.close()
-    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -136,7 +138,7 @@ async def test_async_service_registration(quick_timing: None) -> None:
 
     calls = []
 
-    class MyListener(ServiceListener):
+    class EventStore(ServiceListener):
         def add_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("add", type, name))
 
@@ -146,36 +148,20 @@ async def test_async_service_registration(quick_timing: None) -> None:
         def update_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("update", type, name))
 
-    listener = MyListener()
+    listener = EventStore()
 
     aiozc.zeroconf.add_service_listener(type_, listener)
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     task = await aiozc.async_register_service(info)
     await task
-    new_info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+    new_info = make_service_info(
+        type_, registration_name, properties=desc, addresses=[socket.inet_aton("10.7.4.3")]
     )
     task = await aiozc.async_update_service(new_info)
     await task
-    assert new_info.dns_service().server_key == "ash-2.local."
+    assert new_info.dns_service().server_key == "spare-rig.local."
     new_info.server = "ash-3.local."
     task = await aiozc.async_update_service(new_info)
     await task
@@ -207,7 +193,7 @@ async def test_async_service_registration_with_server_missing(quick_timing: None
 
     calls = []
 
-    class MyListener(ServiceListener):
+    class EventStore(ServiceListener):
         def add_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("add", type, name))
 
@@ -217,11 +203,11 @@ async def test_async_service_registration_with_server_missing(quick_timing: None
         def update_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("update", type, name))
 
-    listener = MyListener()
+    listener = EventStore()
 
     aiozc.zeroconf.add_service_listener(type_, listener)
 
-    desc = {"path": "/~paulsm/"}
+    desc = {"path": "/healthz/"}
     info = ServiceInfo(
         type_,
         registration_name,
@@ -229,22 +215,15 @@ async def test_async_service_registration_with_server_missing(quick_timing: None
         0,
         0,
         desc,
-        addresses=[socket.inet_aton("10.0.1.2")],
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     task = await aiozc.async_register_service(info)
     await task
 
     assert info.server == registration_name
     assert info.server_key == registration_name
-    new_info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+    new_info = make_service_info(
+        type_, registration_name, properties=desc, addresses=[socket.inet_aton("10.7.4.3")]
     )
     task = await aiozc.async_update_service(new_info)
     await task
@@ -273,7 +252,7 @@ async def test_async_service_registration_same_server_different_ports(quick_timi
 
     calls = []
 
-    class MyListener(ServiceListener):
+    class EventStore(ServiceListener):
         def add_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("add", type, name))
 
@@ -283,21 +262,12 @@ async def test_async_service_registration_same_server_different_ports(quick_timi
         def update_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("update", type, name))
 
-    listener = MyListener()
+    listener = EventStore()
 
     aiozc.zeroconf.add_service_listener(type_, listener)
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     info2 = ServiceInfo(
         type_,
         registration_name2,
@@ -305,8 +275,8 @@ async def test_async_service_registration_same_server_different_ports(quick_timi
         0,
         0,
         desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
+        "spare-rig.local.",
+        addresses=[socket.inet_aton("10.7.4.2")],
     )
     tasks = []
     tasks.append(await aiozc.async_register_service(info))
@@ -315,7 +285,7 @@ async def test_async_service_registration_same_server_different_ports(quick_timi
 
     task = await aiozc.async_unregister_service(info)
     await task
-    entries = aiozc.zeroconf.cache.async_entries_with_server("ash-2.local.")
+    entries = aiozc.zeroconf.cache.async_entries_with_server("spare-rig.local.")
     assert len(entries) == 1
     assert info2.dns_service() in entries
     await aiozc.async_close()
@@ -340,7 +310,7 @@ async def test_async_service_registration_same_server_same_ports(quick_timing: N
 
     calls = []
 
-    class MyListener(ServiceListener):
+    class EventStore(ServiceListener):
         def add_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("add", type, name))
 
@@ -350,31 +320,13 @@ async def test_async_service_registration_same_server_same_ports(quick_timing: N
         def update_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("update", type, name))
 
-    listener = MyListener()
+    listener = EventStore()
 
     aiozc.zeroconf.add_service_listener(type_, listener)
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info2 = ServiceInfo(
-        type_,
-        registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
+    info2 = make_service_info(type_, registration_name2, properties=desc)
     tasks = []
     tasks.append(await aiozc.async_register_service(info))
     tasks.append(await aiozc.async_register_service(info2))
@@ -382,7 +334,7 @@ async def test_async_service_registration_same_server_same_ports(quick_timing: N
 
     task = await aiozc.async_unregister_service(info)
     await task
-    entries = aiozc.zeroconf.cache.async_entries_with_server("ash-2.local.")
+    entries = aiozc.zeroconf.cache.async_entries_with_server("spare-rig.local.")
     assert len(entries) == 1
     assert info2.dns_service() in entries
     await aiozc.async_close()
@@ -395,24 +347,14 @@ async def test_async_service_registration_same_server_same_ports(quick_timing: N
 
 
 @pytest.mark.asyncio
-async def test_async_service_registration_name_conflict(quick_timing: None) -> None:
+async def test_async_service_registration_name_conflict(aiozc: AsyncZeroconf, quick_timing: None) -> None:
     """Test registering services throws on name conflict."""
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     type_ = "_test-srvc2-type._tcp.local."
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     task = await aiozc.async_register_service(info)
     await task
 
@@ -424,48 +366,32 @@ async def test_async_service_registration_name_conflict(quick_timing: None) -> N
         task = await aiozc.async_register_service(info, cooperating_responders=True)
         await task
 
-    conflicting_info = ServiceInfo(
+    conflicting_info = make_service_info(
         type_,
         registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-3.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+        properties=desc,
+        server="ash-3.local.",
+        addresses=[socket.inet_aton("10.7.4.3")],
     )
 
     with pytest.raises(NonUniqueNameException):
         task = await aiozc.async_register_service(conflicting_info)
         await task
 
-    await aiozc.async_close()
-
 
 @pytest.mark.asyncio
-async def test_async_service_registration_name_does_not_match_type() -> None:
+async def test_async_service_registration_name_does_not_match_type(aiozc: AsyncZeroconf) -> None:
     """Test registering services throws when the name does not match the type."""
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     type_ = "_test-srvc3-type._tcp.local."
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     info.type = "_wrong._tcp.local."
     with pytest.raises(BadTypeInNameException):
         task = await aiozc.async_register_service(info)
         await task
-    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -477,17 +403,8 @@ async def test_async_service_registration_name_strict_check(quick_timing: None) 
     name = "CustomerInformationService-F4D4895E9EEB"
     registration_name = f"{name}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     with pytest.raises(BadTypeInNameException):
         await zc.async_check_service(info, allow_name_change=False)
 
@@ -515,7 +432,7 @@ async def test_async_tasks(quick_timing: None) -> None:
 
     calls = []
 
-    class MyListener(ServiceListener):
+    class EventStore(ServiceListener):
         def add_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("add", type, name))
 
@@ -525,33 +442,17 @@ async def test_async_tasks(quick_timing: None) -> None:
         def update_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
             calls.append(("update", type, name))
 
-    listener = MyListener()
+    listener = EventStore()
     aiozc.zeroconf.add_service_listener(type_, listener)
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     task = await aiozc.async_register_service(info)
     assert isinstance(task, asyncio.Task)
     await task
 
-    new_info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+    new_info = make_service_info(
+        type_, registration_name, properties=desc, addresses=[socket.inet_aton("10.7.4.3")]
     )
     task = await aiozc.async_update_service(new_info)
     assert isinstance(task, asyncio.Task)
@@ -571,25 +472,15 @@ async def test_async_tasks(quick_timing: None) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_wait_unblocks_on_update(quick_timing: None) -> None:
+async def test_async_wait_unblocks_on_update(aiozc: AsyncZeroconf, quick_timing: None) -> None:
     """Test async_wait will unblock on update."""
 
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     type_ = "_test-srvc4-type._tcp.local."
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     task = await aiozc.async_register_service(info)
 
     # Should unblock due to update from the
@@ -603,16 +494,15 @@ async def test_async_wait_unblocks_on_update(quick_timing: None) -> None:
     await aiozc.zeroconf.async_wait(50)
     assert current_time_millis() - now < 1000
 
-    await aiozc.async_close()
-
 
 @pytest.mark.asyncio
-async def test_service_info_async_request(quick_timing: None, quick_request_timing: None) -> None:
+async def test_service_info_async_request(
+    aiozc: AsyncZeroconf, quick_timing: None, quick_request_timing: None
+) -> None:
     """Test registering services broadcasts and query with AsyncServceInfo.async_request."""
     if not has_working_ipv6() or os.environ.get("SKIP_IPV6"):
         pytest.skip("Requires IPv6")
 
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     type_ = "_test1-srvc-type._tcp.local."
     name = "xxxyyy"
     name2 = "abc"
@@ -625,26 +515,14 @@ async def test_service_info_async_request(quick_timing: None, quick_request_timi
     await asyncio.sleep(_LISTENER_TIME / 1000 / 2)
     get_service_info_task2 = asyncio.ensure_future(aiozc.async_get_service_info(type_, registration_name))
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-1.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info2 = ServiceInfo(
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc, server="ash-1.local.")
+    info2 = make_service_info(
         type_,
         registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        "ash-5.local.",
-        addresses=[socket.inet_aton("10.0.1.5")],
+        properties=desc,
+        server="ash-5.local.",
+        addresses=[socket.inet_aton("10.7.4.5")],
     )
     tasks = []
     tasks.append(await aiozc.async_register_service(info))
@@ -653,28 +531,21 @@ async def test_service_info_async_request(quick_timing: None, quick_request_timi
 
     aiosinfo = await get_service_info_task1
     assert aiosinfo is not None
-    assert aiosinfo.addresses == [socket.inet_aton("10.0.1.2")]
+    assert aiosinfo.addresses == [socket.inet_aton("10.7.4.2")]
 
     aiosinfo = await get_service_info_task2
     assert aiosinfo is not None
-    assert aiosinfo.addresses == [socket.inet_aton("10.0.1.2")]
+    assert aiosinfo.addresses == [socket.inet_aton("10.7.4.2")]
 
     aiosinfo = await aiozc.async_get_service_info(type_, registration_name)
     assert aiosinfo is not None
-    assert aiosinfo.addresses == [socket.inet_aton("10.0.1.2")]
+    assert aiosinfo.addresses == [socket.inet_aton("10.7.4.2")]
 
-    new_info = ServiceInfo(
+    new_info = make_service_info(
         type_,
         registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[
-            socket.inet_aton("10.0.1.3"),
-            socket.inet_pton(socket.AF_INET6, "6001:db8::1"),
-        ],
+        properties=desc,
+        addresses=[socket.inet_aton("10.7.4.3"), socket.inet_pton(socket.AF_INET6, "6001:db8::1")],
     )
 
     task = await aiozc.async_update_service(new_info)
@@ -682,20 +553,20 @@ async def test_service_info_async_request(quick_timing: None, quick_request_timi
 
     aiosinfo = await aiozc.async_get_service_info(type_, registration_name)
     assert aiosinfo is not None
-    assert aiosinfo.addresses == [socket.inet_aton("10.0.1.3")]
+    assert aiosinfo.addresses == [socket.inet_aton("10.7.4.3")]
 
     aiosinfo = await aiozc.zeroconf.async_get_service_info(type_, registration_name)
     assert aiosinfo is not None
-    assert aiosinfo.addresses == [socket.inet_aton("10.0.1.3")]
+    assert aiosinfo.addresses == [socket.inet_aton("10.7.4.3")]
 
     aiosinfos = await asyncio.gather(
         aiozc.async_get_service_info(type_, registration_name),
         aiozc.async_get_service_info(type_, registration_name2),
     )
     assert aiosinfos[0] is not None
-    assert aiosinfos[0].addresses == [socket.inet_aton("10.0.1.3")]
+    assert aiosinfos[0].addresses == [socket.inet_aton("10.7.4.3")]
     assert aiosinfos[1] is not None
-    assert aiosinfos[1].addresses == [socket.inet_aton("10.0.1.5")]
+    assert aiosinfos[1].addresses == [socket.inet_aton("10.7.4.5")]
 
     # Drop pending multicast responses queued under the original
     # `info` / `info2` registrations. Their snapshots predate the
@@ -717,7 +588,7 @@ async def test_service_info_async_request(quick_timing: None, quick_request_timi
     with patch("zeroconf.asyncio.AsyncServiceInfo._is_complete", False):
         await aiosinfo.async_request(aiozc.zeroconf, 300)
     assert aiosinfo is not None
-    assert aiosinfo.addresses == [socket.inet_aton("10.0.1.3")]
+    assert aiosinfo.addresses == [socket.inet_aton("10.7.4.3")]
 
     task = await aiozc.async_unregister_service(new_info)
     await task
@@ -726,8 +597,6 @@ async def test_service_info_async_request(quick_timing: None, quick_request_timi
     # waiting the default 3000ms is pure overhead.
     aiosinfo = await aiozc.async_get_service_info(type_, registration_name, timeout=200)
     assert aiosinfo is None
-
-    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -740,7 +609,7 @@ async def test_async_service_browser(quick_timing: None) -> None:
 
     calls = []
 
-    class MyListener(ServiceListener):
+    class EventStore(ServiceListener):
         def add_service(self, aiozc: Zeroconf, type: str, name: str) -> None:
             calls.append(("add", type, name))
 
@@ -750,31 +619,15 @@ async def test_async_service_browser(quick_timing: None) -> None:
         def update_service(self, aiozc: Zeroconf, type: str, name: str) -> None:
             calls.append(("update", type, name))
 
-    listener = MyListener()
+    listener = EventStore()
     await aiozc.async_add_service_listener(type_, listener)
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     task = await aiozc.async_register_service(info)
     await task
-    new_info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.3")],
+    new_info = make_service_info(
+        type_, registration_name, properties=desc, addresses=[socket.inet_aton("10.7.4.3")]
     )
     task = await aiozc.async_update_service(new_info)
     await task
@@ -798,16 +651,7 @@ async def test_async_context_manager(quick_timing: None) -> None:
     registration_name = f"{name}.{type_}"
 
     async with AsyncZeroconf(interfaces=["127.0.0.1"]) as aiozc:
-        info = ServiceInfo(
-            type_,
-            registration_name,
-            80,
-            0,
-            0,
-            {"path": "/~paulsm/"},
-            "ash-2.local.",
-            addresses=[socket.inet_aton("10.0.1.2")],
-        )
+        info = make_service_info(type_, registration_name, properties={"path": "/healthz/"})
         task = await aiozc.async_register_service(info)
         await task
         aiosinfo = await aiozc.async_get_service_info(type_, registration_name)
@@ -815,11 +659,10 @@ async def test_async_context_manager(quick_timing: None) -> None:
 
 
 @pytest.mark.asyncio
-async def test_service_browser_cancel_async_context_manager():
+async def test_service_browser_cancel_async_context_manager(aiozc: AsyncZeroconf) -> None:
     """Test we can cancel an AsyncServiceBrowser with it being used as an async context manager."""
 
     # instantiate a zeroconf instance
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     zc = aiozc.zeroconf
     type_ = "_hap._tcp.local."
 
@@ -837,39 +680,24 @@ async def test_service_browser_cancel_async_context_manager():
 
     assert cast(bool, browser.done) is True
 
-    await aiozc.async_close()
-
 
 @pytest.mark.asyncio
-async def test_async_unregister_all_services(quick_timing: None) -> None:
+async def test_async_unregister_all_services(aiozc: AsyncZeroconf, quick_timing: None) -> None:
     """Test unregistering all services."""
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     type_ = "_test1-srvc-type._tcp.local."
     name = "xxxyyy"
     name2 = "abc"
     registration_name = f"{name}.{type_}"
     registration_name2 = f"{name2}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-1.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
-    info2 = ServiceInfo(
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc, server="ash-1.local.")
+    info2 = make_service_info(
         type_,
         registration_name2,
-        80,
-        0,
-        0,
-        desc,
-        "ash-5.local.",
-        addresses=[socket.inet_aton("10.0.1.5")],
+        properties=desc,
+        server="ash-5.local.",
+        addresses=[socket.inet_aton("10.7.4.5")],
     )
     tasks = []
     tasks.append(await aiozc.async_register_service(info))
@@ -896,8 +724,6 @@ async def test_async_unregister_all_services(quick_timing: None) -> None:
     # Verify we can call again
     await aiozc.async_unregister_all_services()
 
-    await aiozc.async_close()
-
 
 @pytest.mark.asyncio
 async def test_async_zeroconf_service_types(quick_timing: None) -> None:
@@ -906,17 +732,8 @@ async def test_async_zeroconf_service_types(quick_timing: None) -> None:
     registration_name = f"{name}.{type_}"
 
     zeroconf_registrar = AsyncZeroconf(interfaces=["127.0.0.1"])
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
     task = await zeroconf_registrar.async_register_service(info)
     await task
     # Wait for the last announce broadcast before clearing. With
@@ -940,22 +757,18 @@ async def test_async_zeroconf_service_types(quick_timing: None) -> None:
 
 
 @pytest.mark.asyncio
-async def test_guard_against_running_serviceinfo_request_event_loop() -> None:
+async def test_guard_against_running_serviceinfo_request_event_loop(aiozc: AsyncZeroconf) -> None:
     """Test that running ServiceInfo.request from the event loop throws."""
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
-
     service_info = AsyncServiceInfo("_hap._tcp.local.", "doesnotmatter._hap._tcp.local.")
     with pytest.raises(RuntimeError):
         service_info.request(aiozc.zeroconf, 3000)
-    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
-async def test_service_browser_instantiation_generates_add_events_from_cache():
+async def test_service_browser_instantiation_generates_add_events_from_cache(aiozc: AsyncZeroconf) -> None:
     """Test that the ServiceBrowser will generate Add events with the existing cache when starting."""
 
     # instantiate a zeroconf instance
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     zc = aiozc.zeroconf
     type_ = "_hap._tcp.local."
     registration_name = f"xxxyyy.{type_}"
@@ -976,10 +789,10 @@ async def test_service_browser_instantiation_generates_add_events_from_cache():
 
     listener = MyServiceListener()
 
-    desc = {"path": "/~paulsm/"}
-    address_parsed = "10.0.1.2"
+    desc = {"path": "/healthz/"}
+    address_parsed = "10.7.4.2"
     address = socket.inet_aton(address_parsed)
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, "ash-2.local.", addresses=[address])
+    info = make_service_info(type_, registration_name, properties=desc, addresses=[address])
     zc.cache.async_add_records(
         [info.dns_pointer(), info.dns_service(), *info.dns_addresses(), info.dns_text()]
     )
@@ -992,8 +805,6 @@ async def test_service_browser_instantiation_generates_add_events_from_cache():
         ("add", type_, registration_name),
     ]
     await browser.async_cancel()
-
-    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -1027,7 +838,6 @@ async def test_integration(quick_timing: None) -> None:
     packets = []
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT, v6_flow_scope=()):
-        """Sends an outgoing packet."""
         pout = DNSIncoming(out.packets()[0])
         packets.append(pout)
         last_answers = pout.answers()
@@ -1056,16 +866,7 @@ async def test_integration(quick_timing: None) -> None:
         service_removed = asyncio.Event()
 
         browser = AsyncServiceBrowser(zeroconf_browser, type_, [on_service_state_change])
-        info = ServiceInfo(
-            type_,
-            registration_name,
-            80,
-            0,
-            0,
-            {"path": "/~paulsm/"},
-            "ash-2.local.",
-            addresses=[socket.inet_aton("10.0.1.2")],
-        )
+        info = make_service_info(type_, registration_name, properties={"path": "/healthz/"})
         # Wait for the browser's first startup query to land (with an empty
         # cache) before registering — otherwise on fast loopback the register
         # may finish before the first query fires, and answers[0] picks up
@@ -1170,17 +971,8 @@ async def test_info_asking_default_is_asking_qm_questions_after_the_first_qu(qui
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
 
     zeroconf_info.registry.async_add(info)
 
@@ -1191,7 +983,6 @@ async def test_info_asking_default_is_asking_qm_questions_after_the_first_qu(qui
     second_outgoing = None
 
     def send(out, addr=const._MDNS_ADDR, port=const._MDNS_PORT):
-        """Sends an outgoing packet."""
         nonlocal first_outgoing
         nonlocal second_outgoing
         if out.questions:
@@ -1219,11 +1010,10 @@ async def test_info_asking_default_is_asking_qm_questions_after_the_first_qu(qui
 
 
 @pytest.mark.asyncio
-async def test_service_browser_ignores_unrelated_updates():
+async def test_service_browser_ignores_unrelated_updates(aiozc: AsyncZeroconf) -> None:
     """Test that the ServiceBrowser ignores unrelated updates."""
 
     # instantiate a zeroconf instance
-    aiozc = AsyncZeroconf(interfaces=["127.0.0.1"])
     zc = aiozc.zeroconf
     type_ = "_veryuniqueone._tcp.local."
     registration_name = f"xxxyyy.{type_}"
@@ -1244,10 +1034,10 @@ async def test_service_browser_ignores_unrelated_updates():
 
     listener = MyServiceListener()
 
-    desc = {"path": "/~paulsm/"}
-    address_parsed = "10.0.1.2"
+    desc = {"path": "/healthz/"}
+    address_parsed = "10.7.4.2"
     address = socket.inet_aton(address_parsed)
-    info = ServiceInfo(type_, registration_name, 80, 0, 0, desc, "ash-2.local.", addresses=[address])
+    info = make_service_info(type_, registration_name, properties=desc, addresses=[address])
     zc.cache.async_add_records(
         [
             info.dns_pointer(),
@@ -1309,7 +1099,6 @@ async def test_service_browser_ignores_unrelated_updates():
     assert callbacks == [
         ("add", type_, registration_name),
     ]
-    await aiozc.async_close()
 
 
 @pytest.mark.asyncio
@@ -1348,17 +1137,8 @@ async def test_legacy_unicast_response(run_isolated):
     name = "xxxyyy"
     registration_name = f"{name}.{type_}"
 
-    desc = {"path": "/~paulsm/"}
-    info = ServiceInfo(
-        type_,
-        registration_name,
-        80,
-        0,
-        0,
-        desc,
-        "ash-2.local.",
-        addresses=[socket.inet_aton("10.0.1.2")],
-    )
+    desc = {"path": "/healthz/"}
+    info = make_service_info(type_, registration_name, properties=desc)
 
     aiozc.zeroconf.registry.async_add(info)
     query = DNSOutgoing(const._FLAGS_QR_QUERY, multicast=False, id_=888)

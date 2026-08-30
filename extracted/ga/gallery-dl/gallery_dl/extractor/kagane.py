@@ -16,7 +16,7 @@ class KaganeBase():
     """Base class for kagane extractors"""
     category = "kagane"
     root = "https://kagane.to"
-    root_api = "https://yuzuki.kagane.to"
+    root_api = "https://kagane.to"
 
     def _integrity(self):
         return self.request_json(

@@ -13,7 +13,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-"""Logging utilities."""
+"""Logging utilities.
+
+```{todo}
+Let the `-v`/`-q` counter reach beyond the current {class}`LogLevel` range, as
+sketched by the `-vvvv` (trace) and `-q` (silence everything) notes that used
+to live on `_VerbosityOption`:
+
+- a `TRACE` pseudo-level below {attr}`LogLevel.DEBUG` (numeric value `5`,
+  mirroring `logging.DEBUG - 5`) so repeated `-v` can surface finer-grained
+  tracing past `DEBUG`;
+- a `SILENT` pseudo-level above {attr}`LogLevel.CRITICAL` (any value above
+  `logging.CRITICAL`) so repeated `-q` can suppress every record, including
+  {attr}`LogLevel.CRITICAL`.
+
+Both require extending {class}`LogLevel`, which ripples into the `--verbosity`
+{class}`~click_extra.types.EnumChoice`, the {class}`Formatter` level-name color
+lookup and the level-ordering tests. They are intentionally left out of the
+symmetric-counter change that introduced `-q`, where the counter simply clamps
+at `DEBUG`/`CRITICAL`.
+```
+"""
 
 from __future__ import annotations
 
@@ -35,7 +55,8 @@ from boltons.strutils import strip_ansi
 from click.types import IntRange
 
 from . import context
-from .parameters import ExtraOption, last_param, patch_attr
+from ._utils import patch_attr
+from .parameters import ExtraOption, last_param
 from .theme import get_current_theme
 from .types import EnumChoice
 
@@ -404,6 +425,8 @@ class _VerbosityOption(ExtraOption):
       repetition.
     - `--quiet`/`-q` lowers the verbosity, one {class}`LogLevel` step per
       repetition.
+    - `--debug` is `--verbosity DEBUG` under the name people reach for, and
+      outranks all three.
 
     `-v` and `-q` form a single signed counter around the base level:
     `net = (number of -v) - (number of -q)`. The counter is clamped to the
@@ -417,25 +440,6 @@ class _VerbosityOption(ExtraOption):
     `-q` only lowers the *logging* verbosity. It deliberately does not silence
     {func}`click.echo`: a command's primary output is not a diagnostic and stays
     on its stream.
-    ```
-
-    ```{todo}
-    Let the counter reach beyond the current {class}`LogLevel` range, as sketched
-    by the `-vvvv` (trace) and `-q` (silence everything) notes that used to
-    live here:
-
-    - a `TRACE` pseudo-level below {attr}`LogLevel.DEBUG` (numeric value `5`,
-      mirroring `logging.DEBUG - 5`) so repeated `-v` can surface
-      finer-grained tracing past `DEBUG`;
-    - a `SILENT` pseudo-level above {attr}`LogLevel.CRITICAL` (any value above
-      `logging.CRITICAL`) so repeated `-q` can suppress every record,
-      including {attr}`LogLevel.CRITICAL`.
-
-    Both require extending {class}`LogLevel`, which ripples into the
-    `--verbosity` {class}`~click_extra.types.EnumChoice`, the
-    {class}`Formatter` level-name color lookup and the level-ordering tests.
-    They are intentionally left out of the symmetric-counter change that
-    introduced `-q`, where the counter simply clamps at `DEBUG`/`CRITICAL`.
     ```
     """
 
@@ -536,9 +540,7 @@ class _VerbosityOption(ExtraOption):
                     value, _ = option.consume_value(ctx, opts)
                     context.set(ctx, key, value)
 
-        return super().handle_parse_result(  # type: ignore[no-any-return]
-            ctx, opts, args
-        )
+        return super().handle_parse_result(ctx, opts, args)
 
     def get_base_level(self, ctx: click.Context) -> LogLevel:
         """Returns the base level the `-v`/`-q` counter is anchored at.
@@ -561,6 +563,7 @@ class _VerbosityOption(ExtraOption):
         {data}`~click_extra.context.VERBOSE` and
         {data}`~click_extra.context.QUIET`) and folds them with this rule:
 
+        - `--debug` wins outright, naming the loudest level there is;
         - `net = verbose - quiet`;
         - `net == 0`: the `--verbosity` value wins (its default when the user did
           not pass it);
@@ -574,6 +577,13 @@ class _VerbosityOption(ExtraOption):
         up from the default and the loudest request wins), while letting `-q` mirror
         it downwards.
         """
+        # `--debug` asks for the loudest level there is, so no counter and no
+        # `--verbosity` can outrank it. Answered here rather than by writing
+        # VERBOSITY, which would make the winner depend on which option Click
+        # happened to process last.
+        if context.get(ctx, context.DEBUG, False):
+            return LogLevel.DEBUG
+
         base = self.get_base_level(ctx)
         verbosity: LogLevel = context.get(ctx, context.VERBOSITY, base)
         net: int = context.get(ctx, context.VERBOSE, 0) - context.get(
@@ -705,6 +715,56 @@ class VerbosityOption(_VerbosityOption):
             default=default,
             metavar=metavar,
             type=type,
+            help=help,
+            **kwargs,
+        )
+
+
+class DebugOption(_VerbosityOption):
+    """`--debug` flag, a shorthand for `--verbosity DEBUG`.
+
+    The one level people actually reach for by name, so it earns a flag of its
+    own. The quiet end of the scale needs no such thing: `-q` already walks
+    down it, repeatably, and nobody types `--critical` to be told less.
+
+    ```{note}
+    It outranks `--verbosity`, `-v` and `-q` alike rather than joining their
+    arithmetic, because it asks for the loudest level there is and no
+    combination of the other three can ask for more. See
+    {meth}`_VerbosityOption.resolve_level`.
+    ```
+    """
+
+    def set_level(
+        self, ctx: click.Context, param: click.Parameter, value: bool
+    ) -> None:
+        """Record that `--debug` was passed, then reconcile.
+
+        The flag is saved in `ctx.meta[click_extra.context.DEBUG]`, so
+        downstream code can tell a level that came from `--debug` from the same
+        level spelled `--verbosity DEBUG`.
+        """
+        if value:
+            context.set(ctx, context.DEBUG, True)
+        self.apply_verbosity(ctx)
+
+    def __init__(
+        self,
+        param_decls: Sequence[str] | None = None,
+        default_logger: Logger | str = logging.root.name,
+        is_flag=True,
+        default=False,
+        help=_("Shorthand for --verbosity {level}.").format(level=LogLevel.DEBUG),
+        **kwargs,
+    ) -> None:
+        if not param_decls:
+            param_decls = ("--debug",)
+
+        super().__init__(
+            param_decls=param_decls,
+            default_logger=default_logger,
+            is_flag=is_flag,
+            default=default,
             help=help,
             **kwargs,
         )

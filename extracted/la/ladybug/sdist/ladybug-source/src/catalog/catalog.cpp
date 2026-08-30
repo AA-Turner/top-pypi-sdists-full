@@ -1,5 +1,6 @@
 #include "catalog/catalog.h"
 
+#include "binder/ddl/bound_alter_info.h"
 #include "binder/ddl/bound_create_sequence_info.h"
 #include "binder/ddl/bound_create_table_info.h"
 #include "catalog/catalog_entry/function_catalog_entry.h"
@@ -11,6 +12,7 @@
 #include "catalog/catalog_entry/type_catalog_entry.h"
 #include "common/exception/catalog.h"
 #include "common/exception/runtime.h"
+#include "common/partition_routing_hook.h"
 #include "common/serializer/deserializer.h"
 #include "common/serializer/serializer.h"
 #include "extension/extension_manager.h"
@@ -27,6 +29,42 @@ using namespace lbug::transaction;
 
 namespace lbug {
 namespace catalog {
+
+namespace {
+
+// Notify the routing wrapper (if any) that a partition subgraph entry now exists
+// or is about to be dropped, so it can provision/decommission the remote copy.
+// Creation notifications fire for every partition regardless of placement - this is
+// how a wrapper learns about newly provisioned partitions and decides where they
+// live; later locate() calls are answered from the wrapper's own records.
+void notifyPartitionCreated(common::table_id_t parentTableID, uint64_t partitionIndex) {
+    const auto* hooks = common::getPartitionRoutingHooks();
+    if (hooks == nullptr || hooks->onPartitionCreate == nullptr) {
+        return;
+    }
+    common::PartitionHandle handle = nullptr;
+    if (hooks->locate != nullptr) {
+        hooks->locate(hooks->context, common::PartitionRef{parentTableID, partitionIndex}, &handle);
+    }
+    hooks->onPartitionCreate(hooks->context, common::PartitionRef{parentTableID, partitionIndex},
+        handle);
+}
+
+void notifyPartitionDropped(common::table_id_t parentTableID, uint64_t partitionIndex) {
+    const auto* hooks = common::getPartitionRoutingHooks();
+    if (hooks == nullptr || hooks->onPartitionDrop == nullptr) {
+        return;
+    }
+    common::PartitionHandle handle = nullptr;
+    if (hooks->locate != nullptr &&
+        hooks->locate(hooks->context, common::PartitionRef{parentTableID, partitionIndex},
+            &handle)) {
+        hooks->onPartitionDrop(hooks->context, common::PartitionRef{parentTableID, partitionIndex},
+            handle);
+    }
+}
+
+} // namespace
 
 Catalog::Catalog() : version{0} {
     initCatalogSets();
@@ -173,11 +211,33 @@ void Catalog::dropTableEntry(Transaction* transaction, table_id_t tableID) {
 
 void Catalog::dropTableEntry(Transaction* transaction, const TableCatalogEntry* entry) {
     dropSerialSequence(transaction, entry);
+    if (auto* nodeEntry = dynamic_cast<const NodeTableCatalogEntry*>(entry);
+        nodeEntry != nullptr && nodeEntry->isPartitioned()) {
+        // Dropping a partitioned parent drops all of its partition subgraph node tables.
+        // Children may already have been dropped individually by the caller; skip those.
+        for (auto childID : nodeEntry->getChildTableIDs()) {
+            if (!containsTable(transaction, childID)) {
+                continue;
+            }
+            auto* child = getTableCatalogEntry(transaction, childID);
+            dropAllIndexes(transaction, childID);
+            dropSerialSequence(transaction, child);
+            notifyPartitionDropped(nodeEntry->getTableID(),
+                child->ptrCast<NodeTableCatalogEntry>()->getPartitionIndex());
+            if (tables->containsEntry(transaction, child->getName())) {
+                tables->dropEntry(transaction, child->getName(), child->getOID());
+            } else {
+                internalTables->dropEntry(transaction, child->getName(), child->getOID());
+            }
+            dropNodeTableSubgraph(transaction, child->getName());
+        }
+    }
     if (tables->containsEntry(transaction, entry->getName())) {
         tables->dropEntry(transaction, entry->getName(), entry->getOID());
     } else {
         internalTables->dropEntry(transaction, entry->getName(), entry->getOID());
     }
+    dropNodeTableSubgraph(transaction, entry->getName());
 }
 void Catalog::dropMacroEntry(Transaction* transaction, const lbug::common::oid_t macroID) {
     dropMacroEntry(transaction, getScalarMacroCatalogEntry(transaction, macroID));
@@ -188,7 +248,39 @@ void Catalog::dropMacroEntry(Transaction* transaction, const ScalarMacroCatalogE
 }
 
 void Catalog::alterTableEntry(Transaction* transaction, const BoundAlterInfo& info) {
+    // Capture whether the renamed entry is a node table before the rename clears its name.
+    const auto isNodeTable = tables->containsEntry(transaction, info.tableName) &&
+                             tables->getEntry(transaction, info.tableName)->getType() ==
+                                 CatalogEntryType::NODE_TABLE_ENTRY;
     tables->alterTableEntry(transaction, info);
+    if (isNodeTable && info.alterType == AlterType::RENAME) {
+        // Keep the subgraph name in sync with the table name.
+        const auto& renameInfo = info.extraInfo->constPtrCast<BoundExtraRenameTableInfo>();
+        dropNodeTableSubgraph(transaction, info.tableName);
+        createNodeTableSubgraph(transaction, renameInfo->newName);
+        // Partition subgraphs are named <parent>_p<i>; keep them in step with the parent so the
+        // naming invariant survives a rename. Children follow their parent's ID-based links, so
+        // this is cosmetic consistency rather than correctness.
+        auto* renamedEntry = getTableCatalogEntry(transaction, renameInfo->newName);
+        if (renamedEntry->getType() == CatalogEntryType::NODE_TABLE_ENTRY) {
+            auto* nodeEntry = renamedEntry->ptrCast<NodeTableCatalogEntry>();
+            for (auto childID : nodeEntry->getChildTableIDs()) {
+                auto* child =
+                    getTableCatalogEntry(transaction, childID)->ptrCast<NodeTableCatalogEntry>();
+                const auto oldChildName = child->getName();
+                auto childRenameInfo = BoundAlterInfo(AlterType::RENAME, oldChildName,
+                    std::make_unique<BoundExtraRenameTableInfo>(
+                        std::format("{}_p{}", renameInfo->newName, child->getPartitionIndex())),
+                    ConflictAction::ON_CONFLICT_THROW);
+                tables->alterTableEntry(transaction, childRenameInfo,
+                    true /* skipLoggingToWAL: implied by the parent's rename record; replaying
+                            that record re-runs this loop */);
+                dropNodeTableSubgraph(transaction, oldChildName);
+                createNodeTableSubgraph(transaction,
+                    childRenameInfo.extraInfo->constPtrCast<BoundExtraRenameTableInfo>()->newName);
+            }
+        }
+    }
 }
 
 void Catalog::addTableEntry(std::unique_ptr<TableCatalogEntry> entry) {
@@ -559,6 +651,21 @@ CatalogEntry* Catalog::createTableEntry(Transaction* transaction,
     }
 }
 
+void Catalog::createNodeTableSubgraph(Transaction* transaction, const std::string& tableName) {
+    // Skipped in WAL: the table's own create record implies the subgraph, and replay recreates it
+    // through createNodeTableEntry. The undo buffer still tracks it, so a rolled-back CREATE NODE
+    // TABLE also removes the subgraph.
+    graphs->createEntry(transaction, std::make_unique<GraphCatalogEntry>(tableName, false),
+        true /* skipLoggingToWAL */);
+}
+
+void Catalog::dropNodeTableSubgraph(Transaction* transaction, const std::string& tableName) {
+    if (graphs->containsEntry(transaction, tableName)) {
+        graphs->dropEntry(transaction, tableName,
+            graphs->getEntry(transaction, tableName)->getOID());
+    }
+}
+
 CatalogEntry* Catalog::createNodeTableEntry(Transaction* transaction,
     const BoundCreateTableInfo& info) {
     const auto extraInfo = info.extraInfo->constPtrCast<BoundExtraCreateNodeTableInfo>();
@@ -567,11 +674,59 @@ CatalogEntry* Catalog::createNodeTableEntry(Transaction* transaction,
     for (auto& definition : extraInfo->propertyDefinitions) {
         entry->addProperty(definition);
     }
+    if (extraInfo->partitionParentTableID != common::INVALID_TABLE_ID) {
+        // Dynamically created LIST partition child: register the parent link so reads expand
+        // to it and writes can resolve it.
+        entry->setParentInfo(extraInfo->partitionParentTableID, extraInfo->partitionChildIndex);
+    }
     entry->setHasParent(info.hasParent);
     createSerialSequence(transaction, entry.get(), info.isInternal);
     auto catalogSet = info.isInternal ? internalTables.get() : tables.get();
     catalogSet->createEntry(transaction, std::move(entry));
-    return catalogSet->getEntry(transaction, info.tableName);
+    auto* parentEntry = catalogSet->getEntry(transaction, info.tableName);
+    // A node table is itself a subgraph; register it so SHOW_GRAPHS lists it.
+    createNodeTableSubgraph(transaction, info.tableName);
+
+    // PostgreSQL-style partitioning: the logical parent owns the schema but no physical storage.
+    // Each partition is a separate node-table subgraph. Partitions are kept in the same public
+    // catalog set as the parent so they get normal (small) table IDs: several execution-storage
+    // structures index state by table ID, and internal entries carry OIDs near 2^63 which would
+    // otherwise blow those up.
+    if (extraInfo->partitionInfo.has_value()) {
+        auto* parent = parentEntry->ptrCast<NodeTableCatalogEntry>();
+        const auto& partitionInfo = *extraInfo->partitionInfo;
+        auto partitionColumnID = parent->getPropertyID(partitionInfo.columnName);
+        parent->setPartitionInfo(partitionInfo.method, partitionInfo.columnName, partitionColumnID,
+            partitionInfo.numPartitions);
+        // LIST starts with one partition and grows on demand; HASH creates its full set here.
+        // LIST's initial partition keeps the >=1-partition invariant that reads and writes rely
+        // on (partition expansion never yields an empty child set). It stays unkeyed and empty:
+        // rows always route to the partition created for their own key value.
+        const auto numInitialPartitions =
+            partitionInfo.method == binder::BoundPartitionMethod::LIST ?
+                1 :
+                partitionInfo.numPartitions;
+        for (auto i = 0u; i < numInitialPartitions; i++) {
+            auto childName = std::format("{}_p{}", info.tableName, i);
+            auto child = std::make_unique<NodeTableCatalogEntry>(childName,
+                extraInfo->primaryKeyName, extraInfo->storage, extraInfo->storageFormat);
+            for (auto& definition : extraInfo->propertyDefinitions) {
+                child->addProperty(definition.copy());
+            }
+            child->setHasParent(info.hasParent);
+            child->setParentInfo(parent->getTableID(), i);
+            createSerialSequence(transaction, child.get(), info.isInternal);
+            auto childOID = catalogSet->createEntry(transaction, std::move(child));
+            // Each partition subgraph is a node table and therefore its own subgraph.
+            createNodeTableSubgraph(transaction, childName);
+            parent->addChildTableID(childOID);
+            // Let the routing wrapper provision remote storage for this partition.
+            // Renames are not reported: PartitionRef is ID-based and IDs survive
+            // renames.
+            notifyPartitionCreated(parent->getTableID(), i);
+        }
+    }
+    return parentEntry;
 }
 
 void Catalog::createSerialSequence(Transaction* transaction, const TableCatalogEntry* entry,

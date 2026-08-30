@@ -181,6 +181,21 @@ def test_to_dict(case, expected):
 @parametrize(
     "case,expected",
     [
+        ({"a": 1, "b": 2, "c": 3}, [1, 2, 3]),
+        ([1, 2, 3], [1, 2, 3]),
+        ((1, 2), [1, 2]),
+        (1, [1]),
+    ],
+)
+def test_to_list(case, expected):
+    result = _.to_list(case)
+    assert result == expected
+    assert isinstance(result, list)
+
+
+@parametrize(
+    "case,expected",
+    [
         ({"a": 1, "b": 2, "c": 3}, {1: "a", 2: "b", 3: "c"}),
         ([1, 2, 3], {1: 0, 2: 1, 3: 2}),
     ],
@@ -223,12 +238,16 @@ def test_invoke(case, expected):
     [
         ({}, "__globals__"),
         ({}, "__builtins__"),
+        ({}, "__class__"),
         ({}, "a.__globals__.b"),
         ({}, "a.__builtins__.b"),
+        ({}, "a.__class__.b"),
         ([], "__globals__"),
         ([], "__builtins__"),
+        ([], "__class__"),
         ([], "a.__globals__.b"),
         ([], "a.__builtins__.b"),
+        ([], "a.__class__.b"),
     ],
 )
 def test_invoke__raises_for_objects_when_path_restricted(case):
@@ -390,6 +409,7 @@ def test_for_in_right(case, expected):
         (({object: 1}, object), 1),
         (({object: {object: 1}}, [object, object]), 1),
         (({1: {"name": "John Doe"}}, "1.name"), "John Doe"),
+        (({"a": {"": {"b": 1}}}, "a..b"), 1),
         ((helpers.Object(), "[0].field"), None),
     ],
 )
@@ -410,6 +430,10 @@ def test_get__should_not_populate_defaultdict():
         (SomeNamedTuple(1, 2), "__globals__"),
         (helpers.Object(subobj=helpers.Object()), "subobj.__builtins__"),
         (helpers.Object(subobj=helpers.Object()), "__builtins__"),
+        (helpers.Object(), "__class__"),
+        (helpers.Object(), "__name__"),
+        (helpers.Object(subobj=helpers.Object()), "subobj.__dict__"),
+        (helpers.Object(), "__len__"),
     ],
 )
 def test_get__raises_for_objects_when_path_restricted(obj, path):
@@ -422,8 +446,10 @@ def test_get__raises_for_objects_when_path_restricted(obj, path):
     [
         ({}, "__globals__"),
         ({}, "__builtins__"),
+        ({}, "__class__"),
         ([], "__globals__"),
         ([], "__builtins__"),
+        ([], "__class__"),
     ],
 )
 def test_get__does_not_raise_for_dict_or_list_when_path_restricted(obj, path):
@@ -433,9 +459,9 @@ def test_get__does_not_raise_for_dict_or_list_when_path_restricted(obj, path):
 @parametrize(
     "obj,path",
     [
-        (helpers.Object(), "__name__"),
-        (helpers.Object(), "foo.__dict__"),
-        (helpers.Object(), "__len__"),
+        (helpers.Object(), "_name"),
+        (helpers.Object(), "foo._dict"),
+        (helpers.Object(), "_len"),
     ],
 )
 def test_get__does_not_raise_for_objects_when_path_is_unrestricted(obj, path):
@@ -526,7 +552,7 @@ def test_map_values(case, expected):
         (
             (
                 [["value 1", [["value 2", ["value 3"]]]]],
-                lambda value, property_path: (_.join(property_path, ".") + "==" + value),
+                lambda value, property_path: _.join(property_path, ".") + "==" + value,
             ),
             [["0.0==value 1", [["0.1.0.0==value 2", ["0.1.0.1.0==value 3"]]]]],
         ),
@@ -770,6 +796,7 @@ def test_rename_keys(case, expected):
         (([1, 2, [3, 4, [5, 6]]], "[2].[2].[2]", 7), [1, 2, [3, 4, [5, 6, 7]]]),
         (({}, "a.b[0].c", 1), {"a": {"b": [{"c": 1}]}}),
         (({}, "a.b[0][0].c", 1), {"a": {"b": [[{"c": 1}]]}}),
+        (({}, "a..b", 1), {"a": {"": {"b": 1}}}),
         (({}, "a", tuple), {"a": tuple}),
         (({}, r"a.b\.c.d", 1), {"a": {"b.c": {"d": 1}}}),
     ],
@@ -789,14 +816,27 @@ def test_set_on_class_works_the_same_with_string_and_list():
     assert _.set_(a1, "x.a.b", 1).x == _.set_(a2, ["x", "a", "b"], 1).x
 
 
+def test_set__raises_for_objects_when_path_restricted():
+    class User:
+        is_admin = False
+
+    user = User()
+
+    with pytest.raises(KeyError, match="access to restricted key"):
+        _.set_(user, "__class__.is_admin", True)
+
+    assert User.is_admin is False
+    assert User().is_admin is False
+
+
 @parametrize(
     "case,expected",
     [
         (({}, "[0][1]", "a", lambda: {}), {0: {1: "a"}}),
         (({}, "[0][1]", dict, lambda: {}), {0: {1: dict}}),
-        ((Namespace(), "a.b", 5, lambda: Namespace()), Namespace(a=Namespace(b=5))),
+        ((Namespace(), "a.b", 5, lambda: Namespace()), Namespace(a=Namespace(b=5))),  # noqa: PLW0108
         (
-            (Namespace(a=Namespace(b=5)), "a.c.d", 55, lambda: Namespace()),
+            (Namespace(a=Namespace(b=5)), "a.c.d", 55, lambda: Namespace()),  # noqa: PLW0108
             Namespace(a=Namespace(b=5, c=Namespace(d=55))),
         ),
     ],

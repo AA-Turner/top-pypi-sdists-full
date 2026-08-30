@@ -18,6 +18,22 @@ from lintro.utils.path_utils import normalize_file_path_for_display
 # can be flaky with concurrent builds/tags on some local setups.
 os.environ.setdefault("DOCKER_BUILDKIT", "0")
 
+# Session-scoped tool discovery runs before function-scoped fixtures, so the
+# developer's real user-level global config must be excluded at import time.
+os.environ.setdefault("LINTRO_GLOBAL_CONFIG", "off")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_global_config() -> None:
+    """Keep the developer's real user-level global config out of tests.
+
+    Session-scoped so :func:`discover_all_tools` (also session-scoped) never
+    reads the real home global file via plugin trust resolution. Tests that
+    exercise the global tier explicitly re-enable it by deleting
+    ``LINTRO_GLOBAL_CONFIG`` and patching ``Path.home`` to a temp directory.
+    """
+    os.environ["LINTRO_GLOBAL_CONFIG"] = "off"
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _discover_tools() -> None:
@@ -27,6 +43,40 @@ def _discover_tools() -> None:
     the builtin tool definitions and any external plugins.
     """
     discover_all_tools()
+
+
+@pytest.fixture(scope="session")
+def generated_version_artifacts(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
+    """Render the version artifacts from repo sources into a session tmp dir.
+
+    Tests that need rendered ``version`` values read the generator's output
+    directly instead of the checkout's committed copies, so they keep working
+    once the artifacts stop being committed (#2179, epic #2176).
+
+    Args:
+        tmp_path_factory: Pytest session-scoped temp directory factory.
+
+    Returns:
+        Directory containing ``manifest.json`` and ``_generated_versions.py``.
+    """
+    from dataclasses import replace
+
+    from lintro_build.versions.generate import main as generate_versions
+    from lintro_build.versions.paths import GeneratorPaths
+
+    repo_root = Path(__file__).resolve().parents[1]
+    out_dir = tmp_path_factory.mktemp("generated-version-artifacts")
+    paths = replace(
+        GeneratorPaths.from_repo_root(repo_root),
+        manifest_path=out_dir / "manifest.json",
+        generated_path=out_dir / "_generated_versions.py",
+    )
+    rc = generate_versions([], paths=paths)
+    if rc != 0:
+        pytest.fail(f"version-artifact generation failed with exit code {rc}")
+    return out_dir
 
 
 """Shared fixtures used across tests in this repository."""
