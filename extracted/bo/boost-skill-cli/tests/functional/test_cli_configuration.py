@@ -971,8 +971,8 @@ class TestMcp:
         assert isinstance(server_info["version"], str) and server_info["version"]
         tools = by_id[2]["result"]["tools"]
         assert [t["name"] for t in tools] == [
-            "boost_search", "boost_list", "boost_info", "boost_install",
-            "boost_doctor", "boost_discover_github"]
+            "boost_search", "boost_list", "boost_info", "boost_read",
+            "boost_install", "boost_doctor", "boost_discover_github"]
         assert all(t["inputSchema"]["type"] == "object" for t in tools)
 
         def text(id_):
@@ -1344,12 +1344,14 @@ class TestMcp:
         assert "GitHub code search failed" in text
 
     # ── mcp register / unregister ────────────────────────────────────────
-    # boost registers itself with every agent CLI that speaks MCP, and the two
+    # boost registers itself with every agent CLI that speaks MCP, and the
     # grammars disagree on almost every detail: Claude wants
     # `add <name> [options] -- <command>` (its `-e` is variadic, so a name
     # placed after it is swallowed as another env var); Gemini wants
     # `add [options] <name> <commandOrUrl> [args...]` with no `--` (which its
-    # trailing variadic would capture and hand to boost as a literal argument).
+    # trailing variadic would capture and hand to boost as a literal argument);
+    # agy wants flags before the name, a `--` before the command, and has no
+    # scope flag at all (one global file).
     # Every test below captures the argv the fake CLI receives — an argv that
     # is merely plausible fails silently, on someone else's machine.
 
@@ -1388,6 +1390,15 @@ class TestMcp:
                 "-e", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES",
                 "-e", "no_proxy=*",
                 "boost", self._shim(), "mcp", "--stdio"]
+
+    def _agy_add(self):
+        # agy wants `add [flags] <name> [args...]`: flags must precede the
+        # name, and `--` must precede a command whose own args start with `-`,
+        # or `--stdio` is eaten as an agy flag. No scope flag — one global file.
+        return ["agy", "mcp", "add",
+                "-e", "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES",
+                "-e", "no_proxy=*",
+                "boost", "--", self._shim(), "mcp", "--stdio"]
 
     def test_register_seeds_the_catalog_on_an_empty_machine(
             self, boost, sandbox, monkeypatch):
@@ -1470,6 +1481,73 @@ class TestMcp:
         assert "could not reach any default registry" in r.out + r.err
         assert "registered boost as an MCP server" in r.out
 
+    def _clis_with_results(self, monkeypatch, results):
+        """CLIs on PATH, each answering with (returncode, stderr).
+
+        Returns the list of CLI names actually invoked, which is the whole
+        question these tests ask: did the sweep reach the second host?
+        """
+        monkeypatch.setattr(
+            "boost_cli.commands.configuration.shutil.which",
+            lambda c: "/usr/local/bin/" + c if c in results else None)
+        seen = []
+
+        class _P:
+            def __init__(self, rc, err):
+                self.returncode, self.stderr, self.stdout = rc, err, ""
+
+        def fake_run(cmd, **kw):
+            seen.append(cmd[0])
+            return _P(*results[cmd[0]])
+
+        monkeypatch.setattr("boost_cli.commands.configuration.subprocess.run",
+                            fake_run)
+        return seen
+
+    def test_one_host_already_registered_does_not_end_the_sweep(
+            self, boost, sandbox, monkeypatch):
+        # The reported bug: with boost already in Claude, `--host auto` raised
+        # on "already exists" and never reached the second agent. Registering
+        # twice is the state the user asked for, not a failure.
+        seen = self._clis_with_results(monkeypatch, {
+            "claude": (1, "MCP server boost already exists in local config"),
+            "gemini": (0, ""),
+        })
+        r = boost("mcp", "register", "--no-seed")
+        assert seen == ["claude", "gemini"], seen
+        assert "already registered with Claude Code" in r.out
+        assert "registered boost as an MCP server for Gemini CLI" in r.out
+
+    def test_a_real_failure_on_one_host_still_reaches_the_next(
+            self, boost, sandbox, monkeypatch):
+        seen = self._clis_with_results(monkeypatch, {
+            "claude": (1, "connection refused"),
+            "gemini": (0, ""),
+        })
+        r = boost("mcp", "register", "--no-seed")
+        assert seen == ["claude", "gemini"], seen
+        both = r.out + r.err
+        # Named, with the argv to run by hand — and the host that worked still
+        # reported as working.
+        assert "connection refused" in both
+        assert "run it yourself" in both
+        assert "Gemini CLI" in both
+
+    def test_every_installed_host_failing_is_an_error(
+            self, boost, sandbox, monkeypatch):
+        # A partial sweep is a success with a warning; nothing working at all
+        # is not.
+        self._clis_with_results(monkeypatch, {"claude": (1, "boom")})
+        boost("mcp", "register", "--no-seed", expect=1)
+
+    def test_already_is_not_swallowed_for_unregister(
+            self, boost, sandbox, monkeypatch):
+        # "already exists" only means success when registering. On the way out
+        # it would be nonsense, so it stays a failure.
+        self._clis_with_results(monkeypatch,
+                                {"claude": (1, "already exists")})
+        boost("mcp", "unregister", expect=1)
+
     def test_an_unknown_host_fails_before_touching_the_network(
             self, boost, sandbox, monkeypatch):
         # Seeding used to run first, so a typo'd --host spent 14-45s and half
@@ -1549,14 +1627,16 @@ class TestMcp:
         calls = self._fake_clis(monkeypatch)          # no agent CLI on PATH
         r = boost("mcp", "register")
         assert calls == []                            # nothing was run
-        assert "no agent CLI found (looked for: claude, gemini)" in r.out
+        assert "no agent CLI found (looked for: claude, gemini, agy)" in r.out
         assert " ".join(self._claude_add()) in r.out
         assert " ".join(self._gemini_add()) in r.out
+        assert " ".join(self._agy_add()) in r.out
         assert journal.events(action="mcp")[0]["hosts"] == ""
 
         r = boost("mcp", "unregister")
         assert "claude mcp remove boost" in r.out
         assert "gemini mcp remove --scope user boost" in r.out
+        assert "agy mcp remove boost" in r.out
         assert journal.events(action="mcp")[0]["subject"] == "unregister"
 
     def test_explicit_host_registers_only_that_host(self, boost, sandbox,
@@ -1592,12 +1672,14 @@ class TestMcp:
                 "(scope: user)") in r.out
         assert "`gemini` CLI not found — run this yourself:" in r.out
         assert " ".join(self._gemini_add()) in r.out
+        assert "`agy` CLI not found — run this yourself:" in r.out
+        assert " ".join(self._agy_add()) in r.out
 
     def test_unknown_host_rc1(self, boost, sandbox, monkeypatch):
         self._fake_clis(monkeypatch, "claude", "gemini")
         r = boost("mcp", "register", "--host", "bogus", expect=1)
         assert "unknown MCP host 'bogus'" in r.err
-        assert "known hosts: claude, gemini" in r.err
+        assert "known hosts: claude, gemini, agy" in r.err
 
     def test_unregister_uses_each_hosts_grammar(self, boost, sandbox,
                                                 monkeypatch):
@@ -1647,11 +1729,15 @@ class TestMcp:
                             lambda c: "/usr/local/bin/" + c)
         monkeypatch.setattr("boost_cli.commands.configuration.subprocess.run",
                             lambda cmd, **kw: _proc(cmd, 1, err="no auth"))
+        # Every installed host failing is the one case that is still an error;
+        # the failure is now reported per host on stdout, with the argv, rather
+        # than raised out of the loop and killing the sweep.
         r = boost("mcp", "register", expect=1)
-        assert "claude mcp register failed: no auth" in r.err
+        assert "claude mcp register failed — no auth" in r.out
+        assert "run it yourself" in r.out
         # the failing host names itself — not a generic "an agent CLI failed"
         r = boost("mcp", "register", "--host", "gemini", expect=1)
-        assert "gemini mcp register failed: no auth" in r.err
+        assert "gemini mcp register failed — no auth" in r.out
 
 
 # ---------------------------------------------------------------- self-update

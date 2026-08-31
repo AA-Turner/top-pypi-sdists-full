@@ -177,8 +177,8 @@ def _local_worker_forms() -> list:
         pass
     if _LOCAL_WORKER_ID is None:
         try:
-            idf = os.environ.get("WORKER_ID_FILE") or os.path.expanduser(
-                "~/.abstract_hugpy_worker.json")
+            from ..._platform import paths as _hp
+            idf = _hp.worker_id_file()
             with open(idf, "r", encoding="utf-8") as fh:
                 _LOCAL_WORKER_ID = str((json.load(fh) or {}).get("worker_id") or "")
         except Exception:  # noqa: BLE001

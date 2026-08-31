@@ -1,3 +1,4 @@
+use crate::LazyInstance;
 use std::borrow::Cow;
 
 use crate::{
@@ -48,7 +49,7 @@ impl DependenciesValidator {
                 location.clone(),
                 location,
                 Location::new(),
-                Cow::Borrowed(schema),
+                LazyInstance::Ready(Cow::Borrowed(schema)),
                 JsonType::Object,
             ))
         }
@@ -111,11 +112,28 @@ impl<F: Json> Validate<F> for DependenciesValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
+        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+    }
+
+    fn evaluate_with_location(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        instance_location: &Location,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         if let Some(object) = instance.as_object() {
             let mut children = Vec::new();
             for (property, dependency) in &self.dependencies {
                 if object.get(property).is_some() {
-                    children.push(dependency.evaluate_instance(instance, location, tracker, ctx));
+                    children.push(dependency.evaluate_instance_at(
+                        instance,
+                        location,
+                        instance_location,
+                        tracker,
+                        ctx,
+                    ));
                 }
             }
             EvaluationResult::from_children(children)
@@ -147,7 +165,7 @@ impl DependentRequiredValidator {
                             location.clone(),
                             location,
                             Location::new(),
-                            Cow::Borrowed(subschema),
+                            LazyInstance::Ready(Cow::Borrowed(subschema)),
                         ));
                     }
                     let validators =
@@ -167,7 +185,7 @@ impl DependentRequiredValidator {
                         location.clone(),
                         location,
                         Location::new(),
-                        Cow::Borrowed(subschema),
+                        LazyInstance::Ready(Cow::Borrowed(subschema)),
                         JsonType::Array,
                     ));
                 }
@@ -179,7 +197,7 @@ impl DependentRequiredValidator {
                 location.clone(),
                 location,
                 Location::new(),
-                Cow::Borrowed(schema),
+                LazyInstance::Ready(Cow::Borrowed(schema)),
                 JsonType::Object,
             ))
         }
@@ -241,11 +259,28 @@ impl<F: Json> Validate<F> for DependentRequiredValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
+        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+    }
+
+    fn evaluate_with_location(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        instance_location: &Location,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         if let Some(object) = instance.as_object() {
             let mut children = Vec::new();
             for (property, dependency) in &self.dependencies {
                 if object.get(property).is_some() {
-                    children.push(dependency.evaluate_instance(instance, location, tracker, ctx));
+                    children.push(dependency.evaluate_instance_at(
+                        instance,
+                        location,
+                        instance_location,
+                        tracker,
+                        ctx,
+                    ));
                 }
             }
             EvaluationResult::from_children(children)
@@ -279,7 +314,7 @@ impl DependentSchemasValidator {
                 location.clone(),
                 location,
                 Location::new(),
-                Cow::Borrowed(schema),
+                LazyInstance::Ready(Cow::Borrowed(schema)),
                 JsonType::Object,
             ))
         }
@@ -341,11 +376,28 @@ impl<F: Json> Validate<F> for DependentSchemasValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
+        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+    }
+
+    fn evaluate_with_location(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        instance_location: &Location,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         if let Some(object) = instance.as_object() {
             let mut children = Vec::new();
             for (property, dependency) in &self.dependencies {
                 if object.get(property).is_some() {
-                    children.push(dependency.evaluate_instance(instance, location, tracker, ctx));
+                    children.push(dependency.evaluate_instance_at(
+                        instance,
+                        location,
+                        instance_location,
+                        tracker,
+                        ctx,
+                    ));
                 }
             }
             EvaluationResult::from_children(children)

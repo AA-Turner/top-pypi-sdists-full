@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class SlackInviteStatus(BaseModel):
     """
-    Slack Connect invite state exposed on usage/current (MS-1150 contract).  Five states. 'never_attempted' (the automation never ran for this org) is DISTINCT from 'skipped' (the automation ran and declined this user, e.g. gmail on the free signup path) — collapsing them would tell a paying gmail customer 'we skipped you' when the path was actually dormant.
+    Slack Connect invite state exposed on usage/current (contract).  Five states. 'never_attempted' (the automation never ran for this org) is DISTINCT from 'skipped' (the automation ran and declined this user, e.g. gmail on the free signup path) — collapsing them would tell a paying gmail customer 'we skipped you' when the path was actually dormant.
     """ # noqa: E501
     status: Optional[StrictStr] = Field(default='never_attempted', description="never_attempted: no invite attempt recorded for this org. pending: attempt in flight. sent: Slack Connect shared-channel invite delivered (Slack emails the recipient). failed: the attempt errored (nothing delivered). skipped: the automation ran and declined this user.")
     channel_name: Optional[StrictStr] = Field(default=None, description="The per-customer Slack Connect channel name, once known.")

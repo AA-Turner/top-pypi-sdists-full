@@ -38,7 +38,8 @@ class TestCreateTaxonomyRequest(unittest.TestCase):
             return CreateTaxonomyRequest(
                 taxonomy_name = '',
                 description = '',
-                config = None
+                config = None,
+                metadata = { }
             )
         else:
             return CreateTaxonomyRequest(

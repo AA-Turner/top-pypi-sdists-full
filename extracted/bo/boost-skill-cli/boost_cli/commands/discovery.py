@@ -218,12 +218,45 @@ def _hint_stale_taps() -> None:
     price of one stat, and a machine that has never refreshed says nothing at
     all rather than inventing an age.
     """
+    if _hint_stale_shards():
+        return
     age = registry.refresh_age_days()
     if age is None or age < registry.STALE_TAPS_DAYS:
         return
     out.info(out.role(
         "taps last refreshed %d days ago — `boost update --taps-only`"
         % int(age), "muted"))
+
+
+def _hint_stale_shards() -> bool:
+    """Mention un-ingested published vectors. One `stat`, and never a network call.
+
+    The published manifest is ~170 KB, so checking it inline would be cheap —
+    and cheapness is not the argument. Acting on the answer means moving taps
+    and downloading hundreds of megabytes, which cannot happen inside a
+    sub-second search, so the most an inline check could ever produce is this
+    one line: the same line, for the price of a network round trip on every
+    query and unannounced egress at that. The marker's mtime answers it for
+    free, and a machine that has never ingested a shard says nothing rather
+    than inventing an age.
+
+    Returns True when it printed, so the tap-age hint stays quiet. The remedy
+    named here moves the taps as well, and two staleness lines under one set of
+    results is how a hint turns into noise.
+    """
+    from ..core import shards
+    age = shards.sync_age_days()
+    if age is None or age < shards.STALE_SHARDS_DAYS:
+        return False
+    from ..core import dense
+    if not dense.status().get("ready"):
+        # Vectors that are not serving queries cannot be stale in a way the
+        # user can act on; `_hint_semantic_search` owns that conversation.
+        return False
+    out.info(out.role(
+        "prebuilt vectors last refreshed %d days ago — `boost update --shards`"
+        % int(age), "muted"))
+    return True
 
 
 def _hint_semantic_search(engine: str) -> None:
@@ -315,8 +348,12 @@ def _fetch_shards(args) -> int:
                         hint=dense.fix_hint(dense.status().get("reason", "")))
     commits = rag._tap_commits()
     by_name = {t.name: commits.get(t.safe_name, "") for t in registry.list_taps()}
-    results = shards.sync(list(by_name), by_name, manifest=manifest,
-                          on_event=_shard_event)
+    results = shards.sync(
+        list(by_name), by_name, manifest=manifest,
+        # Progress goes to stdout, and so does the JSON: emitting both left
+        # `--json` printing "fetching ..." lines ahead of the document, which
+        # no parser can read past.
+        on_event=None if args.as_json else _shard_event)
     if args.as_json:
         print(json.dumps({"shards": results}, indent=2))
         return 0
@@ -335,6 +372,12 @@ def _fetch_shards(args) -> int:
         out.info(out.role("%d tap(s) without usable vectors: %s"
                           % (len(missing), ", ".join(missing[:5])
                              + (" …" if len(missing) > 5 else "")), "muted"))
+        if any(r["status"] == "refused" for r in results):
+            # A refusal here is almost always "the tap has moved past the
+            # commit these vectors describe", which local embedding is the
+            # expensive answer to and `--shards` is the cheap one: it moves the
+            # tap back onto a published commit instead.
+            out.info("taps that moved past their vectors: `boost update --shards`")
         out.info("embed those locally with `boost reindex --dense`")
     return 0
 
@@ -388,8 +431,8 @@ def cmd_reindex(argv):
         # holds — count, stats, trending, plain search. See the import-budget
         # gate (scripts/import_budget.py).
         from ..core import embed
-        with spin.Spinner("embedding chunks into the dense store"):
-            dense_stats = _reindex_dense(args.force)
+        with spin.Spinner("embedding chunks into the dense store") as sp:
+            dense_stats = _reindex_dense(args.force, spinner=sp)
     if args.as_json:
         print(json.dumps({"bm25": stats, "dense": dense_stats}
                          if args.dense else stats))
@@ -423,8 +466,29 @@ def cmd_reindex(argv):
                          "`boost reindex --dense --force`."
                          % len(dense_stats["reused"]))
             else:
-                out.ok("embedded %d passages (%s) into the dense vector store"
-                       % (dense_stats["chunks"], dense_stats["provider"]))
+                # `chunks` is the store TOTAL, not this run's work, so on an
+                # incremental run "embedded 657,587 passages" described an
+                # afternoon of CPU that did not happen. `added` is what this
+                # run actually paid for.
+                added = dense_stats.get("added", dense_stats["chunks"])
+                out.ok("embedded %d passage%s (%s) — the dense store holds %d"
+                       % (added, "" if added == 1 else "s",
+                          dense_stats["provider"], dense_stats["chunks"]))
+                # The saving the tap-level line cannot show: a tap appears in
+                # `reindexed` the moment its commit moves, so a run that reused
+                # every entry inside three moved taps otherwise reads as three
+                # taps fully re-embedded.
+                kept = dense_stats.get("reused_entries") or 0
+                if kept:
+                    out.info(out.role(
+                        "reused %d unchanged item%s inside %d moved tap%s — "
+                        "only %d item%s changed"
+                        % (kept, "" if kept == 1 else "s",
+                           len(dense_stats["reindexed"]),
+                           "" if len(dense_stats["reindexed"]) == 1 else "s",
+                           dense_stats.get("embedded_entries") or 0,
+                           "" if dense_stats.get("embedded_entries") == 1
+                           else "s"), "muted"))
             if dense_stats.get("quantized"):
                 out.ok("quantized %d existing vectors — dense search no longer "
                        "scans the whole store on every query"
@@ -434,7 +498,44 @@ def cmd_reindex(argv):
     return 0
 
 
-def _reindex_dense(force):
+def _embed_progress(spinner):
+    """A callback that rewrites the spinner's label with real numbers.
+
+    Embedding is the longest thing boost does — tens of thousands of distinct
+    chunks at roughly a second each for a full catalogue — and it ran under a
+    fixed label for hours. "embedding chunks into the dense store" is
+    indistinguishable from a hang, which is exactly how it was reported.
+
+    The rate comes from this run rather than a constant, because the two
+    backends differ by an order of magnitude and a local model's throughput
+    depends on the machine. Until a batch has finished there is nothing to
+    estimate from, so it says the total and nothing else rather than guessing.
+    """
+    started = time.monotonic()
+
+    def report(done: int, total: int) -> None:
+        if spinner is None or not total:
+            return
+        pct = 100.0 * done / total
+        # The bar first, because it is the part that answers the question the
+        # user actually has — "is this moving?" — at a glance, before any of
+        # the digits are read. `spin.bar` is the same determinate bar the rest
+        # of the CLI draws, so this looks like boost rather than like a
+        # second progress convention.
+        label = "embedding %s %d%% · %s/%s chunks" % (
+            spin.bar(done, total, width=16), int(pct),
+            format(done, ","), format(total, ","))
+        elapsed = time.monotonic() - started
+        if done and elapsed > 1:
+            remaining = (total - done) * (elapsed / done)
+            if remaining >= 1:
+                label += " · ~%s left" % util.human_duration(remaining)
+        spinner.label = label
+
+    return report
+
+
+def _reindex_dense(force, spinner=None):
     """Build the dense vector store; returns stats or None when unavailable."""
     # Local import: the dense/embedding engines are opt-in (`search --dense`),
     # so they stay out of startup for every other command in this module.
@@ -447,7 +548,7 @@ def _reindex_dense(force):
     # only what changed. Doing it after would quantize, then write float32 rows
     # into a store that no longer has a float32 table.
     migrated = dense.quantize()
-    stats = dense.build(force=force)
+    stats = dense.build(force=force, on_progress=_embed_progress(spinner))
     if migrated and isinstance(stats, dict):
         stats = stats | {"quantized": migrated["chunks"]}
     return stats

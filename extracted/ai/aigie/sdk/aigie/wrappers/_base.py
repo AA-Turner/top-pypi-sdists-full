@@ -19,11 +19,20 @@ it is true.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 
-from aigie.context_manager import RunContext, get_current_trace_context
+from aigie.context_manager import (
+    RunContext,
+    get_current_span_context,
+    get_current_trace_context,
+    get_parent_context,
+    set_current_span_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +132,123 @@ def record_error(run_ctx: RunContext, error: BaseException) -> None:
     run_ctx.metadata["status"] = "error"
 
 
+def contained(what: str, action: Callable[..., Any], *args: Any) -> None:
+    """Run one piece of *our* span bookkeeping so it cannot become the host's error.
+
+    Instrumentation gets to lose a span; it does not get to replace somebody's
+    exception.
+    """
+    try:
+        action(*args)
+    except Exception as e:  # noqa: BLE001 - a provider can raise anything
+        logger.debug("[wrapper] %s failed: %s", what, e)
+
+
+def new_provider_run_context(
+    name: str,
+    *,
+    span_type: str,
+    metadata: dict[str, Any],
+    tags: list[str],
+) -> RunContext:
+    """Open a span for one provider call, parented to whatever is current."""
+    parent_ctx = get_parent_context()
+    trace_ctx = get_current_trace_context()
+    run_ctx = RunContext(
+        id=str(uuid4()),
+        name=name,
+        type="span",
+        span_type=span_type,
+        parent_id=parent_ctx.id if parent_ctx else (trace_ctx.id if trace_ctx else None),
+        metadata=metadata,
+        tags=tags,
+        start_time=datetime.now(timezone.utc),
+    )
+    # Captured here, not read again at emit. A streamed span is emitted when
+    # iteration ends, which is routinely a different thread - a framework's
+    # threadpool draining a StreamingResponse - and the trace ContextVar does
+    # not cross threads. Reading it there returns nothing and the span invents
+    # a trace of its own while still naming a parent in the real one.
+    run_ctx._aigie_trace_id = str(trace_ctx.id) if trace_ctx else None  # type: ignore[attr-defined]
+    return run_ctx
+
+
+def owning_trace_id(run_ctx: RunContext) -> str:
+    """The trace this span belongs to, or itself when it is the whole story.
+
+    Not `current_trace_id`: `tracing.trace_state` already exports that name with
+    a different signature and a different answer when there is no trace.
+    """
+    captured = getattr(run_ctx, "_aigie_trace_id", None)
+    if captured:
+        return str(captured)
+    trace_ctx = get_current_trace_context()
+    return str(trace_ctx.id) if trace_ctx else run_ctx.id
+
+
+def record_failure(run_ctx: RunContext, error: BaseException) -> None:
+    """Stamp a failed provider call onto the span. Contained; never re-raises."""
+    contained("recording the provider error", record_error, run_ctx, error)
+
+
+def emit_span_now(run_ctx: RunContext) -> None:
+    """Emit `run_ctx` as one finalized span. Contained; never re-raises.
+
+    At most once per span, whoever calls. Two paths can both believe they own
+    the close - a stream that was constructed and then dropped, and the caller
+    that failed to install it - and a span emitted twice is a duplicate on the
+    wire that the judge scores separately.
+    """
+    if getattr(run_ctx, "_aigie_emitted", False):
+        return
+    run_ctx._aigie_emitted = True  # type: ignore[attr-defined]
+    contained(
+        "emitting the span",
+        queue_llm_span_event_sync,
+        run_ctx,
+        owning_trace_id(run_ctx),
+    )
+
+
+@contextmanager
+def opening_stream(run_ctx: RunContext) -> Iterator[None]:
+    """Guard the call that opens a provider stream.
+
+    If it raises, the stream never existed and nothing downstream will close
+    the span - so it is recorded and emitted here. The provider's exception
+    propagates untouched.
+    """
+    try:
+        yield
+    except BaseException as error:
+        record_failure(run_ctx, error)
+        emit_span_now(run_ctx)
+        raise
+
+
+@contextmanager
+def traced_provider_call(run_ctx: RunContext) -> Iterator[RunContext]:
+    """Run one provider call inside `run_ctx`, emitting its span exactly once.
+
+    The body records what came back onto `run_ctx.metadata`; this manager owns
+    span context, status, failure capture and emission, all contained. The
+    provider's exception propagates untouched.
+    """
+    previous = get_current_span_context()
+    contained("entering the span context", set_current_span_context, run_ctx)
+    try:
+        yield run_ctx
+    except BaseException as error:
+        record_failure(run_ctx, error)
+        raise
+    else:
+        # `setdefault`: a caller that already knows better keeps its status.
+        run_ctx.metadata.setdefault("status", "success")
+    finally:
+        emit_span_now(run_ctx)
+        contained("restoring the span context", set_current_span_context, previous)
+
+
 @dataclass(frozen=True)
 class SpanTotals:
     """Token counts and costs for one call, normalized across providers."""
@@ -185,7 +311,7 @@ def build_span_payload(
         "span_id": run_ctx.id,
         "trace_id": trace_id,
         "name": run_ctx.name,
-        "type": "llm",
+        "type": run_ctx.span_type or "llm",
         "start_time": run_ctx.start_time.isoformat()
         if run_ctx.start_time
         else end_time.isoformat(),

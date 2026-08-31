@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from anyio import AsyncContextManagerMixin
 from deprecated.sphinx import versionchanged
@@ -202,15 +202,12 @@ class NodeCommands(AsyncContextManagerMixin):
             multi_result = await self.multi_cmd
             success = multi_result in {b"OK", "OK"}
         if self.request_batch:
-            try:
-                responses = await self.request_batch
-                for command, response in zip(self.commands, responses):
-                    command.result = response
-                    command._response = PipelineResult(response)
-                    if isinstance(response, (ConnectionError, TimeoutError, RedisError)):
-                        success = False
-            except ExecAbortError:
-                raise
+            responses = await self.request_batch
+            for command, response in zip(self.commands, responses):
+                command.result = response
+                command._response = PipelineResult(response)
+                if isinstance(response, (ConnectionError, TimeoutError, RedisError)):
+                    success = False
         if self.in_transaction and self.exec_cmd:
             if success:
                 res = await self.exec_cmd
@@ -251,7 +248,9 @@ class Pipeline(Client[AnyStr]):
     If not the exception is caught and will be returned when awaiting the command that failed.
     """
 
-    QUEUED_RESPONSES = {b"QUEUED", "QUEUED"}
+    connection_scoped_commands: ClassVar[bool] = True
+
+    QUEUED_RESPONSES: ClassVar[set[bytes | str]] = {b"QUEUED", "QUEUED"}
 
     def __init__(
         self,
@@ -270,11 +269,9 @@ class Pipeline(Client[AnyStr]):
         self._connection: BaseConnection | None = None
         self._transaction = transaction
         self._raise_on_error = raise_on_error
-        self.watching = False
+        self._watching: bool = False
         self.command_stack: list[PipelineCommandRequest[Any]] = []
-        self.watches: list[KeyT] = []
         self.cache = None
-        self.explicit_transaction = False
         self.scripts: set[Script[AnyStr]] = set()
         self.timeout = timeout
         self.type_adapter = client.type_adapter
@@ -282,13 +279,17 @@ class Pipeline(Client[AnyStr]):
 
     @asynccontextmanager
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
-        yield self
-        await self._execute()
-        if self._connection:
-            self.client.connection_pool.release(self._connection)
+        try:
+            yield self
+            await self._execute()
+        finally:
+            self._unwatch()
+            if self._connection:
+                self.client.connection_pool.release(self._connection)
+                self._connection = None
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}<{repr(self._connection)}>"
+        return f"{type(self).__name__}<{self._connection!r}>"
 
     def create_request(
         self,
@@ -314,24 +315,26 @@ class Pipeline(Client[AnyStr]):
     async def watch(self, *keys: KeyT) -> AsyncGenerator[None]:
         """
         The given keys will be watched for changes within this context and the
-        commands stacked within the context will be automatically executed when the
-        context exits.
+        commands stacked within the context will be automatically executed when
+        the context exits. On abort, watches are cleared without executing.
         """
         if self.command_stack:
             raise WatchError("Unable to add a watch after pipeline commands have been added")
         if not self._connection:
             self._connection = await self.client.connection_pool.get_connection()
-        self.watches.extend(keys)
         await self._immediate_execute_command(
             self.client.create_request(
                 CommandName.WATCH,
-                *[Key(watch) for watch in self.watches],
+                *[Key(key) for key in keys],
                 callback=SimpleStringCallback(),
             )
         )
-        self.explicit_transaction = True
-        yield
-        await self._execute()
+        self._watching = True
+        try:
+            yield
+            await self._execute()
+        finally:
+            self._unwatch()
 
     @property
     def results(self) -> tuple[Any, ...] | None:
@@ -349,17 +352,24 @@ class Pipeline(Client[AnyStr]):
     ) -> Awaitable[R]:
         raise NotImplementedError
 
+    def _unwatch(self) -> None:
+        if not self._watching:
+            return
+        try:
+            if self._connection and self._connection.usable:
+                # The response is not awaited to make this function safe for finally blocks.
+                # noreply is intentionally not used since this doesn't work for dragonfly :(
+                self._connection.create_request(CommandName.UNWATCH, decode=False)
+        finally:
+            self._watching = False
+
     async def _clear(self) -> None:
         """
         Clear the pipeline and reset state.
         """
         self.command_stack.clear()
         self.scripts.clear()
-        # Reset connection state if we were watching something.
-        if self.watches and self._connection:
-            await self._connection.create_request(CommandName.UNWATCH, decode=False)
-        self.watches.clear()
-        self.explicit_transaction = False
+        self._unwatch()
 
     async def _immediate_execute_command(
         self,
@@ -405,7 +415,7 @@ class Pipeline(Client[AnyStr]):
                 elif isinstance(queued_response, BaseException):
                     raise queued_response
                 else:
-                    raise Exception(
+                    raise ResponseError(
                         f"Abnormal response in pipeline for command {cmd.name!r}: {queued_response!r}"
                     )
         try:
@@ -478,7 +488,9 @@ class Pipeline(Client[AnyStr]):
         if exception:
             cmd = command.decode("latin-1")
             args = " ".join(map(str, args))
-            msg = f"Command # {number} ({cmd} {args}) of pipeline caused error: {str(exception.args[0])}"
+            msg = (
+                f"Command # {number} ({cmd} {args}) of pipeline caused error: {exception.args[0]!s}"
+            )
             exception.args = (msg,) + exception.args[1:]
 
     async def _load_scripts(self) -> None:
@@ -516,7 +528,7 @@ class Pipeline(Client[AnyStr]):
         ):
             if self.scripts:
                 await self._load_scripts()
-            if self._transaction or self.explicit_transaction:
+            if self._transaction or self._watching:
                 exec = self._execute_transaction
             else:
                 exec = self._execute_pipeline
@@ -524,7 +536,7 @@ class Pipeline(Client[AnyStr]):
             try:
                 return await exec(self._connection, self.command_stack)
             except (ConnectionError, TimeoutError) as e:
-                if self.watches:
+                if self._watching:
                     raise WatchError(
                         "A connection error occurred while watching one or more keys"
                     ) from e
@@ -573,8 +585,7 @@ class ClusterPipeline(Client[AnyStr]):
         self._transaction = transaction
         self._watched_node: ClusterNodeLocation | None = None
         self._watched_connection: BaseConnection | None = None
-        self.watches: list[KeyT] = []
-        self.explicit_transaction = False
+        self._watching: bool = False
         self.cache = None
         self.scripts: set[Script[AnyStr]] = set()
         self.timeout = timeout
@@ -583,8 +594,11 @@ class ClusterPipeline(Client[AnyStr]):
 
     @asynccontextmanager
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
-        yield self
-        await self._execute()
+        try:
+            yield self
+            await self._execute()
+        finally:
+            self._unwatch()
 
     def create_request(
         self,
@@ -611,8 +625,8 @@ class ClusterPipeline(Client[AnyStr]):
     async def watch(self, *keys: KeyT) -> AsyncGenerator[None]:
         """
         The given keys will be watched for changes within this context and the
-        commands stacked within the context will be automatically executed when the
-        context exits.
+        commands stacked within the context will be automatically executed when
+        the context exits. On abort, watches are cleared without executing.
         """
         if self.command_stack:
             raise WatchError("Unable to add a watch after pipeline commands have been added")
@@ -621,15 +635,18 @@ class ClusterPipeline(Client[AnyStr]):
                 b"WATCH", *[Key(key) for key in keys], callback=NoopCallback()
             )
         )
-        self.watches.extend(keys)
         async with self.connection_pool.acquire(
             node=self._watched_node
         ) as self._watched_connection:
-            await self._watched_connection.create_request(CommandName.WATCH, *keys)
-            self.explicit_transaction = True
-            yield
-            await self._execute()
-            await self._watched_connection.create_request(CommandName.UNWATCH, decode=False)
+            try:
+                await self._watched_connection.create_request(CommandName.WATCH, *keys)
+                self._watching = True
+                yield
+                await self._execute()
+            finally:
+                self._unwatch()
+        self._watched_connection = None
+        self._watched_node = None
 
     @property
     def results(self) -> tuple[Any, ...] | None:
@@ -647,14 +664,24 @@ class ClusterPipeline(Client[AnyStr]):
     ) -> Awaitable[R]:
         raise NotImplementedError
 
+    def _unwatch(self) -> None:
+        if not self._watching:
+            return
+        try:
+            if self._watched_connection and self._watched_connection.usable:
+                # The response is not awaited to make this function safe for finally blocks.
+                # noreply is intentionally not used since this doesn't work for dragonfly :(
+                self._watched_connection.create_request(CommandName.UNWATCH, decode=False)
+        finally:
+            self._watching = False
+
     async def _clear(self) -> None:
         """
         Clear the pipeline and reset state.
         """
         self.command_stack = []
         self.scripts.clear()
-        self.watches.clear()
-        self.explicit_transaction = False
+        self._unwatch()
 
     def _raise_first_error(self) -> None:
         for c in self.command_stack:
@@ -694,7 +721,7 @@ class ClusterPipeline(Client[AnyStr]):
                 self.client.connection_pool.read_from_replicas
                 and all(cmd.readonly for cmd in self.command_stack)
             )
-            if self._transaction or self.explicit_transaction:
+            if self._transaction or self._watching:
                 execute = self._send_cluster_transaction
             else:
                 execute = self._send_cluster_commands

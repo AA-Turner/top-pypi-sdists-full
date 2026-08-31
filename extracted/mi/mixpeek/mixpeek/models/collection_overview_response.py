@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class CollectionOverviewResponse(BaseModel):
     """
-    Collection overview metrics.  Honesty contract (BACKE-3528 / ADM-07): every field is computed from a real source. A field whose source is not reachable from the analytics service is Optional and returned as None, meaning \"not yet computed here\", never a fabricated 0 or 1.0.
+    Collection overview metrics.  Honesty contract: every field is computed from a real source. A field whose source is not reachable from the analytics service is Optional and returned as None, meaning \"not yet computed here\", never a fabricated 0 or 1.0.
     """ # noqa: E501
     collection_id: StrictStr
     collection_name: StrictStr

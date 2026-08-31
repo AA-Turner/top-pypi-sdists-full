@@ -10,6 +10,7 @@ from typing import Any  # noqa: TID251 — buffer payload is dict[str, Any] by c
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from aigie._status import normalize_status
 from aigie.ingest._pb.kytte.ingest.v1 import ingest_pb2 as _ingest_pb2
 
 # Generated stubs ship without .pyi; alias as Any to silence attr-defined at
@@ -124,7 +125,9 @@ def span_to_proto(payload: dict[str, Any]) -> pb.Span:  # noqa: C901, PLR0915
         span.input_json = _json_or_empty(input_v)
     if (output_v := payload.get("output")) is not None:
         span.output_json = _json_or_empty(output_v)
-    if status := payload.get("status"):
+    # Normalized here rather than at the emitter: this is the last code the span
+    # passes through before the wire, and the gateway drops an undeclared status.
+    if status := normalize_status(payload.get("status")):
         span.status = str(status)
     if tags := payload.get("tags"):
         span.tags.extend(str(t) for t in tags)

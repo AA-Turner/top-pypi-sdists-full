@@ -3,13 +3,15 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypeVar
 
-from backoff._common import _Attempt, _RetryState
+from backoff._common import Attempt, _RetryState
 
 if TYPE_CHECKING:
     import sys
     from collections.abc import AsyncGenerator, Coroutine, Iterable
+    from typing import ParamSpec
 
     from backoff._typing import (
         ContextDetails,
@@ -24,11 +26,6 @@ if TYPE_CHECKING:
         _Predicate,
         _WaitGenerator,
     )
-
-    if sys.version_info >= (3, 10):
-        from typing import ParamSpec
-    else:
-        from typing_extensions import ParamSpec
 
     if sys.version_info >= (3, 11):
         from typing import Unpack
@@ -76,26 +73,27 @@ async def _call_handlers(
         "kwargs": kwargs,
         "tries": tries,
         "elapsed": elapsed,
+        **extra,
     }
-    # pyrefly: ignore [no-matching-overload]
-    details.update(extra)
     for handler in handlers:
         await handler(details)
 
 
 def retry_predicate(
-    target: Callable[P, T],
+    target: Callable[P, Coroutine[object, object, T]],
     wait_gen: _WaitGenerator,
     predicate: _Predicate[T],
     *,
     max_tries: _MaybeCallable[int] | None,
     max_time: _MaybeCallable[float] | None,
     jitter: _Jitterer | None,
+    on_try: Iterable[_Handler],
     on_success: Iterable[_Handler],
     on_backoff: Iterable[_Handler],
     on_giveup: Iterable[_Handler],
     wait_gen_kwargs: dict[str, Any],
-) -> Callable[P, T]:
+) -> Callable[P, Coroutine[object, object, T]]:
+    on_try = _ensure_coroutines(on_try)
     on_success = _ensure_coroutines(on_success)
     on_backoff = _ensure_coroutines(on_backoff)
     on_giveup = _ensure_coroutines(on_giveup)
@@ -116,14 +114,16 @@ def retry_predicate(
         )
         while True:
             state.start_attempt()
-            ret = await target(*args, **kwargs)
             details: _BaseDetails = {
                 "target": target,
                 "args": args,
                 "kwargs": kwargs,
                 "tries": state.tries,
-                "elapsed": state.record_elapsed(),
+                "elapsed": state.elapsed,
             }
+            await _call_handlers(on_try, **details)
+            ret = await target(*args, **kwargs)
+            details["elapsed"] = state.record_elapsed()
 
             if predicate(ret):
                 if state.exhausted():
@@ -154,7 +154,7 @@ def retry_predicate(
 
         return ret
 
-    return retry  # type: ignore[return-value] # ty:ignore[invalid-return-type]
+    return retry
 
 
 def _adapt_context_handlers(
@@ -177,7 +177,7 @@ def _adapt_context_handlers(
 
 
 def retry_exception(
-    target: Callable[P, T],
+    target: Callable[P, Coroutine[object, object, T]],
     wait_gen: _WaitGenerator,
     exception: _MaybeTuple[type[Exception]],
     *,
@@ -185,12 +185,14 @@ def retry_exception(
     max_time: _MaybeCallable[float] | None,
     jitter: _Jitterer | None,
     giveup: _Predicate[Exception],
+    on_try: Iterable[_Handler],
     on_success: Iterable[_Handler],
     on_backoff: Iterable[_Handler],
     on_giveup: Iterable[_Handler],
     raise_on_giveup: bool,
     wait_gen_kwargs: dict[str, Any],
-) -> Callable[P, T]:
+) -> Callable[P, Coroutine[object, object, T]]:
+    on_try = _ensure_coroutines(on_try)
     on_success = _ensure_coroutines(on_success)
     on_backoff = _ensure_coroutines(on_backoff)
     on_giveup = _ensure_coroutines(on_giveup)
@@ -214,6 +216,7 @@ def retry_exception(
             max_time=max_time,
             jitter=jitter,
             giveup=giveup,
+            on_try=_adapt_context_handlers(on_try, target, args, kwargs),
             on_success=_adapt_context_handlers(on_success, target, args, kwargs),
             on_backoff=_adapt_context_handlers(on_backoff, target, args, kwargs),
             on_giveup=_adapt_context_handlers(on_giveup, target, args, kwargs),
@@ -221,11 +224,11 @@ def retry_exception(
             wait_gen_kwargs=wait_gen_kwargs,
         ):
             with attempt:
-                ret = await target(*args, **kwargs)  # type: ignore[misc] # ty:ignore[invalid-await]
+                ret = await target(*args, **kwargs)
 
         return ret
 
-    return retry  # type: ignore[return-value] # ty:ignore[invalid-return-type]
+    return retry
 
 
 async def _dispatch_handlers(
@@ -243,12 +246,13 @@ async def aretry_context(
     max_time: _MaybeCallable[float] | None,
     jitter: _Jitterer | None,
     giveup: _Predicate[BaseException],
+    on_try: Iterable[_ContextHandler],
     on_success: Iterable[_ContextHandler],
     on_backoff: Iterable[_ContextHandler],
     on_giveup: Iterable[_ContextHandler],
     raise_on_giveup: bool,
     wait_gen_kwargs: dict[str, Any],
-) -> AsyncGenerator[_Attempt, None]:
+) -> AsyncGenerator[Attempt, None]:
     giveup = _ensure_coroutine(giveup)
 
     state = _RetryState(
@@ -259,7 +263,12 @@ async def aretry_context(
     )
     while True:
         state.start_attempt()
-        attempt = _Attempt(exception)
+        attempt = Attempt(exception)
+        await _dispatch_handlers(
+            handlers=on_try,
+            tries=state.tries,
+            elapsed=state.elapsed,
+        )
         yield attempt
         elapsed = state.record_elapsed()
 

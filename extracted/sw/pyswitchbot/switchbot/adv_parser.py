@@ -898,6 +898,18 @@ SUPPORTED_TYPES: dict[str | bytes, SwitchbotSupportedType] = {
         "func": process_wolock_pro,
         "manufacturer_id": 2409,
     },
+    b"\x00\x11\x9f\xb8": {
+        "modelName": SwitchbotModel.LOCK_ULTRA_MAX,
+        "modelFriendlyName": "Lock Ultra Max",
+        "func": process_lock2,
+        "manufacturer_id": 2409,
+    },
+    b"\x01\x11\x9f\xb8": {
+        "modelName": SwitchbotModel.LOCK_ULTRA_MAX,
+        "modelFriendlyName": "Lock Ultra Max",
+        "func": process_lock2,
+        "manufacturer_id": 2409,
+    },
     b"\x00\x11\x07\x60": {
         "modelName": SwitchbotModel.STANDING_FAN,
         "modelFriendlyName": "Standing Fan",

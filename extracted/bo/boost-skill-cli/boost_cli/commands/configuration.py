@@ -1169,6 +1169,47 @@ def _tool_info(args: dict):
     return "\n".join(lines), False
 
 
+def _tool_read(args: dict):
+    """`boost_read` — the item's own text, so an agent can look before it acts.
+
+    The gap this closes: ``boost_info`` returns the same one-line description
+    ``boost_search`` already returned, so an agent deciding whether a procedure
+    is worth adopting had one sentence written by whoever published it, and its
+    only route to the actual steps was to install into the user's real
+    ``~/.agents/skills`` and read it off disk. That inverts the surface's own
+    pitch — ``boost_search`` spends 10-15 s of rerank so the top result is worth
+    acting on, and then nothing let the agent look at it.
+
+    The body is also the only thing separating a written skill from a generated
+    stub, and the catalogue holds both: two ranked hits share the description
+    "To optimize **Skill**, we enforce the following foundational rules:" — an
+    unfilled template — and ``superpowers-lab`` is an 868-byte SKILL.md whose
+    Instructions section is its own name echoed back. Both index, rank and
+    render exactly like real results. The eval gate cannot catch it either:
+    ``golden.jsonl`` grades by *name*, and a stub matches its own name
+    perfectly.
+
+    Read-only, and that is the whole point rather than a side note — this is
+    the tool that exists so an agent does *not* have to install to look, so it
+    must never become a second install path. It reuses ``boost cat``'s
+    resolution (``info._resolve_text``): the installed copy when there is one,
+    the tap source otherwise, with the same integrity and quarantine rules. A
+    second resolver would be a second opinion about what "this item" means,
+    disagreeing with the tool it is advising about.
+
+    ``cat`` rather than ``explain``: cat is offline, deterministic and free,
+    while ``explain`` goes through ``core/ai.py`` and costs seconds plus a key.
+    The cheap answer must not sit behind the expensive one's latency — the same
+    reason ``boost_list`` never reads the catalog.
+    """
+    from . import info
+    name = str(args.get("name", ""))
+    if not name.strip():
+        return "boost_read needs a name — pass one as boost_search returned it", True
+    text, kind, lock, _cat = info._resolve_text(name)
+    return mcp.read_reply(name, text, kind=kind, installed=lock is not None), False
+
+
 def _tool_install(args: dict):
     entry = catalog.resolve_one(str(args.get("name", "")))
     res = store.install(entry)
@@ -1369,19 +1410,54 @@ REGISTRY.register(
     _tool_list)
 REGISTRY.register(
     "boost_info",
-    "The whole picture of one skill, rule or workflow by name — what it does, "
-    "its kind, the tap it came "
-    "from, its version, and whether it is already installed — so you can "
-    "commit or move on without guessing. Reach for it when a name arrives from "
-    "somewhere else: a teammate, a README, a repo you are reading. You do not "
-    "need this between a search and an install — boost_search already returns "
-    "each match's kind and description.",
+    # This used to promise "the whole picture" and return five fields, one of
+    # which — description — is byte-identical to the one-liner boost_search
+    # already returned. So the tool added `installed: no`, which the search
+    # reply already marks, to an agent that had been told to expect what the
+    # item does. An overstated description costs a wasted call and teaches an
+    # agent to discount the rest of the surface, which is the expensive half.
+    # It now says what it returns (status and provenance) and names the tool
+    # that returns the body.
+    "Where one skill, rule or workflow came from, by name, and whether it is "
+    "already here — its kind, tap, version, install state, and which agents "
+    "it reached. It is the STATUS of an item, not its contents: the description "
+    "it echoes is the same one-liner boost_search returned, so to read what "
+    "the item actually says, call boost_read. Reach for boost_info when a "
+    "name arrives from somewhere else — a teammate, a README, a repo you are "
+    "reading — and you need to know whether this machine already has it. You "
+    "do not need this between a search and an install: boost_search already "
+    "returns each match's kind, description and installed marker.",
     {"type": "object",
      "properties": {"name": {"type": "string",
                              "description": "the item's name, as boost_search "
                              "or boost_list returned it"}},
      "required": ["name"]},
     _tool_info)
+REGISTRY.register(
+    "boost_read",
+    "Read the actual procedure before you commit to it — the item's own text, "
+    "not its one-line description. This is the tool that makes looking cheaper "
+    "than installing: without it the only way to see what a skill actually "
+    "says is to install it into the user's machine and read it off disk, which "
+    "is a change to their setup made in order to answer a question. Reach for "
+    "it on the top hit from boost_search before boost_install, and whenever a "
+    "one-liner is doing more selling than describing. What you are checking "
+    "for is specific: the catalogue is indexed rather than reviewed, so it "
+    "holds unfilled templates and stubs that echo their own name back, and "
+    "those rank and render exactly like a procedure someone debugged. The body "
+    "is the only thing that tells them apart. Read-only and offline — it "
+    "installs nothing, changes nothing, and unlike boost_search costs no "
+    "rerank, so it is fast. Long items are truncated at a stated character "
+    "count and the reply says so and names the command that returns the rest; "
+    "a body that arrives whole is whole.",
+    {"type": "object",
+     "properties": {"name": {"type": "string",
+                             "description": "the item's name, as boost_search "
+                             "or boost_list returned it; qualify with the tap "
+                             "(\"owner/repo:name\") when the same name exists "
+                             "in more than one"}},
+     "required": ["name"]},
+    _tool_read)
 REGISTRY.register(
     "boost_install",
     "Turn a skill you found with boost_search into permanent capability: copied "
@@ -1450,30 +1526,46 @@ def _mcp_tool(tool: str, args: dict):
     return REGISTRY.call(tool, args)
 
 
-def _run_mcp_host(host: str, action: str, cmd) -> bool:
-    """Run one host's register/unregister argv. True if it actually ran.
+#: Substrings an agent CLI uses to say "this server is already registered".
+#: Registering twice is not a failure — it is the state the user asked for —
+#: and treating it as one is what made `--host auto` abort on host one and
+#: never reach host two on any machine where boost was already in Claude.
+_ALREADY = ("already exists", "already registered", "already configured")
 
-    A host whose CLI is not installed is *not* an error — most machines have
-    one agent CLI, not all of them — so the argv is printed for the user to run
-    later and the caller moves on to the next host. A CLI that is present and
-    fails is a real error and raises.
+
+def _run_mcp_host(host: str, action: str, cmd) -> tuple[str, str]:
+    """Run one host's register/unregister argv.
+
+    Returns ``(status, detail)`` where status is:
+
+    * ``"ran"``      — the CLI ran and succeeded;
+    * ``"already"``  — it reported the server is already in the state asked
+      for, which is success with a different wording;
+    * ``"missing"``  — the CLI is not installed. Not an error: most machines
+      have one agent CLI, not all of them;
+    * ``"failed"``   — it is installed and something else went wrong.
+
+    It **returns** rather than raises so one host cannot end the sweep. That
+    was the bug: a present CLI exiting non-zero raised straight out of the
+    loop, so with boost already registered in Claude, `--host auto` died on
+    "already exists" and never reached the second agent.
     """
     exe = mcphost.cli(host)
     if not shutil.which(exe):
-        return False
+        return "missing", ""
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired) as e:
-        raise BoostError("%s mcp %s failed: %s" % (exe, action, e),
-                        hint="run it yourself: " + " ".join(cmd)) from e
+        return "failed", str(e)
     for ln in (proc.stdout or "").strip().splitlines():
         out.info(ln)
-    if proc.returncode != 0:
-        tail = (proc.stderr or "").strip().splitlines()
-        raise BoostError("%s mcp %s failed: %s"
-                        % (exe, action, tail[-1] if tail else "unknown error"),
-                        hint="run it yourself: " + " ".join(cmd))
-    return True
+    if proc.returncode == 0:
+        return "ran", ""
+    blob = ((proc.stderr or "") + (proc.stdout or "")).lower()
+    if action == "register" and any(k in blob for k in _ALREADY):
+        return "already", ""
+    tail = (proc.stderr or "").strip().splitlines()
+    return "failed", tail[-1] if tail else "unknown error"
 
 
 def _seed_catalog_for_mcp(force: bool) -> None:
@@ -1627,11 +1719,18 @@ def cmd_mcp(argv) -> int:
     # `all`) always reports it, so a user setting up a machine can see the argv
     # for an agent CLI they have not installed yet.
     explicit = args.host not in (None, "", "auto")
-    done, missing = [], []
+    done, already, missing, failed = [], [], [], {}
     for host in targets:
         cmd = mcphost.argv(host, args.action, shim)
-        if _run_mcp_host(host, args.action, cmd):
+        status, detail = _run_mcp_host(host, args.action, cmd)
+        if status == "ran":
             done.append(host)
+        elif status == "already":
+            already.append(host)
+        elif status == "failed":
+            # Collected, not raised: the next host is a different agent on a
+            # different config file and has nothing to do with this failure.
+            failed[host] = detail
         else:
             missing.append(host)
             if explicit:
@@ -1641,9 +1740,28 @@ def cmd_mcp(argv) -> int:
 
     verb = "register" if args.action == "register" else "unregister"
     for host in done:
-        out.ok("%sed boost as an MCP server for %s (scope: user)"
-               % (verb, mcphost.label(host)))
-    if not done:
+        # agy has no scopes — one global file — so claiming "(scope: user)"
+        # would describe a distinction its CLI does not have.
+        scope_note = " (scope: user)" if mcphost.has_scope(host) else ""
+        out.ok("%sed boost as an MCP server for %s%s"
+               % (verb, mcphost.label(host), scope_note))
+    for host in already:
+        out.ok("already registered with %s — nothing to do"
+               % mcphost.label(host))
+    for host, detail in failed.items():
+        out.warn("%s: %s mcp %s failed — %s"
+                 % (mcphost.label(host), mcphost.cli(host), args.action,
+                    detail))
+        out.info(out.role("run it yourself: %s"
+                          % " ".join(mcphost.argv(host, args.action, shim)),
+                          "muted"))
+    settled = done + already
+    if not settled:
+        if failed:
+            # Every installed CLI failed. That is a real error — but only after
+            # each one has been tried and named.
+            journal.log("mcp", args.action, hosts="")
+            return 1
         # Nothing ran. Under `auto` nothing has been printed yet, so say which
         # CLIs were looked for rather than exiting silently on success.
         if not explicit:
@@ -1654,8 +1772,10 @@ def cmd_mcp(argv) -> int:
         journal.log("mcp", args.action, hosts="")
         return 0
     if args.action == "register":
-        _offer_boost_first(done)
-    journal.log("mcp", args.action, hosts=",".join(done))
+        _offer_boost_first(settled)
+    journal.log("mcp", args.action, hosts=",".join(settled))
+    # Same rule as `boost update` across taps: a partial sweep is a success
+    # with a warning, because the hosts that worked really did work.
     return 0
 
 

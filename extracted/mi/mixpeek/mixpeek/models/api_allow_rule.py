@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class ApiAllowRule(BaseModel):
     """
-    One per-app /api proxy allowlist rule (BACKE-3360 / GCA-108).  Each rule WIDENS the deny-by-default fleet allowlist for a single app: the canvas /api proxy lets the app proxy requests matching ``pattern`` with one of ``methods``. Absent api_allow means the fleet default allowlist only.
+    One per-app /api proxy allowlist rule.  Each rule WIDENS the deny-by-default fleet allowlist for a single app: the canvas /api proxy lets the app proxy requests matching ``pattern`` with one of ``methods``. Absent api_allow means the fleet default allowlist only.
     """ # noqa: E501
     methods: Optional[List[StrictStr]] = Field(default=None, description="HTTP methods this rule allows (e.g. ['GET', 'POST']).")
     pattern: StrictStr = Field(description="URL path pattern the app may proxy (e.g. '/v1/retrievers/*/execute').")

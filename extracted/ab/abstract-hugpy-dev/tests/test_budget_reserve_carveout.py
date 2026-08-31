@@ -88,15 +88,32 @@ def test_fit_plan_fallback_applies_the_same_carve_out(clean_env):
     assert plan["budget_sources"]["effective_gib"] == 50.0
 
 
-def test_fit_plan_free_space_floor_is_a_second_check(clean_env):
+def test_fit_plan_disk_free_floor_drives_eviction(clean_env):
     # Under the ceiling (10 + 20 <= 50) but the real volume would dip below the
-    # reserve -> refuse, never evict.
+    # reserve. The CALLED MODEL WINS (operator, 2026-08-31): the disk-free
+    # deficit routes into the SAME FIFO, so the oldest model is EVICTED to make
+    # physical room rather than the pull being refused.
+    #   cap = 100 - 50 = 50; cap_deficit = 10+20-50 = 0 (under ceiling)
+    #   disk_deficit = (reserve 50 + delta 20) - free 60 = 10 GiB
+    #   cold is 10 GiB -> freed 10 >= must_free 10 -> evict.
     storage = {"cache_used_bytes": 10 * GIB, "disk_free": 60 * GIB,
                "models": [_m("cold", 10)]}
     plan = B.fit_plan("new", 20 * GIB, storage, {"disk_cache_gib": 100}, {"cold": 1})
+    assert plan["action"] == "evict" and plan["evict"] == ["cold"]
+
+
+def test_fit_plan_refuses_only_when_disk_full_and_nothing_reclaimable(clean_env):
+    # Same disk-free block, but the only model on disk is PROTECTED (loaded), so
+    # a full FIFO frees nothing. THIS is the genuine physical floor — the Errno
+    # 28 guard — and it still refuses honestly, naming the disk as the cause.
+    hot = _m("hot", 10)
+    hot["loaded"] = True
+    storage = {"cache_used_bytes": 10 * GIB, "disk_free": 60 * GIB, "models": [hot]}
+    plan = B.fit_plan("new", 20 * GIB, storage, {"disk_cache_gib": 100}, {"hot": 1})
     assert plan["action"] == "refuse" and plan["evict"] == []
     assert plan["reason"]["disk_reserve_bytes"] == 50 * GIB
-    assert "volume" in plan["reason"]["reason"]
+    assert plan["reason"]["disk_deficit_bytes"] == 10 * GIB
+    assert "volume physically full" in plan["reason"]["reason"]
 
 
 # ── central: same ceiling, same sources ──────────────────────────────────────

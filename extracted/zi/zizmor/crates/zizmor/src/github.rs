@@ -26,7 +26,8 @@ use tracing::instrument;
 
 use crate::{
     CollectionOptions,
-    registry::input::{CollectionError, InputGroup, InputKey, InputKind, RepoSlug},
+    models::repo_ref::Slug,
+    registry::input::{CollectionError, InputGroup, InputKey, InputKind, InputSlug},
     utils::ZIZMOR_AGENT,
 };
 
@@ -146,7 +147,7 @@ pub(crate) enum ClientError {
     #[error("couldn't list branches for {owner}/{repo}")]
     ListBranches {
         #[source]
-        source: Box<ClientError>,
+        source: Box<Self>,
         owner: String,
         repo: String,
     },
@@ -154,7 +155,7 @@ pub(crate) enum ClientError {
     #[error("couldn't list tags for {owner}/{repo}")]
     ListTags {
         #[source]
-        source: Box<ClientError>,
+        source: Box<Self>,
         owner: String,
         repo: String,
     },
@@ -167,7 +168,7 @@ pub(crate) enum ClientError {
     RepoMissingOrPrivate { owner: String, repo: String },
     /// Any of the errors above, wrapped from concurrent contexts.
     #[error(transparent)]
-    Inner(#[from] Arc<ClientError>),
+    Inner(#[from] Arc<Self>),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -243,6 +244,35 @@ impl<T: CacheManager> reqwest_middleware::Middleware for ChainedCache<T> {
 struct RemoteHead {
     name: String,
     oid: String,
+}
+
+/// A branch ("head") or tag reference.
+pub(crate) enum Ref {
+    Branch(Branch),
+    Tag(Tag),
+}
+
+impl Ref {
+    pub(crate) fn kind(&self) -> &'static str {
+        match self {
+            Self::Branch(_) => "branch",
+            Self::Tag(_) => "tag",
+        }
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        match self {
+            Self::Branch(branch) => &branch.name,
+            Self::Tag(tag) => &tag.name,
+        }
+    }
+
+    pub(crate) fn commit(&self) -> &str {
+        match self {
+            Self::Branch(branch) => &branch.commit.sha,
+            Self::Tag(tag) => &tag.commit.sha,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -359,9 +389,9 @@ impl Client {
             .build()
     }
 
-    async fn list_refs(&self, owner: &str, repo: &str) -> Result<Vec<RemoteHead>, ClientError> {
+    async fn list_refs(&self, slug: &Slug<'_>) -> Result<Vec<RemoteHead>, ClientError> {
         let url = format!(
-            "https://{host}/{owner}/{repo}.git/git-upload-pack",
+            "https://{host}/{slug}.git/git-upload-pack",
             host = self.host
         );
 
@@ -400,8 +430,8 @@ impl Client {
                     // false negatives.
                     Err(e) if e.status() == Some(StatusCode::NOT_FOUND) => {
                         Err(ClientError::RepoMissingOrPrivate {
-                            owner: owner.to_string(),
-                            repo: repo.to_string(),
+                            owner: slug.owner().to_string(),
+                            repo: slug.repo().to_string(),
                         })
                     }
                     Err(e) => Err(e.into()),
@@ -434,12 +464,8 @@ impl Client {
         }
     }
 
-    async fn list_branches_internal(
-        &self,
-        owner: &str,
-        repo: &str,
-    ) -> Result<Vec<Branch>, ClientError> {
-        self.list_refs(owner, repo)
+    async fn list_branches_internal(&self, slug: &Slug<'_>) -> Result<Vec<Branch>, ClientError> {
+        self.list_refs(slug)
             .await
             .map(|v| {
                 v.iter()
@@ -455,22 +481,18 @@ impl Client {
             })
             .map_err(|e| ClientError::ListBranches {
                 source: e.into(),
-                owner: owner.to_string(),
-                repo: repo.to_string(),
+                owner: slug.owner().to_string(),
+                repo: slug.repo().to_string(),
             })
     }
 
     #[instrument(skip(self))]
-    pub(crate) async fn list_branches(
-        &self,
-        owner: &str,
-        repo: &str,
-    ) -> Result<Vec<Branch>, ClientError> {
-        self.list_branches_internal(owner, repo).await
+    pub(crate) async fn list_branches(&self, slug: &Slug<'_>) -> Result<Vec<Branch>, ClientError> {
+        self.list_branches_internal(slug).await
     }
 
-    async fn list_tags_internal(&self, owner: &str, repo: &str) -> Result<Vec<Tag>, ClientError> {
-        self.list_refs(owner, repo)
+    async fn list_tags_internal(&self, slug: &Slug<'_>) -> Result<Vec<Tag>, ClientError> {
+        self.list_refs(slug)
             .await
             .map(|v| {
                 let mut tags: Vec<_> = v
@@ -505,66 +527,66 @@ impl Client {
             })
             .map_err(|e| ClientError::ListTags {
                 source: e.into(),
-                owner: owner.to_string(),
-                repo: repo.to_string(),
+                owner: slug.owner().to_string(),
+                repo: slug.repo().to_string(),
             })
     }
 
     #[instrument(skip(self))]
-    pub(crate) async fn list_tags(&self, owner: &str, repo: &str) -> Result<Vec<Tag>, ClientError> {
-        self.list_tags_internal(owner, repo).await
+    pub(crate) async fn list_tags(&self, slug: &Slug<'_>) -> Result<Vec<Tag>, ClientError> {
+        self.list_tags_internal(slug).await
     }
 
     #[instrument(skip(self))]
     pub(crate) async fn has_branch(
         &self,
-        owner: &str,
-        repo: &str,
+        slug: &Slug<'_>,
         branch: &str,
     ) -> Result<bool, ClientError> {
         Ok(self
-            .list_branches_internal(owner, repo)
+            .list_branches_internal(slug)
             .await?
             .iter()
             .any(|branch_ref| branch_ref.name == branch))
     }
 
     #[instrument(skip(self))]
-    pub(crate) async fn has_tag(
-        &self,
-        owner: &str,
-        repo: &str,
-        tag: &str,
-    ) -> Result<bool, ClientError> {
+    pub(crate) async fn has_tag(&self, slug: &Slug<'_>, tag: &str) -> Result<bool, ClientError> {
         Ok(self
-            .list_tags_internal(owner, repo)
+            .list_tags_internal(slug)
             .await?
             .iter()
             .any(|tag_ref| tag_ref.name == tag))
     }
 
+    /// Look up a Git reference, returning it if it exists.
+    ///
+    /// This returns a [`Ref`], which contains (1) the _kind_ of reference,
+    /// and (2) the inner referent, i.e. the commit that the reference points to.
+    ///
+    /// Note that this API uses GitHub's own precedence rule for tags versus branches;
+    /// branches are always given precedence over tags with the same name.
     #[instrument(skip(self))]
-    pub(crate) async fn commit_for_ref(
+    pub(crate) async fn lookup_ref(
         &self,
-        owner: &str,
-        repo: &str,
+        slug: &Slug<'_>,
         git_ref: &str,
-    ) -> Result<Option<String>, ClientError> {
-        let branches = self.list_branches_internal(owner, repo).await?;
-        let tags = self.list_tags_internal(owner, repo).await?;
+    ) -> Result<Option<Ref>, ClientError> {
+        let branches = self.list_branches_internal(slug).await?;
+        let tags = self.list_tags_internal(slug).await?;
 
         tracing::debug!("Finding commit for reference {git_ref}");
 
         // GitHub Actions resolves branches before tags.
         for branch in branches {
             if branch.name == git_ref {
-                return Ok(Some(branch.commit.sha));
+                return Ok(Some(Ref::Branch(branch)));
             }
         }
 
         for tag in tags {
             if tag.name == git_ref {
-                return Ok(Some(tag.commit.sha));
+                return Ok(Some(Ref::Tag(tag)));
             }
         }
 
@@ -578,8 +600,7 @@ impl Client {
     #[instrument(skip(self))]
     pub(crate) async fn tag_sha_to_commit_sha(
         &self,
-        owner: &str,
-        repo: &str,
+        slug: &Slug<'_>,
         maybe_tag_sha: &str,
     ) -> Result<Option<String>, ClientError> {
         #[derive(Deserialize)]
@@ -608,10 +629,8 @@ impl Client {
         let mut next_tag_sha = maybe_tag_sha.to_string();
         loop {
             let url = format!(
-                "{api_base}/repos/{owner}/{repo}/git/tags/{tag_sha}",
+                "{api_base}/repos/{slug}/git/tags/{tag_sha}",
                 api_base = self.api_base,
-                owner = owner,
-                repo = repo,
                 tag_sha = next_tag_sha
             );
 
@@ -644,37 +663,27 @@ impl Client {
     #[instrument(skip(self))]
     pub(crate) async fn longest_tag_for_commit(
         &self,
-        owner: &str,
-        repo: &str,
+        slug: &Slug<'_>,
+        subpath: Option<&str>,
         commit: &str,
     ) -> Result<Option<Tag>, ClientError> {
-        // Annoying: GitHub doesn't provide a rev-parse or similar API to
-        // perform the commit -> tag lookup, so we download every tag and
-        // do it for them.
-        // This could be optimized in various ways, not least of which
-        // is not pulling every tag eagerly before scanning them.
-        let tags = self.list_tags(owner, repo).await?;
+        // This was once slow, but is now fast (enough) since we use
+        // a raw Git `ls-refs` under the hood.
+        let tags = self.list_tags(slug).await?;
 
-        // Heuristic: there can be multiple tags for a commit, so we pick
-        // the longest one. This isn't super sound, but it gets us from
-        // `sha -> v1.2.3` instead of `sha -> v1`.
-        Ok(tags
-            .into_iter()
-            .filter(|t| t.commit.sha == commit)
-            .max_by_key(|t| t.name.len()))
+        Ok(best_tag_for_commit(tags, subpath, commit))
     }
 
     #[instrument(skip(self))]
     pub(crate) async fn branch_commits(
         &self,
-        owner: &str,
-        repo: &str,
+        slug: &Slug<'_>,
         commit: &str,
     ) -> Result<BranchCommits, ClientError> {
         // NOTE(ww): This API is undocumented.
         // See: https://github.com/orgs/community/discussions/78161
         let url = format!(
-            "https://{host}/{owner}/{repo}/branch_commits/{commit}",
+            "https://{host}/{slug}/branch_commits/{commit}",
             host = self.host
         );
 
@@ -691,8 +700,8 @@ impl Client {
     }
 
     #[instrument(skip(self))]
-    pub(crate) async fn repo_exists(&self, owner: &str, repo: &str) -> Result<bool, ClientError> {
-        match self.list_refs(owner, repo).await {
+    pub(crate) async fn repo_exists(&self, slug: &Slug<'_>) -> Result<bool, ClientError> {
+        match self.list_refs(slug).await {
             Ok(_) => Ok(true),
             Err(ClientError::Inner(inner))
                 if matches!(inner.as_ref(), ClientError::RepoMissingOrPrivate { .. }) =>
@@ -707,13 +716,12 @@ impl Client {
     #[instrument(skip(self))]
     pub(crate) async fn compare_commits(
         &self,
-        owner: &str,
-        repo: &str,
+        slug: &Slug<'_>,
         base: &str,
         head: &str,
     ) -> Result<Option<ComparisonStatus>, ClientError> {
         let url = format!(
-            "{api_base}/repos/{owner}/{repo}/compare/{base}...{head}",
+            "{api_base}/repos/{slug}/compare/{base}...{head}",
             api_base = self.api_base
         );
 
@@ -732,8 +740,7 @@ impl Client {
     #[instrument(skip(self))]
     pub(crate) async fn gha_advisories(
         &self,
-        owner: &str,
-        repo: &str,
+        slug: &Slug<'_>,
         version: &str,
     ) -> Result<Vec<Advisory>, ClientError> {
         // TODO: Paginate this as well.
@@ -743,7 +750,7 @@ impl Client {
             .get(url)
             .query(&[
                 ("ecosystem", "actions"),
-                ("affects", &format!("{owner}/{repo}@{version}")),
+                ("affects", &format!("{slug}@{version}")),
             ])
             .send()
             .await?
@@ -760,7 +767,7 @@ impl Client {
     #[instrument(skip(self, slug, file))]
     pub(crate) async fn fetch_single_file(
         &self,
-        slug: &RepoSlug,
+        slug: &InputSlug,
         file: &str,
     ) -> Result<Option<String>, ClientError> {
         tracing::debug!("fetching {file} from {slug}");
@@ -800,7 +807,7 @@ impl Client {
     #[instrument(skip(self, options, group))]
     pub(crate) async fn fetch_workflows(
         &self,
-        slug: &RepoSlug,
+        slug: &InputSlug,
         options: &CollectionOptions,
         group: &mut InputGroup,
     ) -> Result<(), CollectionError> {
@@ -866,7 +873,7 @@ impl Client {
     #[instrument(skip(self, options, group))]
     pub(crate) async fn fetch_audit_inputs(
         &self,
-        slug: &RepoSlug,
+        slug: &InputSlug,
         options: &CollectionOptions,
         group: &mut InputGroup,
     ) -> Result<(), CollectionError> {
@@ -996,6 +1003,59 @@ pub(crate) struct Tag {
     pub(crate) commit: Commit,
 }
 
+/// Pick the tag that best describes `commit` for the action at `subpath`.
+///
+/// This involves two heuristics:
+///
+/// 1. The tag that most closely matches the "intent" of the action reference.
+///    This is complicated because GitHub allows a single repository to host multiple
+///    actions, and some repositories choose to version their actions fully independently
+///    while *also* allowing them to overlap (in the sense that a single commit may
+///    be pointed to by several tags, e.g. `foo/v1` and `bar/v1` might both point to
+///    `abcd...`).
+///
+///    We handle this with a *very* naive prefix match: we look for a tag that
+///    matches `{subpath}/...` or `{leaf}/...`, where `{leaf}` is the last
+///    directory in the subpath.
+///
+/// 2. The longest tag. Many repositories (inadvisedly) attempt to imitate SemVer
+///    by publishing several tags, which then get moved around to imitate version bumps.
+///    For example, `v4` and `v4.0.0` might both point to `abcd...`, but `v4` will eventually
+///    be moved whereas `v4.0.0` will (hopefully) remain fixed. This kind of mutable reference
+///    is bad, but people do it, and we don't want to resolve to a likely mutable reference
+///    if we can avoid it
+///
+///    We handle this by selecting the longest tag for a commit.
+///
+/// Put together, we prefer the longest tag that has a matching prefix,
+/// followed by a tag that has a matching prefix, followed by any longest tag.
+fn best_tag_for_commit(tags: Vec<Tag>, subpath: Option<&str>, commit: &str) -> Option<Tag> {
+    // Heuristic: `owner/repo/stash/save` might be released as either `save/vX.Y.Z`
+    // or `stash/save/vX.Y.Z`.
+    let preferred_prefixes = subpath.map(|subpath| {
+        let leaf = subpath.rsplit_once('/').map_or(subpath, |(_, leaf)| leaf);
+        [subpath, leaf]
+    });
+
+    tags.into_iter()
+        .filter(|tag| tag.commit.sha == commit)
+        .max_by_key(|tag| {
+            let is_preferred = match preferred_prefixes.as_ref() {
+                Some(prefixes) => prefixes.iter().any(|prefix| {
+                    tag.name
+                        .strip_prefix(prefix)
+                        .is_some_and(|suffix| suffix.starts_with('/'))
+                }),
+                // An action at the repository root is described by an unprefixed tag.
+                None => !tag.name.contains('/'),
+            };
+
+            // Prefer a tag for this action, then use length to choose its most
+            // specific version (`v1.2.3` rather than `v1`).
+            (is_preferred, tag.name.len())
+        })
+}
+
 /// A single commit, as returned by GitHub's commits endpoints.
 ///
 /// This model is intentionally incomplete.
@@ -1069,7 +1129,84 @@ pub(crate) struct File {
 
 #[cfg(test)]
 mod tests {
-    use crate::github::{Client, GitHubHost, GitHubToken};
+    use crate::{
+        github::{Client, Commit, GitHubHost, GitHubToken, Tag, best_tag_for_commit},
+        models::repo_ref::Slug,
+    };
+
+    #[test]
+    fn test_best_tag_for_commit() {
+        fn tags(names: &[(&str, &str)]) -> Vec<Tag> {
+            names
+                .iter()
+                .map(|(name, sha)| Tag {
+                    name: (*name).into(),
+                    commit: Commit { sha: (*sha).into() },
+                })
+                .collect()
+        }
+        // A monorepo of actions, where every action is tagged under its own prefix
+        // and all of them happen to share a commit.
+        let monorepo = [
+            ("allowlist-check/v1", "abcd"),
+            ("allowlist-check/v1.0.0", "abcd"),
+            ("restore/v1", "abcd"),
+            ("restore/v1.0.0", "abcd"),
+            ("save/v1", "abcd"),
+            ("save/v1.0.0", "abcd"),
+        ];
+
+        for (subpath, expected) in [
+            // The action's own tag wins over a longer-named sibling's.
+            (Some("stash/save"), "save/v1.0.0"),
+            (Some("save"), "save/v1.0.0"),
+            (Some("stash/restore"), "restore/v1.0.0"),
+            (Some("restore"), "restore/v1.0.0"),
+            (Some("allowlist-check"), "allowlist-check/v1.0.0"),
+        ] {
+            assert_eq!(
+                best_tag_for_commit(tags(&monorepo), subpath, "abcd")
+                    .unwrap()
+                    .name,
+                expected
+            );
+        }
+
+        // Nothing names this action, so a sibling is better than no suggestion at all.
+        assert_eq!(
+            best_tag_for_commit(tags(&monorepo), Some("pelican"), "abcd")
+                .unwrap()
+                .name,
+            "allowlist-check/v1.0.0"
+        );
+
+        // Ordinary repositories are unaffected: longest tag at the commit still wins.
+        let plain = [("v1", "abcd"), ("v1.2.3", "abcd"), ("v2.0.0", "beef")];
+        assert_eq!(
+            best_tag_for_commit(tags(&plain), None, "abcd")
+                .unwrap()
+                .name,
+            "v1.2.3"
+        );
+        assert_eq!(
+            best_tag_for_commit(tags(&plain), Some("sub"), "abcd")
+                .unwrap()
+                .name,
+            "v1.2.3"
+        );
+
+        // A root action prefers an unprefixed tag over a subdirectory action's.
+        let mixed = [("v1.0.0", "abcd"), ("some-action/v1.0.0", "abcd")];
+        assert_eq!(
+            best_tag_for_commit(tags(&mixed), None, "abcd")
+                .unwrap()
+                .name,
+            "v1.0.0"
+        );
+
+        // Tags on other commits are never considered.
+        assert!(best_tag_for_commit(tags(&plain), None, "dead").is_none());
+    }
 
     #[test]
     fn test_github_host() {
@@ -1126,15 +1263,13 @@ mod tests {
         )
         .unwrap();
 
+        let slug = Slug::parse("woodruffw-experiments/zizmor-recursive-tags").unwrap();
+
         // No hop: 3fdd4fca8fc76b254cefefca92381c41b28d1f0d is already a
         // commit SHA, so we get `Ok(None)`.
         assert_eq!(
             client
-                .tag_sha_to_commit_sha(
-                    "woodruffw-experiments",
-                    "zizmor-recursive-tags",
-                    "3fdd4fca8fc76b254cefefca92381c41b28d1f0d"
-                )
+                .tag_sha_to_commit_sha(&slug, "3fdd4fca8fc76b254cefefca92381c41b28d1f0d")
                 .await
                 .unwrap(),
             None
@@ -1144,11 +1279,7 @@ mod tests {
         // at commit 3fdd4fca8fc76b254cefefca92381c41b28d1f0d.
         assert_eq!(
             client
-                .tag_sha_to_commit_sha(
-                    "woodruffw-experiments",
-                    "zizmor-recursive-tags",
-                    "06f9d47abf340b709b412900a7b3ce33557d32b5"
-                )
+                .tag_sha_to_commit_sha(&slug, "06f9d47abf340b709b412900a7b3ce33557d32b5")
                 .await
                 .unwrap(),
             Some("3fdd4fca8fc76b254cefefca92381c41b28d1f0d".into())
@@ -1159,11 +1290,7 @@ mod tests {
         // 3fdd4fca8fc76b254cefefca92381.
         assert_eq!(
             client
-                .tag_sha_to_commit_sha(
-                    "woodruffw-experiments",
-                    "zizmor-recursive-tags",
-                    "bcb36f3d551340e11b88c376e74e8ae77fc6cf0b"
-                )
+                .tag_sha_to_commit_sha(&slug, "bcb36f3d551340e11b88c376e74e8ae77fc6cf0b")
                 .await
                 .unwrap(),
             Some("3fdd4fca8fc76b254cefefca92381c41b28d1f0d".into())
@@ -1175,11 +1302,7 @@ mod tests {
         // 3fdd4fca8fc76b254cefefca92381c41b.
         assert_eq!(
             client
-                .tag_sha_to_commit_sha(
-                    "woodruffw-experiments",
-                    "zizmor-recursive-tags",
-                    "1accca34bff60347d96faaf713d328ca1250d37b"
-                )
+                .tag_sha_to_commit_sha(&slug, "1accca34bff60347d96faaf713d328ca1250d37b")
                 .await
                 .unwrap(),
             Some("3fdd4fca8fc76b254cefefca92381c41b28d1f0d".into())

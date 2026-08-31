@@ -285,7 +285,7 @@ def test_central_excludes_shared_rows_from_used_and_need():
     assert out["shared_count"] == 2
     # The gauge must read the same discounted number, never the row sum.
     assert out["gauge_used_bytes"] == 50 * GIB
-    assert out["resident_model_bytes"] == 50 * GIB
+    assert out["hot_model_bytes"] == 50 * GIB
 
 
 def test_central_discounts_a_released_workers_shared_bytes():

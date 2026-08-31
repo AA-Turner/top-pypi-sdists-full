@@ -572,7 +572,7 @@ def _state_snapshot(stored: Dict[str, Any], model_key: str,
 
     ``meta`` carries the request-side facts ``_query_meta`` already measured
     (prompt/completion tokens, ttft, elapsed, inflight, streaming, warm, ok,
-    breaker); they are echoed into ``request``/``outcome``/``model.warm`` so the
+    breaker); they are echoed into ``request``/``outcome``/``model.loaded_at_pick`` so the
     whole state of one serve reads from one object."""
     state: Dict[str, Any] = {}
     try:
@@ -656,9 +656,9 @@ def _state_snapshot(stored: Dict[str, Any], model_key: str,
                 ("dtype", dtype), ("backend", backend)):
             if val is not None:
                 model[k_out] = val
-        warm = meta.get("warm_at_pick")
-        if warm is not None:
-            model["warm"] = bool(warm)
+        loaded_at = meta.get("loaded_at_pick")
+        if loaded_at is not None:
+            model["loaded_at_pick"] = bool(loaded_at)
         state["model"] = model
 
         request: Dict[str, Any] = {}
@@ -2361,7 +2361,7 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
         # would protect the cold leftovers this budget exists to clear.
         _plan = _ev.evict_plan(
             "disk", need_bytes,
-            [_ev.Resident(model_key=mk, bytes=b,
+            [_ev.EvictUnit(model_key=mk, bytes=b,
                           pref=_ev.preferred_device(_modes.get(mk)),
                           last_call=(lp or None), calls=_calls_for(mk))
              for lp, b, mk in candidates],
@@ -2403,24 +2403,25 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
     # k60: the gauge's fallback sum prices ONLY budget-bearing rows, exactly like
     # cache_used above — otherwise a worker with no measured figure would put the
     # shared catalog straight back into the disk-pressure reading.
-    resident_from_models = sum(int(m.get("bytes") or 0) for m in models_out
-                               if m.get("counts_toward_budget", True))
-    resident_bytes = cache_used if cache_used is not None else (
-        resident_from_models if reported else None)
+    hot_from_models = sum(int(m.get("bytes") or 0) for m in models_out
+                          if m.get("counts_toward_budget", True))
+    hot_bytes = cache_used if cache_used is not None else (
+        hot_from_models if reported else None)
     attributed = {
         "attributed_total_bytes": alloc["allocated_total_bytes"],
         "attributed_count": alloc["allocated_count"],
         "attributed_unknown_count": alloc["allocated_unknown_count"],
         "attributed_over_budget_bytes": alloc_over,
     }
-    resident = {
-        # bytes on disk NOW. `resident_bytes` is the number the gauge must use.
-        "resident_bytes": resident_bytes,
-        "resident_model_bytes": resident_from_models,
+    hot = {
+        # HOT = bytes on the worker's hot drive NOW (canonical STATE-MODEL.md #7).
+        # `hot_bytes` is the number the disk-pressure gauge must use.
+        "hot_bytes": hot_bytes,
+        "hot_model_bytes": hot_from_models,
         # measured vs summed can disagree (heartbeat lag / non-model files); both
         # surfaced so the console shows the truth instead of averaging a lie.
-        "resident_source": ("measured" if cache_used is not None
-                            else ("summed" if reported else "unknown")),
+        "hot_source": ("measured" if cache_used is not None
+                       else ("summed" if reported else "unknown")),
         # ORPHANED = on disk but attributed to NO model (leftover dirs + stalled
         # .part sets). A THIRD class distinct from attributed and
         # resident-attributed: junk eating the drive that the allocation ledger
@@ -2441,16 +2442,16 @@ def storage_proposal(worker: Dict[str, Any]) -> Dict[str, Any]:
     # excluded — an over-subscribed assignment set is surfaced via
     # attributed_over_budget_bytes (structural), never as a full-disk reading.
     gauge = {
-        "gauge_used_bytes": resident_bytes,   # <-- what the UI bar fills to
+        "gauge_used_bytes": hot_bytes,        # <-- what the UI bar fills to
         "gauge_budget_bytes": budget,
-        "gauge_basis": "resident",
+        "gauge_basis": "hot",
         "gauge_over_budget": over_budget,     # already computed from cache_used/disk_free
     }
 
     return {
         **alloc,
         **attributed,
-        **resident,
+        **hot,
         **gauge,
         "reported": reported,
         # BUDGET-BEARING used (k60): shared/unreapable bytes discounted out.
@@ -5115,8 +5116,11 @@ def load_state_for_model(model_key: str, worker_id: str,
     probe (see the block comment above; no worker-side change either way) — and
     returns a compact status the core hold loop (resolvers.remote) consults:
 
-      {"healthy": bool,       # resident/loaded now (ready to serve)
-       "in_progress": bool,    # weights loading OR still downloading now
+      {"healthy": bool,       # resident/loaded now (ready to serve) == LOADED/SERVING
+       "on_disk": bool,        # on the worker's hot drive (models_local) == HOT
+       "pulling": bool,        # COLD->HOT download in flight (t_pull)
+       "loading": bool,        # HOT->VRAM load in flight (t_load)
+       "in_progress": bool,    # union of pulling|loading (any transition)
        "progress": float|None, # download fraction when provisioning
        "message": str|None,    # human progress line, with BYTES
        "error": str|None}      # a FRESH (ts>=since_ts) honest load failure
@@ -5140,7 +5144,15 @@ def load_state_for_model(model_key: str, worker_id: str,
             return None
 
         loaded = _member(w.get("loaded_models"))
-        in_prog = bool(_member(w.get("loading")) or _member(w.get("provisioning")))
+        # HOT (canonical STATE-MODEL.md): weights on the worker's hot drive,
+        # not necessarily in VRAM. disk-truth = models_local (UTIL-08). Lets the
+        # cold-hold gate tell a t_load (HOT->VRAM) from a t_pull (download).
+        on_disk = bool(_member(w.get("models_local")))
+        # Split transitions (canonical STATE-MODEL.md #11): pull (COLD->HOT,
+        # downloading/provisioning) vs load (HOT->VRAM). in_progress stays the
+        # union so forward-progress callers are unaffected.
+        loading_now = bool(_member(w.get("loading")))          # HOT->VRAM  (t_load)
+        pulling_now = bool(_member(w.get("provisioning")))     # COLD->HOT  (t_pull)
 
         progress = None
         message = None
@@ -5149,7 +5161,7 @@ def load_state_for_model(model_key: str, worker_id: str,
             for k, v in pp.items():
                 if (k == model_key or (_match_keys(k) & wanted)) and isinstance(v, dict):
                     progress, message = _progress_line(model_key, wname, v)
-                    in_prog = True
+                    pulling_now = True
                     break
 
         # LIVE OVERLAY. Anything /health says is newer than the record, and it
@@ -5162,7 +5174,7 @@ def load_state_for_model(model_key: str, worker_id: str,
             if _member(hb.get("loaded_models")):
                 loaded = loaded or model_key
             if _member(hb.get("provisioning")):
-                in_prog = True
+                pulling_now = True
             hpp = hb.get("provision_progress")
             if isinstance(hpp, dict):
                 for k, v in hpp.items():
@@ -5170,7 +5182,7 @@ def load_state_for_model(model_key: str, worker_id: str,
                         p2, m2 = _progress_line(model_key, wname, v)
                         if p2 is not None or m2 is not None:
                             progress, message = p2, m2
-                        in_prog = True
+                        pulling_now = True
                         break
 
         error = None
@@ -5189,9 +5201,36 @@ def load_state_for_model(model_key: str, worker_id: str,
                     error = str(v.get("error") or "load failed")
                 break
 
+        # STORAGE REFUSAL is an honest, STANDING verdict, not a load_report: the
+        # pull was refused (budget.BudgetRefusal) BEFORE any load attempt, so it
+        # never appears in load_reports. agent._refused_snapshot ships it in the
+        # heartbeat's `refused` map and prunes it the moment the model lands.
+        # Without surfacing it here the cold-hold sees no error and no progress,
+        # streams "⏳ loading … on <worker>" until the stall/ceiling clock, then
+        # gives up with a dishonest "went silent — check the worker's logs"
+        # message — the exact "either it IS or it ISN'T" complaint (operator,
+        # 2026-08-31). The reason text carries "won't fit"/"budgetrefusal", which
+        # _is_permanent_load_error already classifies PERMANENT, so feeding it
+        # into `error` makes the hold fail FAST with the real reason. A standing
+        # entry in the CURRENT heartbeat is by definition fresh — no since_ts
+        # gate applies (a stale refusal is pruned worker-side once the model is
+        # local, so it cannot outlive the condition).
+        if not error:
+            refused = w.get("refused") or {}
+            if isinstance(refused, dict):
+                for k, v in refused.items():
+                    if not (k == model_key or (_match_keys(k) & wanted)):
+                        continue
+                    if isinstance(v, dict):
+                        error = str(v.get("reason") or "won't fit (storage refused)")
+                    break
+
         return {
             "healthy": bool(loaded),
-            "in_progress": in_prog,
+            "on_disk": on_disk,
+            "pulling": pulling_now,
+            "loading": loading_now,
+            "in_progress": bool(pulling_now or loading_now),
             "progress": progress,
             "message": message,
             "error": error,

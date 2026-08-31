@@ -33,7 +33,7 @@ class ListAnnotationsRequest(BaseModel):
     label: Optional[StrictStr] = Field(default=None, description="Filter by label.")
     actor_id: Optional[StrictStr] = Field(default=None, description="Filter by who annotated.")
     retriever_id: Optional[StrictStr] = Field(default=None, description="Filter by retriever.")
-    as_of: Optional[datetime] = Field(default=None, description="ADM-15: return the judgment set AS IT STOOD at this instant — annotations created later are excluded, and each remaining annotation is reconstructed to its state at that time from its revision chain. This is the reproducible-evaluation handle: an evaluation pins its as_of and re-reads the identical set later.")
+    as_of: Optional[datetime] = Field(default=None, description="Return the judgment set AS IT STOOD at this instant — annotations created later are excluded, and each remaining annotation is reconstructed to its state at that time from its revision chain. This is the reproducible-evaluation handle: an evaluation pins its as_of and re-reads the identical set later.")
     __properties: ClassVar[List[str]] = ["document_id", "collection_id", "label", "actor_id", "retriever_id", "as_of"]
 
     model_config = ConfigDict(

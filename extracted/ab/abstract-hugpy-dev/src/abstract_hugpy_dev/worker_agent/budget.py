@@ -561,33 +561,41 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
         return {"action": "proceed", "evict": [], "reason": None,
                 "note": "no disk_cache_gib allocation set — budget unmanaged"}
 
-    if used + delta <= cap:
-        # Second safety check: the real volume must still keep the reserve free
-        # after this pull. Redundant when allocation == volume (then cap already
-        # carved it out); harmless otherwise — it never evicts, only refuses.
-        free = int(storage.get("disk_free") or 0)
-        reserve = disk_reserve_bytes(limits)
-        if delta and free and (free - delta) < reserve:
-            reason = {
-                "state": "refused",
-                "model_key": model_key,
-                "reason": (
-                    f"won't fit on volume: needs {_human(delta)}, "
-                    f"{_human(free)} free, {_human(reserve)} reserve kept — "
-                    f"under the cache ceiling {_human(cap)} but the real volume "
-                    f"is too full to land this pull safely"
-                ),
-                "needs_bytes": delta,
-                "disk_free_bytes": free,
-                "disk_reserve_bytes": reserve,
-                "budget_effective_bytes": cap,
-                "budget_sources": srcs,
-            }
-            return {"action": "refuse", "evict": [], "reason": reason}
+    # ── TWO deficits, ONE eviction target: the CALLED MODEL WINS ────────────
+    # (operator, 2026-08-31: "it NEEDS to be able to serve what's being called.
+    # period" / "never refuse a call if the model at least exists in central").
+    # A pull can be blocked two independent ways, and BOTH must be relieved by
+    # FIFO eviction so the caller is SERVED rather than refused:
+    #   * CAP deficit       — the cache would exceed its allocated ceiling.
+    #   * DISK-FREE deficit — landing `delta` new bytes would drop the real
+    #     volume below the reserve floor (the op 2026-07-16 [Errno 28] guard).
+    # A model on THIS same volume frees its bytes from BOTH `used` and the disk
+    # at once when evicted, so one `freed` total pays down whichever deficit
+    # governs → the eviction target is the MAX of the two.
+    #
+    # THE BUG THIS FIXES: historically only the cap deficit triggered FIFO; a
+    # disk-free block hard-REFUSED with no eviction attempt. So a drive whose
+    # cache sat just under its ceiling could never self-heal — exactly ae's case
+    # (cap 1030 + reserve 150 == the whole 1180 drive, zero slack): the cache
+    # near its ceiling means free is permanently below the reserve, and because
+    # `used+delta <= cap` stayed true, no oldest-model eviction ever fired and
+    # every call refused forever. Routing the disk-free deficit into the SAME
+    # FIFO makes the called model win: evict the oldest until it fits.
+    free = int(storage.get("disk_free") or 0)
+    reserve = disk_reserve_bytes(limits)
+    cap_deficit = max(0, used + delta - cap)
+    # Disk-free deficit only when free is KNOWN (>0): unknown free can't be
+    # assessed, so invent no deficit (mirrors the old guard's `and free`).
+    disk_deficit = max(0, (reserve + delta) - free) if (delta and free) else 0
+    must_free = max(cap_deficit, disk_deficit)
+
+    if must_free <= 0:
         return {"action": "proceed", "evict": [], "reason": None,
                 "budget_effective_bytes": cap, "budget_sources": srcs}
 
-    # ── over budget: FIFO the reclaimable candidates, oldest first ──────────
+    # ── over cap OR under the disk-free floor: FIFO the reclaimable ──────────
+    # candidates, oldest first, until ``must_free`` (computed above as the max of
+    # the cap and disk-free deficits) is covered.
     lp_map = last_picked or {}
 
     def _lp(mk, row):
@@ -652,7 +660,11 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
         except (TypeError, ValueError, AttributeError):
             return 0
 
-    must_free = used + delta - cap
+    # ``must_free`` was resolved above as max(cap_deficit, disk_deficit) — the
+    # single eviction target that satisfies whichever floor (allocated cap or
+    # physical disk-free reserve) is binding. Do NOT recompute it as the cap
+    # deficit alone: that was the pre-2026-08-31 bug that let a disk-free block
+    # refuse without evicting.
     reclaimable_total = sum(b for _lp_, b, _mk in candidates)
 
     # No residency floor here or anywhere else — the 300s anti-thrash veto was
@@ -661,7 +673,7 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
     # exactly the cold leftovers this budget exists to clear.
     _plan = _ev.evict_plan(
         "disk", must_free,
-        [_ev.Resident(model_key=mk, bytes=b,
+        [_ev.EvictUnit(model_key=mk, bytes=b,
                       pref=_ev.preferred_device(_modes.get(mk)),
                       last_call=(lp or None), calls=_calls_for(mk))
          for lp, b, mk in candidates],
@@ -693,6 +705,14 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
         eff_src = srcs.get("effective_source")
         if eff_src and len(srcs) > 2:            # >1 real term contributed
             eff_text = f" [effective cap {_human(cap)} = min via {eff_src}]"
+        # HONESTY about WHICH floor is binding: when the disk-free reserve is the
+        # governing deficit (a physically full volume, not an over-cap cache),
+        # say so — otherwise a "budget" line reads as a cap problem on a drive
+        # that is simply out of physical room even after evicting everything.
+        disk_text = ""
+        if disk_deficit >= cap_deficit and disk_deficit > 0:
+            disk_text = (f" — volume physically full: {_human(free)} free, "
+                         f"{_human(reserve)} reserve kept")
         reason = {
             "state": "refused",
             "model_key": model_key,
@@ -700,7 +720,7 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
                 f"won't fit: needs {_human(delta)}, budget {_human(cap)}, "
                 f"{_human(reclaimable_total)} reclaimable"
                 + (f" ({blocked_str})" if blocked_str else "")
-                + alloc_text + eff_text
+                + alloc_text + eff_text + disk_text
             ),
             **alloc_fields,
             "needs_bytes": delta,
@@ -708,6 +728,10 @@ def fit_plan(model_key: str, need_bytes: int, storage: dict,
             "budget_effective_bytes": cap,
             "budget_sources": srcs,
             "used_bytes": used,
+            "disk_free_bytes": free,
+            "disk_reserve_bytes": reserve,
+            "cap_deficit_bytes": cap_deficit,
+            "disk_deficit_bytes": disk_deficit,
             "must_free_bytes": must_free,
             "reclaimable_bytes": reclaimable_total,
             "reclaimable_count": len(candidates),

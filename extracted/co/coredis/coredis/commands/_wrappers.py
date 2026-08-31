@@ -43,9 +43,7 @@ class CommandDetails:
     cluster: ClusterCommandConfig
     flags: set[CommandFlag]
     redirect_usage: RedirectUsage | None
-    arguments: dict[str, version.Version] = dataclasses.field(
-        init=False, default_factory=lambda: {}
-    )
+    arguments: dict[str, version.Version] = dataclasses.field(init=False, default_factory=dict)
 
     def __post_init__(self) -> None:
         self.arguments = {
@@ -91,7 +89,7 @@ def redis_command(
 
     COMMAND_FLAGS[command_name] = flags or set()
 
-    if not readonly and cacheable:  # noqa
+    if not readonly and cacheable:
         raise RuntimeError(f"Can't decorate non readonly command {command_name} with cache config")
     if cacheable:
         CACHEABLE_COMMANDS.add(command_name)
@@ -118,16 +116,19 @@ def redis_command(
         @functools.wraps(func)
         def wrapped(*args: P.args, **kwargs: P.kwargs) -> CommandRequest[R]:
             from coredis import Redis, RedisCluster
+            from coredis.client.basic import Client
 
-            is_regular_client = isinstance(args[0], (Redis, RedisCluster))
-            if redirect_usage and is_regular_client:
+            receiver = args[0]
+            assert isinstance(receiver, Client)
+            is_regular_client = isinstance(receiver, (Redis, RedisCluster))
+            if redirect_usage and not receiver.connection_scoped_commands:
                 if redirect_usage.warn:
                     warnings.warn(redirect_usage.reason, UserWarning, stacklevel=2)
                 else:
                     raise NotImplementedError(redirect_usage.reason)
-            runtime_checking = not getattr(args[0], "noreply", None) and is_regular_client
+            runtime_checking = not receiver.noreply and is_regular_client
             check_version(
-                args[0],  # type: ignore
+                receiver,
                 func.__name__,
                 command_details,
                 deprecation_reason,

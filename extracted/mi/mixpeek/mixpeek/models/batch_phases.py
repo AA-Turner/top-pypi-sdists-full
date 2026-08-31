@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class BatchPhases(BaseModel):
     """
-    Honest streaming-phase breakdown (BACKE-762) — the SOLE per-stage source.  dispatch → extraction → write. Exactly one phase is ``active``, and its key equals ``BatchStageInfo.name``. Consumed by Studio's BatchProgressDetail.
+    Honest streaming-phase breakdown — the SOLE per-stage source.  dispatch → extraction → write. Exactly one phase is ``active``, and its key equals ``BatchStageInfo.name``. Consumed by Studio's BatchProgressDetail.
     """ # noqa: E501
     dispatch: Optional[BatchPhaseDetail] = None
     extraction: Optional[BatchPhaseDetail] = None

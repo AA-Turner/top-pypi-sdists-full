@@ -114,15 +114,10 @@ def default_db_path() -> str:
         env = (os.environ.get("HUGPY_HF_CACHE_DB") or "").strip()
     if env:
         return env
-    base = (os.environ.get("PROJECTS_HOME") or "").strip()
-    if not base:
-        try:
-            from abstract_hugpy_dev.imports.src.constants.constants import (
-                PROJECTS_HOME as _PH)
-            base = str(_PH)
-        except Exception:  # noqa: BLE001 — degrade to a per-user durable file
-            base = os.path.expanduser("~/.hugpy")
-    return os.path.join(base, "model_metadata.db")
+    # Consolidated under HUGPY_HOME (~/.hugpy/state); migrates a legacy
+    # ~/model_metadata.db in place on first resolve.
+    from .._platform import paths as _hp
+    return _hp.model_metadata_db()
 
 
 def serialize_model_info(info: Any) -> dict:

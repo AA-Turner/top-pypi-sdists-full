@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ninja
-Version: 1.13.0
+Version: 1.13.2
 Summary: Ninja is a small build system with a focus on speed
 Keywords: build,c++,cross-compilation,cross-platform,fortran,ninja
 Author-Email: Jean-Christophe Fillion-Robin <scikit-build@googlegroups.com>, Henry Schreiner <henryfs@princeton.edu>
+License-Expression: Apache-2.0
+License-File: LICENSE_Apache_20
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
 Classifier: Programming Language :: C++
@@ -30,8 +30,19 @@ Ninja Python Distributions
 
 `Ninja <http://www.ninja-build.org>`_ is a small build system with a focus on speed.
 
-The latest Ninja python wheels provide `ninja 1.13.0.gd74ef.kitware.jobserver-pipe-1 <https://ninja-build.org/manual.html>`_ executable
+The latest Ninja python wheels provide `ninja 1.13.2.g7659b.kitware.jobserver-pipe-1 <https://ninja-build.org/manual.html>`_ executable
 and `ninja_syntax.py` for generating `.ninja` files.
+
+The classes in ninja_syntax are in the ninja namespace, so are accesable via ``import ninja``, e.g. ::
+
+    import ninja
+    writer = ninja.Writer(sys.stdout)
+
+This package also installs a front-end to the nijnja executable, so that::
+
+    python -m ninja
+
+will call the executable.
 
 .. image:: https://raw.githubusercontent.com/scikit-build/ninja-python-distributions/master/ninja-python-distributions-logo.png
 

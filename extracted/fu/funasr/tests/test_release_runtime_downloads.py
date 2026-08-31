@@ -66,6 +66,11 @@ def runtime_release_payload():
                 "digest": sha256_digest("windowscuda"),
             },
             {
+                "name": "funasr-llamacpp-windows-x64-cuda-blackwell.zip",
+                "url": "https://example.test/windows-cuda-blackwell.zip",
+                "digest": sha256_digest("windowscudablackwell"),
+            },
+            {
                 "name": "funasr-llamacpp-windows-x64-vulkan.zip",
                 "url": "https://example.test/windows-vulkan.zip",
                 "digest": sha256_digest("windowsvulkan"),
@@ -107,8 +112,27 @@ def test_release_on_tag_workflow_uses_versioned_runtime_pointer():
     assert "runtime/llama.cpp/current-release.txt" in workflow
     assert '--runtime-tag "$RUNTIME_TAG"' in workflow
     assert runtime_pointer.read_text(encoding="utf-8").strip() == (
-        "runtime-llamacpp-v0.2.5"
+        "runtime-llamacpp-v0.2.6"
     )
+
+
+def test_release_on_tag_workflow_builds_and_uploads_python_packages():
+    workflow = (ROOT / ".github" / "workflows" / "release-on-tag.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "python -m build" in workflow
+    assert "python -m twine check dist/*" in workflow
+    assert "SOURCE_DATE_EPOCH" in workflow
+    assert "git log -1 --format=%ct" in workflow
+    assert "tar --sort=name" in workflow
+    assert 'gzip -n' in workflow
+    assert "funasr/version.txt" in workflow
+    assert "github.ref_name" in workflow
+    assert "gh release upload" in workflow
+    assert "dist/funasr-*.whl" in workflow
+    assert "dist/funasr-*.tar.gz" in workflow
+    assert "--clobber" in workflow
 
 
 @pytest.mark.parametrize("mutation", ("missing", "unexpected"))
@@ -449,7 +473,8 @@ def test_runtime_download_section_lists_all_prebuilt_assets():
     assert "runtime-llamacpp-v0.1.9" in section
     assert "attached directly to this Python release" in section
     assert 'python -m pip install -U "funasr==1.3.26"' in section
-    assert section.count("| [funasr-llamacpp-") == 9
+    assert section.count("| [funasr-llamacpp-") == 10
+    assert "| Windows x64 CUDA Blackwell (sm_120) |" in section
     assert "Windows x64 CUDA" in section
     assert "Windows x64 Vulkan" in section
     assert "Linux x64 Vulkan" in section

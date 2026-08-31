@@ -4,6 +4,7 @@ graceful skip (oauth-no-user / non-auth failure) that tells the agent via a note
 import asyncio
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from xpander_sdk.modules.backend.frameworks import agno as agno_module
@@ -115,6 +116,26 @@ async def test_non_auth_failure_skips_that_tool_keeps_healthy(monkeypatch):
     assert "base_tool" in tools
     assert len([t for t in tools if t != "base_tool"]) == 1
     assert len(notes) == 1 and "temporarily unavailable" in notes[0]
+
+
+@pytest.mark.asyncio
+async def test_connect_failure_notes_the_network_remedy(monkeypatch):
+    async def _probe(url, headers=None, transport="streamable-http"):
+        return httpx.ConnectError("") if "bad" in url else None
+
+    monkeypatch.setattr(agno_module, "probe_mcp_server", _probe)
+    agent = _agent([_remote("https://bad/mcp"), _remote("https://good/mcp")])
+    notes = []
+
+    tools = await agno_module._resolve_agent_tools(
+        agent=agent, task=_task("u1"), skipped_notes=notes
+    )
+
+    assert "base_tool" in tools
+    assert len(notes) == 1
+    # connection-establishment failure points at network egress, and names the host
+    assert "unreachable from the agent's network" in notes[0]
+    assert "bad" in notes[0]
 
 
 @pytest.mark.asyncio

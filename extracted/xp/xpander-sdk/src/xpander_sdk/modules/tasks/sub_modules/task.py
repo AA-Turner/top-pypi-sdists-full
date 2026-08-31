@@ -66,7 +66,10 @@ from xpander_sdk.models.shared import (
     XPanderSharedModel,
 )
 from xpander_sdk.modules.agents.models.agent import LLMReasoningEffort
-from xpander_sdk.modules.events.utils.generic import get_events_base, get_events_headers
+from xpander_sdk.modules.events.utils.generic import (
+    get_events_headers,
+    get_events_root,
+)
 from xpander_sdk.modules.tasks.models.task import (
     AgentExecutionInput,
     files_from_attachments,
@@ -1284,8 +1287,9 @@ class Task(XPanderSharedModel):
             raise ValueError(f"Task {self.id} does not set with events streaming")
 
         headers = get_events_headers(configuration=self.configuration)
-        url = get_events_base(configuration=self.configuration).replace(
-            "/events", f"/agent-execution/{self.id}/events"
+        url = (
+            f"{get_events_root(configuration=self.configuration)}"
+            f"/agent-execution/{self.id}/events"
         )
 
         async with httpx.AsyncClient(timeout=None, headers=headers) as client:

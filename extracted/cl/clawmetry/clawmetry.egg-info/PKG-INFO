@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clawmetry
-Version: 0.12.792
+Version: 0.12.794
 Summary: ClawMetry - Real-time observability for 30 AI agent runtimes (OpenClaw, NVIDIA NemoClaw, Claude Code, Codex & more)
 Home-page: https://github.com/vivekchand/clawmetry
 Author: Vivek Chand
@@ -26,7 +26,9 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: flask<4,>=2.0
 Requires-Dist: waitress>=2.0
-Requires-Dist: cryptography>=3.0
+Requires-Dist: cryptography>=50.0.0; python_version >= "3.14"
+Requires-Dist: cryptography>=46.0.0; python_full_version >= "3.9.2" and python_version < "3.14"
+Requires-Dist: cryptography>=3.0; python_full_version < "3.9.2"
 Requires-Dist: cffi<2; python_version < "3.14"
 Requires-Dist: cffi>=2; python_version >= "3.14"
 Requires-Dist: duckdb!=1.4.5,>=0.10
@@ -230,6 +232,7 @@ the same machine. Docker instructions: [docs/DOCKER.md](docs/DOCKER.md).
 | [Entitlements](docs/ENTITLEMENTS.md) | Free vs paid, tier matrix, license CLI |
 | [Approvals & policies](docs/APPROVALS.md) | Pre-execution gating, risk scoring, phone approvals |
 | [OpenTelemetry](docs/OPENTELEMETRY.md) | Export traces anywhere, ingest OTLP from anything |
+| [Bring your own agent](docs/BRING_YOUR_OWN_AGENT.md) | AWS AgentCore, Pydantic AI, LangChain end to end, with runnable examples |
 | [SDK tracking](docs/SDK_TRACKING.md) | Cost attribution for agents you built yourself |
 | [Chat channels](docs/CHANNELS.md) | The chat adapters shown in Flow |
 | [NemoClaw / OpenShell](docs/NEMOCLAW.md) | Sandboxed NVIDIA NemoClaw setups |

@@ -37,7 +37,7 @@ class TransactionInfo(BaseModel):
     extractor_name: Optional[StrictStr] = Field(default=None, description="Extractor name, if operation was an extraction")
     resource_id: Optional[StrictStr] = Field(default=None, description="ID of the resource processed (collection/object/batch)")
     resource_type: Optional[StrictStr] = Field(default=None, description="Type of resource processed")
-    namespace_id: Optional[StrictStr] = Field(default=None, description="Namespace this charge is attributed to (SP-242), so the per-row ledger is traceable per namespace for chargeback. None for namespace-less / pre-attribution records.")
+    namespace_id: Optional[StrictStr] = Field(default=None, description="Namespace this charge is attributed to, so the per-row ledger is traceable per namespace for chargeback. None for namespace-less / pre-attribution records.")
     app_id: Optional[StrictStr] = Field(default=None, description="Canvas App ID, if attributed")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Operation context (tokens, pages, minutes, etc.)")
     __properties: ClassVar[List[str]] = ["record_id", "occurred_at", "billing_month", "credits_consumed", "cost_usd", "operation_type", "extractor_name", "resource_id", "resource_type", "namespace_id", "app_id", "metadata"]

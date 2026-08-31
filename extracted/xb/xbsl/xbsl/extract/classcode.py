@@ -1,8 +1,8 @@
-"""Reading the DECLARATIONS a compiled meta object makes, not the neighbourhood of its pool.
+"""Reading what a compiled class DECLARES, not what stands next to what in its constants.
 
-The bilingual pairs of the platform were read by adjacency: the constant pool of a meta object
-holds each English name next to its Russian twin, and the reader took every Cyrillic string
-together with the identifier beside it. Adjacency is a guess. The pool keeps strings in the
+The bilingual pairs of the platform were read by adjacency: a compiled class of the
+distribution holds each English name next to its Russian twin, and the reader took every
+Cyrillic string together with the identifier beside it. Adjacency is a guess. The pool keeps strings in the
 order the code first mentions them, so a name whose twin was already interned ends up beside a
 stranger, and the reader then states a pair nobody declared. Measured over the whole
 distribution it got 2 of 2015 members wrong, and both were the damaging kind - a CONFIDENT
@@ -11,19 +11,17 @@ wrong spelling: the `CharAt` of a `String` came out `Symbol`, which is the fill 
 came out `ScheduleWithoutTransaction`. A tree translated with such a pair calls a method the
 compiler does not have.
 
-A meta object states every member by CALLING a builder of the runtime library:
-
-    CtMetaMethodBuilder.meth(OWNER, "CharAt", "Символ", 35)
-    CtMetaPropBuilder.prop(OWNER, "Presentation", "Представление")
-
-so the pair is not guessed but read: the two string constants pushed immediately before the
-call ARE the two spellings the platform declares. That is what this module returns.
+The distribution does not leave the pairs to be guessed: a member is DECLARED by a call that
+takes both of its spellings, and the two string constants pushed right before that call are
+the pair itself. Reading the calls is what this module does.
 
 Nothing here is specific to the vocabulary - it is a small class-file reader: the constant
 pool, the code of every method, and the calls that code makes with string arguments.
 """
 
 from __future__ import annotations
+
+from collections.abc import Iterator
 
 # How many bytes of operand each instruction carries. Only the three opcodes this module reads
 # matter by name, but every length has to be right: a walker that mistakes an operand byte for
@@ -44,15 +42,27 @@ for _code, _size in {
 
 _LDC, _LDC_W = 0x12, 0x13
 _INVOKE = (0xB6, 0xB7, 0xB8, 0xB9)  # virtual, special, static, interface
+_PUTSTATIC = 0xB3
 _WIDE = 0xC4
 _TABLESWITCH, _LOOKUPSWITCH = 0xAA, 0xAB
 
-#: The builders whose call states the pair of a MEMBER - a method or a property of a type.
-#: A parameter is stated by `CtMetaMethodBuilder.p` and a constructor by `CtMetaCtorBuilder`;
-#: those are names too, but not names of members, and mixing them in is what adjacency did.
+#: The calls that state the pair of a MEMBER - a method or a property of a type. Parameters
+#: and constructors are declared by calls of their own: those carry names too, but not names
+#: of members, and mixing them in is exactly what the neighbourhood reading did.
 METHOD_FACTORY = "CtMetaMethodBuilder.meth"
 PROPERTY_FACTORY = "CtMetaPropBuilder.prop"
 MEMBER_FACTORIES = (METHOD_FACTORY, PROPERTY_FACTORY)
+
+#: The calls that build a TERM out of its two spellings. A term names a namespace, a type or
+#: one member of a type; which of those it is, the field it is stored into says (see
+#: declared_terms). `TermWithHistory` is the same pair plus the spellings a rename left
+#: behind - the current one leads, so the two strings before the call read the same way.
+TERM_FACTORIES = (
+    "Term.term",
+    "QNames.create",
+    "NamespaceTerm.create",
+    "Term$TermWithHistory$Builder.add",
+)
 
 
 def constant_pool(blob: bytes) -> tuple[dict[int, tuple[int, object]], int]:
@@ -116,6 +126,18 @@ def called_method(pool: dict[int, tuple[int, object]], index: int) -> str | None
     return f"{text(pool, class_index)}.{text(pool, described[1][0])}"  # type: ignore[index]
 
 
+def field_name(pool: dict[int, tuple[int, object]], index: int) -> str | None:
+    """The name of a field reference, or None when the entry is not one."""
+    entry = pool.get(index)
+    if not entry or entry[0] != 9:  # fieldref
+        return None
+    _class_index, name_and_type = entry[1]  # type: ignore[misc]
+    described = pool.get(name_and_type)
+    if not described or described[0] != 12:
+        return None
+    return text(pool, described[1][0])  # type: ignore[index]
+
+
 def _method_code(blob: bytes, pool: dict[int, tuple[int, object]], position: int) -> list[bytes]:
     """The bytecode of every method of the class, in declaration order."""
 
@@ -145,50 +167,91 @@ def _method_code(blob: bytes, pool: dict[int, tuple[int, object]], position: int
     return code
 
 
-def builder_calls(blob: bytes) -> list[tuple[str, list[str]]]:
-    """[(the called method, the string constants pushed since the previous call)].
+def _events(code: bytes, pool: dict[int, tuple[int, object]]) -> Iterator[tuple[str, str, list[str]]]:
+    """Walk one method and yield what its code does with names.
 
-    The arguments of a call are whatever the code pushed before it, and a string argument is
-    pushed by `ldc`. Everything else on the stack - the owner, the numbers, the type sets - is
-    of no interest here, so the walker keeps only the strings and hands them over on the call.
+    Two kinds of event: ("call", the called method, the string constants pushed since the
+    previous call) and ("store", the static field written, []). The arguments of a call are
+    whatever the code pushed before it, and a string argument is pushed by `ldc`. Everything
+    else on the stack - the owner, the numbers, the type sets - is of no interest here, so
+    the walker keeps only the strings and hands them over on the call.
+    """
+    pushed: list[str] = []
+    at = 0
+    while at < len(code):
+        opcode = code[at]
+        if opcode == _LDC:
+            value = text(pool, code[at + 1])
+            if value is not None:
+                pushed.append(value)
+        elif opcode == _LDC_W:
+            value = text(pool, int.from_bytes(code[at + 1:at + 3], "big"))
+            if value is not None:
+                pushed.append(value)
+        elif opcode in _INVOKE:
+            name = called_method(pool, int.from_bytes(code[at + 1:at + 3], "big"))
+            if name:
+                yield "call", name, pushed
+            pushed = []
+        elif opcode == _PUTSTATIC:
+            name = field_name(pool, int.from_bytes(code[at + 1:at + 3], "big"))
+            if name:
+                yield "store", name, []
+        elif opcode == _WIDE:
+            # `wide iinc` carries two operands, every other widened instruction one
+            at += 6 if code[at + 1] == 0x84 else 4
+            continue
+        elif opcode in (_TABLESWITCH, _LOOKUPSWITCH):
+            at += 1
+            while at % 4:  # the table is aligned on a four-byte boundary
+                at += 1
+            if opcode == _TABLESWITCH:
+                low = int.from_bytes(code[at + 4:at + 8], "big", signed=True)
+                high = int.from_bytes(code[at + 8:at + 12], "big", signed=True)
+                at += 12 + (high - low + 1) * 4
+            else:
+                at += 8 + int.from_bytes(code[at + 4:at + 8], "big") * 8
+            continue
+        at += 1 + _OPERAND_BYTES[opcode]
+
+
+def builder_calls(blob: bytes) -> list[tuple[str, list[str]]]:
+    """[(the called method, the string constants pushed since the previous call)]."""
+    pool, position = constant_pool(blob)
+    return [
+        (name, pushed)
+        for code in _method_code(blob, pool, position)
+        for kind, name, pushed in _events(code, pool) if kind == "call"
+    ]
+
+
+def declared_terms(blob: bytes) -> list[tuple[str, str, str]]:
+    """[(the static field written, English spelling, Russian spelling)] the class declares.
+
+    A namespace, a type and each of its members are stated the same way: the two spellings
+    are pushed, a term is built from them, and the term is stored into a static field whose
+    NAME says what it stands for (`NS_TERM`, `USER_FAVORITES_ITEM_TERM`, `ID_PROPERTY_TERM`,
+    `SWITCH_SCREEN_METHOD_TERM`). Without the field the pair alone cannot tell a property
+    from a method, and the class is the only place that says which it is.
+
+    Only the store right after the build is read: a term the code merely passes on carries
+    no field of its own, and reading it would attribute the pair to the previous field.
     """
     pool, position = constant_pool(blob)
-    calls: list[tuple[str, list[str]]] = []
+    found: list[tuple[str, str, str]] = []
     for code in _method_code(blob, pool, position):
-        pushed: list[str] = []
-        at = 0
-        while at < len(code):
-            opcode = code[at]
-            if opcode == _LDC:
-                value = text(pool, code[at + 1])
-                if value is not None:
-                    pushed.append(value)
-            elif opcode == _LDC_W:
-                value = text(pool, int.from_bytes(code[at + 1:at + 3], "big"))
-                if value is not None:
-                    pushed.append(value)
-            elif opcode in _INVOKE:
-                name = called_method(pool, int.from_bytes(code[at + 1:at + 3], "big"))
-                if name:
-                    calls.append((name, pushed))
-                pushed = []
-            elif opcode == _WIDE:
-                # `wide iinc` carries two operands, every other widened instruction one
-                at += 6 if code[at + 1] == 0x84 else 4
-                continue
-            elif opcode in (_TABLESWITCH, _LOOKUPSWITCH):
-                at += 1
-                while at % 4:  # the table is aligned on a four-byte boundary
-                    at += 1
-                if opcode == _TABLESWITCH:
-                    low = int.from_bytes(code[at + 4:at + 8], "big", signed=True)
-                    high = int.from_bytes(code[at + 8:at + 12], "big", signed=True)
-                    at += 12 + (high - low + 1) * 4
-                else:
-                    at += 8 + int.from_bytes(code[at + 4:at + 8], "big") * 8
-                continue
-            at += 1 + _OPERAND_BYTES[opcode]
-    return calls
+        built: tuple[str, str] | None = None
+        for kind, name, pushed in _events(code, pool):
+            if kind == "call":
+                built = None
+                if any(name.endswith(factory) for factory in TERM_FACTORIES) and len(pushed) >= 2:
+                    english, russian = pushed[-2], pushed[-1]
+                    if english.isascii():
+                        built = (english, russian)
+            elif built is not None:
+                found.append((name, *built))
+                built = None
+    return found
 
 
 def declared_members(blob: bytes) -> dict[str, str]:

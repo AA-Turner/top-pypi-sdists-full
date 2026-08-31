@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class BatchChunkStats(BaseModel):
     """
-    Realized chunking statistics reported by the text chunker (MHC-250).  Surfaces what chunking ACTUALLY did, measured in the split strategy's own unit, so an inert or unit-confused chunking config (for example a chunk_size chosen in the wrong unit) is visible by reading the batch instead of forensically diffing two configs' outputs.
+    Realized chunking statistics reported by the text chunker.  Surfaces what chunking ACTUALLY did, measured in the split strategy's own unit, so an inert or unit-confused chunking config (for example a chunk_size chosen in the wrong unit) is visible by reading the batch instead of forensically diffing two configs' outputs.
     """ # noqa: E501
     unit: StrictStr = Field(description="Realized unit the chunker grouped by: characters, words, sentences, paragraphs, pages, seconds (time_segments), or none (no chunking; one chunk per input row).")
     total_chunks: Optional[StrictInt] = Field(default=0, description="Total chunks produced across all processed rows.")

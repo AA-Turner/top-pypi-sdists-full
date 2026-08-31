@@ -28,7 +28,7 @@ class CreateSnapshotRequest(BaseModel):
     CreateSnapshotRequest
     """ # noqa: E501
     copy_s3_objects: Optional[StrictBool] = Field(default=False, description="If true, S3 objects are copied to the snapshot prefix (slower, uses more storage). Required for restoring after namespace deletion.")
-    include_vectors: Optional[StrictBool] = Field(default=True, description="If false, creates a METADATA-ONLY snapshot (no vector export). Advanced — on restore the vectors are stitched from the shard representative's export (see MI-894). Daily sweeps use this to coalesce the full-dataset vector export to one per physical shard.")
+    include_vectors: Optional[StrictBool] = Field(default=True, description="If false, creates a METADATA-ONLY snapshot (no vector export). Advanced — on restore the vectors are stitched from the shard representative's export (see). Daily sweeps use this to coalesce the full-dataset vector export to one per physical shard.")
     __properties: ClassVar[List[str]] = ["copy_s3_objects", "include_vectors"]
 
     model_config = ConfigDict(

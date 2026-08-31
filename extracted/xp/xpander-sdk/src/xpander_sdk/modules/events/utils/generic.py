@@ -1,24 +1,50 @@
-from xpander_sdk.models.configuration import Configuration
+from urllib.parse import urlparse
 
-EVENT_STREAMING_ENDPOINT = "{base}/{organization_id}/events"
+from xpander_sdk.models.configuration import Configuration
+from xpander_sdk.utils.env import url_host
+
+# Exact cloud inbound-gateway hostnames (matched by parsed hostname, never
+# substring); only these reroute event streaming to the cloud agent-controller.
+XPANDER_CLOUD_INBOUND_HOSTS = frozenset(
+    {"inbound.xpander.ai", "inbound.stg.xpander.ai"}
+)
+
+# Hosts eligible for the local-dev 8085 -> 9016 controller rewrite.
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
 def backoff_delay(attempt: int) -> int:
-    """1 s after first failure, 2 s after second, 3 s for attempts ≥ 3."""
+    """1 s after first failure, 2 s after second, 3 s for attempts >= 3."""
     return 1 if attempt == 1 else 2 if attempt == 2 else 3
 
 
-def is_not_inbound(configuration: Configuration) -> bool:
+def get_events_root(configuration: Configuration) -> str:
     """
-    Determine if the current execution context is not the inbound environment.
+    Construct the organization-scoped root URL for event-streaming endpoints.
 
     Returns:
-        bool: True if the base_url is not identified as an inbound service.
+        str: "{base}/{organization_id}" with the base resolved from configuration.
     """
-    return (
-        "inbound.xpander" not in configuration.base_url
-        and "inbound.stg.xpander" not in configuration.base_url
-    )
+    # Fail loudly on a missing base URL instead of streaming to a cloud default.
+    if not configuration.base_url:
+        raise ValueError(
+            "Event streaming requires a base URL - set Configuration.base_url "
+            "or the XPANDER_BASE_URL environment variable."
+        )
+
+    parsed = urlparse(configuration.base_url)
+    host = (parsed.hostname or "").lower()
+
+    if host in XPANDER_CLOUD_INBOUND_HOSTS:
+        is_stg = host == "inbound.stg.xpander.ai"
+        base = f"https://agent-controller{'.stg' if is_stg else ''}.xpander.ai"
+    elif parsed.port == 8085 and host in _LOOPBACK_HOSTS:
+        # local dev only: API served on 8085, agent-controller on 9016
+        base = "http://localhost:9016"
+    else:
+        base = configuration.base_url
+
+    return f"{base}/{configuration.organization_id}"
 
 
 def get_events_base(configuration: Configuration) -> str:
@@ -28,22 +54,13 @@ def get_events_base(configuration: Configuration) -> str:
     Returns:
         str: The base URL for event streaming based on configuration and environment.
     """
-    if is_not_inbound(configuration=configuration):
-        return EVENT_STREAMING_ENDPOINT.format(
-            base=(
-                "http://localhost:9016"
-                if "8085" in configuration.base_url
-                else configuration.base_url
-            ),
-            organization_id=configuration.organization_id,
-        )
+    return f"{get_events_root(configuration)}/events"
 
-    is_stg = "stg.xpander" in configuration.base_url
-    base = f"https://agent-controller{'.stg' if is_stg else ''}.xpander.ai"
 
-    return EVENT_STREAMING_ENDPOINT.format(
-        base=base, organization_id=configuration.organization_id
-    )
+def is_stg_environment(configuration: Configuration) -> bool:
+    """True when event streaming targets the staging cloud or local dev."""
+    host = url_host(get_events_base(configuration))
+    return host == "localhost" or "stg" in host.split(".")
 
 
 def get_events_headers(configuration: Configuration) -> dict[str, str]:

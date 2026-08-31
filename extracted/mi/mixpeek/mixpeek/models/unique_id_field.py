@@ -28,7 +28,7 @@ UNIQUEIDFIELD_ANY_OF_SCHEMAS = ["List[str]", "str"]
 
 class UniqueIdField(BaseModel):
     """
-    Optional (TS ingestion #12, BACKE-3573). Designate a field, or a list of fields for a composite key, from the pipeline OUTPUT rows whose value becomes each output document's stable, addressable document id. Rows sharing that value collapse to ONE document, and a re-run REPLACES rather than duplicating (deterministic id, upserted by id). Dot-notation paths are supported (e.g. 'metadata.brand'). When omitted, identity falls back to the pipeline's group_by field, then the source document id. This is the transform-collection analogue of a bucket's unique_key.
+    Optional (TS ingestion #12). Designate a field, or a list of fields for a composite key, from the pipeline OUTPUT rows whose value becomes each output document's stable, addressable document id. Rows sharing that value collapse to ONE document, and a re-run REPLACES rather than duplicating (deterministic id, upserted by id). Dot-notation paths are supported (e.g. 'metadata.brand'). When omitted, identity falls back to the pipeline's group_by field, then the source document id. This is the transform-collection analogue of a bucket's unique_key.
     """
 
     # data type: str

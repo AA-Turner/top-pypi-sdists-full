@@ -1,10 +1,13 @@
 import time
 import typing as t
 import uuid
+from functools import lru_cache
 
 import jwt
 import pytest
 import requests
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from pytest_mock import MockerFixture
 
 from taktile_auth.client import ALGORITHM
@@ -124,6 +127,22 @@ def mock_auth_api_failing(mocker: MockerFixture) -> None:
     mocker.patch("requests.get", return_value=m)
 
 
+@lru_cache(maxsize=1)
+def _signing_key() -> RSAPrivateKey:
+    """``TEST_PRIVATE_KEY`` parsed once per process.
+
+    Handed a PEM string, PyJWT re-runs ``load_pem_private_key`` on every
+    ``jwt.encode``, and OpenSSL revalidates the 4096-bit key on each load —
+    ~125ms per call on an M4, ~235ms on a Graviton4 CI runner. Suites that mint
+    a JWT per test pay that thousands of times: flow-api signs ~2700 tokens and
+    spent 44% of its total unit-test wall clock inside this one call.
+
+    PyJWT accepts an already-loaded key object unchanged, so parse it once.
+    ``TEST_PRIVATE_KEY`` stays a PEM string for anything that imports it.
+    """
+    return t.cast(RSAPrivateKey, load_pem_private_key(TEST_PRIVATE_KEY.encode(), password=None))
+
+
 @pytest.fixture
 def create_jwt() -> t.Callable[..., str]:
     def create(
@@ -148,7 +167,7 @@ def create_jwt() -> t.Callable[..., str]:
 
         return jwt.encode(
             token,
-            TEST_PRIVATE_KEY,
+            _signing_key(),
             algorithm=ALGORITHM,
             headers={"kid": "taktile-service"},
         )

@@ -3717,7 +3717,7 @@ class BucketSyncsApi:
     ) -> BulkRequeueDLQResponse:
         """Requeue Dlq Entries
 
-        Return exhausted DLQ entries to the retry path (TG-2999).  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
+        Return exhausted DLQ entries to the retry path.  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -3798,7 +3798,7 @@ class BucketSyncsApi:
     ) -> ApiResponse[BulkRequeueDLQResponse]:
         """Requeue Dlq Entries
 
-        Return exhausted DLQ entries to the retry path (TG-2999).  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
+        Return exhausted DLQ entries to the retry path.  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
 
         :param bucket_id: (required)
         :type bucket_id: str
@@ -3879,7 +3879,7 @@ class BucketSyncsApi:
     ) -> RESTResponseType:
         """Requeue Dlq Entries
 
-        Return exhausted DLQ entries to the retry path (TG-2999).  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
+        Return exhausted DLQ entries to the retry path.  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
 
         :param bucket_id: (required)
         :type bucket_id: str

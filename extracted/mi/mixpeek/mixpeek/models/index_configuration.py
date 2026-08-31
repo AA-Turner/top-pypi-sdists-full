@@ -30,7 +30,7 @@ INDEXCONFIGURATION_ANY_OF_SCHEMAS = ["MultiVectorIndex", "VectorIndex"]
 
 class IndexConfiguration(BaseModel):
     """
-    REQUIRED. Nested index configuration. VectorIndex if type='single' (most common case). MultiVectorIndex if type='multi' (rare, for hybrid search). Contains the full storage configuration including Qdrant collection name, dimensions, distance metric, and inference service.
+    REQUIRED. Nested index configuration. VectorIndex if type='single' (most common case). MultiVectorIndex if type='multi' (rare, for hybrid search). Contains the full storage configuration including vector store collection name, dimensions, distance metric, and inference service.
     """
 
     # data type: VectorIndex

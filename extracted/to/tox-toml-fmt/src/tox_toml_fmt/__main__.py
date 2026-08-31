@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from toml_fmt_common import ArgumentGroup, FmtNamespace, TOMLFormatter, _build_cli, run  # noqa: PLC2701
+from toml_fmt_common import ArgumentGroup, FmtNamespace, TOMLFormatter, build_cli, name_list_argument, run
 
-from ._lib import Settings, format_toml
+from ._lib import Settings, format_toml, settings_in
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser
@@ -16,10 +16,6 @@ if TYPE_CHECKING:
 class PyProjectFmtNamespace(FmtNamespace):
     """Formatting arguments."""
 
-    table_format: str
-    expand_tables: list[str]
-    collapse_tables: list[str]
-    skip_wrap_for_keys: list[str]
     pin_envs: list[str]
 
 
@@ -32,64 +28,44 @@ class ToxTOMLFormatter(TOMLFormatter[PyProjectFmtNamespace]):
 
     @property
     def prog(self) -> str:
-        """:return: program name"""
+        """Program name."""
         return "tox-toml-fmt"
 
     @property
     def filename(self) -> str:
-        """:return: filename operating on"""
+        """Filename operating on."""
         return "tox.toml"
 
-    def add_format_flags(self, parser: ArgumentGroup) -> None:  # noqa: PLR6301
+    def add_format_flags(self, parser: ArgumentGroup) -> None:  # ruff: ignore[no-self-use]
         """
         Additional formatter  config.
 
         :param parser: parser to operate on.
         """
-
-        def _list_argument(value: str | list[str]) -> list[str]:
-            if isinstance(value, list):
-                return value
-            return [x.strip() for x in value.split(",") if x.strip()]
-
-        parser.add_argument(
-            "--table-format",
-            choices=["short", "long"],
-            default="short",
-            help="table format: 'short' collapses sub-tables, 'long' expands to [table.subtable]",
-        )
-        parser.add_argument(
-            "--expand-tables",
-            type=_list_argument,
-            default=[],
-            help="comma-separated list of tables to force expand (e.g. 'env.test')",
-        )
-        parser.add_argument(
-            "--collapse-tables",
-            type=_list_argument,
-            default=[],
-            help="comma-separated list of tables to force collapse (e.g. 'env.lint')",
-        )
-        parser.add_argument(
-            "--skip-wrap-for-keys",
-            type=_list_argument,
-            default=[],
-            help="comma-separated list of key patterns to skip string wrapping (e.g. '*.commands')",
-        )
         parser.add_argument(
             "--pin-env",
-            type=_list_argument,
+            type=name_list_argument,
             default=[],
             dest="pin_envs",
-            help="environments pinned to the start of env_list (comma separated)",
+            help="environments whose tables are written first (comma separated)",
         )
 
     @property
     def override_cli_from_section(self) -> tuple[str, ...]:
-        """:return: path where config overrides live"""
+        """Path where config overrides live."""
         return ("tox-toml-fmt",)
 
-    def format(self, text: str, opt: PyProjectFmtNamespace) -> str:  # noqa: PLR6301
+    def settings_in(self, text: str, path: Sequence[str]) -> dict[str, Any] | None:  # ruff: ignore[no-self-use]
+        """
+        Read the settings the text writes under a table, with the parser that reads the file itself.
+
+        :param text: the TOML source to read
+        :param path: the table the settings are written under
+        :return: the settings, or ``None`` where the text writes no such table
+        """
+        return settings_in(text, list(path))
+
+    def format(self, text: str, opt: PyProjectFmtNamespace) -> str:  # ruff: ignore[no-self-use]
         """
         Perform the formatting.
 
@@ -101,6 +77,8 @@ class ToxTOMLFormatter(TOMLFormatter[PyProjectFmtNamespace]):
             column_width=opt.column_width,
             indent=opt.indent,
             table_format=opt.table_format,
+            sub_table_spacing=opt.sub_table_spacing,
+            separate_root_table=opt.separate_root_table,
             expand_tables=opt.expand_tables,
             collapse_tables=opt.collapse_tables,
             skip_wrap_for_keys=opt.skip_wrap_for_keys,
@@ -120,7 +98,7 @@ def runner(args: Sequence[str] | None = None) -> int:
 
 
 def _build_our_cli() -> ArgumentParser:
-    return _build_cli(ToxTOMLFormatter())[0]  # pragma: no cover
+    return build_cli(ToxTOMLFormatter())[0]  # pragma: no cover
 
 
 __all__ = [

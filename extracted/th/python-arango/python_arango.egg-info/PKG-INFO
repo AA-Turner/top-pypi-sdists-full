@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-arango
-Version: 8.3.4
+Version: 8.3.5
 Summary: Python Driver for ArangoDB
 Author-email: Joohwan Oh <joohwan.oh@outlook.com>
 Maintainer-email: Joohwan Oh <joohwan.oh@outlook.com>, Alexandru Petenchea <alex.petenchea@gmail.com>, Anthony Mahanna <anthony.mahanna@arangodb.com>
@@ -33,7 +33,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -48,7 +47,7 @@ Requires-Dist: requests_toolbelt
 Requires-Dist: PyJWT>=2.10.0
 Requires-Dist: packaging>=23.1
 Provides-Extra: dev
-Requires-Dist: black==26.1.0; extra == "dev"
+Requires-Dist: black==26.5.1; extra == "dev"
 Requires-Dist: flake8==7.3.0; extra == "dev"
 Requires-Dist: isort==5.10.1; extra == "dev"
 Requires-Dist: mypy==1.15.0; extra == "dev"
@@ -89,7 +88,7 @@ If you're interested in using asyncio, please check [python-arango-async](https:
 ## Requirements
 
 - ArangoDB version 3.11+
-- Python version 3.9+
+- Python version 3.10+
 
 ## Installation
 

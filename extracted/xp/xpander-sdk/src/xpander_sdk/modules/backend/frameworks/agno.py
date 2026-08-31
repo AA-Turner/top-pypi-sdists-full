@@ -6,9 +6,12 @@ import shlex
 import time
 import uuid
 from collections import deque
-from os import getenv, environ
+from functools import lru_cache
+from os import getenv
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from urllib.parse import urlparse
 
+import httpx
 from loguru import logger
 from pydantic import ValidationError
 from xpander_sdk import Configuration
@@ -93,6 +96,7 @@ from xpander_sdk.modules.agents.models.agent import (
 from xpander_sdk.modules.agents.sub_modules.agent import Agent
 from xpander_sdk.modules.backend.utils.extra_headers import sanitize_extra_headers
 from xpander_sdk.modules.backend.utils.mcp_connect import (
+    describe_transport_failure,
     is_mcp_auth_error,
     mark_probe_failed,
     mark_probe_ok,
@@ -171,6 +175,7 @@ from xpander_sdk.utils.agno_tool_resolution import (
     install_agno_tool_resolution_patch,
 )
 from xpander_sdk.utils.cache import backend_config_cache, scope_token
+from xpander_sdk.utils.env import url_host
 from xpander_sdk.utils.event_loop import run_sync
 
 # agno's structured-output cleaner turns literal newlines into spaces, flattening markdown
@@ -4683,8 +4688,23 @@ _AGNO_INTERNAL_TOOL_FIELDS = (
 )
 
 
+# Endpoints (by base_url) that rejected a request carrying response_format. agno's own
+# retry loop re-enters get_request_params, so the first rejection turns every later
+# attempt into a plain-text request for that endpoint. In-process memo only - the
+# persistent per-provider capability verdict is the discovery probe's job.
+_RESPONSE_FORMAT_REJECTING_ENDPOINTS: set = set()
+
+
+def _response_format_memo_key(model) -> str:
+    """Endpoint identity for the response_format rejection memo."""
+    return str(getattr(model, "base_url", "") or "")
+
+
 def _strip_internal_tool_fields_cls(base):
-    """Subclass any agno OpenAI-compatible model class to strip agno-internal tool fields."""
+    """Subclass any agno OpenAI-compatible model class to fit real OpenAI-compatible
+    endpoints: strips agno-internal tool fields, keeps response_format inside the
+    dialect strict servers accept, and surfaces non-chat-shaped bodies as the
+    endpoint's own words instead of a Python error."""
 
     class XpanderToolFieldStripping(base):
         def _format_tools(self, tools):
@@ -4708,6 +4728,21 @@ def _strip_internal_tool_fields_cls(base):
             # answer's shape and the tolerant parse handles it (fence + repair).
             if tools and response_format is not None:
                 response_format = None
+            # OpenAI's legacy {"type": "json_object"} dialect: strict servers (LM Studio)
+            # accept only json_schema/text. A Pydantic schema still flows through as
+            # json_schema below; the schema-less hint is dropped - the JSON-fields prompt
+            # block and the tolerant parse own the text fallback.
+            if (
+                isinstance(response_format, dict)
+                and response_format.get("type") == "json_object"
+            ):
+                response_format = None
+            # An endpoint that rejected response_format once gets plain text from then on.
+            if (
+                response_format is not None
+                and _response_format_memo_key(self) in _RESPONSE_FORMAT_REJECTING_ENDPOINTS
+            ):
+                response_format = None
             return super().get_request_params(
                 response_format=response_format,
                 tools=tools,
@@ -4715,9 +4750,74 @@ def _strip_internal_tool_fields_cls(base):
                 run_response=run_response,
             )
 
+        def _memo_response_format_rejection(self, exc: Exception) -> None:
+            """Remember an endpoint whose error names response_format so the retry sends without it."""
+            if "response_format" in str(exc):
+                key = _response_format_memo_key(self)
+                if key:
+                    _RESPONSE_FORMAT_REJECTING_ENDPOINTS.add(key)
+
+        def _parse_provider_response(self, response, **kwargs):
+            from agno.exceptions import ModelProviderError
+
+            # Some servers answer HTTP 200 with {"error": "<text>"} (LM Studio does this
+            # for unknown routes, e.g. a base_url that already ends in /chat). agno assumes
+            # a dict error; a bare string must surface as the endpoint's own words.
+            err = getattr(response, "error", None)
+            if err and not isinstance(err, dict):
+                raise ModelProviderError(
+                    message=(
+                        f"The endpoint at {self.base_url} did not return an "
+                        f"OpenAI-compatible chat response: {err}"
+                    ),
+                    model_name=self.name,
+                    model_id=self.id,
+                )
+            if not getattr(response, "choices", None) and not err:
+                raise ModelProviderError(
+                    message=(
+                        f"The endpoint at {self.base_url} did not return an "
+                        "OpenAI-compatible chat response (no choices in the body). "
+                        "Check that the provider's base URL points at the /v1 API root."
+                    ),
+                    model_name=self.name,
+                    model_id=self.id,
+                )
+            return super()._parse_provider_response(response, **kwargs)
+
+        def invoke(self, *args, **kwargs):
+            try:
+                return super().invoke(*args, **kwargs)
+            except Exception as e:
+                self._memo_response_format_rejection(e)
+                raise
+
+        async def ainvoke(self, *args, **kwargs):
+            try:
+                return await super().ainvoke(*args, **kwargs)
+            except Exception as e:
+                self._memo_response_format_rejection(e)
+                raise
+
+        def invoke_stream(self, *args, **kwargs):
+            try:
+                yield from super().invoke_stream(*args, **kwargs)
+            except Exception as e:
+                self._memo_response_format_rejection(e)
+                raise
+
+        async def ainvoke_stream(self, *args, **kwargs):
+            try:
+                async for item in super().ainvoke_stream(*args, **kwargs):
+                    yield item
+            except Exception as e:
+                self._memo_response_format_rejection(e)
+                raise
+
     return XpanderToolFieldStripping
 
 
+@lru_cache(maxsize=1)
 def _build_openai_like_cls():
     """Return an ``OpenAILike`` subclass that strips agno-internal tool fields.
 
@@ -4726,6 +4826,25 @@ def _build_openai_like_cls():
     from agno.models.openai.like import OpenAILike
 
     return _strip_internal_tool_fields_cls(OpenAILike)
+
+
+# Providers that accept OpenAI's `prompt_cache_key` body field (improves cache
+# routing; caching itself is automatic server-side). openai_compatible is
+# excluded: strict self-hosted gateways 400 on unknown body fields.
+_OPENAI_COMPATIBLE_PROVIDERS = frozenset(
+    {
+        "openai",
+        "bytedance",
+        "tzafon_lightcone",
+        "cerebras",
+        "helicone",
+        "nebius",
+        "open_router",
+        "fireworks",
+        "nim",
+        "cloudflare_ai_gw",
+    }
+)
 
 
 async def _aget_org_default_llm_headers(agent: Agent) -> Any:
@@ -5000,24 +5119,9 @@ def _load_llm_model(
     if agent.llm_api_base and len(agent.llm_api_base) != 0:
         llm_args["base_url"] = agent.llm_api_base
 
-    # Enable prompt caching on OpenAI-compatible providers. OpenAI-style caching
-    # is automatic server-side (prompt >= 1024 tokens); passing `prompt_cache_key`
-    # in the request body improves cache routing / hit-rate. Injected via
-    # extra_body so it forwards verbatim and providers that don't support it just
-    # ignore the extra field. (Anthropic/Bedrock use cache_control/cachePoint;
-    # Gemini caches implicitly — handled in their own branches.)
-    _OPENAI_COMPATIBLE_PROVIDERS = {
-        "openai",
-        "bytedance",
-        "tzafon_lightcone",
-        "cerebras",
-        "helicone",
-        "nebius",
-        "open_router",
-        "fireworks",
-        "nim",
-        "cloudflare_ai_gw",
-    }
+    # prompt_cache_key routing hint for providers known to accept it (see the
+    # module-level set). (Anthropic/Bedrock use cache_control/cachePoint;
+    # Gemini caches implicitly - handled in their own branches.)
     if llm_model_provider in _OPENAI_COMPATIBLE_PROVIDERS:
         extra_body = dict(llm_args.get("extra_body") or {})
         extra_body.setdefault(
@@ -5056,6 +5160,12 @@ def _load_llm_model(
         ) or is_gpt_5_6:
             return OpenAIResponses(**openai_args)
 
+        # Org custom providers ride the openai leg with llm_api_base set; those
+        # endpoints (LM Studio, Ollama, vLLM) need the strict-endpoint fit. OpenAI
+        # itself (no base_url override) keeps the raw class and its dialects.
+        if openai_args.get("base_url"):
+            return _strip_internal_tool_fields_cls(OpenAIChat)(**openai_args)
+
         return OpenAIChat(**openai_args)
     # ByteDance
     elif llm_model_provider == "bytedance":
@@ -5065,7 +5175,9 @@ def _load_llm_model(
             id=llm_model_name,
             # Try xpander.ai-specific key first
             api_key=get_llm_key("BYTEDANCE_API_KEY"),
-            base_url="https://ark.ap-southeast.bytepluses.com/api/v3",
+            # the agent's llm_api_base wins over the provider default
+            base_url=llm_args.pop("base_url", None)
+            or "https://ark.ap-southeast.bytepluses.com/api/v3",
             retries=3,
             exponential_backoff=True,
             user=llm_usage_identifier,
@@ -5080,7 +5192,8 @@ def _load_llm_model(
             id=llm_model_name,
             # Try xpander.ai-specific key first
             api_key=get_llm_key("TZAFON_LIGHTCONE_API_KEY"),
-            base_url="https://api.tzafon.ai/v1",
+            # the agent's llm_api_base wins over the provider default
+            base_url=llm_args.pop("base_url", None) or "https://api.tzafon.ai/v1",
             retries=3,
             exponential_backoff=True,
             user=llm_usage_identifier,
@@ -5094,7 +5207,8 @@ def _load_llm_model(
         return OpenAILike(
             id=llm_model_name,
             api_key=get_llm_key("CEREBRAS_API_KEY"),
-            base_url="https://api.cerebras.ai/v1",
+            # the agent's llm_api_base wins over the provider default
+            base_url=llm_args.pop("base_url", None) or "https://api.cerebras.ai/v1",
             retries=3,
             exponential_backoff=True,
             user=llm_usage_identifier,
@@ -5108,7 +5222,8 @@ def _load_llm_model(
         return OpenAILike(
             id=llm_model_name,
             api_key=get_llm_key("Z_AI_API_KEY"),
-            base_url="https://api.z.ai/api/paas/v4",
+            # the agent's llm_api_base wins over the provider default
+            base_url=llm_args.pop("base_url", None) or "https://api.z.ai/api/paas/v4",
             retries=3,
             exponential_backoff=True,
             user=llm_usage_identifier,
@@ -5123,7 +5238,9 @@ def _load_llm_model(
             id=llm_model_name,
             # Try xpander.ai-specific key first, fallback to standard OpenAI key
             api_key=get_llm_key("HELICONE_API_KEY"),
-            base_url="https://ai-gateway.helicone.ai/v1",
+            # the agent's llm_api_base wins over the provider default
+            base_url=llm_args.pop("base_url", None)
+            or "https://ai-gateway.helicone.ai/v1",
             retries=3,
             exponential_backoff=True,
             user=llm_usage_identifier,
@@ -5167,6 +5284,16 @@ def _load_llm_model(
         from agno.models.google import Gemini
 
         del llm_args["extra_headers"]
+        gemini_base_url = llm_args.pop("base_url", None)
+        if gemini_base_url:
+            # genai reaches custom endpoints only via http_options; the timeout is
+            # restated because client_params overrides agno's converted value
+            llm_args["client_params"] = {
+                "http_options": {
+                    "base_url": gemini_base_url,
+                    "timeout": int(LLM_REQUEST_TIMEOUT_SECONDS * 1000),
+                }
+            }
         return Gemini(
             id=llm_model_name,
             # Try xpander.ai-specific key first, fallback to standard OpenAI key
@@ -5213,9 +5340,6 @@ def _load_llm_model(
             CachingAwsBedrock,
         )
 
-        environ["AWS_BEARER_TOKEN_BEDROCK"] = get_llm_key(
-            "AWS_BEARER_TOKEN_BEDROCK"
-        )  # set to env
         del llm_args["extra_headers"]
         if (
             "opus-4-7" not in llm_model_name
@@ -5226,6 +5350,8 @@ def _load_llm_model(
         ):
             llm_args["temperature"] = 0.0
 
+        bedrock_endpoint_url = llm_args.pop("base_url", None)
+
         return CachingAwsBedrock(
             id=llm_model_name,
             retries=3,
@@ -5233,6 +5359,10 @@ def _load_llm_model(
             # agno's 8192 default truncates large tool-call JSON mid-stream,
             # dispatching tools with empty args (see truncated-call guard).
             max_tokens=LLM_MAX_OUTPUT_TOKENS,
+            # per-client bearer auth; a process-level os.environ write would leak
+            # one tenant's credential to every other task in a shared worker
+            aws_bearer_token=get_llm_key("AWS_BEARER_TOKEN_BEDROCK"),
+            endpoint_url=bedrock_endpoint_url,
             **llm_args,
         )
 
@@ -5251,6 +5381,12 @@ def _load_llm_model(
         # Fable rejects sampling params outright, so never hand it a temperature.
         if "fable" not in llm_model_name:
             llm_args["temperature"] = 0.0
+        # anthropic client defaults to a 600s read timeout; lift to 12h for long agent turns
+        anthropic_client_params = {"timeout": LLM_REQUEST_TIMEOUT_SECONDS}
+        anthropic_base_url = llm_args.pop("base_url", None)
+        if anthropic_base_url:
+            # Claude takes no base_url field; the anthropic client accepts it
+            anthropic_client_params["base_url"] = anthropic_base_url
         llm = CachingClaude(
             id=llm_model_name,
             api_key=get_llm_key("ANTHROPIC_API_KEY"),
@@ -5260,8 +5396,7 @@ def _load_llm_model(
             # agno's 8192 default truncates large tool-call JSON mid-stream,
             # dispatching tools with empty args (see truncated-call guard).
             max_tokens=LLM_MAX_OUTPUT_TOKENS,
-            # anthropic client defaults to a 600s read timeout; lift to 12h for long agent turns
-            client_params={"timeout": LLM_REQUEST_TIMEOUT_SECONDS},
+            client_params=anthropic_client_params,
             **llm_args,
         )
         llm._supports_structured_outputs = lambda: True  # override agno filter
@@ -5309,6 +5444,35 @@ def _load_llm_model(
             api_key=get_llm_key("CLOUDFLARE_AI_GW_API_KEY"),
             retries=3,
             exponential_backoff=True,
+            user=llm_usage_identifier,
+            client_params={"timeout": LLM_REQUEST_TIMEOUT_SECONDS},
+            **llm_args,
+        )
+    # Any OpenAI-API-shaped endpoint (vLLM, Ollama, LiteLLM, internal gateways)
+    elif llm_model_provider == "openai_compatible":
+        OpenAILike = _build_openai_like_cls()
+
+        if not llm_args.get("base_url"):
+            raise ValueError(
+                "openai_compatible provider requires a base URL - "
+                "set the agent's llm_api_base to the endpoint's /v1 URL."
+            )
+
+        # self-hosted endpoints are often keyless, but the client rejects an
+        # empty api_key - "EMPTY" is the vLLM/Ollama convention
+        api_key = get_llm_key("OPENAI_COMPATIBLE_API_KEY") or "EMPTY"
+        if api_key != "EMPTY" and urlparse(llm_args["base_url"]).scheme == "http":
+            logger.warning(
+                "[openai-compatible] bearer credential over plaintext HTTP to "
+                f"{url_host(llm_args['base_url'])} - use https or a keyless endpoint"
+            )
+
+        return OpenAILike(
+            id=llm_model_name,
+            api_key=api_key,
+            retries=3,
+            exponential_backoff=True,
+            user=llm_usage_identifier,
             client_params={"timeout": LLM_REQUEST_TIMEOUT_SECONDS},
             **llm_args,
         )
@@ -5452,16 +5616,22 @@ def _load_compaction_model(agent: Agent, task: Optional[Task] = None) -> Optiona
                 CachingAwsBedrock,
             )
 
-            # boto3 reads the bedrock bearer token only from the environment;
-            # AwsBedrock exposes no constructor param for it (matches
-            # _load_llm_model). The agent's main model load sets this same var.
-            # CachingAwsBedrock adds cachePoint injection (system + tools).
-            environ["AWS_BEARER_TOKEN_BEDROCK"] = api_key
+            # CachingAwsBedrock adds cachePoint injection (system + tools) and
+            # carries the bearer token per-client (never via os.environ).
+            # Reuse the agent's custom endpoint only when the agent itself runs
+            # on bedrock (mirrors _load_llm_model's llm_api_base routing).
+            bedrock_endpoint = (
+                agent.llm_api_base
+                if (agent.model_provider or "").lower() == "amazon_bedrock"
+                else None
+            )
             model: Any = CachingAwsBedrock(
                 id=model_id,
                 temperature=0.0,
                 retries=3,
                 exponential_backoff=True,
+                aws_bearer_token=api_key,
+                endpoint_url=bedrock_endpoint or None,
             )
         elif provider == "anthropic":
             from xpander_sdk.modules.backend.frameworks._anthropic_cache import (
@@ -6260,10 +6430,23 @@ async def _ensure_remote_mcp_ready(
     # the run so one bad server can't sink the rest; cache the failure to avoid a
     # per-task re-probe storm.
     mark_probe_failed(agent_id, mcp.url, mcp.headers)
+    detail = describe_transport_failure(probe_error)
     logger.warning(
-        f"MCP server '{mcp.name or mcp.url}' preflight failed ({type(probe_error).__name__}: {probe_error}); "
+        f"MCP server '{mcp.name or mcp.url}' preflight failed "
+        f"({type(probe_error).__name__}: {probe_error}; {detail}); "
         f"skipping this tool for the run"
     )
+    # Egress advice only when connection establishment itself failed; an HTTP status
+    # or a stall after connecting means the server was reached, so the caller's
+    # generic temporarily-unavailable note is the accurate one there.
+    if isinstance(probe_error, httpx.ConnectError):
+        # hostname, not netloc: netloc would echo any embedded userinfo credentials
+        host = urlparse(mcp.url).hostname or mcp.url
+        return False, (
+            f"{mcp.name or mcp.url}: unreachable from the agent's network ({detail}) - "
+            f"network access from the agent's environment to {host} may need to be "
+            f"allowed. Its tools are unavailable this run."
+        )
     return False, None
 
 

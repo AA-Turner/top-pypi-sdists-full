@@ -1,6 +1,10 @@
 name: build
 
 on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -19,16 +23,16 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ 3.9, "3.10", "3.11" ]
+        python-version: [ 3.9, "3.10", "3.11", "3.12", "3.13", "3.14" ]
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.9.3
+      - uses: prefix-dev/setup-pixi@v0.10.1
         with:
           cache: false
           pixi-version: v0.46.0
@@ -36,7 +40,7 @@ jobs:
         run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
         shell: bash
       - name: Install dependencies
-        run: pixi add scipy numpy pip pytest meson meson-python openblas python==${{ matrix.python-version }}
+        run: pixi add --platform linux-64 scipy numpy pip pytest meson meson-python openblas python==${{ matrix.python-version }}
       - name: Test
         run: |
           pixi r python -m pip install -v . --no-build-isolation -Csetup-args=-Duse_openmp=true
@@ -52,15 +56,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ 3.9, "3.10", "3.11", "3.12", "3.13"]
+        python-version: [ 3.9, "3.10", "3.11", "3.12", "3.13", "3.14"]
         link_mkl: [true]
+        use_blas64: [true, false]
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
       LINK_MKL: ${{ matrix.link_mkl }}
+      USE_BLAS64: ${{ matrix.use_blas64 }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -68,7 +74,7 @@ jobs:
         shell: bash
         run: |
           echo "PYTHON_SUBVERSION=$(echo $PYTHON_VERSION | cut -c 3-)" >> $GITHUB_ENV
-      - uses: prefix-dev/setup-pixi@v0.9.3
+      - uses: prefix-dev/setup-pixi@v0.10.1
         with:
           cache: false
           pixi-version: v0.46.0
@@ -82,20 +88,133 @@ jobs:
           else
             BLAS_PKGS="blas-devel=*=*openblas"
           fi
-          pixi add $BLAS_PKGS pip scipy numpy pytest mkl mkl-devel pkg-config meson meson-python
+          pixi add --platform linux-64 $BLAS_PKGS pip scipy numpy pytest mkl mkl-devel pkg-config meson meson-python
       - name: Build
         run: |
           pixi r python -c "import numpy as np;print(np.show_config())"
-          if [[ "$LINK_MKL" == "true" ]]; then
-
-            pixi r python -m pip install --verbose --no-build-isolation -Csetup-args=-Dlink_mkl=true .
-          else
-            pixi r python -m pip install --verbose --no-build-isolation .
+          MESON_ARGS="-Csetup-args=-Dlink_mkl=true"
+          if [[ "$USE_BLAS64" == "true" ]]; then
+            MESON_ARGS="$MESON_ARGS -Csetup-args=-Duse_blas64=true"
           fi
+          pixi r python -m pip install --verbose --no-build-isolation $MESON_ARGS .
       - name: Test
         run: |
           pixi r pytest
           rm -rf build/
+
+  build_gpu:
+    # Build-only: linking against cuBLAS/cuSPARSE needs the CUDA toolkit but
+    # not a physical GPU, so this validates the use_gpu build/link path without
+    # running the solver (running would require GPU hardware).
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.12" ]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: prefix-dev/setup-pixi@v0.10.1
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Add .pixi/envs/default to the $PATH
+        run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install dependencies
+        run: |
+          pixi add --platform linux-64 scipy numpy pip pytest meson meson-python \
+            openblas python==${{ matrix.python-version }} \
+            cuda-version=12.* cuda-nvcc cuda-cudart-dev libcublas-dev libcusparse-dev
+      - name: Build (use_gpu=true)
+        run: |
+          export CUDA_PATH="$(pwd)/.pixi/envs/default"
+          export CUDA_HOME="$CUDA_PATH"
+          pixi r python -m pip install -v . --no-build-isolation \
+            -Csetup-args=-Duse_gpu=true -Csetup-args=-Dint32=true
+      - name: Check _scs_gpu is linked against cuBLAS and cuSPARSE
+        # A shared library links successfully even with undefined symbols, so the
+        # real regression test is that libcublas/libcusparse are recorded as
+        # NEEDED entries (the bug fixed in #221 was a missing link, seen only at
+        # import time as `undefined symbol: cusparseDestroySpMat`).
+        run: |
+          # Locate the installed extension in the pixi env's site-packages.
+          so=$(find "$(pwd)/.pixi/envs/default/lib" -name '_scs_gpu*.so' | head -1)
+          if [ -z "$so" ]; then
+            echo "ERROR: _scs_gpu*.so not found in the pixi environment"
+            find "$(pwd)/.pixi/envs/default/lib" -name '_scs_*.so' || true
+            exit 1
+          fi
+          echo "Inspecting $so"
+          readelf -d "$so"
+          readelf -d "$so" | grep -q 'libcublas' || { echo "ERROR: _scs_gpu not linked against cuBLAS"; exit 1; }
+          readelf -d "$so" | grep -q 'libcusparse' || { echo "ERROR: _scs_gpu not linked against cuSPARSE"; exit 1; }
+          echo "OK: _scs_gpu links cuBLAS and cuSPARSE"
+
+  build_native_arch:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        native_arch: [true, false]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: prefix-dev/setup-pixi@v0.10.1
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Add .pixi/envs/default to the $PATH
+        run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install dependencies
+        run: pixi add --platform linux-64 scipy numpy pip pytest meson meson-python openblas python==3.12
+      - name: Build (native_arch=${{ matrix.native_arch }})
+        run: |
+          pixi r python -m pip install -v . --no-build-isolation \
+            -Csetup-args=-Dnative_arch=${{ matrix.native_arch }}
+      - name: Test
+        run: |
+          pixi r pytest
+          rm -rf build/
+
+  build_accelerate:
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: prefix-dev/setup-pixi@v0.10.1
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Add .pixi/envs/default to the $PATH
+        run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install dependencies
+        run: pixi add --platform osx-arm64 scipy numpy pip pytest meson meson-python python==${{ matrix.python-version }}
+      - name: Build and test
+        run: |
+          pixi r python -m pip install -v . --no-build-isolation
+          pixi r pytest
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
@@ -117,28 +236,45 @@ jobs:
             arch: auto
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
+      - name: Set up MSVC for Windows
+        if: runner.os == 'Windows'
+        uses: egor-tensin/vs-shell@v2
+
       - name: Install conda on Windows
         if: runner.os == 'Windows'
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           miniconda-version: "latest"
-          channels: conda-forge, anaconda
+          channels: https://software.repos.intel.com/python/conda/, conda-forge
 
-      - name: Install openblas from conda on Windows
+      - name: Install MKL from conda on Windows
         if: runner.os == 'Windows'
-        run: conda install -y openblas pkgconfig
+        run: conda install -y -c https://software.repos.intel.com/python/conda/ -c conda-forge mkl mkl-devel intel-openmp pkgconfig
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.0
+        uses: pypa/cibuildwheel@v4.2.0
         env:
           # Explicitly set the architecture based on the matrix
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
 
-      - uses: actions/upload-artifact@v6
+      - name: Report wheel sizes
+        run: |
+          ls -lh ./wheelhouse/*.whl
+          ls -lh ./wheelhouse/*.whl >> $GITHUB_STEP_SUMMARY
+          # Warn if any wheel exceeds 100MB (PyPI default limit)
+          for whl in ./wheelhouse/*.whl; do
+            size=$(stat -f%z "$whl" 2>/dev/null || stat -c%s "$whl")
+            if [ "$size" -gt 104857600 ]; then
+              echo "::warning file=$(basename $whl)::Wheel $(basename $whl) is $(( size / 1048576 ))MB — exceeds PyPI 100MB limit"
+            fi
+          done
+        shell: bash
+
+      - uses: actions/upload-artifact@v7
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -147,14 +283,14 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
       - name: Build sdist
         run: pipx run build --sdist -Csetup-args=-Dsdist_mode=true
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
@@ -171,7 +307,7 @@ jobs:
     # Only run this step on GH release
     # if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           # unpacks all CIBW artifacts into dist/
           pattern: cibw-*

@@ -38,7 +38,7 @@ class DocumentCreateRequest(BaseModel):
     source_object_id: Optional[StrictStr] = Field(default=None, description="Optional parent object identifier when sourced directly from a bucket.")
     lineage_path: Optional[StrictStr] = Field(default=None, description="Optional materialized lineage path to set during creation.")
     lineage_chain: Optional[List[LineageStep]] = Field(default=None, description="Processing steps from root object to this document. Recommended for decomposition trees.")
-    content_hash: Optional[StrictStr] = Field(default=None, description="Optional SHA256 content hash of the source object. Supplying it on a lineage-preserving import lets a later heal/reprocess recognise the cached derivation potency (LIN-02) and skip recompute instead of re-spending GPU. Stored at _internal.content_hash.")
+    content_hash: Optional[StrictStr] = Field(default=None, description="Optional SHA256 content hash of the source object. Supplying it on a lineage-preserving import lets a later heal/reprocess recognise the cached derivation potency and skip recompute instead of re-spending GPU. Stored at _internal.content_hash.")
     document_schema_version: Optional[StrictStr] = Field(default=None, description="Optional document schema version (v1 or v2). If not provided, uses system default.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata dictionary for user-defined fields and custom attributes.")
     features: Optional[List[FeatureModel]] = Field(default=None, description="Features to associate with the document")

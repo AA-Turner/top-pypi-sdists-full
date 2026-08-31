@@ -99,6 +99,10 @@ class _HooksSupport:
                 )
             if event in {"agent_end", "llm_end"} and payload.get("output") is not None:
                 processor.record_workflow_io(trace_id, output_value=payload["output"])
+            # Only llm_start carries it: the Agents SDK resolves the agent's
+            # instructions before the call and hands the result to this hook.
+            if event == "llm_start":
+                processor.record_system_prompt(trace_id, fields.get("system_prompt"))
         if self._callback is not None:
             result = self._callback(event, payload)
             if hasattr(result, "__await__"):

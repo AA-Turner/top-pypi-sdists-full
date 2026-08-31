@@ -7,10 +7,12 @@ API credentials, base URLs, and organization information.
 
 from typing import Optional
 from os import getenv
-from pydantic import BaseModel, Field
+from urllib.parse import urlparse
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from xpander_sdk.core.state import State
-from xpander_sdk.utils.env import get_base_url
+from xpander_sdk.utils.env import ensure_scheme, get_base_url
 
 
 class Configuration(BaseModel):
@@ -37,6 +39,9 @@ class Configuration(BaseModel):
         >>> full_url = config.get_full_url()
     """
 
+    # Assignments re-validate so base_url invariants survive mutation too.
+    model_config = ConfigDict(validate_assignment=True)
+
     api_key: Optional[str] = Field(
         default_factory=lambda: getenv(key="XPANDER_API_KEY"),
         description="xpander.ai API key for authentication",
@@ -44,6 +49,7 @@ class Configuration(BaseModel):
 
     base_url: Optional[str] = Field(
         default_factory=get_base_url,
+        validate_default=True,
         description="Base URL for xpander.ai API endpoints",
     )
 
@@ -59,6 +65,23 @@ class Configuration(BaseModel):
         description="Configuration level in-memory state",
         exclude=True,  # This ensures it's excluded by default
     )
+
+    @field_validator("base_url", mode="before")
+    @classmethod
+    def _normalize_base_url(cls, value: Optional[str]) -> str:
+        """Never hold a None/empty or scheme-less base_url - downstream URL
+        assembly and hostname routing assume a well-formed absolute URL.
+        An explicit falsy value must not silently fall back to the public
+        cloud default (on-prem keys would egress to the cloud gateway):
+        honor XPANDER_BASE_URL when set, otherwise fail loudly."""
+        if not value:
+            value = getenv("XPANDER_BASE_URL")
+            if not value:
+                raise ValueError(
+                    "base_url is empty - provide base_url or set the "
+                    "XPANDER_BASE_URL environment variable."
+                )
+        return ensure_scheme(str(value))
 
     def get_full_url(self) -> str:
         """
@@ -79,11 +102,28 @@ class Configuration(BaseModel):
             >>> config.get_full_url()
             'https://agent-controller.xpander.ai/org123'
         """
-        should_add_organization_id_to_the_url = (
-            "agent-controller" in self.base_url or "9016" in self.base_url
+        if not self.base_url:
+            raise ValueError(
+                "Configuration.base_url is not set - provide base_url or the "
+                "XPANDER_BASE_URL environment variable."
+            )
+
+        # Org-append contract (mono workspace/functions.py): the SDK appends
+        # /{org} when the hostname contains "agent-controller" (covers the
+        # generated agent-controller-<customer> ingress hosts), the port is the
+        # controller's 9016, or the URL is path-mounted at /agent-controller.
+        # Hostname/path-segment checks only - a full-URL substring match would
+        # re-trigger the inbound false-positive class this replaced.
+        parsed = urlparse(self.base_url)
+        host = (parsed.hostname or "").lower()
+        first_path_segment = parsed.path.strip("/").split("/", 1)[0].lower()
+        is_agent_controller = (
+            "agent-controller" in host
+            or parsed.port == 9016
+            or first_path_segment == "agent-controller"
         )
 
-        if should_add_organization_id_to_the_url:
+        if is_agent_controller:
             return f"{self.base_url}/{self.organization_id}"
 
         return self.base_url

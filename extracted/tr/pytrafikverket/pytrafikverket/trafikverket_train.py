@@ -27,7 +27,8 @@ from .trafikverket import (
 class TrafikverketTrain(TrafikverketBase):
     """Class used to communicate with trafikverket's train api."""
 
-    version = "1.9"
+    version = "2.0"
+    namespace = "rail.trafficinfo"
 
     async def async_get_train_station_from_signature(
         self, signature: str
@@ -164,7 +165,7 @@ class TrafikverketTrain(TrafikverketBase):
         train_announcements = await self._api.async_make_request(
             "TrainAnnouncement",
             self.version,
-            None,
+            self.namespace,
             TRAIN_STOP_REQUIRED_FIELDS,
             filters,
             1,
@@ -176,7 +177,7 @@ class TrafikverketTrain(TrafikverketBase):
         train_announcement = train_announcements[0]
         return await train_stop_from_xml_node(train_announcement)
 
-    async def async_get_next_train_stops(
+    async def async_get_next_train_stops(  # noqa: PLR0917
         self,
         from_station: StationInfoModel,
         to_station: StationInfoModel,
@@ -230,7 +231,7 @@ class TrafikverketTrain(TrafikverketBase):
         train_announcements = await self._api.async_make_request(
             "TrainAnnouncement",
             self.version,
-            None,
+            self.namespace,
             TRAIN_STOP_REQUIRED_FIELDS,
             filters,
             number_of_stops,

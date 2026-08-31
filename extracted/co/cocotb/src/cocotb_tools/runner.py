@@ -8,6 +8,7 @@
 # TODO: create a short README and a .gitignore (content: "*") in both build_dir and test_dir? (Some other tools do this.)
 # TODO: support timescale on all simulators
 # TODO: support custom dependencies
+from __future__ import annotations
 
 import logging
 import multiprocessing
@@ -20,20 +21,15 @@ import sys
 import tempfile
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
 from itertools import chain
 from pathlib import Path
 from typing import (
-    Dict,
+    Any,
+    ClassVar,
     Generic,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
     TextIO,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -41,19 +37,19 @@ from typing import (
 import find_libpython
 
 import cocotb_tools.config
+from cocotb.types._logic import Logic
+from cocotb.types._logic_array import LogicArray
+from cocotb_tools import _env
 from cocotb_tools.check_results import get_results
 from cocotb_tools.sim_versions import NvcVersion
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
 
-PathLike: "TypeAlias" = Union["os.PathLike[str]", str]
+PathLike: TypeAlias = Union["os.PathLike[str]", str]
 "A path that can be passed to :class:`pathlib.Path` or :func:`open`"
 
-_Command: "TypeAlias" = List[str]
-
-_magic_re = re.compile(r"([\\{}])")
-_space_re = re.compile(r"([\s])", re.ASCII)
+_Command: TypeAlias = list[str]
 
 
 MAX_PARALLEL_BUILD_JOBS: int = 4
@@ -66,6 +62,10 @@ Set this variable to globally change the number of parallel build jobs.
 
 def _get_max_parallel_build_jobs() -> int:
     return min(MAX_PARALLEL_BUILD_JOBS, multiprocessing.cpu_count())
+
+
+_magic_re = re.compile(r"([\\{}])")
+_space_re = re.compile(r"([\s])", re.ASCII)
 
 
 def _as_tcl_value(value: str) -> str:
@@ -95,13 +95,56 @@ for i in range(32):
 _sv_escape_translate_table = str.maketrans(_sv_escapes)
 
 
-def _as_sv_literal(value: object) -> str:
-    if isinstance(value, (int, float)):
+def _sv_escape_string(value: str) -> str:
+    if any(ord(c) >= 128 for c in value):
+        warnings.warn(
+            f"String {value!r} contains non-ASCII characters which may not be supported in SystemVerilog",
+            stacklevel=1,
+        )
+    return '"' + value.translate(_sv_escape_translate_table) + '"'
+
+
+_vhdl_escape_translate_table = str.maketrans({'"': '""'})
+
+
+def _vhdl_escape_string(value: str) -> str:
+    if any(ord(c) < 32 or ord(c) >= 127 for c in value):
+        warnings.warn(
+            f"String {value!r} contains control characters which may not be supported in VHDL",
+            stacklevel=1,
+        )
+    return '"' + value.translate(_vhdl_escape_translate_table) + '"'
+
+
+def as_sv_literal(value: int | float | bool | str | LogicArray | Logic) -> str:
+    """Convert a Python object into a SystemVerilog literal."""
+    if isinstance(value, bool):
+        return "1'b1" if value else "1'b0"
+    elif isinstance(value, (int, float)):
+        return str(value)
+    elif isinstance(value, (LogicArray, Logic)):
+        value_str = str(value)
+        if any(c not in {"0", "1", "X", "Z"} for c in value_str):
+            raise ValueError(f"Invalid logic value: {value}")
+        return f"{len(value_str)}'b{value_str}"
+    elif isinstance(value, str):
+        return _sv_escape_string(value)
+    else:
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to SystemVerilog literal"
+        )
+
+
+def as_vhdl_literal(value: int | float | bool | str | LogicArray | Logic) -> str:
+    """Convert a Python object into a VHDL literal."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    elif isinstance(value, (int, float, LogicArray, Logic)):
         return str(value)
     elif isinstance(value, str):
-        return '"' + value.translate(_sv_escape_translate_table) + '"'
+        return _vhdl_escape_string(value)
     else:
-        raise TypeError("Can't serialize this type as an SV literal")
+        raise TypeError(f"Cannot convert {type(value).__name__} to VHDL literal")
 
 
 def _shlex_join(split_command: Iterable[str]) -> str:
@@ -124,13 +167,13 @@ class _Tag(Generic[_T]):
 
 
 class _ValueAndTag(Generic[_T]):
-    def __init__(self, value: _T, tag: Type[_Tag]) -> None:
+    def __init__(self, value: _T, tag: type[_Tag]) -> None:
         self.value = value
         self.tag = tag
 
 
 class _ValueAndOptionalTag(Generic[_T]):
-    def __init__(self, value: _T, tag: Union[Type[_Tag], None]) -> None:
+    def __init__(self, value: _T, tag: type[_Tag] | None) -> None:
         self.value = value
         self.tag = tag
 
@@ -153,13 +196,13 @@ _vhdl_extensions = (".vhd", ".vhdl")
 
 def _determine_file_type(
     filename: PathLike,
-) -> Union[Type[Verilog], Type[VHDL], Type[VerilatorControlFile]]:
+) -> type[Verilog | VHDL | VerilatorControlFile]:
     ext = Path(filename).suffix
     if ext in _verilog_extensions:
         return Verilog
     elif ext in _vhdl_extensions:
         return VHDL
-    elif ext == "vlt":
+    elif ext == ".vlt":
         return VerilatorControlFile
     else:
         raise ValueError(
@@ -168,12 +211,12 @@ def _determine_file_type(
 
 
 class Runner(ABC):
-    supported_gpi_interfaces: Dict[str, List[str]] = {}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {}
 
     def __init__(self) -> None:
         self._simulator_in_path()
 
-        self.env: Dict[str, str] = {}
+        self.env: dict[str, str] = {}
 
         # for running test() independently of build()
         self.build_dir: Path = get_abs_path("sim_build")
@@ -190,7 +233,7 @@ class Runner(ABC):
             SystemExit: Simulator executable does not exist in :envvar:`PATH`.
         """
 
-    def _check_hdl_toplevel_lang(self, hdl_toplevel_lang: Optional[str]) -> str:
+    def _check_hdl_toplevel_lang(self, hdl_toplevel_lang: str | None) -> str:
         """Return *hdl_toplevel_lang* if supported by simulator, raise exception otherwise.
 
         Returns:
@@ -230,24 +273,46 @@ class Runner(ABC):
                 f"in supported list: {', '.join(self.supported_gpi_interfaces)}"
             )
 
-    def _set_env(self) -> None:
-        """Set environment variables for sub-processes."""
+    def _set_env_common(self) -> None:
+        # We have to set all environment variables before building because Xcelium and VCS load VPI for some reason.
+        # TODO: Remove this. Why are Xcelium and VCS loading VPI during build?
 
-        for e in os.environ:
-            self.env[e] = os.environ[e]
+        self.env.update(os.environ)
 
-        if "LIBPYTHON_LOC" not in self.env:
-            libpython_path = find_libpython.find_libpython()
-            if not libpython_path:
-                raise ValueError(
-                    "Unable to find libpython, please make sure the appropriate libpython is installed"
-                )
-            self.env["LIBPYTHON_LOC"] = libpython_path
+        gpi_users: list[str] = []
 
+        # Ensure libpython is in GPI_USERS before pygpi_entry_point
+        if "GPI_USERS" not in self.env:
+            if (libpython_loc := self.env.get("LIBPYTHON_LOC")) is not None:
+                gpi_users.append(libpython_loc)
+            else:
+                libpython_path = find_libpython.find_libpython()
+                if libpython_path is None:
+                    raise ValueError(
+                        "Unable to find libpython, please make sure the appropriate libpython is installed"
+                    )
+                gpi_users.append(libpython_path)
+
+        # TODO the following line reappends the path on every call to build() or test(). This needs to not be an attribute.
+        # Most of the stuff on this class really shouldn't be an attribute, but that's a non-trivial and API-breaking refactor.
         self.env["PATH"] += os.pathsep + str(cocotb_tools.config.libs_dir)
         self.env["PYTHONPATH"] = os.pathsep.join(sys.path)
         self.env["PYGPI_PYTHON_BIN"] = sys.executable
-        self.env["COCOTB_TOPLEVEL"] = self.sim_hdl_toplevel
+        if "GPI_USERS" not in self.env:
+            gpi_users.append(cocotb_tools.config.pygpi_entry_point())
+            self.env["GPI_USERS"] = ";".join(gpi_users)
+
+    def _set_env_build(self) -> None:
+        self._set_env_common()
+
+    def _set_env_test(self) -> None:
+        """Set environment variables for sub-processes."""
+        self._set_env_common()
+
+        # The NVC simulator allows specifying the top unit as {entity}-{arch}.
+        # The architecture is needed during elaboration, but when finding the root handle
+        # we only need the entity name, so strip off the architecture if present.
+        self.env["COCOTB_TOPLEVEL"] = self.sim_hdl_toplevel.split("-")[0]
         self.env["COCOTB_TEST_MODULES"] = self.test_module
         self.env["TOPLEVEL_LANG"] = self.hdl_toplevel_lang
 
@@ -263,28 +328,29 @@ class Runner(ABC):
         """Return if an external viewer should be called after simulation when ``gui=True``."""
         return False
 
-    def _waves_file(self) -> Optional[str]:
+    def _waves_file(self) -> str | None:
         """Return file name of the generated waveform file for use with external viewer."""
         return None
 
     def build(
         self,
         hdl_library: str = "top",
-        verilog_sources: Sequence[Union[PathLike, Verilog]] = [],
-        vhdl_sources: Sequence[Union[PathLike, VHDL]] = [],
-        sources: Sequence[Union[PathLike, VHDL, Verilog, VerilatorControlFile]] = [],
+        verilog_sources: Sequence[PathLike | Verilog] = [],
+        vhdl_sources: Sequence[PathLike | VHDL] = [],
+        sources: Sequence[PathLike | VHDL | Verilog | VerilatorControlFile] = [],
         includes: Sequence[PathLike] = [],
         defines: Mapping[str, object] = {},
         parameters: Mapping[str, object] = {},
-        build_args: Sequence[Union[str, VHDL, Verilog]] = [],
-        hdl_toplevel: Optional[str] = None,
+        build_args: Sequence[str | VHDL | Verilog] = [],
+        hdl_toplevel: str | None = None,
         always: bool = False,
         build_dir: PathLike = "sim_build",
+        cwd: PathLike | None = None,
         clean: bool = False,
         verbose: bool = False,
-        timescale: Optional[Tuple[str, str]] = None,
+        timescale: tuple[str, str] | None = None,
         waves: bool = False,
-        log_file: Optional[PathLike] = None,
+        log_file: PathLike | None = None,
     ) -> None:
         """Build the HDL sources.
 
@@ -327,11 +393,14 @@ class Runner(ABC):
             sources: Language-agnostic list of source files to build.
             includes: Verilog include directories.
             defines: Defines to set.
+                String values are not quoted or escaped automatically, but taken literally to allow for manual formatting.
+                Any non-string values are converted to strings with the default formatter.
             parameters: Verilog parameters or VHDL generics.
             build_args: Extra build arguments for the simulator.
             hdl_toplevel: The name of the HDL toplevel module.
             always: Always run the build step.
             build_dir: Directory to run the build step in.
+            cwd: Directory to execute the build command(s) in. Defaults to *build_dir*.
             clean: Delete *build_dir* before building.
             verbose: Enable verbose messages.
             timescale: Tuple containing time unit and time precision for simulation.
@@ -341,13 +410,20 @@ class Runner(ABC):
         .. deprecated:: 2.0
 
             Uses of the *verilog_sources* and *vhdl_sources* parameters should be replaced with the language-agnostic *sources* argument.
+
+        .. versionchanged:: 2.0
+            *defines* are implicitly converted to HDL literals.
+
+        .. versionchanged:: 2.0
+            *defines* are no longer implicitly converted to HDL literals.
+            Users must explicitly call :func:`~cocotb_tools.runner.as_vhdl_literal` or
+            :func:`~cocotb_tools.runner.as_sv_literal` to convert Python values to HDL literals.
         """
+        # We don't get anything by printing this if the build fails
+        __tracebackhide__ = True
 
         self.clean: bool = clean
         self.build_dir = get_abs_path(build_dir)
-        if self.clean:
-            self.rm_build_folder(self.build_dir)
-        self.build_dir.mkdir(parents=True, exist_ok=True)
 
         # note: to avoid mutating argument defaults, we ensure that no value
         # is written without a copy. This is much more concise and leads to
@@ -369,49 +445,55 @@ class Runner(ABC):
             )
         self._set_vhdl_sources(vhdl_sources)
         self._set_sources(sources)
-        self.includes: List[Path] = [
+        self.includes: list[Path] = [
             get_abs_path(include_dir) for include_dir in includes
         ]
         self.defines = dict(defines)
         self.parameters = dict(parameters)
         self._set_build_args(build_args)
         self.always: bool = always
-        self.hdl_toplevel: Optional[str] = hdl_toplevel
+        self.hdl_toplevel: str | None = hdl_toplevel
         self.verbose: bool = verbose
-        self.timescale: Optional[Tuple[str, str]] = timescale
-        self.log_file: Optional[PathLike] = log_file
+        self.timescale: tuple[str, str] | None = timescale
+        self.log_file: PathLike | None = log_file
+        self.cwd = self.build_dir if cwd is None else cwd
 
-        self.waves = bool(os.getenv("WAVES", waves))
+        self.waves = _env.get_bool("WAVES", waves)
 
-        self.env.update(os.environ)
+        self._set_env_build()
+
+        if self.clean:
+            self.rm_build_folder(self.build_dir)
+            self.always = True
+        self.build_dir.mkdir(parents=True, exist_ok=True)
 
         cmds: Sequence[_Command] = self._build_command()
-        self._execute(cmds, cwd=self.build_dir)
+        self._execute(cmds, cwd=self.cwd)
 
     def test(
         self,
-        test_module: Union[str, Sequence[str]],
+        test_module: str | Sequence[str],
         hdl_toplevel: str,
         hdl_toplevel_library: str = "top",
-        hdl_toplevel_lang: Optional[str] = None,
-        gpi_interfaces: Optional[List[str]] = None,
-        testcase: Optional[Union[str, Sequence[str]]] = None,
-        seed: Optional[Union[str, int]] = None,
+        hdl_toplevel_lang: str | None = None,
+        gpi_interfaces: list[str] | None = None,
+        testcase: str | Sequence[str] | None = None,
+        seed: str | int | None = None,
         elab_args: Sequence[str] = [],
         test_args: Sequence[str] = [],
         plusargs: Sequence[str] = [],
         extra_env: Mapping[str, str] = {},
         waves: bool = False,
         gui: bool = False,
-        parameters: Optional[Mapping[str, object]] = None,
-        build_dir: Optional[PathLike] = None,
-        test_dir: Optional[PathLike] = None,
-        results_xml: Optional[str] = None,
-        pre_cmd: Optional[List[str]] = None,
+        parameters: Mapping[str, object] | None = None,
+        build_dir: PathLike | None = None,
+        test_dir: PathLike | None = None,
+        results_xml: str | None = None,
+        pre_cmd: list[str] | None = None,
         verbose: bool = False,
-        timescale: Optional[Tuple[str, str]] = None,
-        log_file: Optional[PathLike] = None,
-        test_filter: Optional[str] = None,
+        timescale: tuple[str, str] | None = None,
+        log_file: PathLike | None = None,
+        test_filter: str | None = None,
     ) -> Path:
         """Run the tests.
 
@@ -433,6 +515,8 @@ class Runner(ABC):
             waves: Record signal traces. Overridden by the :envvar:`WAVES` environment variable.
             gui: Run with simulator GUI. Overridden by the :envvar:`GUI` environment variable.
             parameters: Verilog parameters or VHDL generics.
+                String values are not quoted or escaped automatically, but taken literally to allow for manual formatting.
+                Any non-string values are converted to strings with the default formatter.
             build_dir: Directory the build step has been run in.
             test_dir: Directory to run the tests in.
             results_xml: Name of xUnit XML file to store test results in.
@@ -451,7 +535,6 @@ class Runner(ABC):
             The absolute location of the results XML file which can be
             defined by the *results_xml* argument.
         """
-
         __tracebackhide__ = True  # Hide the traceback when using pytest
 
         if build_dir is not None:
@@ -494,9 +577,11 @@ class Runner(ABC):
 
         if testcase is not None:
             if isinstance(testcase, str):
-                self.env["COCOTB_TESTCASE"] = testcase
+                names = [s.strip() for s in testcase.split(",") if s.strip()]
             else:
-                self.env["COCOTB_TESTCASE"] = ",".join(testcase)
+                names = list(testcase)
+            regex = r"\.(" + "|".join(rf".*{re.escape(name)}" for name in names) + ")$"
+            self.env["COCOTB_TEST_FILTER"] = regex
 
         if test_filter is not None:
             self.env["COCOTB_TEST_FILTER"] = test_filter
@@ -505,22 +590,39 @@ class Runner(ABC):
             self.env["COCOTB_RANDOM_SEED"] = str(seed)
 
         self.log_file = log_file
-        self.waves = bool(int(os.getenv("WAVES", waves)))
-        self.gui = bool(int(os.getenv("GUI", gui)))
+        self.waves = _env.get_bool("WAVES", waves)
+        self.gui = _env.get_bool("GUI", gui)
         self.timescale = timescale
+
+        waves_file: str | None = self._waves_file() if self.waves else None
+
+        if "COCOTB_RESULTS_ATTACHMENTS" not in self.env:
+            attachments: list[Path] = []
+
+            # Prioritize waveform as first over other files like logs
+            # So CI environments like GitLab CI use regular expression that will retrieve attachment only on first match
+            if waves_file:
+                attachments.append(get_abs_path(self.test_dir) / waves_file)
+
+            if self.log_file:
+                attachments.append(get_abs_path(self.log_file))
+
+            self.env["COCOTB_RESULTS_ATTACHMENTS"] = ",".join(map(str, attachments))
 
         if verbose is not None:
             self.verbose = verbose
 
         # Pytest test name is used by the next couple sections.
-        pytest_current_test = os.getenv("PYTEST_CURRENT_TEST", None)
+        pytest_current_test: str = _env.get_str("PYTEST_CURRENT_TEST")
 
-        if pytest_current_test is not None:
-            self.current_test_name = pytest_current_test.split(":")[-1].split(" ")[0]
+        if pytest_current_test:
+            self.current_test_name = pytest_current_test.rsplit(":", maxsplit=1)[
+                -1
+            ].split(" ", maxsplit=1)[0]
         else:
             self.current_test_name = "test"
 
-        results_xml_path: Union[None, Path] = (
+        results_xml_path: None | Path = (
             Path(results_xml) if results_xml is not None else None
         )
 
@@ -531,7 +633,7 @@ class Runner(ABC):
         # 4. default name
         if results_xml_path is not None and results_xml_path.is_absolute():
             results_xml_file = results_xml_path
-        elif pytest_current_test is not None:
+        elif pytest_current_test:
             if results_xml_path is not None:
                 raise NotImplementedError(
                     "Relative result_xml paths aren't supported when using pytest"
@@ -546,7 +648,7 @@ class Runner(ABC):
             results_xml_file.unlink()
 
         # transport the settings to cocotb via environment variables
-        self._set_env()
+        self._set_env_test()
         self.env["COCOTB_RESULTS_FILE"] = str(results_xml_file)
 
         cmds: Sequence[_Command] = self._test_command()
@@ -578,8 +680,8 @@ class Runner(ABC):
             sys.exit(simulator_exit_code)
 
         if pytest_current_test and self._use_external_viewer() and self.gui:
-            viewer = os.getenv("COCOTB_WAVEFORM_VIEWER")
-            if viewer is not None:
+            viewer: str = _env.get_str("COCOTB_WAVEFORM_VIEWER")
+            if viewer:
                 viewer_path = shutil.which(viewer)
                 if viewer_path is None:
                     raise ValueError(f"Cannot find {viewer} in the system path")
@@ -593,10 +695,10 @@ class Runner(ABC):
                 )
 
             subprocess.run(
-                [f"{viewer_path} {self._waves_file()}"],
+                [str(viewer_path), str(self._waves_file())],
                 cwd=self.test_dir,
                 check=True,
-                shell=True,
+                shell=False,
             )
 
         self.log.info("Results file: %s", results_xml_file)
@@ -624,7 +726,7 @@ class Runner(ABC):
                 self._execute_cmds(cmds, cwd, f)
 
     def _execute_cmds(
-        self, cmds: Sequence[_Command], cwd: PathLike, stdout: Optional[TextIO] = None
+        self, cmds: Sequence[_Command], cwd: PathLike, stdout: TextIO | None = None
     ) -> None:
         __tracebackhide__ = True  # Hide the traceback when using PyTest.
 
@@ -635,9 +737,13 @@ class Runner(ABC):
             # TODO: log forwarding
 
             stderr = None if stdout is None else subprocess.STDOUT
-            subprocess.run(
-                cmd, cwd=cwd, env=self.env, check=True, stdout=stdout, stderr=stderr
+            result = subprocess.run(
+                cmd, cwd=cwd, env=self.env, check=False, stdout=stdout, stderr=stderr
             )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Command failed with return code: {result.returncode}"
+                )
 
     def rm_build_folder(self, build_dir: Path) -> None:
         if build_dir.is_dir():
@@ -645,17 +751,17 @@ class Runner(ABC):
             shutil.rmtree(build_dir, ignore_errors=True)
 
     @property
-    def verilog_sources(self) -> List[Path]:
+    def verilog_sources(self) -> list[Path]:
         return [source.value for source in self._verilog_sources]
 
     @verilog_sources.setter
-    def verilog_sources(self, value: List[Path]) -> None:
+    def verilog_sources(self, value: list[Path]) -> None:
         self._set_verilog_sources(value)
 
     def _set_verilog_sources(
-        self, sources: Sequence[Union[PathLike, Verilog, VerilatorControlFile]]
+        self, sources: Sequence[PathLike | Verilog | VerilatorControlFile]
     ) -> None:
-        verilog_sources: List[_ValueAndTag] = []
+        verilog_sources: list[_ValueAndTag] = []
         for source in sources:
             if isinstance(source, _Tag):
                 if isinstance(source, (Verilog, VerilatorControlFile)):
@@ -670,15 +776,15 @@ class Runner(ABC):
         self._verilog_sources = verilog_sources
 
     @property
-    def vhdl_sources(self) -> List[Path]:
+    def vhdl_sources(self) -> list[Path]:
         return [source.value for source in self._vhdl_sources]
 
     @vhdl_sources.setter
-    def vhdl_sources(self, value: List[Path]) -> None:
+    def vhdl_sources(self, value: list[Path]) -> None:
         self._set_vhdl_sources(value)
 
-    def _set_vhdl_sources(self, sources: Sequence[Union[PathLike, VHDL]]) -> None:
-        vhdl_sources: List[_ValueAndTag] = []
+    def _set_vhdl_sources(self, sources: Sequence[PathLike | VHDL]) -> None:
+        vhdl_sources: list[_ValueAndTag] = []
         for source in sources:
             if isinstance(source, _Tag):
                 if isinstance(source, VHDL):
@@ -693,17 +799,17 @@ class Runner(ABC):
         self._vhdl_sources = vhdl_sources
 
     @property
-    def sources(self) -> List[Path]:
+    def sources(self) -> list[Path]:
         return [source.value for source in self._sources]
 
     @sources.setter
-    def sources(self, value: List[Path]) -> None:
+    def sources(self, value: list[Path]) -> None:
         self._set_sources(value)
 
     def _set_sources(
-        self, sources: Sequence[Union[PathLike, Verilog, VHDL, VerilatorControlFile]]
+        self, sources: Sequence[PathLike | Verilog | VHDL | VerilatorControlFile]
     ) -> None:
-        sources_: List[_ValueAndTag] = []
+        sources_: list[_ValueAndTag] = []
         for source in sources:
             if isinstance(source, _Tag):
                 if isinstance(source, (Verilog, VHDL, VerilatorControlFile)):
@@ -718,15 +824,15 @@ class Runner(ABC):
         self._sources = sources_
 
     @property
-    def build_args(self) -> List[str]:
+    def build_args(self) -> list[str]:
         return [arg.value for arg in self._build_args]
 
     @build_args.setter
-    def build_args(self, value: List[str]) -> None:
+    def build_args(self, value: list[str]) -> None:
         self._set_build_args(value)
 
-    def _set_build_args(self, build_args: Sequence[Union[str, Verilog, VHDL]]) -> None:
-        build_args_: List[_ValueAndOptionalTag] = []
+    def _set_build_args(self, build_args: Sequence[str | Verilog | VHDL]) -> None:
+        build_args_: list[_ValueAndOptionalTag] = []
         for build_arg in build_args:
             if isinstance(build_arg, _Tag):
                 if isinstance(build_arg, (Verilog, VHDL)):
@@ -738,6 +844,20 @@ class Runner(ABC):
             else:
                 build_args_.append(_ValueAndOptionalTag(build_arg, None))
         self._build_args = build_args_
+
+    def _get_sim_cmd_prefix(self) -> list[str]:
+        sim_cmd_prefix_str = os.getenv("SIM_CMD_PREFIX")
+        if sim_cmd_prefix_str:
+            return sim_cmd_prefix_str.split()
+        else:
+            return []
+
+    def _get_sim_cmd_suffix(self) -> list[str]:
+        sim_cmd_suffix_str = os.getenv("SIM_CMD_SUFFIX")
+        if sim_cmd_suffix_str:
+            return sim_cmd_suffix_str.split()
+        else:
+            return []
 
 
 def outdated(output: Path, dependencies: Iterable[Path]) -> bool:
@@ -775,13 +895,13 @@ class Icarus(Runner):
 
     .. admonition:: Simulator-specific Usage
 
-       * ``hdl_toplevel`` argument to :meth:`.build` is *required*.
-       * ``waves=True`` *must* be given to :meth:`.build` if either ``waves`` or ``gui`` are to be used during :meth:`.test`.
-       * ``timescale`` argument to :meth:`.build` must be given to support dumping the command file.
-       * Does not support the ``pre_cmd`` argument to :meth:`.test`.
+       * ``hdl_toplevel`` argument to :meth:`~Runner.build` is *required*.
+       * ``waves=True`` *must* be given to :meth:`~Runner.build` if either ``waves`` or ``gui`` are to be used during :meth:`~Runner.test`.
+       * ``timescale`` argument to :meth:`~Runner.build` must be given to support dumping the command file.
+       * Does not support the ``pre_cmd`` argument to :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"verilog": ["vpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {"verilog": ["vpi"]}
 
     def _simulator_in_path(self) -> None:
         if shutil.which("iverilog") is None:
@@ -791,7 +911,7 @@ class Icarus(Runner):
         return [f"-I{include}" for include in includes]
 
     def _get_define_options(self, defines: Mapping[str, object]) -> _Command:
-        return [f"-D{name}={_as_sv_literal(value)}" for name, value in defines.items()]
+        return [f"-D{name}={value}" for name, value in defines.items()]
 
     def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
         return [
@@ -802,8 +922,8 @@ class Icarus(Runner):
     def _use_external_viewer(self) -> bool:
         return True
 
-    def _waves_file(self) -> Optional[str]:
-        return f"{self.hdl_toplevel}.fst"
+    def _waves_file(self) -> str | None:
+        return f"{self.sim_hdl_toplevel}.fst"
 
     def _create_cmd_file(self) -> None:
         assert self.timescale is not None
@@ -811,7 +931,9 @@ class Icarus(Runner):
             f.write("+timescale+{}/{}\n".format(*self.timescale))
 
     def _create_iverilog_dump_file(self) -> None:
-        dumpfile_path = _as_sv_literal(str(self.build_dir / f"{self.hdl_toplevel}.fst"))
+        dumpfile_path = _sv_escape_string(
+            str(self.build_dir / f"{self.hdl_toplevel}.fst")
+        )
         with open(self.iverilog_dump_file, "w") as f:
             f.write("module cocotb_iverilog_dump();\n")
             f.write("initial begin\n")
@@ -839,7 +961,7 @@ class Icarus(Runner):
     def cmds_file(self) -> Path:
         return self.build_dir / "cmds.f"
 
-    def _build_command(self) -> List[_Command]:
+    def _build_command(self) -> list[_Command]:
         if self.hdl_toplevel is None:
             raise ValueError("hdl_toplevel argument is required for all Icarus builds")
 
@@ -894,7 +1016,7 @@ class Icarus(Runner):
 
         return cmds
 
-    def _test_command(self) -> List[_Command]:
+    def _test_command(self) -> list[_Command]:
         if self.pre_cmd is not None:
             raise RuntimeError("pre_cmd is not implemented for Icarus Verilog.")
 
@@ -907,14 +1029,14 @@ class Icarus(Runner):
 
         return [
             [
+                *self._get_sim_cmd_prefix(),
                 "vvp",
-                "-M",
-                str(cocotb_tools.config.libs_dir),
                 "-m",
-                cocotb_tools.config.lib_name("vpi", "icarus"),
+                cocotb_tools.config.lib_entry("vpi", "icarus"),
                 *self.test_args,
                 str(self.sim_file),
                 *plusargs,
+                *self._get_sim_cmd_suffix(),
             ]
         ]
 
@@ -924,42 +1046,41 @@ class Questa(Runner):
 
     .. admonition:: Simulator-specific Usage
 
-       * Does not support the ``timescale`` argument to :meth:`.build` or :meth:`.test`.
+       * Does not support the ``timescale`` argument to :meth:`~Runner.build` or :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"verilog": ["vpi"], "vhdl": ["fli", "vhpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {
+        "verilog": ["vpi"],
+        "vhdl": ["fli", "vhpi"],
+    }
 
     def _simulator_in_path(self) -> None:
         if shutil.which("vsim") is None:
             raise SystemExit("ERROR: vsim executable not found!")
 
     def _get_include_options(self, includes: Sequence[PathLike]) -> _Command:
-        return [f"+incdir+{_as_tcl_value(str(include))}" for include in includes]
+        return [f"+incdir+{include}" for include in includes]
 
     def _get_define_options(self, defines: Mapping[str, object]) -> _Command:
-        return [
-            f"+define+{name}={_as_sv_literal(value)}" for name, value in defines.items()
-        ]
+        return [f"+define+{name}={value}" for name, value in defines.items()]
 
     def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
         return [f"-g{name}={value}" for name, value in parameters.items()]
 
-    def _build_command(self) -> List[_Command]:
+    def _build_command(self) -> list[_Command]:
         cmds = []
 
-        cmds.append(["vlib", _as_tcl_value(self.hdl_library)])
+        cmds.append(["vlib", self.hdl_library])
 
-        vhdl_args = [
-            _as_tcl_value(arg.value)
-            for arg in self._build_args
-            if arg.tag in (VHDL, None)
-        ]
+        verbosity_opts = []
+        if not self.verbose:
+            verbosity_opts += ["-quiet"]
+
+        vhdl_args = [arg.value for arg in self._build_args if arg.tag in (VHDL, None)]
         verilog_args = [
-            _as_tcl_value(arg.value)
-            for arg in self._build_args
-            if arg.tag in (Verilog, None)
+            arg.value for arg in self._build_args if arg.tag in (Verilog, None)
         ]
-        hdl_library = _as_tcl_value(self.hdl_library)
+        hdl_library = self.hdl_library
         defines = self._get_define_options(self.defines)
         includes = self._get_include_options(self.includes)
 
@@ -968,16 +1089,18 @@ class Questa(Runner):
                 cmds.append(
                     [
                         "vcom",
+                        *verbosity_opts,
                         "-work",
                         hdl_library,
                         *vhdl_args,
-                        _as_tcl_value(str(source.value)),
+                        str(source.value),
                     ]
                 )
             elif source.tag is Verilog:
                 cmds.append(
                     [
                         "vlog",
+                        *verbosity_opts,
                         *([] if self.always else ["-incr"]),
                         "-work",
                         hdl_library,
@@ -985,7 +1108,7 @@ class Questa(Runner):
                         *defines,
                         *includes,
                         *verilog_args,
-                        _as_tcl_value(str(source.value)),
+                        str(source.value),
                     ]
                 )
             else:
@@ -993,8 +1116,12 @@ class Questa(Runner):
 
         return cmds
 
-    def _test_command(self) -> List[_Command]:
+    def _test_command(self) -> list[_Command]:
         cmds = []
+
+        verbosity_opts = []
+        if not self.verbose:
+            verbosity_opts += ["-quiet"]
 
         if self.pre_cmd is not None:
             pre_cmd = ["-do", *self.pre_cmd]
@@ -1013,38 +1140,251 @@ class Questa(Runner):
             lib_opts = [
                 "-foreign",
                 "cocotb_init "
-                + _as_tcl_value(
-                    cocotb_tools.config.lib_name_path("fli", "questa").as_posix()
-                ),
+                + cocotb_tools.config.lib_name_path("fli", "questa").as_posix(),
             ]
         elif gpi_if_entry == "vhpi":
             lib_opts = ["-voptargs=-access=rw+/."]
             lib_opts += [
                 "-foreign",
                 "vhpi_startup_routines_bootstrap "
-                + _as_tcl_value(
-                    cocotb_tools.config.lib_name_path("vhpi", "questa").as_posix()
-                ),
+                + cocotb_tools.config.lib_name_path("vhpi", "questa").as_posix(),
             ]
         else:
             lib_opts = [
                 "-pli",
-                _as_tcl_value(
-                    cocotb_tools.config.lib_name_path("vpi", "questa").as_posix()
-                ),
+                cocotb_tools.config.lib_entry("vpi", "questa"),
             ]
 
         cmds.append(
-            ["vsim"]
-            + ["-gui" if self.gui else "-c"]
-            + ["-onfinish", "stop" if self.gui else "exit"]
-            + lib_opts
-            + [_as_tcl_value(v) for v in self.test_args]
-            + [_as_tcl_value(v) for v in self._get_parameter_options(self.parameters)]
-            + [_as_tcl_value(f"{self.hdl_toplevel_library}.{self.sim_hdl_toplevel}")]
-            + [_as_tcl_value(v) for v in self.plusargs]
-            + pre_cmd
-            + ["-do", do_script]
+            [
+                *self._get_sim_cmd_prefix(),
+                "vsim",
+                *verbosity_opts,
+                "-gui" if self.gui else "-c",
+                "-onfinish",
+                "stop" if self.gui else "exit",
+                *lib_opts,
+                *self.test_args,
+                *self._get_parameter_options(self.parameters),
+                f"{self.hdl_toplevel_library}.{self.sim_hdl_toplevel}",
+                *self.plusargs,
+                *pre_cmd,
+                "-do",
+                do_script,
+                *self._get_sim_cmd_suffix(),
+            ]
+        )
+
+        gpi_extra_list = []
+        for gpi_if in self.gpi_interfaces[1:]:
+            gpi_if_lib_path = cocotb_tools.config.lib_name_path(gpi_if, "questa")
+            if gpi_if_lib_path.is_file():
+                gpi_extra_list.append(
+                    gpi_if_lib_path.as_posix() + f":cocotb{gpi_if}_entry_point"
+                )
+            else:
+                raise RuntimeError(f"{gpi_if_lib_path} library not found.")
+        self.env["GPI_EXTRA"] = ",".join(gpi_extra_list)
+
+        return cmds
+
+
+class QuestaQIS(Runner):
+    """Implementation of :class:`Runner` for the Siemens Questa QIS/qrun flow.
+
+    The build and simulate steps are driven by ``qrun`` using the Questa
+    Information System (QIS), rather than by ``vsim`` as in the :class:`Questa`
+    runner. The Python runner does not auto-select between the two flows the way
+    the ``questa`` Makefile does; select this flow explicitly with
+    ``get_runner("questa-qisqrun")``.
+
+    .. admonition:: Simulator-specific Usage
+
+       * ``gui=True`` opens Visualizer in live-simulation mode. The Makefile's
+         ``postsim`` GUI mode is not exposed through the runner API.
+       * Parameters are applied at build time (baked into the optimized design);
+         parameters passed to :meth:`~Runner.test` are ignored. Re-run
+         :meth:`~Runner.build` to change them.
+    """
+
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {
+        "verilog": ["vpi"],
+        "vhdl": ["fli", "vhpi"],
+    }
+
+    def _simulator_in_path(self) -> None:
+        if shutil.which("qrun") is None:
+            raise SystemExit("ERROR: qrun executable not found!")
+
+    def test(
+        self,
+        *args: Any,
+        parameters: Mapping[str, object] | None = None,
+        **kwargs: Any,
+    ) -> Path:
+        if parameters:
+            warnings.warn(
+                "QuestaQIS applies parameters at build time (during -optimize); "
+                "parameters passed to test() are ignored. Pass them to build() "
+                "instead, and re-run build() to change them.",
+                stacklevel=2,
+            )
+        return super().test(*args, parameters=parameters, **kwargs)
+
+    def _get_include_options(self, includes: Sequence[PathLike]) -> _Command:
+        return [f"+incdir+{include}" for include in includes]
+
+    def _get_define_options(self, defines: Mapping[str, object]) -> _Command:
+        return [f"+define+{name}={value}" for name, value in defines.items()]
+
+    def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
+        return [f"-g{name}={value}" for name, value in parameters.items()]
+
+    @property
+    def design_file(self) -> Path:
+        return self.build_dir / "design.bin"
+
+    @property
+    def wave_file(self) -> Path:
+        return self.test_dir / "qwave.db"
+
+    @property
+    def qrun_outdir(self) -> Path:
+        # qrun writes its "version" marker (which -simulate checks to accept an
+        # outdir) only when it creates the outdir itself. Place the outdir in a
+        # subdirectory of build_dir, in case the provided build_dir already exists.
+        return self.build_dir / "qrun_out"
+
+    def _build_command(self) -> list[_Command]:
+        verbosity_opts = []
+        if not self.verbose:
+            verbosity_opts += ["-quiet"]
+
+        # Unlike the vsim-based Questa runner, VHDL/Verilog build-arg tags are
+        # not routed to separate compilers here: qrun routes each option to the
+        # appropriate compiler (vcom/vlog) by the option itself within the single
+        # makelib, so all build args are forwarded together.
+        build_args = [arg.value for arg in self._build_args]
+        hdl_library = self.hdl_library
+        defines = self._get_define_options(self.defines)
+        includes = self._get_include_options(self.includes)
+
+        # Single qrun invocation: compile all sources into one library, then
+        # optimize. All sources and build args are passed to a single -makelib.
+        sources = list(chain(self._sources, self._vhdl_sources, self._verilog_sources))
+
+        # Verilog compile timescale (a VHDL toplevel sets resolution via -t at
+        # test time instead).
+        timescale_opts: _Command = []
+        if self.timescale is not None:
+            timescale_opts += ["-timescale", "/".join(self.timescale)]
+
+        cmds = []
+        cmds.append(
+            [
+                "qrun",
+                "-optimize",
+                "-outdir",
+                str(self.qrun_outdir),
+                *verbosity_opts,
+                "-top",
+                f"{self.hdl_library}.{self.hdl_toplevel}",
+                "-voptargs=-access=rw+/.",
+                "-designfile",
+                str(self.design_file),
+                "-sv",
+                "-makelib",
+                hdl_library,
+                *[str(source.value) for source in sources],
+                *defines,
+                *includes,
+                *timescale_opts,
+                *build_args,
+                "-end",
+                *self._get_parameter_options(self.parameters),
+            ]
+        )
+        return cmds
+
+    def _test_command(self) -> list[_Command]:
+        cmds = []
+
+        verbosity_opts = []
+        if not self.verbose:
+            verbosity_opts += ["-quiet"]
+
+        if self.pre_cmd is not None:
+            pre_cmd = ["-do", *self.pre_cmd]
+        else:
+            pre_cmd = []
+
+        do_script = ""
+        if self.waves:
+            waves_opts = [
+                "-qwavedb=+signal+memory=all+class+assertion+uvm_schematic+msg+wavefile="
+                + str(self.wave_file),
+            ]
+        else:
+            waves_opts = []
+
+        if not self.gui:
+            do_script += "run -all; quit"
+
+        # A VHDL toplevel has no `timescale directive, so the simulator time
+        # resolution must be set explicitly with -t. For a Verilog toplevel the
+        # -timescale compile option handles this (and honors any finer per-module
+        # directives), so -t is omitted there.
+        if self.hdl_toplevel_lang == "vhdl" and self.timescale is not None:
+            timescale_opts = ["-t", self.timescale[1]]
+        else:
+            timescale_opts = []
+
+        gpi_if_entry = self.gpi_interfaces[0]
+        if gpi_if_entry == "fli":
+            lib_opts = [
+                "-foreign",
+                "cocotb_init "
+                + cocotb_tools.config.lib_name_path("fli", "questa").as_posix(),
+            ]
+        elif gpi_if_entry == "vhpi":
+            lib_opts = [
+                "-foreign",
+                "vhpi_startup_routines_bootstrap "
+                + cocotb_tools.config.lib_name_path("vhpi", "questa").as_posix(),
+            ]
+        else:
+            lib_opts = [
+                "-pli",
+                cocotb_tools.config.lib_entry("vpi", "questa"),
+            ]
+
+        cmds.append(
+            [
+                *self._get_sim_cmd_prefix(),
+                "qrun",
+                "-simulate",
+                "-outdir",
+                str(self.qrun_outdir),
+                *verbosity_opts,
+                *waves_opts,
+                *(
+                    ["-gui", "-visualizer", "-designfile", str(self.design_file)]
+                    if self.gui
+                    else ["-c"]
+                ),
+                "-onfinish",
+                "stop" if self.gui else "exit",
+                *lib_opts,
+                *timescale_opts,
+                *self.test_args,
+                "-top",
+                f"{self.hdl_toplevel_library}.{self.sim_hdl_toplevel}",
+                *self.plusargs,
+                *pre_cmd,
+                "-do",
+                do_script,
+                *self._get_sim_cmd_suffix(),
+            ]
         )
 
         gpi_extra_list = []
@@ -1066,13 +1406,13 @@ class Ghdl(Runner):
 
     .. admonition:: Simulator-specific Usage
 
-       * Does not support the ``pre_cmd`` argument to :meth:`.test`.
+       * Does not support the ``pre_cmd`` argument to :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"vhdl": ["vpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {"vhdl": ["vpi"]}
 
-    def _set_env(self) -> None:
-        super()._set_env()
+    def _set_env_test(self) -> None:
+        super()._set_env_test()
         if "COCOTB_TRUST_INERTIAL_WRITES" not in self.env:
             self.env["COCOTB_TRUST_INERTIAL_WRITES"] = "1"
 
@@ -1085,7 +1425,7 @@ class Ghdl(Runner):
         result = subprocess.run(
             ["ghdl", "--version"],
             check=True,
-            universal_newlines=True,
+            text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
@@ -1094,8 +1434,8 @@ class Ghdl(Runner):
     def _use_external_viewer(self) -> bool:
         return True
 
-    def _waves_file(self) -> Optional[str]:
-        return f"{self.hdl_toplevel}.ghw"
+    def _waves_file(self) -> str | None:
+        return f"{self.sim_hdl_toplevel}.ghw"
 
     def _get_include_options(self, includes: Sequence[PathLike]) -> _Command:
         raise RuntimeError
@@ -1106,7 +1446,7 @@ class Ghdl(Runner):
     def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
         return [f"-g{name}={value}" for name, value in parameters.items()]
 
-    def _build_command(self) -> List[_Command]:
+    def _build_command(self) -> list[_Command]:
         sources = self._sources + self._vhdl_sources
 
         for source in sources:
@@ -1141,7 +1481,7 @@ class Ghdl(Runner):
 
         return cmds
 
-    def _test_command(self) -> List[_Command]:
+    def _test_command(self) -> list[_Command]:
         if self.pre_cmd is not None:
             raise RuntimeError("pre_cmd is not implemented for GHDL.")
 
@@ -1175,14 +1515,16 @@ class Ghdl(Runner):
             ghdl_run_args.append(f"--time-resolution={ghdl_time_resolution}")
 
         cmds = [
-            ["ghdl", "-r"]
+            self._get_sim_cmd_prefix()
+            + ["ghdl", "-r"]
             + [f"--work={self.hdl_toplevel_library}"]
             + ghdl_run_args
             + [self.sim_hdl_toplevel]
-            + ["--vpi=" + cocotb_tools.config.lib_name_path("vpi", "ghdl").as_posix()]
+            + ["--vpi=" + cocotb_tools.config.lib_entry("vpi", "ghdl")]
             + self.plusargs
             + self._get_parameter_options(self.parameters)
             + ([f"--wave={self._waves_file()}"] if self.waves or self.gui else [])
+            + self._get_sim_cmd_suffix(),
         ]
 
         return cmds
@@ -1193,11 +1535,12 @@ class Nvc(Runner):
 
     .. admonition:: Simulator-specific Usage
 
-       * Does not support the ``pre_cmd`` argument to :meth:`.test`.
-       * Does not support the ``timescale`` argument to :meth:`.build` or :meth:`.test`.
+       * Supports specifying a particular entity architecture by setting hdl_toplevel to {entity}-{arch}.
+       * Does not support the ``pre_cmd`` argument to :meth:`~Runner.test`.
+       * Does not support the ``timescale`` argument to :meth:`~Runner.build` or :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"vhdl": ["vhpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {"vhdl": ["vhpi"]}
 
     def __init__(self) -> None:
         super().__init__()
@@ -1205,7 +1548,7 @@ class Nvc(Runner):
         version_str = subprocess.run(
             ["nvc", "--version"],
             check=True,
-            universal_newlines=True,
+            text=True,
             stdout=subprocess.PIPE,
         ).stdout
         version = NvcVersion.from_commandline(version_str)
@@ -1214,8 +1557,8 @@ class Nvc(Runner):
         else:
             self._preserve_case = []
 
-    def _set_env(self) -> None:
-        super()._set_env()
+    def _set_env_test(self) -> None:
+        super()._set_env_test()
         if "COCOTB_TRUST_INERTIAL_WRITES" not in self.env:
             self.env["COCOTB_TRUST_INERTIAL_WRITES"] = "1"
 
@@ -1235,10 +1578,10 @@ class Nvc(Runner):
     def _use_external_viewer(self) -> bool:
         return True
 
-    def _waves_file(self) -> Optional[str]:
-        return f"{self.hdl_toplevel}.fst"
+    def _waves_file(self) -> str | None:
+        return f"{self.sim_hdl_toplevel}.fst"
 
-    def _build_command(self) -> List[_Command]:
+    def _build_command(self) -> list[_Command]:
         sources = self._sources + self._vhdl_sources
 
         for source in sources:
@@ -1268,10 +1611,11 @@ class Nvc(Runner):
 
         return cmds
 
-    def _test_command(self) -> List[_Command]:
+    def _test_command(self) -> list[_Command]:
         work_library = str(get_abs_path(self.build_dir / self.hdl_toplevel_library))
         cmds = [
             [
+                *self._get_sim_cmd_prefix(),
                 "nvc",
                 f"--work={self.hdl_toplevel_library}:{work_library}",
                 "-L",
@@ -1283,25 +1627,27 @@ class Nvc(Runner):
             + self._get_parameter_options(self.parameters)
             + ["-r"]
             + self.test_args
-            + ["--load=" + cocotb_tools.config.lib_name_path("vhpi", "nvc").as_posix()]
+            + ["--load=" + cocotb_tools.config.lib_entry("vhpi", "nvc")]
             + self.plusargs
             + ([f"--wave={self._waves_file()}"] if self.waves or self.gui else [])
+            + self._get_sim_cmd_suffix(),
         ]
 
         return cmds
 
 
-class Riviera(Runner):
-    """Implementation of :class:`Runner` for Aldec Riviera-PRO.
+class AldecBase(Runner):
+    """Implementation of :class:`Runner` for Aldec VsimSA.
 
     .. admonition:: Simulator-specific Usage
 
-       * Does not support the ``pre_cmd`` argument to :meth:`.test`.
-       * Does not support the ``gui`` argument to :meth:`.test`.
-       * Does not support the ``timescale`` argument to :meth:`.build` or :meth:`.test`.
+       * Does not support the ``timescale`` argument to :meth:`~Runner.build` or :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"verilog": ["vpi"], "vhdl": ["vhpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {
+        "verilog": ["vpi"],
+        "vhdl": ["vhpi"],
+    }
 
     def _simulator_in_path(self) -> None:
         if shutil.which("vsimsa") is None:
@@ -1311,31 +1657,13 @@ class Riviera(Runner):
         return [f"+incdir+{_as_tcl_value(str(include))}" for include in includes]
 
     def _get_define_options(self, defines: Mapping[str, object]) -> _Command:
-        return [
-            f"+define+{name}={self._as_define_value(value)}"
-            for name, value in defines.items()
-        ]
-
-    def _as_define_value(self, value: object) -> str:
-        if isinstance(value, int):
-            return str(value)
-        elif isinstance(value, str):
-            for char in value:
-                if ord(char) < 32 or ord(char) >= 255 or char in '\\"':
-                    # Control characters are generally not supported.
-                    # Not sure if there's any way to escape quotes or backslashes.
-                    raise ValueError(
-                        f"Character {char!r} not supported in define value"
-                    )
-            return '\\"\\\\"' + value + '\\\\"\\"'
-        else:
-            raise TypeError("Can't serialize this type as an SV literal")
+        return [f"'+define+{name}={value}'" for name, value in defines.items()]
 
     def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
         return [f"-g{name}={value}" for name, value in parameters.items()]
 
-    def _build_command(self) -> List[_Command]:
-        do_script: List[str] = ["onerror {\n quit -code 1 \n}"]
+    def _build_command(self) -> list[_Command]:
+        do_script: list[str] = ["onerror {\n quit -code 1 \n}"]
 
         out_file = self.build_dir / self.hdl_library / f"{self.hdl_library}.lib"
 
@@ -1350,12 +1678,10 @@ class Riviera(Runner):
             ]
             defines = " ".join(self._get_define_options(self.defines))
             includes = " ".join(self._get_include_options(self.includes))
-            verilog_args_str = " ".join(_as_tcl_value(v) for v in verilog_args)
-            vhdl_args_str = " ".join(_as_tcl_value(v) for v in vhdl_args)
+            verilog_args_str = " ".join(v for v in verilog_args)
+            vhdl_args_str = " ".join(v for v in vhdl_args)
             hdl_library = _as_tcl_value(self.hdl_library)
-            ext_name = _as_tcl_value(
-                cocotb_tools.config.lib_name_path("vpi", "riviera").as_posix()
-            )
+            ext_name = _as_tcl_value(cocotb_tools.config.lib_entry("vpi", "riviera"))
 
             do_script.append(f"alib {hdl_library}")
 
@@ -1381,13 +1707,12 @@ class Riviera(Runner):
         with tempfile.NamedTemporaryFile(delete=False) as do_file:
             do_file.write("\n".join(do_script).encode())
 
-        return [["vsimsa", "-do", "do", do_file.name]]
+        return [["vsimsa", "-do", do_file.name]]
 
-    def _test_command(self) -> List[_Command]:
-        if self.pre_cmd is not None:
-            raise RuntimeError("pre_cmd is not implemented for Riviera.")
+    def _test_command(self) -> list[_Command]:
+        do_script: str = ""
 
-        do_script: str = "\nonerror {\n quit -code 1 \n} \n"
+        do_script = self._append_onerror_command(do_script)
 
         if self.hdl_toplevel_lang == "vhdl":
             do_script += "asim +access +w_nets -interceptcoutput -loadvhpi {EXT_NAME} {EXTRA_ARGS} {TOPLEVEL} {PLUSARGS}\n".format(
@@ -1395,8 +1720,7 @@ class Riviera(Runner):
                     f"{self.hdl_toplevel_library}.{self.sim_hdl_toplevel}"
                 ),
                 EXT_NAME=_as_tcl_value(
-                    cocotb_tools.config.lib_name_path("vhpi", "riviera").as_posix()
-                    + ":vhpi_startup_routines_bootstrap"
+                    cocotb_tools.config.lib_entry("vhpi", "riviera")
                 ),
                 EXTRA_ARGS=" ".join(
                     _as_tcl_value(v)
@@ -1408,7 +1732,7 @@ class Riviera(Runner):
             )
 
             self.env["GPI_EXTRA"] = (
-                cocotb_tools.config.lib_name_path("vpi", "riviera").as_posix()
+                cocotb_tools.config.lib_entry("vpi", "riviera")
                 + ":cocotbvpi_entry_point"
             )
         else:
@@ -1416,9 +1740,7 @@ class Riviera(Runner):
                 TOPLEVEL=_as_tcl_value(
                     f"{self.hdl_toplevel_library}.{self.sim_hdl_toplevel}"
                 ),
-                EXT_NAME=_as_tcl_value(
-                    cocotb_tools.config.lib_name_path("vpi", "riviera").as_posix()
-                ),
+                EXT_NAME=_as_tcl_value(cocotb_tools.config.lib_entry("vpi", "riviera")),
                 EXTRA_ARGS=" ".join(
                     _as_tcl_value(v)
                     for v in (
@@ -1433,15 +1755,114 @@ class Riviera(Runner):
                 + ":cocotbvhpi_entry_point"
             )
 
+        do_script = self._append_pre_cmd(do_script)
+
         if self.waves:
             do_script += "log -recursive /*;"
 
-        do_script += "run -all \nexit"
+        do_script = self._append_run_commands(do_script)
 
         with tempfile.NamedTemporaryFile(delete=False) as do_file:
             do_file.write(do_script.encode())
 
-        return [["vsimsa", "-do", "do", do_file.name]]
+        return self._simulator_command(do_file)
+
+    def _append_onerror_command(self, do_script: str) -> str:
+        return do_script + "\nonerror {\n quit -code 1 \n} \n"
+
+    def _append_run_commands(self, do_script: str) -> str:
+        """Append simulator-specific run commands."""
+        return do_script + "run -all \nexit"
+
+    def _simulator_command(self, do_file: Any) -> list[_Command]:
+        """Return the simulator invocation command."""
+        return [
+            [
+                *self._get_sim_cmd_prefix(),
+                "vsimsa",
+                "-do",
+                do_file.name,
+                *self._get_sim_cmd_suffix(),
+            ]
+        ]
+
+    def _append_pre_cmd(self, do_script: str) -> str:
+        """Hook for subclasses to extend do_script with simulator-specific pre_cmd."""
+        if self.pre_cmd is not None:
+            raise RuntimeError("pre_cmd is not implemented for this simulator.")
+        return do_script
+
+
+class Riviera(AldecBase):
+    """Implementation of :class:`Runner` for Aldec Riviera-Pro.
+
+    .. admonition:: Simulator-specific Usage
+
+       * Does not support the ``timescale`` argument to :meth:`~Runner.build` or :meth:`~Runner.test`.
+    """
+
+    def _append_onerror_command(self, do_script: str) -> str:
+        if self.gui:
+            return do_script
+        else:
+            return super()._append_onerror_command(do_script)
+
+    def _append_run_commands(self, do_script: str) -> str:
+        if getattr(self, "gui", False):
+            return do_script + "echo execute run -all to run the whole simulation."
+        else:
+            return do_script + "run -all \nexit"
+
+    def _simulator_command(self, do_file: Any) -> list[_Command]:
+        if getattr(self, "gui", False):
+            return [
+                [
+                    *self._get_sim_cmd_prefix(),
+                    "riviera",
+                    "-do",
+                    do_file.name,
+                    *self._get_sim_cmd_suffix(),
+                ]
+            ]
+        else:
+            return [
+                [
+                    *self._get_sim_cmd_prefix(),
+                    "vsimsa",
+                    "-do",
+                    do_file.name,
+                    *self._get_sim_cmd_suffix(),
+                ]
+            ]
+
+    def _append_pre_cmd(self, do_script: str) -> str:
+        if self.pre_cmd is None:
+            return do_script
+
+        if not isinstance(self.pre_cmd, list):
+            raise TypeError("pre_cmd must be a list of strings.")
+        if not all(isinstance(s, str) for s in self.pre_cmd):
+            raise TypeError("pre_cmd must be a list of strings.")
+
+        for s in self.pre_cmd:
+            do_script += f"{s}; "
+        return do_script + "\n"
+
+
+class ActiveHDL(AldecBase):
+    """Implementation of :class:`Runner` for Aldec Active-HDL.
+
+    .. admonition:: Simulator-specific Usage
+
+       * Does not support the ``pre_cmd`` argument to :meth:`~Runner.test`.
+       * Does not support the ``gui`` argument to :meth:`~Runner.test`.
+       * Does not support the ``timescale`` argument to :meth:`~Runner.build` or :meth:`~Runner.test`.
+    """
+
+    def _append_pre_cmd(self, do_script: str) -> str:
+        if self.pre_cmd is not None:
+            raise RuntimeError("pre_cmd is not implemented for Aldec ActiveHDL.")
+        return do_script
 
 
 class Verilator(Runner):
@@ -1449,14 +1870,14 @@ class Verilator(Runner):
 
     .. admonition:: Simulator-specific Usage
 
-       * ``waves=True`` *must* be given to :meth:`.build` if either ``waves`` or ``gui`` are to be used during :meth:`.test`.
-       * Does not support the ``pre_cmd`` argument to :meth:`.test`.
+       * ``waves=True`` *must* be given to :meth:`~Runner.build` if either ``waves`` or ``gui`` are to be used during :meth:`~Runner.test`.
+       * Does not support the ``pre_cmd`` argument to :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"verilog": ["vpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {"verilog": ["vpi"]}
 
-    def _set_env(self) -> None:
-        super()._set_env()
+    def _set_env_test(self) -> None:
+        super()._set_env_test()
         if "COCOTB_TRUST_INERTIAL_WRITES" not in self.env:
             self.env["COCOTB_TRUST_INERTIAL_WRITES"] = "1"
 
@@ -1467,7 +1888,7 @@ class Verilator(Runner):
     def _use_external_viewer(self) -> bool:
         return True
 
-    def _waves_file(self) -> Optional[str]:
+    def _waves_file(self) -> str | None:
         return "dump.vcd"
 
     def _simulator_in_path_build_only(self) -> None:
@@ -1480,12 +1901,12 @@ class Verilator(Runner):
         return [f"-I{include}" for include in includes]
 
     def _get_define_options(self, defines: Mapping[str, object]) -> _Command:
-        return [f"-D{name}={_as_sv_literal(value)}" for name, value in defines.items()]
+        return [f"-D{name}={value}" for name, value in defines.items()]
 
     def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
         return [f"-G{name}={value}" for name, value in parameters.items()]
 
-    def _build_command(self) -> List[_Command]:
+    def _build_command(self) -> list[_Command]:
         self._simulator_in_path_build_only()
 
         sources = self._sources + self._verilog_sources
@@ -1517,7 +1938,6 @@ class Verilator(Runner):
         cmds = []
         cmds.append(
             [
-                "perl",
                 self.executable,
                 "-cc",
                 "--exe",
@@ -1563,16 +1983,18 @@ class Verilator(Runner):
 
         return cmds
 
-    def _test_command(self) -> List[_Command]:
+    def _test_command(self) -> list[_Command]:
         if self.pre_cmd is not None:
             raise RuntimeError("pre_cmd is not implemented for Verilator.")
 
         out_file = self.build_dir / self.sim_hdl_toplevel
         return [
-            [str(out_file)]
+            self._get_sim_cmd_prefix()
+            + [str(out_file)]
             + (["--trace"] if self.waves or self.gui else [])
             + self.test_args
             + self.plusargs
+            + self._get_sim_cmd_suffix(),
         ]
 
 
@@ -1581,12 +2003,15 @@ class Xcelium(Runner):
 
     .. admonition:: Simulator-specific Usage
 
-       * Does not support the ``waves`` argument to :meth:`.build` (must be set in :meth:`.test` instead).
-       * Does not support the ``pre_cmd`` argument to :meth:`.test`.
-       * Does not support the ``timescale`` argument to :meth:`.test`.
+       * Does not support the ``waves`` argument to :meth:`~Runner.build` (must be set in :meth:`~Runner.test` instead).
+       * Does not support the ``pre_cmd`` argument to :meth:`~Runner.test`.
+       * Does not support the ``timescale`` argument to :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"verilog": ["vpi"], "vhdl": ["vhpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {
+        "verilog": ["vpi"],
+        "vhdl": ["vhpi"],
+    }
 
     def _simulator_in_path(self) -> None:
         if shutil.which("xrun") is None:
@@ -1597,29 +2022,14 @@ class Xcelium(Runner):
 
     def _get_define_options(self, defines: Mapping[str, object]) -> _Command:
         return [
-            f"-define {name}={self._as_define_value(value)}"
+            f"-define {name}={_sv_escape_string(format(value))}"
             for name, value in defines.items()
         ]
-
-    def _as_define_value(self, value: object) -> str:
-        if isinstance(value, int):
-            return str(value)
-        elif isinstance(value, str):
-            for char in value:
-                if ord(char) < 32 or ord(char) >= 255 or char == '"':
-                    # Control characters are generally not supported.
-                    # Not sure if there's any way to escape quotes.
-                    raise ValueError(
-                        f"Character {char!r} not supported in define value"
-                    )
-            return '"\\"' + value.replace("\\", "\\\\") + '\\""'
-        else:
-            raise TypeError("Can't serialize this type as an SV literal")
 
     def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
         return [f'-gpg "{name} => {value}"' for name, value in parameters.items()]
 
-    def _build_command(self) -> List[_Command]:
+    def _build_command(self) -> list[_Command]:
         self.env["CDS_AUTO_64BIT"] = "all"
 
         if self.waves:
@@ -1635,15 +2045,9 @@ class Xcelium(Runner):
             verbosity_opts += ["-messages"]
             verbosity_opts += ["-status"]
             verbosity_opts += ["-gverbose"]  # print assigned generics/parameters
-            verbosity_opts += ["-pliverbose"]
-            verbosity_opts += ["-plidebug"]  # Enhance the profile output with PLI info
-            verbosity_opts += [
-                "-plierr_verbose"
-            ]  # Expand handle info in PLI/VPI/VHPI messages
 
         else:
             verbosity_opts += ["-quiet"]
-            verbosity_opts += ["-plinowarn"]
 
         sources = self._sources + self._vhdl_sources + self._verilog_sources
 
@@ -1667,14 +2071,7 @@ class Xcelium(Runner):
             + ["-licqueue"]
             + (["-clean"] if self.always else [])
             + verbosity_opts
-            # + ["-vpicompat 1800v2005"]  # <1364v1995|1364v2001|1364v2005|1800v2005> Specify the IEEE VPI
             + ["-access +rwc"]
-            + ["-loadvpi"]
-            # always start with VPI on Xcelium
-            + [
-                cocotb_tools.config.lib_name_path("vpi", "xcelium").as_posix()
-                + ":vlog_startup_routines_bootstrap"
-            ]
             + vhpi_opts
             + [f"-work {self.hdl_library}"]
             + (
@@ -1692,7 +2089,7 @@ class Xcelium(Runner):
 
         return cmds
 
-    def _test_command(self) -> List[_Command]:
+    def _test_command(self) -> list[_Command]:
         if self.pre_cmd is not None:
             raise RuntimeError("pre_cmd is not implemented for Xcelium.")
 
@@ -1727,10 +2124,10 @@ class Xcelium(Runner):
 
         if self.waves:
             input_tcl = [
-                f'-input "@database -open cocotb_waves -default" '
-                f'-input "@probe -database cocotb_waves -create {xrun_top} -all -depth all" '
-                f'-input "@run" '
-                f'-input "@exit" '
+                '-input "@database -open cocotb_waves -default" ',
+                f'-input "@probe -database cocotb_waves -create {xrun_top} -all -depth all" ',
+                '-input "@run" ',
+                '-input "@exit" ',
             ]
         else:
             input_tcl = ["-input", "@run; exit;"]
@@ -1746,11 +2143,15 @@ class Xcelium(Runner):
         cmds = [["mkdir", "-p", tmpdir]]
         cmds += [
             [
+                *self._get_sim_cmd_prefix(),
                 "xrun",
                 "-logfile",
                 f"xrun_{self.current_test_name}.log",
                 "-xmlibdirname",
                 f"{self.build_dir}/xrun_snapshot",
+                # + ["-vpicompat 1800v2005"]  # <1364v1995|1364v2001|1364v2005|1800v2005> Specify the IEEE VPI
+                "-loadvpisim",
+                cocotb_tools.config.lib_entry("vpi", "xcelium"),
                 "-cds_implicit_tmpdir",
                 tmpdir,
                 "-licqueue",
@@ -1761,6 +2162,7 @@ class Xcelium(Runner):
                 *self.plusargs,
                 "-gui" if self.gui else "",
                 *input_tcl,
+                *self._get_sim_cmd_suffix(),
             ]
         ]
         self.env["GPI_EXTRA"] = (
@@ -1776,12 +2178,12 @@ class Vcs(Runner):
 
     .. admonition:: Simulator-specific Usage
 
-       * Does not support the ``pre_cmd`` argument to :meth:`.test`.
+       * Does not support the ``pre_cmd`` argument to :meth:`~Runner.test`.
        * Does not support VHDL.
-       * Does not support the ``timescale`` argument to :meth:`.build` or :meth:`.test`.
+       * Does not support the ``timescale`` argument to :meth:`~Runner.build` or :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"verilog": ["vpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {"verilog": ["vpi"]}
 
     def _simulator_in_path(self) -> None:
         if shutil.which("vcs") is None:
@@ -1791,9 +2193,7 @@ class Vcs(Runner):
         return [f"+incdir+{include}" for include in includes]
 
     def _get_define_options(self, defines: Mapping[str, object]) -> _Command:
-        return [
-            f"+define+{name}={_as_sv_literal(value)}" for name, value in defines.items()
-        ]
+        return [f"+define+{name}={value}" for name, value in defines.items()]
 
     def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
         if self.hdl_toplevel is None:
@@ -1808,7 +2208,7 @@ class Vcs(Runner):
         return self.build_dir / "simv"
 
     @property
-    def _build_opts(self) -> List[str]:
+    def _build_opts(self) -> list[str]:
         opts = [
             "-full64",
             "-debug_access+all",
@@ -1825,8 +2225,8 @@ class Vcs(Runner):
 
         return opts
 
-    def _build_command(self) -> List[_Command]:
-        cmds: List[_Command] = []
+    def _build_command(self) -> list[_Command]:
+        cmds: list[_Command] = []
         sources = self._sources + self._vhdl_sources + self._verilog_sources
 
         for source in sources:
@@ -1837,7 +2237,7 @@ class Vcs(Runner):
             cmds = [
                 ["vcs"]
                 + self._build_opts
-                + ["-load", cocotb_tools.config.lib_name_path("vpi", "vcs").as_posix()]
+                + ["-load", cocotb_tools.config.lib_entry("vpi", "vcs")]
                 + [arg.value for arg in self._build_args]
                 + self._get_include_options(self.includes)
                 + self._get_define_options(self.defines)
@@ -1851,7 +2251,7 @@ class Vcs(Runner):
 
         return cmds
 
-    def _test_command(self) -> List[_Command]:
+    def _test_command(self) -> list[_Command]:
         if self.pre_cmd is not None:
             raise RuntimeError("pre_cmd is not implemented for Vcs.")
 
@@ -1861,7 +2261,16 @@ class Vcs(Runner):
         else:
             verbosity_opts += ["-suppress=ASLR_DETECTED_INFO"]
 
-        cmds = [[str(self.sim_file), *verbosity_opts, *self.test_args, *self.plusargs]]
+        cmds = [
+            [
+                *self._get_sim_cmd_prefix(),
+                str(self.sim_file),
+                *verbosity_opts,
+                *self.test_args,
+                *self.plusargs,
+                *self._get_sim_cmd_suffix(),
+            ]
+        ]
 
         return cmds
 
@@ -1871,10 +2280,10 @@ class Dsim(Runner):
 
     .. admonition:: Simulator-specific Usage
 
-       * Does not support the ``pre_cmd`` argument to :meth:`.test`.
+       * Does not support the ``pre_cmd`` argument to :meth:`~Runner.test`.
     """
 
-    supported_gpi_interfaces = {"verilog": ["vpi"]}
+    supported_gpi_interfaces: ClassVar[dict[str, list[str]]] = {"verilog": ["vpi"]}
 
     def _simulator_in_path(self) -> None:
         if shutil.which("dsim") is None:
@@ -1884,15 +2293,10 @@ class Dsim(Runner):
         return [f"+incdir+{include}" for include in includes]
 
     def _get_define_options(self, defines: Mapping[str, object]) -> _Command:
-        return [
-            f"+define+{name}={_as_sv_literal(value)}" for name, value in defines.items()
-        ]
+        return [f"+define+{name}={value}" for name, value in defines.items()]
 
     def _get_parameter_options(self, parameters: Mapping[str, object]) -> _Command:
-        return [
-            f"-defparam {name}={_as_sv_literal(value)}"
-            for name, value in parameters.items()
-        ]
+        return [f"-defparam {name}={value}" for name, value in parameters.items()]
 
     @property
     def sim_file(self) -> Path:
@@ -1901,10 +2305,10 @@ class Dsim(Runner):
     def _use_external_viewer(self) -> bool:
         return True
 
-    def _waves_file(self) -> Optional[str]:
+    def _waves_file(self) -> str | None:
         return "file.vcd"
 
-    def _test_command(self) -> List[_Command]:
+    def _test_command(self) -> list[_Command]:
         if self.pre_cmd is not None:
             raise RuntimeError("pre_cmd is not implemented for DSim.")
 
@@ -1921,7 +2325,7 @@ class Dsim(Runner):
                 "-work",
                 str(self.build_dir),
                 "-pli_lib",
-                cocotb_tools.config.lib_name_path("vpi", "dsim").as_posix(),
+                cocotb_tools.config.lib_entry("vpi", "dsim"),
                 "+acc+rwcbfsWF",
                 "-image",
                 "image",
@@ -1930,7 +2334,7 @@ class Dsim(Runner):
             ]
         ]
 
-    def _build_command(self) -> List[_Command]:
+    def _build_command(self) -> list[_Command]:
         sources = self._sources + self._verilog_sources
 
         for source in sources:
@@ -1949,11 +2353,12 @@ class Dsim(Runner):
         if outdated(self.sim_file, (source.value for source in sources)) or self.always:
             cmds = [
                 [
+                    *self._get_sim_cmd_prefix(),
                     "dsim",
                     "-work",
                     str(self.build_dir),
                     "-pli_lib",
-                    cocotb_tools.config.lib_name_path("vpi", "dsim").as_posix(),
+                    cocotb_tools.config.lib_entry("vpi", "dsim"),
                     "+acc+rwcbfsWF",
                     "-genimage",
                     "image",
@@ -1963,12 +2368,35 @@ class Dsim(Runner):
                 + self._get_parameter_options(self.parameters)
                 + [arg.value for arg in self._build_args]
                 + [str(source_file.value) for source_file in sources]
+                + self._get_sim_cmd_suffix(),
             ]
 
         else:
             self.log.warning("Skipping compilation of %s", self.sim_file)
 
         return cmds
+
+
+SUPPORTED_RUNNERS: dict[str, type[Runner]] = {
+    "icarus": Icarus,
+    "questa": Questa,
+    "questa-qisqrun": QuestaQIS,
+    "ghdl": Ghdl,
+    "riviera": Riviera,
+    "activehdl": ActiveHDL,
+    "verilator": Verilator,
+    "xcelium": Xcelium,
+    "nvc": Nvc,
+    "vcs": Vcs,
+    "dsim": Dsim,
+}
+"""
+Dictionary mapping of simulator names to corresponding Python runners.
+The keys of this dictionary make up valid ``simulator_name`` strings to pass to :func:`get_runner()`.
+
+External libraries may register additional implementations of Python runners
+by adding keys to this dictionary.
+"""
 
 
 def get_runner(simulator_name: str) -> Runner:
@@ -1981,21 +2409,9 @@ def get_runner(simulator_name: str) -> Runner:
         ValueError: If *simulator_name* is not one of the supported simulators or an alias of one.
     """
 
-    supported_sims: Dict[str, Type[Runner]] = {
-        "icarus": Icarus,
-        "questa": Questa,
-        "ghdl": Ghdl,
-        "riviera": Riviera,
-        "verilator": Verilator,
-        "xcelium": Xcelium,
-        "nvc": Nvc,
-        "vcs": Vcs,
-        "dsim": Dsim,
-        # TODO: "activehdl": ActiveHdl,
-    }
     try:
-        return supported_sims[simulator_name]()
+        return SUPPORTED_RUNNERS[simulator_name]()
     except KeyError:
         raise ValueError(
-            f"Simulator {simulator_name!r} is not in supported list: {', '.join(supported_sims)}"
+            f"Simulator {simulator_name!r} is not in supported list: {', '.join(SUPPORTED_RUNNERS)}"
         ) from None

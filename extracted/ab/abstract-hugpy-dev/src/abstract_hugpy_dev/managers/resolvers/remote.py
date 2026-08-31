@@ -196,7 +196,7 @@ def _query_meta(worker: dict, model_key: str, payload: Any, *,
         pass
     loaded = worker.get("loaded_models")
     if isinstance(loaded, (list, tuple, set)):
-        meta["warm_at_pick"] = model_key in loaded
+        meta["loaded_at_pick"] = model_key in loaded
     try:
         from ...flask_app.app.functions.imports.utils import worker_http
         snap = worker_http.breaker_snapshot().get(worker_http.breaker_key(worker))
@@ -218,7 +218,7 @@ def _record_model_metrics(worker: dict, model_key: str,
     ``record_load`` additionally needs a MEASURED rate (an ``estimate``-source
     rate is a guess, not a measurement — never EMA'd), a derivable variant
     (from the worker row's serving-contract fields, when it carries them), and
-    a known warm/cold at pick. Missing any of those, that record is silently
+    a known loaded/unloaded at pick. Missing any of those, that record is silently
     skipped: unrecorded beats misfiled. The upload_time_s half is the load
     path's to record, not this seam's.
     """
@@ -229,8 +229,8 @@ def _record_model_metrics(worker: dict, model_key: str,
             model_metrics_store.record_call(model_key, float(completion_tokens))
         if tok_s is None or meta.get("estimated"):
             return
-        warm = meta.get("warm_at_pick")
-        if warm is None:
+        loaded_at = meta.get("loaded_at_pick")
+        if loaded_at is None:
             return
         variant = derive_variant(
             worker.get("n_gpu_layers"), worker.get("total_layers"),
@@ -239,7 +239,7 @@ def _record_model_metrics(worker: dict, model_key: str,
             return
         card = f"{worker.get('name') or worker.get('id')}:0"
         model_metrics_store.record_load(
-            model_key, variant, card, "hot" if warm else "cold",
+            model_key, variant, card, "loaded" if loaded_at else "unloaded",
             tok_per_s=float(tok_s))
     except Exception:  # noqa: BLE001 — recording must never fail a request
         logger.debug("model-metrics recording skipped for %s", model_key,
@@ -543,16 +543,16 @@ class WorkerBusyError(RuntimeError):
     names exactly what is saturated.
     """
 
-    def __init__(self, worker: Optional[dict], model_key: Optional[str], in_flight: int):
+    def __init__(self, worker: Optional[dict], model_key: Optional[str], requests_in_flight: int):
         self.worker = worker or {}
         self.model_key = model_key
-        self.in_flight = int(in_flight)
+        self.requests_in_flight = int(requests_in_flight)
         self.worker_name = self.worker.get("name") or self.worker.get("id") or "worker"
         super().__init__(self.stream_message())
 
     def stream_message(self) -> str:
         return (f"worker_busy: {self.worker_name} is at its in-process concurrency "
-                f"limit for {self.model_key} ({self.in_flight} in flight) and no "
+                f"limit for {self.model_key} ({self.requests_in_flight} in flight) and no "
                 f"other worker holding it is free — retry shortly")
 
     def as_error(self) -> Dict[str, Any]:
@@ -562,7 +562,7 @@ class WorkerBusyError(RuntimeError):
             "worker": self.worker_name,
             "worker_id": self.worker.get("id"),
             "model": self.model_key,
-            "in_flight": self.in_flight,
+            "requests_in_flight": self.requests_in_flight,
         }}
 
 
@@ -876,8 +876,11 @@ async def _acquire_relay_slot_async(model_key: str, pool: Optional[str],
 
 # Load-state seam (web -> core, optional). ``fn(model_key, worker_id, since_ts)``
 # returns the worker's live view of the model:
-#   {"healthy": bool,        # resident/loaded now (ready to serve)
-#    "in_progress": bool,     # weights loading OR still downloading now
+#   {"healthy": bool,        # resident/loaded now (ready to serve) == LOADED/SERVING
+#    "on_disk": bool,         # on the worker's hot drive (models_local) == HOT
+#    "pulling": bool,         # COLD->HOT download in flight (t_pull)
+#    "loading": bool,         # HOT->VRAM load in flight (t_load)
+#    "in_progress": bool,     # union of pulling|loading (any transition)
 #    "progress": float|None,  # download fraction when provisioning
 #    "message": str|None,     # human progress line
 #    "error": str|None}       # a FRESH (ts>=since_ts) honest load failure
@@ -1056,7 +1059,7 @@ class ColdHoldCapacityError(RuntimeError):
 
     def __init__(self, model_key: Optional[str], worker: Optional[dict],
                  held: int, cap: int, loading: bool,
-                 retry_after_s: Optional[int] = None):
+                 retry_after_s: Optional[int] = None, pulling: bool = False):
         self.model_key = model_key
         self.worker = worker or {}
         self.worker_name = (self.worker.get("name") or self.worker.get("id")
@@ -1064,12 +1067,16 @@ class ColdHoldCapacityError(RuntimeError):
         self.held = int(held)
         self.cap = int(cap)
         self.loading = bool(loading)
+        self.pulling = bool(pulling)
         self.retry_after_s = int(retry_after_s if retry_after_s is not None
                                  else _cold_hold_retry_after_s())
         super().__init__(self.stream_message())
 
     def stream_message(self) -> str:
-        state = ("is still loading on" if self.loading
+        # Name the actual transition (STATE-MODEL.md #11): pull (COLD->HOT)
+        # vs load (HOT->VRAM) vs not-yet-started.
+        state = ("is still downloading onto" if self.pulling
+                 else "is still loading into VRAM on" if self.loading
                  else "is not loaded yet on")
         return (f"cold_load_capacity: '{self.model_key}' {state} "
                 f"'{self.worker_name}', and central is already holding "
@@ -1147,9 +1154,16 @@ def _admit_cold_hold(model_key: str, worker: Optional[dict],
         return None          # can't tell cold from warm ⇒ never refuse on ignorance
     if ls.get("healthy"):
         return None          # warm: this gate is about LOADS, not about traffic
+    if ls.get("on_disk"):
+        # HOT (on the worker's hot drive, canonical STATE-MODEL.md #1): admission
+        # is a t_load (HOT->VRAM), never a t_pull (download). The cold-hold cap
+        # gates DOWNLOADS, so an already-on-disk model must never be refused under
+        # it — that conflation is the cold_load_capacity refusal this doc names.
+        return None
     raise ColdHoldCapacityError(model_key, worker, _hold_count(),
                                 _cold_hold_max_concurrent(),
-                                bool(ls.get("in_progress")))
+                                bool(ls.get("loading")),
+                                pulling=bool(ls.get("pulling")))
 
 
 # A load error that is HONEST/PERMANENT — a refusal or a hard load failure that a

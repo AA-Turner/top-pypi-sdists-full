@@ -1,7 +1,9 @@
 # Copyright cocotb contributors
 # Licensed under the Revised BSD License, see LICENSE for details.
 # SPDX-License-Identifier: BSD-3-Clause
-from typing import Any, Dict, TypeVar
+from __future__ import annotations
+
+from typing import Any, TypeVar
 
 import IPython
 from IPython.terminal.ipapp import load_default_config
@@ -9,10 +11,18 @@ from IPython.terminal.prompts import Prompts
 from pygments.token import Token
 
 import cocotb
+import cocotb._bridge
 from cocotb.task import bridge
 from cocotb.utils import get_sim_time
 
 T = TypeVar("T")
+
+
+if IPython.version_info[:2] >= (9, 17):
+    raise ImportError(
+        "cocotb_tools.ipython_support requires IPython<9.17; "
+        f"found IPython {IPython.__version__}"
+    )
 
 
 class SimTimePrompt(Prompts):
@@ -31,7 +41,7 @@ class SimTimePrompt(Prompts):
         return tokens
 
 
-async def embed(user_ns: Dict[str, Any] = {}) -> None:
+async def embed(user_ns: dict[str, Any] | None = None) -> None:
     """
     Start an IPython shell in the current coroutine.
 
@@ -55,12 +65,13 @@ async def embed(user_ns: Dict[str, Any] = {}) -> None:
     """
     # ensure cocotb is in the namespace, for convenience
     default_ns = {"cocotb": cocotb}
-    default_ns.update(user_ns)
+    if user_ns is not None:
+        default_ns.update(user_ns)
 
     def _runner(x):
         """Handler for async functions"""
         nonlocal shell
-        ret = cocotb._scheduler_inst._queue_function(x)
+        ret = cocotb._bridge.queue_function(x)
         shell.prompts._show_time = shell.execution_count
         return ret
 
@@ -72,7 +83,7 @@ async def embed(user_ns: Dict[str, Any] = {}) -> None:
     # because we launch IPython in a different process, this will cause unnecessary warnings, so disable the PID check
     c.HistoryAccessor.connection_options = {"check_same_thread": False}
     # create a shell with access to the dut, and cocotb pre-imported
-    shell = IPython.terminal.embed.InteractiveShellEmbed(
+    shell = IPython.terminal.embed.InteractiveShellEmbed(  # noqa: T100
         user_ns=default_ns,
         config=c,
     )

@@ -4,22 +4,24 @@
 // Licensed under the Revised BSD License, see LICENSE for details.
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include <cocotb_utils.h>
+#include <gpi.h>
 #include <sys/types.h>
 
 #include <algorithm>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "gpi.h"
-#include "gpi_priv.h"
+#include "./gpi_priv.hpp"
+#include "./logging.hpp"
 
 using namespace std;
 
 static vector<GpiImplInterface *> registered_impls;
-
-#ifdef SINGLETON_HANDLES
+static vector<std::pair<int (*)(void *), void *>> start_of_sim_time_cbs;
+static vector<std::pair<void (*)(void *), void *>> end_of_sim_time_cbs;
+static vector<std::pair<void (*)(void *), void *>> finalize_cbs;
 
 class GpiHandleStore {
   public:
@@ -63,20 +65,13 @@ static GpiHandleStore unique_handles;
 #define CHECK_AND_STORE(_x) unique_handles.check_and_store(_x)
 #define CLEAR_STORE() unique_handles.clear()
 
-#else
-
-#define CHECK_AND_STORE(_x) _x
-#define CLEAR_STORE() (void)0  // No-op
-
-#endif
-
-static bool sim_ending = false;
+static bool gpi_finalizing = false;
 
 static size_t gpi_print_registered_impl() {
     vector<GpiImplInterface *>::iterator iter;
     for (iter = registered_impls.begin(); iter != registered_impls.end();
          iter++) {
-        LOG_INFO("%s registered", (*iter)->get_name_c());
+        LOG_INFO("GPI: %s support registered", (*iter)->get_name_c());
     }
     return registered_impls.size();
 }
@@ -86,7 +81,7 @@ int gpi_register_impl(GpiImplInterface *func_tbl) {
     for (iter = registered_impls.begin(); iter != registered_impls.end();
          iter++) {
         if ((*iter)->get_name_s() == func_tbl->get_name_s()) {
-            LOG_WARN("%s already registered, check GPI_EXTRA",
+            LOG_WARN("GPI: %s support already registered, check GPI_EXTRA",
                      func_tbl->get_name_c());
             return -1;
         }
@@ -97,28 +92,52 @@ int gpi_register_impl(GpiImplInterface *func_tbl) {
 
 bool gpi_has_registered_impl() { return registered_impls.size() > 0; }
 
-void gpi_embed_init(int argc, char const *const *argv) {
-    if (embed_sim_init(argc, argv)) {
-        gpi_embed_end();
+void gpi_start_of_sim_time() {
+    for (auto &cb_info : start_of_sim_time_cbs) {
+        // start_of_sime_time should never fail, this should be moved to
+        // gpi_load_users, as should the (argc,argv)
+        LOG_TRACE("[ GPI Start Sim ] => User Start callback");
+        int error = cb_info.first(cb_info.second);
+        LOG_TRACE("User Start callback => [ GPI Start Sim ]");
+        if (error) {
+            gpi_end_of_sim_time();
+        }
     }
 }
 
-void gpi_embed_end() {
-    embed_sim_event("Simulator shut down prematurely");
-    gpi_sim_end();
+void gpi_end_of_sim_time() {
+    for (auto &cb_info : end_of_sim_time_cbs) {
+        LOG_TRACE("[ GPI End Sim ] => User End callback");
+        cb_info.first(cb_info.second);
+        LOG_TRACE("User End callback => [ GPI End Sim ]");
+    }
+    // always request simulation termination at end_of_sim_time
+    gpi_finish();
 }
 
-void gpi_sim_end() {
-    if (!sim_ending) {
+void gpi_finish() {
+    if (!gpi_finalizing) {
         registered_impls[0]->sim_end();
-        sim_ending = true;
+        gpi_finalizing = true;
     }
 }
 
-void gpi_cleanup(void) {
+void gpi_finalize(void) {
     CLEAR_STORE();
-    embed_sim_cleanup();
+    for (auto it = finalize_cbs.rbegin(); it != finalize_cbs.rend(); it++) {
+        LOG_TRACE("[ GPI Finalize ] => User Finalize callback");
+        it->first(it->second);
+        LOG_TRACE("User Finalize callback => [ GPI Finalize ]");
+    }
 }
+
+void gpi_check_cleanup(void) {
+    if (gpi_finalizing) {
+        gpi_finalize();
+    }
+}
+
+bool gpi_is_finalizing(void) { return gpi_finalizing; }
 
 static void gpi_load_libs(std::vector<std::string> to_load) {
     std::vector<std::string>::iterator iter;
@@ -157,26 +176,78 @@ static void gpi_load_libs(std::vector<std::string> to_load) {
         }
 
         layer_entry_func new_lib_entry = (layer_entry_func)entry_point;
+        LOG_TRACE("[ GPI Init ] => Impl Init (%s)", arg.c_str());
         new_lib_entry();
+        LOG_TRACE("Impl Init => [ GPI Init ]");
     }
 }
 
-void gpi_entry_point() {
-    const char *log_level = getenv("GPI_LOG_LEVEL");
-    if (log_level) {
-        static const std::map<std::string, int> log_level_str_table = {
-            {"CRITICAL", GPI_CRITICAL}, {"ERROR", GPI_ERROR},
-            {"WARNING", GPI_WARNING},   {"INFO", GPI_INFO},
-            {"DEBUG", GPI_DEBUG},       {"TRACE", GPI_TRACE}};
-        auto it = log_level_str_table.find(log_level);
-        if (it != log_level_str_table.end()) {
-            gpi_native_logger_set_level(it->second);
+static int gpi_load_users() {
+    auto users = getenv("GPI_USERS");
+    if (!users) {
+        LOG_ERROR("No GPI_USERS specified, exiting...");
+        return -1;
+    }
+    // I would have loved to use istringstream and getline, but it causes a
+    // compilation issue when compiling with newer GCCs against C++11.
+    std::string users_str = users;
+    std::string::size_type start_idx = 0;
+    bool done = false;
+    while (!done) {
+        auto next_delim = users_str.find(';', start_idx);
+        if (next_delim == std::string::npos) {
+            done = true;
+            next_delim = users_str.length();
+        }
+        auto user = users_str.substr(start_idx, next_delim - start_idx);
+        start_idx = next_delim + 1;
+
+        auto split_idx = user.rfind(',');
+
+        std::string lib_name;
+        std::string func_name;
+        if (split_idx == std::string::npos) {
+            lib_name = std::move(user);
         } else {
-            // LCOV_EXCL_START
-            LOG_ERROR("Invalid log level: %s", log_level);
-            // LCOV_EXCL_STOP
+            lib_name = user.substr(0, split_idx);
+            func_name = user.substr(split_idx + 1, std::string::npos);
+        }
+
+        void *lib_handle = utils_dyn_open(lib_name.c_str());
+        if (!lib_handle) {
+            LOG_ERROR("Error loading library '%s'", lib_name.c_str());
+            gpi_finish();
+            return -1;
+        }
+
+        if (split_idx != std::string::npos) {
+            void *func_handle = utils_dyn_sym(lib_handle, func_name.c_str());
+            if (!func_handle) {
+                LOG_ERROR(
+                    "Error getting entry func '%s' from loaded library '%s'",
+                    func_name.c_str(), lib_name.c_str());
+                gpi_finish();
+                return -1;
+            }
+
+            LOG_INFO("Running entry func '%s' from loaded library '%s'",
+                     func_name.c_str(), lib_name.c_str());
+
+            auto entry_func = (void (*)(void))func_handle;
+            LOG_TRACE("[ GPI Init ] => User Init (%s:%s)", lib_name.c_str(),
+                      func_name.c_str());
+            entry_func();
+            LOG_TRACE("User Init => [ GPI Init ]");
+        } else {
+            LOG_INFO("Loaded entry library: '%s'", lib_name.c_str());
         }
     }
+
+    return 0;
+}
+
+void gpi_entry_point() {
+    LOG_TRACE("=> [ GPI Init ]");
 
     /* Lets look at what other libs we were asked to load too */
     char *lib_env = getenv("GPI_EXTRA");
@@ -200,9 +271,42 @@ void gpi_entry_point() {
         gpi_load_libs(to_load);
     }
 
-    /* Finally embed Python */
-    embed_init_python();
+    // Load users
+    if (gpi_load_users()) {
+        return;
+    }
+
     gpi_print_registered_impl();
+
+    LOG_TRACE("[ GPI Init ] =>");
+}
+
+GPI_EXPORT void gpi_init_logging_and_debug() {
+    char *debug_env = getenv("GPI_DEBUG");
+    if (debug_env) {
+        std::string gpi_debug = debug_env;
+        // If it's explicitly set to 0, don't enable
+        if (gpi_debug != "0") {
+            gpi_debug_enabled = 1;
+        }
+    }
+
+    const char *log_level = getenv("GPI_LOG_LEVEL");
+    if (log_level) {
+        static const std::map<std::string, enum gpi_log_level>
+            log_level_str_table = {
+                {"CRITICAL", GPI_CRITICAL}, {"ERROR", GPI_ERROR},
+                {"WARNING", GPI_WARNING},   {"INFO", GPI_INFO},
+                {"DEBUG", GPI_DEBUG},       {"TRACE", GPI_TRACE}};
+        auto it = log_level_str_table.find(log_level);
+        if (it != log_level_str_table.end()) {
+            gpi_native_logger_set_level(it->second);
+        } else {
+            // LCOV_EXCL_START
+            LOG_ERROR("Invalid log level: %s", log_level);
+            // LCOV_EXCL_STOP
+        }
+    }
 }
 
 void gpi_get_sim_time(uint32_t *high, uint32_t *low) {
@@ -386,7 +490,7 @@ gpi_sim_hdl gpi_get_handle_by_index(gpi_sim_hdl base, int32_t index) {
 }
 
 gpi_iterator_hdl gpi_iterate(gpi_sim_hdl obj_hdl, gpi_iterator_sel type) {
-    if (type == GPI_PACKAGE_SCOPES) {
+    if (type == GPI_PACKAGE_SCOPES || type == GPI_ROOTS) {
         if (obj_hdl != NULL) {
             LOG_ERROR("Cannot iterate over package from non-NULL handles");
             return NULL;
@@ -399,8 +503,7 @@ gpi_iterator_hdl gpi_iterate(gpi_sim_hdl obj_hdl, gpi_iterator_sel type) {
 
         for (implIter = registered_impls.begin();
              implIter != registered_impls.end(); implIter++) {
-            GpiIterator *iter =
-                (*implIter)->iterate_handle(NULL, GPI_PACKAGE_SCOPES);
+            GpiIterator *iter = (*implIter)->iterate_handle(NULL, type);
             if (iter != NULL) return iter;
         }
         return NULL;
@@ -496,8 +599,8 @@ const char *gpi_get_signal_name_str(gpi_sim_hdl sig_hdl) {
     return obj_hdl->get_name_str();
 }
 
-const char *gpi_get_signal_type_str(gpi_sim_hdl obj_hdl) {
-    return obj_hdl->get_type_str();
+const char *gpi_get_signal_type_str(gpi_sim_hdl sig_hdl) {
+    return sig_hdl->get_type_str();
 }
 
 gpi_objtype gpi_get_object_type(gpi_sim_hdl obj_hdl) {
@@ -513,6 +616,8 @@ int gpi_is_indexable(gpi_sim_hdl obj_hdl) {
     if (obj_hdl->get_indexable()) return 1;
     return 0;
 }
+
+int gpi_is_signed(gpi_sim_hdl obj_hdl) { return obj_hdl->get_signed(); }
 
 void gpi_set_signal_value_int(gpi_sim_hdl sig_hdl, int32_t value,
                               gpi_set_action action) {
@@ -562,13 +667,13 @@ gpi_cb_hdl gpi_register_value_change_callback(int (*gpi_function)(void *),
     GpiSignalObjHdl *signal_hdl = static_cast<GpiSignalObjHdl *>(sig_hdl);
 
     /* Do something based on int & GPI_RISING | GPI_FALLING */
-    GpiCbHdl *gpi_hdl = signal_hdl->register_value_change_callback(
+    GpiCbHdl *cb_hdl = signal_hdl->register_value_change_callback(
         edge, gpi_function, gpi_cb_data);
-    if (!gpi_hdl) {
+    if (!cb_hdl) {
         LOG_ERROR("Failed to register a value change callback");
         return NULL;
     } else {
-        return gpi_hdl;
+        return cb_hdl;
     }
 }
 
@@ -576,13 +681,13 @@ gpi_cb_hdl gpi_register_timed_callback(int (*gpi_function)(void *),
                                        void *gpi_cb_data, uint64_t time) {
     // It should not matter which implementation we use for this so just pick
     // the first one
-    GpiCbHdl *gpi_hdl = registered_impls[0]->register_timed_callback(
+    GpiCbHdl *cb_hdl = registered_impls[0]->register_timed_callback(
         time, gpi_function, gpi_cb_data);
-    if (!gpi_hdl) {
+    if (!cb_hdl) {
         LOG_ERROR("Failed to register a timed callback");
         return NULL;
     } else {
-        return gpi_hdl;
+        return cb_hdl;
     }
 }
 
@@ -590,13 +695,13 @@ gpi_cb_hdl gpi_register_readonly_callback(int (*gpi_function)(void *),
                                           void *gpi_cb_data) {
     // It should not matter which implementation we use for this so just pick
     // the first one
-    GpiCbHdl *gpi_hdl = registered_impls[0]->register_readonly_callback(
+    GpiCbHdl *cb_hdl = registered_impls[0]->register_readonly_callback(
         gpi_function, gpi_cb_data);
-    if (!gpi_hdl) {
+    if (!cb_hdl) {
         LOG_ERROR("Failed to register a readonly callback");
         return NULL;
     } else {
-        return gpi_hdl;
+        return cb_hdl;
     }
 }
 
@@ -604,13 +709,13 @@ gpi_cb_hdl gpi_register_nexttime_callback(int (*gpi_function)(void *),
                                           void *gpi_cb_data) {
     // It should not matter which implementation we use for this so just pick
     // the first one
-    GpiCbHdl *gpi_hdl = registered_impls[0]->register_nexttime_callback(
+    GpiCbHdl *cb_hdl = registered_impls[0]->register_nexttime_callback(
         gpi_function, gpi_cb_data);
-    if (!gpi_hdl) {
+    if (!cb_hdl) {
         LOG_ERROR("Failed to register a nexttime callback");
         return NULL;
     } else {
-        return gpi_hdl;
+        return cb_hdl;
     }
 }
 
@@ -618,13 +723,13 @@ gpi_cb_hdl gpi_register_readwrite_callback(int (*gpi_function)(void *),
                                            void *gpi_cb_data) {
     // It should not matter which implementation we use for this so just pick
     // the first one
-    GpiCbHdl *gpi_hdl = registered_impls[0]->register_readwrite_callback(
+    GpiCbHdl *cb_hdl = registered_impls[0]->register_readwrite_callback(
         gpi_function, gpi_cb_data);
-    if (!gpi_hdl) {
+    if (!cb_hdl) {
         LOG_ERROR("Failed to register a readwrite callback");
         return NULL;
     } else {
-        return gpi_hdl;
+        return cb_hdl;
     }
 }
 
@@ -639,11 +744,22 @@ const char *GpiImplInterface::get_name_c() { return m_name.c_str(); }
 
 const string &GpiImplInterface::get_name_s() { return m_name; }
 
-void gpi_to_user() { LOG_TRACE("Passing control to GPI user"); }
+int gpi_register_start_of_sim_time_callback(int (*cb)(void *), void *cb_data) {
+    start_of_sim_time_cbs.push_back(std::make_pair(cb, cb_data));
+    return 0;
+}
 
-void gpi_to_simulator() {
-    if (sim_ending) {
-        gpi_cleanup();
-    }
-    LOG_TRACE("Returning control to simulator");
+int gpi_register_end_of_sim_time_callback(void (*cb)(void *), void *cb_data) {
+    end_of_sim_time_cbs.push_back(std::make_pair(cb, cb_data));
+    return 0;
+}
+
+int gpi_register_finalize_callback(void (*cb)(void *), void *cb_data) {
+    finalize_cbs.push_back(std::make_pair(cb, cb_data));
+    return 0;
+}
+
+int gpi_get_simulator_args(int *argc, char const *const **argv) {
+    registered_impls[0]->get_simulator_args(argc, argv);
+    return 0;
 }

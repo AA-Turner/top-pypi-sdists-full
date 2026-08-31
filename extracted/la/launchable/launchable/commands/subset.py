@@ -2,9 +2,11 @@ import glob
 import json
 import os
 import pathlib
+import random
 import re
 import subprocess
 import sys
+from enum import Enum
 from multiprocessing import Process
 from os.path import join
 from typing import Any, Callable, Dict, List, Optional, Sequence, TextIO, Tuple, Union
@@ -18,7 +20,7 @@ from launchable.utils.tracking import Tracking, TrackingClient
 
 from ..app import Application
 from ..testpath import FilePathNormalizer, TestPath
-from ..utils.click import DURATION, KEY_VALUE, PERCENTAGE, DurationType, PercentageType, ignorable_error
+from ..utils.click import DURATION, KEY_VALUE, PERCENTAGE, DurationType, ignorable_error
 from ..utils.commands import Command
 from ..utils.env_keys import REPORT_ERROR_KEY
 from ..utils.fail_fast_mode import (FailFastModeValidateParams, fail_fast_mode_validate,
@@ -26,6 +28,13 @@ from ..utils.fail_fast_mode import (FailFastModeValidateParams, fail_fast_mode_v
 from ..utils.launchable_client import LaunchableClient
 from .helper import find_or_create_session
 from .test_path_writer import TestPathWriter
+
+
+class FallbackMode(str, Enum):
+    RUN_ALL = "run-all"
+    STOP = "stop"
+    RANDOM_SAMPLE = "random-sample"
+
 
 LARGE_TEST_PATHS_THRESHOLD = 100000
 DEFAULT_CONNECT_TIMEOUT = 5
@@ -231,17 +240,37 @@ LARGE_PAYLOAD_CONNECT_TIMEOUT = 60
     type=str,
     hidden=True,
 )
+@click.option(
+    "--fallback-mode",
+    "fallback_mode",
+    hidden=True,
+    type=click.Choice(["run-all", "stop", "random-sample"]),
+    default="run-all",
+    help="Behavior when the subset API is unavailable or the model is untrained. "
+         "'run-all' (default) runs all tests as usual; 'stop' exits with a non-zero status so CI halts; "
+         "'random-sample' picks a random subset locally based on the count derived from --fallback-sampling-target "
+         "(no duration estimates are available in this path).",
+)
+@click.option(
+    "--fallback-sampling-target",
+    "fallback_sampling_target",
+    hidden=True,
+    type=PERCENTAGE,
+    default=None,
+    help="Sampling ratio (0%–100%) used when --fallback-mode=random-sample. "
+         "Required when --fallback-mode=random-sample is specified.",
+)
 @click.pass_context
 def subset(
     context: click.core.Context,
-    target: Optional[PercentageType],
+    target: Optional[float],
     session: Optional[str],
     base_path: Optional[str],
     build_name: Optional[str],
     rest: str,
     duration: Optional[DurationType],
     flavor: Sequence[Tuple[str, str]],
-    confidence: Optional[PercentageType],
+    confidence: Optional[float],
     goal_spec: Optional[str],
     split: bool,
     no_base_path_inference: bool,
@@ -262,7 +291,10 @@ def subset(
     use_case: Optional[str] = None,
     similarity: Optional[float] = None,
     subset_id_file: Optional[str] = None,
+    fallback_mode: str = "run-all",
+    fallback_sampling_target: Optional[float] = None,
 ):
+    fallback_mode_enum = FallbackMode(fallback_mode)
     app = context.obj
     tracking_client = TrackingClient(Command.SUBSET, app=app)
     client = LaunchableClient(
@@ -292,6 +324,18 @@ def subset(
         tracking_client.send_error_event(
             event_name=Tracking.ErrorEvent.WARNING_ERROR,
             stack_trace=msg
+        )
+
+    if fallback_mode_enum == FallbackMode.RANDOM_SAMPLE and fallback_sampling_target is None:
+        print_error_and_die(
+            "--fallback-sampling-target is required when --fallback-mode=random-sample",
+            Tracking.ErrorEvent.USER_ERROR
+        )
+
+    if fallback_sampling_target is not None and fallback_mode_enum != FallbackMode.RANDOM_SAMPLE:
+        print_error_and_die(
+            "--fallback-sampling-target can only be used with --fallback-mode=random-sample",
+            Tracking.ErrorEvent.USER_ERROR
         )
 
     if is_get_tests_from_guess and is_get_tests_from_previous_sessions:
@@ -402,6 +446,8 @@ def subset(
             self.is_output_exclusion_rules = is_output_exclusion_rules
             self.is_get_tests_from_guess = is_get_tests_from_guess
             self.subset_id_file = subset_id_file
+            self.fallback_mode = fallback_mode_enum
+            self.fallback_sampling_target = fallback_sampling_target
             super(Optimize, self).__init__(app=app)
 
         def _default_output_handler(self, output: List[TestPath], rests: List[TestPath]):
@@ -495,7 +541,7 @@ def subset(
         def get_payload(
             self,
             session_id: str,
-            target: Optional[PercentageType],
+            target: Optional[float],
             duration: Optional[DurationType],
             test_runner: str,
         ):
@@ -587,6 +633,24 @@ def subset(
             with open(self.subset_id_file, 'w', encoding='utf-8') as f:
                 f.write(str(subset_result.subset_id) + '\n')
 
+        def _fallback_result(self) -> SubsetResult:
+            if self.fallback_mode == FallbackMode.STOP:
+                click.echo(
+                    "Warning: the service failed to subset. Stopping build (--fallback-mode=stop).",
+                    err=True,
+                )
+                sys.exit(1)
+            elif self.fallback_mode == FallbackMode.RANDOM_SAMPLE:
+                assert self.fallback_sampling_target is not None
+                target_fraction = float(self.fallback_sampling_target)
+                click.echo(
+                    "Warning: the service failed to subset. Falling back to local random sample at {:.0%}.".format(
+                        target_fraction),
+                    err=True,)
+                return SubsetResult.from_random_sample(self.test_paths, target_fraction)
+            else:
+                return SubsetResult.from_test_paths(self.test_paths)
+
         def request_subset(self) -> SubsetResult:
             test_runner = context.invoked_subcommand
             # temporarily extend the timeout because subset API response has become slow
@@ -622,7 +686,7 @@ def subset(
                 )
                 client.print_exception_and_recover(
                     e, "Warning: the service failed to subset. Falling back to running all tests")
-                return SubsetResult.from_test_paths(self.test_paths)
+                return self._fallback_result()
 
         def run(self):
             """called after tests are scanned to compute the optimized order"""
@@ -642,9 +706,15 @@ def subset(
             if not session_id:
                 # Session ID in --session is missing. It might be caused by
                 # Launchable API errors.
-                subset_result = SubsetResult.from_test_paths(self.test_paths)
+                subset_result = self._fallback_result()
             else:
                 subset_result = self.request_subset()
+
+            if subset_result.is_brainless:
+                click.echo("Your model is currently in training", err=True)
+                # brainless mode splits tests on server, so skip client-side fallback for random-sample
+                if self.fallback_mode != FallbackMode.RANDOM_SAMPLE:
+                    subset_result = self._fallback_result()
 
             if len(subset_result.subset) == 0:
                 if len(subset_result.rest) > 0 and client.is_pts_v2_enabled() and confidence is not None:
@@ -680,6 +750,13 @@ def subset(
             if "subset" not in summary.keys() or "rest" not in summary.keys():
                 return
 
+            new_test_count = summary["subset"].get("newTestCount", 0)
+            subset_label = "Subset (New Tests)" if new_test_count > 0 else "Subset"
+            if new_test_count > 0:
+                subset_candidates = "{} ({})".format(len(original_subset), new_test_count)
+            else:
+                subset_candidates = len(original_subset)
+
             build_name, test_session_id = parse_session(session_id)
             org, workspace = get_org_workspace()
 
@@ -687,8 +764,8 @@ def subset(
                       "Estimated duration (%)", "Estimated duration (min)"]
             rows = [
                 [
-                    "Subset",
-                    len(original_subset),
+                    subset_label,
+                    subset_candidates,
                     summary["subset"].get("rate", 0.0),
                     summary["subset"].get("duration", 0.0),
                 ],
@@ -706,10 +783,6 @@ def subset(
                     summary["subset"].get("duration", 0.0) + summary["rest"].get("duration", 0.0),
                 ],
             ]
-
-            if subset_result.is_brainless:
-                click.echo(
-                    "Your model is currently in training", err=True)
 
             click.echo(
                 "Launchable created subset {} for build {} (test session {}) in workspace {}/{}".format(
@@ -775,3 +848,11 @@ class SubsetResult:
             is_brainless=False,
             is_observation=False
         )
+
+    @classmethod
+    def from_random_sample(cls, test_paths: List[TestPath], target: float) -> 'SubsetResult':
+        count = max(1, round(len(test_paths) * target))
+        sampled = random.sample(test_paths, min(count, len(test_paths)))
+        sampled_set = {id(t): t for t in sampled}
+        rest = [t for t in test_paths if id(t) not in sampled_set]
+        return cls(subset=sampled, rest=rest, subset_id='', summary={}, is_brainless=False, is_observation=False)

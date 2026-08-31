@@ -27,7 +27,7 @@ class VisibilityReason(BaseModel):
     """
     Whether this document's vectors are present in MVS, and why.
     """ # noqa: E501
-    searchable: Optional[StrictBool] = Field(default=None, description="True when the source object's vectors are present in MVS (the document is retrievable), False when confirmed absent (the ADM-01 unsearchable class), None when it could not be determined.")
+    searchable: Optional[StrictBool] = Field(default=None, description="True when the source object's vectors are present in MVS (the document is retrievable), False when confirmed absent (the unsearchable class), None when it could not be determined.")
     reason: StrictStr = Field(description="Human-readable explanation of the searchable verdict.")
     source_object_id: Optional[StrictStr] = Field(default=None, description="The _internal.lineage.source_object_id the presence check was keyed on. None when the document carries no such id to check.")
     __properties: ClassVar[List[str]] = ["searchable", "reason", "source_object_id"]

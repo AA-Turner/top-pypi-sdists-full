@@ -27,7 +27,6 @@ from tomlrt._comma_ops import (
     splice_insert,
     splice_out,
 )
-from tomlrt._errors import TOMLError
 from tomlrt._format import (
     _resolve_format_options,
     format_inline_root,
@@ -36,7 +35,7 @@ from tomlrt._format import (
 from tomlrt._trivia import (
     strip_trailing_indent,
 )
-from tomlrt._typecheck import _validate_mapping
+from tomlrt._typecheck import _require_mapping, _validate_mapping
 from tomlrt._values import (
     ArrayItem,
     ArrayValue,
@@ -44,7 +43,7 @@ from tomlrt._values import (
 from tomlrt._view import _View
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Mapping, MutableMapping
+    from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 
     from _typeshed import SupportsRichComparison
 
@@ -126,6 +125,8 @@ class Array(_View, list[Any]):
         if items_list:
             from tomlrt._container import _fill_inline_array  # noqa: PLC0415
 
+            for item in items_list:
+                self._validate_item(item)
             _fill_inline_array(self, items_list, layout_root=None, owner=None)
         if not multiline:
             return
@@ -280,19 +281,17 @@ class Array(_View, list[Any]):
         )
         return self
 
-    def _synth_item(self, value: object) -> tuple[Value, object]:
-        """Synthesise one value accepted by an inline array.
+    @staticmethod
+    def _validate_item(value: object) -> None:
+        """Validate one value before synthesis can attach nested views."""
+        from tomlrt._container import _validate_input  # noqa: PLC0415
 
-        The synthesised element is uplinked to this array (``array_host``)
-        so it can later derive its hosting KV slot: an element has no key
-        of its own, so it derives it from the array object (see
-        `_host_kv_slot`).
-        """
+        _validate_input(value, inline_only=True, inline_kind="array")
+
+    def _synth_item(self, value: TomlInput) -> tuple[Value, object]:
+        """Synthesise one validated value for this inline array."""
         from tomlrt._container import _synth_value  # noqa: PLC0415
 
-        if isinstance(value, AoT):
-            msg = "cannot store an array-of-tables inside an inline array"
-            raise TOMLError(msg)
         return _synth_value(
             value,
             layout_root=self._layout_root,
@@ -302,20 +301,31 @@ class Array(_View, list[Any]):
             array_host=self,
         )
 
-    def _prepare_values(self, values: list[Any]) -> list[tuple[Value, Any]]:
-        """Validate every value before synthesising: synthesis live-attaches."""
-        from tomlrt._container import _validate_input  # noqa: PLC0415
+    def _prepare_item(self, value: TomlInput) -> tuple[Value, object]:
+        """Validate and synthesise one value."""
+        self._validate_item(value)
+        return self._synth_item(value)
 
-        for value in values:
-            _validate_input(value, inline_only=True)
+    def _prepare_values(
+        self, values: Sequence[TomlInput]
+    ) -> list[tuple[Value, object]]:
+        """Validate a batch before synthesis can attach any nested views."""
+        self._validate_values(values)
         return [self._synth_item(value) for value in values]
+
+    def _validate_values(self, values: Sequence[TomlInput]) -> None:
+        """Validate a batch before any item is synthesised."""
+        for value in values:
+            self._validate_item(value)
 
     @override
     def append(self, value: Any) -> None:
-        cst, decoded = self._synth_item(value)
+        cst, decoded = self._prepare_item(value)
         self._append_with_style(cst, decoded, self._style())
 
-    def _append_with_style(self, cst: Value, decoded: Any, style: CommaStyle) -> None:
+    def _append_with_style(
+        self, cst: Value, decoded: object, style: CommaStyle
+    ) -> None:
         """Append ``cst`` / ``decoded`` using a precomputed ``style``.
 
         Precomputing avoids re-deriving style from array state that
@@ -368,10 +378,10 @@ class Array(_View, list[Any]):
     @override
     def insert(self, index: SupportsIndex, value: Any) -> None:
         i = _norm_insert_index(index, len(self))
-        cst, decoded = self._synth_item(value)
+        cst, decoded = self._prepare_item(value)
         self._insert_synthesised(i, cst, decoded)
 
-    def _insert_synthesised(self, index: int, cst: Value, decoded: Any) -> None:
+    def _insert_synthesised(self, index: int, cst: Value, decoded: object) -> None:
         """Insert an already-synthesised value."""
         if index == len(self):
             self._append_with_style(cst, decoded, self._style())
@@ -381,13 +391,11 @@ class Array(_View, list[Any]):
         splice_insert(self._value, new_item, index, style, self._doc_newline)
         list.insert(self, index, decoded)
 
-    def _replace_synthesised(self, index: int, cst: Value, decoded: Any) -> None:
+    def _replace_synthesised(self, index: int, cst: Value, decoded: object) -> None:
         """Replace an item with an already-synthesised value."""
         old = self[index]
-        # Assigning an item to itself re-uses the very view being
-        # replaced, which must stay attached; anything else is displaced.
-        if old is not decoded:
-            _layout_ops.reset_displaced_views(old)
+        # Exact same-position assignments returned before synthesis.
+        _layout_ops.reset_displaced_views(old)
         self._value.items[index].value = cst
         list.__setitem__(self, index, decoded)
 
@@ -403,12 +411,11 @@ class Array(_View, list[Any]):
         reverse: bool = False,
     ) -> None:
         n = len(self)
-        if key is None:
-            sort_key: Callable[[int], Any] = lambda i: self[i]  # noqa: E731
-        else:
-            key_fn = key
-            sort_key = lambda i: key_fn(self[i])  # noqa: E731
-        order = sorted(range(n), key=sort_key, reverse=reverse)
+        order = sorted(
+            range(n),
+            key=lambda i: self[i] if key is None else key(self[i]),
+            reverse=reverse,
+        )
         self._reorder(order)
 
     def _reorder(self, order: list[int]) -> None:
@@ -443,20 +450,28 @@ class Array(_View, list[Any]):
             except TypeError as exc:
                 msg = "can only assign an iterable"
                 raise TypeError(msg) from exc
+            indices = range(*index.indices(len(self)))
+            if (
+                index.step is not None
+                and index.step != 1
+                and len(values) != len(indices)
+            ):
+                msg = (
+                    f"attempt to assign sequence of size {len(values)} "
+                    f"to extended slice of size {len(indices)}"
+                )
+                raise ValueError(msg)
+            self._validate_values(values)
+            if len(values) == len(indices) and all(
+                self[i] is v for i, v in zip(indices, values, strict=True)
+            ):
+                return
+            prepared = [self._synth_item(v) for v in values]
             if index.step is not None and index.step != 1:
-                indices = list(range(*index.indices(len(self))))
-                if len(values) != len(indices):
-                    msg = (
-                        f"attempt to assign sequence of size {len(values)} "
-                        f"to extended slice of size {len(indices)}"
-                    )
-                    raise ValueError(msg)
-                prepared = self._prepare_values(values)
                 # Extended slice positions are unchanged; replace per slot.
                 for k, (cst, decoded) in zip(indices, prepared, strict=True):
                     self._replace_synthesised(k, cst, decoded)
                 return
-            prepared = self._prepare_values(values)
             # Reuse delete/insert boundary handling for contiguous slices.
             start, stop, _ = index.indices(len(self))
             del self[start:stop]
@@ -466,6 +481,9 @@ class Array(_View, list[Any]):
         # int index: reject before synthesising or mutating any CST, to
         # match the IndexError ``list.__setitem__`` raises for a bad index.
         i = _norm_index(index, len(self._value.items), "list assignment")
+        self._validate_item(value)
+        if self[i] is value:
+            return
         cst, dec = self._synth_item(value)
         self._replace_synthesised(i, cst, dec)
 
@@ -597,14 +615,13 @@ class AoT(_View, list["Table"]):
         ``entry`` may be initial body content or ``None``. Attached AoTs
         append to the owning document.
         """
-        if entry is not None:
-            entry = _prepare_aot_entries((entry,))[0]
+        body = _prepare_aot_entries((entry,))[0] if entry is not None else None
         if self._layout_root is None:
-            list.append(self, _make_unattached_entry(entry))
+            list.append(self, _make_unattached_entry(body))
             return self[-1]
-        return _layout_ops.add_aot_entry(self, entry)
+        return _layout_ops.add_aot_entry(self, body)
 
-    def _add_entry_attached(self, value: Mapping[str, Any]) -> Table:
+    def _add_entry_attached(self, value: Mapping[str, TomlInput]) -> Table:
         """Dispatch a new attached AoT entry from ``value``.
 
         Precondition: attached AoT. Prefers the trivia-preserving clone
@@ -617,7 +634,9 @@ class AoT(_View, list["Table"]):
                 return _layout_ops.clone_table_as_aot_entry(self, value)
         return _layout_ops.add_aot_entry(self, value)
 
-    def _replace_entry_attached(self, index: int, value: Mapping[str, Any]) -> None:
+    def _replace_entry_attached(
+        self, index: int, value: Mapping[str, TomlInput]
+    ) -> None:
         """Dispatch in-place replacement of an attached AoT entry."""
         if (
             isinstance(value, _container.Table)
@@ -656,7 +675,7 @@ class AoT(_View, list["Table"]):
     @override
     def clear(self) -> None:
         if self._layout_root is None:
-            list.clear(self)  # ty: ignore[invalid-argument-type]
+            list.clear(self)
             return
         n = len(self)
         if n:
@@ -706,12 +725,17 @@ class AoT(_View, list["Table"]):
                 start = index.indices(len(self))[0]
                 if indices:
                     _layout_ops.remove_aot_entries(self, indices)
+                # New entries are appended at the tail, so they only need
+                # moving if that is not where they belong. Comparing orders
+                # instead would compare entries by value, and value-equal
+                # entries are not interchangeable: the reorder is keyed on
+                # identity.
+                needs_reorder = bool(typed_values) and start != len(self)
                 new_entries = [self._add_entry_attached(v) for v in typed_values]
-                cur: list[Table] = list(self)
-                cur = cur[: -len(new_entries)] if new_entries else cur
-                for off, e in enumerate(new_entries):
-                    cur.insert(start + off, e)
-                if cur != list(self):
+                if needs_reorder:
+                    cur: list[Table] = list(self)[: -len(new_entries)]
+                    for off, e in enumerate(new_entries):
+                        cur.insert(start + off, e)
                     _layout_ops.renormalise_aot_order(self, cur)
                 return
             # Extended slice: length already matched, so replace in place.
@@ -754,11 +778,12 @@ class AoT(_View, list["Table"]):
             return
         # Normalise against the pre-append length to match list.insert.
         idx = _norm_insert_index(index, len(self))
+        needs_reorder = idx != len(self)
         new_entry = self._add_entry_attached(entry)
-        new_order: list[Table] = list(self)
-        new_order.pop()
-        new_order.insert(idx, new_entry)
-        if new_order != list(self):
+        if needs_reorder:
+            new_order: list[Table] = list(self)
+            new_order.pop()
+            new_order.insert(idx, new_entry)
             _layout_ops.renormalise_aot_order(self, new_order)
 
     @override
@@ -773,11 +798,12 @@ class AoT(_View, list["Table"]):
     @override
     def reverse(self) -> None:
         if self._layout_root is None:
-            list.reverse(self)  # ty: ignore[invalid-argument-type]
+            list.reverse(self)
             return
-        new_order = list(reversed(self))
-        _layout_ops.renormalise_aot_order(self, new_order)
+        _layout_ops.renormalise_aot_order(self, list(reversed(self)))
 
+    # Tables have no natural ordering, so unlike list.sort this API
+    # deliberately requires a key.
     @override
     def sort(  # type: ignore[override]
         self,
@@ -785,14 +811,17 @@ class AoT(_View, list["Table"]):
         key: Callable[[Table], SupportsRichComparison],
         reverse: bool = False,
     ) -> None:
-        new_order = sorted(self, key=key, reverse=reverse)
         if self._layout_root is None:
-            list.__init__(self, new_order)
+            list.sort(self, key=key, reverse=reverse)
             return
-        _layout_ops.renormalise_aot_order(self, new_order)
+        _layout_ops.renormalise_aot_order(self, sorted(self, key=key, reverse=reverse))
 
+    # Accept mappings as entries, matching append/extend rather than
+    # exposing the narrower list[Table] storage type.
     @override
-    def __iadd__(self, values: Iterable[Mapping[str, TomlInput]]) -> Self:  # type: ignore[override]
+    def __iadd__(  # type: ignore[override]
+        self, values: Iterable[Mapping[str, TomlInput]]
+    ) -> Self:
         self.extend(values)
         return self
 
@@ -822,11 +851,13 @@ def _prepare_aot_entries(
     values: Iterable[Any],
 ) -> list[Mapping[str, TomlInput]]:
     """Snapshot and validate complete AoT entries."""
-    from tomlrt._container import _validate_section_values  # noqa: PLC0415
+    from tomlrt._container import _validate_mapping_items  # noqa: PLC0415
 
-    entries = [_validate_mapping(value, label="AoT entry") for value in list(values)]
+    entries: list[Any] = [
+        _require_mapping(value, label="AoT entry") for value in list(values)
+    ]
     for entry in entries:
-        _validate_section_values(entry)
+        _validate_mapping_items(entry, inline_only=False)
     return entries
 
 

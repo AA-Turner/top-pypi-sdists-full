@@ -1,17 +1,18 @@
 # Copyright cocotb contributors
 # Licensed under the Revised BSD License, see LICENSE for details.
 # SPDX-License-Identifier: BSD-3-Clause
-#!/usr/bin/env python
 """
 Simple script to combine JUnit test results into a single XML file.
 """
 
+from __future__ import annotations
+
 import argparse
-import os
 import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Pattern
+from re import Pattern
 from xml.etree import ElementTree as ET
 
 
@@ -23,6 +24,19 @@ def _find_all(name: Pattern, path: Path) -> Iterable[Path]:
             yield from _find_all(name, obj)
 
 
+def _existing_path(path_str: str) -> Path:
+    path = Path(path_str)
+    if not path.exists():
+        raise argparse.ArgumentTypeError(f"Path '{path_str}' does not exist.")
+    return path
+
+
+def _get_properties(element: ET.Element) -> dict[str, str]:
+    return {
+        item.get("name", ""): item.get("value", "") for item in element.iter("property")
+    }
+
+
 def _get_parser() -> argparse.ArgumentParser:
     """Return the cmdline parser"""
     parser = argparse.ArgumentParser(
@@ -31,7 +45,7 @@ def _get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "directories",
         nargs="*",
-        type=lambda args: [Path(arg) for arg in args],
+        type=_existing_path,
         default=[Path()],
         help="Directories to search for input files.",
     )
@@ -83,15 +97,9 @@ def main() -> int:
             tree = ET.parse(fname)
             for ts in tree.iter("testsuite"):
                 if args.verbose:
-                    print(
-                        "Testsuite name: {!r}, package: {!r}".format(
-                            ts.get("name"), ts.get("package")
-                        )
-                    )
+                    print("Testsuite name: {!r}".format(ts.get("name")))
                 for existing in result:
-                    if (existing.get("name") == ts.get("name")) and (
-                        existing.get("package") == ts.get("package")
-                    ):
+                    if existing.get("name") == ts.get("name"):
                         if args.verbose:
                             print(
                                 "Testsuite already exists in combined results. Extending it."
@@ -105,39 +113,39 @@ def main() -> int:
                         )
                     result.append(ts)
 
+    workspace = Path(args.repo_root).resolve() if args.repo_root else Path.cwd()
+
     testsuite_count = 0
     testcase_count = 0
-    for testsuite in result.iter("testsuite"):
+
+    for testsuite in result.findall("testsuite"):
         testsuite_count += 1
+
         for testcase in testsuite.iter("testcase"):
             testcase_count += 1
-            for _ in testcase.iter("failure"):
-                rc = 1
-                print(
-                    "Failure in testsuite: '{}' classname: '{}' testcase: '{}' with parameters '{}'".format(
-                        testsuite.get("name"),
-                        testcase.get("classname"),
-                        testcase.get("name"),
-                        testsuite.get("package"),
-                    )
+
+            if testcase.find("failure") is None and testcase.find("error") is None:
+                continue
+
+            properties = _get_properties(testcase)
+            file = properties.get("file")
+            rc = 1
+
+            if file is not None and (file_path := Path(file)).is_absolute():
+                try:
+                    file = str(file_path.resolve().relative_to(workspace))
+                except ValueError:
+                    pass
+
+            print(
+                "Failure in testsuite: '{}' testcase: '{}.{}' file: '{}::{}'".format(
+                    testsuite.get("name"),
+                    testcase.get("classname"),
+                    testcase.get("name"),
+                    file,
+                    properties.get("line"),
                 )
-                if (
-                    os.getenv("GITHUB_ACTIONS") is not None
-                    and args.repo_root is not None
-                ):
-                    # Get test file relative to root of repo
-                    file = testcase.get("file")
-                    # if this file was output by cocotb, it has this attribute
-                    assert file is not None
-                    relative_file = Path(file).relative_to(args.repo_root)
-                    print(
-                        "::error file={},line={}::Test {}:{} failed".format(
-                            relative_file,
-                            testcase.get("lineno"),
-                            testcase.get("classname"),
-                            testcase.get("name"),
-                        )
-                    )
+            )
 
     print(f"Ran a total of {testsuite_count} TestSuites and {testcase_count} TestCases")
 

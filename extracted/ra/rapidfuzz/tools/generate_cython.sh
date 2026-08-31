@@ -9,6 +9,7 @@ fi
 
 generate_cython()
 {
+  # shellcheck disable=SC2086 # linetrace_flag is intentionally unquoted so it expands to no args when empty
   python -m cython -I "$curdir" --cplus $linetrace_flag "$curdir"/"$1".pyx -o "$curdir"/"$1".cxx || exit 1
   echo "Generated $curdir/$1.cxx"
 }

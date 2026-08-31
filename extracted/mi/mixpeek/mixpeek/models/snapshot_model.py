@@ -47,9 +47,9 @@ class SnapshotModel(BaseModel):
     manifest: Optional[SnapshotManifest] = None
     error: Optional[StrictStr] = None
     task_id: Optional[StrictStr] = None
-    include_vectors: Optional[StrictBool] = Field(default=True, description="False for metadata-only daily snapshots whose vectors are covered by the shard representative's export (MI-894).")
+    include_vectors: Optional[StrictBool] = Field(default=True, description="False for metadata-only daily snapshots whose vectors are covered by the shard representative's export.")
     vector_shard_key: Optional[StrictStr] = None
-    last_restore: Optional[RestoreReport] = Field(default=None, description="Outcome of the most recent restore FROM this snapshot (what was restored vs skipped); null if never restored (BACKE-804).")
+    last_restore: Optional[RestoreReport] = Field(default=None, description="Outcome of the most recent restore FROM this snapshot (what was restored vs skipped); null if never restored.")
     __properties: ClassVar[List[str]] = ["snapshot_id", "namespace_id", "namespace_name", "internal_id", "snapshot_type", "status", "created_at", "completed_at", "expires_at", "schema_version", "s3_prefix", "s3_objects_copied", "manifest", "error", "task_id", "include_vectors", "vector_shard_key", "last_restore"]
 
     model_config = ConfigDict(

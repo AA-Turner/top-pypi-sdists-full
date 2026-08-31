@@ -69,6 +69,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 if TYPE_CHECKING:
+    import coredis.patterns.himport
     import coredis.patterns.pipeline
     from coredis.patterns.lock import Lock
     from coredis.patterns.streams import Consumer, GroupConsumer, StreamParameters
@@ -112,7 +113,13 @@ class ClusterMeta(ABCMeta):
             if doc_addition and not hasattr(method, "__cluster_docs") and cmd:
                 if not getattr(method, "__coredis_module", None):
 
-                    def __w(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+                    def __w(
+                        func: Callable[P, Awaitable[R]],
+                        *,
+                        cmd: Any = cmd,
+                        method: Any = method,
+                        doc_addition: str = doc_addition,
+                    ) -> Callable[P, Awaitable[R]]:
                         @functools.wraps(func)
                         def _w(*a: P.args, **k: P.kwargs) -> Awaitable[R]:
                             if cmd.cluster.enabled:
@@ -467,10 +474,10 @@ class RedisCluster(
         if connection_pool:
             pool = connection_pool
         else:
-            startup_nodes = list(
+            startup_nodes = [
                 node if isinstance(node, TCPLocation) else TCPLocation(node["host"], node["port"])
                 for node in startup_nodes or []
-            )
+            ]
 
             # Support host/port as argument
             if host and not startup_nodes:
@@ -654,26 +661,23 @@ class RedisCluster(
             yield self
 
     def __repr__(self) -> str:
-        servers = list(node.name for node in self.connection_pool.cluster_layout.nodes)
+        servers = [node.name for node in self.connection_pool.cluster_layout.nodes]
         servers.sort()
 
         return "{}<{}>".format(type(self).__name__, ", ".join(servers))
 
     @property
     def all_nodes(self) -> Iterator[Redis[AnyStr]]:
-        """ """
         for node in self.connection_pool.cluster_layout.nodes:
             yield node.as_client(**self.connection_pool.connection_kwargs)
 
     @property
     def primaries(self) -> Iterator[Redis[AnyStr]]:
-        """ """
         for primary in self.connection_pool.cluster_layout.primaries:
             yield primary.as_client(**self.connection_pool.connection_kwargs)
 
     @property
     def replicas(self) -> Iterator[Redis[AnyStr]]:
-        """ """
         for replica in self.connection_pool.cluster_layout.replicas:
             yield replica.as_client(**self.connection_pool.connection_kwargs)
 
@@ -1099,6 +1103,22 @@ class RedisCluster(
 
         return Lock(self, name, timeout, sleep, blocking, blocking_timeout)
 
+    def himport(
+        self, fieldset: StringT, fields: Parameters[StringT]
+    ) -> coredis.patterns.himport.ClusterHashImport[AnyStr]:
+        """
+        Return a :class:`~coredis.patterns.himport.ClusterHashImport` context manager
+        for writing many hashes that share the same field names.
+
+        :param fieldset: name identifying the field layout in Redis
+        :param fields: field names, in order, matching the values passed to
+         :meth:`~coredis.patterns.himport.HashImport.add`
+        :return: A :class:`~coredis.patterns.himport.ClusterHashImport` context manager
+        """
+        from coredis.patterns.himport import ClusterHashImport
+
+        return ClusterHashImport(self, fieldset, fields)
+
     @overload
     def xconsumer(
         self,
@@ -1106,8 +1126,8 @@ class RedisCluster(
         *,
         buffer_size: int = ...,
         timeout: int | None = ...,
-        group: Literal[None] = ...,
-        consumer: Literal[None] = ...,
+        group: None = ...,
+        consumer: None = ...,
         auto_create: bool = ...,
         auto_acknowledge: bool = ...,
         start_from_backlog: bool = ...,

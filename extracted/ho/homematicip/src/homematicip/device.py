@@ -2218,7 +2218,8 @@ class WiredInput32(FullFlushContactInterface):
 
 
 class FullFlushInputSwitch(Switch):
-    """HMIP-FSI16 (Switch Actuator with Push-button Input 230V, 16A)"""
+    """HMIP-FSI16 (Switch Actuator with Push-button Input 230V, 16A)
+    and HMIP-FSI6 (Switch Actuator with Push-button Input, compact)"""
 
     def __init__(self, connection):
         super().__init__(connection)
@@ -2553,6 +2554,23 @@ class FullFlushLockController(Device):
             raise AttributeError("DOOR_SWITCH_CHANNEL with DOOR_OPENER_ACTUATOR not loaded for device")
         return await channel.async_send_start_impulse()
 
+    def set_door_lock_active(self, door_lock_active: bool, pin: str | None = None):
+        """Hold the door released ("always open") with ``True``, lock it with ``False``."""
+        channel = self._get_channel_by_role(
+            FunctionalChannelType.DOOR_SWITCH_CHANNEL, "DOOR_LOCK_ACTUATOR"
+        )
+        if channel is None:
+            raise AttributeError("DOOR_SWITCH_CHANNEL with DOOR_LOCK_ACTUATOR not loaded for device")
+        return channel.set_door_lock_active(door_lock_active, pin)
+
+    async def set_door_lock_active_async(self, door_lock_active: bool, pin: str | None = None):
+        channel = self._get_channel_by_role(
+            FunctionalChannelType.DOOR_SWITCH_CHANNEL, "DOOR_LOCK_ACTUATOR"
+        )
+        if channel is None:
+            raise AttributeError("DOOR_SWITCH_CHANNEL with DOOR_LOCK_ACTUATOR not loaded for device")
+        return await channel.async_set_door_lock_active(door_lock_active, pin)
+
 
 class FullFlushDoorController(Device):
     """HmIP-FDC Full Flush Door Controller (door opener).
@@ -2711,6 +2729,24 @@ class TiltVibrationSensor(Device):
             "device/configuration/setAccelerationSensorEventFilterPeriod",
             data,
         )
+
+
+class TemperatureTiltVibrationSensor(TiltVibrationSensor):
+    """ELV-SH-TACO (Inclination and vibration sensor with temperature sensor).
+
+    The tilt channel is index 2, so the acceleration setters need channelIndex=2.
+    """
+
+    def __init__(self, connection):
+        super().__init__(connection)
+        #:float:
+        self.actualTemperature = None
+
+    def from_json(self, js):
+        super().from_json(js)
+        c = get_functional_channel("TEMPERATURE_SENSOR_CHANNEL", js)
+        if c:
+            self.set_attr_from_dict("actualTemperature", c)
 
 
 class RainSensor(Device):

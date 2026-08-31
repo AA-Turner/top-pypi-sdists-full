@@ -5,6 +5,7 @@ from operator import attrgetter
 from threading import RLock
 from typing import List, Optional
 
+from ..abstracts.algorithm import ADMITTED, Decision, LogAlgorithm
 from ..abstracts.bucket import AbstractBucket
 from ..abstracts.rate import Rate, RateItem
 
@@ -25,8 +26,11 @@ class InMemoryBucket(AbstractBucket):
     failing_rate: Optional[Rate]
     is_async = False
 
-    def __init__(self, rates: List[Rate]):
+    def __init__(self, rates: List[Rate], algorithm: Optional[LogAlgorithm] = None):
         super().__init__()
+
+        if algorithm is not None:
+            self._algorithm = algorithm
 
         self.rates = rates  # AbstractBucket.rates setter sorts + validates
         self.items = []
@@ -39,12 +43,11 @@ class InMemoryBucket(AbstractBucket):
 
     def put(self, item: RateItem) -> bool:
         if item.weight == 0:
-            return True
+            with self._lock:
+                return self._record(item, ADMITTED)
 
         with self._lock:
-            # In-memory native implementation of the SlidingWindowLog policy
-            # (see self._algorithm): the admit decision is the same
-            # `limit - count < weight` check, kept inline here so the
+            # Native inline form of self._algorithm's admit check, so the
             # `after_length < limit` shortcut can skip the bisect entirely
             # rather than materialising a full per-rate counts list.
             current_length = len(self.items)
@@ -54,7 +57,7 @@ class InMemoryBucket(AbstractBucket):
                 if after_length < rate.limit:
                     break
 
-                lower_bound_value = item.timestamp - rate.interval
+                lower_bound_value = self._algorithm.window_start(rate, item.timestamp)
                 # First item still inside this rate's window (timestamp >= lower bound).
                 # When all items are older, bisect returns len(items) -> 0 in window.
                 lower_bound_idx = bisect_left(self.items, lower_bound_value, key=_by_timestamp)
@@ -62,10 +65,11 @@ class InMemoryBucket(AbstractBucket):
                 space_available = rate.limit - count_existing_items
 
                 if space_available < item.weight:
-                    self.failing_rate = rate
-                    return False
+                    # The blocking item is a fixed offset from the newest, so
+                    # the wait falls out of the bisect already done here.
+                    return self._record(item, self._deny(rate, item, current_length))
 
-            self.failing_rate = None
+            self._record(item, ADMITTED)
 
             if item.weight > 1:
                 self.items.extend([item for _ in range(item.weight)])
@@ -73,6 +77,25 @@ class InMemoryBucket(AbstractBucket):
                 self.items.append(item)
 
             return True
+
+    def _deny(self, rate: Rate, item: RateItem, length: int) -> Decision:
+        """Denial verdict, resolving the wait from the items already in hand
+        rather than making waiting() look them up again.
+
+        Mirrors ``LogAlgorithm.decide()``; the bisect above has already located
+        everything needed, so no second scan is required.
+        """
+        if item.weight > self._algorithm.max_weight(rate):
+            return Decision(failing_rate=rate)
+
+        offset = self._algorithm.blocking_offset(rate, item.weight)
+        blocking = None
+
+        if offset is not None:
+            idx = length - 1 - offset
+            blocking = self.items[idx].timestamp if 0 <= idx < length else None
+
+        return Decision(failing_rate=rate, retry_after_ms=self._algorithm.retry_after(rate, item.timestamp, blocking))
 
     def leak(self, current_timestamp: Optional[int] = None) -> int:
         assert current_timestamp is not None
@@ -97,6 +120,7 @@ class InMemoryBucket(AbstractBucket):
     def flush(self) -> None:
         with self._lock:
             self.failing_rate = None
+            self._last_wait = None
             del self.items[:]
 
     def count(self) -> int:

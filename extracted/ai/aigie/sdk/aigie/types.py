@@ -8,9 +8,21 @@ from typing import Any, Literal
 
 from typing_extensions import NotRequired, TypedDict
 
-# Status types - aligned with backend (see backend/src/models/traces.py)
-TraceStatus = Literal["success", "failure", "timeout", "cancelled"]
-SpanStatus = Literal["success", "failure", "error"]
+# Status types - these mirror the platform's TraceStatus enum. That is a wire
+# contract: the ingest gateway validates every span's status against it and
+# drops the span on a mismatch. The runtime guard is in `aigie._status`.
+TraceStatus = Literal[
+    "success",
+    "failure",
+    "in_progress",
+    "pending",
+    "error",
+    "timeout",
+    "cancelled",
+    "interrupted",
+    "paused",
+]
+SpanStatus = Literal["success", "failure", "error", "cancelled", "interrupted", "paused"]
 
 # Observation levels for spans (Langfuse-compatible)
 ObservationLevel = Literal["DEBUG", "DEFAULT", "WARNING", "ERROR"]

@@ -246,15 +246,10 @@ class PhysicalStore:
         env = (os.environ.get("HUGPY_MODEL_PHYSICAL_PATH") or "").strip()
         if env:
             return env
-        base = (os.environ.get("PROJECTS_HOME") or "").strip()
-        if not base:
-            try:
-                from abstract_hugpy_dev.imports.src.constants.constants import (
-                    PROJECTS_HOME as _PH)
-                base = str(_PH)
-            except Exception:  # noqa: BLE001 — never fail over a path probe
-                base = os.path.expanduser("~/.hugpy")
-        return os.path.join(base, "model_physical.json")
+        # Consolidated under HUGPY_HOME (~/.hugpy/state); migrates a legacy
+        # ~/model_physical.json in place on first resolve.
+        from .._platform import paths as _hp
+        return _hp.model_physical_json()
 
     # -- io -----------------------------------------------------------------
     def _read_disk(self) -> dict:

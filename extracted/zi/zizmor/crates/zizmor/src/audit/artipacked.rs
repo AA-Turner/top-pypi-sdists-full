@@ -1,11 +1,10 @@
 use std::sync::LazyLock;
 
 use github_actions_models::common::{
-    EnvValue, Uses,
+    EnvValue, RepositoryUses, Uses,
     expr::{ExplicitExpr, LoE},
 };
 use itertools::Itertools as _;
-use subfeature::Subfeature;
 
 use super::{Audit, AuditLoadError, audit_meta};
 use crate::{
@@ -43,7 +42,7 @@ impl Artipacked {
     /// we return `None`.
     async fn is_checkout_v6_or_higher(
         &self,
-        uses: &github_actions_models::common::RepositoryUses,
+        uses: &RepositoryUses,
     ) -> Result<Option<bool>, ClientError> {
         let version = if !uses.ref_is_commit() {
             uses.git_ref().to_string()
@@ -51,7 +50,7 @@ impl Artipacked {
             match self.client {
                 Some(ref client) => {
                     let tag = client
-                        .longest_tag_for_commit(uses.owner(), uses.repo(), uses.git_ref())
+                        .longest_tag_for_commit(&uses.into(), uses.subpath(), uses.git_ref())
                         .await?;
 
                     match tag {
@@ -111,34 +110,16 @@ impl Artipacked {
                 continue;
             };
 
-            let with = match with {
-                LoE::Literal(with) => with,
-                // Emit blanket pedantic finding if the `with:` block cannot be analyzed
-                LoE::Expr(_) => {
-                    findings.push(
-                        Self::finding()
-                            .severity(Severity::Informational)
-                            .confidence(Confidence::High)
-                            .persona(Persona::Pedantic)
-                            .add_location(
-                                step.location()
-                                    .with_keys(["uses".into()])
-                                    .subfeature(Subfeature::new(0, uses.raw()))
-                                    .annotated("this checkout"),
-                            )
-                            .add_location(
-                                step.location()
-                                    .primary()
-                                    .with_keys(["with".into()])
-                                    .annotated("may not set persist-credentials: false"),
-                            )
-                            .build(&step)?,
-                    );
-                    continue;
-                }
-            };
-
             if uses.matches("actions/checkout") {
+                let with = match with {
+                    LoE::Literal(with) => with,
+                    LoE::Expr(_) => {
+                        // We don't emit a finding if the entire `with` block
+                        // is an expression, since the `obfuscation` audit covers that.
+                        continue;
+                    }
+                };
+
                 let is_v6_or_higher = self
                     .is_checkout_v6_or_higher(uses)
                     .await
@@ -160,6 +141,10 @@ impl Artipacked {
                     _ => vulnerable_checkouts.push((step, Persona::default(), is_v6_or_higher)),
                 }
             } else if uses.matches("actions/upload-artifact") {
+                let LoE::Literal(with) = with else {
+                    continue;
+                };
+
                 let Some(EnvValue::String(path)) = with.get("path") else {
                     continue;
                 };
@@ -310,51 +295,6 @@ mod tests {
     use github_actions_models::common::RepositoryUses;
 
     use super::*;
-    use crate::{
-        config::Config,
-        models::{AsDocument, workflow::Workflow},
-        registry::input::InputKey,
-        state::AuditState,
-    };
-
-    /// Macro for testing workflow audits with common boilerplate
-    ///
-    /// Usage: `test_workflow_audit!(AuditType, "filename.yml", workflow_yaml, |findings| { ... })`
-    ///
-    /// This macro:
-    /// 1. Creates a test workflow from the provided YAML with the specified filename
-    /// 2. Sets up the audit state
-    /// 3. Creates and runs the audit
-    /// 4. Executes the provided test closure with the findings
-    macro_rules! test_workflow_audit {
-        ($audit_type:ty, $filename:expr, $workflow_content:expr, $test_fn:expr) => {{
-            let key = InputKey::local("fakegroup".into(), $filename, None, None);
-            let workflow = Workflow::from_string($workflow_content.to_string(), key).unwrap();
-            let audit_state = AuditState::default();
-            let audit = <$audit_type>::new(&audit_state).unwrap();
-            let findings = audit
-                .audit_workflow(&workflow, &Config::default())
-                .await
-                .unwrap();
-
-            $test_fn(&workflow, findings)
-        }};
-    }
-
-    /// Helper function to apply a fix and return the result for snapshot testing
-    fn apply_fix_for_snapshot(
-        document: &yamlpath::Document,
-        findings: Vec<Finding>,
-    ) -> yamlpath::Document {
-        assert!(!findings.is_empty(), "Expected findings but got none");
-        let finding = &findings[0];
-        assert!(!finding.fixes.is_empty(), "Expected fixes but got none");
-
-        let fix = &finding.fixes[0];
-        assert_eq!(fix.title, "set persist-credentials: false");
-
-        fix.apply(document).unwrap()
-    }
 
     #[tokio::test]
     async fn test_is_checkout_v6_or_higher_offline() {
@@ -511,121 +451,6 @@ mod tests {
         assert_eq!(
             Artipacked::determine_severity(UNKNOWN_VERSION, HAS_VULNERABLE_UPLOADS),
             Severity::High
-        );
-    }
-
-    #[test]
-    fn test_fix_title_and_description() {
-        // Test that the fix has the expected title and description format
-        // Since Step::new is private, we test this indirectly through the audit logic
-        let title = "set persist-credentials: false";
-        let description_keywords = [
-            "persist-credentials",
-            "GITHUB_TOKEN",
-            "credential persistence",
-        ];
-
-        assert_eq!(title, "set persist-credentials: false");
-        for keyword in description_keywords {
-            // This is a basic smoke test - in practice, integration tests would verify the fix works
-            assert!(!keyword.is_empty());
-        }
-    }
-
-    #[tokio::test]
-    async fn test_fix_merges_into_existing_with_block() {
-        let workflow_content = r#"
-name: Test Workflow
-on: push
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 2
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: my-artifact
-          path: .
-"#;
-
-        test_workflow_audit!(
-            Artipacked,
-            "test_fix_merges_into_existing_with_block.yml",
-            workflow_content,
-            |workflow: &Workflow, findings| {
-                let fixed = apply_fix_for_snapshot(workflow.as_document(), findings);
-                insta::assert_snapshot!(fixed.source(), @"
-
-                name: Test Workflow
-                on: push
-                jobs:
-                  test:
-                    runs-on: ubuntu-latest
-                    steps:
-                      - name: Checkout
-                        uses: actions/checkout@v4
-                        with:
-                          token: ${{ secrets.GITHUB_TOKEN }}
-                          fetch-depth: 2
-                          persist-credentials: false
-                      - name: Upload artifacts
-                        uses: actions/upload-artifact@v4
-                        with:
-                          name: my-artifact
-                          path: .
-                ");
-            }
-        );
-    }
-
-    #[tokio::test]
-    async fn test_fix_creates_with_block_when_missing() {
-        let workflow_content = r#"
-name: Test Workflow
-on: push
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: my-artifact
-          path: .
-"#;
-
-        test_workflow_audit!(
-            Artipacked,
-            "test_fix_creates_with_block_when_missing.yml",
-            workflow_content,
-            |workflow: &Workflow, findings| {
-                let fixed = apply_fix_for_snapshot(workflow.as_document(), findings);
-                insta::assert_snapshot!(fixed.source(), @"
-
-                name: Test Workflow
-                on: push
-                jobs:
-                  test:
-                    runs-on: ubuntu-latest
-                    steps:
-                      - name: Checkout
-                        uses: actions/checkout@v4
-                        with:
-                          persist-credentials: false
-                      - name: Upload artifacts
-                        uses: actions/upload-artifact@v4
-                        with:
-                          name: my-artifact
-                          path: .
-                ");
-            }
         );
     }
 }

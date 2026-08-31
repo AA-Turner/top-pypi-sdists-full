@@ -15,6 +15,7 @@ from typing import Any
 from aigie.context_manager import merge_metadata
 from aigie.integrations.claude_agent_sdk._events import _tool_catalog
 from aigie.integrations.claude_agent_sdk._plan import root_execution_plan
+from aigie.integrations.claude_agent_sdk._system_prompt import resolve_system_prompt
 from aigie.integrations.claude_agent_sdk.cost_tracking import calculate_claude_cost
 from aigie.integrations.claude_agent_sdk.monitoring import DriftDetector
 from aigie.integrations.claude_agent_sdk.native_callback import (
@@ -63,10 +64,9 @@ class QueryEvents:
         # Reset drift detector for this query (new plan per query)
         self._drift_detector = DriftDetector()
 
-        # Capture initial plan for drift detection
-        system_prompt = options.get("system_prompt", "")
-        if system_prompt:
-            self._drift_detector.capture_system_prompt(system_prompt)
+        resolved_prompt = resolve_system_prompt(options.get("system_prompt", ""))
+        if resolved_prompt.text:
+            self._drift_detector.capture_system_prompt(resolved_prompt.text)
         self._drift_detector.capture_initial_prompt(prompt)
 
         # Generate trace ID if not set - use session context if available
@@ -133,10 +133,10 @@ class QueryEvents:
             trace_metadata["model_parameters"] = model_parameters
         _tool_catalog.stamp_catalog(tool_definitions, trace_metadata, self.trace_id)
 
-        # Capture full system prompt in metadata
-        system_prompt = options.get("system_prompt", "")
-        if system_prompt and self.capture_messages:
-            trace_metadata["system_prompt"] = system_prompt
+        if self.capture_messages:
+            if resolved_prompt.text:
+                trace_metadata["system_prompt"] = resolved_prompt.text
+            resolved_prompt.stamp_markers(trace_metadata)
 
         # Trace identity now rides the root span (the Query span below); no
         # separate trace event is emitted. Preserve the OTel-bridge / session
@@ -175,9 +175,7 @@ class QueryEvents:
                 "model": trace_metadata["model"],
                 "tools": tool_names,
                 "tool_count": len(tools),
-                "system_prompt": options.get("system_prompt", "")
-                if self.capture_messages
-                else None,
+                "system_prompt": resolved_prompt.text if self.capture_messages else None,
             },
             "status": "pending",
             "tags": [*self.tags, "claude_agent_sdk"],

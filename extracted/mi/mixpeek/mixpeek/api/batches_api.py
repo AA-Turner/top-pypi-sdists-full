@@ -47,7 +47,7 @@ class BatchesApi:
     def cancel_batch_by_id_batches(
         self,
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,7 +67,7 @@ class BatchesApi:
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -124,7 +124,7 @@ class BatchesApi:
     def cancel_batch_by_id_batches_with_http_info(
         self,
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -144,7 +144,7 @@ class BatchesApi:
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -201,7 +201,7 @@ class BatchesApi:
     def cancel_batch_by_id_batches_without_preload_content(
         self,
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -221,7 +221,7 @@ class BatchesApi:
 
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request

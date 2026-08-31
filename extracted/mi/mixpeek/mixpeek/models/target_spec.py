@@ -27,14 +27,14 @@ from typing_extensions import Self
 
 class TargetSpec(BaseModel):
     """
-    Per-tenant (or plane) resource targets + SLO block.  TENANCY RULE (Ethan 2026-07-31, baked into the audit): dedicated tenants get write access to their own TargetSpec (once the write path ships — not this card); shared tenants are read-only, scoped to their own workloads, and cannot set utilization targets at all — shared-plane targets are platform policy, since one tenant's aggressiveness is another tenant's starvation.  ``targets_writable`` is an explicit CAPABILITY the client reads rather than infers from ``plane`` (studio-plg's binding contract note, 2026-08-03): the client will not reconstruct dedicated-vs-shared logic itself.
+    Per-tenant (or plane) resource targets + SLO block.  Tenancy rule. Dedicated tenants hold write access to their own TargetSpec. Shared tenants are read-only, scoped to their own workloads, and cannot set utilization targets, because shared-plane targets are platform policy: one tenant's aggressiveness is another tenant's starvation.  ``targets_writable`` is an explicit capability to read rather than to infer from ``plane``, so a client never reconstructs dedicated-versus- shared logic itself.
     """ # noqa: E501
     internal_id: StrictStr
     plane: StrictStr
     resource_targets: List[ResourceTarget]
     slo_targets: List[SLOTarget]
     is_platform_default: StrictBool = Field(description="True when no org-specific TargetSpec has been written yet and these values are the platform default band for this org's plane. Always true today — no write path exists.")
-    targets_writable: StrictBool = Field(description="Whether this org CAN write its own TargetSpec (once the write path ships). Always false for shared-plane orgs by design, regardless of is_platform_default.")
+    targets_writable: StrictBool = Field(description="Whether this org can write its own TargetSpec. Always false for shared-plane orgs by design, regardless of is_platform_default.")
     __properties: ClassVar[List[str]] = ["internal_id", "plane", "resource_targets", "slo_targets", "is_platform_default", "targets_writable"]
 
     @field_validator('plane')

@@ -35,7 +35,7 @@ class UserWeightsResponse(BaseModel):
     alpha_beta: Dict[str, Dict[str, Any]] = Field(description="Raw alpha/beta parameters per feature_uri.")
     source: Optional[StrictStr] = Field(default=None, description="Which store served the weights: 'signals' (the namespace's _signals collection) or 'clickhouse' (analytics fallback).")
     warning: Optional[StrictStr] = Field(default=None, description="Set when the response contains fallback defaults due to an internal error.")
-    hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning (BACKE-2525).")
+    hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning.")
     __properties: ClassVar[List[str]] = ["user_id", "context_level", "interaction_count", "personal_weights", "global_weights", "alpha_beta", "source", "warning", "hint"]
 
     model_config = ConfigDict(

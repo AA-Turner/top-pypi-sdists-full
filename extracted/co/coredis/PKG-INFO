@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: coredis
-Version: 6.8.0
+Version: 6.9.0
 Summary: Fast, async, fully-typed Redis client with support for cluster and sentinel
 Project-URL: Homepage, https://github.com/alisaifee/coredis
 Project-URL: Source, https://github.com/alisaifee/coredis

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: asn1tools
-Version: 0.167.0
+Version: 0.168.0
 Summary: ASN.1 parsing, encoding and decoding.
 Home-page: https://github.com/eerimoq/asn1tools
 Author: Erik Moqvist
@@ -10,9 +10,24 @@ Keywords: ASN.1,asn1
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
-Provides-Extra: shell
-Provides-Extra: cache
 License-File: LICENSE
+Requires-Dist: pyparsing>=3.1.2
+Requires-Dist: bitstruct
+Provides-Extra: shell
+Requires-Dist: prompt_toolkit; extra == "shell"
+Provides-Extra: cache
+Requires-Dist: diskcache; extra == "cache"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 |coverage|_
 |codecov|_

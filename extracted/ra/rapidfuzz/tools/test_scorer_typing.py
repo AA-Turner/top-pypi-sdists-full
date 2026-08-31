@@ -64,7 +64,18 @@ def test_scorer(scorer, res_type):
                 f.write(scorer_test_float.format(scorer=scorer))
 
         print(f"testing {scorer}")
-        subprocess.run(["python", "-m", "mypy", str(f_name), "--warn-unused-ignores"], check=True)
+        subprocess.run(
+            [
+                "python",
+                "-m",
+                "mypy",
+                str(f_name),
+                "--warn-unused-ignores",
+                "--config-file",
+                str(Path(__file__).resolve().parent.parent / "pyproject.toml"),
+            ],
+            check=True,
+        )
         subprocess.run(
             [
                 "python",

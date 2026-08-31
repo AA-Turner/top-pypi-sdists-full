@@ -10,7 +10,7 @@ class CreateImagePipelineResponseBody(DaraModel):
         image_pipeline_id: str = None,
         request_id: str = None,
     ):
-        # The image template ID.
+        # The ID of the image template.
         self.image_pipeline_id = image_pipeline_id
         # The request ID.
         self.request_id = request_id

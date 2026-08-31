@@ -28,7 +28,7 @@ from typing_extensions import Self
 
 class BulkSubmitBatchesRequest(BaseModel):
     """
-    Submit a WHOLE bucket as N auto-chunked, auto-queued batches in one call.  The server streams the bucket's objects (paginated), de-duplicates them, chunks them into ``chunk_size``-object batches, and submits each — so the client makes ONE call instead of a paced chunk-loop. This kills the client-side cursor-overlap (409 storm), the 5k object-count timeout, and the no-whole-bucket frustration at once (BACKE-1121 phase 4). Each batch is accepted and QUEUED (accept-and-queue admission); poll the returned ``batch_group_id`` / batch ids for QUEUED -> PROCESSING.
+    Submit a WHOLE bucket as N auto-chunked, auto-queued batches in one call.  The server streams the bucket's objects (paginated), de-duplicates them, chunks them into ``chunk_size``-object batches, and submits each — so the client makes ONE call instead of a paced chunk-loop. This kills the client-side cursor-overlap (409 storm), the 5k object-count timeout, and the no-whole-bucket frustration at once (phase 4). Each batch is accepted and QUEUED (accept-and-queue admission); poll the returned ``batch_group_id`` / batch ids for QUEUED -> PROCESSING.
     """ # noqa: E501
     collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Collections to process. Omit to auto-discover all collections sourced from this bucket (plus downstream dependencies).")
     filters: Optional[LogicalOperatorInput] = Field(default=None, description="Optional filter to scope which objects are submitted. Omit to submit EVERY object in the bucket (the whole-bucket case).")

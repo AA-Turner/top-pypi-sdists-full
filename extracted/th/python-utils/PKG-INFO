@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-utils
-Version: 4.0.0
+Version: 4.0.1
 Summary: Python Utils is a module with some convenient utilities not included with the standard Python install
 Keywords: utils,utilities,helpers,typing,typed,async,lazy-imports
 Author: Rick van Hattem

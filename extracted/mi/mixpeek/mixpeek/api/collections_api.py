@@ -384,7 +384,7 @@ class CollectionsApi:
     ) -> CollectionResponse:
         """Create Collection
 
-        Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's Qdrant collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
+        Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's vector store collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
 
         :param create_collection_request: (required)
         :type create_collection_request: CreateCollectionRequest
@@ -457,7 +457,7 @@ class CollectionsApi:
     ) -> ApiResponse[CollectionResponse]:
         """Create Collection
 
-        Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's Qdrant collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
+        Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's vector store collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
 
         :param create_collection_request: (required)
         :type create_collection_request: CreateCollectionRequest
@@ -530,7 +530,7 @@ class CollectionsApi:
     ) -> RESTResponseType:
         """Create Collection
 
-        Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's Qdrant collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
+        Create a new processing collection linked to a namespace.  A collection defines the feature extraction pipeline that runs when objects are uploaded to a bucket.  One feature extractor per collection.  **Custom plugin collections:**  When `feature_extractor_name` references a custom plugin, the collection's vector indexes are read from the plugin's `manifest.py` `features` list.  The `features` entries **must** use these exact key names — wrong keys silently produce a collection with no vector indexes and 0 documents will be written:  ```json {   \"feature_type\": \"embedding\",   \"feature_name\": \"my_embedding\",   \"embedding_dim\": 768,   \"distance_metric\": \"cosine\" } ```  Common wrong keys (will be ignored): `type`, `name`, `dimensions`, `distance`.  **Vector schema:** Custom plugin vectors are automatically added to the namespace's vector store collection the first time a batch is processed, so there is no need to recreate the namespace when adding a plugin with new embedding types.
 
         :param create_collection_request: (required)
         :type create_collection_request: CreateCollectionRequest
@@ -677,7 +677,7 @@ class CollectionsApi:
     ) -> object:
         """Delete Collection
 
-        This endpoint deletes a collection and all its resources including:     - Qdrant points (documents) with this collection_id     - Cache entries     - MongoDB collection metadata      Note: Collections are payload IDs within the namespace's Qdrant collection,     not separate Qdrant collections.      The deletion is performed synchronously and returns when complete.
+        This endpoint deletes a collection and all its resources including:     - Vector store points (documents) with this collection_id     - Cache entries     - MongoDB collection metadata      Note: Collections are payload IDs within the namespace's vector store collection,     not separate vector store collections.      The deletion is performed synchronously and returns when complete.
 
         :param collection_identifier: The ID or name of the collection to delete (required)
         :type collection_identifier: str
@@ -750,7 +750,7 @@ class CollectionsApi:
     ) -> ApiResponse[object]:
         """Delete Collection
 
-        This endpoint deletes a collection and all its resources including:     - Qdrant points (documents) with this collection_id     - Cache entries     - MongoDB collection metadata      Note: Collections are payload IDs within the namespace's Qdrant collection,     not separate Qdrant collections.      The deletion is performed synchronously and returns when complete.
+        This endpoint deletes a collection and all its resources including:     - Vector store points (documents) with this collection_id     - Cache entries     - MongoDB collection metadata      Note: Collections are payload IDs within the namespace's vector store collection,     not separate vector store collections.      The deletion is performed synchronously and returns when complete.
 
         :param collection_identifier: The ID or name of the collection to delete (required)
         :type collection_identifier: str
@@ -823,7 +823,7 @@ class CollectionsApi:
     ) -> RESTResponseType:
         """Delete Collection
 
-        This endpoint deletes a collection and all its resources including:     - Qdrant points (documents) with this collection_id     - Cache entries     - MongoDB collection metadata      Note: Collections are payload IDs within the namespace's Qdrant collection,     not separate Qdrant collections.      The deletion is performed synchronously and returns when complete.
+        This endpoint deletes a collection and all its resources including:     - Vector store points (documents) with this collection_id     - Cache entries     - MongoDB collection metadata      Note: Collections are payload IDs within the namespace's vector store collection,     not separate vector store collections.      The deletion is performed synchronously and returns when complete.
 
         :param collection_identifier: The ID or name of the collection to delete (required)
         :type collection_identifier: str

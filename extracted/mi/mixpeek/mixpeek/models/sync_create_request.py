@@ -44,9 +44,11 @@ class SyncCreateRequest(BaseModel):
     reconcile: Optional[ReconcileSettings] = Field(default=None, description="Controls how Mixpeek reconciles objects when the source changes. on_delete: cascade-delete when source asset is removed (default True). on_update: propagate metadata changes and re-process (default True). on_filter_drift: remove objects that no longer match filters (default True). OPTIONAL. Defaults to all enabled for full consistency.")
     sync_from: Optional[datetime] = Field(default=None, description="OPTIONAL. Seed the incremental watermark: only assets modified after this timestamp are ingested — the historical backlog is skipped. Use for a 'freshness lane': a second config on an already-backfilling source (with a distinct source_path label) that keeps NEW uploads landing within minutes while the backfill config churns. Omit for a full sync from the beginning.")
     provider_filters: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Provider-specific pre-filters pushed down to the storage API call. Applied BEFORE file_filters (which are client-side). Each provider defines its own filter schema. Examples: - Iconik: {'collection_ids': ['col_abc']} - Google Drive: {'shared_drive_id': '0AH-Xabc123'} - S3: {'prefix': 'videos/'}")
+    description: Optional[StrictStr] = Field(default=None, description="OPTIONAL description of this sync configuration. PATCH accepted it before create did.")
+    max_objects_per_run: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="OPTIONAL hard cap on objects processed per sync run (default 100000). PATCH accepted it before create did.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional custom metadata to attach to the sync configuration. NOT REQUIRED. Arbitrary key-value pairs for tagging and organization. Common uses: project tags, environment labels, cost centers. Maximum 50 keys, values must be JSON-serializable.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["connection_id", "source_path", "sync_mode", "file_filters", "schema_mapping", "polling_interval_seconds", "batch_size", "skip_batch_submission", "skip_duplicates", "reconcile", "sync_from", "provider_filters", "metadata"]
+    __properties: ClassVar[List[str]] = ["connection_id", "source_path", "sync_mode", "file_filters", "schema_mapping", "polling_interval_seconds", "batch_size", "skip_batch_submission", "skip_duplicates", "reconcile", "sync_from", "provider_filters", "description", "max_objects_per_run", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -124,6 +126,8 @@ class SyncCreateRequest(BaseModel):
             "reconcile": ReconcileSettings.from_dict(obj["reconcile"]) if obj.get("reconcile") is not None else None,
             "sync_from": obj.get("sync_from"),
             "provider_filters": obj.get("provider_filters"),
+            "description": obj.get("description"),
+            "max_objects_per_run": obj.get("max_objects_per_run"),
             "metadata": obj.get("metadata")
         })
         # store additional fields in additional_properties

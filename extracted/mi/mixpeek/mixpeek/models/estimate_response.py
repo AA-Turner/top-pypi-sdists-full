@@ -35,7 +35,7 @@ class EstimateResponse(BaseModel):
     allowance_pool_usd: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="The tier's monthly usage pool, if any")
     allowance_covered_usd: Union[StrictFloat, StrictInt] = Field(description="How much of this estimate falls inside the remaining pool (directional pre-cutover: the pool is not drawn down yet)")
     estimated_overage_usd: Union[StrictFloat, StrictInt] = Field(description="Overage beyond the pool, NET of any plan-level overage discount — matches what the invoice will charge")
-    overage_discount_pct: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Plan-level overage discount applied (MF-309: Scale 20%); 0 when the plan has none")
+    overage_discount_pct: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Plan-level overage discount applied (Scale 20%); 0 when the plan has none")
     overage_discount_usd: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Dollar amount the overage discount saved this estimate")
     __properties: ClassVar[List[str]] = ["pricing_model", "placeholder_rates", "line_items", "total_usd", "batch_minimum_applied", "allowance_pool_usd", "allowance_covered_usd", "estimated_overage_usd", "overage_discount_pct", "overage_discount_usd"]
 

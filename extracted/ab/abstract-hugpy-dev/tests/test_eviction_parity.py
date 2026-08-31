@@ -194,7 +194,7 @@ def test_parity_survives_the_full_admission_flow_not_just_the_sort():
     for key, gib, lp, calls, mode, static in _MODELS:
         if key == "locked":
             continue
-        rows.append(ev.Resident(
+        rows.append(ev.EvictUnit(
             model_key=key, bytes=gib * GIB,
             pref=ev.preferred_device(mode), last_call=lp, calls=calls))
     need = _used_bytes() + NEED_GIB * GIB - CAP_GIB * GIB   # the worker's need

@@ -6,6 +6,8 @@ import logging
 import re
 from typing import Any
 
+from aigie.integrations.claude_agent_sdk._system_prompt import resolve_system_prompt
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,6 +57,25 @@ def _extract_agent_name(system_prompt: str, model: str, aigie: Any = None) -> st
 
     # Fall back to model-based name
     return _shorten_model_name(model) + " Agent"
+
+
+def _trace_name_from_options(
+    system_prompt: Any, model: str, aigie: Any, fallback: str, *, capture_content: bool
+) -> str:
+    """Trace display name for a patch entry point, from a raw ``system_prompt`` option.
+
+    Resolves the union first: ``_extract_agent_name`` runs a regex, which raises on the
+    object arms, and neither of them carries the prompt body in our process anyway.
+
+    That regex lifts up to four words out of the prompt — "You are a terse SRE assistant"
+    becomes the exported name ``Terse Sre Assistant`` — so with content capture off the
+    name is not taken from the prompt at all. An ``agent_name`` from ``aigie.init`` still
+    wins: it is a deployment identifier the operator chose, not the caller's text.
+    """
+    text = resolve_system_prompt(system_prompt).text if capture_content else ""
+    if text or getattr(aigie, "_agent_name", None):
+        return _extract_agent_name(text, model, aigie)
+    return f"{_shorten_model_name(model)} {fallback}"
 
 
 def _shorten_model_name(model: str) -> str:

@@ -28,7 +28,7 @@ from typing_extensions import Self
 
 class InternalPayloadModel(BaseModel):
     """
-    Complete _internal field structure for Qdrant document payloads.  All Mixpeek-managed system fields are namespaced under this structure to: - Prevent collision with user-defined fields - Provide clear separation of system vs user data - Enable filtering on internal fields via _internal.field_name paths  This structure is stored in Qdrant and returned in API responses.
+    Complete _internal field structure for vector store document payloads.  All Mixpeek-managed system fields are namespaced under this structure to: - Prevent collision with user-defined fields - Provide clear separation of system vs user data - Enable filtering on internal fields via _internal.field_name paths  This structure is stored in the vector store and returned in API responses.
     """ # noqa: E501
     internal_id: Optional[StrictStr] = Field(default=None, description="Organization/tenant identifier for multi-tenancy isolation.")
     namespace_id: Optional[StrictStr] = Field(default=None, description="Namespace identifier within the organization.")

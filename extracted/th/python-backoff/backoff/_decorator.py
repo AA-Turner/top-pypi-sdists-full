@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import logging
 import operator
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, cast
 
 from backoff import _async, _sync
 from backoff._common import (
@@ -18,28 +18,20 @@ from backoff._jitter import full_jitter
 from backoff._wait_gen import expo
 
 if TYPE_CHECKING:
-    import sys
-    from collections.abc import AsyncGenerator, Generator, Iterable
+    from collections.abc import AsyncGenerator, Callable, Generator, Iterable
 
-    from backoff._common import _Attempt
+    from backoff._common import Attempt
     from backoff._typing import (
+        _AnyLoggerOrName,
+        _CallableT,
         _ContextHandler,
         _Handler,
         _Jitterer,
         _MaybeCallable,
-        _MaybeLogger,
         _MaybeTuple,
         _Predicate,
         _WaitGenerator,
     )
-
-    if sys.version_info >= (3, 10):
-        from typing import ParamSpec
-    else:
-        from typing_extensions import ParamSpec
-
-    T = TypeVar("T")
-    P = ParamSpec("P")
 
 
 def on_predicate(
@@ -49,14 +41,15 @@ def on_predicate(
     max_tries: _MaybeCallable[int] | None = None,
     max_time: _MaybeCallable[float] | None = None,
     jitter: _Jitterer | None = full_jitter,
+    on_try: _Handler | Iterable[_Handler] | None = None,
     on_success: _Handler | Iterable[_Handler] | None = None,
     on_backoff: _Handler | Iterable[_Handler] | None = None,
     on_giveup: _Handler | Iterable[_Handler] | None = None,
-    logger: _MaybeLogger = "backoff",
+    logger: _AnyLoggerOrName | None = "backoff",
     backoff_log_level: int = logging.INFO,
     giveup_log_level: int = logging.ERROR,
     **wait_gen_kwargs: Any,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[_CallableT], _CallableT]:
     """Returns decorator for backoff and retry triggered by predicate.
 
     Args:
@@ -81,6 +74,9 @@ def on_predicate(
             concurrent clients. Wait times are jittered by default
             using the full_jitter function. Jittering may be disabled
             altogether by passing jitter=None.
+        on_try: Callable (or iterable of callables) with a unary
+            signature to be called before each attempt. The parameter
+            is a dict containing details about the invocation.
         on_success: Callable (or iterable of callables) with a unary
             signature to be called in the event of success. The
             parameter is a dict containing details about the invocation.
@@ -101,10 +97,11 @@ def on_predicate(
             This is useful for runtime configuration.
     """
 
-    def decorate(target: Callable[P, T]) -> Callable[P, T]:
-        nonlocal logger, on_success, on_backoff, on_giveup
+    def decorate(target: _CallableT) -> _CallableT:
+        nonlocal logger, on_try, on_success, on_backoff, on_giveup
 
         logger = _prepare_logger(logger)
+        on_try = _config_handlers(on_try)
         on_success = _config_handlers(on_success)
         on_backoff = _config_handlers(
             on_backoff,
@@ -120,21 +117,38 @@ def on_predicate(
         )
 
         if inspect.iscoroutinefunction(target):
-            retry = _async.retry_predicate
-        else:
-            retry = _sync.retry_predicate
+            return cast(
+                "_CallableT",
+                _async.retry_predicate(
+                    target,
+                    wait_gen,
+                    predicate,
+                    max_tries=max_tries,
+                    max_time=max_time,
+                    jitter=jitter,
+                    on_try=on_try,
+                    on_success=on_success,
+                    on_backoff=on_backoff,
+                    on_giveup=on_giveup,
+                    wait_gen_kwargs=wait_gen_kwargs,
+                ),
+            )
 
-        return retry(
-            target,
-            wait_gen,
-            predicate,
-            max_tries=max_tries,
-            max_time=max_time,
-            jitter=jitter,
-            on_success=on_success,
-            on_backoff=on_backoff,
-            on_giveup=on_giveup,
-            wait_gen_kwargs=wait_gen_kwargs,
+        return cast(
+            "_CallableT",
+            _sync.retry_predicate(
+                target,
+                wait_gen,
+                predicate,
+                max_tries=max_tries,
+                max_time=max_time,
+                jitter=jitter,
+                on_try=on_try,
+                on_success=on_success,
+                on_backoff=on_backoff,
+                on_giveup=on_giveup,
+                wait_gen_kwargs=wait_gen_kwargs,
+            ),
         )
 
     # Return a function which decorates a target with a retry loop.
@@ -149,15 +163,16 @@ def on_exception(
     max_time: _MaybeCallable[float] | None = None,
     jitter: _Jitterer | None = full_jitter,
     giveup: _Predicate[Exception] = lambda e: False,
+    on_try: _Handler | Iterable[_Handler] | None = None,
     on_success: _Handler | Iterable[_Handler] | None = None,
     on_backoff: _Handler | Iterable[_Handler] | None = None,
     on_giveup: _Handler | Iterable[_Handler] | None = None,
     raise_on_giveup: bool = True,
-    logger: _MaybeLogger = "backoff",
+    logger: _AnyLoggerOrName | None = "backoff",
     backoff_log_level: int = logging.INFO,
     giveup_log_level: int = logging.ERROR,
     **wait_gen_kwargs: Any,
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+) -> Callable[[_CallableT], _CallableT]:
     """Returns decorator for backoff and retry triggered by exception.
 
     Args:
@@ -183,6 +198,9 @@ def on_exception(
         giveup: Function accepting an exception instance and
             returning whether or not to give up. Optional. The default
             is to always continue.
+        on_try: Callable (or iterable of callables) with a unary
+            signature to be called before each attempt. The parameter
+            is a dict containing details about the invocation.
         on_success: Callable (or iterable of callables) with a unary
             signature to be called in the event of success. The
             parameter is a dict containing details about the invocation.
@@ -204,10 +222,11 @@ def on_exception(
             This is useful for runtime configuration.
     """
 
-    def decorate(target: Callable[P, T]) -> Callable[P, T]:
-        nonlocal logger, on_success, on_backoff, on_giveup
+    def decorate(target: _CallableT) -> _CallableT:
+        nonlocal logger, on_try, on_success, on_backoff, on_giveup
 
         logger = _prepare_logger(logger)
+        on_try = _config_handlers(on_try)
         on_success = _config_handlers(on_success)
         on_backoff = _config_handlers(
             on_backoff,
@@ -223,23 +242,42 @@ def on_exception(
         )
 
         if inspect.iscoroutinefunction(target):
-            retry = _async.retry_exception
-        else:
-            retry = _sync.retry_exception
+            return cast(
+                "_CallableT",
+                _async.retry_exception(
+                    target,
+                    wait_gen,
+                    exception,
+                    max_tries=max_tries,
+                    max_time=max_time,
+                    jitter=jitter,
+                    giveup=giveup,
+                    on_try=on_try,
+                    on_success=on_success,
+                    on_backoff=on_backoff,
+                    on_giveup=on_giveup,
+                    raise_on_giveup=raise_on_giveup,
+                    wait_gen_kwargs=wait_gen_kwargs,
+                ),
+            )
 
-        return retry(
-            target,
-            wait_gen,
-            exception,
-            max_tries=max_tries,
-            max_time=max_time,
-            jitter=jitter,
-            giveup=giveup,
-            on_success=on_success,
-            on_backoff=on_backoff,
-            on_giveup=on_giveup,
-            raise_on_giveup=raise_on_giveup,
-            wait_gen_kwargs=wait_gen_kwargs,
+        return cast(
+            "_CallableT",
+            _sync.retry_exception(
+                target,
+                wait_gen,
+                exception,
+                max_tries=max_tries,
+                max_time=max_time,
+                jitter=jitter,
+                giveup=giveup,
+                on_try=on_try,
+                on_success=on_success,
+                on_backoff=on_backoff,
+                on_giveup=on_giveup,
+                raise_on_giveup=raise_on_giveup,
+                wait_gen_kwargs=wait_gen_kwargs,
+            ),
         )
 
     # Return a function which decorates a target with a retry loop.
@@ -254,15 +292,16 @@ def retry_context(
     max_time: _MaybeCallable[float] | None = None,
     jitter: _Jitterer | None = full_jitter,
     giveup: _Predicate[BaseException] = lambda e: False,
+    on_try: _ContextHandler | Iterable[_ContextHandler] | None = None,
     on_success: _ContextHandler | Iterable[_ContextHandler] | None = None,
     on_backoff: _ContextHandler | Iterable[_ContextHandler] | None = None,
     on_giveup: _ContextHandler | Iterable[_ContextHandler] | None = None,
     raise_on_giveup: bool = True,
-    logger: _MaybeLogger = "backoff",
+    logger: _AnyLoggerOrName | None = "backoff",
     backoff_log_level: int = logging.INFO,
     giveup_log_level: int = logging.ERROR,
     **wait_gen_kwargs: Any,
-) -> Generator[_Attempt, None, None]:
+) -> Generator[Attempt, None, None]:
     """Returns a generator of retry attempts, for direct use with a `for` loop.
 
     Unlike `on_exception`, this doesn't wrap a whole function; it lets a
@@ -313,6 +352,7 @@ def retry_context(
             passed to wait_gen when it is initialized.
     """
     logger = _prepare_logger(logger)
+    on_try = _config_handlers(on_try)
     on_success = _config_handlers(on_success)
     on_backoff = _config_handlers(
         on_backoff,
@@ -334,6 +374,7 @@ def retry_context(
         max_time=max_time,
         jitter=jitter,
         giveup=giveup,
+        on_try=on_try,
         on_success=on_success,
         on_backoff=on_backoff,
         on_giveup=on_giveup,
@@ -350,15 +391,16 @@ def aretry_context(
     max_time: _MaybeCallable[float] | None = None,
     jitter: _Jitterer | None = full_jitter,
     giveup: _Predicate[BaseException] = lambda e: False,
+    on_try: _ContextHandler | Iterable[_ContextHandler] | None = None,
     on_success: _ContextHandler | Iterable[_ContextHandler] | None = None,
     on_backoff: _ContextHandler | Iterable[_ContextHandler] | None = None,
     on_giveup: _ContextHandler | Iterable[_ContextHandler] | None = None,
     raise_on_giveup: bool = True,
-    logger: _MaybeLogger = "backoff",
+    logger: _AnyLoggerOrName | None = "backoff",
     backoff_log_level: int = logging.INFO,
     giveup_log_level: int = logging.ERROR,
     **wait_gen_kwargs: Any,
-) -> AsyncGenerator[_Attempt, None]:
+) -> AsyncGenerator[Attempt, None]:
     """Async counterpart to `retry_context`, for use with `async for`.
 
         async for attempt in backoff.aretry_context(ValueError, backoff.expo):
@@ -369,6 +411,7 @@ def aretry_context(
     `retry_context` for the full argument reference.
     """
     logger = _prepare_logger(logger)
+    on_try = _config_handlers(on_try)
     on_success = _config_handlers(on_success)
     on_backoff = _config_handlers(
         on_backoff,
@@ -390,6 +433,7 @@ def aretry_context(
         max_time=max_time,
         jitter=jitter,
         giveup=giveup,
+        on_try=on_try,
         on_success=on_success,
         on_backoff=on_backoff,
         on_giveup=on_giveup,

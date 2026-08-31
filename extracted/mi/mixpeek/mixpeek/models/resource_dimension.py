@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class ResourceDimension(str, Enum):
     """
-    The resource dimensions the audit names as in scope for phase 1 (§5, proposed shape). Per-extractor/per-serve-instance granularity is deliberately deferred (G8) — same doctrine BACKE-3125's rollup already applied to SLO surfaces.
+    The resource dimensions the audit names as in scope for phase 1 (§5, proposed shape). Per-extractor/per-serve-instance granularity is deliberately deferred (G8) — same doctrine's rollup already applied to SLO surfaces.
     """
 
     """

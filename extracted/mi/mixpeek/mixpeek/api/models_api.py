@@ -929,7 +929,7 @@ class ModelsApi:
     ) -> ModelPresignedURLResponse:
         """Generate presigned URL for model upload
 
-        Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (BACKE-2759: this gate was previously undocumented and only discoverable by hitting the 403).
+        Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (this gate was previously undocumented and only discoverable by hitting the 403).
 
         :param create_model_upload_request: (required)
         :type create_model_upload_request: CreateModelUploadRequest
@@ -1002,7 +1002,7 @@ class ModelsApi:
     ) -> ApiResponse[ModelPresignedURLResponse]:
         """Generate presigned URL for model upload
 
-        Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (BACKE-2759: this gate was previously undocumented and only discoverable by hitting the 403).
+        Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (this gate was previously undocumented and only discoverable by hitting the 403).
 
         :param create_model_upload_request: (required)
         :type create_model_upload_request: CreateModelUploadRequest
@@ -1075,7 +1075,7 @@ class ModelsApi:
     ) -> RESTResponseType:
         """Generate presigned URL for model upload
 
-        Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (BACKE-2759: this gate was previously undocumented and only discoverable by hitting the 403).
+        Generate a presigned URL for uploading a custom model archive.  This is step 1 of the presigned URL workflow: 1. POST /models/uploads → Returns presigned_url + upload_id 2. PUT presigned_url with model archive (client uploads directly to S3) 3. POST /models/uploads/{upload_id}/confirm → Validates and creates model  The model will be stored at the organization level and can be enabled in any namespace within the organization.  **Availability**: custom model upload is an **enterprise-tier** feature — requests from other account tiers receive a 403. Contact support or upgrade your plan to enable it (this gate was previously undocumented and only discoverable by hitting the 403).
 
         :param create_model_upload_request: (required)
         :type create_model_upload_request: CreateModelUploadRequest

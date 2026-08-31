@@ -35,10 +35,13 @@ class SpanStatus(str, Enum):
 
 
 # Span outcomes that must never reach the judge: a paused span re-emits
-# finalized (same span_id) on resume/close, and an interrupted span never
-# completed — judging either would score an incomplete span.
+# finalized (same span_id) on resume/close, an interrupted span never
+# completed, and a cancelled one carries only the chunks the caller read
+# before walking away — judging any of them would score an incomplete span.
+# "cancelled" is a wire status the provider wrappers emit; it has no member
+# here yet, which is part of the enum/Literal split tracked separately.
 JUDGE_SKIP_STATUSES: frozenset[str] = frozenset(
-    {SpanStatus.PAUSED.value, SpanStatus.INTERRUPTED.value}
+    {SpanStatus.PAUSED.value, SpanStatus.INTERRUPTED.value, "cancelled"}
 )
 
 

@@ -40,6 +40,8 @@ class TestCreateClusterRequest(unittest.TestCase):
                     ''
                     ],
                 cluster_name = '',
+                description = '',
+                metadata = { },
                 cluster_type = 'vector',
                 vector_config = mixpeek.models.vector_based_config.VectorBasedConfig(
                     feature_uri = '', 

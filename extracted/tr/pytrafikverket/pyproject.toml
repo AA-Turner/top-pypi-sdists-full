@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pytrafikverket"
-version = "1.1.1"
+version = "2.0.0"
 description = "Retrieve values from public API at the Swedish Transport Administration (Trafikverket)."
 authors = [
     "G Johansson <goran.johansson@shiftit.se>",
@@ -38,22 +38,26 @@ lxml = ">=5.1.0"
 yarl = ">=1.9.4"
 
 [tool.poetry.group.dev.dependencies]
-aresponses = "3.0.0"
-codespell = "2.3.0"
+aiofiles = "25.1.0"
+aiointercept = "0.1.9"
+blacken-docs = "1.20.0"
+codespell = "2.4.3"
 covdefaults = "2.3.0"
-coverage = {version = "7.6.7", extras = ["toml"]}
-mypy = "1.13.0"
-pre-commit = "4.0.1"
-pre-commit-hooks = "5.0.0"
-pylint = "3.3.1"
-pytest = "8.3.3"
-pytest-asyncio = "0.24.0"
-pytest-cov = "6.0.0"
-ruff = "0.8.0"
-safety = "3.2.11"
-yamllint = "1.35.1"
-syrupy = "4.7.2"
-types-lxml = "2024.11.8"
+coverage = {version = "7.16.0", extras = ["toml"]}
+mypy = "2.3.1"
+pre-commit = "4.6.2"
+pre-commit-hooks = "6.0.0"
+pylint = "4.0.8"
+pytest = "9.1.1"
+pytest-asyncio = "1.4.0"
+pytest-cov = "7.1.0"
+pytest-sugar = "1.1.1"
+pytest-github-actions-annotate-failures = "0.4.2"
+ruff = "0.16.5"
+safety = "3.8.1"
+yamllint = "1.38.0"
+syrupy = "6.0.0"
+types-lxml = "2026.2.16"
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/gjohansson-ST/pytrafikverket/issues"
@@ -61,10 +65,14 @@ Changelog = "https://github.com/gjohansson-ST/pytrafikverket/releases"
 
 [tool.coverage.report]
 show_missing = true
+fail_under = 20
 
 [tool.coverage.run]
 plugins = ["covdefaults"]
 source = ["pytrafikverket"]
+
+[tool.codespell]
+skip = "*.xml,*.ambr"
 
 [tool.mypy]
 # Specify the target platform details in config, so your developers are
@@ -370,8 +378,21 @@ ignore-imports = true
 max-line-length = 88
 
 [tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 addopts = "--cov"
+testpaths = [
+    "tests",
+]
+norecursedirs = [
+    ".git",
+]
+log_format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(threadName)s %(name)s:%(filename)s:%(lineno)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff.lint]
 ignore = [
@@ -402,7 +423,7 @@ ignore = [
     "TRY003", # Avoid specifying long messages outside the exception class
     "TRY400", # Use `logging.exception` instead of `logging.error`
     # Ignored due to performance: https://github.com/charliermarsh/ruff/issues/2923
-    "UP038", # Use `X | Y` in `isinstance` call instead of `(X, Y)`
+    "CPY001", # Missing copyright notice
 
     # May conflict with the formatter, https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "W191",
@@ -438,7 +459,6 @@ ignore = [
     "B008", # Do not perform function call {name} in argument defaults
     "EM102", # Exception must not use an f-string literal, assign to variable first
     "DTZ007", # Naive datetime constructed using datetime.datetime.strptime() without %z
-    "S320", # Using lxml to parse untrusted data is known to be vulnerable to XML attacks
     "ANN401", # Dynamically typed expressions (typing.Any) are disallowed
     "N818", # Exception name {name} should be named with an Error suffix
     "S101", # Use of assert detected

@@ -7,25 +7,28 @@ import re
 import sys
 import threading
 import unittest.mock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 import pytest
 from dirty_equals import IsFloat, IsInstance
 
 import backoff
-from tests.common import _save_target
+from tests.common import EventAppender, _save_target
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 
     from backoff._typing import Details
 
 
-def test_on_predicate(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture(autouse=True)
+def _patch_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("time.sleep", lambda x: None)
 
+
+def test_on_predicate() -> None:
     @backoff.on_predicate(backoff.expo)
-    def return_true(log: list[bool], n):
+    def return_true(log: list[bool], n: int) -> bool:
         val = len(log) == n - 1
         log.append(val)
         return val
@@ -36,11 +39,9 @@ def test_on_predicate(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(log) == 3
 
 
-def test_on_predicate_max_tries(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_predicate_max_tries() -> None:
     @backoff.on_predicate(backoff.expo, jitter=None, max_tries=3)
-    def return_true(log: list[bool], n):
+    def return_true(log: list[bool], n: int) -> bool:
         val = len(log) == n
         log.append(val)
         return val
@@ -59,18 +60,17 @@ def test_on_predicate_max_time(monkeypatch: pytest.MonkeyPatch) -> None:
         0,
     ]
 
-    def monotonic():
+    def monotonic() -> float:
         return nows.pop()
 
-    monkeypatch.setattr("time.sleep", lambda x: None)
     monkeypatch.setattr("time.monotonic", monotonic)
 
-    def giveup(details):
+    def giveup(details: Details) -> None:
         assert details["tries"] == 3
         assert details["elapsed"] == pytest.approx(10.000005)
 
     @backoff.on_predicate(backoff.expo, jitter=None, max_time=10, on_giveup=giveup)
-    def return_true(log: list[bool], n):
+    def return_true(log: list[bool], n: int) -> bool:
         val = len(log) == n
         log.append(val)
         return val
@@ -89,23 +89,25 @@ def test_on_predicate_max_time_callable(monkeypatch: pytest.MonkeyPatch) -> None
         0,
     ]
 
-    def monotonic():
+    def monotonic() -> float:
         return nows.pop()
 
-    monkeypatch.setattr("time.sleep", lambda x: None)
     monkeypatch.setattr("time.monotonic", monotonic)
 
-    def giveup(details):
+    def giveup(details: Details) -> None:
         assert details["tries"] == 3
         assert details["elapsed"] == pytest.approx(10.000005)
 
-    def lookup_max_time():
+    def lookup_max_time() -> int:
         return 10
 
     @backoff.on_predicate(
-        backoff.expo, jitter=None, max_time=lookup_max_time, on_giveup=giveup
+        backoff.expo,
+        jitter=None,
+        max_time=lookup_max_time,
+        on_giveup=giveup,
     )
-    def return_true(log: list[bool], n):
+    def return_true(log: list[bool], n: int) -> bool:
         val = len(log) == n
         log.append(val)
         return val
@@ -116,11 +118,9 @@ def test_on_predicate_max_time_callable(monkeypatch: pytest.MonkeyPatch) -> None
     assert len(log) == 3
 
 
-def test_on_exception(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception() -> None:
     @backoff.on_exception(backoff.expo, KeyError)
-    def keyerror_then_true(log: list[Exception], n):
+    def keyerror_then_true(log: list[Exception], n: int) -> Literal[True]:
         if len(log) == n:
             return True
         e = KeyError()
@@ -132,11 +132,9 @@ def test_on_exception(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(log) == 3
 
 
-def test_on_exception_tuple(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_tuple() -> None:
     @backoff.on_exception(backoff.expo, (KeyError, ValueError))
-    def keyerror_valueerror_then_true(log: list[Exception]):
+    def keyerror_valueerror_then_true(log: list[Exception]) -> Literal[True]:
         e: Exception
         if len(log) == 2:
             return True
@@ -154,11 +152,13 @@ def test_on_exception_tuple(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(log[1], ValueError)
 
 
-def test_on_exception_max_tries(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_max_tries() -> None:
     @backoff.on_exception(backoff.expo, KeyError, jitter=None, max_tries=3)
-    def keyerror_then_true(log: list[Exception], n, foo=None):
+    def keyerror_then_true(
+        log: list[Exception],
+        n: int,
+        foo: str | None = None,
+    ) -> Literal[True]:
         if len(log) == n:
             return True
         e = KeyError()
@@ -172,11 +172,13 @@ def test_on_exception_max_tries(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(log) == 3
 
 
-def test_on_exception_max_tries_callable(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_max_tries_callable() -> None:
     @backoff.on_exception(backoff.expo, KeyError, jitter=None, max_tries=lambda: 3)
-    def keyerror_then_true(log: list[Exception], n, foo=None):
+    def keyerror_then_true(
+        log: list[Exception],
+        n: int,
+        foo: str | None = None,
+    ) -> Literal[True]:
         if len(log) == n:
             return True
         e = KeyError()
@@ -190,33 +192,34 @@ def test_on_exception_max_tries_callable(monkeypatch: pytest.MonkeyPatch) -> Non
     assert len(log) == 3
 
 
-def test_on_exception_constant_iterable(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
+def test_on_exception_constant_iterable() -> None:
+    appender = EventAppender()
 
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
-
-    def on_backoff(details: Details):
-        nonlocal backoffs
+    def on_backoff(details: Details) -> None:
+        backoffs = appender.events["backoff"]
         assert details["tries"] == len(backoffs) + 1
         assert "exception" in details
         assert isinstance(details["exception"], KeyError)
 
         backoffs.append(details)
 
-    def on_giveup(details: Details):
-        nonlocal giveups
+    def on_giveup(details: Details) -> None:
+        giveups = appender.events["giveup"]
         assert details["tries"] == 4
         assert "exception" in details
         assert isinstance(details["exception"], KeyError)
 
         giveups.append(details)
 
-    def on_success(details: Details):
-        nonlocal successes
+    def on_success(details: Details) -> None:
+        successes = appender.events["success"]
 
         successes.append(details)
+
+    def on_try(details: Details) -> None:
+        tries = appender.events["try"]
+
+        tries.append(details)
 
     @backoff.on_exception(
         backoff.constant,
@@ -225,115 +228,115 @@ def test_on_exception_constant_iterable(monkeypatch: pytest.MonkeyPatch) -> None
         on_backoff=on_backoff,
         on_giveup=on_giveup,
         on_success=on_success,
+        on_try=on_try,
     )
-    def endless_exceptions():
+    def endless_exceptions() -> None:
         raise KeyError("foo")
 
     with pytest.raises(KeyError):
         endless_exceptions()
 
-    assert len(backoffs) == 3
-    assert len(giveups) == 1
-    assert len(successes) == 0
+    assert appender.counts() == {
+        "backoff": 3,
+        "giveup": 1,
+        "success": 0,
+        "try": 4,
+    }
 
 
-def test_on_exception_success_random_jitter(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
-
+def test_on_exception_success_random_jitter(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.expo,
         Exception,
-        on_success=successes.append,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
         jitter=backoff.random_jitter,
         factor=0.5,
     )
     @_save_target
-    def succeeder(*args, **kwargs):
+    def succeeder(*args: Any, **kwargs: Any) -> None:
         # succeed after we've backed off twice
-        if len(backoffs) < 2:
+        if len(appender.events["backoff"]) < 2:
             raise ValueError("catch me")
 
     succeeder(1, 2, 3, foo=1, bar=2)
 
     # we try 3 times, backing off twice before succeeding
-    assert len(successes) == 1
-    assert len(backoffs) == 2
-    assert len(giveups) == 0
+    assert appender.counts() == {
+        "backoff": 2,
+        "giveup": 0,
+        "success": 1,
+        "try": 3,
+    }
 
     for i in range(2):
-        details = backoffs[i]
+        details = appender.events["backoff"][i]
         assert details["wait"] >= 0.5 * 2**i
 
 
-def test_on_exception_success_full_jitter(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
-
+def test_on_exception_success_full_jitter(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.expo,
         Exception,
-        on_success=successes.append,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
         jitter=backoff.full_jitter,
         factor=0.5,
     )
     @_save_target
-    def succeeder(*args, **kwargs):
+    def succeeder(*args: Any, **kwargs: Any) -> None:
         # succeed after we've backed off twice
-        if len(backoffs) < 2:
+        if len(appender.events["backoff"]) < 2:
             raise ValueError("catch me")
 
     succeeder(1, 2, 3, foo=1, bar=2)
 
     # we try 3 times, backing off twice before succeeding
-    assert len(successes) == 1
-    assert len(backoffs) == 2
-    assert len(giveups) == 0
+    assert appender.counts() == {
+        "backoff": 2,
+        "giveup": 0,
+        "success": 1,
+        "try": 3,
+    }
 
     for i in range(2):
-        details = backoffs[i]
+        details = appender.events["backoff"][i]
         assert details["wait"] <= 0.5 * 2**i
 
 
-def test_on_exception_success() -> None:
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
-
+def test_on_exception_success(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.constant,
         Exception,
-        on_success=successes.append,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
         jitter=None,
         interval=0,
     )
     @_save_target
-    def succeeder(*args, **kwargs):
+    def succeeder(*args: Any, **kwargs: Any) -> None:
         # succeed after we've backed off twice
-        if len(backoffs) < 2:
+        if len(appender.events["backoff"]) < 2:
             raise ValueError("catch me")
 
     succeeder(1, 2, 3, foo=1, bar=2)
 
     # we try 3 times, backing off twice before succeeding
-    assert len(successes) == 1
-    assert len(backoffs) == 2
-    assert len(giveups) == 0
+    assert appender.counts() == {
+        "backoff": 2,
+        "giveup": 0,
+        "success": 1,
+        "try": 3,
+    }
 
     for i in range(2):
-        details = backoffs[i]
+        details = appender.events["backoff"][i]
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
@@ -344,7 +347,7 @@ def test_on_exception_success() -> None:
             "exception": IsInstance(ValueError),
         }
 
-    details = successes[0]
+    details = appender.events["success"][0]
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
@@ -354,25 +357,54 @@ def test_on_exception_success() -> None:
     }
 
 
-@pytest.mark.parametrize("raise_on_giveup", [True, False])
-def test_on_exception_giveup(raise_on_giveup: bool) -> None:
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
+def test_on_exception_on_try_runs_before_attempt() -> None:
+    calls: list[object] = []
 
     @backoff.on_exception(
         backoff.constant,
         ValueError,
-        on_success=successes.append,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
+        on_try=lambda details: calls.append((
+            "try",
+            details["tries"],
+            details["elapsed"],
+        )),
+        jitter=None,
+        interval=0,
+        max_tries=3,
+    )
+    def fails() -> None:
+        calls.append("call")
+        raise ValueError("nope")
+
+    with pytest.raises(ValueError, match="nope"):
+        fails()
+
+    assert calls == [
+        ("try", 1, 0),
+        "call",
+        ("try", 2, IsFloat(gt=0)),
+        "call",
+        ("try", 3, IsFloat(gt=0)),
+        "call",
+    ]
+
+
+@pytest.mark.parametrize("raise_on_giveup", [True, False])
+def test_on_exception_giveup(raise_on_giveup: bool, appender: EventAppender) -> None:
+    @backoff.on_exception(
+        backoff.constant,
+        ValueError,
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
         max_tries=3,
         jitter=None,
         raise_on_giveup=raise_on_giveup,
         interval=0,
     )
     @_save_target
-    def exceptor(*args, **kwargs):
+    def exceptor(*args: Any, **kwargs: Any) -> None:
         raise ValueError("catch me")
 
     if raise_on_giveup:
@@ -382,11 +414,14 @@ def test_on_exception_giveup(raise_on_giveup: bool) -> None:
         exceptor(1, 2, 3, foo=1, bar=2)
 
     # we try 3 times, backing off twice and giving up once
-    assert len(successes) == 0
-    assert len(backoffs) == 2
-    assert len(giveups) == 1
+    assert appender.counts() == {
+        "backoff": 2,
+        "giveup": 1,
+        "success": 0,
+        "try": 3,
+    }
 
-    details = giveups[0]
+    details = appender.events["giveup"][0]
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
@@ -397,16 +432,14 @@ def test_on_exception_giveup(raise_on_giveup: bool) -> None:
     }
 
 
-def test_on_exception_giveup_predicate(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
-    def on_baz(e):
+def test_on_exception_giveup_predicate() -> None:
+    def on_baz(e: Exception) -> bool:
         return str(e) == "baz"
 
     vals = ["baz", "bar", "foo"]
 
     @backoff.on_exception(backoff.constant, ValueError, giveup=on_baz)
-    def foo_bar_baz():
+    def foo_bar_baz() -> None:
         raise ValueError(vals.pop())
 
     with pytest.raises(ValueError, match=r"(baz|bar|foo)"):
@@ -415,33 +448,33 @@ def test_on_exception_giveup_predicate(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not vals
 
 
-def test_on_predicate_success() -> None:
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
-
+def test_on_predicate_success(appender: EventAppender) -> None:
     @backoff.on_predicate(
         backoff.constant,
-        on_success=successes.append,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
         jitter=None,
         interval=0,
     )
     @_save_target
-    def success(*args, **kwargs):
+    def success(*args: Any, **kwargs: Any) -> bool:
         # succeed after we've backed off twice
-        return len(backoffs) == 2
+        return len(appender.events["backoff"]) == 2
 
     success(1, 2, 3, foo=1, bar=2)
 
     # we try 3 times, backing off twice before succeeding
-    assert len(successes) == 1
-    assert len(backoffs) == 2
-    assert len(giveups) == 0
+    assert appender.counts() == {
+        "backoff": 2,
+        "giveup": 0,
+        "success": 1,
+        "try": 3,
+    }
 
     for i in range(2):
-        details = backoffs[i]
+        details = appender.events["backoff"][i]
 
         assert details == {
             "args": (1, 2, 3),
@@ -453,7 +486,7 @@ def test_on_predicate_success() -> None:
             "elapsed": IsFloat(gt=0),
         }
 
-    details = successes[0]
+    details = appender.events["success"][0]
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
@@ -464,32 +497,62 @@ def test_on_predicate_success() -> None:
     }
 
 
-def test_on_predicate_giveup() -> None:
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
+def test_on_predicate_on_try_runs_before_attempt() -> None:
+    calls: list[object] = []
 
     @backoff.on_predicate(
         backoff.constant,
-        on_success=successes.append,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
+        on_try=lambda details: calls.append((
+            "try",
+            details["tries"],
+            details["elapsed"],
+        )),
+        jitter=None,
+        interval=0,
+        max_tries=3,
+    )
+    def falsey() -> Literal[False]:
+        calls.append("call")
+        return False
+
+    falsey()
+
+    assert calls == [
+        ("try", 1, 0),
+        "call",
+        ("try", 2, IsFloat(gt=0)),
+        "call",
+        ("try", 3, IsFloat(gt=0)),
+        "call",
+    ]
+
+
+def test_on_predicate_giveup(appender: EventAppender) -> None:
+    @backoff.on_predicate(
+        backoff.constant,
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
         max_tries=3,
         jitter=None,
         interval=0,
     )
     @_save_target
-    def emptiness(*args, **kwargs):
+    def emptiness(*args: Any, **kwargs: Any) -> None:
         pass
 
     emptiness(1, 2, 3, foo=1, bar=2)
 
     # we try 3 times, backing off twice and giving up once
-    assert len(successes) == 0
-    assert len(backoffs) == 2
-    assert len(giveups) == 1
+    assert appender.counts() == {
+        "backoff": 2,
+        "giveup": 1,
+        "success": 0,
+        "try": 3,
+    }
 
-    details = giveups[0]
+    details = appender.events["giveup"][0]
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
@@ -502,34 +565,36 @@ def test_on_predicate_giveup() -> None:
 
 def test_on_predicate_iterable_handlers() -> None:
     class Logger:
-        def __init__(self):
-            self.backoffs: list[Details] = []
-            self.giveups: list[Details] = []
-            self.successes: list[Details] = []
+        def __init__(self) -> None:
+            self.appender = EventAppender()
 
     loggers = [Logger() for _ in range(3)]
 
     @backoff.on_predicate(
         backoff.constant,
-        on_backoff=(l.backoffs.append for l in loggers),
-        on_giveup=(l.giveups.append for l in loggers),
-        on_success=(l.successes.append for l in loggers),
+        on_backoff=(l.appender.on_event("backoff") for l in loggers),
+        on_giveup=(l.appender.on_event("giveup") for l in loggers),
+        on_success=(l.appender.on_event("success") for l in loggers),
+        on_try=(l.appender.on_event("try") for l in loggers),
         max_tries=3,
         jitter=None,
         interval=0,
     )
     @_save_target
-    def emptiness(*args, **kwargs):
+    def emptiness(*args: Any, **kwargs: Any) -> None:
         pass
 
     emptiness(1, 2, 3, foo=1, bar=2)
 
     for logger in loggers:
-        assert len(logger.successes) == 0
-        assert len(logger.backoffs) == 2
-        assert len(logger.giveups) == 1
+        assert logger.appender.counts() == {
+            "backoff": 2,
+            "giveup": 1,
+            "success": 0,
+            "try": 3,
+        }
 
-        details = logger.giveups[0]
+        details = logger.appender.events["giveup"][0]
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
@@ -540,42 +605,35 @@ def test_on_predicate_iterable_handlers() -> None:
         }
 
 
-# To maintain backward compatibility,
-# on_predicate should support 0-argument jitter function.
-def test_on_exception_success_0_arg_jitter(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
-
+def test_on_exception_jitter(appender: EventAppender) -> None:
     @backoff.on_exception(
         backoff.constant,
         Exception,
-        on_success=successes.append,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
-        jitter=lambda: 0.0,  # type:ignore[arg-type,misc] # ty:ignore[invalid-argument-type]
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
+        jitter=lambda value: 0.0,
         interval=0,
     )
     @_save_target
-    def succeeder(*args, **kwargs):
+    def succeeder(*args: Any, **kwargs: Any) -> None:
         # succeed after we've backed off twice
-        if len(backoffs) < 2:
+        if len(appender.events["backoff"]) < 2:
             raise ValueError("catch me")
 
-    with pytest.deprecated_call(
-        match="Nullary jitter function signature is deprecated",
-    ):
-        succeeder(1, 2, 3, foo=1, bar=2)
+    succeeder(1, 2, 3, foo=1, bar=2)
 
     # we try 3 times, backing off twice before succeeding
-    assert len(successes) == 1
-    assert len(backoffs) == 2
-    assert len(giveups) == 0
+    assert appender.counts() == {
+        "backoff": 2,
+        "giveup": 0,
+        "success": 1,
+        "try": 3,
+    }
 
     for i in range(2):
-        details = backoffs[i]
+        details = appender.events["backoff"][i]
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
@@ -586,7 +644,7 @@ def test_on_exception_success_0_arg_jitter(monkeypatch: pytest.MonkeyPatch) -> N
             "exception": IsInstance(ValueError),
         }
 
-    details = successes[0]
+    details = appender.events["success"][0]
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
@@ -596,40 +654,33 @@ def test_on_exception_success_0_arg_jitter(monkeypatch: pytest.MonkeyPatch) -> N
     }
 
 
-# To maintain backward compatibility,
-# on_predicate should support 0-argument jitter function.
-def test_on_predicate_success_0_arg_jitter(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
-
+def test_on_predicate_jitter(appender: EventAppender) -> None:
     @backoff.on_predicate(
         backoff.constant,
-        on_success=successes.append,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
-        jitter=lambda: 0.0,  # type:ignore[arg-type,misc] # ty:ignore[invalid-argument-type]
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
+        jitter=lambda value: 0.0,
         interval=0,
     )
     @_save_target
-    def success(*args, **kwargs):
+    def success(*args: Any, **kwargs: Any) -> bool:
         # succeed after we've backed off twice
-        return len(backoffs) == 2
+        return len(appender.events["backoff"]) == 2
 
-    with pytest.deprecated_call(
-        match="Nullary jitter function signature is deprecated",
-    ):
-        success(1, 2, 3, foo=1, bar=2)
+    success(1, 2, 3, foo=1, bar=2)
 
     # we try 3 times, backing off twice before succeeding
-    assert len(successes) == 1
-    assert len(backoffs) == 2
-    assert len(giveups) == 0
+    assert appender.counts() == {
+        "backoff": 2,
+        "giveup": 0,
+        "success": 1,
+        "try": 3,
+    }
 
     for i in range(2):
-        details = backoffs[i]
+        details = appender.events["backoff"][i]
         assert details == {
             "args": (1, 2, 3),
             "kwargs": {"foo": 1, "bar": 2},
@@ -640,7 +691,7 @@ def test_on_predicate_success_0_arg_jitter(monkeypatch: pytest.MonkeyPatch) -> N
             "elapsed": IsFloat(gt=0),
         }
 
-    details = successes[0]
+    details = appender.events["success"][0]
     assert details == {
         "args": (1, 2, 3),
         "kwargs": {"foo": 1, "bar": 2},
@@ -651,13 +702,11 @@ def test_on_predicate_success_0_arg_jitter(monkeypatch: pytest.MonkeyPatch) -> N
     }
 
 
-def test_on_exception_callable_max_tries(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_callable_max_tries() -> None:
     log: list[bool] = []
 
     @backoff.on_exception(backoff.constant, ValueError, max_tries=lambda: 3)
-    def exceptor():
+    def exceptor() -> None:
         log.append(True)
         raise ValueError("aah")
 
@@ -667,19 +716,15 @@ def test_on_exception_callable_max_tries(monkeypatch: pytest.MonkeyPatch) -> Non
     assert len(log) == 3
 
 
-def test_on_exception_callable_max_tries_reads_every_time(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_callable_max_tries_reads_every_time() -> None:
     lookups = []
 
-    def lookup_max_tries():
+    def lookup_max_tries() -> int:
         lookups.append(True)
         return 3
 
     @backoff.on_exception(backoff.constant, ValueError, max_tries=lookup_max_tries)
-    def exceptor():
+    def exceptor() -> None:
         raise ValueError("aah")
 
     with pytest.raises(ValueError, match="aah"):
@@ -691,11 +736,14 @@ def test_on_exception_callable_max_tries_reads_every_time(
     assert len(lookups) == 2
 
 
-def test_on_exception_callable_gen_kwargs():
-    def lookup_foo():
+def test_on_exception_callable_gen_kwargs() -> None:
+    def lookup_foo() -> Literal["foo"]:
         return "foo"
 
-    def wait_gen(foo=None, bar=None) -> Generator[float, None, None]:
+    def wait_gen(
+        foo: str | None = None,
+        bar: str | None = None,
+    ) -> Generator[float, None, None]:
         assert foo == "foo"
         assert bar == "bar"
 
@@ -703,23 +751,21 @@ def test_on_exception_callable_gen_kwargs():
             yield 0
 
     @backoff.on_exception(wait_gen, ValueError, max_tries=2, foo=lookup_foo, bar="bar")
-    def exceptor():
+    def exceptor() -> None:
         raise ValueError("aah")
 
     with pytest.raises(ValueError, match="aah"):
         exceptor()
 
 
-def test_on_predicate_in_thread(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_predicate_in_thread() -> None:
     result: list[Exception | str] = []
 
-    def check():
+    def check() -> None:
         try:
 
             @backoff.on_predicate(backoff.expo)
-            def return_true(log: list[bool], n):
+            def return_true(log: list[bool], n: int) -> bool:
                 val = len(log) == n - 1
                 log.append(val)
                 return val
@@ -742,45 +788,41 @@ def test_on_predicate_in_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result[0] == "success"
 
 
-def test_on_predicate_constant_iterable(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_predicate_constant_iterable(appender: EventAppender) -> None:
     waits = [1, 2, 3, 6, 9]
-    backoffs: list[Details] = []
-    giveups: list[Details] = []
-    successes: list[Details] = []
 
     @backoff.on_predicate(
         backoff.constant,
         interval=waits,
-        on_backoff=backoffs.append,
-        on_giveup=giveups.append,
-        on_success=successes.append,
+        on_backoff=appender.on_event("backoff"),
+        on_giveup=appender.on_event("giveup"),
+        on_success=appender.on_event("success"),
+        on_try=appender.on_event("try"),
         jitter=None,
     )
-    def falsey():
+    def falsey() -> Literal[False]:
         return False
 
     assert not falsey()
+    assert appender.counts() == {
+        "backoff": len(waits),
+        "giveup": 1,
+        "success": 0,
+        "try": 6,
+    }
 
-    assert len(backoffs) == len(waits)
     for i, wait in enumerate(waits):
-        assert backoffs[i]["wait"] == wait
-
-    assert len(giveups) == 1
-    assert len(successes) == 0
+        assert appender.events["backoff"][i]["wait"] == wait
 
 
-def test_on_exception_in_thread(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_in_thread() -> None:
     result: list[Exception | str] = []
 
-    def check():
+    def check() -> None:
         try:
 
             @backoff.on_exception(backoff.expo, KeyError)
-            def keyerror_then_true(log: list[Exception], n):
+            def keyerror_then_true(log: list[Exception], n: int) -> Literal[True]:
                 if len(log) == n:
                     return True
                 e = KeyError()
@@ -804,15 +846,13 @@ def test_on_exception_in_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result[0] == "success"
 
 
-def test_on_exception_logger_default(monkeypatch, caplog):
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_logger_default(caplog: pytest.LogCaptureFixture) -> None:
     logger = logging.getLogger("backoff")
     handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
 
     @backoff.on_exception(backoff.expo, KeyError, max_tries=3)
-    def key_error():
+    def key_error() -> None:
         raise KeyError()
 
     with caplog.at_level(logging.INFO), pytest.raises(KeyError):
@@ -823,15 +863,13 @@ def test_on_exception_logger_default(monkeypatch, caplog):
         assert record.name == "backoff"
 
 
-def test_on_exception_logger_none(monkeypatch, caplog):
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_logger_none(caplog: pytest.LogCaptureFixture) -> None:
     logger = logging.getLogger("backoff")
     handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
 
     @backoff.on_exception(backoff.expo, KeyError, max_tries=3, logger=None)
-    def key_error():
+    def key_error() -> None:
         raise KeyError()
 
     with caplog.at_level(logging.INFO), pytest.raises(KeyError):
@@ -840,15 +878,13 @@ def test_on_exception_logger_none(monkeypatch, caplog):
     assert not caplog.records
 
 
-def test_on_exception_logger_user(monkeypatch, caplog):
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_logger_user(caplog: pytest.LogCaptureFixture) -> None:
     logger = logging.getLogger("my-logger")
     handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
 
     @backoff.on_exception(backoff.expo, KeyError, max_tries=3, logger=logger)
-    def key_error():
+    def key_error() -> None:
         raise KeyError()
 
     with caplog.at_level(logging.INFO), pytest.raises(KeyError):
@@ -859,15 +895,13 @@ def test_on_exception_logger_user(monkeypatch, caplog):
         assert record.name == "my-logger"
 
 
-def test_on_exception_logger_user_str(monkeypatch, caplog):
-    monkeypatch.setattr("time.sleep", lambda x: None)
-
+def test_on_exception_logger_user_str(caplog: pytest.LogCaptureFixture) -> None:
     logger = logging.getLogger("my-logger")
     handler = logging.StreamHandler(sys.stdout)
     logger.addHandler(handler)
 
     @backoff.on_exception(backoff.expo, KeyError, max_tries=3, logger="my-logger")
-    def key_error():
+    def key_error() -> None:
         raise KeyError()
 
     with caplog.at_level(logging.INFO), pytest.raises(KeyError):
@@ -879,10 +913,10 @@ def test_on_exception_logger_user_str(monkeypatch, caplog):
 
 
 def _on_exception_factory(
-    backoff_log_level,
-    giveup_log_level,
-    max_tries,
-):
+    backoff_log_level: int,
+    giveup_log_level: int,
+    max_tries: int,
+) -> Callable[[], None]:
     @backoff.on_exception(
         backoff.expo,
         ValueError,
@@ -890,10 +924,10 @@ def _on_exception_factory(
         backoff_log_level=backoff_log_level,
         giveup_log_level=giveup_log_level,
     )
-    def value_error():
+    def value_error() -> None:
         raise ValueError("aah")
 
-    def func():
+    def func() -> None:
         with pytest.raises(ValueError, match="aah"):
             value_error()
 
@@ -901,17 +935,17 @@ def _on_exception_factory(
 
 
 def _on_predicate_factory(
-    backoff_log_level,
-    giveup_log_level,
-    max_tries,
-):
+    backoff_log_level: int,
+    giveup_log_level: int,
+    max_tries: int,
+) -> Callable[[], Literal[False]]:
     @backoff.on_predicate(
         backoff.expo,
         max_tries=max_tries,
         backoff_log_level=backoff_log_level,
         giveup_log_level=giveup_log_level,
     )
-    def func():
+    def func() -> Literal[False]:
         return False
 
     return func
@@ -939,11 +973,11 @@ def _on_predicate_factory(
     ],
 )
 def test_event_log_levels(
-    caplog,
-    func_factory,
-    backoff_log_level,
-    giveup_log_level,
-):
+    caplog: pytest.LogCaptureFixture,
+    func_factory: Callable[[int, int, int], Callable[[], Any]],
+    backoff_log_level: int,
+    giveup_log_level: int,
+) -> None:
     max_tries = 3
     func = func_factory(backoff_log_level, giveup_log_level, max_tries)
 
@@ -994,7 +1028,7 @@ def test_max_time(monkeypatch: pytest.MonkeyPatch) -> None:
             max_time=max_time,
             jitter=None,
         )
-        def on_exception():
+        def on_exception() -> None:
             patch_sleep(function_runtime)  # ruff: ignore[function-uses-loop-variable]
             raise RuntimeError
 
@@ -1014,7 +1048,7 @@ def test_max_time(monkeypatch: pytest.MonkeyPatch) -> None:
             max_time=max_time,
             jitter=None,
         )
-        def on_predicate():
+        def on_predicate() -> None:
             patch_sleep(function_runtime)  # ruff: ignore[function-uses-loop-variable]
 
         on_predicate()

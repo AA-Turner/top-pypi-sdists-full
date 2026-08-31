@@ -87,7 +87,7 @@ def _stub_budget(monkeypatch, *, budget, resident, worker_id=WORKER):
     def _view(wid):
         if wid != worker_id:
             return None
-        return {"budget": budget, "resident_bytes": resident}
+        return {"budget": budget, "hot_bytes": resident}
     monkeypatch.setattr(_workers_mod, "worker_storage_view", _view, raising=False)
 
 

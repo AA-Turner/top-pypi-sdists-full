@@ -11,8 +11,8 @@ import logging
 from typing import Any
 
 from aigie.integrations.claude_agent_sdk._patches._shared import (
-    _extract_agent_name,
     _get_batch_parent,
+    _trace_name_from_options,
     _wrap_tools_with_remediation,
 )
 from aigie.integrations.claude_agent_sdk.session_context import (
@@ -57,7 +57,9 @@ def query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
 
                 model = getattr(options, "model", None) or "claude-sonnet-4-20250514"
                 system_prompt = getattr(options, "system_prompt", None) or ""
-                trace_name = _extract_agent_name(system_prompt, model, aigie)
+                trace_name = _trace_name_from_options(
+                    system_prompt, model, aigie, "Agent", capture_content=config.capture_messages
+                )
 
                 session_ctx = get_or_create_session_context(
                     trace_name=trace_name, trace_id=resume_id

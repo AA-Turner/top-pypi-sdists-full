@@ -35,6 +35,7 @@ class ClusterMetadata(BaseModel):
     """ # noqa: E501
     cluster_id: Optional[StrictStr] = Field(default=None, description="Unique cluster job identifier")
     cluster_name: StrictStr = Field(description="Human-readable cluster name")
+    description: Optional[StrictStr] = Field(default=None, description="Cluster description")
     namespace_id: StrictStr = Field(description="Namespace this cluster belongs to")
     input_collections: List[StrictStr] = Field(description="Source collection IDs that were clustered")
     source_bucket_ids: Optional[List[StrictStr]] = Field(default=None, description="Source bucket IDs that the input collections originated from. Enables bucket lineage tracking.")
@@ -51,7 +52,7 @@ class ClusterMetadata(BaseModel):
     hierarchical_vector: Optional[StrictBool] = Field(default=None, description="Whether recursive sub-clustering is enabled for vector clustering.")
     max_hierarchy_depth: Optional[StrictInt] = Field(default=None, description="Maximum recursion depth for hierarchical sub-clustering.")
     vis_n_components: Optional[StrictInt] = Field(default=None, description="Stored visualization dimensionality (2D or 3D). Replayed into ClusteringConfig on every execute as the default.")
-    layout_stability: Optional[StrictStr] = Field(default=None, description="Stored layout-stability mode (LS-5) from vector_config.layout_stability. Replayed into ClusteringConfig on every execute. When unset, executions default to 'align' (keep the map stable across runs via post-hoc registration).")
+    layout_stability: Optional[StrictStr] = Field(default=None, description="Stored layout-stability mode from vector_config.layout_stability. Replayed into ClusteringConfig on every execute. When unset, executions default to 'align' (keep the map stable across runs via post-hoc registration).")
     clustered_attributes: Optional[List[StrictStr]] = Field(default=None, description="Attribute field names that were clustered. Only for attribute clustering.")
     hierarchical_grouping: Optional[StrictBool] = Field(default=None, description="Whether hierarchical clustering was used. Only for attribute clustering.")
     aggregation_method: Optional[StrictStr] = Field(default=None, description="Method for aggregating attributes (most_frequent/first/last). Only for attribute clustering.")
@@ -65,7 +66,7 @@ class ClusterMetadata(BaseModel):
     num_clusters: Optional[StrictInt] = Field(default=None, description="Number of clusters found (excludes noise/outliers, populated after execution)")
     num_documents_clustered: Optional[StrictInt] = Field(default=None, description="Total documents processed")
     execution_time_seconds: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Time taken to complete clustering")
-    quality_metrics: Optional[Dict[str, Any]] = Field(default=None, description="Clustering quality metrics (silhouette_score, davies_bouldin_score, calinski_harabasz_score, etc.). Open diagnostic bag like ClusteringResult.metrics: mostly numeric, but the three-state degenerate flag (False | reason string) and its prose degenerate_detail are non-numeric, so the value type is Any. A float-only type 400'd every GET on a cluster whose run flagged a degenerate result (MC-1256's read-path sibling: the write side persisted the string, this read side then rejected it).")
+    quality_metrics: Optional[Dict[str, Any]] = Field(default=None, description="Clustering quality metrics (silhouette_score, davies_bouldin_score, calinski_harabasz_score, etc.). Open diagnostic bag like ClusteringResult.metrics: mostly numeric, but the three-state degenerate flag (False | reason string) and its prose degenerate_detail are non-numeric, so the value type is Any. A float-only type 400'd every GET on a cluster whose run flagged a degenerate result ('s read-path sibling: the write side persisted the string, this read side then rejected it).")
     hierarchy_detected: Optional[StrictBool] = Field(default=False, description="Whether implicit hierarchy was detected (multi-feature independent) or created (hierarchical attributes)")
     parent_cluster_id: Optional[StrictStr] = Field(default=None, description="For child clusters in hierarchy")
     child_cluster_ids: Optional[List[StrictStr]] = Field(default=None, description="For parent clusters")
@@ -79,9 +80,9 @@ class ClusterMetadata(BaseModel):
     updated_at: Optional[datetime] = Field(default=None, description="When cluster was last updated")
     last_executed_at: Optional[datetime] = Field(default=None, description="Last execution timestamp")
     completed_at: Optional[datetime] = Field(default=None, description="When clustering completed successfully")
-    llm_labeling_errors: Optional[List[StrictStr]] = Field(default=None, description="List of errors encountered during LLM labeling (if any). Stored in MongoDB cluster metadata only, NOT in Qdrant cluster documents. Used to track LLM failures while allowing fallback labels to work.")
+    llm_labeling_errors: Optional[List[StrictStr]] = Field(default=None, description="List of errors encountered during LLM labeling (if any). Stored in MongoDB cluster metadata only, NOT in vector store cluster documents. Used to track LLM failures while allowing fallback labels to work.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional user-defined metadata")
-    __properties: ClassVar[List[str]] = ["cluster_id", "cluster_name", "namespace_id", "input_collections", "source_bucket_ids", "filters", "cluster_type", "feature_uris", "multi_feature_strategy", "learned_weights", "learning_quality_score", "effective_feature_method", "face_cluster_merge", "sample_size", "preprocessing_steps", "hierarchical_vector", "max_hierarchy_depth", "vis_n_components", "layout_stability", "clustered_attributes", "hierarchical_grouping", "aggregation_method", "output_collection_ids", "output_collection_names", "algorithm", "algorithm_params", "enrich_source", "source_enrichment_config", "llm_labeling", "num_clusters", "num_documents_clustered", "execution_time_seconds", "quality_metrics", "hierarchy_detected", "parent_cluster_id", "child_cluster_ids", "hierarchy_relationships", "status", "error", "failure_category", "last_execution_task_id", "last_run_id", "created_at", "updated_at", "last_executed_at", "completed_at", "llm_labeling_errors", "metadata"]
+    __properties: ClassVar[List[str]] = ["cluster_id", "cluster_name", "description", "namespace_id", "input_collections", "source_bucket_ids", "filters", "cluster_type", "feature_uris", "multi_feature_strategy", "learned_weights", "learning_quality_score", "effective_feature_method", "face_cluster_merge", "sample_size", "preprocessing_steps", "hierarchical_vector", "max_hierarchy_depth", "vis_n_components", "layout_stability", "clustered_attributes", "hierarchical_grouping", "aggregation_method", "output_collection_ids", "output_collection_names", "algorithm", "algorithm_params", "enrich_source", "source_enrichment_config", "llm_labeling", "num_clusters", "num_documents_clustered", "execution_time_seconds", "quality_metrics", "hierarchy_detected", "parent_cluster_id", "child_cluster_ids", "hierarchy_relationships", "status", "error", "failure_category", "last_execution_task_id", "last_run_id", "created_at", "updated_at", "last_executed_at", "completed_at", "llm_labeling_errors", "metadata"]
 
     @field_validator('cluster_type')
     def cluster_type_validate_enum(cls, value):
@@ -172,6 +173,7 @@ class ClusterMetadata(BaseModel):
         _obj = cls.model_validate({
             "cluster_id": obj.get("cluster_id"),
             "cluster_name": obj.get("cluster_name"),
+            "description": obj.get("description"),
             "namespace_id": obj.get("namespace_id"),
             "input_collections": obj.get("input_collections"),
             "source_bucket_ids": obj.get("source_bucket_ids"),

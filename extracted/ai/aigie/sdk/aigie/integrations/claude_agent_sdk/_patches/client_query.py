@@ -8,9 +8,8 @@ from typing import Any
 
 from aigie.integrations.claude_agent_sdk._patches._shared import (
     _enable_hook_events,
-    _extract_agent_name,
-    _shorten_model_name,
     _skip_instrumentation,
+    _trace_name_from_options,
     _wrap_user_hooks,
 )
 from aigie.integrations.claude_agent_sdk.session_context import get_or_create_session_context
@@ -54,13 +53,12 @@ def client_query_patch_target() -> PatchTarget:  # noqa: C901, PLR0915
                     or getattr(self, "model", None)
                     or "claude-sonnet-4-20250514"
                 )
-                system_prompt = getattr(client_options, "system_prompt", "") or ""
-
-                # Extract agent name from system prompt if available
-                trace_name = (
-                    _extract_agent_name(system_prompt, model, aigie)
-                    if (system_prompt or getattr(aigie, "_agent_name", None))
-                    else f"{_shorten_model_name(model)} Client Session"
+                trace_name = _trace_name_from_options(
+                    getattr(client_options, "system_prompt", None),
+                    model,
+                    aigie,
+                    "Client Session",
+                    capture_content=config.capture_messages,
                 )
 
                 # Get or create session context - reuse existing trace

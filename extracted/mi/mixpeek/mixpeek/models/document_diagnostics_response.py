@@ -28,7 +28,7 @@ from typing_extensions import Self
 
 class DocumentDiagnosticsResponse(BaseModel):
     """
-    Support diagnostics for one document (BACKE-3528 / ADM-23).
+    Support diagnostics for one document.
     """ # noqa: E501
     document_id: StrictStr
     collection_id: StrictStr

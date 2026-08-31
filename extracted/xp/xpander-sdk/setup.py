@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="xpander-sdk",
-    version="2.0.501",
+    version="2.0.503",
     author="xpanderAI",
     author_email="dev@xpander.ai",
     description="xpander.ai Backend-as-a-service for AI Agents - SDK",
@@ -52,8 +52,11 @@ setup(
             "greenlet",
             # Bedrock prompt-cache path (CachingAwsBedrock) imports anthropic + aioboto3
             # transitively; needed so test collection can import the module.
-            "anthropic",
+            # anthropic 1.x rejects the httpx.Client agno 2.5.14 passes as http_client
+            "anthropic<1",
             "aioboto3==15.5.0",
+            # gemini llm_api_base routing tests construct the real client
+            "google-genai>=1.52.0",
         ],
         "dev": [
             "black",
@@ -61,7 +64,7 @@ setup(
             "pytest",
             "pytest-asyncio",
             "pytest-cov",
-            "anthropic",
+            "anthropic<1",
             "mcp",
             "openai",
             "fireworks-ai",

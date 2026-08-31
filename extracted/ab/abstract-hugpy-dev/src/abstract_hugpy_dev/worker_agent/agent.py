@@ -4030,15 +4030,15 @@ def build_app(state: "WorkerState") -> Flask:
         if "residency" in body:
             # DEEP-MERGE per model key: {"model": "static"|null}. The default
             # tier is ON-DEMAND and is represented by NO stored entry — null,
-            # "", "on-demand" itself, or the legacy synonyms "serving"/"warm"
-            # all clear the override. "static" is the only stored value.
+            # "" or "on-demand" clear the override. "static" is the only
+            # stored value.
             if not isinstance(body["residency"], dict):
                 return jsonify({"ok": False, "error": {
                     "code": "BadValue",
-                    "message": 'residency must be {"<model_key>": "static"|null} — null/"on-demand" (or legacy "serving"/"warm") restores the on-demand default'}}), 400
+                    "message": 'residency must be {"<model_key>": "static"|null} — null/"on-demand" restores the on-demand default'}}), 400
             merged = dict(settings.get("residency") or {})
             for mk, mode in body["residency"].items():
-                if mode in (None, "", "on-demand", "serving", "warm"):
+                if mode in (None, "", "on-demand"):
                     # on-demand IS the default — storing it would be noise;
                     # any of these writes clears the override.
                     merged.pop(mk, None)
@@ -4047,7 +4047,7 @@ def build_app(state: "WorkerState") -> Flask:
                 else:
                     return jsonify({"ok": False, "error": {
                         "code": "BadValue",
-                        "message": f"residency[{mk!r}] must be 'static' or null — on-demand is the default ('on-demand'/'serving'/'warm' also clear the override)"}}), 400
+                        "message": f"residency[{mk!r}] must be 'static' or null — on-demand is the default ('on-demand'/null clear the override)"}}), 400
             if merged:
                 settings["residency"] = merged
             else:
@@ -5878,8 +5878,8 @@ def _residency(model_key: str) -> str:
       * "on-demand" — the DEFAULT (no stored entry): loads on call; holds a
         slot seat until another model needs it (promotion) — slot occupants
         never TTL-yield; idle IN-PROCESS residents do (frees RAM on
-        slot-less boxes). "serving"/"warm" are accepted legacy write-
-        synonyms for this default; stored legacy entries read as it too.
+        slot-less boxes). Stored legacy entries (if any) read as this
+        default too.
       * "static" — the only stored override: locked seat, never swapped out
         or yielded, eager-warmed (the ONLY tier that pre-pulls — see
         _eager_pull). Orthogonal to 📌 pin: pin makes the ATTRIBUTION
@@ -8563,7 +8563,7 @@ def _model_call_stats(state: "WorkerState | None",
 
 def _evict_residents(state: "WorkerState", candidates: "list[dict]",
                      model_key: str) -> list:
-    """Build the shared-eviction ``Resident`` rows for a VRAM admission.
+    """Build the shared-eviction ``EvictUnit`` rows for a VRAM admission.
 
     ``candidates`` is ``_partition_residents``' UNPROTECTED half, so the
     operator's inviolable protections (🔒static / actively replying / queued
@@ -8578,14 +8578,14 @@ def _evict_residents(state: "WorkerState", candidates: "list[dict]",
     for r in candidates:
         mk = r["model_key"]
         last, calls = _model_call_stats(state, mk)
-        rows.append(_ev.Resident(
+        rows.append(_ev.EvictUnit(
             model_key=mk,
             bytes=(int(r.get("vram_bytes") or 0) or None),
             pref=_ev.preferred_device(_model_alloc_mode(mk)),
             last_call=last, calls=calls,
             # `_partition_residents` already excludes actively-replying, so this
             # is belt-and-braces for a row that became busy since the snapshot.
-            in_flight=_actively_replying(mk, busy),
+            mid_generation=_actively_replying(mk, busy),
             resident_since=r.get("resident_since") or r.get("loaded_at")))
     return rows
 
@@ -11328,8 +11328,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--models", default=os.environ.get("WORKER_MODELS", ""),
                    help="Comma-separated model_keys to self-assign on registration")
     p.add_argument("--heartbeat", type=float, default=float(os.environ.get("WORKER_HEARTBEAT", "15")))
-    p.add_argument("--id-file", default=os.environ.get(
-        "WORKER_ID_FILE", os.path.expanduser("~/.abstract_hugpy_worker.json")))
+    from .._platform import paths as _hp
+    p.add_argument("--id-file", default=_hp.worker_id_file())
 
     # Self-update: which distribution to track, and where to pull it from.
     # Default source is PyPI (where sync.trigger publishes); set --pkg-index to

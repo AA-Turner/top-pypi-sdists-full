@@ -134,12 +134,16 @@ class TinyTag:
             check_magic_bytes: bool = True) -> TinyTag:
         """Return a tag object for an audio file."""
         should_close_file = file_obj is None
+        parser_class = None
         filename_str = None
         if filename:
+            filename_str = fsdecode(filename)
+            if not check_magic_bytes:
+                # Raises UnsupportedFormatError
+                parser_class = cls._get_parser_class(filename_str)
             if should_close_file:
                 # pylint: disable=consider-using-with
                 file_obj = open(filename, 'rb')
-            filename_str = fsdecode(filename)
         if file_obj is None:
             raise ValueError(
                 'Either filename or file_obj argument is required')
@@ -149,14 +153,13 @@ class TinyTag:
             warn('ignore_errors argument is obsolete, and will be removed in '
                  'the future', DeprecationWarning, stacklevel=2)
         try:
-            # pylint: disable=protected-access
+            if parser_class is None:  # check_magic_bytes is True
+                # Raises UnsupportedFormatError
+                parser_class = cls._get_parser_class(filename_str, file_obj)
             file_obj.seek(0, SEEK_END)
             filesize = file_obj.tell()
             file_obj.seek(0)
-            if check_magic_bytes:
-                parser_class = cls._get_parser_class(filename_str, file_obj)
-            else:
-                parser_class = cls._get_parser_class(filename_str)
+            # pylint: disable=protected-access
             tag = parser_class()
             tag._filehandler = file_obj
             tag._default_encoding = encoding
@@ -232,7 +235,6 @@ class TinyTag:
     ) -> type[TinyTag] | None:
         # https://en.wikipedia.org/wiki/List_of_file_signatures
         header = filehandle.read(30)
-        filehandle.seek(0)
         if header.startswith(b'ID3'):
             return _ID3
         if (len(header) >= 2
@@ -244,8 +246,6 @@ class TinyTag:
             except OSError:
                 # File smaller than ID3v1 tag size
                 pass
-            finally:
-                filehandle.seek(0)
             if footer == b'TAG':
                 return _ID3
             return _MPEG
@@ -420,7 +420,7 @@ class Images:
             for other_key, other_values in value.items():
                 other_images = images.get(other_key)
                 if not isinstance(other_images, list):
-                    other_images = images[other_key] = other_values
+                    images[other_key] = other_values
                 else:
                     other_images += other_values
         return images
@@ -1471,7 +1471,6 @@ class _MPEG(TinyTag):
     _MAX_ESTIMATION_SEC = 30
     _CBR_DETECTION_FRAME_COUNT = 5
     _USE_XING_HEADER = True  # much faster, but can be deactivated for testing
-    _MAX_INVALID_FRAMES = 200
 
     # see this page for the magic values used in mp3:
     # http://www.mpgedit.org/mpgedit/mpeg_format/mpeghdr.htm
@@ -1532,7 +1531,6 @@ class _MPEG(TinyTag):
         max_estimation_frames = 0
         frame_size_accu = 0
         frames = 0  # count frames for determining mp3 duration
-        invalid_frames = 0
         bitrate_accu = 0    # add up bitrates to find average bitrate to detect
         last_bitrates: set[int] = set()  # CBR mp3s (many frames with same brs)
         # seek to first position after id3 tag (speedup for large header)
@@ -1568,9 +1566,6 @@ class _MPEG(TinyTag):
                     fh.seek(idx - header_len, SEEK_CUR)
                 if frames == 0:
                     audio_offset += next_offset
-                    invalid_frames += 1
-                    if invalid_frames > self._MAX_INVALID_FRAMES:
-                        raise ParseError("Invalid MPEG frame header")
                 continue
             self.channels = self._CHANNELS_PER_CHANNEL_MODE[channel_mode]
             frame_br = self._BITRATE_VERSION_LAYERS[mpeg_id][layer_id][br_id]
@@ -1840,11 +1835,11 @@ class _Ogg(TinyTag):
         # for the spec, see: http://xiph.org/vorbis/doc/v-comment.html
         # discnumber tag based on: https://en.wikipedia.org/wiki/Vorbis_comment
         # https://sno.phy.queensu.ca/~phil/exiftool/TagNames/Vorbis.html
-        vendor_length = unpack('I', fh.read(4))[0]
+        vendor_length = unpack('<I', fh.read(4))[0]
         fh.seek(vendor_length, SEEK_CUR)  # jump over vendor
-        elements = unpack('I', fh.read(4))[0]
+        elements = unpack('<I', fh.read(4))[0]
         for _i in range(elements):
-            length = unpack('I', fh.read(4))[0]
+            length = unpack('<I', fh.read(4))[0]
             if not read_data:
                 fh.seek(length, SEEK_CUR)
                 continue
@@ -2000,7 +1995,7 @@ class _Wave(TinyTag):
         header_len = 8
         chunk_header = fh.read(header_len)
         while len(chunk_header) == header_len:
-            subchunk_size = unpack_from('I', chunk_header, 4)[0]
+            subchunk_size = unpack_from('<I', chunk_header, 4)[0]
             subchunk_size_unpadded = subchunk_size
             # IFF chunks are padded to an even number of bytes
             subchunk_size += subchunk_size % 2
@@ -2025,7 +2020,7 @@ class _Wave(TinyTag):
                 fh.seek(subchunk_size, SEEK_CUR)
             elif self._parse_duration and chunk_header.startswith(b'fact'):
                 chunk = fh.read(subchunk_size)
-                num_samples = unpack_from('I', chunk)[0]
+                num_samples = unpack_from('<I', chunk)[0]
             elif self._parse_tags and chunk_header.startswith(b'LIST'):
                 chunk = fh.read(subchunk_size)
                 if chunk.startswith(b'INFO'):
@@ -2033,7 +2028,7 @@ class _Wave(TinyTag):
                     walker.seek(4)  # skip header
                     field = walker.read(4)
                     while len(field) == 4:
-                        data_length = unpack('I', walker.read(4))[0]
+                        data_length = unpack('<I', walker.read(4))[0]
                         # IFF chunks are padded to an even size
                         data_length += data_length % 2
                         data = self._unpad_bytes(walker.read(data_length))
@@ -2498,6 +2493,7 @@ class _Aiff(TinyTag):
                             self.bitrate = bitrate
                         self.samplerate, self.duration = sr, duration
                 except OverflowError:
+                    # Invalid sample rate
                     pass
                 compression_type = chunk[18:22].decode('latin-1')
                 if not compression_type:

@@ -24,6 +24,7 @@ from ..core import (
     agents,
     ai,
     catalog,
+    claude_settings,
     complete,
     frontmatter,
     gitutil,
@@ -395,7 +396,14 @@ def cmd_doctor(argv):
     if taps and tap_ok == len(taps):
         out.ok("%d tap%s cloned & cached" % (len(taps), _s(len(taps))))
     elif not taps:
-        out.info("no taps configured — add one with `boost tap owner/repo`")
+        # `boost tap --defaults` leads, and it is the same command in the same
+        # order that `boost search`'s error, `mcp.no_results` and the MCP
+        # `boost_doctor` tool all name. A user who hits two of these surfaces
+        # in one session must not see the recommendation flip and read it as
+        # two different fixes — which is exactly what happened here: search
+        # said `--defaults`, doctor said `owner/repo`.
+        out.info("no registries tapped — nothing is searchable yet; add the "
+                 "recommended ones with `boost tap --defaults`", wrap=True)
 
     lock_ok = True
     lp = paths.lockfile_path()
@@ -542,6 +550,20 @@ def cmd_doctor(argv):
                  "left alone; yours to remove or repair"
                  % (len(foreign), _s(len(foreign))))
 
+    others = claude_settings.foreign_hooks("global")
+    if others:
+        # `out.info`, not `bad`, for the same reason as the foreign symlinks
+        # above: boost did not write these and will never remove them, so
+        # counting them would leave doctor permanently red on something no
+        # boost command can clear. Naming them is still worth a line — at
+        # 130k stars gstack is now a likely second writer of this exact file,
+        # and a user debugging a hook needs to know boost is not the only one
+        # in it.
+        events = sorted({h["event"] for h in others})
+        out.info("%d hook%s in ~/.claude/settings.json not managed by boost "
+                 "(%s) — left alone; `boost hooks` only touches its own"
+                 % (len(others), _s(len(others)), ", ".join(events)), wrap=True)
+
     for dup in store.duplicate_discovery():
         # An agent that reads the canonical store natively, holding its own
         # entry for a skill that store already carries. Boost did not put it
@@ -598,10 +620,22 @@ def cmd_doctor(argv):
     else:
         out.warn("lock file integrity or log rotation needs attention")
 
-    out.verdict(issues == 0,
-                "healthy" if not issues else
-                "%d issue%s need attention — see the suggestions above"
-                % (issues, _s(issues)))
+    # A machine with no taps has nothing to disagree about, so every check
+    # above passes and the verdict read "healthy" — directly under the line
+    # saying no registries are tapped. That is the one state where a clean bill
+    # of health actively misleads: boost cannot answer anything yet, which is a
+    # setup step rather than a fault. Reported, never fatal — the exit code
+    # still turns only on real issues, so scripts and CI are unaffected. The
+    # MCP `boost_doctor` tool already refused to say "healthy" here; this is
+    # the CLI half of the same rule.
+    if issues == 0 and not taps:
+        out.verdict(True, "ready to set up — tap a registry to make boost "
+                          "searchable")
+    else:
+        out.verdict(issues == 0,
+                    "healthy" if not issues else
+                    "%d issue%s need attention — see the suggestions above"
+                    % (issues, _s(issues)))
     return 1 if issues else 0
 
 

@@ -79,11 +79,11 @@ The spec marks three things "not yet decided" and states a PROPOSAL for each.
 This module ENACTS those proposals so the behaviour is testable, and names them
 here so the operator can rule and change exactly one place:
 
-  1. IN-FLIGHT GUARD (``Resident.in_flight``). The spec's pool excludes only
+  1. IN-FLIGHT GUARD (``EvictUnit.mid_generation``). The spec's pool excludes only
      🔒static, which makes a model mid-generation a legal victim, and a long
      stream look idle if "last call" means request START. ENACTED PROPOSAL:
      last-activity = ``max(request start, last token emitted)`` (the caller
-     supplies it as ``last_call``), and ``in_flight`` removes the resident from
+     supplies it as ``last_call``), and ``mid_generation`` removes the resident from
      the pool REGARDLESS of rank. Rationale for unevictable-not-deprioritised:
      a rank penalty still evicts it when it is the only candidate, which is the
      failure it exists to prevent.
@@ -91,7 +91,7 @@ here so the operator can rule and change exactly one place:
      on a model being evicted? if so eliminate it"). A ``min_residency_s`` floor
      briefly removed freshly-loaded residents from the pool for 300s. It was a
      THIRD protection class, and a clock-driven one, which contradicts both
-     standing rulings: protection is exactly ``static`` OR ``in_flight``
+     standing rulings: protection is exactly ``static`` OR ``mid_generation``
      (2026-07-23), and "when designing anything that unloads/evicts/expires a
      model, ask what demanded the resources — if the answer is a timer, it's
      wrong by default" (minimize-loading doctrine).
@@ -107,7 +107,7 @@ here so the operator can rule and change exactly one place:
      ``alloc_modes.feasible_default_mode`` and is fixed there.
 
 ── DEGRADE-NOT-GUESS ────────────────────────────────────────────────────────
-An unmeasurable input never produces a guessed eviction. ``Resident.bytes`` of
+An unmeasurable input never produces a guessed eviction. ``EvictUnit.bytes`` of
 None (an occupant we could not size) makes the resident UNEVICTABLE-BY-PLAN: it
 stays in the pool report as blocking, but is never walked, because evicting it
 would free an unknown amount and the caller could not verify the plan. A None
@@ -169,7 +169,7 @@ def other_device(device: str) -> str:
 
 
 @dataclass(frozen=True)
-class Resident:
+class EvictUnit:
     """One occupant of one device, as BOTH sides describe it.
 
     This is the parity contract: central builds these from its worker record
@@ -191,7 +191,7 @@ class Resident:
       calls           total call count from the same ledger — key ③.
       static          🔒static residency: THE only lock. The spec's pool is
                       "residents on d, minus static".
-      in_flight       enacted proposal 1: mid-generation -> not a candidate.
+      mid_generation  enacted proposal 1: mid-generation -> not a candidate.
       resident_since  load-time epoch; the thrash floor's clock (proposal 2)
                       and the never-called idle anchor.
       why             free-text carried into the blocking report.
@@ -202,7 +202,7 @@ class Resident:
     last_call: Optional[float] = None
     calls: int = 0
     static: bool = False
-    in_flight: bool = False
+    mid_generation: bool = False
     resident_since: Optional[float] = None
     why: str = ""
 
@@ -254,7 +254,7 @@ class EvictPlan:
                 "spared": list(self.spared)}
 
 
-def sort_key(r: Resident, device: str, now: float) -> tuple:
+def sort_key(r: EvictUnit, device: str, now: float) -> tuple:
     """THE lexicographic sort key — box 2, verbatim, and the ONE definition.
 
     Every eviction site imports this rather than spelling a tuple, because
@@ -335,13 +335,13 @@ def tok_s_from_timings(payload: Any) -> Optional[float]:
         return None
 
 
-def _partition(pool: "Iterable[Resident]", *, now: float) -> "tuple[list, list]":
+def _partition(pool: "Iterable[EvictUnit]", *, now: float) -> "tuple[list, list]":
     """Split residents into (walkable, blocking-with-a-why).
 
     The spec's pool is "residents on d, minus 🔒static". Exactly two further
     exclusions survive, each named in the blocking report so a refusal explains
     itself:
-      * in_flight       — enacted proposal 1
+      * mid_generation  — enacted proposal 1
       * unmeasurable    — degrade-not-guess (never free an unknown amount)
 
     There is deliberately NO time-based exclusion (the 300s thrash floor was
@@ -355,7 +355,7 @@ def _partition(pool: "Iterable[Resident]", *, now: float) -> "tuple[list, list]"
             blocking.append({"model_key": r.model_key, "bytes": r.bytes,
                              "why": r.why or "static (locked residency)"})
             continue
-        if r.in_flight:
+        if r.mid_generation:
             # ENACTED PROPOSAL 1 (spec "Open"): unevictable regardless of rank.
             blocking.append({"model_key": r.model_key, "bytes": r.bytes,
                              "why": "in flight (mid-generation)"})
@@ -375,7 +375,7 @@ def _partition(pool: "Iterable[Resident]", *, now: float) -> "tuple[list, list]"
     return walkable, blocking
 
 
-def evict_plan(device: str, need: int, residents: "Iterable[Resident]", *,
+def evict_plan(device: str, need: int, residents: "Iterable[EvictUnit]", *,
                now: float,
                least_reaping: bool = DEFAULT_LEAST_REAPING
                ) -> EvictPlan:
@@ -493,12 +493,12 @@ def plan_admission(size: "Optional[int]", mode: Any, *,
                    vram_free: "Optional[int]", ram_free: "Optional[int]",
                    vram_total: "Optional[int]" = None,
                    ram_total: "Optional[int]" = None,
-                   residents: "Optional[Iterable[Resident]]" = None,
+                   residents: "Optional[Iterable[EvictUnit]]" = None,
                    now: float = 0.0,
                    ) -> Placement:
     """Box 1 of the spec — the SINGLE-POOL convenience form. PURE.
 
-    Device occupancy is not a property of a Resident (a model's ``pref`` says
+    Device occupancy is not a property of a EvictUnit (a model's ``pref`` says
     where it WANTS to live, not where it currently is), so the real entry point
     ``plan_admission_split`` takes the two device pools separately. This wrapper
     is for the common caller that only knows about ONE pool — the residents of
@@ -527,8 +527,8 @@ def plan_admission_split(size: "Optional[int]", mode: Any, *,
                          vram_free: "Optional[int]", ram_free: "Optional[int]",
                          vram_total: "Optional[int]" = None,
                          ram_total: "Optional[int]" = None,
-                         vram_residents: "Optional[Iterable[Resident]]" = None,
-                         ram_residents: "Optional[Iterable[Resident]]" = None,
+                         vram_residents: "Optional[Iterable[EvictUnit]]" = None,
+                         ram_residents: "Optional[Iterable[EvictUnit]]" = None,
                          now: float = 0.0,
                          ) -> Placement:
     """Box 1 with the two device pools passed explicitly. THE real entry point.

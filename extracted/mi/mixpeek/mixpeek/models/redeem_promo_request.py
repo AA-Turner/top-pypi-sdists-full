@@ -31,7 +31,7 @@ class RedeemPromoRequest(BaseModel):
     """ # noqa: E501
     code: Annotated[str, Field(min_length=1, strict=True, max_length=64)]
     plan: Optional[StrictStr] = Field(default='managed_build', description="Plan slug to start on the comped window (product_tier, e.g. managed_build). Must be self-serve and match the code's product restriction.")
-    onboarding_answers: Optional[OnboardingAnswers] = Field(default=None, description="Signup questions — persisted server-side for GTM attribution, parity with the card path (BACKE-2855: the no-CC cohort is the highest-sales-relevance cohort; client-event-only isn't joinable with the server-side funnel data). The $5/answer credit is NOT minted here — the comped window bills $0, so there is nothing to offset.")
+    onboarding_answers: Optional[OnboardingAnswers] = Field(default=None, description="Signup questions — persisted server-side for GTM attribution, parity with the card path (the no-CC cohort is the highest-sales-relevance cohort; client-event-only isn't joinable with the server-side funnel data). The $5/answer credit is NOT minted here — the comped window bills $0, so there is nothing to offset.")
     __properties: ClassVar[List[str]] = ["code", "plan", "onboarding_answers"]
 
     model_config = ConfigDict(

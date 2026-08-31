@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class QueryOutcome(BaseModel):
     """
-    Per-query outcome on an evaluation record (BACKE-3453).  Both TS eval runs failed 0-of-N with one pooled message while the per-query cause (\"Unknown input field(s) 'top_k'\") lived only in worker logs. Each attempted query records which branch it took and, for skips, the actual error — actionable from the record alone.
+    Per-query outcome on an evaluation record.  Both TS eval runs failed 0-of-N with one pooled message while the per-query cause (\"Unknown input field(s) 'top_k'\") lived only in worker logs. Each attempted query records which branch it took and, for skips, the actual error — actionable from the record alone.
     """ # noqa: E501
     query_id: StrictStr = Field(description="Ground-truth query id from the dataset")
     status: StrictStr = Field(description="'evaluated' (produced metrics) or 'skipped' (see error)")

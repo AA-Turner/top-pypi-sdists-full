@@ -1,10 +1,16 @@
 //! Extension traits for the `Uses` APIs.
+//!
+//! This is for GitHub Actions style `uses:` clauses;
+//! more general "reference to repository" handling
+//! lives in [`super::repo_ref`].
 
 use std::{str::FromStr, sync::LazyLock};
 
 use github_actions_models::common::{RepositoryUses, Uses};
 use regex::Regex;
 use serde::Deserialize;
+
+use crate::models::repo_ref::{RepoRef, Slug};
 
 /// Matches all variants of [`RepositoryUsesPattern`] except `*`.
 ///
@@ -71,9 +77,49 @@ pub(crate) enum RepositoryUsesPattern {
 }
 
 impl RepositoryUsesPattern {
-    pub(crate) fn matches(&self, uses: &RepositoryUses) -> bool {
+    pub(crate) fn matches<'doc>(&self, repo: &RepoRef<'doc>) -> bool {
+        match repo {
+            RepoRef::Uses(uses) => self.matches_uses(uses),
+            RepoRef::Url {
+                _url,
+                slug: Some(slug),
+                git_ref,
+            } => self.matches_slug(slug, git_ref),
+            // Our URL doesn't have a slug, so we can't meaningfully match it (yet).
+            _ => false,
+        }
+    }
+
+    fn matches_slug(&self, slug: &Slug<'_>, slug_git_ref: &str) -> bool {
         match self {
-            RepositoryUsesPattern::ExactWithRef {
+            Self::ExactWithRef {
+                owner,
+                repo,
+                subpath,
+                git_ref,
+            } => {
+                if subpath.is_some() {
+                    // Slugs never contain subpaths, so this will never match.
+                    false
+                } else {
+                    slug.owner().eq_ignore_ascii_case(owner)
+                        && slug.repo().eq_ignore_ascii_case(repo)
+                        && slug_git_ref == git_ref
+                }
+            }
+            Self::ExactPath { .. } => false,
+            // `owner/repo` and `owner/repo/*` behave the same for slugs.
+            Self::ExactRepo { owner, repo } | Self::InRepo { owner, repo } => {
+                slug.owner().eq_ignore_ascii_case(owner) && slug.repo().eq_ignore_ascii_case(repo)
+            }
+            Self::InOwner(owner) => slug.owner().eq_ignore_ascii_case(owner),
+            Self::Any => true,
+        }
+    }
+
+    fn matches_uses(&self, uses: &RepositoryUses) -> bool {
+        match self {
+            Self::ExactWithRef {
                 owner,
                 repo,
                 subpath,
@@ -84,7 +130,7 @@ impl RepositoryUsesPattern {
                     && uses.subpath() == subpath.as_deref()
                     && uses.git_ref() == git_ref
             }
-            RepositoryUsesPattern::ExactPath {
+            Self::ExactPath {
                 owner,
                 repo,
                 subpath,
@@ -99,16 +145,16 @@ impl RepositoryUsesPattern {
                     && uses.repo().eq_ignore_ascii_case(repo)
                     && uses.subpath().is_some_and(|s| s == subpath)
             }
-            RepositoryUsesPattern::ExactRepo { owner, repo } => {
+            Self::ExactRepo { owner, repo } => {
                 uses.owner().eq_ignore_ascii_case(owner)
                     && uses.repo().eq_ignore_ascii_case(repo)
                     && uses.subpath().is_none()
             }
-            RepositoryUsesPattern::InRepo { owner, repo } => {
+            Self::InRepo { owner, repo } => {
                 uses.owner().eq_ignore_ascii_case(owner) && uses.repo().eq_ignore_ascii_case(repo)
             }
-            RepositoryUsesPattern::InOwner(owner) => uses.owner().eq_ignore_ascii_case(owner),
-            RepositoryUsesPattern::Any => true,
+            Self::InOwner(owner) => uses.owner().eq_ignore_ascii_case(owner),
+            Self::Any => true,
         }
     }
 }
@@ -118,7 +164,7 @@ impl FromStr for RepositoryUsesPattern {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "*" {
-            return Ok(RepositoryUsesPattern::Any);
+            return Ok(Self::Any);
         }
 
         let caps = REPOSITORY_USES_PATTERN
@@ -131,23 +177,23 @@ impl FromStr for RepositoryUsesPattern {
         let git_ref = caps.get(4).map(|m| m.as_str());
 
         match (owner, repo, subpath, git_ref) {
-            (owner, "*", None, None) => Ok(RepositoryUsesPattern::InOwner(owner.into())),
-            (owner, repo, None, None) => Ok(RepositoryUsesPattern::ExactRepo {
+            (owner, "*", None, None) => Ok(Self::InOwner(owner.into())),
+            (owner, repo, None, None) => Ok(Self::ExactRepo {
                 owner: owner.into(),
                 repo: repo.into(),
             }),
             (_, "*", Some(_), _) => Err(anyhow::anyhow!("invalid pattern: {s}")),
-            (owner, repo, Some("*"), None) => Ok(RepositoryUsesPattern::InRepo {
+            (owner, repo, Some("*"), None) => Ok(Self::InRepo {
                 owner: owner.into(),
                 repo: repo.into(),
             }),
-            (owner, repo, Some(subpath), None) => Ok(RepositoryUsesPattern::ExactPath {
+            (owner, repo, Some(subpath), None) => Ok(Self::ExactPath {
                 owner: owner.into(),
                 repo: repo.into(),
                 subpath: subpath.into(),
             }),
             (_, _, Some("*"), Some(_)) => Err(anyhow::anyhow!("invalid pattern: {s}")),
-            (owner, repo, subpath, Some(git_ref)) => Ok(RepositoryUsesPattern::ExactWithRef {
+            (owner, repo, subpath, Some(git_ref)) => Ok(Self::ExactWithRef {
                 owner: owner.into(),
                 repo: repo.into(),
                 subpath: subpath.map(|s| s.into()),
@@ -160,16 +206,16 @@ impl FromStr for RepositoryUsesPattern {
 impl std::fmt::Display for RepositoryUsesPattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RepositoryUsesPattern::Any => write!(f, "*"),
-            RepositoryUsesPattern::InOwner(owner) => write!(f, "{owner}/*"),
-            RepositoryUsesPattern::InRepo { owner, repo } => write!(f, "{owner}/{repo}/*"),
-            RepositoryUsesPattern::ExactRepo { owner, repo } => write!(f, "{owner}/{repo}"),
-            RepositoryUsesPattern::ExactPath {
+            Self::Any => write!(f, "*"),
+            Self::InOwner(owner) => write!(f, "{owner}/*"),
+            Self::InRepo { owner, repo } => write!(f, "{owner}/{repo}/*"),
+            Self::ExactRepo { owner, repo } => write!(f, "{owner}/{repo}"),
+            Self::ExactPath {
                 owner,
                 repo,
                 subpath,
             } => write!(f, "{owner}/{repo}/{subpath}"),
-            RepositoryUsesPattern::ExactWithRef {
+            Self::ExactWithRef {
                 owner,
                 repo,
                 subpath,
@@ -188,59 +234,42 @@ impl<'de> Deserialize<'de> for RepositoryUsesPattern {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        RepositoryUsesPattern::from_str(&s).map_err(serde::de::Error::custom)
+        Self::from_str(&s).map_err(serde::de::Error::custom)
     }
 }
 
 /// Useful APIs for interacting with `uses: owner/repo` clauses.
+///
+/// Some of these APIs are projections of [`RepoRef`]'s APIs.
 pub(crate) trait RepositoryUsesExt {
-    /// Returns whether this `uses:` clause matches the given pattern.
-    ///
-    /// This uses [`RepositoryUsesPattern`] under the hood, and follows the
-    /// same matching rules.
+    /// See [`RepoRef::matches`].
     fn matches(&self, pattern: &str) -> bool;
 
-    /// Returns whether this `uses:` clause has a `git` ref and, if so,
-    /// whether that ref is a commit ref.
-    ///
-    /// For example, `foo/bar@baz` returns false while `foo/bar@1234...`
-    /// returns true.
+    /// See [`RepoRef::ref_is_commit`].
     fn ref_is_commit(&self) -> bool;
 
-    /// Returns the `git` ref for this `uses:`, if present.
+    /// See [`RepoRef::commit_ref`].
     fn commit_ref(&self) -> Option<&str>;
 
-    /// Returns the *symbolic* `git` ref for this `uses`, if present.
-    ///
-    /// Commit refs (i.e. SHA refs) are not returned.
+    /// See [`RepoRef::symbolic_ref`].
     fn symbolic_ref(&self) -> Option<&str>;
 }
 
 impl RepositoryUsesExt for RepositoryUses {
     fn matches(&self, template: &str) -> bool {
-        let Ok(pat) = template.parse::<RepositoryUsesPattern>() else {
-            return false;
-        };
-
-        pat.matches(self)
+        RepoRef::from(self).matches(template)
     }
 
     fn ref_is_commit(&self) -> bool {
-        self.git_ref().len() == 40 && self.git_ref().chars().all(|c| c.is_ascii_hexdigit())
+        RepoRef::from(self).ref_is_commit()
     }
 
     fn commit_ref(&self) -> Option<&str> {
-        match &self.git_ref() {
-            git_ref if self.ref_is_commit() => Some(git_ref),
-            _ => None,
-        }
+        RepoRef::from(self).commit_ref()
     }
 
     fn symbolic_ref(&self) -> Option<&str> {
-        match &self.git_ref() {
-            git_ref if !self.ref_is_commit() => Some(git_ref),
-            _ => None,
-        }
+        RepoRef::from(self).symbolic_ref()
     }
 }
 
@@ -254,11 +283,11 @@ impl UsesExt for Uses {
     /// Whether the `uses:` is unpinned.
     fn unpinned(&self) -> bool {
         match self {
-            Uses::Docker(docker) => docker.hash().is_none() && docker.tag().is_none(),
-            Uses::Repository(_) => false,
+            Self::Docker(docker) => docker.hash().is_none() && docker.tag().is_none(),
+            Self::Repository(_) => false,
             // Local `uses:` are always unpinned; any `@ref` component
             // is actually part of the path.
-            Uses::Local(_) => true,
+            Self::Local(_) => true,
         }
     }
 
@@ -269,19 +298,22 @@ impl UsesExt for Uses {
             // since we don't really analyze local action uses at all,
             // and the "hashedness" of a local action is mostly moot anyways
             // (since it's fully contained within the calling repo),
-            Uses::Local(_) => false,
-            Uses::Repository(repo) => !repo.ref_is_commit(),
-            Uses::Docker(docker) => docker.hash().is_none(),
+            Self::Local(_) => false,
+            Self::Repository(repo) => !RepoRef::from(repo).ref_is_commit(),
+            Self::Docker(docker) => docker.hash().is_none(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::str::FromStr as _;
 
     use anyhow::anyhow;
     use github_actions_models::common::Uses;
+    use url::Url;
+
+    use crate::models::repo_ref::RepoRef;
 
     use super::RepositoryUsesPattern;
 
@@ -432,7 +464,41 @@ mod tests {
     }
 
     #[test]
-    fn test_repositoryusespattern_matches() -> anyhow::Result<()> {
+    fn test_repositoryusespattern_matches_repo_ref() -> anyhow::Result<()> {
+        for (url, git_ref, pattern, matches) in [
+            // OK: case insensitive
+            (
+                Url::parse("https://github.com/actions/checkout")?,
+                "v3",
+                "Actions/Checkout@v3",
+                true,
+            ),
+            // NOT OK: domain is not slug-able
+            (
+                Url::parse("https://notgithub.com/actions/checkout")?,
+                "v3",
+                "Actions/Checkout@v3",
+                false,
+            ),
+            // NOT OK: subpath patterns never match
+            (
+                Url::parse("https://github.com/actions/checkout")?,
+                "v3",
+                "Actions/Checkout/foo@v3",
+                false,
+            ),
+        ] {
+            let repo_ref = RepoRef::from_url(&url, git_ref);
+            let pattern = RepositoryUsesPattern::from_str(pattern)?;
+
+            assert_eq!(pattern.matches(&repo_ref), matches);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_repositoryusespattern_matches_uses() -> anyhow::Result<()> {
         for (uses, pattern, matches) in [
             // OK: case-insensitive, except subpath and tag
             ("actions/checkout@v3", "Actions/Checkout@v3", true),
@@ -492,7 +558,7 @@ mod tests {
             let pattern = RepositoryUsesPattern::from_str(pattern)?;
 
             assert_eq!(
-                pattern.matches(&uses),
+                pattern.matches_uses(&uses),
                 matches,
                 "pattern: {pattern:?}, uses: {uses:?}, matches: {matches}"
             );

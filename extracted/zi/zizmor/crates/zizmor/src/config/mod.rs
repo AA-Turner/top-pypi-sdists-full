@@ -28,7 +28,7 @@ use crate::{
     finding::{Finding, Severity},
     github::{Client, ClientError},
     models::uses::RepositoryUsesPattern,
-    registry::input::RepoSlug,
+    registry::input::InputSlug,
 };
 
 const CONFIG_CANDIDATES: &[&str] = &[
@@ -133,7 +133,7 @@ impl<'de> Deserialize<'de> for WorkflowRule {
         D: serde::Deserializer<'de>,
     {
         let raw = String::deserialize(deserializer)?;
-        WorkflowRule::from_str(&raw).map_err(de::Error::custom)
+        Self::from_str(&raw).map_err(de::Error::custom)
     }
 }
 
@@ -377,7 +377,7 @@ impl UnpinnedUsesPolicies {
                 // Policies are ordered by specificity, so we can
                 // iterate and return eagerly.
                 for (uses_pattern, policy) in policies {
-                    if uses_pattern.matches(uses) {
+                    if uses_pattern.matches(&uses.into()) {
                         return (Some(uses_pattern), *policy);
                     }
                 }
@@ -703,7 +703,7 @@ impl Config {
     /// in the repository's root directory.
     pub(crate) async fn discover_remote(
         client: &Client,
-        slug: &RepoSlug,
+        slug: &InputSlug,
     ) -> Result<Option<Self>, ConfigError> {
         for candidate in CONFIG_CANDIDATES {
             match client.fetch_single_file(slug, candidate).await {
@@ -834,7 +834,7 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::str::FromStr as _;
 
     use super::WorkflowRule;
 

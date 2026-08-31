@@ -70,7 +70,7 @@ class OrganizationAuditApi:
     ) -> str:
         """Export Audit Logs
 
-        Export a time-bounded, filterable audit evidence bundle (ADM-24).  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
+        Export a time-bounded, filterable audit evidence bundle.  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
 
         :param resource_type: Filter by resource type
         :type resource_type: ResourceTypeInput
@@ -167,7 +167,7 @@ class OrganizationAuditApi:
     ) -> ApiResponse[str]:
         """Export Audit Logs
 
-        Export a time-bounded, filterable audit evidence bundle (ADM-24).  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
+        Export a time-bounded, filterable audit evidence bundle.  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
 
         :param resource_type: Filter by resource type
         :type resource_type: ResourceTypeInput
@@ -264,7 +264,7 @@ class OrganizationAuditApi:
     ) -> RESTResponseType:
         """Export Audit Logs
 
-        Export a time-bounded, filterable audit evidence bundle (ADM-24).  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
+        Export a time-bounded, filterable audit evidence bundle.  Streams newline-delimited JSON (NDJSON): one audit event per line with resolved actor identity (name/email/key name), newest first. If the cap truncates the export, the FINAL line is a marker object `{\"__truncated__\": true, \"exported\": N, \"total\": T}` — a cut bundle always says so rather than presenting as complete. Requires ADMIN.
 
         :param resource_type: Filter by resource type
         :type resource_type: ResourceTypeInput

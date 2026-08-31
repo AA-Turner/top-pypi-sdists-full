@@ -1,9 +1,11 @@
 """Asynchronous Python client for Elgato Lights."""
+
 from __future__ import annotations
 
 import asyncio
 import socket
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -19,15 +21,67 @@ from aiohttp.client import ClientError, ClientSession
 from aiohttp.hdrs import METH_GET, METH_POST, METH_PUT
 from yarl import URL
 
-from .exceptions import ElgatoConnectionError, ElgatoError, ElgatoNoBatteryError
-from .models import BatteryInfo, BatterySettings, Info, PowerOnBehavior, Settings, State
+from .exceptions import (
+    ElgatoConnectionError,
+    ElgatoError,
+    ElgatoFirmwareError,
+    ElgatoNoBatteryError,
+)
+from .models import (
+    BatteryInfo,
+    BatterySettings,
+    Info,
+    PowerOnBehavior,
+    PowerSource,
+    Settings,
+    State,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
 
+    from .firmware import FirmwareImage
+
 _ElgatoT = TypeVar("_ElgatoT", bound="Elgato")
 _R = TypeVar("_R")
 _P = ParamSpec("_P")
+
+# The chunk size Elgato Control Center uses over HTTP.
+FIRMWARE_CHUNK_SIZE = 4096
+FIRMWARE_UPLOAD_RETRIES = 3
+FIRMWARE_RETRY_DELAY = 0.2
+
+# Preparing erases a flash slot and rebooting takes the device offline for a
+# while; both need considerably more patience than a normal call.
+FIRMWARE_SLOW_TIMEOUT = 60
+
+# Not a threshold Elgato publishes, but an interrupted update on a light that
+# runs out of power halfway is a bad trade for a firmware nobody asked for.
+FIRMWARE_MINIMUM_BATTERY_LEVEL = 20
+
+
+def _firmware_error(status: int, response: str) -> str:
+    """Turn a device error response into something worth reading.
+
+    Args:
+    ----
+        status: The HTTP status the device answered with.
+        response: The raw response body.
+
+    Returns:
+    -------
+        The messages the device gave, or the status code when it gave none.
+
+    """
+    try:
+        # pylint: disable-next=no-member
+        errors = orjson.loads(response)["errors"]
+        messages = "; ".join(str(error["message"]) for error in errors)
+    # pylint: disable-next=no-member
+    except (orjson.JSONDecodeError, KeyError, TypeError):
+        messages = ""
+
+    return messages or f"Elgato Light device returned HTTP {status}"
 
 
 def requires_battery(
@@ -67,7 +121,7 @@ class Elgato:
         method: str = METH_GET,
         data: dict[str, Any] | None = None,
     ) -> str:
-        """Handle a request to a Elgato Light device.
+        """Handle a request to an Elgato Light device.
 
         A generic method for sending/handling HTTP requests done against
         the Elgato Light API.
@@ -88,6 +142,50 @@ class Elgato:
                 the Elgato Light.
             ElgatoError: Received an unexpected response from the Elgato Light
                 API.
+
+        """
+        status, response = await self._raw_request(uri, method=method, data=data)
+
+        if status >= HTTPStatus.BAD_REQUEST:
+            msg = "Error occurred while communicating with Elgato Light device"
+            raise ElgatoConnectionError(msg)
+
+        return response
+
+    # pylint: disable-next=too-many-arguments
+    async def _raw_request(
+        self,
+        uri: str,
+        *,
+        method: str = METH_GET,
+        data: dict[str, Any] | None = None,
+        content: bytes | None = None,
+        request_timeout: int | None = None,
+    ) -> tuple[int, str]:
+        """Handle a request to an Elgato Light device, status and all.
+
+        The firmware update API says what it means with its status codes: it
+        acknowledges a chunk with 202 and reports trouble in the body of a
+        400. Both are things a caller may want to act on rather than treat as
+        a failed connection.
+
+        Args:
+        ----
+            uri: Request URI, without '/elgato/', for example, 'info'
+            method: HTTP Method to use.
+            data: Dictionary of data to send as JSON.
+            content: Raw bytes to send instead of JSON.
+            request_timeout: Seconds to wait, overriding the configured one.
+
+        Returns:
+        -------
+            The HTTP status and the response body.
+
+        Raises:
+        ------
+            ElgatoConnectionError: An error occurred while communicating with
+                the Elgato Light.
+
         """
         url = URL.build(
             scheme="http",
@@ -100,21 +198,26 @@ class Elgato:
             "User-Agent": "PythonElgato",
             "Accept": "application/json, text/plain, */*",
         }
+        if content is not None:
+            headers["Content-Type"] = "application/octet-stream"
 
         if self.session is None:
             self.session = ClientSession()
             self._close_session = True
 
         try:
-            async with asyncio.timeout(self.request_timeout):
-                response = await self.session.request(
+            async with (
+                asyncio.timeout(request_timeout or self.request_timeout),
+                self.session.request(
                     method,
                     url,
-                    json=data,
+                    data=content,
+                    json=data if content is None else None,
                     headers=headers,
-                )
-                response.raise_for_status()
-        except asyncio.TimeoutError as exception:
+                ) as response,
+            ):
+                return response.status, await response.text()
+        except TimeoutError as exception:
             msg = "Timeout occurred while connecting to Elgato Light device"
             raise ElgatoConnectionError(msg) from exception
         except (
@@ -124,14 +227,13 @@ class Elgato:
             msg = "Error occurred while communicating with Elgato Light device"
             raise ElgatoConnectionError(msg) from exception
 
-        return await response.text()
-
     async def has_battery(self) -> bool:
         """Check if the Elgato Light device has a battery.
 
         Returns
         -------
             A boolean indicating if the Elgato Light device has a battery.
+
         """
         if self._has_battery is None:
             settings = await self.settings()
@@ -146,6 +248,7 @@ class Elgato:
         -------
             A BatteryInfo object, with information on the current battery state
             of the Elgato light.
+
         """
         data = await self._request("battery-info")
         return BatteryInfo.from_json(data)
@@ -154,7 +257,7 @@ class Elgato:
     async def battery_bypass(self, *, on: bool) -> None:
         """Change the bypass mode of the Elgato Light device.
 
-        In the app this is also called "Studio mode". When the bypass mode is
+        In the app this is also called "Studio mode". When the bypass mode is on,
         the battery isn't used and would only work when the device is plugged
         into mains.
 
@@ -165,9 +268,10 @@ class Elgato:
         Args:
         ----
             on: A boolean, true to turn on bypass, false otherwise.
+
         """
         await self._request(
-            "/elgato/lights/settings",
+            "lights/settings",
             method=METH_PUT,
             data={"battery": {"bypass": int(on)}},
         )
@@ -180,6 +284,7 @@ class Elgato:
         Returns
         -------
             A Battery settings object, with information about the Elgato Light device.
+
         """
         settings = await self.settings()
         if settings.battery is None:
@@ -188,7 +293,7 @@ class Elgato:
 
     @requires_battery
     # pylint: disable-next=too-many-arguments
-    async def energy_saving(  # noqa: PLR0913
+    async def energy_saving(
         self,
         *,
         adjust_brightness: bool | None = None,
@@ -211,6 +316,7 @@ class Elgato:
             minimum_battery_level: The minimum battery level threshold to
                 trigger energy savings.
             on: A boolean, true to turn on energy saving, false otherwise.
+
         """
         current_settings = await self.battery_settings()
         data = current_settings.energy_saving.to_dict()
@@ -227,7 +333,7 @@ class Elgato:
             data["adjustBrightness"]["brightness"] = brightness
 
         await self._request(
-            "/elgato/lights/settings",
+            "lights/settings",
             method=METH_PUT,
             data={"battery": {"energySaving": data}},
         )
@@ -238,6 +344,7 @@ class Elgato:
         Returns
         -------
             A Info object, with information about the Elgato Light device.
+
         """
         data = await self._request("accessory-info")
         return Info.from_json(data)
@@ -248,6 +355,7 @@ class Elgato:
         Returns
         -------
             A Settings object, with information about the Elgato Light device.
+
         """
         data = await self._request("lights/settings")
         return Settings.from_json(data)
@@ -258,6 +366,7 @@ class Elgato:
         Returns
         -------
             A State object, with the current Elgato Light state.
+
         """
         data = await self._request("lights")
         # pylint: disable-next=no-member
@@ -278,15 +387,16 @@ class Elgato:
         Args:
         ----
             name: The name to give the Elgato Light device.
+
         """
         await self._request(
-            "/elgato/accessory-info",
+            "accessory-info",
             method=METH_PUT,
             data={"displayName": name},
         )
 
     # pylint: disable-next=too-many-arguments
-    async def light(  # noqa: PLR0913
+    async def light(
         self,
         *,
         on: bool | None = None,
@@ -300,7 +410,7 @@ class Elgato:
         Args:
         ----
             on: A boolean, true to turn the light on, false otherwise.
-            brightness: The brightness of the light, between 0 and 255.
+            brightness: The brightness of the light, between 0 and 100.
             hue: The hue range as a float from 0 to 360 degrees.
             saturation: The color saturation as a float from 0 to 100.
             temperature: The color temperature of the light, in mired.
@@ -308,6 +418,7 @@ class Elgato:
         Raises:
         ------
             ElgatoError: The provided values are invalid.
+
         """
         if temperature and (hue or saturation):
             msg = "Cannot set temperature together with hue or saturation"
@@ -374,29 +485,240 @@ class Elgato:
         Args:
         ----
             behavior: The power on behavior to set.
-            brightness: The power on brightness of the light, between 0 and 255.
+            brightness: The power on brightness of the light, between 0 and 100.
             hue: The power on hue range as a float from 0 to 360 degrees.
             temperature: The power on color temperature of the light, in mired.
-        """
-        current_settings = await self.settings()
-        if behavior is not None:
-            current_settings.power_on_behavior = behavior
-        if brightness is not None:
-            current_settings.power_on_brightness = brightness
-        if hue is not None:
-            current_settings.power_on_hue = hue
-        if temperature is not None:
-            current_settings.power_on_temperature = temperature
 
-        # Unset battery if present, needs special handling
-        if current_settings.battery:
-            current_settings.battery = None
+        """
+        settings = await self.settings()
+        if behavior is not None:
+            settings.power_on_behavior = behavior
+        if brightness is not None:
+            settings.power_on_brightness = brightness
+        if hue is not None:
+            settings.power_on_hue = hue
+        if temperature is not None:
+            settings.power_on_temperature = temperature
+
+        await self._write_settings(settings)
+
+    async def transition_durations(
+        self,
+        *,
+        color_change: int | None = None,
+        switch_off: int | None = None,
+        switch_on: int | None = None,
+    ) -> None:
+        """Change how long the Elgato Light device takes to change state.
+
+        A negative duration is refused here, because the device will not
+        refuse it: it answers 200 and quietly stores a zero, so nothing
+        downstream would ever report it.
+
+        Args:
+        ----
+            color_change: Fade time of brightness and color changes, in ms.
+            switch_off: Fade out time when the light is turned off, in ms.
+            switch_on: Fade in time when the light is turned on, in ms.
+
+        Raises:
+        ------
+            ElgatoError: One of the provided durations is negative.
+
+        """
+        durations = {
+            "color_change": color_change,
+            "switch_off": switch_off,
+            "switch_on": switch_on,
+        }
+        for name, duration in durations.items():
+            if duration is not None and duration < 0:
+                msg = f"Transition duration {name} cannot be negative"
+                raise ElgatoError(msg)
+
+        settings = await self.settings()
+        if color_change is not None:
+            settings.color_change_duration = color_change
+        if switch_off is not None:
+            settings.switch_off_duration = switch_off
+        if switch_on is not None:
+            settings.switch_on_duration = switch_on
+
+        await self._write_settings(settings)
+
+    async def _write_settings(self, settings: Settings) -> None:
+        """Write settings back to the Elgato Light device.
+
+        Args:
+        ----
+            settings: The settings to store on the device.
+
+        """
+        # Battery settings have their own shape on the way in, and sending
+        # them back here makes the device refuse the lot.
+        settings.battery = None
 
         await self._request(
-            "/elgato/lights/settings",
+            "lights/settings",
             method=METH_PUT,
-            data=current_settings.to_dict(),
+            data=settings.to_dict(),
         )
+
+    async def update_firmware(
+        self,
+        image: FirmwareImage,
+        *,
+        on_progress: Callable[[int, int], None] | None = None,
+    ) -> None:
+        """Install a firmware image on the Elgato Light device.
+
+        The device keeps two firmware slots and runs the old one until the
+        very last step, so an upload that fails partway leaves a working
+        light. That last step reboots the device, which takes about a minute.
+        This method returns as soon as the device accepts the reboot, it does
+        not wait for the device to come back.
+
+        Args:
+        ----
+            image: The firmware image to install.
+            on_progress: Called with the bytes sent so far and the total,
+                after every chunk the device accepts.
+
+        Raises:
+        ------
+            ElgatoFirmwareError: The image is not for this device, the battery
+                is too low, or the device refused the update.
+
+        """
+        info = await self.info()
+        if info.hardware_board_type != image.board_type:
+            msg = (
+                f"Firmware is for the {image.board_name}, "
+                f"but this device is board type {info.hardware_board_type}"
+            )
+            raise ElgatoFirmwareError(msg)
+
+        await self._firmware_battery_check()
+        await self._firmware_prepare(len(image.data))
+        await self._firmware_upload(image.data, on_progress)
+        await self._firmware_execute()
+
+    async def _firmware_battery_check(self) -> None:
+        """Keep a light that is about to die out of a firmware update."""
+        if not await self.has_battery():
+            return
+
+        battery = await self.battery()
+        if (
+            battery.power_source is PowerSource.BATTERY
+            and battery.level < FIRMWARE_MINIMUM_BATTERY_LEVEL
+        ):
+            msg = (
+                f"Battery is at {battery.level:.0f}%, connect the device to"
+                " power before updating its firmware"
+            )
+            raise ElgatoFirmwareError(msg)
+
+    async def _firmware_prepare(self, size: int) -> None:
+        """Ask the Elgato Light device to make room for a firmware image.
+
+        The device erases its spare flash slot here, and answers nothing else
+        while it does. Nothing may talk to the device until this returns.
+
+        Args:
+        ----
+            size: The size of the complete firmware image, in bytes.
+
+        """
+        status, response = await self._raw_request(
+            "firmware-update/prepare",
+            method=METH_PUT,
+            data={"size": size},
+            request_timeout=FIRMWARE_SLOW_TIMEOUT,
+        )
+
+        if status != HTTPStatus.OK:
+            msg = f"Device refused the firmware: {_firmware_error(status, response)}"
+            raise ElgatoFirmwareError(msg)
+
+    async def _firmware_upload(
+        self,
+        data: bytes,
+        on_progress: Callable[[int, int], None] | None,
+    ) -> None:
+        """Send a firmware image to the Elgato Light device, chunk by chunk.
+
+        Args:
+        ----
+            data: The complete firmware image, header included.
+            on_progress: Called with the bytes sent so far and the total.
+
+        """
+        total = len(data)
+        offset = 0
+
+        while offset < total:
+            chunk = data[offset : offset + FIRMWARE_CHUNK_SIZE]
+            await self._firmware_chunk(chunk, offset)
+            offset += len(chunk)
+
+            if on_progress is not None:
+                on_progress(offset, total)
+
+    async def _firmware_chunk(self, chunk: bytes, offset: int) -> None:
+        """Send a single chunk of firmware, retrying the ones that stumble.
+
+        The device answers 202 for as long as it wants more, and 200 once the
+        last chunk passed verification. It asks for a retry with 400 or 408,
+        but it also uses those to reject an image outright. Retrying costs
+        little, and a rejected image fails on the last attempt all the same.
+
+        Args:
+        ----
+            chunk: The bytes to send.
+            offset: Where these bytes belong in the image.
+
+        """
+        attempt = 0
+        while True:
+            status, response = await self._raw_request(
+                f"firmware-update/data?offset={offset}",
+                method=METH_PUT,
+                content=chunk,
+                request_timeout=FIRMWARE_SLOW_TIMEOUT,
+            )
+
+            if status in (HTTPStatus.OK, HTTPStatus.ACCEPTED):
+                return
+
+            attempt += 1
+            retryable = status in (
+                HTTPStatus.BAD_REQUEST,
+                HTTPStatus.REQUEST_TIMEOUT,
+            )
+            if not retryable or attempt == FIRMWARE_UPLOAD_RETRIES:
+                msg = (
+                    f"Device rejected the firmware at offset {offset}: "
+                    f"{_firmware_error(status, response)}"
+                )
+                raise ElgatoFirmwareError(msg)
+
+            await asyncio.sleep(FIRMWARE_RETRY_DELAY)
+
+    async def _firmware_execute(self) -> None:
+        """Tell the Elgato Light device to boot the firmware it just took."""
+        status, response = await self._raw_request(
+            "firmware-update/execute",
+            method=METH_POST,
+            request_timeout=FIRMWARE_SLOW_TIMEOUT,
+        )
+
+        if status != HTTPStatus.OK:
+            msg = (
+                "Device refused to install the firmware: "
+                f"{_firmware_error(status, response)}"
+            )
+            raise ElgatoFirmwareError(msg)
 
     async def close(self) -> None:
         """Close open client session."""
@@ -409,6 +731,7 @@ class Elgato:
         Returns
         -------
             The Elgato object.
+
         """
         return self
 
@@ -418,5 +741,6 @@ class Elgato:
         Args:
         ----
             _exc_info: Exec type.
+
         """
         await self.close()

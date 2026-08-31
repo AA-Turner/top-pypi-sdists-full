@@ -1515,7 +1515,7 @@ class PublishedRetrieversApi:
     ) -> Dict[str, object]:
         """Reconcile Publish State
 
-        Repair published_retrievers <-> marketplace_listings divergence (BACKE-743).  A retriever's public surfaces can drift apart — e.g. a marketplace listing exists but its published_retrievers record is missing, so /v1/public/retrievers/{name} 404s (half-published). This detects the state and (unless ``dry_run``) repairs it idempotently: - missing_published -> create the published record from the listing (reused id) - missing_listing   -> create the listing from the published record - consistent        -> ensure cross-link - not_published     -> no-op
+        Repair published_retrievers <-> marketplace_listings divergence.  A retriever's public surfaces can drift apart — e.g. a marketplace listing exists but its published_retrievers record is missing, so /v1/public/retrievers/{name} 404s (half-published). This detects the state and (unless ``dry_run``) repairs it idempotently: - missing_published -> create the published record from the listing (reused id) - missing_listing   -> create the listing from the published record - consistent        -> ensure cross-link - not_published     -> no-op
 
         :param retriever_id: ID of the retriever to reconcile (required)
         :type retriever_id: str
@@ -1592,7 +1592,7 @@ class PublishedRetrieversApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Reconcile Publish State
 
-        Repair published_retrievers <-> marketplace_listings divergence (BACKE-743).  A retriever's public surfaces can drift apart — e.g. a marketplace listing exists but its published_retrievers record is missing, so /v1/public/retrievers/{name} 404s (half-published). This detects the state and (unless ``dry_run``) repairs it idempotently: - missing_published -> create the published record from the listing (reused id) - missing_listing   -> create the listing from the published record - consistent        -> ensure cross-link - not_published     -> no-op
+        Repair published_retrievers <-> marketplace_listings divergence.  A retriever's public surfaces can drift apart — e.g. a marketplace listing exists but its published_retrievers record is missing, so /v1/public/retrievers/{name} 404s (half-published). This detects the state and (unless ``dry_run``) repairs it idempotently: - missing_published -> create the published record from the listing (reused id) - missing_listing   -> create the listing from the published record - consistent        -> ensure cross-link - not_published     -> no-op
 
         :param retriever_id: ID of the retriever to reconcile (required)
         :type retriever_id: str
@@ -1669,7 +1669,7 @@ class PublishedRetrieversApi:
     ) -> RESTResponseType:
         """Reconcile Publish State
 
-        Repair published_retrievers <-> marketplace_listings divergence (BACKE-743).  A retriever's public surfaces can drift apart — e.g. a marketplace listing exists but its published_retrievers record is missing, so /v1/public/retrievers/{name} 404s (half-published). This detects the state and (unless ``dry_run``) repairs it idempotently: - missing_published -> create the published record from the listing (reused id) - missing_listing   -> create the listing from the published record - consistent        -> ensure cross-link - not_published     -> no-op
+        Repair published_retrievers <-> marketplace_listings divergence.  A retriever's public surfaces can drift apart — e.g. a marketplace listing exists but its published_retrievers record is missing, so /v1/public/retrievers/{name} 404s (half-published). This detects the state and (unless ``dry_run``) repairs it idempotently: - missing_published -> create the published record from the listing (reused id) - missing_listing   -> create the listing from the published record - consistent        -> ensure cross-link - not_published     -> no-op
 
         :param retriever_id: ID of the retriever to reconcile (required)
         :type retriever_id: str

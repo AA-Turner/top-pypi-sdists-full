@@ -15859,9 +15859,15 @@ backtrack:
             if (step > 0) {
                 if (limit < state->slice_start)
                     limit = state->slice_start;
+
+                if (pos < limit)
+                    limit = pos;
             } else {
                 if (limit > state->slice_end)
                     limit = state->slice_end;
+
+                if (pos > limit)
+                    limit = pos;
             }
 
             if (pos == limit) {
@@ -17819,6 +17825,9 @@ Py_LOCAL_INLINE(int) do_best_fuzzy_match(RE_State* state, BOOL search) {
                     state->slice_end += (Py_ssize_t)fewest_errors;
                 else
                     state->slice_end = slice_end;
+
+                /* We've narrowed the slice. The required string position might now be outside it. */
+                state->req_pos = -1;
 
                 state->max_errors = fewest_errors;
                 state->text_pos = entry->match_pos;
@@ -24721,6 +24730,7 @@ Py_LOCAL_INLINE(int) build_GROUP(RE_CompileArgs* args) {
      * group.
      */
     subargs = *args;
+    subargs.forward = forward;
     status = build_sequence(&subargs);
     if (status != RE_ERROR_SUCCESS)
         return status;

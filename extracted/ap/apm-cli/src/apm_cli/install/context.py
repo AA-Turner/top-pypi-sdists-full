@@ -68,6 +68,7 @@ class InstallContext:
     target_override_source: str | None = None
     allow_insecure: bool = False
     allow_insecure_hosts: tuple[str, ...] = ()
+    trust_bin: bool | None = None
     transaction: Any = None  # InstallTransaction
 
     dry_run: bool = False
@@ -183,6 +184,14 @@ class InstallContext:
     exec_trust_ctx: ExecTrustContext | None = None  # lazily built in template
     exec_allow_map: dict[str, dict[str, bool]] | None = None  # None means gate disabled
     package_exec_status: dict[str, str] = field(default_factory=dict)  # dep_key -> exec_status
+
+    # ------------------------------------------------------------------
+    # copilot_plugins (#2703)
+    # ------------------------------------------------------------------
+    # Native GitHub Copilot Agent Plugin registration capability, published
+    # once per install so the deployment boundary and the registrar agree.
+    copilot_registration: Any = None  # Optional[NativeRegistrationCapability]
+    _copilot_registration_token: Any = field(default=None, repr=False, compare=False)
 
     # ------------------------------------------------------------------
     # policy_gate

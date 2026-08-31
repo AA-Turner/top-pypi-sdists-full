@@ -3,14 +3,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Checks if a JUnit results file exists and whether there was failing tests."""
 
+from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path
-from typing import Tuple
 from xml.etree import ElementTree
 
 
-def get_results(results_xml_file: Path) -> Tuple[int, int]:
+def get_results(results_xml_file: Path) -> tuple[int, int]:
     """Return number of tests and fails in *results_xml_file*.
 
     Returns:
@@ -27,15 +28,13 @@ def get_results(results_xml_file: Path) -> Tuple[int, int]:
             f"ERROR: Simulation terminated abnormally. Results file {results_xml_file} not found."
         )
 
-    num_tests = 0
-    num_failed = 0
+    num_tests: int = 0
+    num_failed: int = 0
 
-    tree = ElementTree.parse(results_xml_file)
-    for ts in tree.iter("testsuite"):
-        for tc in ts.iter("testcase"):
-            num_tests += 1
-            for _ in tc.iter("failure"):
-                num_failed += 1
+    for testsuite in ElementTree.parse(results_xml_file).getroot().findall("testsuite"):
+        num_tests += int(testsuite.get("tests", 0))
+        num_failed += int(testsuite.get("failures", 0))
+        num_failed += int(testsuite.get("errors", 0))
 
     return (num_tests, num_failed)
 

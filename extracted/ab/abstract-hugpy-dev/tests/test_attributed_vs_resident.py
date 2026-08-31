@@ -53,7 +53,7 @@ def test_payload_has_both_blocks():
               "attributed_unknown_count", "attributed_over_budget_bytes"):
         assert k in s, k
     # resident
-    for k in ("resident_bytes", "resident_model_bytes", "resident_source"):
+    for k in ("hot_bytes", "hot_model_bytes", "hot_source"):
         assert k in s, k
     # gauge
     for k in ("gauge_used_bytes", "gauge_budget_bytes", "gauge_basis",
@@ -68,9 +68,9 @@ def test_gauge_uses_resident_not_attributed():
     # is resident, so the gauge must read the resident 5 GiB, NOT the assigned set.
     s = W.storage_proposal(_worker())
     assert s["gauge_used_bytes"] == 5 * GiB
-    assert s["resident_bytes"] == 5 * GiB
-    assert s["gauge_basis"] == "resident"
-    assert s["resident_source"] == "measured"   # cache_used_bytes present
+    assert s["hot_bytes"] == 5 * GiB
+    assert s["gauge_basis"] == "hot"
+    assert s["hot_source"] == "measured"   # cache_used_bytes present
     assert s["attributed_count"] == 3
 
 
@@ -90,12 +90,12 @@ def test_attribution_alone_never_reads_as_disk_pressure():
     assert s["gauge_used_bytes"] == 2 * GiB
     assert s["gauge_over_budget"] is False
     assert s["over_budget"] is False
-    # resident_source falls back correctly if cache_used is absent.
+    # hot_source falls back correctly if cache_used is absent.
     del w["storage"]["cache_used_bytes"]
     s2 = W.storage_proposal(w)
-    assert s2["resident_source"] == "summed"
+    assert s2["hot_source"] == "summed"
     # summed resident = on-disk model rows only (the single 5 GiB row)
-    assert s2["resident_bytes"] == s2["resident_model_bytes"]
+    assert s2["hot_bytes"] == s2["hot_model_bytes"]
 
 
 def test_pre_feature_worker_degrades():
@@ -105,8 +105,8 @@ def test_pre_feature_worker_degrades():
     del w["storage"]
     s = W.storage_proposal(w)
     assert s["reported"] is False
-    assert s["resident_source"] == "unknown"
-    assert s["resident_bytes"] is None
+    assert s["hot_source"] == "unknown"
+    assert s["hot_bytes"] is None
     # orphaned fields present even in the degraded shape (zeros = feature-off).
     assert s["orphaned_bytes"] == 0 and s["orphaned_count"] == 0
     assert s["orphaned_items"] == []

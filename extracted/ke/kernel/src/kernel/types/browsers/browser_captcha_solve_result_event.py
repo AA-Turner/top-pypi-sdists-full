@@ -10,15 +10,20 @@ __all__ = ["BrowserCaptchaSolveResultEvent", "Data"]
 
 
 class Data(BaseModel):
-    captcha_type: Literal["hcaptcha", "recaptcha_v2", "recaptcha_v3", "turnstile", "geetest", "other"]
-    """Captcha vendor family.
+    captcha_type: Literal["hcaptcha", "recaptcha_v2", "recaptcha_v3", "turnstile", "geetest", "press_and_hold", "other"]
+    """Captcha kind.
 
-    Provider-specific task names are normalized into this set; anything not covered
-    is reported as other.
+    Enterprise reCAPTCHA variants are grouped into their version bucket
+    (recaptcha_v2 or recaptcha_v3), press-and-hold challenges use press_and_hold,
+    and unlisted kinds use other.
     """
 
     duration_ms: float
-    """Wall-clock duration from solve start to terminal outcome."""
+    """Wall-clock duration from solve start to terminal outcome.
+
+    Authoritative solve timing; do not derive it from the gap to a
+    captcha_solve_started event, whose delivery and ordering are not guaranteed.
+    """
 
     status: Literal["success", "failure", "timeout", "abandoned"]
     """Terminal outcome.
@@ -28,6 +33,14 @@ class Data(BaseModel):
     budget. abandoned: caller cancelled or the page navigated away mid-solve.
     """
 
+    challenge_id: Optional[str] = None
+    """Opaque identifier shared by events for one visible challenge.
+
+    An image-grid captcha may create multiple task_id values for one challenge_id.
+    The same value may continue across a page reload when the challenge episode
+    continues. It does not indicate task ordering or challenge completion.
+    """
+
     error_code: Optional[str] = None
     """Solver-specific error code on failure (e.g.
 
@@ -35,7 +48,7 @@ class Data(BaseModel):
     """
 
     task_id: Optional[str] = None
-    """Solver-assigned identifier. Opaque, useful for support cross-references."""
+    """Opaque identifier shared with the matching captcha_solve_started."""
 
     website_host: Optional[str] = None
     """Host of the page where the captcha was solved."""

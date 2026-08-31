@@ -2,7 +2,7 @@
 //!
 //! See: <https://pre-commit.com/#plugins>
 
-use crate::common;
+use crate::common::{self, FilePattern};
 use indexmap::IndexMap;
 
 /// A single pre-commit configuration, containing one or more repositories,
@@ -31,12 +31,10 @@ pub struct Config {
     pub default_stages: Option<Vec<String>>,
 
     /// The global file include pattern.
-    #[serde(default)]
-    pub files: String,
+    pub files: Option<FilePattern>,
 
     /// The global file exclude pattern.
-    #[serde(default)]
-    pub exclude: String,
+    pub exclude: Option<FilePattern>,
 
     /// Whether to have pre-commit stop running hooks after the first
     /// failure.
@@ -71,13 +69,27 @@ pub enum Repo {
     /// See: <https://pre-commit.com/#meta-hooks>
     // TODO: Fill this in, it's a fixed set of IDs for hooks.
     Meta {},
+    /// A special 'builtin` repository, for hooks defined by prek itself.
+    ///
+    /// This is a prek-specific extension.
+    ///
+    /// See: <https://prek.j178.dev/builtin/#2-explicit-builtin-repository>
+    Builtin {},
     #[serde(untagged)]
-    Repo {
-        repo: String,
-        rev: String,
-        #[serde(deserialize_with = "common::non_empty_vec")]
-        hooks: Vec<Hook>,
-    },
+    Remote(RemoteRepo),
+}
+
+/// A remote repository reference, i.e. the home of one or more pre-commit hooks.
+///
+/// This reference is only "remote" in the sense that it's sourced via a URL.
+/// However, that URL could be `file://` or anything else.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct RemoteRepo {
+    pub repo: url::Url,
+    pub rev: String,
+    #[serde(deserialize_with = "common::non_empty_vec")]
+    pub hooks: Vec<Hook>,
 }
 
 /// A single hook.
@@ -97,10 +109,10 @@ pub struct Hook {
     pub language_version: Option<String>,
 
     /// Overrides the files pattern for the hook.
-    pub files: Option<String>,
+    pub files: Option<FilePattern>,
 
     /// Overrides the exclude pattern for the hook.
-    pub exclude: Option<String>,
+    pub exclude: Option<FilePattern>,
 
     /// Overrides the default file types to run on for the hook (AND).
     pub types: Option<Vec<String>>,

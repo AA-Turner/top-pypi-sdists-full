@@ -12,7 +12,7 @@ from ..commands._routing import FanoutStrategy, RandomStrategy
 from ..commands._utils import normalized_milliseconds, normalized_seconds
 from ..commands._validators import mutually_exclusive_parameters, mutually_inclusive_parameters
 from ..commands._wrappers import ClusterCommandConfig
-from ..commands.constants import CommandGroup, CommandName, NodeFlag
+from ..commands.constants import CommandFlag, CommandGroup, CommandName, NodeFlag
 from ..commands.request import CommandRequest
 from ..response._callbacks import (
     AnyStrCallback,
@@ -993,9 +993,9 @@ class Search(ModuleGroup[AnyStr]):
             command_arguments.append(PureToken.INORDER)
         if language:
             command_arguments.extend([PrefixToken.LANGUAGE, language])
-        if expander:  # noqa
+        if expander:
             command_arguments.extend([PrefixToken.EXPANDER, expander])
-        if scorer:  # noqa
+        if scorer:
             command_arguments.extend([PrefixToken.SCORER, scorer])
         if explainscore:
             command_arguments.append(PureToken.EXPLAINSCORE)
@@ -1303,4 +1303,25 @@ class Search(ModuleGroup[AnyStr]):
             CommandName.FT_CURSOR_DEL,
             *command_arguments,
             callback=SimpleStringCallback(),
+        )
+
+    @module_command(
+        CommandName.FT_ALIASLIST,
+        module=MODULE,
+        version_introduced="8.10.0",
+        group=CommandGroup.SEARCH,
+        flags={CommandFlag.READONLY},
+    )
+    def aliaslist(self, index: KeyT) -> CommandRequest[set[AnyStr]]:
+        """
+        Lists all aliases for the index
+
+        :param index: index to list aliases for
+
+        :return: set of aliases for the index
+
+        """
+
+        return self.client.create_request(
+            CommandName.FT_ALIASLIST, Key(index), callback=SetCallback[AnyStr]()
         )

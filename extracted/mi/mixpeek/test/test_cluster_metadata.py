@@ -38,6 +38,7 @@ class TestClusterMetadata(unittest.TestCase):
             return ClusterMetadata(
                 cluster_id = '',
                 cluster_name = '',
+                description = '',
                 namespace_id = '',
                 input_collections = [
                     ''

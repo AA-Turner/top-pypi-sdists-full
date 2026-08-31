@@ -50,7 +50,7 @@ else:
 
 setup(
     name="aigie",
-    version="0.4.7",
+    version="0.4.8",
     description="Enterprise-grade AI agent reliability monitoring and autonomous remediation",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -212,6 +212,9 @@ setup(
             "pytest-timeout",
             "pytest-repeat>=0.9.3",
             "tenacity>=8.2.0",
+            # Test-only: botocore builds a client's methods dynamically, so a
+            # hand-rolled stand-in cannot show the patch holds. Not a runtime dep.
+            "boto3>=1.34.0",
             # Autonomous v2 build/lint tooling — ADR 0001
             # Pinned: see the note in pyproject.toml — this decides the
             # protobuf gencode version baked into the committed _pb/ stubs.

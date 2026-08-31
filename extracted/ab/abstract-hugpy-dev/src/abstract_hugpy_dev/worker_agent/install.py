@@ -80,6 +80,13 @@ def _systemd_available() -> bool:
 def _install_systemd_user(opts) -> str:
     unit_dir = os.path.join(os.path.expanduser("~"), ".config", "systemd", "user")
     os.makedirs(unit_dir, exist_ok=True)
+    # Establish ~/.hugpy/{state,config,logs,run} at install time so the very
+    # first write lands in the right place — "dictated at install".
+    try:
+        from .._platform import paths as _hp
+        _hp.ensure_hugpy_home()
+    except Exception:  # noqa: BLE001 — never fail an install over the skeleton
+        pass
     unit_path = os.path.join(unit_dir, _SERVICE_NAME + ".service")
     exec_start = " ".join(_worker_argv(opts))
     # Use systemd's %h home specifier for the engine-dir default so the unit is
@@ -170,6 +177,11 @@ def _env_for(opts, home: Optional[str] = None) -> dict:
     if home is None:
         home = os.path.expanduser("~")
     env = {"WORKER_CENTRAL_URL": opts.central}
+    # Single base dir for hugpy runtime files (worker id/settings, model
+    # metadata, …). Setting it in the unit means a fresh install lands them
+    # under ~/.hugpy instead of strewing $HOME — ``_platform/paths.py`` honors
+    # this exact env. ``home`` is systemd's ``%h`` for the user unit.
+    env["HUGPY_HOME"] = os.path.join(home, ".hugpy")
     if getattr(opts, "name", None):
         env["WORKER_NAME"] = opts.name
     if getattr(opts, "port", None):

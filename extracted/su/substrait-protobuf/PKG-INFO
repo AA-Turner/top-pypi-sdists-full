@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: substrait-protobuf
-Version: 0.102.0
+Version: 0.103.0
 Summary: Generated Substrait Protocol Buffer Code
 Author-email: Substrait Contributors <substrait@googlegroups.com>
 License-Expression: Apache-2.0

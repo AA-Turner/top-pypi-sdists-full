@@ -1,3 +1,4 @@
+use crate::LazyInstance;
 use std::borrow::Cow;
 
 use crate::{
@@ -62,9 +63,25 @@ impl<F: Json> Validate<F> for RefValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
+        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+    }
+
+    fn evaluate_with_location(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        instance_location: &Location,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         let child_tracker = RefTracker::new(&self.ref_suffix, &self.ref_target_base, tracker);
-        self.inner
-            .evaluate(instance, location, Some(&child_tracker), ctx)
+        self.inner.evaluate_with_location(
+            instance,
+            location,
+            instance_location,
+            Some(&child_tracker),
+            ctx,
+        )
     }
 
     /// Returns `ref_target_base` for `schema_path` output.
@@ -122,9 +139,25 @@ impl<F: Json> Validate<F> for DirectRefValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
+        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+    }
+
+    fn evaluate_with_location(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        instance_location: &Location,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         let child_tracker = RefTracker::new(&self.ref_suffix, &self.ref_target_base, tracker);
-        self.inner
-            .evaluate(instance, location, Some(&child_tracker), ctx)
+        self.inner.evaluate_with_location(
+            instance,
+            location,
+            instance_location,
+            Some(&child_tracker),
+            ctx,
+        )
     }
 
     fn canonical_location(&self) -> Option<&Location> {
@@ -285,7 +318,7 @@ fn invalid_reference<'a, F: Json>(
         location.clone(),
         location.clone(),
         location,
-        Cow::Borrowed(schema),
+        LazyInstance::Ready(Cow::Borrowed(schema)),
         JsonType::String,
     )
 }

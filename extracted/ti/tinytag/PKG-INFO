@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tinytag
-Version: 2.3.0
+Version: 2.3.1
 Summary: Read audio file metadata
 Keywords: metadata,audio,music,mp3,m4a,wav,ogg,opus,flac,wma,aiff
 Author: Tom Wallroth, Mat (mathiascode)
@@ -28,14 +28,17 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Sound/Audio :: Analysis
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: coverage ; extra == "tests"
-Requires-Dist: mypy ; extra == "tests"
-Requires-Dist: mypy<1.19.0 ; extra == "tests" and ( platform_python_implementation == 'PyPy')
-Requires-Dist: pycodestyle ; extra == "tests"
-Requires-Dist: pylint ; extra == "tests"
-Requires-Dist: pyright ; extra == "tests"
+Requires-Dist: build ; extra == "dev"
+Requires-Dist: coverage ; extra == "dev"
+Requires-Dist: flit_core ; extra == "dev"
+Requires-Dist: mypy ; extra == "dev"
+Requires-Dist: mypy<1.19.0 ; extra == "dev" and ( platform_python_implementation == 'PyPy')
+Requires-Dist: pycodestyle ; extra == "dev"
+Requires-Dist: pylint ; extra == "dev"
+Requires-Dist: pyright ; extra == "dev"
+Requires-Dist: wheel ; extra == "dev"
 Project-URL: Homepage, https://github.com/tinytag/tinytag
-Provides-Extra: tests
+Provides-Extra: dev
 
 <!--
   SPDX-FileCopyrightText: 2014-2026 tinytag Contributors
@@ -526,6 +529,12 @@ UnsupportedFormatError  # File format is not supported
 
 
 ## Changelog
+
+### 2.3.1  (2026-08-30)
+
+- Don't open unrecognized files when disabling magic byte detection
+- MPEG: Fix parsing of some files with incorrect headers
+- OGG/WAV: Read sizes as little endian instead of native byte order
 
 ### 2.3.0  (2026-07-31)
 

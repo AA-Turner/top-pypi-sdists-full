@@ -27,9 +27,20 @@ def writer_chain(monkeypatch):
     group = {"id": VR._STUDIO_WRITER_GROUP, "members": list(_CHAIN)}
     monkeypatch.setattr(PG, "get_group",
                         lambda gid: group if gid == group["id"] else None)
+    # Real expand_members yields (member_key, source) TUPLES — the live shape
+    # (a string-shaped mock here once hid a fail-open bug in production).
+    monkeypatch.setattr(PG, "expand_members",
+                        lambda g, *a, **kw: [(m, None) for m in g["members"]])
+    return group
+
+
+def test_bare_string_members_also_match(monkeypatch):
+    # Tolerated legacy/future shape: expand_members returning bare strings.
+    group = {"id": VR._STUDIO_WRITER_GROUP, "members": list(_CHAIN)}
+    monkeypatch.setattr(PG, "get_group", lambda gid: group)
     monkeypatch.setattr(PG, "expand_members",
                         lambda g, *a, **kw: list(g["members"]))
-    return group
+    assert VR._studio_floor_violation("Qwen2.5-3B-Instruct-GGUF") is not None
 
 
 def test_below_floor_member_is_refused(writer_chain):

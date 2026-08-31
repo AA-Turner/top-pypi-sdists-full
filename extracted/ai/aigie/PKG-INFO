@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aigie
-Version: 0.4.7
+Version: 0.4.8
 Summary: Enterprise-grade AI agent reliability monitoring and autonomous remediation
 Home-page: https://kytte.ai/
 Author: Aigie
@@ -98,6 +98,7 @@ Requires-Dist: ruff==0.15.12; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"
 Requires-Dist: pytest-repeat>=0.9.3; extra == "dev"
 Requires-Dist: tenacity>=8.2.0; extra == "dev"
+Requires-Dist: boto3>=1.34.0; extra == "dev"
 Requires-Dist: grpcio-tools==1.80.0; extra == "dev"
 Requires-Dist: import-linter>=2.0; extra == "dev"
 Requires-Dist: diff-cover==10.5.1; extra == "dev"

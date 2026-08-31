@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-ninja
-Version: 1.6.3
+Version: 1.7.0
 Summary: Django Ninja - Fast Django REST framework
 Author-email: Vitaliy Kucheryaviy <ppr.vitaly@gmail.com>
 Requires-Python: >=3.7

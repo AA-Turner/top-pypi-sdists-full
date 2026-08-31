@@ -55,7 +55,7 @@ class OrganizationTargetsApi:
     ) -> TargetSpec:
         """Get Organization Targets
 
-        Get this organization's resource + SLO targets.  Tenancy (dedicated vs shared) is resolved SERVER-SIDE from the org — never from a client-supplied header (BACKE-2564). ``targets_writable`` is the capability flag a client should read rather than infer from ``plane``: shared-plane orgs are always read-only by platform policy; dedicated orgs may write once the write path ships (not this endpoint).
+        Get this organization's resource + SLO targets.  Tenancy (dedicated vs shared) is resolved SERVER-SIDE from the org — never from a client-supplied header. ``targets_writable`` is the capability flag a client should read rather than infer from ``plane``: shared-plane orgs are read-only by platform policy, and dedicated orgs hold write access to their own spec.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -124,7 +124,7 @@ class OrganizationTargetsApi:
     ) -> ApiResponse[TargetSpec]:
         """Get Organization Targets
 
-        Get this organization's resource + SLO targets.  Tenancy (dedicated vs shared) is resolved SERVER-SIDE from the org — never from a client-supplied header (BACKE-2564). ``targets_writable`` is the capability flag a client should read rather than infer from ``plane``: shared-plane orgs are always read-only by platform policy; dedicated orgs may write once the write path ships (not this endpoint).
+        Get this organization's resource + SLO targets.  Tenancy (dedicated vs shared) is resolved SERVER-SIDE from the org — never from a client-supplied header. ``targets_writable`` is the capability flag a client should read rather than infer from ``plane``: shared-plane orgs are read-only by platform policy, and dedicated orgs hold write access to their own spec.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -193,7 +193,7 @@ class OrganizationTargetsApi:
     ) -> RESTResponseType:
         """Get Organization Targets
 
-        Get this organization's resource + SLO targets.  Tenancy (dedicated vs shared) is resolved SERVER-SIDE from the org — never from a client-supplied header (BACKE-2564). ``targets_writable`` is the capability flag a client should read rather than infer from ``plane``: shared-plane orgs are always read-only by platform policy; dedicated orgs may write once the write path ships (not this endpoint).
+        Get this organization's resource + SLO targets.  Tenancy (dedicated vs shared) is resolved SERVER-SIDE from the org — never from a client-supplied header. ``targets_writable`` is the capability flag a client should read rather than infer from ``plane``: shared-plane orgs are read-only by platform policy, and dedicated orgs hold write access to their own spec.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request

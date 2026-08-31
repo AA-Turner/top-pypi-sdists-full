@@ -17,12 +17,12 @@ NOW = 1_000_000.0
 
 
 def R(key, gib, *, pref=ev.VRAM, last=None, calls=0, static=False,
-      in_flight=False, since=None):
+      mid_generation=False, since=None):
     """One resident. `last`/`since` are SECONDS AGO, for readable fixtures."""
-    return ev.Resident(
+    return ev.EvictUnit(
         model_key=key, bytes=int(gib * GIB), pref=pref,
         last_call=(NOW - last) if last is not None else None,
-        calls=calls, static=static, in_flight=in_flight,
+        calls=calls, static=static, mid_generation=mid_generation,
         resident_since=(NOW - since) if since is not None else None)
 
 
@@ -172,10 +172,10 @@ def test_static_is_never_a_victim_and_is_reported_as_blocking():
 
 def test_pin_is_not_an_eviction_input_at_all():
     """Operator ruling: 📌pin = routing persistence. There is no `pinned` field
-    on Resident, so pin CANNOT influence this function — the strongest possible
+    on EvictUnit, so pin CANNOT influence this function — the strongest possible
     form of the ruling (unrepresentable, not merely unused)."""
-    assert not hasattr(ev.Resident("x"), "pinned")
-    assert "pinned" not in ev.Resident.__dataclass_fields__
+    assert not hasattr(ev.EvictUnit("x"), "pinned")
+    assert "pinned" not in ev.EvictUnit.__dataclass_fields__
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ def test_in_flight_is_unevictable_regardless_of_rank():
     the in-flight model is FIRST by every key (mismatched, never called) and
     still is not touched."""
     p = plan(ev.VRAM, 5, [
-        R("streaming", 10, pref=ev.RAM, in_flight=True),
+        R("streaming", 10, pref=ev.RAM, mid_generation=True),
         R("idle", 10, pref=ev.VRAM, last=99_999),
     ])
     assert p.victims == ["idle"]
@@ -198,7 +198,7 @@ def test_in_flight_holds_even_when_it_is_the_only_candidate():
     """Unevictable means UNEVICTABLE — this is why the proposal removes it from
     the pool rather than penalising its rank. A rank penalty still evicts it
     when nothing else is available, which is the failure it exists to prevent."""
-    p = plan(ev.VRAM, 5, [R("only", 10, in_flight=True)])
+    p = plan(ev.VRAM, 5, [R("only", 10, mid_generation=True)])
     assert p.victims == [] and not p.enough
 
 
@@ -262,7 +262,7 @@ def test_an_unmeasurable_resident_is_never_a_planned_victim():
     """'unmeasurable size/free/idle -> today's behaviour, never a guessed
     eviction.' Evicting an occupant of unknown size frees an unknown amount, so
     the plan could not be verified against `need`. It is reported, never walked."""
-    unknown = ev.Resident(model_key="mystery", bytes=None, last_call=0.0)
+    unknown = ev.EvictUnit(model_key="mystery", bytes=None, last_call=0.0)
     p = plan(ev.VRAM, 5, [unknown, R("known", 10, last=100)])
     assert p.victims == ["known"]
     assert any(b["model_key"] == "mystery" and "unmeasurable" in b["why"]
@@ -270,7 +270,7 @@ def test_an_unmeasurable_resident_is_never_a_planned_victim():
 
 
 def test_a_pool_of_only_unmeasurable_residents_refuses_rather_than_guesses():
-    p = plan(ev.VRAM, 5, [ev.Resident(model_key="mystery", bytes=None)])
+    p = plan(ev.VRAM, 5, [ev.EvictUnit(model_key="mystery", bytes=None)])
     assert p.victims == [] and not p.enough
 
 

@@ -7,17 +7,19 @@
 //! `foo`, making it unclear to the end user which is selected.
 
 use anyhow::anyhow;
-use github_actions_models::common::{RepositoryUses, Uses};
+use github_actions_models::common::Uses;
+use subfeature::Subfeature;
 
 use super::{Audit, AuditLoadError, Job, audit_meta};
 use crate::audit::AuditError;
 use crate::finding::Finding;
 use crate::finding::location::Locatable as _;
+use crate::models::pre_commit::PreCommitConfig;
+use crate::models::repo_ref::RepoRef;
 use crate::models::{StepCommon as _, action::CompositeStep};
 use crate::{
     finding::{Confidence, Severity},
     github,
-    models::uses::RepositoryUsesExt as _,
     state::AuditState,
 };
 
@@ -35,20 +37,26 @@ audit_meta!(
 );
 
 impl RefConfusion {
-    async fn confusable(&self, uses: &RepositoryUses) -> Result<bool, AuditError> {
+    async fn confusable(&self, uses: impl Into<RepoRef<'_>>) -> Result<bool, AuditError> {
+        let uses = uses.into();
+
         let Some(sym_ref) = uses.symbolic_ref() else {
+            return Ok(false);
+        };
+
+        let Some(slug) = uses.slug() else {
             return Ok(false);
         };
 
         // TODO: use a tokio JoinSet here?
         let branches_match = self
             .client
-            .has_branch(uses.owner(), uses.repo(), sym_ref)
+            .has_branch(&slug, sym_ref)
             .await
             .map_err(Self::err)?;
         let tags_match = self
             .client
-            .has_tag(uses.owner(), uses.repo(), sym_ref)
+            .has_tag(&slug, sym_ref)
             .await
             .map_err(Self::err)?;
 
@@ -74,7 +82,7 @@ impl Audit for RefConfusion {
             .gh_client
             .clone()
             .ok_or_else(|| AuditLoadError::Skip(anyhow!("can't run without a GitHub API token")))
-            .map(|client| RefConfusion { client })
+            .map(|client| Self { client })
     }
 
     async fn audit_workflow<'doc>(
@@ -161,6 +169,44 @@ impl Audit for RefConfusion {
                     .build(step)
                     .map_err(Self::err)?,
             );
+        }
+
+        Ok(findings)
+    }
+
+    async fn audit_pre_commit_config<'doc>(
+        &self,
+        pre_commit: &'doc PreCommitConfig,
+        _config: &crate::config::Config,
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
+        let mut findings = vec![];
+
+        for repo in pre_commit.repos() {
+            let Some(remote) = repo.repo() else {
+                continue;
+            };
+
+            if self.confusable(remote).await? {
+                findings.push(
+                    Self::finding()
+                        .severity(Severity::Medium)
+                        .confidence(Confidence::High)
+                        .add_location(
+                            repo.location()
+                                .with_keys(["repo".into()])
+                                .subfeature(Subfeature::new(0, remote.repo.as_str()))
+                                .annotated("this repo"),
+                        )
+                        .add_location(
+                            repo.location()
+                                .primary()
+                                .with_keys(["rev".into()])
+                                .subfeature(Subfeature::new(0, remote.rev.as_str()))
+                                .annotated(REF_CONFUSION_ANNOTATION),
+                        )
+                        .build(pre_commit)?,
+                )
+            }
         }
 
         Ok(findings)

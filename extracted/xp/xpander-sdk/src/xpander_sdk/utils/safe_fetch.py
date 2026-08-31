@@ -19,6 +19,28 @@ Modes, via `XPANDER_SAFE_FETCH`:
 - unset / "enforce": block internal destinations (default).
 - "warn": log what would be blocked, then fetch anyway (observation window).
 - "legacy": no checks, plain follow-redirects fetch (kill switch).
+
+Egress allowlist, via `XPANDER_EGRESS_ALLOWLIST` (comma-separated hosts/domains,
+an entry also matches its subdomains): unset means every public host is fetchable
+(today's behavior). When set, only listed hosts pass, every redirect hop is
+re-checked, and the warn/legacy escape hatches are ignored so internal and
+metadata addresses stay blocked regardless of mode.
+
+Internal-fetch allowlist, via `XPANDER_INTERNAL_FETCH_ALLOWLIST` (comma-separated
+hosts/domains/CIDRs, a name entry also matches its subdomains): unset means every
+internal destination stays blocked (today's behavior). A listed host or address may
+resolve to private space — the on-prem case, where in-cluster services and the
+customer intranet are the legitimate targets — but link-local/metadata, multicast,
+unspecified and reserved addresses stay refused no matter what is listed, every
+redirect hop is re-checked against the same list, and an active egress allowlist
+still applies on top (a host must pass both).
+
+Corporate proxy (HTTP_PROXY/HTTPS_PROXY/NO_PROXY): a hop the env routes through a
+proxy is fetched via that proxy — DNS and routing belong to the proxy there, so IP
+pinning is impossible. The hop is still allowlist-checked, literal internal IPs are
+refused, and a name that resolves locally must resolve public before it reaches the
+proxy. NO_PROXY targets keep the full pinned direct path. With no proxy env set,
+behavior is unchanged.
 """
 
 import asyncio
@@ -26,6 +48,7 @@ import ipaddress
 import os
 import socket
 import time
+import urllib.request
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin, urlsplit
@@ -46,12 +69,114 @@ def _mode() -> str:
     return (os.getenv("XPANDER_SAFE_FETCH", "") or "").strip().lower()
 
 
+def _egress_allowlist() -> Optional[List[str]]:
+    """Parsed XPANDER_EGRESS_ALLOWLIST entries, or None when unset/blank (allowlist inactive)."""
+    raw = (os.getenv("XPANDER_EGRESS_ALLOWLIST", "") or "").strip()
+    if not raw:
+        return None
+    entries: List[str] = []
+    for item in raw.split(","):
+        entry = item.strip().lower()
+        if entry.startswith("*."):
+            entry = entry[2:]
+        entry = entry.strip(".")
+        if entry:
+            entries.append(entry)
+    return entries or None
+
+
+def _allowlist_active() -> bool:
+    return _egress_allowlist() is not None
+
+
 def _legacy() -> bool:
-    return _mode() == "legacy"
+    # An active allowlist means locked-down egress: the kill switch must not reopen it.
+    return _mode() == "legacy" and not _allowlist_active()
 
 
 def _warn_only() -> bool:
-    return _mode() == "warn"
+    return _mode() == "warn" and not _allowlist_active()
+
+
+def _host_allowed(host: str, allowlist: List[str]) -> bool:
+    h = host.strip().strip("[]").lower().rstrip(".")
+    return any(h == entry or h.endswith("." + entry) for entry in allowlist)
+
+
+def _check_allowlist(host: str) -> None:
+    """When the allowlist is active, refuse any host outside it (success-shaped message)."""
+    allowlist = _egress_allowlist()
+    if allowlist is None or _host_allowed(host, allowlist):
+        return
+    raise SafeFetchError(
+        f"this deployment fetches only from its approved hosts, and {host!r} is not one of them; "
+        "use a URL on an approved host, or continue with the information you already have"
+    )
+
+
+def _internal_allowlist() -> Optional[Tuple[List[str], list]]:
+    """Parsed XPANDER_INTERNAL_FETCH_ALLOWLIST as (name entries, CIDR networks), or None when unset/blank."""
+    raw = (os.getenv("XPANDER_INTERNAL_FETCH_ALLOWLIST", "") or "").strip()
+    if not raw:
+        return None
+    names: List[str] = []
+    nets: list = []
+    for item in raw.split(","):
+        entry = item.strip().lower()
+        if not entry:
+            continue
+        if entry.startswith("*."):
+            entry = entry[2:]
+        try:
+            nets.append(ipaddress.ip_network(entry.strip("[]"), strict=False))
+            continue
+        except ValueError:
+            pass
+        entry = entry.strip(".")
+        if entry:
+            names.append(entry)
+    if not names and not nets:
+        return None
+    return names, nets
+
+
+def _internal_host_listed(host: str) -> bool:
+    """Whether *host* is name-listed to reach private addresses (hard-blocked ranges never pass)."""
+    parsed = _internal_allowlist()
+    if parsed is None:
+        return False
+    names, _ = parsed
+    h = host.strip().strip("[]").lower().rstrip(".")
+    return any(h == entry or h.endswith("." + entry) for entry in names)
+
+
+def _internal_ip_listed(ip_text: str) -> bool:
+    """Whether a resolved address falls inside a listed CIDR (hard-blocked ranges never pass)."""
+    parsed = _internal_allowlist()
+    if parsed is None:
+        return False
+    _, nets = parsed
+    try:
+        ip = ipaddress.ip_address(ip_text)
+    except ValueError:
+        return False
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    return any(ip.version == net.version and ip in net for net in nets)
+
+
+def _internal_literal_listed(host: str) -> bool:
+    """A literal-IP host covered by a listed CIDR; hard-blocked ranges never pass."""
+    h = host.strip().strip("[]").lower()
+    try:
+        ip_text = str(ipaddress.ip_address(h))
+    except ValueError:
+        try:
+            ip_text = socket.inet_ntoa(socket.inet_aton(h))
+        except OSError:
+            return False
+    return not _ip_hard_blocked(ip_text) and _internal_ip_listed(ip_text)
 
 
 class SafeFetchError(Exception):
@@ -88,6 +213,18 @@ def _ip_is_blocked(ip_text: str) -> bool:
         or ip.is_unspecified
         or ip.is_reserved
     )
+
+
+def _ip_hard_blocked(ip_text: str) -> bool:
+    """Addresses no configuration may reach: link-local/metadata, multicast, unspecified, reserved."""
+    try:
+        ip = ipaddress.ip_address(ip_text)
+    except ValueError:
+        return True
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    return ip.is_link_local or ip.is_multicast or ip.is_unspecified or ip.is_reserved
 
 
 def literal_host_blocked(host: str) -> bool:
@@ -138,16 +275,55 @@ def _resolve_validated(host: str, port: int) -> List[str]:
     except socket.gaierror as exc:
         raise SafeFetchError(f"cannot resolve host {host!r}") from exc
 
+    internal_ok = _internal_host_listed(host)
     addrs: List[str] = []
     for info in infos:
         ip_text = info[4][0]
-        if _ip_is_blocked(ip_text):
+        if _ip_hard_blocked(ip_text):
+            raise SafeFetchError(f"host {host!r} resolves to a blocked address")
+        if _ip_is_blocked(ip_text) and not (internal_ok or _internal_ip_listed(ip_text)):
             raise SafeFetchError(f"host {host!r} resolves to a blocked address")
         if ip_text not in addrs:
             addrs.append(ip_text)
     if not addrs:
         raise SafeFetchError(f"host {host!r} did not resolve")
     return addrs
+
+
+def _env_proxy_for(scheme: str, host: str) -> Optional[str]:
+    """Proxy URL from the process env for this target (NO_PROXY honored), or None for direct."""
+    try:
+        proxies = urllib.request.getproxies_environment()
+        proxy = proxies.get(scheme)
+        if not proxy:
+            return None
+        if urllib.request.proxy_bypass_environment(host, proxies):
+            return None
+        return proxy
+    except Exception:
+        return None
+
+
+def _proxy_validate(host: str, port: int) -> None:
+    """A proxied hop still never targets a destination that is internal from here.
+
+    Literal internal IPs are refused outright, and a name that resolves locally must
+    resolve public. A name this network cannot resolve is left to the proxy, which
+    owns DNS on that path.
+    """
+    if literal_host_blocked(host) and not _internal_literal_listed(host):
+        raise SafeFetchError(f"host {host!r} resolves to a blocked address")
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return
+    internal_ok = _internal_host_listed(host)
+    for info in infos:
+        ip_text = info[4][0]
+        if _ip_hard_blocked(ip_text):
+            raise SafeFetchError(f"host {host!r} resolves to a blocked address")
+        if _ip_is_blocked(ip_text) and not (internal_ok or _internal_ip_listed(ip_text)):
+            raise SafeFetchError(f"host {host!r} resolves to a blocked address")
 
 
 def is_blocked_host(url: str) -> Tuple[bool, str]:
@@ -159,8 +335,12 @@ def is_blocked_host(url: str) -> Tuple[bool, str]:
     if _legacy():
         return (False, "legacy")
     try:
-        _, host, port = _split_target(url)
-        _resolve_validated(host, port)
+        scheme, host, port = _split_target(url)
+        _check_allowlist(host)
+        if _env_proxy_for(scheme, host) is not None:
+            _proxy_validate(host, port)
+        else:
+            _resolve_validated(host, port)
     except SafeFetchError as exc:
         if _warn_only():
             return (False, f"warn-would-block: {exc}")
@@ -284,6 +464,36 @@ async def _legacy_async(
             return FetchResult(content, resp.headers.get("content-type"), str(resp.url), resp.status_code, dict(resp.headers))
 
 
+def _proxied_hop_sync(
+    proxy: str, current: str, method: str, headers: Dict[str, str], max_bytes: int, deadline: float, host: str
+) -> Tuple[Optional[FetchResult], Optional[str]]:
+    """One hop through the corporate proxy: (result, None) or (None, redirect target)."""
+    with httpx.Client(proxy=proxy, timeout=_remaining(deadline), follow_redirects=False) as client:
+        with client.stream(method, current, headers=headers) as resp:
+            nxt = _next_redirect(resp, current)
+            if nxt is not None:
+                return None, nxt
+            if resp.status_code >= 400:
+                raise SafeFetchError(f"host {host!r} returned status {resp.status_code}")
+            content = _read_capped(resp, max_bytes, host)
+            return FetchResult(content, resp.headers.get("content-type"), current, resp.status_code, dict(resp.headers)), None
+
+
+async def _proxied_hop_async(
+    proxy: str, current: str, method: str, headers: Dict[str, str], max_bytes: int, deadline: float, host: str
+) -> Tuple[Optional[FetchResult], Optional[str]]:
+    """asyncio counterpart of _proxied_hop_sync."""
+    async with httpx.AsyncClient(proxy=proxy, timeout=_remaining(deadline), follow_redirects=False) as client:
+        async with client.stream(method, current, headers=headers) as resp:
+            nxt = _next_redirect(resp, current)
+            if nxt is not None:
+                return None, nxt
+            if resp.status_code >= 400:
+                raise SafeFetchError(f"host {host!r} returned status {resp.status_code}")
+            content = await _aread_capped(resp, max_bytes, host)
+            return FetchResult(content, resp.headers.get("content-type"), current, resp.status_code, dict(resp.headers)), None
+
+
 def safe_fetch(
     url: str,
     *,
@@ -300,7 +510,29 @@ def safe_fetch(
     deadline = time.monotonic() + timeout
     current = url
     for _hop in range(_MAX_REDIRECTS + 1):
-        _, host, port = _split_target(current)
+        scheme, host, port = _split_target(current)
+        _check_allowlist(host)
+
+        proxy = _env_proxy_for(scheme, host)
+        if proxy is not None:
+            try:
+                _proxy_validate(host, port)
+            except SafeFetchError:
+                if _warn_only():
+                    logger.warning(f"safe_fetch(warn): would block host {host!r}")
+                    return _legacy_sync(current, method, headers, max_bytes, _remaining(deadline))
+                raise
+            try:
+                result, nxt = _proxied_hop_sync(proxy, current, method, headers, max_bytes, deadline, host)
+            except SafeFetchError:
+                raise
+            except httpx.HTTPError as exc:
+                raise SafeFetchError(f"could not connect to host {host!r}") from exc
+            if result is not None:
+                return result
+            current = nxt
+            continue
+
         try:
             addrs = _resolve_validated(host, port)
         except SafeFetchError:
@@ -355,7 +587,29 @@ async def asafe_fetch(
     deadline = time.monotonic() + timeout
     current = url
     for _hop in range(_MAX_REDIRECTS + 1):
-        _, host, port = _split_target(current)
+        scheme, host, port = _split_target(current)
+        _check_allowlist(host)
+
+        proxy = _env_proxy_for(scheme, host)
+        if proxy is not None:
+            try:
+                await asyncio.to_thread(_proxy_validate, host, port)
+            except SafeFetchError:
+                if _warn_only():
+                    logger.warning(f"safe_fetch(warn): would block host {host!r}")
+                    return await _legacy_async(current, method, headers, max_bytes, _remaining(deadline))
+                raise
+            try:
+                result, nxt = await _proxied_hop_async(proxy, current, method, headers, max_bytes, deadline, host)
+            except SafeFetchError:
+                raise
+            except httpx.HTTPError as exc:
+                raise SafeFetchError(f"could not connect to host {host!r}") from exc
+            if result is not None:
+                return result
+            current = nxt
+            continue
+
         try:
             addrs = await asyncio.to_thread(_resolve_validated, host, port)
         except SafeFetchError:

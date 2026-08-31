@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lusid-sdk
-Version: 2.3.209
+Version: 2.3.212
 Summary: LUSID API
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,LUSID API,lusid-sdk
@@ -938,6 +938,9 @@ Class | Method | HTTP request | Description
  - [BondCouponEvent](docs/BondCouponEvent.md)
  - [BondDefaultEvent](docs/BondDefaultEvent.md)
  - [BondDefaultSuppressionDetails](docs/BondDefaultSuppressionDetails.md)
+ - [BondForward](docs/BondForward.md)
+ - [BondForwardCashSettlementEvent](docs/BondForwardCashSettlementEvent.md)
+ - [BondForwardTerminationEvent](docs/BondForwardTerminationEvent.md)
  - [BondLookupModelOptions](docs/BondLookupModelOptions.md)
  - [BondOption](docs/BondOption.md)
  - [BondOptionTerminationEvent](docs/BondOptionTerminationEvent.md)

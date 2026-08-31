@@ -351,7 +351,7 @@ class OrganizationsApi:
     ) -> Dict[str, object]:
         """Get Credits
 
-        Read the org's credit/usage state.  BACKE-2759(2): GET on this path returned 405 (only POST existed) — a natural read that every evaluator tries. Returns the ENFORCED ceiling (`effective_monthly_credit_cap`, the number the block point uses), the current month usage, and the decorative legacy `credit_count` clearly labeled as non-gating.
+        Read the org's credit/usage state.  GET on this path returned 405 (only POST existed) — a natural read that every evaluator tries. Returns the ENFORCED ceiling (`effective_monthly_credit_cap`, the number the block point uses), the current month usage, and the decorative legacy `credit_count` clearly labeled as non-gating.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -420,7 +420,7 @@ class OrganizationsApi:
     ) -> ApiResponse[Dict[str, object]]:
         """Get Credits
 
-        Read the org's credit/usage state.  BACKE-2759(2): GET on this path returned 405 (only POST existed) — a natural read that every evaluator tries. Returns the ENFORCED ceiling (`effective_monthly_credit_cap`, the number the block point uses), the current month usage, and the decorative legacy `credit_count` clearly labeled as non-gating.
+        Read the org's credit/usage state.  GET on this path returned 405 (only POST existed) — a natural read that every evaluator tries. Returns the ENFORCED ceiling (`effective_monthly_credit_cap`, the number the block point uses), the current month usage, and the decorative legacy `credit_count` clearly labeled as non-gating.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -489,7 +489,7 @@ class OrganizationsApi:
     ) -> RESTResponseType:
         """Get Credits
 
-        Read the org's credit/usage state.  BACKE-2759(2): GET on this path returned 405 (only POST existed) — a natural read that every evaluator tries. Returns the ENFORCED ceiling (`effective_monthly_credit_cap`, the number the block point uses), the current month usage, and the decorative legacy `credit_count` clearly labeled as non-gating.
+        Read the org's credit/usage state.  GET on this path returned 405 (only POST existed) — a natural read that every evaluator tries. Returns the ENFORCED ceiling (`effective_monthly_credit_cap`, the number the block point uses), the current month usage, and the decorative legacy `credit_count` clearly labeled as non-gating.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -615,7 +615,7 @@ class OrganizationsApi:
     ) -> OrganizationModelResponse:
         """Get Organization
 
-        Get current organization details.  Security: Infrastructure configuration is NOT exposed via this endpoint. Infrastructure (Qdrant URLs, Ray clusters) is only accessible via private admin endpoints.
+        Get current organization details.  Security: Infrastructure configuration is NOT exposed via this endpoint. Infrastructure (vector store URLs, Ray clusters) is only accessible via private admin endpoints.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -684,7 +684,7 @@ class OrganizationsApi:
     ) -> ApiResponse[OrganizationModelResponse]:
         """Get Organization
 
-        Get current organization details.  Security: Infrastructure configuration is NOT exposed via this endpoint. Infrastructure (Qdrant URLs, Ray clusters) is only accessible via private admin endpoints.
+        Get current organization details.  Security: Infrastructure configuration is NOT exposed via this endpoint. Infrastructure (vector store URLs, Ray clusters) is only accessible via private admin endpoints.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -753,7 +753,7 @@ class OrganizationsApi:
     ) -> RESTResponseType:
         """Get Organization
 
-        Get current organization details.  Security: Infrastructure configuration is NOT exposed via this endpoint. Infrastructure (Qdrant URLs, Ray clusters) is only accessible via private admin endpoints.
+        Get current organization details.  Security: Infrastructure configuration is NOT exposed via this endpoint. Infrastructure (vector store URLs, Ray clusters) is only accessible via private admin endpoints.
 
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request

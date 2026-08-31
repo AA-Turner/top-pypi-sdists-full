@@ -41,19 +41,35 @@ data = {"A": A, "b": b, "c": c}
 cone = {"l": 2}
 
 
-@pytest.mark.parametrize("use_indirect", [False, True])
-def test_backwards_compatibility(use_indirect):
+_dense_available = False
+try:
+    from scs import _scs_dense
+    _dense_available = True
+except ImportError:
+    pass
+
+_solver_configs = [
+    {"linear_solver": scs.LinearSolver.AUTO},
+    {"linear_solver": scs.LinearSolver.QDLDL},
+    {"linear_solver": scs.LinearSolver.CPU_INDIRECT},
+]
+if _dense_available:
+    _solver_configs.append({"linear_solver": scs.LinearSolver.CPU_DENSE})
+
+
+@pytest.mark.parametrize("solver_opts", _solver_configs)
+def test_backwards_compatibility(solver_opts):
     # max x
     # s.t 0 <= x <= 1
-    sol = scs.solve(data, cone, use_indirect=use_indirect, verbose=False)
+    sol = scs.solve(data, cone, verbose=False, **solver_opts)
     assert_almost_equal(sol["x"][0], 1.0, decimal=2)
 
 
-@pytest.mark.parametrize("use_indirect", [False, True])
-def test_update(use_indirect):
+@pytest.mark.parametrize("solver_opts", _solver_configs)
+def test_update(solver_opts):
     # max x
     # s.t 0 <= x <= 1
-    solver = scs.SCS(data, cone, use_indirect=use_indirect, verbose=False)
+    solver = scs.SCS(data, cone, verbose=False, **solver_opts)
     sol = solver.solve()
     assert_almost_equal(sol["x"][0], 1.0, decimal=2)
 
@@ -72,11 +88,11 @@ def test_update(use_indirect):
     assert_almost_equal(sol["x"][0], -1.0, decimal=2)
 
 
-@pytest.mark.parametrize("use_indirect", [False, True])
-def test_warm_start(use_indirect):
+@pytest.mark.parametrize("solver_opts", _solver_configs)
+def test_warm_start(solver_opts):
     # max x
     # s.t 0 <= x <= 1
-    solver = scs.SCS(data, cone, use_indirect=use_indirect, verbose=False)
+    solver = scs.SCS(data, cone, verbose=False, **solver_opts)
     sol = solver.solve()
     assert_almost_equal(sol["x"][0], 1.0, decimal=2)
 
@@ -92,3 +108,26 @@ def test_warm_start(use_indirect):
 
     with pytest.raises(ValueError):
         sol = solver.solve(x=np.array([1.0, 2.0]))
+
+
+@pytest.mark.parametrize(
+    "bad_kwarg,expected_in_msg",
+    [
+        ({"max_iters": "not_an_int"}, "integer"),
+        ({"scale": "not_a_float"}, "real number"),
+        ({"eps_abs": object()}, "real number"),
+        ({"time_limit_secs": []}, "real number"),
+        ({"acceleration_lookback": 1.5}, "integer"),
+    ],
+)
+def test_init_type_error_is_informative(bad_kwarg, expected_in_msg):
+    """Bad-typed settings should surface the native TypeError from
+    PyArg_ParseTupleAndKeywords naming the expected type, not the old
+    catch-all 'Error parsing inputs' ValueError."""
+    with pytest.raises(TypeError) as exc_info:
+        scs.SCS(data, cone, verbose=False, **bad_kwarg)
+    msg = str(exc_info.value)
+    assert expected_in_msg in msg, (
+        f"expected {expected_in_msg!r} in error message, got: {msg!r}"
+    )
+    assert "Error parsing inputs" not in msg

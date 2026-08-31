@@ -1,11 +1,9 @@
 Metadata-Version: 2.4
 Name: zizmor
-Version: 1.29.0
+Version: 1.30.0
 License-File: LICENSE
 Summary: Static analysis for GitHub Actions
 Home-Page: https://docs.zizmor.sh
-Author: William Woodruff <william@yossarian.net>
-Author-email: William Woodruff <william@yossarian.net>
 License: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM

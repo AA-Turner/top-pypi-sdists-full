@@ -7,6 +7,7 @@ import logging
 import warnings
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final, final
+from weakref import WeakSet
 
 from bleak.backends.device import BLEDevice
 from bleak_retry_connector import NO_RSSI_VALUE, Allocations
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from bleak.backends.scanner import AdvertisementData
 
     from .scanner_device import BluetoothScannerDevice
+    from .wrappers import HaBleakClientWrapper
 
 SCANNER_WATCHDOG_INTERVAL_SECONDS: Final = SCANNER_WATCHDOG_INTERVAL.total_seconds()
 _LOGGER = logging.getLogger(__name__)
@@ -52,6 +54,7 @@ class BaseHaScanner:
     __slots__ = (
         "_cancel_track",
         "_cancel_watchdog",
+        "_clients",
         "_connect_completed_total",
         "_connect_failed_total",
         "_connect_failures",
@@ -129,6 +132,8 @@ class BaseHaScanner:
         self._cancel_track: asyncio.TimerHandle | None = None
         self._connect_failures: dict[str, int] = {}
         self._connect_in_progress: dict[str, int] = {}
+        # Clients connected through this scanner; weak so a dropped one cannot leak.
+        self._clients: WeakSet[HaBleakClientWrapper] = WeakSet()
         self._connect_completed_total: int = 0
         self._connect_failed_total: int = 0
         self._last_connect_completed_time: float = 0.0
@@ -161,7 +166,7 @@ class BaseHaScanner:
             self._connect_failed_total += 1
             self._add_connect_failure(address)
 
-    def _increase_count(self, target: dict[str, int], address: str) -> None:
+    def _increase_count(self, target: dict[_str, _int], address: str) -> None:
         """Increase the reference count."""
         if address in target:
             target[address] += 1
@@ -561,9 +566,9 @@ class BaseHaScanner:
         address: _str,
         rssi: _int,
         local_name: _str | None,
-        service_uuids: list[str],
-        service_data: dict[str, bytes],
-        manufacturer_data: dict[int, bytes],
+        service_uuids: list[_str],
+        service_data: dict[_str, bytes],
+        manufacturer_data: dict[_int, bytes],
         tx_power: _int | None,
         details: dict[Any, Any],
         advertisement_monotonic_time: _float,
@@ -586,9 +591,9 @@ class BaseHaScanner:
         address: _str,
         rssi: _int,
         local_name: _str | None,
-        service_uuids: list[str],
-        service_data: dict[str, bytes],
-        manufacturer_data: dict[int, bytes],
+        service_uuids: list[_str],
+        service_data: dict[_str, bytes],
+        manufacturer_data: dict[_int, bytes],
         tx_power: _int | None,
         details: dict[Any, Any],
         advertisement_monotonic_time: _float,

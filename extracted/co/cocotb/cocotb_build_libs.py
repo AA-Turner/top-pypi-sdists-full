@@ -1,6 +1,8 @@
 # Copyright cocotb contributors
 # Licensed under the Revised BSD License, see LICENSE for details.
 # SPDX-License-Identifier: BSD-3-Clause
+# ruff: noqa
+from __future__ import annotations
 
 import distutils
 import logging
@@ -11,7 +13,6 @@ import sysconfig
 import textwrap
 from distutils.ccompiler import get_default_compiler
 from distutils.file_util import copy_file
-from typing import List
 
 from setuptools import Extension
 from setuptools.command.build_ext import build_ext as _build_ext
@@ -51,7 +52,7 @@ _extra_defines = [("__STDC_FORMAT_MACROS", "")]
 
 
 def create_sxs_assembly_manifest(
-    name: str, filename: str, libraries: List[str], dependency_only=False
+    name: str, filename: str, libraries: list[str], dependency_only=False
 ) -> str:
     """
     Create side-by-side (sxs) assembly manifest
@@ -62,9 +63,9 @@ def create_sxs_assembly_manifest(
      - https://docs.microsoft.com/en-us/windows/win32/sbscs/using-side-by-side-assemblies
 
     Args:
-        name: The name of the assembly for which the manifest is generated, e.g. ``libcocotbutils``.
-        filename: The filename of the library, e.g. ``libcocotbutils.dll``.
-        libraries: A list of names of dependent manifests, e.g. ``["libgpilog"]``.
+        name: The name of the assembly for which the manifest is generated, e.g. ``libgpi``.
+        filename: The filename of the library, e.g. ``libgpi.dll``.
+        libraries: A list of names of dependent manifests, e.g. ``["libgpi"]``.
     """
 
     architecture = "amd64" if sys.maxsize > 2**32 else "x86"
@@ -254,10 +255,6 @@ class build_ext(_build_ext):
                 rc_filename = name + ".rc"
                 runtime_libraries = None
 
-                # Add the runtime dependency on libcocotb to libembed
-                if name == "libembed":
-                    runtime_libraries = ["libcocotb"]
-
                 # Strip lib prefix for msvc
                 if self._uses_msvc():
                     name = name[3:] if name.startswith("lib") else name
@@ -324,21 +321,14 @@ class build_ext(_build_ext):
                     # `GLIBCXX_3.4.29' not found (required by
                     # /path/to/libcocotbvhpi_modelsim.so)."
                     ext.extra_link_args += ["-static-libstdc++"]
+                    if lib_name == "libgpi":
+                        ext.extra_link_args += ["-Wl,-soname,libgpi.so"]
 
                 ext.extra_link_args += [f"-Wl,-rpath,{rpath}" for rpath in rpaths]
 
         # vpi_user.h and vhpi_user.h require that WIN32 is defined
         if os.name == "nt":
             ext.define_macros += [("WIN32", "")]
-
-        if lib_name == "libembed":
-            if self._uses_msvc():
-                embed_lib_name = "cocotb"
-            else:
-                embed_lib_name = "libcocotb"
-            ext.define_macros += [
-                ("EMBED_IMPL_LIB", embed_lib_name + "." + _get_lib_ext_name())
-            ]
 
         old_build_temp = self.build_temp
         self.build_temp = os.path.join(self.build_temp, ext.name)
@@ -375,17 +365,6 @@ class build_ext(_build_ext):
 
         filename_short = os.path.join(head, tail_split[0] + "." + _get_lib_ext_name())
 
-        # icarus requires vpl extension
-        filename_short = filename_short.replace(
-            "libcocotbvpi_icarus.so", "libcocotbvpi_icarus.vpl"
-        )
-        filename_short = filename_short.replace(
-            "libcocotbvpi_icarus.dll", "libcocotbvpi_icarus.vpl"
-        )
-        filename_short = filename_short.replace(
-            "cocotbvpi_icarus.dll", "cocotbvpi_icarus.vpl"
-        )
-
         return filename_short
 
     def finalize_options(self):
@@ -412,9 +391,7 @@ class build_ext(_build_ext):
 
             os.makedirs(os.path.dirname(dest_filename), exist_ok=True)
 
-            copy_file(
-                src_filename, dest_filename, verbose=self.verbose, dry_run=self.dry_run
-            )
+            copy_file(src_filename, dest_filename, verbose=self.verbose)
             if ext._needs_stub:
                 self.write_stub(package_dir or os.curdir, ext, True)
 
@@ -492,130 +469,59 @@ def _get_common_lib_ext(include_dirs, share_lib_dir):
     """
 
     #
-    #  libcocotbutils
-    #
-    libcocotbutils_sources = [os.path.join(share_lib_dir, "utils", "cocotb_utils.cpp")]
-    if os.name == "nt":
-        libcocotbutils_sources += ["libcocotbutils.rc"]
-    libcocotbutils_libraries = ["gpilog"]
-    if sys.platform.startswith(("linux", "darwin", "cygwin", "msys")):
-        libcocotbutils_libraries.append("dl")  # dlopen, dlerror, dlsym
-    libcocotbutils = Extension(
-        os.path.join("cocotb", "libs", "libcocotbutils"),
-        define_macros=[("COCOTBUTILS_EXPORTS", ""), *_extra_defines],
-        include_dirs=include_dirs,
-        libraries=libcocotbutils_libraries,
-        sources=libcocotbutils_sources,
-    )
-
-    #
-    #  libgpilog
-    #
-    python_lib_dirs = []
-    if sys.platform == "darwin":
-        python_lib_dirs = [sysconfig.get_config_var("LIBDIR")]
-
-    libgpilog_sources = [os.path.join(share_lib_dir, "gpi_log", "gpi_logging.cpp")]
-    if os.name == "nt":
-        libgpilog_sources += ["libgpilog.rc"]
-    libgpilog = Extension(
-        os.path.join("cocotb", "libs", "libgpilog"),
-        define_macros=[("GPILOG_EXPORTS", ""), *_extra_defines],
-        include_dirs=include_dirs,
-        sources=libgpilog_sources,
-    )
-
-    #
-    #  libpygpilog
-    #
-    libpygpilog_sources = [
-        os.path.join(share_lib_dir, "py_gpi_log", "py_gpi_logging.cpp")
-    ]
-    if os.name == "nt":
-        libpygpilog_sources += ["libpygpilog.rc"]
-    libpygpilog = Extension(
-        os.path.join("cocotb", "libs", "libpygpilog"),
-        define_macros=[("PYGPILOG_EXPORTS", ""), *_extra_defines],
-        include_dirs=include_dirs,
-        libraries=["gpilog"],
-        sources=libpygpilog_sources,
-    )
-
-    #
-    #  libembed
-    #
-    libembed_sources = [os.path.join(share_lib_dir, "embed", "embed.cpp")]
-    if os.name == "nt":
-        libembed_sources += ["libembed.rc"]
-    libembed = Extension(
-        os.path.join("cocotb", "libs", "libembed"),
-        define_macros=[
-            ("COCOTB_EMBED_EXPORTS", ""),
-            ("PYTHON_LIB", _get_python_lib()),
-            *_extra_defines,
-        ],
-        include_dirs=include_dirs,
-        libraries=["gpilog", "cocotbutils"],
-        sources=libembed_sources,
-    )
-
-    #
-    #  libcocotb
-    #
-    libcocotb_sources = [os.path.join(share_lib_dir, "embed", "gpi_embed.cpp")]
-    if os.name == "nt":
-        libcocotb_sources += ["libcocotb.rc"]
-    libcocotb = Extension(
-        os.path.join("cocotb", "libs", "libcocotb"),
-        define_macros=_extra_defines,
-        include_dirs=include_dirs,
-        libraries=["gpilog", "cocotbutils", "pygpilog", "gpi"],
-        sources=libcocotb_sources,
-    )
-
-    #
     #  libgpi
     #
     libgpi_sources = [
         os.path.join(share_lib_dir, "gpi", "GpiCbHdl.cpp"),
         os.path.join(share_lib_dir, "gpi", "GpiCommon.cpp"),
+        os.path.join(share_lib_dir, "gpi", "dynload.cpp"),
+        os.path.join(share_lib_dir, "gpi", "logging.cpp"),
     ]
+    libgpi_libraries = []
+    if sys.platform.startswith(("linux", "darwin", "cygwin", "msys")):
+        libgpi_libraries.append("dl")  # dlopen, dlerror, dlsym
     if os.name == "nt":
         libgpi_sources += ["libgpi.rc"]
     libgpi = Extension(
         os.path.join("cocotb", "libs", "libgpi"),
         define_macros=[
             ("GPI_EXPORTS", ""),
-            ("LIB_EXT", _get_lib_ext_name()),
-            ("SINGLETON_HANDLES", ""),
             *_extra_defines,
         ],
         include_dirs=include_dirs,
-        libraries=["cocotbutils", "gpilog", "embed"],
+        libraries=libgpi_libraries,
         sources=libgpi_sources,
     )
 
     #
-    #  simulator
+    #  PyGPI
     #
-    simulator_sources = [
-        os.path.join(share_lib_dir, "simulator", "simulatormodule.cpp"),
+    pygpi_sources = [
+        os.path.join(share_lib_dir, "pygpi", "bind.cpp"),
+        os.path.join(share_lib_dir, "pygpi", "embed.cpp"),
+        os.path.join(share_lib_dir, "pygpi", "logging.cpp"),
     ]
     if os.name == "nt":
-        simulator_sources += ["simulator.rc"]
-    libsim = Extension(
+        pygpi_sources += ["simulator.rc"]
+    python_lib_dirs = []
+    if sys.platform == "darwin":
+        python_lib_dirs = [sysconfig.get_config_var("LIBDIR")]
+    libpygpi = Extension(
         os.path.join("cocotb", "simulator"),
-        define_macros=_extra_defines,
+        define_macros=[
+            ("PYGPI_EXPORTS", ""),
+            *_extra_defines,
+        ],
         include_dirs=include_dirs,
-        libraries=["cocotbutils", "gpilog", "gpi", "pygpilog"],
+        libraries=["gpi"],
         library_dirs=python_lib_dirs,
-        sources=simulator_sources,
+        sources=pygpi_sources,
     )
 
     # The libraries in this list are compiled in order of their appearance.
     # If there is a linking dependency on one library to another,
     # the linked library must be built first.
-    return [libgpilog, libpygpilog, libcocotbutils, libembed, libgpi, libcocotb, libsim]
+    return [libgpi, libpygpi]
 
 
 def _get_vpi_lib_ext(
@@ -623,11 +529,11 @@ def _get_vpi_lib_ext(
 ):
     lib_name = "libcocotbvpi_" + sim_define.lower()
     libcocotbvpi_sources = [
-        os.path.join(share_lib_dir, "vpi", "VpiImpl.cpp"),
-        os.path.join(share_lib_dir, "vpi", "VpiCbHdl.cpp"),
-        os.path.join(share_lib_dir, "vpi", "VpiObj.cpp"),
-        os.path.join(share_lib_dir, "vpi", "VpiIterator.cpp"),
-        os.path.join(share_lib_dir, "vpi", "VpiSignal.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vpi", "VpiImpl.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vpi", "VpiCbHdl.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vpi", "VpiObj.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vpi", "VpiIterator.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vpi", "VpiSignal.cpp"),
     ]
     if os.name == "nt":
         libcocotbvpi_sources += [lib_name + ".rc"]
@@ -635,7 +541,7 @@ def _get_vpi_lib_ext(
         os.path.join("cocotb", "libs", lib_name),
         define_macros=[("COCOTBVPI_EXPORTS", ""), (sim_define, ""), *_extra_defines],
         include_dirs=include_dirs,
-        libraries=["gpi", "gpilog", *extra_lib],
+        libraries=["gpi", *extra_lib],
         library_dirs=extra_lib_dir,
         sources=libcocotbvpi_sources,
     )
@@ -648,8 +554,11 @@ def _get_vhpi_lib_ext(
 ):
     lib_name = "libcocotbvhpi_" + sim_define.lower()
     libcocotbvhpi_sources = [
-        os.path.join(share_lib_dir, "vhpi", "VhpiImpl.cpp"),
-        os.path.join(share_lib_dir, "vhpi", "VhpiCbHdl.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vhpi", "VhpiImpl.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vhpi", "VhpiCbHdl.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vhpi", "VhpiObj.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vhpi", "VhpiIterator.cpp"),
+        os.path.join(share_lib_dir, "gpi", "vhpi", "VhpiSignal.cpp"),
     ]
     if os.name == "nt":
         libcocotbvhpi_sources += [lib_name + ".rc"]
@@ -657,7 +566,7 @@ def _get_vhpi_lib_ext(
         os.path.join("cocotb", "libs", lib_name),
         include_dirs=include_dirs,
         define_macros=[("COCOTBVHPI_EXPORTS", ""), (sim_define, ""), *_extra_defines],
-        libraries=["gpi", "gpilog", *extra_lib],
+        libraries=["gpi", *extra_lib],
         library_dirs=extra_lib_dir,
         sources=libcocotbvhpi_sources,
     )
@@ -726,9 +635,9 @@ def get_ext():
 
     lib_name = "libcocotbfli_modelsim"
     fli_sources = [
-        os.path.join(share_lib_dir, "fli", "FliImpl.cpp"),
-        os.path.join(share_lib_dir, "fli", "FliCbHdl.cpp"),
-        os.path.join(share_lib_dir, "fli", "FliObjHdl.cpp"),
+        os.path.join(share_lib_dir, "gpi", "fli", "FliImpl.cpp"),
+        os.path.join(share_lib_dir, "gpi", "fli", "FliCbHdl.cpp"),
+        os.path.join(share_lib_dir, "gpi", "fli", "FliObjHdl.cpp"),
     ]
     if os.name == "nt":
         fli_sources += [lib_name + ".rc"]
@@ -736,7 +645,7 @@ def get_ext():
         os.path.join("cocotb", "libs", lib_name),
         define_macros=[("COCOTBFLI_EXPORTS", ""), *_extra_defines],
         include_dirs=include_dirs,
-        libraries=["gpi", "gpilog", *modelsim_extra_lib],
+        libraries=["gpi", *modelsim_extra_lib],
         sources=fli_sources,
     )
 

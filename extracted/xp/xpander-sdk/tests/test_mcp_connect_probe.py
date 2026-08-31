@@ -160,7 +160,7 @@ def test_non_auth_error_skips_without_auth_attempt(monkeypatch):
 
     async def _probe(url, headers=None, transport="streamable-http"):
         probe_calls.append(dict(headers or {}))
-        return ValueError("connection refused")
+        return httpx.ConnectError("[Errno 111] Connection refused")
 
     async def _auth(*a, **k):
         auth_calls.append(True)
@@ -170,12 +170,39 @@ def test_non_auth_error_skips_without_auth_attempt(monkeypatch):
     monkeypatch.setattr(agno_module, "authenticate_mcp_server", _auth)
 
     ready, note = asyncio.run(
-        agno_module._ensure_remote_mcp_ready(mcp=mcp, transport="streamable-http", task=_FakeTask())
+        agno_module._ensure_remote_mcp_ready(
+            mcp=mcp, transport="streamable-http", task=_FakeTask()
+        )
     )
-    assert ready is False       # skipped, not raised
-    assert note is None          # generic unavailable-note, no specific remedy
-    assert auth_calls == []      # no auth attempt for a non-auth error
+    assert ready is False  # skipped, not raised
+    assert "Fathom MCP" in note and "unreachable from the agent's network" in note
+    assert "api.fathom.ai" in note  # names the host whose egress may need allowing
+    assert "stale-token" not in note  # never echo credentials into the note
+    assert auth_calls == []  # no auth attempt for a non-auth error
     assert len(probe_calls) == 1
+
+
+def test_server_error_skips_without_network_note(monkeypatch):
+    # An HTTP status means the server WAS reached: no egress advice, the caller's
+    # generic temporarily-unavailable note is the accurate one.
+    mcp = _mcp()
+
+    async def _probe(url, headers=None, transport="streamable-http"):
+        return _http_error(503)
+
+    async def _auth(*a, **k):
+        raise AssertionError("no auth attempt for a 5xx")
+
+    monkeypatch.setattr(agno_module, "probe_mcp_server", _probe)
+    monkeypatch.setattr(agno_module, "authenticate_mcp_server", _auth)
+
+    ready, note = asyncio.run(
+        agno_module._ensure_remote_mcp_ready(
+            mcp=mcp, transport="streamable-http", task=_FakeTask()
+        )
+    )
+    assert ready is False
+    assert note is None
 
 
 def test_bypass_header_auth_still_heals(monkeypatch):
@@ -219,3 +246,93 @@ def test_strict_init_kill_switch(monkeypatch):
             mcp=_mcp(), transport="streamable-http", task=_FakeTask()
         )
     )
+
+
+class TestDescribeTransportFailure:
+    """describe_transport_failure maps raw connect errors to triage-ready phrases."""
+
+    def _describe(self, exc: BaseException) -> str:
+        from xpander_sdk.modules.backend.utils.mcp_connect import (
+            describe_transport_failure,
+        )
+
+        return describe_transport_failure(exc)
+
+    def test_empty_connect_error_is_a_reset(self) -> None:
+        # httpx surfaces a peer reset mid TCP/TLS handshake as ConnectError("")
+        detail = self._describe(httpx.ConnectError(""))
+        assert "connection reset while connecting" in detail
+
+    def test_broken_resource_cause_is_a_reset(self) -> None:
+        class BrokenResourceError(Exception):
+            pass
+
+        err = httpx.ConnectError("all attempts failed")
+        err.__cause__ = BrokenResourceError()
+        assert "connection reset while connecting" in self._describe(err)
+
+    def test_refused(self) -> None:
+        err = httpx.ConnectError("[Errno 111] Connection refused")
+        assert self._describe(err) == "connection refused"
+
+    def test_dns_by_text(self) -> None:
+        err = httpx.ConnectError("[Errno -2] Name or service not known")
+        assert self._describe(err) == "DNS lookup failed"
+
+    def test_dns_by_gaierror_cause(self) -> None:
+        import socket
+
+        err = httpx.ConnectError("all attempts failed")
+        err.__cause__ = socket.gaierror(-2, "boom")
+        assert self._describe(err) == "DNS lookup failed"
+
+    def test_tls(self) -> None:
+        err = httpx.ConnectError("certificate verify failed")
+        assert self._describe(err) == "TLS handshake failed"
+
+    def test_connect_timeout(self) -> None:
+        assert self._describe(httpx.ConnectTimeout("timed out")) == "connect timed out"
+
+    def test_overall_timeout_is_a_response_stall(self) -> None:
+        # the probe's asyncio.wait_for cap can fire after the connect succeeded
+        detail = self._describe(asyncio.TimeoutError())
+        assert detail == "timed out waiting for the server to respond"
+
+    def test_read_timeout_is_a_response_stall(self) -> None:
+        detail = self._describe(httpx.ReadTimeout("slow"))
+        assert detail == "timed out waiting for the server to respond"
+
+    def test_5xx(self) -> None:
+        assert self._describe(_http_error(503)) == "HTTP 503 from the server"
+
+    def test_other_connect_error_keeps_text(self) -> None:
+        detail = self._describe(httpx.ConnectError("weird proxy thing"))
+        assert detail == "could not connect (weird proxy thing)"
+
+    def test_connect_error_text_is_capped_and_single_line(self) -> None:
+        err = httpx.ConnectError("Multiple exceptions:\n" + "x" * 500)
+        detail = self._describe(err)
+        assert "\n" not in detail
+        assert len(detail) < 160
+
+    def test_read_error_is_a_post_connect_reset(self) -> None:
+        detail = self._describe(httpx.ReadError(""))
+        assert "connection reset during the exchange" in detail
+
+    def test_remote_protocol_error_is_a_post_connect_reset(self) -> None:
+        detail = self._describe(httpx.RemoteProtocolError("peer closed"))
+        assert "connection reset during the exchange" in detail
+
+    def test_connection_reset_error_is_a_post_connect_reset(self) -> None:
+        detail = self._describe(ConnectionResetError(104, "reset by peer"))
+        assert "connection reset during the exchange" in detail
+
+    def test_bare_broken_resource_leaf_is_a_post_connect_reset(self) -> None:
+        class BrokenResourceError(Exception):
+            pass
+
+        detail = self._describe(BrokenResourceError())
+        assert "connection reset during the exchange" in detail
+
+    def test_unknown_error_generic(self) -> None:
+        assert self._describe(ValueError("boom")) == "could not connect"

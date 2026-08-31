@@ -17,6 +17,7 @@ from pathlib import Path
 from ..errors import BoostError
 from . import (
     agents,
+    config,
     gitutil,
     journal,
     lockfile,
@@ -489,6 +490,24 @@ def _require_project_base(scope: str, base, what: str) -> Path | None:
     return resolved
 
 
+def _refuse_self_installing(entry: dict) -> None:
+    """Refuse to half-copy an item whose repo installs itself.
+
+    Checked before the kind dispatch because the property belongs to the repo,
+    not the item: every kind it ships has the same missing build step. Naming
+    the upstream command is the whole point — a refusal that only says "no"
+    leaves the user exactly where `boost install` pretending would have.
+    """
+    cmd = config.self_installing_command(entry.get("tap") or "")
+    if not cmd:
+        return
+    raise BoostError(
+        "%s comes from %s, which installs itself — boost would copy its "
+        "Markdown and leave a skill that cannot run"
+        % (entry.get("name", "?"), entry.get("tap", "?")),
+        hint="run the registry's own installer: %s" % cmd)
+
+
 def install(entry: dict, force: bool = False,
             only_agents: list[str] | None = None,
             scope: str = "user", base=None) -> InstallResult:
@@ -499,6 +518,7 @@ def install(entry: dict, force: bool = False,
     current repo). Every kind honors it.
     """
     scopes.check_scope(scope)
+    _refuse_self_installing(entry)
     kind = entry.get("kind", "skill")
     if kind == "rule":
         return _install_rule(entry, force=force, only_agents=only_agents,
@@ -604,8 +624,12 @@ def _install_project_skill(entry: dict, force: bool = False,
     src = source_dir_for(entry)
     _enforce_capability_policy(name, src / "SKILL.md")
     only_agents = preserved_agent_scope(only_agents, existing)
+    # agents_for_scope, not enabled_agents: project scope derives a repo-local
+    # dotdir from the agent's own, which holds for every agent whose skills dir
+    # sits one level under it. Antigravity's sits two, so it is excluded rather
+    # than given an invented `<repo>/antigravity-cli/`.
     targets = [(agent, scopes.skill_target(skills_dir, name, base=resolved_base))
-               for agent, skills_dir in agents.enabled_agents().items()
+               for agent, skills_dir in agents.agents_for_scope(resolved_base).items()
                if not only_agents or agent in only_agents]
 
     # Refuse to write through a symlink that leaves the repo. An agent dir like
@@ -836,7 +860,7 @@ def _install_rule(entry: dict, force: bool = False,
     paths.ensure_dirs()
     materializations: list[dict] = []
     linked: list[str] = []
-    for agent, skills_dir in agents.enabled_agents().items():
+    for agent, skills_dir in agents.materializing_agents(resolved_base).items():
         if only_agents and agent not in only_agents:
             continue
         mode, path = rules.rule_target(agent, skills_dir, name, base=resolved_base)
@@ -1070,7 +1094,7 @@ def _install_workflow(entry: dict, force: bool = False,
     paths.ensure_dirs()
     materializations: list[dict] = []
     linked: list[str] = []
-    for agent, skills_dir in agents.enabled_agents().items():
+    for agent, skills_dir in agents.materializing_agents(resolved_base).items():
         if only_agents and agent not in only_agents:
             continue
         path = workflows.workflow_target(skills_dir, slot, name,

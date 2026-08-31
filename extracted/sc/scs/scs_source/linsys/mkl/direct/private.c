@@ -5,25 +5,56 @@
 #define PARDISO_SOLVE (33)
 #define PARDISO_CLEANUP (-1)
 
-/* TODO: is it necessary to use pardiso_64 and MKL_Set_Interface_Layer ? */
 /*
+ * MKL interface layer constants. MKL has two integer interfaces:
+ *
+ *   LP64  (MKL_INTERFACE_LP64  = 0): BLAS/LAPACK use 32-bit integers (int).
+ *   ILP64 (MKL_INTERFACE_ILP64 = 1): BLAS/LAPACK use 64-bit integers (long long).
+ *
+ * These affect the standard BLAS/LAPACK symbols (dgemm, dpotrf, etc.).
+ * PARDISO has separate entry points for each integer width:
+ *
+ *   pardiso    — 32-bit integer indices (used when !DLONG)
+ *   pardiso_64 — 64-bit integer indices (used when DLONG)
+ *
+ * The pardiso/pardiso_64 choice is independent of the interface layer; each is
+ * a distinct symbol that always uses its own integer width regardless of what
+ * MKL_Set_Interface_Layer says.
+ *
+ * The BLAS integer width is controlled by the use_blas64 meson option:
+ *
+ *   use_blas64=false (default) -> links mkl-dynamic-lp64-*,  expects LP64
+ *   use_blas64=true            -> links mkl-dynamic-ilp64-*, expects ILP64
+ *
+ * See meson.build for the linkage logic. The MKL-specific initialization in
+ * src/scs.c uses BLAS64 to pick the right expected interface layer.
+ *
+ * PARDISO is independent: pardiso_64 always uses 64-bit ints regardless of
+ * the interface layer or BLAS64 setting.
+ */
 #define MKL_INTERFACE_LP64 0
 #define MKL_INTERFACE_ILP64 1
-*/
+
 #ifdef DLONG
 #define _PARDISO pardiso_64
 #else
 #define _PARDISO pardiso
 #endif
 
-/* Prototypes for Pardiso functions */
+/* Prototypes for Pardiso and MKL service functions. */
 void _PARDISO(void **pt, const scs_int *maxfct, const scs_int *mnum,
               const scs_int *mtype, const scs_int *phase, const scs_int *n,
               const scs_float *a, const scs_int *ia, const scs_int *ja,
               scs_int *perm, const scs_int *nrhs, scs_int *iparm,
               const scs_int *msglvl, scs_float *b, scs_float *x,
               scs_int *error);
-/* scs_int MKL_Set_Interface_Layer(scs_int); */
+/* BLAS64 requires DLONG for MKL builds: the interface layer (ILP64) set by
+ * MKL_Set_Interface_Layer must match the PARDISO entry point (pardiso_64).
+ * Without DLONG, pardiso (32-bit) is used but ILP64 makes its internal BLAS
+ * calls expect 64-bit integers, causing hangs or memory corruption. */
+#if defined(BLAS64) && !defined(DLONG)
+#error "MKL PARDISO requires DLONG when BLAS64 is set (pardiso_64 needs 64-bit ints)"
+#endif
 
 const char *scs_get_lin_sys_method() {
   return "sparse-direct-mkl-pardiso";
@@ -41,8 +72,6 @@ void scs_free_lin_sys_work(ScsLinSysWork *p) {
     }
     if (p->kkt)
       SCS(cs_spfree)(p->kkt);
-    if (p->sol)
-      scs_free(p->sol);
     if (p->diag_r_idxs)
       scs_free(p->diag_r_idxs);
     if (p->diag_p)
@@ -55,22 +84,12 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
                                      const scs_float *diag_r) {
   scs_int i;
   ScsLinSysWork *p = scs_calloc(1, sizeof(ScsLinSysWork));
-
-  /* TODO: is this necessary with pardiso_64? */
-  /* Set MKL interface layer */
-  /*
-#ifdef DLONG
-  MKL_Set_Interface_Layer(MKL_INTERFACE_ILP64);
-#else
-  MKL_Set_Interface_Layer(MKL_INTERFACE_LP64);
-#endif
-  */
+  if (!p)
+    return SCS_NULL;
   p->n = A->n;
   p->m = A->m;
   p->n_plus_m = p->n + p->m;
 
-  /* Even though we overwrite rhs with sol pardiso requires the memory */
-  p->sol = (scs_float *)scs_malloc(sizeof(scs_float) * p->n_plus_m);
   p->diag_r_idxs = (scs_int *)scs_calloc(p->n_plus_m, sizeof(scs_int));
   p->diag_p = (scs_float *)scs_calloc(p->n, sizeof(scs_float));
 
@@ -101,7 +120,9 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
   p->iparm[1] = 3;          /* Fill-in reordering from OpenMP */
   p->iparm[5] = 1;          /* Write solution into b */
   p->iparm[7] = 0;          /* Automatic iterative refinement calculation */
-  p->iparm[9] = 8;          /* Perturb the pivot elements with 1E-8 */
+  p->iparm[9] = 13;         /* Perturb the pivot elements with 1E-13 (default) */
+  p->iparm[23] = 1;         /* Two-level scheduling for parallel factorization */
+  p->iparm[24] = 1;         /* Parallel forward/backward solve */
   p->iparm[34] = 1;         /* Use C-style indexing for indices */
   /* p->iparm[36] = -80; */ /* Form block sparse matrices */
 
@@ -135,6 +156,7 @@ ScsLinSysWork *scs_init_lin_sys_work(const ScsMatrix *A, const ScsMatrix *P,
 
   if (p->iparm[21] < p->n) {
     scs_printf("KKT matrix has < n positive eigenvalues. P not PSD.");
+    scs_free_lin_sys_work(p);
     return SCS_NULL;
   }
 
@@ -148,7 +170,7 @@ scs_int scs_solve_lin_sys(ScsLinSysWork *p, scs_float *b, const scs_float *ws,
   p->phase = PARDISO_SOLVE;
   _PARDISO(p->pt, &(p->maxfct), &(p->mnum), &(p->mtype), &(p->phase),
            &(p->n_plus_m), p->kkt->x, p->kkt->p, p->kkt->i, SCS_NULL,
-           &(p->nrhs), p->iparm, &(p->msglvl), b, p->sol, &(p->error));
+           &(p->nrhs), p->iparm, &(p->msglvl), b, SCS_NULL, &(p->error));
   if (p->error != 0) {
     scs_printf("Error during linear system solution: %d", (int)p->error);
   }
@@ -156,7 +178,7 @@ scs_int scs_solve_lin_sys(ScsLinSysWork *p, scs_float *b, const scs_float *ws,
 }
 
 /* Update factorization when R changes */
-void scs_update_lin_sys_diag_r(ScsLinSysWork *p, const scs_float *diag_r) {
+scs_int scs_update_lin_sys_diag_r(ScsLinSysWork *p, const scs_float *diag_r) {
   scs_int i;
 
   for (i = 0; i < p->n; ++i) {
@@ -177,6 +199,7 @@ void scs_update_lin_sys_diag_r(ScsLinSysWork *p, const scs_float *diag_r) {
   if (p->error != 0) {
     scs_printf("Error in PARDISO factorization when updating: %d.\n",
                (int)p->error);
-    scs_free_lin_sys_work(p);
+    return (scs_int)p->error;
   }
+  return 0;
 }

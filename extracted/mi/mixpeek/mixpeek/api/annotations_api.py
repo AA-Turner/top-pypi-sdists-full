@@ -1513,7 +1513,7 @@ class AnnotationsApi:
     ) -> AnnotationResponse:
         """Get Annotation At Version
 
-        The annotation exactly as it stood at a given version (ADM-15).  Reproducible evaluation: pin (annotation_id, version) and this route returns the identical judgment later, however many edits followed.
+        The annotation exactly as it stood at a given version.  Reproducible evaluation: pin (annotation_id, version) and this route returns the identical judgment later, however many edits followed.
 
         :param annotation_id: (required)
         :type annotation_id: str
@@ -1590,7 +1590,7 @@ class AnnotationsApi:
     ) -> ApiResponse[AnnotationResponse]:
         """Get Annotation At Version
 
-        The annotation exactly as it stood at a given version (ADM-15).  Reproducible evaluation: pin (annotation_id, version) and this route returns the identical judgment later, however many edits followed.
+        The annotation exactly as it stood at a given version.  Reproducible evaluation: pin (annotation_id, version) and this route returns the identical judgment later, however many edits followed.
 
         :param annotation_id: (required)
         :type annotation_id: str
@@ -1667,7 +1667,7 @@ class AnnotationsApi:
     ) -> RESTResponseType:
         """Get Annotation At Version
 
-        The annotation exactly as it stood at a given version (ADM-15).  Reproducible evaluation: pin (annotation_id, version) and this route returns the identical judgment later, however many edits followed.
+        The annotation exactly as it stood at a given version.  Reproducible evaluation: pin (annotation_id, version) and this route returns the identical judgment later, however many edits followed.
 
         :param annotation_id: (required)
         :type annotation_id: str
@@ -1807,7 +1807,7 @@ class AnnotationsApi:
     ) -> AnnotationVersionsResponse:
         """Get Annotation Versions
 
-        Version history of an annotation (ADM-15).  Every value-changing edit mints a new version; each descriptor names who made the edit, when, and which fields changed. Fetch a specific version's full state at /versions/{version}.
+        Version history of an annotation.  Every value-changing edit mints a new version; each descriptor names who made the edit, when, and which fields changed. Fetch a specific version's full state at /versions/{version}.
 
         :param annotation_id: (required)
         :type annotation_id: str
@@ -1880,7 +1880,7 @@ class AnnotationsApi:
     ) -> ApiResponse[AnnotationVersionsResponse]:
         """Get Annotation Versions
 
-        Version history of an annotation (ADM-15).  Every value-changing edit mints a new version; each descriptor names who made the edit, when, and which fields changed. Fetch a specific version's full state at /versions/{version}.
+        Version history of an annotation.  Every value-changing edit mints a new version; each descriptor names who made the edit, when, and which fields changed. Fetch a specific version's full state at /versions/{version}.
 
         :param annotation_id: (required)
         :type annotation_id: str
@@ -1953,7 +1953,7 @@ class AnnotationsApi:
     ) -> RESTResponseType:
         """Get Annotation Versions
 
-        Version history of an annotation (ADM-15).  Every value-changing edit mints a new version; each descriptor names who made the edit, when, and which fields changed. Fetch a specific version's full state at /versions/{version}.
+        Version history of an annotation.  Every value-changing edit mints a new version; each descriptor names who made the edit, when, and which fields changed. Fetch a specific version's full state at /versions/{version}.
 
         :param annotation_id: (required)
         :type annotation_id: str

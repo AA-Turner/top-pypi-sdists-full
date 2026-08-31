@@ -771,6 +771,20 @@ class DoorSwitchChannel(FunctionalChannel):
             self._connection, self.device.id, self.index
         )
 
+    def set_door_lock_active(self, door_lock_active: bool, pin: str | None = None):
+        """Hold the door released ("always open") with ``True``, lock it with ``False``.
+
+        See :func:`homematicip.commands.functional_channel_commands.set_door_lock_active_async`.
+        """
+        return self._run_non_async(
+            lambda: self.async_set_door_lock_active(door_lock_active, pin)
+        )
+
+    async def async_set_door_lock_active(self, door_lock_active: bool, pin: str | None = None):
+        return await functional_channel_commands.set_door_lock_active_async(
+            self._connection, self.device.id, self.index, door_lock_active, pin
+        )
+
 
 class EnergySensorInterfaceChannel(FunctionalChannel):
     """EnergySensorInterfaceChannel"""
@@ -2109,6 +2123,19 @@ class TemperatureDifferenceSensor2Channel(FunctionalChannel):
         self.set_attr_from_dict("temperatureExternalDelta", js)
         self.set_attr_from_dict("temperatureExternalOne", js)
         self.set_attr_from_dict("temperatureExternalTwo", js)
+
+
+class TemperatureSensorChannel(FunctionalChannel):
+    """this is the representative of the TEMPERATURE_SENSOR_CHANNEL channel"""
+
+    def __init__(self, device, connection):
+        super().__init__(device, connection)
+        #:float:
+        self.actualTemperature = 0.0
+
+    def from_json(self, js, groups: Iterable[Group]):
+        super().from_json(js, groups)
+        self.set_attr_from_dict("actualTemperature", js)
 
 
 class ExternalBaseChannel(FunctionalChannel):

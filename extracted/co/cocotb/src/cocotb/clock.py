@@ -6,20 +6,19 @@
 
 """A clock class."""
 
+from __future__ import annotations
+
 import logging
+import sys
 import warnings
 from decimal import Decimal
 from fractions import Fraction
+from functools import cached_property
 from logging import Logger
-from typing import ClassVar, Type, Union
+from typing import ClassVar, Literal
 
 import cocotb
-from cocotb._py_compat import (
-    Literal,
-    TypeAlias,
-    cached_property,
-)
-from cocotb._typing import TimeUnit
+import cocotb.simulator
 from cocotb.handle import (
     Deposit,
     Force,
@@ -28,7 +27,7 @@ from cocotb.handle import (
     _GPISetAction,
     _trust_inertial,
 )
-from cocotb.simulator import clock_create
+from cocotb.simtime import TimeUnit
 from cocotb.task import Task
 from cocotb.triggers import (
     Event,
@@ -39,6 +38,9 @@ from cocotb.triggers import (
     ValueChange,
 )
 from cocotb.utils import get_sim_steps, get_time_from_sim_steps
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
 
 __all__ = ("Clock",)
 
@@ -72,7 +74,7 @@ class Clock:
 
         impl:
             One of ``'auto'``, ``'gpi'``, ``'py'``.
-            Specify whether the clock is implemented with a :class:`~cocotb.simulator.GpiClock` (faster), or with a Python coroutine.
+            Specify whether the clock is implemented with a :class:`~cocotb.simulator.cpp_clock` (faster), or with a Python coroutine.
             When ``'auto'`` is used (default), the fastest implementation that supports your environment and use case is picked.
 
             .. versionadded:: 2.0
@@ -92,7 +94,7 @@ class Clock:
             .. versionadded:: 2.0
 
     When *impl* is ``'auto'``, if :envvar:`COCOTB_TRUST_INERTIAL_WRITES` is defined,
-    the :class:`~cocotb.simulator.GpiClock` implementation will be used.
+    the :class:`~cocotb.simulator.cpp_clock` implementation will be used.
     Otherwise, the Python coroutine implementation will be used.
     See the environment variable's documentation for more information on the consequences
     of using the simulator's inertial write mechanism.
@@ -147,9 +149,7 @@ class Clock:
 
     _impl: Impl
 
-    default_set_action: ClassVar[Union[Type[Immediate], Type[Deposit], Type[Force]]] = (
-        Deposit
-    )
+    default_set_action: ClassVar[type[Immediate | Deposit | Force]] = Deposit
     """The default action used to set the clock signal value.
     One of :class:`.Immediate`, :class:`.Deposit`, or :class:`.Force`.
 
@@ -159,13 +159,13 @@ class Clock:
     def __init__(
         self,
         signal: LogicObject,
-        period: Union[float, Fraction, Decimal],
+        period: float | Fraction | Decimal,
         unit: TimeUnit = "step",
-        impl: Union[Impl, None] = None,
+        impl: Impl | None = None,
         *,
         units: None = None,
-        set_action: Union[Type[Immediate], Type[Deposit], Type[Force], None] = None,
-        period_high: Union[float, Fraction, Decimal, None] = None,
+        set_action: type[Immediate | Deposit | Force] | None = None,
+        period_high: float | Fraction | Decimal | None = None,
     ) -> None:
         self._signal = signal
 
@@ -202,7 +202,7 @@ class Clock:
                 f"Invalid clock impl {impl!r}, must be one of: {valid_impls_str}"
             )
 
-        self._period_high: Union[float, Fraction, Decimal]
+        self._period_high: float | Fraction | Decimal
         if period_high is not None:
             if period_high >= self._period:
                 raise ValueError("`period_high` must be strictly less than `period`.")
@@ -219,7 +219,7 @@ class Clock:
             self._period_high = period / 2
             self._period_high_steps = self._period_steps // 2
 
-        self._task: Union[Task[None], None] = None
+        self._task: Task[None] | None = None
 
     @property
     def signal(self) -> LogicObject:
@@ -227,7 +227,7 @@ class Clock:
         return self._signal
 
     @property
-    def period(self) -> Union[float, Fraction, Decimal]:
+    def period(self) -> float | Fraction | Decimal:
         """The clock period.
 
         The unit is :attr:`unit`.
@@ -235,7 +235,7 @@ class Clock:
         return self._period
 
     @property
-    def period_high(self) -> Union[float, Fraction, Decimal]:
+    def period_high(self) -> float | Fraction | Decimal:
         """The period of time when the clock is driven to ``1``.
 
         The unit is :attr:`unit`.
@@ -264,7 +264,7 @@ class Clock:
         return self._impl
 
     @property
-    def set_action(self) -> Union[Type[Immediate], Type[Deposit], Type[Force]]:
+    def set_action(self) -> type[Immediate | Deposit | Force]:
         """The value setting action used to set the clock signal value.
 
         .. versionadded:: 2.0
@@ -302,7 +302,7 @@ class Clock:
             raise RuntimeError("Starting clock that has already been started.")
 
         if self._impl == "gpi":
-            clkobj = clock_create(self._signal._handle)
+            clkobj = cocotb.simulator.clock_create(self._signal._handle)
             set_action = {
                 Deposit: _GPISetAction.DEPOSIT,
                 Immediate: _GPISetAction.NO_DELAY,
@@ -359,9 +359,7 @@ class Clock:
     async def cycles(
         self,
         num_cycles: int,
-        edge_type: Union[
-            Type[RisingEdge], Type[FallingEdge], Type[ValueChange]
-        ] = RisingEdge,
+        edge_type: type[RisingEdge | FallingEdge | ValueChange] = RisingEdge,
     ) -> None:
         """Wait for a number of clock cycles.
 
@@ -403,10 +401,6 @@ class Clock:
             await edge_type(self._signal)
 
     def __repr__(self) -> str:
-        return self._repr
-
-    @cached_property
-    def _repr(self) -> str:
         freq_mhz = 1 / get_time_from_sim_steps(
             get_sim_steps(self._period, self._unit), "us"
         )

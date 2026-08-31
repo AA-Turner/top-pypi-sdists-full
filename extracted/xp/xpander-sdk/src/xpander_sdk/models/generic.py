@@ -31,3 +31,4 @@ class LLMModelProvider(Enum):
     Nebius = "nebius"
     CloudflareAIGateway = "cloudflare_ai_gw"
     ZAI = "z_ai"
+    OpenAICompatible = "openai_compatible"

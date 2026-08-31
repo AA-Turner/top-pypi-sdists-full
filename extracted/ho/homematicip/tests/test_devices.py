@@ -284,6 +284,123 @@ async def test_pull_latch_forwards_pin():
     )
 
 
+def test_full_flush_lock_controller_device_set_door_lock_active():
+    d = _build_full_flush_lock_controller()
+
+    with patch(
+        "homematicip.commands.functional_channel_commands.set_door_lock_active_async",
+        new_callable=AsyncMock,
+    ) as patched:
+        d.set_door_lock_active(True)
+
+    patched.assert_awaited_once_with(d._connection, d.id, 3, True, None)
+
+
+@pytest.mark.asyncio
+async def test_full_flush_lock_controller_device_set_door_lock_active_async():
+    d = _build_full_flush_lock_controller()
+
+    with patch(
+        "homematicip.commands.functional_channel_commands.set_door_lock_active_async",
+        new_callable=AsyncMock,
+    ) as patched:
+        await d.set_door_lock_active_async(False, "1234")
+
+    patched.assert_awaited_once_with(d._connection, d.id, 3, False, "1234")
+
+
+def test_full_flush_lock_controller_set_door_lock_active():
+    d = _build_full_flush_lock_controller()
+
+    door_lock_channel = next(
+        ch
+        for ch in d.functionalChannels
+        if ch.functionalChannelType == FunctionalChannelType.DOOR_SWITCH_CHANNEL
+        and ch.channelRole == "DOOR_LOCK_ACTUATOR"
+    )
+    assert isinstance(door_lock_channel, DoorSwitchChannel)
+    assert door_lock_channel.index == 3
+
+    with patch(
+        "homematicip.commands.functional_channel_commands.set_door_lock_active_async",
+        new_callable=AsyncMock,
+    ) as patched:
+        door_lock_channel.set_door_lock_active(True)
+
+    patched.assert_awaited_once_with(d._connection, d.id, 3, True, None)
+
+
+def test_full_flush_lock_controller_set_door_lock_active_with_pin():
+    d = _build_full_flush_lock_controller()
+
+    door_lock_channel = next(
+        ch
+        for ch in d.functionalChannels
+        if ch.functionalChannelType == FunctionalChannelType.DOOR_SWITCH_CHANNEL
+        and ch.channelRole == "DOOR_LOCK_ACTUATOR"
+    )
+
+    with patch(
+        "homematicip.commands.functional_channel_commands.set_door_lock_active_async",
+        new_callable=AsyncMock,
+    ) as patched:
+        door_lock_channel.set_door_lock_active(False, "1234")
+
+    patched.assert_awaited_once_with(d._connection, d.id, 3, False, "1234")
+
+
+@pytest.mark.asyncio
+async def test_set_door_lock_active_without_pin_uses_plain_endpoint():
+    connection = AsyncMock()
+
+    await functional_channel_commands.set_door_lock_active_async(
+        connection, "device-id", 3, True
+    )
+
+    connection.async_post.assert_awaited_once_with(
+        "device/control/setDoorLockActive",
+        {"deviceId": "device-id", "channelIndex": 3, "doorLockActive": True},
+    )
+
+
+@pytest.mark.asyncio
+async def test_set_door_lock_active_with_pin_uses_authorization_endpoint():
+    connection = AsyncMock()
+
+    await functional_channel_commands.set_door_lock_active_async(
+        connection, "device-id", 3, False, "1234"
+    )
+
+    connection.async_post.assert_awaited_once_with(
+        "device/control/setDoorLockActiveWithAuthorization",
+        {
+            "deviceId": "device-id",
+            "channelIndex": 3,
+            "doorLockActive": False,
+            "authorizationPin": "1234",
+        },
+    )
+
+
+@pytest.mark.asyncio
+async def test_set_door_lock_active_empty_pin_still_uses_authorization_endpoint():
+    connection = AsyncMock()
+
+    await functional_channel_commands.set_door_lock_active_async(
+        connection, "device-id", 3, True, ""
+    )
+
+    connection.async_post.assert_awaited_once_with(
+        "device/control/setDoorLockActiveWithAuthorization",
+        {
+            "deviceId": "device-id",
+            "channelIndex": 3,
+            "doorLockActive": True,
+            "authorizationPin": "",
+        },
+    )
+
+
 def test_full_flush_door_controller(fake_home: Home):
     d = fake_home.search_device_by_id("3014F711000000000000FDC1")
 
@@ -446,6 +563,21 @@ def test_tilt_vibration_sensor(fake_home: Home):
         assert d.accelerationSensorTriggerAngle == 30
 
 
+def test_temperature_tilt_vibration_sensor(fake_home: Home):
+    """ELV-SH-TACO combines a temperature channel with a tilt/vibration channel."""
+    d = fake_home.search_device_by_id("3014F711000000000000TACO")
+    assert isinstance(d, TemperatureTiltVibrationSensor)
+    assert d.modelType == "ELV-SH-TACO"
+    assert d.actualTemperature == 22.9
+    assert d.accelerationSensorMode == AccelerationSensorMode.ANY_MOTION
+    assert d.accelerationSensorTriggered is True
+
+    temperature_channel = d.functionalChannels[1]
+    assert isinstance(temperature_channel, TemperatureSensorChannel)
+    assert temperature_channel.actualTemperature == 22.9
+    assert d.functionalChannels[2].tiltState == "NON_NEUTRAL"
+
+
 def test_multi_io_box(fake_home: Home):
     d = fake_home.search_device_by_id("3014F711ABCD0ABCD000002")
     assert isinstance(d, MultiIOBox)
@@ -534,6 +666,17 @@ def test_full_flush_input_switch(fake_home: Home):
         "binaryBehaviorType(NORMALLY_CLOSE) multiModeInputMode(KEY_BEHAVIOR) on(True) "
         "profileMode(AUTOMATIC) userDesiredProfileMode(AUTOMATIC) on(True) profileMode(AUTOMATIC) "
         "userDesiredProfileMode(AUTOMATIC)"
+    )
+
+
+def test_full_flush_input_switch_compact(fake_home: Home):
+    """HmIP-FSI6 reports FULL_FLUSH_INPUT_SWITCH_COMPACT, not FULL_FLUSH_INPUT_SWITCH."""
+    d = fake_home.search_device_by_id("3014F71100000000HmIPFSI6")
+    assert isinstance(d, FullFlushInputSwitch)
+    assert d.modelType == "HmIP-FSI6"
+    assert (
+        d.functionalChannels[1].functionalChannelType
+        == "MULTI_MODE_INPUT_SWITCH_CHANNEL"
     )
 
 
@@ -2029,6 +2172,25 @@ def test_home_control_access_point(fake_home: Home):
             "HmIP-HAP HOME_CONTROL_ACCESS_POINT lowBat(None) unreach(False) rssiDeviceValue(None) "
             "rssiPeerValue(None) configPending(False) dutyCycle(False) dutyCycleLevel(8.0) "
             "accessPointPriority(1) signalBrightness(1.0)"
+        )
+
+
+def test_home_control_access_point_two(fake_home: Home):
+    with no_ssl_verification():
+        d = fake_home.search_device_by_id("3014F711000000000000HAP2")
+        assert isinstance(d, HomeControlAccessPoint)
+        assert isinstance(d.functionalChannels[0], AccessControllerChannel)
+        assert d.dutyCycleLevel == 5
+        assert d.signalBrightness == 0.25
+        # The HAP2 omits accessPointPriority entirely: the attribute keeps its
+        # default and stays out of __str__, since set_attr_from_dict skips
+        # missing keys.
+        assert d.accessPointPriority == 0
+        assert "accessPointPriority" not in str(d)
+        assert str(d) == (
+            "HmIP-HAP2-A HOME_CONTROL_ACCESS_POINT_TWO lowBat(None) unreach(False) "
+            "rssiDeviceValue(None) rssiPeerValue(None) configPending(False) dutyCycle(False) "
+            "filteredMulticastRoutingEnabled(True) dutyCycleLevel(5) signalBrightness(0.25)"
         )
 
 

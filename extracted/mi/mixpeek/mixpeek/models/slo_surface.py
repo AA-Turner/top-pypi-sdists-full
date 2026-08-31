@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class SLOSurface(str, Enum):
     """
-    The three surfaces BACKE-3125's SLO rollup already computes attainment INPUTS for — kept identical here so a future attainment computation (reading both TargetSpec and slo_rollup_hourly) never has to reconcile two different surface vocabularies.
+    The three surfaces's SLO rollup already computes attainment INPUTS for — kept identical here so a future attainment computation (reading both TargetSpec and slo_rollup_hourly) never has to reconcile two different surface vocabularies.
     """
 
     """

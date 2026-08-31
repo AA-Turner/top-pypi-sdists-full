@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xpander-sdk
-Version: 2.0.501
+Version: 2.0.503
 Summary: xpander.ai Backend-as-a-service for AI Agents - SDK
 Home-page: https://www.xpander.ai
 Author: xpanderAI
@@ -43,15 +43,16 @@ Requires-Dist: agno==2.5.14; extra == "test"
 Requires-Dist: sqlalchemy; extra == "test"
 Requires-Dist: psycopg[binary,pool]; extra == "test"
 Requires-Dist: greenlet; extra == "test"
-Requires-Dist: anthropic; extra == "test"
+Requires-Dist: anthropic<1; extra == "test"
 Requires-Dist: aioboto3==15.5.0; extra == "test"
+Requires-Dist: google-genai>=1.52.0; extra == "test"
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: anthropic; extra == "dev"
+Requires-Dist: anthropic<1; extra == "dev"
 Requires-Dist: mcp; extra == "dev"
 Requires-Dist: openai; extra == "dev"
 Requires-Dist: fireworks-ai; extra == "dev"

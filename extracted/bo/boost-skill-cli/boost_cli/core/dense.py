@@ -15,6 +15,7 @@ are the expensive step, so an unchanged tap is never re-embedded.
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -23,8 +24,19 @@ from ..errors import BoostError
 from . import catalog, embed, paths
 from .rag import Hit, chunk, entry_key, read_body
 
-INDEX_VERSION = 2
+# 3 -- `chunks.digest` carries each row's entry content digest, which is what
+#      lets reuse be decided per ENTRY rather than per tap. Bumping this is the
+#      migration: a v2 store has no such column, `_ensure_schema` cannot add one
+#      to an existing table (CREATE TABLE IF NOT EXISTS), and `build` already
+#      wipes on a version change. That costs one full re-embed, once — the same
+#      price v2 charged when it landed, and the last one this mechanism needs.
+INDEX_VERSION = 3
 _BATCH = 128            # texts per embedding request
+
+#: Rows between commits while storing vectors. Small enough that an interrupted
+#: build keeps almost everything it embedded, large enough that the commits are
+#: not the cost — on a 750k-chunk store this is ~150 commits.
+_COMMIT_EVERY = 5000
 _POOL = 8              # chunk over-fetch factor for KNN before per-entry reduce
 
 
@@ -73,6 +85,27 @@ def _connect() -> sqlite3.Connection | None:
 # and returns the same 60 rows, so the extra candidates are pure overhead.
 RESCORE_POOL = 2048
 
+#: How many result entries may share one byte-identical embedding.
+#:
+#: Registries paste boilerplate. On a real 657,587-chunk store the largest
+#: cluster of byte-identical vectors is **1,464 copies spanning 1,464 distinct
+#: skills across 2 taps** — one Composio/Rube tool-calling paragraph, vendored
+#: into every skill in two registries. Identical vectors score an identical
+#: distance, so `retrieve`'s tie-break (the displayed name) decided the page:
+#: a query landing near that paragraph returned the alphabetically-first 60 of
+#: the 1,464, measured **60 of 60 slots**, and every one of them matched on
+#: text its skill did not write.
+#:
+#: `rag.dedupe_by_content` cannot reach this. It keys on the *entry* body
+#: digest, and these are 1,464 genuinely different entries — correctly kept
+#: apart. The repetition is one chunk *inside* each of them, which is a
+#: different axis and the one `near-duplicate-items-eat-the-result-slots`
+#: leaves open.
+#:
+#: Not 1, because two skills can legitimately share a paragraph that really is
+#: the best answer; a handful shows that without letting it own the page.
+MAX_PER_VECTOR = 3
+
 
 def _quantizable(dim: int) -> bool:
     """Whether ``dim`` can be binary-quantized at all.
@@ -107,8 +140,14 @@ def quantized(con: sqlite3.Connection) -> bool:
 def _ensure_schema(con: sqlite3.Connection, dim: int) -> None:
     con.execute(
         "CREATE TABLE IF NOT EXISTS chunks (id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        " name TEXT, tap TEXT, path TEXT, kind TEXT, cix INTEGER, snip TEXT)")
+        " name TEXT, tap TEXT, path TEXT, kind TEXT, cix INTEGER, snip TEXT,"
+        " digest TEXT)")
     con.execute("CREATE INDEX IF NOT EXISTS chunks_tap ON chunks(tap)")
+    # Keyed by (tap, path) because that is `rag.entry_key` — row identity, the
+    # thing an entry's chunks belong to. Keying it on `digest` alone would be
+    # the content question, which is a different one: two taps shipping the
+    # same file share a digest and must still be deleted independently.
+    con.execute("CREATE INDEX IF NOT EXISTS chunks_entry ON chunks(tap, path)")
     con.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
     if _quantizable(dim):
         # Two relations, because one cannot do both jobs. `vec0` is the only
@@ -270,6 +309,35 @@ def _recorded_meta(*, count: bool = False) -> dict:
         return {}
     finally:
         con.close()
+
+
+def tap_commits() -> dict[str, str]:
+    """Which registry commit this store holds vectors for, per tap safe-name.
+
+    The store already records this — ``build`` writes it and ``import_shard``
+    updates it — but only as a private meta field, so every caller that wanted
+    to ask "are these vectors for the commit I have?" had to re-open the
+    database. That question is the whole basis of skipping work: a weekly shard
+    refresh is a no-op exactly when the answer is yes, and without an accessor
+    the refresh would download and re-import a store's own rows every week.
+
+    Read without sqlite-vec (see :func:`_recorded_meta`) so a machine that lost
+    the extra still gets a truthful answer rather than an empty one.
+    """
+    meta = _recorded_meta()
+    if meta.get("version") != INDEX_VERSION:
+        # A store from an older boost is about to be discarded — `build` wipes
+        # it and so does `import_shard` — so it holds no vectors anyone can
+        # reuse, and saying otherwise is worse than saying nothing. The caller
+        # asking this question is deciding which taps to SKIP: answering with a
+        # stale store's commits let `ingest` skip 417 taps as "already current"
+        # and then wipe their vectors on the first import, leaving a store that
+        # was silently missing them while the output said they were fine.
+        return {}
+    commits = meta.get("commits")
+    if not isinstance(commits, dict):
+        return {}
+    return {str(k): str(v) for k, v in commits.items() if v}
 
 
 # Why dense retrieval isn't serving, keyed by the `reason` status() returns.
@@ -462,12 +530,20 @@ def ready() -> bool:
         con.close()
 
 
-def build(entries: list[dict] | None = None,
-          force: bool = False) -> dict | None:
+def build(entries: list[dict] | None = None, force: bool = False,
+          on_progress=None) -> dict | None:
     """(Re)embed and store chunk vectors, reusing unchanged taps.
 
     Returns stats, or ``None`` if the backend or an embeddings provider is
     unavailable (nothing is written in that case).
+
+    ``on_progress(done, total)`` is called before the first batch and after
+    each one. It exists because this is the longest-running thing boost does —
+    a full catalogue is tens of thousands of distinct chunks at roughly a
+    second each — and it used to run under a bare spinner that said "embedding
+    chunks into the dense store" for hours without a number. A user cannot
+    tell that apart from a hang, and the honest fix is to say how many there
+    are and how far in we got.
     """
     from .rag import _tap_commits, _tap_paths
     if not have_backend() or not embed.available():
@@ -505,19 +581,41 @@ def build(entries: list[dict] | None = None,
                     if commit and old_commits.get(safe) == commit:
                         reused.add(safe)
 
-        fresh = [e for e in entries
-                 if e["tap"].replace("/", "__") not in reused]
-        changed_taps = sorted({e["tap"] for e in fresh})
+        candidates = [e for e in entries
+                      if e["tap"].replace("/", "__") not in reused]
+        changed_taps = sorted({e["tap"] for e in candidates})
         # Prune taps that are gone entirely, not only the ones that changed.
         # `boost untap` removes a tap's entries, so it can never appear in
-        # `fresh` and its vectors survived every later incremental build —
+        # `candidates` and its vectors survived every later incremental build —
         # crowding the KNN pool on every query with rows `retrieve` then
         # discards for not being live, which is how a dense search quietly
         # returns fewer hits the longer an index has been in use.
         removed_taps = sorted(_indexed_taps(con) - {e["tap"] for e in entries})
-        _delete_taps(con, changed_taps + removed_taps)
+        _delete_taps(con, removed_taps)
 
-        added, failed_taps = _embed_and_store(con, fresh, tap_paths)
+        # Second-level reuse, and the reason it is worth the column. A tap's
+        # commit moving says *something* in that clone changed — not that
+        # anything boost indexes did. Measured on a real 464-tap install: 19
+        # taps drifted in 6.85 h, and 10 of them changed nothing indexed at all
+        # (badge JSON, star-history SVGs, CI YAML, e2e TypeScript), yet cost
+        # 44,866 chunks — 40.0% of the incremental bill. Across all 19, 967
+        # changed files mapped to 39 indexed entries owning 659 chunks, against
+        # 112,081 re-embedded: 170x the actual change.
+        #
+        # The digest is not new identity machinery. `catalog._content_digest`
+        # already stamps every entry with a hash of exactly what `read_body`
+        # assembles, and `tests/unit/test_content_identity.py` pins that parity
+        # — so an entry whose digest matches the one stored beside its chunks
+        # is one whose embedded text is byte-identical.
+        fresh, kept = _split_by_digest(con, candidates)
+        _delete_entries(con, [entry_key(e) for e in fresh])
+        # An entry deleted upstream keeps answering queries otherwise: whole-tap
+        # deletion used to sweep it for free, and reuse is exactly what stops
+        # that happening.
+        _prune_stale_entries(con, changed_taps, {entry_key(e) for e in entries})
+
+        added, failed_taps = _embed_and_store(con, fresh, tap_paths,
+                                             on_progress=on_progress)
         # Only record a commit for a tap whose chunks actually landed. Recording
         # one for a tap that stored nothing makes every later non-forced run
         # treat it as already built and skip it — one transient rate limit would
@@ -541,6 +639,12 @@ def build(entries: list[dict] | None = None,
             "reindexed": changed_taps,
             "pruned": removed_taps,
             "reused": sorted(reused),
+            # Entries inside a moved tap whose content had not changed. This is
+            # the number the tap-level `reused` cannot show — a tap appears in
+            # `reindexed` the moment its commit moves, and on real data most of
+            # its entries are still untouched.
+            "reused_entries": len(kept),
+            "embedded_entries": len(fresh),
             "failed": sorted(failed_taps),
             "provider": prov,
             "model": mdl,
@@ -600,7 +704,8 @@ def export_shard(tap: str) -> dict:
             vt = "vec_raw v ON v.id = c.id" if quantized(con) \
                 else "vec_chunks v ON v.rowid = c.id"
             rows = con.execute(
-                "SELECT c.name, c.tap, c.path, c.kind, c.cix, c.snip, v.embedding "  # noqa: S608  relation name from a literal pair
+                "SELECT c.name, c.tap, c.path, c.kind, c.cix, c.snip, "  # noqa: S608  relation name from a literal pair
+                "c.digest, v.embedding "
                 "FROM chunks c JOIN %s WHERE c.tap = ? ORDER BY c.id" % vt,
                 (tap,)).fetchall()
         except sqlite3.Error as exc:
@@ -616,10 +721,16 @@ def export_shard(tap: str) -> dict:
             # the vector rows are gone or unlinked. Still not "never built".
             raise _unreadable_vectors(tap, expected, None)
         for row in rows:
-            name, ctap, path, kind, cix, snip, emb = row
+            name, ctap, path, kind, cix, snip, digest, emb = row
             chunks.append({
                 "name": name, "tap": ctap, "path": path, "kind": kind,
                 "cix": cix, "snip": snip,
+                # The digest travels with the vector or the shard defeats its
+                # own purpose: `_split_by_digest` reuses an entry only when the
+                # stored digest matches the catalog's, so an imported chunk
+                # without one is re-embedded on the very next build — paying
+                # in CPU exactly what downloading the shard was meant to save.
+                "digest": digest,
                 # base64 so the shard is plain JSON and can be published as a
                 # release artifact without a binary format of its own.
                 "embedding": base64.b64encode(bytes(emb)).decode("ascii"),
@@ -687,6 +798,18 @@ def import_shard(shard: dict, commit: str) -> tuple[bool, str]:
         return False, "no vector backend available"
     try:
         meta = _read_meta(con)
+        if meta.get("version") not in (None, INDEX_VERSION):
+            # The same wipe `build` does, for the same reason: `_ensure_schema`
+            # is CREATE TABLE IF NOT EXISTS, so it cannot add v3's `digest`
+            # column to a table built by an older boost, and the INSERT below
+            # would fail per row with "table chunks has no column named
+            # digest". On a real machine that is 449 shards reporting a sqlite
+            # message about a column, where the honest answer is that the store
+            # predates this format. Wiping loses nothing that was in use — a
+            # stale-version store is already dead weight, refused by `ready()`
+            # and wiped by `build()` on its next run.
+            _wipe(con)
+            meta = {}
         # An empty store has no opinion yet, so it adopts the shard's backend.
         if meta.get("provider"):
             for field in ("provider", "model", "dim"):
@@ -700,10 +823,15 @@ def import_shard(shard: dict, commit: str) -> tuple[bool, str]:
         mod = _load()
         for c in shard.get("chunks") or []:
             cur = con.execute(
-                "INSERT INTO chunks (name, tap, path, kind, cix, snip) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO chunks (name, tap, path, kind, cix, snip, digest) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (c.get("name"), c.get("tap"), c.get("path"), c.get("kind"),
-                 c.get("cix"), c.get("snip")))
+                 c.get("cix"), c.get("snip"),
+                 # A shard published before the digest travelled has none, and
+                 # None is the honest value: that tap re-embeds once, which is
+                 # what it did before this existed. Never a placeholder — a
+                 # wrong digest would suppress a real re-embed forever.
+                 c.get("digest")))
             blob = base64.b64decode(c["embedding"])
             _store_vector(con, cur.lastrowid, blob)
         commits = meta.get("commits")
@@ -734,17 +862,114 @@ def _indexed_taps(con: sqlite3.Connection) -> set:
         return set()          # no chunks table yet — nothing indexed, nothing stale
 
 
+def _delete_matching(con: sqlite3.Connection, where: str,
+                     params: tuple) -> int:
+    """Drop the chunk rows matching ``where``, and their vectors. Rows hit.
+
+    Deleting a chunk is two statements that must not drift apart: the vectors
+    go through :func:`_drop_vectors` (which knows both store layouts) and only
+    then does the row go. Tap-level and entry-level deletion had that pair
+    written out twice, which is one copy too many for a rule this easy to half-
+    apply — an orphan vector outlives every later deletion, because those are
+    all scoped through ``chunks``.
+
+    ``where`` is a literal from this module, never caller data; the parameters
+    are bound.
+    """
+    # `%` rather than `+`, to match every other interpolated statement in this
+    # module: those are the shapes ruff's S608 is known to flag here, so the
+    # suppression is one ruff actually consumes rather than an unused `noqa`
+    # that RUF100 would then reject.
+    ids = [r[0] for r in con.execute(
+        "SELECT id FROM chunks WHERE %s" % where, params)]  # noqa: S608  literal clause
+    if not ids:
+        return 0
+    _drop_vectors(con, ids)
+    con.execute("DELETE FROM chunks WHERE %s" % where, params)  # noqa: S608  same literal
+    return len(ids)
+
+
+def _delete_entries(con: sqlite3.Connection,
+                    keys: list[tuple[str, str]]) -> int:
+    """Drop every chunk row for these ``(tap, path)`` entries. Returns rows hit.
+
+    The entry-level counterpart to :func:`_delete_taps`, and it must stay
+    row-scoped rather than content-scoped: two taps can ship a byte-identical
+    file, so deleting by digest would take another tap's rows with it.
+    """
+    return sum(_delete_matching(con, "tap = ? AND path = ?", (tap, path))
+               for tap, path in keys)
+
+
+def _prune_stale_entries(con: sqlite3.Connection, taps: list[str],
+                         live: set[tuple[str, str]]) -> int:
+    """Drop rows in ``taps`` for entries the catalog no longer has.
+
+    Whole-tap deletion used to do this for free: a changed tap was emptied and
+    rebuilt, so an entry deleted upstream simply never came back. Reuse keeps
+    the rows instead, which means a file removed from a registry would answer
+    queries forever — the same silent-stale-row failure `_delete_taps`'s
+    `removed_taps` sweep exists to prevent, one level down.
+    """
+    stale = [(tap, path) for tap in taps
+             for (path,) in con.execute(
+                 "SELECT DISTINCT path FROM chunks WHERE tap = ?", (tap,))
+             if (tap, path) not in live]
+    return _delete_entries(con, stale)
+
+
+def _split_by_digest(con: sqlite3.Connection,
+                     entries: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Partition ``entries`` into ``(to_embed, already_stored)``.
+
+    An entry is already stored when the store holds chunks for its
+    ``(tap, path)`` **and every one of them** carries its current content
+    digest. Every one, not any: a partially-written entry — an interrupted
+    build, or one whose digest changed mid-run — would otherwise be reused
+    with a mixture of two versions' vectors, which is worse than re-embedding
+    because nothing later notices.
+
+    An entry with no digest is never reused. `catalog._content_digest` stamps
+    them at scan time, but a cache written before ``CACHE_FORMAT`` has none,
+    and CLAUDE.md's rule is explicit: consumers degrade cleanly when ``content``
+    is absent and **must never treat two absences as a match**. Two entries
+    with no digest are not the same entry; they are two unknowns.
+    """
+    # Nothing to decide, and the early return is the common case rather than a
+    # guard: on a build where no tap moved, `candidates` is empty, and without
+    # this the store gets scanned end to end to answer a question nobody asked.
+    if not entries:
+        return [], []
+    # Scoped to the taps actually in play, via the `chunks_tap` index. Reading
+    # the whole table instead measured 3.75 s cold (0.17 s warm) against 0.08 s
+    # for the nineteen largest taps and under 0.01 s for nineteen typical ones,
+    # on a real 657,587-chunk store. The full read was also the wrong shape: it
+    # grows with the store while the work grows with the drift.
+    stored: dict[tuple[str, str], set] = {}
+    for tap in sorted({e["tap"] for e in entries}):
+        for path, digest in con.execute(
+                "SELECT path, digest FROM chunks WHERE tap = ?", (tap,)):
+            stored.setdefault((tap, path), set()).add(digest)
+    to_embed, kept = [], []
+    for e in entries:
+        digest = e.get("content")
+        have = stored.get(entry_key(e))
+        if digest and have == {digest}:
+            kept.append(e)
+        else:
+            to_embed.append(e)
+    return to_embed, kept
+
+
 def _delete_taps(con: sqlite3.Connection, taps: list[str]) -> None:
+    """Drop every chunk row belonging to these taps, and their vectors."""
     for tap in taps:
-        ids = [r[0] for r in
-               con.execute("SELECT id FROM chunks WHERE tap = ?", (tap,))]
-        _drop_vectors(con, ids)
-        con.execute("DELETE FROM chunks WHERE tap = ?", (tap,))
+        _delete_matching(con, "tap = ?", (tap,))
 
 
 def _embed_and_store(con: sqlite3.Connection, entries: list[dict],
-                     tap_paths: dict[str, Path] | None
-                     ) -> tuple[int, set]:
+                     tap_paths: dict[str, Path] | None,
+                     on_progress=None) -> tuple[int, set]:
     """Embed every chunk of ``entries``; returns ``(added, failed_taps)``.
 
     A batch the provider rejects (rate limit, quota, oversized input) yields no
@@ -778,15 +1003,31 @@ def _embed_and_store(con: sqlite3.Connection, entries: list[dict],
             order.append(text)
 
     vec_of: dict[str, object] = {}
+    if on_progress is not None:
+        # Reported before the first request, so the size of the job is known
+        # up front rather than inferred from how long it has already taken.
+        on_progress(0, len(order))
     for start in range(0, len(order), _BATCH):
         batch = order[start:start + _BATCH]
         vecs = embed.embed(batch, input_type="document")
-        if not vecs or len(vecs) != len(batch):
-            continue     # taps are attributed per row below, not per batch
-        vec_of.update(zip(batch, vecs, strict=True))
+        if vecs and len(vecs) == len(batch):
+            vec_of.update(zip(batch, vecs, strict=True))
+        # else: taps are attributed per row below, not per batch — but the
+        # progress count still advances, or a run with a few rejected batches
+        # would appear to stall.
+        if on_progress is not None:
+            on_progress(min(start + _BATCH, len(order)), len(order))
 
     added = 0
     failed_taps: set = set()
+    # Durability, not speed. Every row used to land in one transaction that
+    # committed only after the last one, so interrupting a three-hour build —
+    # or losing the machine to a sleep or an OOM — threw away every vector it
+    # had paid for. Committing as the rows accumulate keeps the work, and
+    # re-running is still correct because `_delete_taps` has already removed
+    # each changed tap's old rows, so a partial store is replaced rather than
+    # doubled.
+    since_commit = 0
     for e, ci, text in rows:
         vec = vec_of.get(text)
         if vec is None:
@@ -795,12 +1036,21 @@ def _embed_and_store(con: sqlite3.Connection, entries: list[dict],
             failed_taps.add(e["tap"])
             continue
         cur = con.execute(
-            "INSERT INTO chunks (name, tap, path, kind, cix, snip) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO chunks (name, tap, path, kind, cix, snip, digest) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (e["name"], e["tap"], e["skill_md"],
-             e.get("kind", "skill"), ci, text[:200].strip()))
+             e.get("kind", "skill"), ci, text[:200].strip(),
+             # None where the catalog has no digest, which `_split_by_digest`
+             # then refuses to reuse — the honest answer for a cache written
+             # before CACHE_FORMAT stamped one.
+             e.get("content")))
         _store_vector(con, cur.lastrowid, mod.serialize_float32(vec))
         added += 1
+        since_commit += 1
+        if since_commit >= _COMMIT_EVERY:
+            con.commit()
+            since_commit = 0
+    con.commit()
     return added, failed_taps
 
 
@@ -873,8 +1123,11 @@ def quantize() -> dict | None:
 
 
 def _knn(con: sqlite3.Connection, qblob: bytes,
-         pool: int) -> list[tuple[int, float]]:
-    """``(chunk_id, cosine_distance)`` for the ``pool`` nearest chunks.
+         pool: int) -> list[tuple[int, float, bytes]]:
+    """``(chunk_id, cosine_distance, vector_key)`` for the nearest chunks.
+
+    ``vector_key`` identifies the *embedding*, not the row: byte-identical
+    vectors share one key, which is what :data:`MAX_PER_VECTOR` caps on.
 
     Two-stage on a quantized store, one stage on a legacy one, and the answer
     is the same either way — which is the whole point. `vec0` has no ANN index,
@@ -904,14 +1157,43 @@ def _knn(con: sqlite3.Connection, qblob: bytes,
         # Exact cosine over the candidates only. `vec_raw` is an ordinary
         # rowid-keyed table precisely so this `IN` is an index lookup; the same
         # clause against a vec0 table plans as a full scan (see _ensure_schema).
-        return con.execute(
-            "SELECT id, vec_distance_cosine(embedding, ?) AS d FROM vec_raw "  # noqa: S608  interpolates only `?` placeholders
-            "WHERE id IN (%s) ORDER BY d LIMIT ?"
-            % ",".join("?" * len(cand)), (qblob, *cand, pool)).fetchall()
-    return con.execute(
+        #
+        # The embedding comes back too, and it is not waste: hashing it is what
+        # lets `retrieve` tell "60 entries that each matched something" from
+        # "60 copies of one paragraph". The bytes were already read to compute
+        # the distance, so the only new cost is one sha256 per candidate.
+        # No LIMIT, and that is the point: sqlite computes a distance for all
+        # `cand` rows either way — a LIMIT only truncates what it hands back.
+        # Truncating here is what let one cluster own the pool. The largest on
+        # a real store is 1,464 copies of one pasted paragraph, so a 480-row
+        # cut was 480 copies of it and the page had nothing else to rank.
+        rows = con.execute(
+            "SELECT id, vec_distance_cosine(embedding, ?) AS d, embedding "  # noqa: S608  interpolates only `?` placeholders
+            "FROM vec_raw WHERE id IN (%s) ORDER BY d"
+            % ",".join("?" * len(cand)), (qblob, *cand)).fetchall()
+        # Thin to `pool` while letting no single embedding take more than
+        # MAX_PER_VECTOR of it. Rows arrive sorted, so the copies that survive
+        # are the nearest ones and the slots freed go to the next *distinct*
+        # vector rather than to the next copy of this one.
+        out: list[tuple[int, float, bytes]] = []
+        per: dict[bytes, int] = {}
+        for rid, dist, blob in rows:
+            if len(out) >= pool:
+                break
+            vkey = hashlib.sha256(blob).digest()[:16]
+            if per.get(vkey, 0) >= MAX_PER_VECTOR:
+                continue
+            per[vkey] = per.get(vkey, 0) + 1
+            out.append((rid, dist, vkey))
+        return out
+    # Legacy float32 layout: one row per chunk with no separate blob table, so
+    # there is nothing cheap to hash. Each row becomes its own group, which
+    # makes the cap a no-op — correct rather than clever, because this path
+    # exists for widths `bit[N]` cannot take and no real store is on it.
+    return [(rid, dist, b"%d" % rid) for rid, dist in con.execute(
         "SELECT rowid, distance FROM vec_chunks "
         "WHERE embedding MATCH ? ORDER BY distance LIMIT ?",
-        (qblob, pool)).fetchall()
+        (qblob, pool)).fetchall()]
 
 
 def retrieve(query: str, k: int = 60, kind: str | None = None,
@@ -941,14 +1223,18 @@ def retrieve(query: str, k: int = 60, kind: str | None = None,
             return []
         by_id = {r[0]: (r[1], r[2], r[3], r[4]) for r in con.execute(
             "SELECT id, tap, path, kind, snip FROM chunks WHERE id IN (%s)"  # noqa: S608  interpolates only `?` placeholders; ids are bound params
-            % ",".join("?" * len(knn)), [rid for rid, _d in knn])}
+            % ",".join("?" * len(knn)), [rid for rid, _d, _v in knn])}
     finally:
         con.close()
 
     entries = catalog.all_entries() if entries is None else entries
     live = {entry_key(e): e for e in entries}
     best: dict[tuple[str, str], tuple[float, str]] = {}
-    for rid, dist in knn:
+    # Which embedding won each entry its score. An entry that also matched on
+    # a chunk of its own keeps *that* pairing, because `best` only records the
+    # winner — so capping below never costs an entry a hit it earned itself.
+    won_by: dict[tuple[str, str], bytes] = {}
+    for rid, dist, vkey in knn:
         meta = by_id.get(rid)
         if meta is None:
             continue
@@ -962,11 +1248,26 @@ def retrieve(query: str, k: int = 60, kind: str | None = None,
         prev = best.get(key)
         if prev is None or score > prev[0]:
             best[key] = (score, snip)
+            won_by[key] = vkey
     # Tie-break on the displayed name (see rag.retrieve for why).
     ranked = sorted(best.items(),
                     key=lambda kv: (-kv[1][0], live[kv[0]]["name"], kv[0]))
-    hits: list[Hit] = [
-        {"entry": live[key], "score": score,
-         "snippet": snip}  # type: ignore[typeddict-item]
-        for key, (score, snip) in ranked[:k]]
+    hits: list[Hit] = []
+    seen_vec: dict[bytes, int] = {}
+    for key, (score, snip) in ranked:
+        if len(hits) >= k:
+            break
+        # The cap, and the reason the sort above is not enough on its own:
+        # byte-identical vectors produce a byte-identical distance, so every
+        # entry sharing one arrives with the *same* score and the tie-break
+        # decides the page alphabetically. Measured on a real store, one
+        # 1,464-copy cluster took 60 of 60 slots that way. Skipping past the
+        # cap rather than truncating keeps the page full: the freed slots go
+        # to the next entries that matched on something else.
+        vkey = won_by[key]
+        if seen_vec.get(vkey, 0) >= MAX_PER_VECTOR:
+            continue
+        seen_vec[vkey] = seen_vec.get(vkey, 0) + 1
+        hits.append({"entry": live[key], "score": score,
+                     "snippet": snip})  # type: ignore[typeddict-item]
     return hits

@@ -30,8 +30,10 @@ _EXPORTS: dict[str, str] = {
     "AnthropicWrapper": "anthropic",
     "wrap_anthropic": "anthropic",
     "create_traced_bedrock": "bedrock",
+    "unwrap_bedrock": "bedrock",
     "wrap_bedrock": "bedrock",
     "create_traced_cohere": "cohere",
+    "unwrap_cohere": "cohere",
     "wrap_cohere": "cohere",
     "wrap_gemini": "gemini",
     "OpenAIWrapper": "openai",
@@ -57,8 +59,8 @@ def __dir__() -> list[str]:
 
 if TYPE_CHECKING:
     from aigie.wrappers.anthropic import AnthropicWrapper, wrap_anthropic
-    from aigie.wrappers.bedrock import create_traced_bedrock, wrap_bedrock
-    from aigie.wrappers.cohere import create_traced_cohere, wrap_cohere
+    from aigie.wrappers.bedrock import create_traced_bedrock, unwrap_bedrock, wrap_bedrock
+    from aigie.wrappers.cohere import create_traced_cohere, unwrap_cohere, wrap_cohere
     from aigie.wrappers.gemini import wrap_gemini
     from aigie.wrappers.openai import OpenAIWrapper, wrap_openai
 
@@ -67,6 +69,8 @@ __all__ = [
     "OpenAIWrapper",
     "create_traced_bedrock",
     "create_traced_cohere",
+    "unwrap_bedrock",
+    "unwrap_cohere",
     "wrap_anthropic",
     "wrap_bedrock",
     "wrap_cohere",

@@ -338,13 +338,13 @@ class TestNothingChangesAnEvictionDecision:
 
     def _residents(self):
         return [
-            EV.Resident(model_key="a", bytes=4 << 30, pref=EV.VRAM,
+            EV.EvictUnit(model_key="a", bytes=4 << 30, pref=EV.VRAM,
                         last_call=1000.0, calls=5),
-            EV.Resident(model_key="b", bytes=6 << 30, pref=EV.RAM,
+            EV.EvictUnit(model_key="b", bytes=6 << 30, pref=EV.RAM,
                         last_call=900.0, calls=2),
-            EV.Resident(model_key="c", bytes=2 << 30, pref=EV.VRAM,
+            EV.EvictUnit(model_key="c", bytes=2 << 30, pref=EV.VRAM,
                         last_call=1200.0, calls=9),
-            EV.Resident(model_key="d", bytes=3 << 30, pref=EV.VRAM,
+            EV.EvictUnit(model_key="d", bytes=3 << 30, pref=EV.VRAM,
                         last_call=None, calls=0, resident_since=800.0),
         ]
 
@@ -354,19 +354,19 @@ class TestNothingChangesAnEvictionDecision:
         import inspect
         params = list(inspect.signature(EV.sort_key).parameters)
         assert params == ["r", "device", "now"]
-        fields = set(EV.Resident.__dataclass_fields__)
+        fields = set(EV.EvictUnit.__dataclass_fields__)
         for leaked in ("tok_s", "tok_s_ewma", "tok_s_last", "tok_s_samples",
                        "log_interval_ewma", "last_interval_s",
                        "interval_samples"):
             assert leaked not in fields, (
-                f"{leaked} reached Resident — recording became ranking")
+                f"{leaked} reached EvictUnit — recording became ranking")
 
     def test_plan_is_byte_identical_with_and_without_the_new_columns(self):
         residents = self._residents()
         need = 5 << 30
         before = EV.evict_plan(EV.VRAM, need, residents, now=2000.0).as_dict()
 
-        # The new columns exist on the LEDGER, not on Resident — so the honest
+        # The new columns exist on the LEDGER, not on EvictUnit — so the honest
         # form of "with the fields present" is: stamp a full ledger, build
         # Residents from it exactly as storage_proposal does, and re-plan.
         ledger = {
@@ -385,7 +385,7 @@ class TestNothingChangesAnEvictionDecision:
             "d": {"calls": 0},
         }
         rebuilt = [
-            EV.Resident(model_key=r.model_key, bytes=r.bytes, pref=r.pref,
+            EV.EvictUnit(model_key=r.model_key, bytes=r.bytes, pref=r.pref,
                         last_call=(ledger[r.model_key].get("last_call")
                                    or r.last_call),
                         calls=int(ledger[r.model_key].get("calls") or 0),

@@ -65,7 +65,7 @@ DEFAULT_CENTRAL = "http://127.0.0.1:7002"
 # (Renamed from the bare DEFAULT_MODEL 2026-07-17: that name means something
 # DIFFERENT in hugpy_agent and in central's model defaults — self-describing
 # names only, so a shared .env can never cross-configure components.)
-DEFAULT_TODO_KEEPER_MODEL = "Qwen2.5-3B-Instruct-GGUF"
+DEFAULT_TODO_KEEPER_MODEL = "Qwen2.5-7B-Instruct-GGUF"
 
 HEARTBEAT_SECONDS = 30.0
 POLL_SECONDS = 5.0

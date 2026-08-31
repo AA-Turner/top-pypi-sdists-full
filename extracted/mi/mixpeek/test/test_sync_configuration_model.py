@@ -107,6 +107,7 @@ class TestSyncConfigurationModel(unittest.TestCase):
                 pause_reason = '',
                 paused_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 paused_by_user_id = '',
+                description = '',
                 max_objects_per_run = 1.0,
                 max_batch_chunk_size = 1.0,
                 batch_chunk_size = 1.0,

@@ -31,7 +31,7 @@ class ListRetrieversRequest(BaseModel):
     search: Optional[StrictStr] = Field(default=None, description="Search term for wildcard search across retriever_id, retriever_name, description, and other text fields")
     filters: Optional[Dict[str, Any]] = Field(default=None, description="Filters applied directly to the query — any stored field works, e.g. {\"collection_ids\": {\"$in\": [\"col_x\"]}} to filter by collection, or {\"retriever_name\": \"...\"}.")
     sorts: Optional[List[Dict[str, Any]]] = Field(default=None, description="Sort options for the retriever list")
-    sort: Optional[SortOption] = Field(default=None, description="Single sort option (alias for the first entry of `sorts`). Every other list resource accepts this shape, so callers reach for it here too; without it, a `sort` on retrievers was silently dropped and DESC returned ASC order (BACKE-2792 class).")
+    sort: Optional[SortOption] = Field(default=None, description="Single sort option (alias for the first entry of `sorts`). Every other list resource accepts this shape, so callers reach for it here too; without it, a `sort` on retrievers was silently dropped and DESC returned ASC order (class).")
     case_sensitive: Optional[StrictBool] = Field(default=False, description="If True, filters and search will be case-sensitive")
     __properties: ClassVar[List[str]] = ["search", "filters", "sorts", "sort", "case_sensitive"]
 

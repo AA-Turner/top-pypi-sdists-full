@@ -186,7 +186,15 @@ TEST(Jobserver, ParseNativeMakeFlagsValue) {
   Jobserver::Config config;
   std::string error;
 
-  // --jobserver-auth=R,W is not supported.
+#ifdef _WIN32
+  // --jobserver-auth=R,W is not supported on Windows.
+  config = {};
+  error.clear();
+  EXPECT_FALSE(Jobserver::ParseNativeMakeFlagsValue("--jobserver-auth=3,4",
+                                                    &config, &error));
+  EXPECT_EQ(error, "Pipe mode is not supported on Windows!");
+#else   // !_WIN32
+  // --jobserver-auth=R,W supported on Posix.
   config = {};
   error.clear();
   EXPECT_TRUE(Jobserver::ParseNativeMakeFlagsValue("--jobserver-auth=3,4",
@@ -194,6 +202,7 @@ TEST(Jobserver, ParseNativeMakeFlagsValue) {
   EXPECT_EQ(Jobserver::Config::kModePipe, config.mode);
   EXPECT_EQ(3, config.read_fd);
   EXPECT_EQ(4, config.write_fd);
+#endif  // !_WIN32
 
 #ifdef _WIN32
   // --jobserver-auth=NAME works on Windows.
@@ -335,7 +344,8 @@ TEST(Jobserver, PosixFifoClient) {
   ASSERT_TRUE(write_fd.IsValid()) << "Cannot open FIFO at: " << strerror(errno);
   for (size_t n = 0; n < kSlotCount; ++n) {
     uint8_t slot_byte = static_cast<uint8_t>('0' + n);
-    ::write(write_fd.fd_, &slot_byte, 1);
+    ssize_t ret = ::write(write_fd.fd_, &slot_byte, 1);
+    (void)ret;  // make compiler happy
   }
   // Keep the file descriptor opened to ensure the fifo's content
   // persists in kernel memory.

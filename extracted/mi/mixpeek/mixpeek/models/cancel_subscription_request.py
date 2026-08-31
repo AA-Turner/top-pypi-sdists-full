@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class CancelSubscriptionRequest(BaseModel):
     """
-    Options for subscription cancellation (BACKE-2859).
+    Options for subscription cancellation.
     """ # noqa: E501
     immediate: Optional[StrictBool] = Field(default=False, description="Cancel NOW (Stripe Subscription.cancel) instead of at period end. Default False preserves the period-end behavior.")
     invoice_now: Optional[StrictBool] = Field(default=False, description="With immediate=true: generate a final proration invoice.")

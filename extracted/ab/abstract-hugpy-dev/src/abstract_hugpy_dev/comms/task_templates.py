@@ -27,13 +27,28 @@ module owns only the records and the derivations.
 RECORD SHAPE
 ------------
     {"id": str, "name": str,
-     "groups": [str, ...],   # priority-group ids, in display order
+     "tasks": [               # TASK-ORIENTED outline (operator 2026-08-28:
+                              # "outline tasks, so the user can fill in the
+                              # optimum models"). Ordered; the outline is the
+                              # blueprint, the model slots are the operator's.
+        {"name": str,         # task name, unique within the template
+         "desc": str,         # what the task does (one line)
+         "model": str|None},  # the operator's chosen model; None = UNFILLED —
+                              # an unfilled task is not servable, never
+                              # auto-resolved from a chain
+        ...],
+     "groups": [str, ...],   # priority-group ids, in display order (still the
+                             # reservation/designation half of activation)
      "workers": [str, ...],  # ORDERED worker ids/names; [] = derive from the
                              # groups' effective_workers at activation time
      "active": bool,         # last activation state (informational; the pool
                              # tags on the workers are the ground truth)
      "activated_at": float|None,
      "created_at": float, "updated_at": float, "by": str}
+
+(The earlier k119 note "there is no stages field, don't go add one" is
+superseded by the operator's 2026-08-28 instruction — ``tasks`` IS that
+field now, deliberately model-slot-shaped rather than group-shaped.)
 """
 from __future__ import annotations
 
@@ -48,6 +63,26 @@ from .settings import settings_store
 logger = logging.getLogger(__name__)
 
 NS = "task_templates"
+
+
+def _normalize_tasks(raw_tasks: Any) -> List[dict]:
+    """Ordered, name-deduped task outline; hostile shapes drop silently on
+    READ (the write path reports them via ``validate`` instead)."""
+    tasks: List[dict] = []
+    seen: set = set()
+    for t in (raw_tasks or []) if isinstance(raw_tasks, (list, tuple)) else []:
+        if not isinstance(t, dict):
+            continue
+        name = str(t.get("name") or "").strip()
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        model = t.get("model")
+        model = str(model).strip() if isinstance(model, str) and str(model).strip() else None
+        tasks.append({"name": name,
+                      "desc": str(t.get("desc") or "").strip(),
+                      "model": model})
+    return tasks
 
 
 def _normalize(tid: str, raw: Any) -> Optional[dict]:
@@ -66,6 +101,7 @@ def _normalize(tid: str, raw: Any) -> Optional[dict]:
     return {
         "id": str(tid),
         "name": str(raw.get("name") or tid),
+        "tasks": _normalize_tasks(raw.get("tasks")),
         "groups": groups,
         "workers": workers,
         "active": bool(raw.get("active", False)),
@@ -126,19 +162,50 @@ def derive_workers(template: dict) -> List[str]:
 
 
 def validate(template_id: str, name: Any, groups: Any,
-             workers: Any) -> Tuple[list, list, list]:
-    """``(clean_groups, clean_workers, errors)``. A referenced group must
-    exist — a template is an execution blueprint, and activating a blueprint
-    with a dangling cast member is a typed failure the operator should get at
-    WRITE time, not mid-run (contrast: nested ``group:`` members tolerate
-    dangling because the walk reports them per-request)."""
+             workers: Any, tasks: Any = None) -> Tuple[list, list, list, list]:
+    """``(clean_tasks, clean_groups, clean_workers, errors)``. A referenced
+    group must exist — a template is an execution blueprint, and activating a
+    blueprint with a dangling cast member is a typed failure the operator
+    should get at WRITE time, not mid-run (contrast: nested ``group:`` members
+    tolerate dangling because the walk reports them per-request). A task needs
+    only a NAME — the model slot is deliberately allowed to stay empty (the
+    operator fills the optimum model later)."""
     errors: List[str] = []
     if not str(template_id or "").strip():
         errors.append("id is required")
     if not str(name or "").strip():
         errors.append("name is required")
 
+    clean_tasks: List[dict] = []
+    if tasks is None:
+        tasks = []
+    if not isinstance(tasks, (list, tuple)):
+        errors.append("tasks must be a list of {name, desc?, model?} objects")
+        tasks = []
+    seen_tasks: set = set()
+    for t in tasks:
+        if not isinstance(t, dict):
+            errors.append(f"task entries must be objects, got {type(t).__name__}")
+            continue
+        tname = str(t.get("name") or "").strip()
+        if not tname:
+            errors.append("every task needs a name")
+            continue
+        if tname.lower() in seen_tasks:
+            errors.append(f"duplicate task {tname!r}")
+            continue
+        seen_tasks.add(tname.lower())
+        model = t.get("model")
+        if model is not None and not (isinstance(model, str) and model.strip()):
+            errors.append(f"task {tname!r}: model must be a model key or null")
+            continue
+        clean_tasks.append({"name": tname,
+                            "desc": str(t.get("desc") or "").strip(),
+                            "model": model.strip() if isinstance(model, str) else None})
+
     clean_groups: List[str] = []
+    if groups is None:
+        groups = []
     if not isinstance(groups, (list, tuple)):
         errors.append("groups must be a list of priority-group ids")
         groups = []
@@ -153,8 +220,9 @@ def validate(template_id: str, name: Any, groups: Any,
             errors.append(f"no such priority group: {g!r}")
             continue
         clean_groups.append(g)
-    if not clean_groups:
-        errors.append("groups must name at least one priority group")
+    if not clean_groups and not clean_tasks:
+        errors.append("a template needs at least one task (or, legacy, one "
+                      "priority group)")
 
     clean_workers: List[str] = []
     if workers is None:
@@ -170,22 +238,30 @@ def validate(template_id: str, name: Any, groups: Any,
             errors.append(f"duplicate worker {w!r}")
             continue
         clean_workers.append(w)
-    return clean_groups, clean_workers, errors
+    return clean_tasks, clean_groups, clean_workers, errors
 
 
-def put_template(template_id: Any, *, name: Any, groups: Any,
-                 workers: Any = None,
+def put_template(template_id: Any, *, name: Any, groups: Any = None,
+                 workers: Any = None, tasks: Any = None,
                  by: Optional[str] = None) -> Tuple[Optional[dict], list]:
-    """Create or REPLACE a template — the one validated write path."""
+    """Create or REPLACE a template — the one validated write path.
+    ``tasks=None`` preserves the prior outline (so a legacy groups-only write
+    can't silently wipe the operator's task list); pass a list to replace."""
     tid = slugify(template_id or name, fallback="template")
-    clean_groups, clean_workers, errors = validate(tid, name, groups, workers)
+    prior = get_template(tid) or {}
+    if tasks is None:
+        tasks = prior.get("tasks") or []
+    if groups is None:
+        groups = prior.get("groups") or []
+    clean_tasks, clean_groups, clean_workers, errors = validate(
+        tid, name, groups, workers, tasks)
     if errors:
         return None, errors
-    prior = get_template(tid) or {}
     now = time.time()
     rec = {
         "id": tid,
         "name": str(name).strip(),
+        "tasks": clean_tasks,
         "groups": clean_groups,
         "workers": clean_workers,
         "active": bool(prior.get("active", False)),
@@ -195,9 +271,35 @@ def put_template(template_id: Any, *, name: Any, groups: Any,
         "by": by or "operator",
     }
     settings_store.set(NS, tid, rec)
-    logger.info("task template %s: groups=%s workers=%s (by=%s)",
-                tid, clean_groups, clean_workers, rec["by"])
+    logger.info("task template %s: tasks=%s groups=%s workers=%s (by=%s)",
+                tid, [t["name"] for t in clean_tasks], clean_groups,
+                clean_workers, rec["by"])
     return rec, []
+
+
+def set_task_model(template_id: Any, task_name: Any,
+                   model: Any) -> Tuple[Optional[dict], str]:
+    """Fill (or clear, with ``model=None``) ONE task's model slot — the
+    operator's fill-in-the-optimum-model operation, without resending the
+    whole outline. Returns ``(record, error)``; task match is
+    case-insensitive on name."""
+    rec = get_template(template_id)
+    if rec is None:
+        return None, f"no such template: {template_id}"
+    tname = str(task_name or "").strip()
+    task = next((t for t in rec.get("tasks") or []
+                 if t["name"].lower() == tname.lower()), None)
+    if task is None:
+        have = [t["name"] for t in rec.get("tasks") or []]
+        return None, f"no task {tname!r} in template {rec['id']!r} (has: {have})"
+    if model is not None and not (isinstance(model, str) and model.strip()):
+        return None, "model must be a model key string, or null to clear"
+    task["model"] = model.strip() if isinstance(model, str) else None
+    rec["updated_at"] = time.time()
+    settings_store.set(NS, rec["id"], rec)
+    logger.info("task template %s: task %r model=%s", rec["id"],
+                task["name"], task["model"])
+    return rec, ""
 
 
 def mark_active(template_id: Any, active: bool) -> Optional[dict]:

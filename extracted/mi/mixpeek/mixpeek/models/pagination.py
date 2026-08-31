@@ -30,7 +30,7 @@ PAGINATION_ONE_OF_SCHEMAS = ["CursorPaginationParams", "KeysetPaginationParams",
 
 class Pagination(BaseModel):
     """
-    OPTIONAL. Pagination for the result page, same contract as the by-id execute request (cursor/offset/keyset/scroll). When omitted, the page defaults to the pipeline's declared breadth (final_top_k, or the widest explicit per-search top_k when final_top_k is unset), falling back to 10 when the stages declare no breadth. Previously this field did not exist and a supplied value was silently ignored (BACKE-3445).
+    OPTIONAL. Pagination for the result page, same contract as the by-id execute request (cursor/offset/keyset/scroll). When omitted, the page defaults to the pipeline's declared breadth (final_top_k, or the widest explicit per-search top_k when final_top_k is unset), falling back to 10 when the stages declare no breadth. Previously this field did not exist and a supplied value was silently ignored.
     """
     # data type: OffsetPaginationParams
     oneof_schema_1_validator: Optional[OffsetPaginationParams] = None

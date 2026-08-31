@@ -8,6 +8,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any, Callable, Optional, cast
 
+from pymobiledevice3.exceptions import ScreencastUnavailableError
 from pymobiledevice3.services.web_protocol.cdp_screencast import ScreenCast
 from pymobiledevice3.services.web_protocol.session_protocol import SessionProtocol
 from pymobiledevice3.services.webinspector import WirTypes
@@ -24,6 +25,15 @@ WIR_RESULT_TIMEOUT = 5
 # timeout so a still-dead target only briefly re-pauses the receive loop.
 UNRESPONSIVE_REPROBE_INTERVAL = 2.0
 UNRESPONSIVE_PROBE_TIMEOUT = 1.5
+
+# A navigation that commits in a new process destroys the target the bridge is talking to, and
+# WebKit never answers what was in flight to it. That is exactly when Chrome's frontend asks for
+# the resource tree and when a screencast starts, so those requests wait here for the replacement
+# target to become current and ask it instead of failing. The events that commit the swap are
+# applied by the receive loop, which is paused for the whole of every request wait - the yield
+# below is what lets them through.
+SWAP_COMMIT_TIMEOUT = 5.0
+SWAP_COMMIT_POLL_INTERVAL = 0.05
 
 # sourceURL stamped onto the bridge's own internal evaluations (screencast offsets, synthesized
 # input, navigation) so their Debugger.scriptParsed events can be recognized and dropped instead
@@ -61,6 +71,10 @@ _FLAT_WIRE_IDS = itertools.count(0x40000000)
 # The single execution context synthesized for a JSContext debuggable (see _runtime_enable).
 JS_CONTEXT_EXECUTION_ID = 1
 JS_CONTEXT_UNIQUE_ID = "jscontext.1"
+
+# Target.TargetInfo.type of the targets this bridge debugs. WebKit announces "frame", "worker"
+# and "service-worker" ones too - see _target_created.
+PAGE_TARGET_TYPE = "page"
 
 # Error synthesized for requests routed to a target that got destroyed before answering
 # (WebKit never answers those). Matches Chrome's own message for the same situation.
@@ -338,6 +352,8 @@ class CdpTarget:
         # setup (domain enables & co.) the frontend established, replayed onto new targets
         self._setup_messages: dict[Any, dict[str, Any]] = {}
         self._setup_sent_targets: set[str] = {target_id}
+        # Targets announced as pages - the only kind this session talks to (see _target_created).
+        self._page_targets: set[str] = {target_id}
 
     def next_internal_id(self) -> int:
         """
@@ -367,7 +383,9 @@ class CdpTarget:
                 await asyncio.sleep(0)
                 continue
             created = events.pop(0)
-            if "targetInfo" in created.get("params", {}):
+            target_info = created.get("params", {}).get("targetInfo")
+            # Only a page target can serve this session (see _target_created).
+            if target_info is not None and target_info.get("type", PAGE_TARGET_TYPE) == PAGE_TARGET_TYPE:
                 break
         target_id = created["params"]["targetInfo"]["targetId"]
         logger.info(f"Created: {target_id}")
@@ -425,7 +443,12 @@ class CdpTarget:
                 message = events[i]
                 if message["method"] == "Target.targetDestroyed":
                     # Only give up the wait; the event stays queued for the receive loop.
-                    if message["params"]["targetId"] == target_id:
+                    if target_id is not None and message["params"]["targetId"] == target_id:
+                        # Record it here too: the receive loop is paused until this wait returns,
+                        # so its own bookkeeping runs too late for the caller to tell a destroyed
+                        # target from one that went quiet (it used to report "stopped responding"
+                        # and back off on a target that had simply been swapped out).
+                        self._destroyed_targets.add(target_id)
                         return None
                     continue
                 if message["method"] != "Target.dispatchMessageFromTarget":
@@ -483,6 +506,36 @@ class CdpTarget:
             return result
         finally:
             self._waiting_for_id -= 1
+
+    async def _await_target_swap(self, target_id: str, deadline: float) -> bool:
+        """Wait for the target that replaced a destroyed one to become current.
+
+        :param target_id: The target whose answer was lost.
+        :param deadline: Event-loop time to give up at.
+        :returns: True once a different target is current, False if `target_id` was not destroyed
+            in the first place or nothing took over in time.
+        """
+        if target_id not in self._destroyed_targets:
+            return False
+        while self.target_id == target_id:
+            if asyncio.get_event_loop().time() >= deadline:
+                return False
+            # Yields to the receive loop, which applies the targetCreated /
+            # didCommitProvisionalTarget pair that makes the replacement current.
+            await asyncio.sleep(SWAP_COMMIT_POLL_INTERVAL)
+        return True
+
+    async def send_message_with_result_across_swaps(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        """send_message_with_result, re-asked of the target that replaces one destroyed mid-request.
+
+        Returns the last (empty) result if no replacement became current in time.
+        """
+        deadline = asyncio.get_event_loop().time() + SWAP_COMMIT_TIMEOUT
+        while True:
+            target_id = self.target_id
+            result = await self.send_message_with_result(method, params)
+            if result or not await self._await_target_swap(target_id, deadline):
+                return result
 
     def _mark_target_responsive(self, target_id: str) -> None:
         """Clear the unresponsive flag once a target answers again."""
@@ -669,6 +722,11 @@ class CdpTarget:
         """Respond with an exact result body, for methods whose response fields the frontend reads."""
         await self.output_queue.put({"id": message["id"], "result": result})
 
+    async def _error_response(self, message: dict[str, Any], error: dict[str, Any]) -> None:
+        """Refuse a frontend request. Chrome's frontends absorb a protocol error - what they cannot
+        absorb is no answer at all, which is what raising out of a translation leaves them with."""
+        await self.output_queue.put({"id": message["id"], "error": error})
+
     async def _audits_enable(self, message: dict[str, Any]):
         # A previous inspector session may have left an audit configured; WebKit then rejects
         # setup with "Must call teardown before calling setup again", so always reset first.
@@ -826,8 +884,26 @@ class CdpTarget:
 
     async def _page_start_screencast(self, message: dict[str, Any]):
         params = message["params"]
-        self.screencast = ScreenCast(self, params["format"], params["quality"], params["maxWidth"], params["maxHeight"])
-        await self.screencast.start()
+        screencast = ScreenCast(self, params["format"], params["quality"], params["maxWidth"], params["maxHeight"])
+        deadline = asyncio.get_event_loop().time() + SWAP_COMMIT_TIMEOUT
+        while True:
+            target_id = self.target_id
+            try:
+                await screencast.start()
+            except ScreencastUnavailableError as e:
+                # The size probe found no page to capture. A process swap swallowed it (DevTools
+                # starts the screencast while the page it just opened is still navigating, and
+                # unlike the resource tree it never asks again - the screen would stay black for
+                # the rest of the session), so re-probe the target that took over.
+                if await self._await_target_swap(target_id, deadline):
+                    continue
+                # Nothing took over: a JSContext debuggable, or a page that went quiet. Refuse
+                # rather than keep a screencast that never started - closing the session would
+                # then fail on it and leave the target's queue-consumer tasks draining the next.
+                await self._error_response(message, {"code": -32000, "message": str(e)})
+                return
+            break
+        self.screencast = screencast
         await self._simple_response(message, None)
 
     async def _page_stop_screencast(self, message: dict[str, Any]):
@@ -842,7 +918,21 @@ class CdpTarget:
         await self._simple_response(message, None)
 
     async def _page_get_resource_tree(self, message: dict[str, Any]):
-        result = await self.send_message_with_result(message["method"], message["params"])
+        result = await self.send_message_with_result_across_swaps(message["method"], message["params"])
+        if "result" not in result:
+            # No frame tree to report: a JSContext debuggable implements no Page domain and says
+            # so, and a target that stopped answering yields nothing at all. Relay that - a real
+            # Node target answers Chrome's frontends with the same error and they carry on.
+            await self._error_response(
+                message,
+                result.get("error")
+                or (
+                    dict(TARGET_CLOSED_ERROR)
+                    if self.target_id in self._destroyed_targets
+                    else {"code": -32000, "message": f"the device did not answer {message['method']}"}
+                ),
+            )
+            return
         self.frame = result["result"]["frameTree"]["frame"]
         # result carries our internal request id; answer the frontend with its own id.
         await self.output_queue.put({"id": message["id"], "result": result["result"]})
@@ -1266,6 +1356,17 @@ class CdpTarget:
         # SDK); the real url arrives via the device's own Page.frameNavigated.
         target_info = message["params"]["targetInfo"]
         new_target_id = target_info["targetId"]
+        if target_info.get("type", PAGE_TARGET_TYPE) != PAGE_TARGET_TYPE:
+            # Not every announced target is a page: iOS 26 announces one "frame" target per
+            # subframe (and workers as "worker"/"service-worker"). Their backends implement a
+            # much smaller domain set - a site-isolated frame has no Page/Network/Audit, and with
+            # site isolation off it registers no agents at all - so a session that routed its
+            # commands to one answered everything with "'<domain>' domain was not found" and
+            # never recovered: no commit or destroy follows to move it back off. Chrome has no
+            # counterpart for them either.
+            logger.debug(f"ignoring {target_info.get('type')} target {new_target_id}")
+            return
+        self._page_targets.add(new_target_id)
         if not target_info.get("isProvisional", False):
             # A provisional target becomes current only on didCommitProvisionalTarget; routing
             # commands to it earlier loses them if the load never commits.
@@ -1290,6 +1391,12 @@ class CdpTarget:
 
     async def _target_destroyed(self, message: dict[str, Any]):
         destroyed_target_id = message["params"]["targetId"]
+        if destroyed_target_id not in self._page_targets:
+            # A target the session deliberately never adopted (see _target_created). Telling the
+            # frontend the document changed because a subframe or a worker went away would reset
+            # its panels for something it never knew about.
+            return
+        self._page_targets.discard(destroyed_target_id)
         self._destroyed_targets.add(destroyed_target_id)
         self._setup_sent_targets.discard(destroyed_target_id)
         self._mark_target_responsive(destroyed_target_id)
@@ -1377,6 +1484,9 @@ class CdpTarget:
         # frontend's commands to it.
         self.target_id = message["params"]["newTargetId"]
         # Normally already done at targetCreated; covers a commit whose creation we never saw.
+        # Only page targets are ever committed, so recording it here keeps _target_destroyed
+        # recognizing it as one.
+        self._page_targets.add(self.target_id)
         await self._send_setup_to_target(self.target_id)
 
     async def _debugger_script_parsed(self, message: dict[str, Any]):

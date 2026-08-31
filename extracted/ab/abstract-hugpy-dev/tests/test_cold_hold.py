@@ -421,6 +421,14 @@ def _load_state_provider_checks(W):
             "Stale-Fail-GGUF": {"ok": False, "error": "old blip", "ts": now - 10_000},
             "Good-GGUF": {"ok": True, "fit": False, "ts": now},
         },
+        # A STANDING storage refusal (agent._refused_snapshot ships this). It is
+        # NOT a load_report — the pull was refused before any load — so the hold
+        # must surface it as an honest error rather than streaming "loading".
+        "refused": {
+            "Refused-GGUF": {"state": "refused",
+                             "reason": "won't fit on volume: needs 3.2 GB, "
+                                       "148.7 GB free, 150.0 GB reserve kept"},
+        },
     }
     orig = W.worker_store
     try:
@@ -430,9 +438,11 @@ def _load_state_provider_checks(W):
               f("Qwen2.5-3B-Instruct-GGUF", "w1", 0)["healthy"] is True)
         check("healthy match is alias-tolerant (hub_id form)",
               f("Qwen/Qwen2.5-3B-Instruct-GGUF", "w1", 0)["healthy"] is True)
+        _bm = f("Big-Model-GGUF", "w1", 0)
         check("loading model reads in_progress (not healthy)",
-              f("Big-Model-GGUF", "w1", 0) == {"healthy": False, "in_progress": True,
-                                               "progress": None, "message": None, "error": None})
+              _bm["healthy"] is False and _bm["in_progress"] is True
+              and _bm["progress"] is None and _bm["message"] is None
+              and _bm["error"] is None)
         d = f("Downloading-GGUF", "w1", 0)
         check("provisioning model carries download progress + BYTES",
               d["in_progress"] and d["progress"] == 0.25
@@ -444,9 +454,15 @@ def _load_state_provider_checks(W):
               f("Stale-Fail-GGUF", "w1", now - 1)["error"] is None)
         check("ok:True load report is not an error",
               f("Good-GGUF", "w1", 0)["error"] is None)
+        check("STANDING storage refusal is surfaced as an honest error (won't fit)",
+              "won't fit" in (f("Refused-GGUF", "w1", 0)["error"] or ""))
+        check("a refusal is a standing verdict — surfaced even with a fresh since_ts",
+              "won't fit" in (f("Refused-GGUF", "w1", now + 1)["error"] or ""))
+        _np = f("Nope-GGUF", "w1", 0)
         check("unknown model on the worker reads cold/idle",
-              f("Nope-GGUF", "w1", 0) == {"healthy": False, "in_progress": False,
-                                          "progress": None, "message": None, "error": None})
+              _np["healthy"] is False and _np["in_progress"] is False
+              and _np["progress"] is None and _np["message"] is None
+              and _np["error"] is None)
         W.worker_store = types.SimpleNamespace(get=lambda wid: None)
         check("unknown worker -> None", f("x", "ghost", 0) is None)
     finally:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Set
+from collections.abc import Set as AbstractSet
 
 from coredis.typing import (
     Literal,
@@ -172,13 +172,13 @@ Command = TypedDict(
     {
         "name": str,
         "arity": int,
-        "flags": Set[str],
+        "flags": AbstractSet[str],
         "first-key": int,
         "last-key": int,
         "step": int,
-        "acl-categories": Set[str] | None,
-        "tips": Set[str] | None,
-        "key-specifications": Set[Mapping[str, int | str | Mapping]] | None,  # type: ignore
+        "acl-categories": AbstractSet[str] | None,
+        "tips": AbstractSet[str] | None,
+        "key-specifications": AbstractSet[Mapping[str, int | str | Mapping]] | None,  # type: ignore
         "sub-commands": tuple[str, ...] | None,
     },
 )
@@ -206,8 +206,14 @@ class StreamEntry(NamedTuple):
     Structure representing an entry in a redis stream
     """
 
+    #: Stream entry ID
     identifier: StringT
+    #: Field/value pairs for the entry
     field_values: OrderedDict[StringT, StringT]
+    #: Milliseconds since last delivery
+    idle: int | None = None
+    #: Number of times this entry was previously delivered
+    delivered: int | None = None
 
 
 #: Details of a stream
@@ -269,6 +275,8 @@ class SlowLogInfo(NamedTuple):
     client_addr: StringT
     #: Client name
     client_name: StringT
+    #: Total number of arguments in the command.
+    argument_count: int | None
 
 
 class LCSMatch(NamedTuple):

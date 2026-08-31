@@ -16,6 +16,7 @@ from aigie.context_manager import merge_metadata
 from aigie.integrations.claude_agent_sdk._events import _tool_catalog
 from aigie.integrations.claude_agent_sdk._events.completion import CompletionEvents
 from aigie.integrations.claude_agent_sdk._plan import root_execution_plan
+from aigie.integrations.claude_agent_sdk._system_prompt import resolve_system_prompt
 from aigie.integrations.claude_agent_sdk.native_callback import (
     _sanitize_error,
     _usage_dict,
@@ -80,13 +81,14 @@ class SessionTurnEvents(CompletionEvents):
         )
         _tool_catalog.stamp_catalog(tool_definitions, trace_metadata, self.trace_id)
 
-        # Capture system prompt for drift detection
-        system_prompt = options.get("system_prompt", "")
-        if system_prompt:
-            self._drift_detector.capture_system_prompt(system_prompt)
+        resolved_prompt = resolve_system_prompt(options.get("system_prompt", ""))
+        if resolved_prompt.text:
+            self._drift_detector.capture_system_prompt(resolved_prompt.text)
         # The goal arrives on the options, not in a message, so the root span is the
         # only place it can be recorded — the drift detector is in-process only.
-        self._system_prompt = system_prompt if self.capture_messages else ""
+        self._system_prompt = resolved_prompt.text if self.capture_messages else ""
+        if self.capture_messages:
+            resolved_prompt.stamp_markers(trace_metadata)
 
         # The session span IS the trace root (root.id == trace_id, parent None,
         # carries the trace name/input/metadata/tags). No separate trace event

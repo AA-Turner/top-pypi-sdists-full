@@ -1,8 +1,9 @@
 [build-system]
-build-backend = "maturin"
+build-backend = "build_backend"
 requires = [
-  "maturin>=1.13.1",
+  "maturin>=1.14.1",
 ]
+backend-path = [ "." ]
 
 [project]
 name = "tox-toml-fmt"
@@ -38,7 +39,7 @@ dependencies = [
 ]
 urls."Bug Tracker" = "https://github.com/tox-dev/toml-fmt/issues"
 urls."Source Code" = "https://github.com/tox-dev/toml-fmt/tree/main/tox-toml-fmt"
-urls.Changelog = "https://github.com/tox-dev/toml-fmt/blob/main/tox-toml-fmt/CHANGELOG.md"
+urls.Changelog = "https://github.com/tox-dev/toml-fmt/releases?q=tox-toml-fmt"
 urls.Documentation = "https://tox-toml-fmt.readthedocs.io/en/latest/"
 scripts.tox-toml-fmt = "tox_toml_fmt.__main__:runner"
 
@@ -50,48 +51,51 @@ dev = [
 ]
 test = [
   "covdefaults>=2.3",
-  "pytest>=9.0.3",
+  "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-mock>=3.15.1",
+  "tomli>=2.4.1; python_version<'3.11'",
 ]
 type = [
-  "mypy==1.20.2",
-  "types-cachetools>=6.2.0.20260408",
+  "mypy==2.3.1",
+  "types-cachetools>=7.0.0.20260713",
   "types-chardet>=5.0.4.6",
   { include-group = "test" },
 ]
 docs = [
   "furo>=2025.12.19; python_version>='3.14'",
   "sphinx>=9.1; python_version>='3.14'",
-  "sphinx-argparse-cli>=1.21.3; python_version>='3.14'",
-  "sphinx-autodoc-typehints>=3.10.2; python_version>='3.14'",
+  "sphinx-argparse-cli>=1.22.1; python_version>='3.14'",
+  "sphinx-autodoc-typehints>=3.13.2; python_version>='3.14'",
   "sphinx-copybutton>=0.5.2; python_version>='3.14'",
   "sphinx-inline-tabs>=2025.12.21.14; python_version>='3.14'",
+  "sphinx-llm>=1",
 ]
 fix = [
-  "pre-commit-uv>=4.2.1",
+  "pre-commit-uv>=4.3",
 ]
 pkg-meta = [
   "check-wheel-contents>=0.6.3",
-  "twine>=6.2",
-  "uv>=0.11.8",
+  "twine>=7",
+  "uv>=0.12.5",
 ]
 
 [tool.maturin]
-bindings = "pyo3"
 module-name = "tox_toml_fmt._lib"
-strip = true
+bindings = "pyo3"
 include = [
+  # ship the in-tree PEP 517 backend in the sdist so wheels can be built from the sdist
+  { path = "build_backend.py", format = "sdist" },
   { path = "rust-toolchain.toml", format = "sdist" },
   { path = "docs/", format = "sdist" },
-  { path = "CHANGELOG.md", format = "sdist" },
   { path = "README.rst", format = "sdist" },
 ]
 exclude = [
-  "**/__pycache__/**",
   "**/*.pyc",
   "**/*.pyo",
+  "**/__pycache__/**",
 ]
+strip = true
 manifest-path = "tox-toml-fmt/Cargo.toml"
 python-source = "src"
 
@@ -99,10 +103,13 @@ python-source = "src"
 max_supported_python = "3.15"
 
 [tool.mypy]
-show_error_codes = true
 strict = true
+show_error_codes = true
 
 [tool.coverage]
+run.omit = [
+  "*/_vendor/*", # vendored toml_fmt_common is covered by its own test suite
+]
 run.parallel = true
 run.plugins = [
   "covdefaults",

@@ -796,8 +796,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Comma-separated model_keys to self-assign on registration")
     p.add_argument("--heartbeat", type=float,
                    default=float(os.environ.get("WORKER_HEARTBEAT", "15")))
-    p.add_argument("--id-file", default=os.environ.get(
-        "WORKER_ID_FILE", os.path.expanduser("~/.gguf_worker.json")))
+    from .._platform import paths as _hp
+    p.add_argument("--id-file", default=_hp.gguf_worker_id_file())
     p.add_argument("--models-dir", default=os.environ.get(
         "GGUF_WORKER_MODELS_DIR", os.path.expanduser("~/gguf-models")))
     p.add_argument("--n-ctx", type=int,

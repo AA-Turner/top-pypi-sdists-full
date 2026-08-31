@@ -1,11 +1,12 @@
 # Copyright cocotb contributors
 # Licensed under the Revised BSD License, see LICENSE for details.
 # SPDX-License-Identifier: BSD-3-Clause
-import copy
-from functools import lru_cache
-from typing import Any, Dict, Iterator, Sequence, Union, overload
+from __future__ import annotations
 
-from cocotb._utils import cached_method
+import copy
+from collections.abc import Iterator, Sequence
+from functools import cache
+from typing import Any, overload
 
 
 class Range(Sequence[int]):
@@ -79,8 +80,8 @@ class Range(Sequence[int]):
     def __init__(
         self,
         left: int,
-        direction: Union[int, str, None] = None,
-        right: Union[int, None] = None,
+        direction: int | str | None = None,
+        right: int | None = None,
     ) -> None:
         start = left
         stop: int
@@ -99,7 +100,7 @@ class Range(Sequence[int]):
         self._range = range(start, stop, step)
 
     @classmethod
-    def from_range(cls, range: range) -> "Range":
+    def from_range(cls, range: range) -> Range:
         """Convert :class:`range` to :class:`Range`."""
         return cls(
             left=range.start,
@@ -133,9 +134,9 @@ class Range(Sequence[int]):
     def __getitem__(self, item: int) -> int: ...
 
     @overload
-    def __getitem__(self, item: slice) -> "Range": ...
+    def __getitem__(self, item: slice) -> Range: ...
 
-    def __getitem__(self, item: Union[int, slice]) -> Union[int, "Range"]:
+    def __getitem__(self, item: int | slice) -> int | Range:
         if isinstance(item, int):
             return self._range[item]
         elif isinstance(item, slice):
@@ -164,12 +165,21 @@ class Range(Sequence[int]):
     def __repr__(self) -> str:
         return f"{type(self).__qualname__}({self.left!r}, {self.direction!r}, {self.right!r})"
 
-    index = cached_method(Sequence.index)
+    def index(
+        self, value: Any, start: int | None = None, stop: int | None = None, /
+    ) -> int:
+        if start is not None or stop is not None:
+            if start is None:
+                start = self._range.start
+            if stop is None:
+                stop = self._range.stop
+            return super().index(value, start, stop)
+        return self._range.index(value)
 
-    def __copy__(self) -> "Range":
+    def __copy__(self) -> Range:
         return Range.from_range(self._range)
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> "Range":
+    def __deepcopy__(self, memo: dict[int, Any]) -> Range:
         return Range.from_range(copy.deepcopy(self._range, memo=memo))
 
 
@@ -179,7 +189,7 @@ def _guess_step(left: int, right: int) -> int:
     return -1
 
 
-@lru_cache(maxsize=None)
+@cache
 def _direction_to_step(direction: str) -> int:
     direction = direction.lower()
     if direction == "to":

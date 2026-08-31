@@ -7,6 +7,7 @@ from time import time_ns
 from typing import TYPE_CHECKING, Awaitable, List, Optional, Tuple, Union
 
 from ..abstracts import AbstractBucket, Rate, RateItem
+from ..abstracts.algorithm import ADMITTED, Decision, LogAlgorithm
 from ..utils import id_generator
 
 if TYPE_CHECKING:
@@ -24,14 +25,27 @@ class LuaScript:
     local item_name = ARGV[3]
     local rates_count = tonumber(ARGV[4])
 
+    -- Per rate the client supplies (window_start, limit, blocking_rank); the
+    -- window bounds and rank come from the algorithm, so this script stays
+    -- policy-agnostic. blocking_rank < 0 means "resolve no entry".
     for i=1,rates_count do
-        local offset = (i - 1) * 2
-        local interval = tonumber(ARGV[5 + offset])
+        local offset = (i - 1) * 3
+        local window_start = tonumber(ARGV[5 + offset])
         local limit = tonumber(ARGV[5 + offset + 1])
-        local count = redis.call('ZCOUNT', bucket, now - interval, now)
+        local blocking_rank = tonumber(ARGV[5 + offset + 2])
+        local count = redis.call('ZCOUNT', bucket, window_start, now)
         local space_available = limit - tonumber(count)
         if space_available < space_required then
-            return i - 1
+            local blocking_timestamp = -1
+
+            if blocking_rank >= 0 then
+                local blocking = redis.call('ZRANGE', bucket, -1 - blocking_rank, -1 - blocking_rank, 'WITHSCORES')
+                if blocking[2] then
+                    blocking_timestamp = tonumber(blocking[2])
+                end
+            end
+
+            return {i - 1, blocking_timestamp}
         end
     end
 
@@ -53,7 +67,7 @@ class LuaScript:
         redis.call('ZADD', bucket, unpack(batch))
     end
 
-    return -1
+    return {-1, -1}
     """
 
 
@@ -77,7 +91,11 @@ class RedisBucket(AbstractBucket):
         redis: Union[Redis, AsyncRedis],
         bucket_key: str,
         script_hash: str,
+        algorithm: Optional[LogAlgorithm] = None,
     ):
+        if algorithm is not None:
+            self._algorithm = algorithm
+
         self.rates = rates
         self.redis = redis
         self.bucket_key = bucket_key
@@ -94,6 +112,7 @@ class RedisBucket(AbstractBucket):
         rates: List[Rate],
         redis: Union[Redis, AsyncRedis],
         bucket_key: str,
+        algorithm: Optional[LogAlgorithm] = None,
     ):
         script_hash = redis.script_load(LuaScript.PUT_ITEM)
 
@@ -102,13 +121,20 @@ class RedisBucket(AbstractBucket):
             async def _async_init():
                 nonlocal script_hash
                 script_hash = await script_hash
-                return cls(rates, redis, bucket_key, script_hash)
+                return cls(rates, redis, bucket_key, script_hash, algorithm)
 
             return _async_init()
 
-        return cls(rates, redis, bucket_key, script_hash)
+        return cls(rates, redis, bucket_key, script_hash, algorithm)
 
-    def _check_and_insert(self, item: RateItem) -> Union[Rate, None, Awaitable[Optional[Rate]]]:
+    def _check_and_insert(self, item: RateItem) -> Union[Decision, Awaitable[Decision]]:
+        """Check-and-insert, returning the full verdict.
+
+        The script returns the blocking timestamp alongside the failing rate, so
+        the wait comes from the same atomic evaluation - no second ZRANGE.
+        Window bounds and the blocking rank are computed by the algorithm and
+        passed in, keeping the script policy-agnostic.
+        """
         keys = [self.bucket_key]
 
         args = [
@@ -117,39 +143,59 @@ class RedisBucket(AbstractBucket):
             # NOTE: this is to avoid key collision since we are using ZSET
             f"{item.name}:{id_generator()}:",  # noqa: E231
             len(self.rates),
-            *[value for rate in self.rates for value in (rate.interval, rate.limit)],
         ]
 
-        idx = self.redis.evalsha(self.script_hash, len(keys), *keys, *args)
+        for rate in self.rates:
+            offset = self._algorithm.blocking_offset(rate, item.weight)
+            args.extend(
+                (
+                    self._algorithm.window_start(rate, item.timestamp),
+                    rate.limit,
+                    -1 if offset is None else offset,
+                )
+            )
 
-        def _handle_sync(returned_idx: int):
-            assert isinstance(returned_idx, int), "Not int"
-            if returned_idx < 0:
-                return None
+        reply = self.redis.evalsha(self.script_hash, len(keys), *keys, *args)
 
-            return self.rates[returned_idx]
+        def _handle_sync(returned: List[int]) -> Decision:
+            idx, blocking_timestamp = int(returned[0]), int(returned[1])
 
-        async def _handle_async(returned_idx: Awaitable[int]):
-            assert isawaitable(returned_idx), "Not corotine"
-            awaited_idx = await returned_idx
-            return _handle_sync(awaited_idx)
+            if idx < 0:
+                return ADMITTED
 
-        return _handle_async(idx) if isawaitable(idx) else _handle_sync(idx)
+            rate = self.rates[idx]
+
+            if item.weight > self._algorithm.max_weight(rate):
+                # Can never fit; waiting() reports -1 and the limiter gives up.
+                return Decision(failing_rate=rate)
+
+            # Any negative reply means "no entry resolved" - either the policy
+            # asked for none, or the rank was out of range.
+            blocking = blocking_timestamp if blocking_timestamp >= 0 else None
+
+            return Decision(
+                failing_rate=rate,
+                retry_after_ms=self._algorithm.retry_after(rate, item.timestamp, blocking),
+            )
+
+        async def _handle_async(pending: Awaitable[List[int]]) -> Decision:
+            return _handle_sync(await pending)
+
+        return _handle_async(reply) if isawaitable(reply) else _handle_sync(reply)
 
     def put(self, item: RateItem) -> Union[bool, Awaitable[bool]]:
         """Add item to key"""
-        failing_rate = self._check_and_insert(item)
-        if isawaitable(failing_rate):
+        decision = self._check_and_insert(item)
+
+        if isawaitable(decision):
 
             async def _handle_async():
-                self.failing_rate = await failing_rate
-                return not bool(self.failing_rate)
+                return self._record(item, await decision)
 
             return _handle_async()
 
-        assert isinstance(failing_rate, Rate) or failing_rate is None
-        self.failing_rate = failing_rate
-        return not bool(self.failing_rate)
+        assert isinstance(decision, Decision)
+        return self._record(item, decision)
 
     def leak(self, current_timestamp: Optional[int] = None) -> Union[int, Awaitable[int]]:
         assert current_timestamp is not None
@@ -161,6 +207,7 @@ class RedisBucket(AbstractBucket):
 
     def flush(self):
         self.failing_rate = None
+        self._last_wait = None
         return self.redis.delete(self.bucket_key)
 
     def count(self):

@@ -706,22 +706,31 @@ _KOTLIN_BUILTIN_TYPES = frozenset({
 })
 
 def _kotlin_user_type_name(user_type_node, source: bytes) -> str | None:
-    """Return the head identifier text from a Kotlin user_type node (without generics)."""
+    """Return the tail identifier text from a Kotlin user_type node (without generics).
+
+    A qualified supertype like `com.example.Base` lists its segments as flat
+    `identifier` children (`com`, `example`, `Base`) separated by `.` tokens, so
+    the real type is the LAST segment, not the first — returning the head yielded
+    the package root (`com`). Type arguments live in a separate `type_arguments`
+    child, so scanning direct children and keeping the last identifier/
+    type_identifier segment ignores generics correctly (mirrors the C++ qualified
+    base handling, which uses the unqualified tail)."""
     if user_type_node is None:
         return None
+    name: str | None = None
     for c in user_type_node.children:
-        if c.type == "type_identifier":
+        if c.type in ("type_identifier", "identifier"):
             text = _read_text(c, source)
-            return text or None
-        if c.type == "identifier":
-            text = _read_text(c, source)
-            return text or None
-        if c.type == "simple_user_type":
+            if text:
+                name = text
+        elif c.type == "simple_user_type":
             for sub in c.children:
                 if sub.type in ("identifier", "type_identifier"):
                     text = _read_text(sub, source)
-                    return text or None
-    return None
+                    if text:
+                        name = text
+                    break
+    return name
 
 def _kotlin_collect_type_refs(node, source: bytes, generic: bool, out: list[tuple[str, str]]) -> None:
     """Walk a Kotlin type expression; append (name, role) tuples."""
@@ -3412,7 +3421,14 @@ def _extract_generic(
                                     "source_location": "",
                                 })
                                 seen_ids.add(base_nid)
-                        relation = _csharp_classify_base(base, csharp_interface_names)
+                        # An `interface`'s base_list holds base interfaces, so every
+                        # entry is interface inheritance (`inherits`) -- the same way the
+                        # Java extractor treats `extends_interfaces`. Only class/struct/
+                        # record declarations use the name-based class-vs-interface split.
+                        if t == "interface_declaration":
+                            relation = "inherits"
+                        else:
+                            relation = _csharp_classify_base(base, csharp_interface_names)
                         metadata = {"ref_token": base}
                         if qualified:
                             metadata["qualified"] = True
@@ -3559,18 +3575,39 @@ def _extract_generic(
                             break
                 if extend is not None:
                     bases: list[tuple[str, int]] = []
-                    for c in extend.children:
-                        if c.type == "type_identifier":
-                            bases.append((_read_text(c, source), c.start_point[0] + 1))
-                        elif c.type == "generic_type":
-                            base = c.child_by_field_name("type")
+
+                    def scala_base_name(type_node) -> str | None:
+                        if type_node.type == "type_identifier":
+                            return _read_text(type_node, source)
+                        if type_node.type == "stable_type_identifier":
+                            tail = next(
+                                (
+                                    child
+                                    for child in reversed(type_node.children)
+                                    if child.type in ("type_identifier", "identifier")
+                                ),
+                                None,
+                            )
+                            return _read_text(tail, source) if tail is not None else None
+                        if type_node.type == "generic_type":
+                            base = type_node.child_by_field_name("type")
                             if base is None:
-                                for sc in c.children:
-                                    if sc.type == "type_identifier":
-                                        base = sc
-                                        break
-                            if base is not None:
-                                bases.append((_read_text(base, source), c.start_point[0] + 1))
+                                base = next(
+                                    (
+                                        child
+                                        for child in type_node.children
+                                        if child.type
+                                        in ("type_identifier", "stable_type_identifier")
+                                    ),
+                                    None,
+                                )
+                            return scala_base_name(base) if base is not None else None
+                        return None
+
+                    for c in extend.children:
+                        base_name = scala_base_name(c)
+                        if base_name is not None:
+                            bases.append((base_name, c.start_point[0] + 1))
                     for idx, (base_name, base_line) in enumerate(bases):
                         rel = "inherits" if idx == 0 else "mixes_in"
                         base_nid = ensure_named_node(base_name, base_line)

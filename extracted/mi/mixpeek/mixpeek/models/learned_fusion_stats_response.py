@@ -40,7 +40,7 @@ class LearnedFusionStatsResponse(BaseModel):
     shadow_mode: StrictBool = Field(description="Whether learned fusion is running in shadow mode (logging only).")
     source: Optional[StrictStr] = Field(default=None, description="Which store served the weights: 'signals' (the namespace's _signals collection) or 'clickhouse' (analytics fallback).")
     warning: Optional[StrictStr] = Field(default=None, description="Set when the response contains fallback defaults due to an internal error.")
-    hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning (BACKE-2525).")
+    hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning.")
     __properties: ClassVar[List[str]] = ["total_learners", "active_learners", "avg_interactions_per_user", "weight_spread", "context_level_distribution", "context_hit_rate", "enabled", "rollout_pct", "rollout_override", "config_rollout_pct", "shadow_mode", "source", "warning", "hint"]
 
     model_config = ConfigDict(

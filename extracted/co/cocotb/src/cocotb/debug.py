@@ -1,10 +1,11 @@
 # Copyright cocotb contributors
 # Licensed under the Revised BSD License, see LICENSE for details.
 # SPDX-License-Identifier: BSD-3-Clause
+from __future__ import annotations
 
-import os
+from cocotb_tools import _env
 
-debug: bool = bool(os.getenv("COCOTB_SCHEDULER_DEBUG"))
+debug: bool = _env.get_bool("COCOTB_SCHEDULER_DEBUG")
 """Global flag to enable additional debugging functionality.
 
 Defaults to ``True`` if the :envvar:`COCOTB_SCHEDULER_DEBUG` environment variable is set,

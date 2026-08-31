@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class BulkRequeueDLQRequest(BaseModel):
     """
-    Request to requeue exhausted DLQ entries back into the retry path (TG-2999).
+    Request to requeue exhausted DLQ entries back into the retry path.
     """ # noqa: E501
     error_types: Optional[List[StrictStr]] = Field(default=None, description="Optional error-type filter, e.g. ['S3StorageError', 'TimeoutError']. Omit to requeue every exhausted entry for the sync config. Entries that have not exhausted their retries are never touched — they are already retrying.")
     __properties: ClassVar[List[str]] = ["error_types"]

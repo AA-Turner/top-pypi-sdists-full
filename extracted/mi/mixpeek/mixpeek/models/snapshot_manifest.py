@@ -39,7 +39,7 @@ class SnapshotManifest(BaseModel):
     s3_object_count: Optional[StrictInt] = 0
     s3_total_bytes: Optional[StrictInt] = 0
     s3_objects_copied: Optional[StrictBool] = False
-    include_vectors: Optional[StrictBool] = Field(default=True, description="Whether this snapshot exported its own vector points. Daily sweeps coalesce the (full-dataset) vector export to ONE snapshot per physical shard (MI-894); metadata-only snapshots set this False and rely on the shard representative's export (see vector_shard_key).")
+    include_vectors: Optional[StrictBool] = Field(default=True, description="Whether this snapshot exported its own vector points. Daily sweeps coalesce the (full-dataset) vector export to ONE snapshot per physical shard; metadata-only snapshots set this False and rely on the shard representative's export (see vector_shard_key).")
     vector_shard_key: Optional[StrictStr] = Field(default=None, description="Physical shard this namespace's vectors live on; the shard representative's snapshot holds the actual vector export.")
     __properties: ClassVar[List[str]] = ["snapshot_id", "namespace_id", "namespace_name", "schema_version", "created_at", "snapshot_type", "mongo_collections", "vector_point_count", "s3_object_count", "s3_total_bytes", "s3_objects_copied", "include_vectors", "vector_shard_key"]
 

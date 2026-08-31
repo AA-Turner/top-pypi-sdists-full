@@ -598,7 +598,8 @@ class Anylinux:
         assert orig_wheel == ORIGINAL_NUMPY_WHEEL
         assert "manylinux" not in orig_wheel
 
-        anylinux.exec("pipx install -f patchelf==0.14.5.0")
+        anylinux.exec("pipx uninstall patchelf")
+        anylinux.exec("pipx install patchelf==0.14.5.0")
 
         # Repair the wheel using the manylinux container
         anylinux.repair(orig_wheel)
@@ -1066,7 +1067,7 @@ class Anylinux:
             elif arch == Architecture.riscv64:
                 platform_tag = f"manylinux_2_31_{arch.value}"
             python_abi = "cp313-cp313"
-        test_path = f"/auditwheel_src/tests/integration/arch-wheels/{source}"
+        test_path = f"/auditwheel_src/tests/bundled-wheels/{source}"
         orig_wheel = f"testsimple-0.0.1-{python_abi}-linux_{arch.value}.whl"
         anylinux.exec(["cp", "-f", f"{test_path}/{orig_wheel}", f"/io/{orig_wheel}"])
         anylinux.repair(

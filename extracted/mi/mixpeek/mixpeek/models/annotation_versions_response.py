@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class AnnotationVersionsResponse(BaseModel):
     """
-    Full version history of one annotation (ADM-15).
+    Full version history of one annotation.
     """ # noqa: E501
     annotation_id: StrictStr
     current_version: StrictInt

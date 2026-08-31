@@ -33,7 +33,7 @@ class BucketUpdateRequest(BaseModel):
     description: Optional[StrictStr] = Field(default=None, description="Description of the bucket")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the bucket")
     bucket_schema: Optional[BucketSchemaInput] = Field(default=None, description="Schema definition for objects in this bucket")
-    storage_class: Optional[StorageClass] = Field(default=None, description="Object-storage tier: standard | nearline | coldline | archive. NOTE: applied on write for sync-based ingestion (the primary media path); tiering for direct uploads (POST /objects) and presigned uploads, plus retroactive re-tiering of existing objects, are in progress (TG-2837).")
+    storage_class: Optional[StorageClass] = Field(default=None, description="Object-storage tier: standard | nearline | coldline | archive. NOTE: applied on write for sync-based ingestion (the primary media path); tiering for direct uploads (POST /objects) and presigned uploads, plus retroactive re-tiering of existing objects, are in progress.")
     __properties: ClassVar[List[str]] = ["bucket_name", "description", "metadata", "bucket_schema", "storage_class"]
 
     model_config = ConfigDict(

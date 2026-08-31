@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apprise
-Version: 1.13.0
+Version: 1.13.1
 Summary: Push Notifications that work with just about every platform!
 Author-email: Chris Caron <lead2gold@gmail.com>
 License: BSD-2-Clause
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://appriseit.com
 Project-URL: Source, https://github.com/caronc/apprise
 Project-URL: Tracker, https://github.com/caronc/apprise/issues
 Project-URL: Documentation, https://appriseit.com
-Keywords: 46elks,800.com,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,Amazon Chime,AWS,Bark,Blink(1),BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,DingTalk,Discord,Dot,Email,Emby,Enigma2,Evolution API,Exotel,FCM,Feishu,Flock,Flowtriq,Fluxer,Form,Free Mobile,Gnome,Google Chat,Gotify,GroupMe,Growl,Guilded,Home Assistant,httpSMS,HumHub,IFTTT,IRC,Jellyfin,Jira,Join,JSON,Kavenegar,KODI,Kook,Kumulos,LaMetric,Lark,Line,MacOSX,Mailgun,MailerSend,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,Notifiarr,Notifico,Notifyre,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Pinglet,Pingram,Plivo,Postmark,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,PushWard,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,RingCentral,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SerwerSMS,Session Open Group Server,SES,Seven,SFR,Signal,SIGNL4,SimplePush,Sinch,Slack,SMPP,SMS Manager,SMSC,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Stackfield,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Threema Gateway,Trigv,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeChat (WeCom),WeCom Bot,WhatsApp,Windows,Workflows,WxPusher,XBMC,XML,XMPP,Zoom,Zulip
+Keywords: 46elks,800.com,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,Amazon Chime,AWS,Bark,Blink(1),BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,DingTalk,Discord,Dot,Email,Emby,Enigma2,Evolution API,Exotel,FCM,Feishu,Flock,Flowtriq,Fluxer,Form,Free Mobile,Gnome,Google Chat,Gotify,GroupMe,Growl,Guilded,Home Assistant,httpSMS,HumHub,IFTTT,IRC,Jellyfin,Jira,Join,JSON,Kavenegar,KODI,Kook,Kumulos,LaMetric,Lark,Lauther,Line,MacOSX,Mailgun,MailerSend,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,Notifiarr,Notifico,Notifyre,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Pinglet,Pingram,Plivo,Postmark,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,PushWard,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,RingCentral,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SerwerSMS,Session Open Group Server,SES,Seven,SFR,Signal,Signalgrid,SIGNL4,SimplePush,Sinch,Slack,SMPP,SMS Manager,SMSC,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Stackfield,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Threema Gateway,Trigv,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeChat (WeCom),WeCom Bot,WhatsApp,Windows,Workflows,WxPusher,XBMC,XML,XMPP,Zoom,Zulip
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -19,6 +19,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -153,6 +156,7 @@ The table below identifies the services this tool supports and some example serv
 | [Kumulos](https://appriseit.com/services/kumulos/) | kumulos:// | (TCP) 443 | kumulos://apikey/serverkey
 | [LaMetric Time](https://appriseit.com/services/lametric/) | lametric:// | (TCP) 443 | lametric://apikey@device_ipaddr<br/>lametric://apikey@hostname:port<br/>lametric://client_id@client_secret
 | [Lark](https://appriseit.com/services/lark/) | lark://  | (TCP) 443   | lark://BotToken
+| [Lauther](https://appriseit.com/services/lauther/) | lauther:// | (TCP) 443 | lauther://Token
 | [Line](https://appriseit.com/services/line/) | line:// | (TCP) 443 | line://Token@User<br/>line://Token/User1/User2/UserN
 | [Mailgun](https://appriseit.com/services/mailgun/) | mailgun:// | (TCP) 443 | mailgun://user@hostname/apikey<br />mailgun://user@hostname/apikey/email<br />mailgun://user@hostname/apikey/email1/email2/emailN<br />mailgun://user@hostname/apikey/?name="From%20User"
 | [MailerSend](https://appriseit.com/services/mailersend/) | mailersend://  | (TCP) 443   | mailersend://APIToken:FromEmail/<br />mailersend://APIToken:FromEmail/ToEmail<br />mailersend://APIToken:FromEmail/ToEmail1/ToEmail2/ToEmailN/
@@ -202,6 +206,7 @@ The table below identifies the services this tool supports and some example serv
 | [ServerChan](https://appriseit.com/services/serverchan/) | schan://   | (TCP) 443    | schan://sendkey/
 | [Session Open Group Server](https://appriseit.com/services/sogs/) | session:// or sessions:// | (TCP) 80 or 443 | sessions://public_key:seed@hostname/room<br />sessions://public_key:seed@hostname/room1/room2<br />sessions://public_key:seed@hostname:port/room<br />session://public_key:seed@hostname/room
 | [Signal API](https://appriseit.com/services/signal/) | signal://  or signals:// | (TCP) 80 or 443  | signal://hostname:port/FromPhoneNo<br/>signal://hostname:port/FromPhoneNo/ToPhoneNo<br/>signal://hostname:port/FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
+| [Signalgrid](https://appriseit.com/services/signalgrid/) | signalgrid://  | (TCP) 443   | signalgrid://CLIENT_KEY/CHANNEL<br />signalgrid://CLIENT_KEY/CHANNEL1/CHANNEL2<br />signalgrid://CLIENT_KEY/CHANNEL?critical=true
 | [SIGNL4](https://appriseit.com/services/signl4/) | signl4://  | (TCP) 80 or 443  | signl4://hostname
 | [SimplePush](https://appriseit.com/services/simplepush/) | spush://   | (TCP) 443    | spush://apikey<br />spush://salt:password@apikey<br />spush://apikey?event=Apprise
 | [Slack](https://appriseit.com/services/slack/) | slack://  | (TCP) 443   | slack://TokenA/TokenB/TokenC/<br />slack://TokenA/TokenB/TokenC/Channel<br />slack://botname@TokenA/TokenB/TokenC/Channel<br />slack://user@TokenA/TokenB/TokenC/Channel1/Channel2/ChannelN

@@ -4,22 +4,24 @@ agno's stock :class:`~agno.models.aws.bedrock.AwsBedrock` (boto3 ``converse``)
 reads ``cacheReadInputTokens`` / ``cacheWriteInputTokens`` from responses but
 never emits a ``cachePoint`` block, so nothing is ever cached. Without caching,
 the large static prefix (system prompt + tool definitions) is re-billed at full
-input price on every turn of an agentic run — the root cause of runaway run
+input price on every turn of an agentic run - the root cause of runaway run
 costs on Bedrock.
 
 This subclass injects a ``cachePoint`` breakpoint into the ``system`` block and
-the ``toolConfig.tools`` list so the static prefix is cached. It keeps the
-bearer-token (``AWS_BEARER_TOKEN_BEDROCK``) auth path unchanged — unlike
+the ``toolConfig.tools`` list so the static prefix is cached. Bearer-token auth
+(Bedrock API keys) is supported per-client via ``aws_bearer_token`` - unlike
 ``agno.models.aws.claude.Claude``, which requires IAM credentials.
 
 Bedrock rejects ``cachePoint`` on models that do not support prompt caching, so
 injection is gated to Claude / Nova model ids.
 """
 
+from dataclasses import dataclass, field
 from os import getenv
 from typing import Any, Dict, List, Optional, Tuple
 
 from boto3 import client as AwsClient
+from botocore import UNSIGNED
 from botocore.config import Config as BotocoreConfig
 
 from agno.models.aws.bedrock import AwsBedrock
@@ -78,7 +80,7 @@ def _sanitize_empty_text_blocks(content_blocks: Any) -> None:
 # re-hits the same wall. Mirror the 12h read budget the other providers use
 # (agno.py LLM_REQUEST_TIMEOUT_SECONDS); keep a short connect budget since
 # establishing the TCP/TLS connection should be fast. Defined locally (not
-# imported from agno.py) to avoid a circular import — agno.py imports this
+# imported from agno.py) to avoid a circular import - agno.py imports this
 # module.
 BEDROCK_READ_TIMEOUT_SECONDS = 12 * 60 * 60  # 43200s, matches other providers
 BEDROCK_CONNECT_TIMEOUT_SECONDS = 60
@@ -91,7 +93,7 @@ def _split_system_blocks(
 
     Returns *blocks* untouched when there is nothing worth splitting; the
     concatenated text is identical either way. A split request sits at the
-    four-breakpoint ceiling (tools, system-stable, system-tail, last message) —
+    four-breakpoint ceiling (tools, system-stable, system-tail, last message) -
     do not add a fifth.
     """
     for position, block in enumerate(blocks):
@@ -109,25 +111,85 @@ def _split_system_blocks(
     return blocks
 
 
-def _bedrock_client_config() -> BotocoreConfig:
+def _bedrock_client_config(unsigned: bool = False) -> BotocoreConfig:
     """botocore Config lifting the per-request read timeout off the 60s default.
 
-    retries are left at the botocore default — agno's ``Model.retries`` (3, with
+    retries are left at the botocore default - agno's ``Model.retries`` (3, with
     exponential backoff) already owns provider-level retry; we only lift the
     per-attempt timeout so a single long call doesn't trip the 60s wall.
+    ``unsigned`` disables SigV4 for the bearer-token path, where auth is a
+    per-client Authorization header instead of AWS credentials.
     """
-    return BotocoreConfig(
-        read_timeout=BEDROCK_READ_TIMEOUT_SECONDS,
-        connect_timeout=BEDROCK_CONNECT_TIMEOUT_SECONDS,
+    kwargs: Dict[str, Any] = {
+        "read_timeout": BEDROCK_READ_TIMEOUT_SECONDS,
+        "connect_timeout": BEDROCK_CONNECT_TIMEOUT_SECONDS,
+    }
+    if unsigned:
+        kwargs["signature_version"] = UNSIGNED
+    return BotocoreConfig(**kwargs)
+
+
+_BEDROCK_CONFIG = _bedrock_client_config()
+_BEDROCK_CONFIG_UNSIGNED = _bedrock_client_config(unsigned=True)
+
+
+def _register_bearer_auth(events: Any, model: "CachingAwsBedrock") -> None:
+    """Register the bearer auth hook per-client (never os.environ); idempotent.
+
+    The hook binds the model, not the token string, so a token reassigned on the
+    model after client construction is honored on the next request.
+    """
+
+    def _add_bearer_header(request: Any, **_: Any) -> None:
+        request.headers["Authorization"] = f"Bearer {model.aws_bearer_token}"
+
+    events.register(
+        "before-send.bedrock-runtime",
+        _add_bearer_header,
+        unique_id="xpander-bedrock-bearer",
     )
 
 
+class _BearerAuthClientContext:
+    """Async CM that registers bearer auth on the inner client's own emitter.
+
+    Registration must be per-client, never on a reusable session emitter: the
+    constant unique_id dedupes there, so a second model sharing the session
+    would silently send the first model's token.
+    """
+
+    def __init__(self, client_cm: Any, model: "CachingAwsBedrock") -> None:
+        self._client_cm = client_cm
+        self._model = model
+
+    async def __aenter__(self) -> Any:
+        client = await self._client_cm.__aenter__()
+        _register_bearer_auth(client.meta.events, self._model)
+        return client
+
+    async def __aexit__(self, *exc_info: Any) -> Any:
+        return await self._client_cm.__aexit__(*exc_info)
+
+
+@dataclass
 class CachingAwsBedrock(AwsBedrock):
-    """``AwsBedrock`` that caches the static prefix (system + tools)."""
+    """``AwsBedrock`` that caches the static prefix (system + tools).
+
+    One client carries one credential: do not share a prebuilt ``client`` across
+    models with different ``aws_bearer_token`` values (the auth unit is the client).
+    """
 
     # Per-request system tail, set by the agno builder once additional_context is
     # final. Splitting on it keeps the stable instructions cacheable across turns.
     xp_volatile_system: Optional[str] = None
+
+    # Bedrock API-key bearer token, applied per-client (see _register_bearer_auth).
+    # repr=False keeps the credential out of tracebacks and loguru diagnose output.
+    aws_bearer_token: Optional[str] = field(default=None, repr=False)
+
+    # Explicit bedrock-runtime endpoint (VPC endpoints / on-prem gateways). None
+    # keeps botocore's own resolution, including AWS_ENDPOINT_URL_* env support.
+    endpoint_url: Optional[str] = None
 
     def get_client(self) -> AwsClient:
         """Build the sync bedrock-runtime client with a lifted read timeout.
@@ -135,40 +197,64 @@ class CachingAwsBedrock(AwsBedrock):
         Faithful copy of ``AwsBedrock.get_client`` (agno 2.5.14) with
         ``config=_bedrock_client_config()`` injected into every client
         constructor. We can't call ``super()`` and retrofit the config: the base
-        returns an already-built client with no seam to attach a Config. Keeps
-        the bearer-token (``AWS_BEARER_TOKEN_BEDROCK``) auth path unchanged.
+        returns an already-built client with no seam to attach a Config. Adds
+        ``endpoint_url`` passthrough and per-client bearer-token auth.
         """
         # When using a boto3 session, always recreate the client so
         # session credentials can be refreshed (IAM roles, EKS, STS).
         if not self.session and self.client is not None:
+            # Covers caller-prebuilt clients too; unique_id makes re-registration a no-op.
+            if self.aws_bearer_token:
+                _register_bearer_auth(self.client.meta.events, self)
             return self.client
 
         # Return directly (not via self.client) so concurrent callers
         # on the same model instance each get their own client.
         if self.session:
-            return self.session.client(
+            # Bearer auth still applies with a caller-provided session: unsigned
+            # config plus the per-client Authorization hook.
+            config = (
+                _BEDROCK_CONFIG_UNSIGNED if self.aws_bearer_token else _BEDROCK_CONFIG
+            )
+            client = self.session.client(
                 "bedrock-runtime",
                 region_name=self.aws_region or self.session.region_name,
-                config=_bedrock_client_config(),
+                endpoint_url=self.endpoint_url,
+                config=config,
             )
+            if self.aws_bearer_token:
+                _register_bearer_auth(client.meta.events, self)
+            return client
+
+        self.aws_region = self.aws_region or getenv("AWS_REGION")
+
+        if self.aws_bearer_token:
+            self.client = AwsClient(
+                service_name="bedrock-runtime",
+                region_name=self.aws_region,
+                endpoint_url=self.endpoint_url,
+                config=_BEDROCK_CONFIG_UNSIGNED,
+            )
+            _register_bearer_auth(self.client.meta.events, self)
+            return self.client
 
         self.aws_access_key_id = self.aws_access_key_id or getenv("AWS_ACCESS_KEY_ID")
         self.aws_secret_access_key = self.aws_secret_access_key or getenv(
             "AWS_SECRET_ACCESS_KEY"
         )
         self.aws_session_token = self.aws_session_token or getenv("AWS_SESSION_TOKEN")
-        self.aws_region = self.aws_region or getenv("AWS_REGION")
 
         if self.aws_sso_auth:
             self.client = AwsClient(
                 service_name="bedrock-runtime",
                 region_name=self.aws_region,
-                config=_bedrock_client_config(),
+                endpoint_url=self.endpoint_url,
+                config=_BEDROCK_CONFIG,
             )
         else:
             if not self.aws_access_key_id or not self.aws_secret_access_key:
-                # Bearer-token auth (AWS_BEARER_TOKEN_BEDROCK) has no access/secret
-                # key, so this branch is expected for our default path — log at the
+                # Deployment-level bearer auth (AWS_BEARER_TOKEN_BEDROCK env) has
+                # no access/secret key, so this branch is expected - log at the
                 # same level agno does but don't treat it as fatal.
                 log_error(
                     "AWS credentials not found. Please set AWS_ACCESS_KEY_ID and "
@@ -182,7 +268,8 @@ class CachingAwsBedrock(AwsBedrock):
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 aws_session_token=self.aws_session_token,
-                config=_bedrock_client_config(),
+                endpoint_url=self.endpoint_url,
+                config=_BEDROCK_CONFIG,
             )
         return self.client
 
@@ -206,14 +293,28 @@ class CachingAwsBedrock(AwsBedrock):
         # When using a boto3 session, create the aioboto3 session from it
         # so that session credentials (IAM roles, EKS, STS) are respected.
         if self.session:
+            # Use local variables (not self.async_session) so concurrent
+            # callers each get their own session and client.
+            if self.aws_bearer_token:
+                # Bearer auth needs no session credentials: unsigned config
+                # plus the per-client Authorization hook.
+                async_session = aioboto3.Session(
+                    region_name=self.aws_region or self.session.region_name,
+                )
+                return _BearerAuthClientContext(
+                    async_session.client(
+                        "bedrock-runtime",
+                        endpoint_url=self.endpoint_url,
+                        config=_BEDROCK_CONFIG_UNSIGNED,
+                    ),
+                    self,
+                )
             credentials = self.session.get_credentials()
             if credentials is None:
                 raise ValueError(
                     "boto3 session has no credentials. Check your AWS configuration "
                     "(environment variables, config files, IAM role, etc.)."
                 )
-            # Use local variables (not self.async_session) so concurrent
-            # callers each get their own session and client.
             frozen = credentials.get_frozen_credentials()
             async_session = aioboto3.Session(
                 aws_access_key_id=frozen.access_key,
@@ -222,7 +323,9 @@ class CachingAwsBedrock(AwsBedrock):
                 region_name=self.aws_region or self.session.region_name,
             )
             return async_session.client(
-                "bedrock-runtime", config=_bedrock_client_config()
+                "bedrock-runtime",
+                endpoint_url=self.endpoint_url,
+                config=_BEDROCK_CONFIG,
             )
 
         if self.async_session is None:
@@ -242,10 +345,13 @@ class CachingAwsBedrock(AwsBedrock):
         client_kwargs: Dict[str, Any] = {
             "service_name": "bedrock-runtime",
             "region_name": self.aws_region,
-            "config": _bedrock_client_config(),
+            "endpoint_url": self.endpoint_url,
+            "config": (
+                _BEDROCK_CONFIG_UNSIGNED if self.aws_bearer_token else _BEDROCK_CONFIG
+            ),
         }
 
-        if self.aws_sso_auth:
+        if self.aws_bearer_token or self.aws_sso_auth:
             pass
         else:
             if not self.aws_access_key_id or not self.aws_secret_access_key:
@@ -270,7 +376,10 @@ class CachingAwsBedrock(AwsBedrock):
                 if self.aws_session_token:
                     client_kwargs["aws_session_token"] = self.aws_session_token
 
-        return self.async_session.client(**client_kwargs)
+        client_cm = self.async_session.client(**client_kwargs)
+        if self.aws_bearer_token:
+            return _BearerAuthClientContext(client_cm, self)
+        return client_cm
 
     def _supports_cache(self) -> bool:
         model_id = (self.id or "").lower()
@@ -282,7 +391,7 @@ class CachingAwsBedrock(AwsBedrock):
         formatted_messages, system_message = super()._format_messages(
             messages, compress_tool_results=compress_tool_results
         )
-        # Strip empty text blocks before they reach Bedrock — see
+        # Strip empty text blocks before they reach Bedrock - see
         # _sanitize_empty_text_blocks for the ValidationException it prevents.
         for formatted in formatted_messages:
             _sanitize_empty_text_blocks(formatted.get("content"))

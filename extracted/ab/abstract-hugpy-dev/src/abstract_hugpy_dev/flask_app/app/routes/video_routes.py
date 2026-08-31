@@ -1975,7 +1975,10 @@ _DEFAULT_PROMPT_ASSIST_MODEL = "flux2-klein-9b-uncensored-text-encoder"
 # symptom that was really a 502). When the primary fails with a WORKER error, we
 # retry ONCE with a small always-serve-configured chat model so prompt-generate
 # keeps working through the churn. Only if the fallback ALSO fails do we 502.
-_PROMPT_ASSIST_FALLBACK_MODEL = "Qwen2.5-3B-Instruct-GGUF"
+# (2026-08-28: was the 3B, which the operator then blocked fleet-wide — a
+# blocked fallback turned every primary hiccup into a hard refusal. 7B is the
+# smallest unblocked chain member.)
+_PROMPT_ASSIST_FALLBACK_MODEL = "Qwen2.5-7B-Instruct-GGUF"
 
 _PROMPT_ASSIST_SYSTEM = (
     "You are an expert image-prompt engineer. Return ONLY the final prompt "
@@ -2132,9 +2135,77 @@ def _studio_no_think(raw: str):
 # uses the primitives directly (rather than execute_prompt_no_think) because it
 # owns its own JSON envelope and error copy.
 # --------------------------------------------------------------------------- #
+# ---- assist TICKETS (2026-08-28): a cold model load measured 6m12s on the
+# live fleet, and a synchronous browser call can't survive that — the client
+# aborts (ClientGone), the load restarts on the next click, and the UI
+# livelocks never seeing a prompt. `async:true` detaches the generation from
+# the HTTP connection: POST returns a ticket immediately, the SAME handler
+# body runs in a daemon thread, and GET .../ticket/<id> serves the finished
+# response. Tickets are in-process (one gunicorn worker) and pruned by age.
+import threading as _assist_threading
+
+_ASSIST_TICKETS: dict[str, dict] = {}
+_ASSIST_TICKETS_LOCK = _assist_threading.Lock()
+_ASSIST_TICKET_TTL_S = 1800.0
+
+
+def _assist_tickets_prune() -> None:
+    now = time.monotonic()
+    with _ASSIST_TICKETS_LOCK:
+        for key in [k for k, v in _ASSIST_TICKETS.items()
+                    if now - v["at"] > _ASSIST_TICKET_TTL_S]:
+            _ASSIST_TICKETS.pop(key, None)
+
+
 @video_bp.route("/video/prompt/assist", methods=["POST"])
 def video_prompt_assist():
     body = request.get_json(silent=True) or {}
+    if not body.pop("async", False):
+        return _video_prompt_assist_impl(body)
+
+    from flask import current_app
+
+    _assist_tickets_prune()
+    ticket = secrets.token_hex(16)
+    with _ASSIST_TICKETS_LOCK:
+        _ASSIST_TICKETS[ticket] = {"at": time.monotonic(), "pending": True}
+    app = current_app._get_current_object()
+
+    def _run() -> None:
+        try:
+            with app.app_context():
+                resp = _video_prompt_assist_impl(body)
+        except Exception as exc:  # noqa: BLE001 — a ticket must resolve, never hang
+            logger.exception("prompt/assist ticket failed")
+            payload, status = json.dumps({"error": str(exc)}), 500
+        else:
+            r, status = resp if isinstance(resp, tuple) else (resp, 200)
+            payload = r.get_data(as_text=True)
+        with _ASSIST_TICKETS_LOCK:
+            _ASSIST_TICKETS[ticket] = {
+                "at": time.monotonic(), "pending": False,
+                "body": payload, "status": status,
+            }
+
+    _assist_threading.Thread(
+        target=_run, daemon=True, name=f"assist-{ticket[:8]}",
+    ).start()
+    return jsonify({"ticket": ticket, "pending": True}), 202
+
+
+@video_bp.route("/video/prompt/assist/ticket/<ticket>", methods=["GET"])
+def video_prompt_assist_ticket(ticket: str):
+    with _ASSIST_TICKETS_LOCK:
+        row = _ASSIST_TICKETS.get(ticket)
+    if row is None:
+        return jsonify({"error": "unknown or expired ticket"}), 404
+    if row["pending"]:
+        return jsonify({"pending": True}), 200
+    return Response(row["body"], status=row["status"],
+                    mimetype="application/json")
+
+
+def _video_prompt_assist_impl(body: dict):
     mode = body.get("mode")
     if mode not in _ASSIST_MODES:
         return jsonify({"error": "mode must be one of "
@@ -2857,19 +2928,22 @@ def _studio_floor_violation(resolved_model):
     except Exception:  # noqa: BLE001 — registry trouble must not kill the plan
         return None
     for rank, member in enumerate(members or [], start=1):
+        # expand_members yields (member_key, source) tuples; tolerate bare
+        # strings too so a future shape change fails matched, not raised.
+        key = member[0] if isinstance(member, (tuple, list)) else member
         try:
-            matched = priority_groups.keys_match(member, resolved_model)
+            matched = priority_groups.keys_match(key, resolved_model)
         except Exception:  # noqa: BLE001
-            matched = member == resolved_model
+            matched = key == resolved_model
         if matched:
             if rank > _STUDIO_MIN_RANK_FLOOR:
                 return (
-                    f"script authoring resolved to {resolved_model!r} — rank "
+                    f"script authoring routed to {resolved_model!r} — rank "
                     f"{rank} in the {_STUDIO_WRITER_GROUP!r} chain, below "
                     f"STUDIO's min_rank_floor of {_STUDIO_MIN_RANK_FLOOR} "
-                    f"(k120: the chain's low-rank fallthrough is not "
-                    f"acceptable for script work). Retry when a higher-rank "
-                    f'member is servable, or pin "model" explicitly.'
+                    f"(k120: low-rank members are not acceptable for script "
+                    f"work, pinned or not). Retry when a higher-rank member "
+                    f'is servable, or pin an above-floor "model".'
                 )
             return None
     return None
@@ -2950,6 +3024,20 @@ def video_producer_plan():
     except (TypeError, ValueError):
         return jsonify({"error": "target_seconds must be a number"}), 400
 
+    # Pool: request tag > active task-template. An activated template fences
+    # its workers to its pool, so a pool-less plan request would be refused
+    # for the exact models the template pinned — inherit the active pool.
+    pool = str(body.get("pool") or "").strip() or None
+    if pool is None:
+        try:
+            from ....comms.task_templates import all_templates
+
+            pool = next(
+                (t["id"] for t in all_templates() if t.get("active")), None,
+            )
+        except Exception as exc:  # noqa: BLE001 — pool discovery must not kill the plan
+            logger.warning("producer: active-template pool lookup failed (%s)", exc)
+
     # Model: request pin > routing matrix (screenplay.complete) > spread default.
     model_key = str(body.get("model") or "").strip()
     route_reason = "request"
@@ -2967,6 +3055,20 @@ def video_producer_plan():
         model_key = _DEFAULT_SPREAD_MODEL
         route_reason = "producer default (spread model)"
 
+    # Floor check BEFORE dispatch: a below-floor chain member (the 3B and
+    # anything after it) is never even invoked for script work — refusing
+    # after generation would still have burned GPU on an answer we discard
+    # (operator 2026-08-28: "don't use 3B"). The post-execution check below
+    # stays as the backstop for the resolver's INTERNAL fallthrough.
+    floor_err = _studio_floor_violation(model_key)
+    if floor_err:
+        logger.warning("producer: floor refusal pre-dispatch (%s)", floor_err)
+        return jsonify({
+            "error": floor_err,
+            "model_requested": model_key,
+            "route_reason": route_reason,
+        }), 503
+
     budget = max(
         _PRODUCER_TOKENS_MIN,
         min(_PRODUCER_TOKENS_MAX, (seg_count or 10) * _PRODUCER_TOKENS_PER_SEGMENT),
@@ -2976,6 +3078,7 @@ def video_producer_plan():
     )
     payload, err = _assist_execute(
         model_key, messages, budget, _log_mode="producer", _log_kind="plan",
+        pool=pool,
     )
     if err:
         return err
@@ -2995,6 +3098,7 @@ def video_producer_plan():
         ]
         payload2, err2 = _assist_execute(
             model_key, repair, budget, _log_mode="producer", _log_kind="plan-repair",
+            pool=pool,
         )
         if err2:
             return err2
@@ -3531,23 +3635,40 @@ def video_prompt_assist_models():
 
     # Which models a LIVE worker holds, and which are seated right now. Only online
     # workers count: a model on an offline box is not a thing a user can pick today.
-    held: dict[str, bool] = {}
+    # Per-key hottest residency state across ONLINE workers (canonical
+    # STATE-MODEL.md #4): serving (answering) > loaded (in VRAM idle) >
+    # hot (on the worker hot drive, pays a t_load) > cold (central only, pays a
+    # download+load). "cold" is RESERVED for not-on-hot-drive — a seated/on-disk
+    # model must never read cold.
+    _RANK = {"cold": 0, "hot": 1, "loaded": 2, "serving": 3}
+    held: dict[str, str] = {}
+
+    def _mark(key: object, st: str) -> None:
+        k = str(key or "")
+        if k and (k not in held or _RANK[st] > _RANK[held[k]]):
+            held[k] = st
+
     try:
         for w in worker_store.all():
             if str(getattr(w, "status", None) or (w.get("status") if isinstance(w, dict) else "")) != "online":
                 continue
             row = w if isinstance(w, dict) else getattr(w, "__dict__", {}) or {}
+            local = {str(x) for x in (row.get("models_local") or ())}
             for key in (row.get("models") or ()):
-                held.setdefault(str(key), False)
+                _mark(key, "hot" if str(key) in local else "cold")
             for alloc in (row.get("allocations") or ()):
-                key = str(alloc.get("model_key") or "")
-                if key:
-                    held[key] = bool(alloc.get("serving")) or held.get(key, False)
+                key = alloc.get("model_key")
+                if alloc.get("serving"):
+                    _mark(key, "serving")
+                elif alloc.get("healthy") or alloc.get("materialized"):
+                    _mark(key, "loaded")
+                else:                       # allocated but not measured-resident => at least on drive
+                    _mark(key, "hot")
     except Exception:                       # noqa: BLE001 — a picker must never 5xx
         logger.exception("assist model discovery: worker enumeration failed")
 
     models, excluded = [], []
-    for key, present in sorted(held.items()):
+    for key, state in sorted(held.items()):
         cfg = catalog.get(key)
         if cfg is None:
             continue                        # held but not in the catalog: not offerable
@@ -3558,9 +3679,23 @@ def video_prompt_assist_models():
         if why:
             excluded.append({"model": key, "reason": why})
             continue
+        # Operator-blocked models are not offerable: listing one lets a stored
+        # browser pick keep resending a key the resolver will always refuse.
+        try:
+            from ....comms.blocklist import block_reason, is_blocked
+
+            if is_blocked(key):
+                excluded.append({
+                    "model": key,
+                    "reason": block_reason(key) or "blocked by the operator",
+                })
+                continue
+        except Exception:               # noqa: BLE001 — a picker must never 5xx
+            logger.exception("assist model discovery: blocklist check failed")
         models.append({
             "model": key,
-            "serving": bool(present),
+            "state": state,                 # canonical serving|loaded|hot|cold (STATE-MODEL.md #4)
+            "serving": state == "serving",  # SERVING = actively answering
             "framework": (cfg.get("framework") if isinstance(cfg, dict) else None),
             "default": key == _DEFAULT_PROMPT_ASSIST_MODEL,
         })

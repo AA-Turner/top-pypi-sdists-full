@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class ListBucketsRequest(BaseModel):
     """
-    Request model for listing buckets.  Inherits body-level limit/page_size/offset/page (BACKE-2846). The old hardcoded limit=10/offset=0 defaults moved to the controller so an unset body field can fall back to query-string pagination (body wins when set).
+    Request model for listing buckets.  Inherits body-level limit/page_size/offset/page. The old hardcoded limit=10/offset=0 defaults moved to the controller so an unset body field can fall back to query-string pagination (body wins when set).
     """ # noqa: E501
     limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=None, description="Page size. A body value wins over the `limit` query param.")
     page_size: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=None, description="Alias for `limit` (page size). If both are given, `limit` wins.")

@@ -1,9 +1,74 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=77,<84", "wheel", "setuptools-git-versioning>=3.0,<4"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "cocotb"
+description = "Python-based chip (RTL) verification"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = [
+    "LICENSE"
+]
+authors = [
+    {name = "Chris Higgs"},
+    {name = "Stuart Hodgson"},
+]
+maintainers = [
+    {name = "Kaleb Barrett"},
+    {name = "Tomasz Hemperek"},
+    {name = "Marlon James"},
+    {name = "Colin Marquardt"},
+    {name = "Philipp Wagner"},
+]
+dependencies = [
+    # For finding the libpython on the system so the GPI can preload it before
+    # embedding the Python interpreter.
+    "find_libpython",
+    # Backport of Python 3.11's ExceptionGroups that are thrown by TaskManager.
+    "exceptiongroup; python_version < '3.11'",
+    # For assertion rewriting, `raises` and `warns` context managers,
+    # `RaisesExc` and `RaisesGroup` test expected errors,
+    # `skip` and `xfail` functions for ending tests early,
+    # and for pytest plugin and test running functionality.
+    # Assertion rewriting interface changed in version 6.
+    "pytest >= 6",
+]
+requires-python = ">= 3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+    "Framework :: cocotb",
+]
+dynamic = ["version"]
+
+[project.scripts]
+cocotb-config = "cocotb_tools.config:main"
+
+[project.urls]
+Homepage = "https://www.cocotb.org"
+Documentation = "https://docs.cocotb.org"
+Repository = "https://github.com/cocotb/cocotb"
+Issues = "https://github.com/cocotb/cocotb/issues"
+
+[tool.setuptools]
+# Rely solely on the package_data entries in setup.py to avoid discovering
+# "packages" like `cocotb._vendor` which we don't want to be found.
+include-package-data = false
+
+[tool.setuptools-git-versioning]
+enabled = true
+version_file = "VERSION"
+count_commits_from_version_file = true
+dev_template = "{tag}.dev{ccount}+r{sha}"
+dirty_template = "{tag}.dev{ccount}+r{sha}.dirty"
 
 [tool.towncrier]
     package = "cocotb"
+    # Set explicitly so that towncrier doesn't have to import cocotb to work
+    # out the project name — that would mean building the package first just
+    # to render release notes.
+    name = "cocotb"
     directory = "docs/source/newsfragments"
     filename = "docs/source/release_notes.rst"
     issue_format = ":pr:`{issue}`"
@@ -11,6 +76,11 @@ build-backend = "setuptools.build_meta"
     # the second underline for the subcategories (like 'Features')
     underlines = ["=", "-"]
     all_bullets = false
+    # Renders to the same header towncrier's default template already
+    # produces, but also makes towncrier refuse (instead of silently
+    # duplicating the section) if `towncrier build` is run twice for the
+    # same version.
+    title_format = "{name} {version} ({project_date})"
 
     [[tool.towncrier.type]]
         directory = "feature"
@@ -45,13 +115,13 @@ extend-exclude = [
     "_vendor",
     ".nox/",
 ]
-target-version = "py37"
+target-version = "py39"
 
 [tool.ruff.format]
 docstring-code-format = true
 
 [tool.ruff.lint]
-extend-select = [
+select = [
     "I",        # isort
     "UP",       # pyupgrade
     "PL",       # pylint
@@ -63,6 +133,15 @@ extend-select = [
     "G",        # flake8-logging-format
     "ISC",      # implicit string concat
     "TC",       # flake8-typechecking
+    "PTH",      # flake8-use-pathlib
+    "B",        # flake8-bugbear
+    "BLE",      # flake8-blind-except
+    "T10",      # flake8-debugger
+    "EXE",      # flake8-executable
+    "DTZ",      # flake8-datetimez
+    "YTT",      # flake8-2020
+    "SLOT",     # flake8-slots
+    "PERF",     # perflint
     "SIM103",   # return the condition directly
     "SIM300",   # yoda conditions
     "RUF100",   # unused noqa
@@ -70,10 +149,15 @@ extend-select = [
     "RUF010",   # explicit type conversion in f-string
     "RUF005",   # collection literal concatenation
     "RUF022",   # unsorted __all__
-    "PERF101",  # unnecessary list cast
-    "PERF102",  # unnecessary dict.items()
-    "B007",     # unused loop variable
+    "RUF023",   # unsorted __slots__
     "PYI030",   # unnecessary literal union
+    "PT010",    # pytest.raises without an Exception type argument
+    "PT031",    # pytest.warns should be single statement
+    "TRY201",   # `raise exc` instead of plain `raise`
+    "TRY401",   # logging with exception instead of `log.exception`
+    "S102",     # use of `exec`
+    "S110",     # try-except-pass
+    "S112",     # try-except-continue
 ]
 ignore = [
     "E741",    # ambiguous variable name (preference)
@@ -81,18 +165,28 @@ ignore = [
     "PLR0912", # Too many branches (>12) (preference)
     "PLR0913", # Too many arguments to function call (>5) (preference)
     "PLR0915", # Too many statements (>50) (preference)
+    "PLR0917", # Too many positional args (>5) (preference)
     "PLR2004", # Magic value used in comparison (preference)
     "PLW0603", # Using the global statement (preference)
     "PLR0911", # Too many return statements (preference)
     "PLW1641", # __eq__ without __hash__ (mypy compatibility)
-    "UP021",   # subprocess.run() universal_newlines => text (not supported in 3.6)
+    # The following 3 are ignored because sphinx doesn't set TYPE_CHECKING,
+    # so it would fail to resolve any names imported in those blocks
+    "TC001",   # typing-only first party import
+    "TC002",   # typing-only third party import
+    "TC003",   # typing-only standard library import
+    "PTH123",  # Path.open() over open() (preference)
+    "PTH207",  # Path.glob() over glob.glob() (preference)
+    "LOG004",  # Use of log.exception outside exception handler (bad assumption)
+    "B010",    # Do not call `setattr` with constant value (mypy compatibility)
+    "B011",    # Do not `assert False` (pytest/cocotb test compatibility)
+    "PERF203", # try-except in loop (not an issue Python > 3.11)
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# necessary because of how file is included into documentation
-"examples/doc_examples/quickstart/test_my_design.py" = [
-    "E402",
-    "F811",
+# This file will be deleted soon, so who cares.
+"cocotb_build_libs.py" = [
+    "PTH",
 ]
 
 [tool.ruff.lint.isort]
@@ -104,16 +198,15 @@ known-first-party = [
 known-third-party = [
     "pytest",
 ]
+required-imports = ["from __future__ import annotations"]
 
 [tool.cibuildwheel]
 # Build for supported platforms only.
-# Even though we only support 64 bit operating systems, we still support 32 bit
-# userspace applications (Python and simulators) on Windows and Linux.
 #
-# - CPython on Linux i686 and x86_64 with glibc
-# - CPython on Windows i686 and x86_64
-# - CPython on macOS x86_64
-build = "cp*-manylinux_x86_64 cp*-manylinux_i686 cp*-win_amd64 cp*-win32 cp*-macosx_x86_64 cp*-macosx_arm64"
+# - CPython on Linux x86_64 with glibc
+# - CPython on Windows x86_64
+# - CPython on macOS x86_64 and arm64
+build = "cp*-manylinux_x86_64 cp*-win_amd64 cp*-macosx_x86_64 cp*-macosx_arm64"
 
 # Build with optimizations and debugging
 # -O2   Enables reasonable optimizations. -O3 is unnecessary with the virtual-call-heavy code in the GPI and may bloat binary size.
@@ -121,10 +214,9 @@ build = "cp*-manylinux_x86_64 cp*-manylinux_i686 cp*-win_amd64 cp*-win32 cp*-mac
 # -flto Enable LTO which can reduce binary size and improve inlining.
 environment = {CFLAGS = "-O2 -g -flto", CPPFLAGS = "-O2 -g -flto", LDFLAGS = "-O2 -g -flto"}
 
-# By default, build on manylinux2014 for compatibility with CentOS/RHEL 7+ (once
-# the user updates Python) and Ubuntu 20.04+ (with system Python).
+# By default, build on manylinux2014 for compatibility with CentOS/RHEL 8+
+# and Ubuntu 20.04+ (with system Python).
 manylinux-x86_64-image = "manylinux2014"
-manylinux-i686-image = "manylinux2014"
 
 # Build with optimizations and debugging (Windows)
 # /O2   Enables reasonable optimizations.
@@ -134,12 +226,8 @@ manylinux-i686-image = "manylinux2014"
 [tool.cibuildwheel.windows]
 environment = {CL = "/O2 /Z7 /Zo /LTCG"}
 
-[[tool.cibuildwheel.overrides]]
-# Build CPython 3.6 wheels on manylinux1 to support Ubuntu 18.04, CentOS/RHEL 7
-# and CentOS/RHEL 8 with their default Python 3.6/pip 9 installation.
-select = "cp36-*"
-manylinux-x86_64-image = "manylinux1"
-manylinux-i686-image = "manylinux1"
+[tool.cibuildwheel.macos]
+repair-wheel-command = "delocate-wheel --no-sanitize-rpaths --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
 
 [tool.pytest.ini_options]
 # Note: Do *not* add files within the cocotb/ tree here. Add them to the
@@ -157,6 +245,11 @@ markers = [
 ]
 # log_cli = true
 # log_cli_level = DEBUG
+
+[tool.coverage.run]
+# Patches all subprocesses to automatically append coverage together.
+# Used to collect coverage in pytest simulation runs.
+patch = ["subprocess"]
 
 [tool.coverage.paths]
 source = [
@@ -193,8 +286,11 @@ ignore-words-list = [
     "synopsys",
 ]
 
+skip = ["*.svg"]
+
 [tool.mypy]
-packages = ["cocotb", "pygpi"]
+python_version = "3.11"
+packages = ["cocotb", "pygpi", "cocotb_tools._pytest"]
 modules = ["noxfile"]
 disallow_untyped_defs = true
 disallow_any_unimported = true
@@ -206,3 +302,90 @@ warn_unused_ignores = true
 implicit_reexport = false
 show_error_codes = true
 pretty = true
+allow_redefinition = true
+mypy_path = "src/"
+
+# TODO add lower bounds and justifications
+[dependency-groups]
+dev = [
+    # required for development
+    "nox",
+    "nox-uv",
+    # used by the release sessions in noxfile.py to compare versions
+    "packaging",
+    "prek",
+    # allows linting the project manually
+    "clang-format",
+    "mypy>=1.18,!=1.20.*",  # 1.18 needed for descriptor typing, 1.20 has type narrowing regressions
+    "ruff",
+    # allows running tests and doing coverage reporting manually if desired
+    {include-group = "dev_test"},
+    {include-group = "coverage_report"},
+]
+docs = [
+    "Sphinx ~= 8.2.0",
+    "breathe",
+    "sphinx-book-theme == 1.1.3",  # pin this to exact version to guard against any CSS changes
+    "sphinx-design >= 0.6.1",
+    "sphinxcontrib-svg2pdfconverter[CairoSVG]",
+    "sphinxcontrib-domaintools @ git+https://github.com/ktbarrett/domaintools.git",
+    "sphinxcontrib-makedomain",
+    "sphinxcontrib-spelling >= 5.3.0",
+    "sphinxcontrib-yowasp-wavedrom",
+    "pyenchant",
+    "sphinx-issues",
+    "sphinx-argparse-cli",
+    "towncrier",
+    "IPython",
+    "enum-tools[sphinx]",
+    "sphinx-codeautolink",
+    "sphinx-argparse",
+    "sphinx-autofixture",
+    "pytest",
+]
+docs_preview = [
+    {include-group = "docs"},
+    "sphinx-autobuild",
+]
+release_build_wheel = [
+    "cibuildwheel==3.2.1",
+]
+release_build_sdist = [
+    "build",
+]
+test_common = [
+    # Needed for RaisesExc and RaisesGroup testing.
+    "pytest>=8.4",
+    # Needed for IPython shell interactive testing.
+    "IPython<9.17",
+    "pexpect",
+    # Needed for leak testing.
+    "psutil",
+]
+dev_test = [
+    {include-group = "test_common"},
+    # We only collect coverage on dev workflows.
+    "coverage[toml]>=7.2",
+    "pytest-cov",
+]
+coverage_report = [
+    "coverage[toml]>=7.2",
+    "gcovr==8.4",
+]
+release_test = [
+    {include-group = "test_common"},
+
+    # We have to disable the use of the PyPi index when installing cocotb to
+    # guarantee that the wheels in dist are being used. But without an index
+    # pip cannot find the dependencies, which need to be installed from PyPi.
+    # Work around that by explicitly installing the dependencies first from
+    # PyPi, and then installing cocotb itself from the local dist directory.
+    "exceptiongroup; python_version<'3.11'",
+    "find_libpython",
+    "pytest>=6",
+]
+
+[tool.uv.dependency-groups]
+# We need Python 3.11 to run Sphinx 8.2 and cibuildwheel 3.2
+docs = {requires-python = ">=3.11"}
+release_build_wheel = {requires-python = ">=3.11"}

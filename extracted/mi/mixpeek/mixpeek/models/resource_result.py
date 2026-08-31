@@ -33,8 +33,8 @@ class ResourceResult(BaseModel):
     resource_id: Optional[StrictStr] = Field(default=None, description="Created resource ID")
     status: ResourceResultStatus = Field(description="Result status")
     error: Optional[StrictStr] = Field(default=None, description="Error message if failed")
-    drift: Optional[List[StrictStr]] = Field(default=None, description="MG-1514. Fields the manifest DECLARES that differ from the live resource, present when status is `drifted`. Named rather than counted: 'collection c1 differs: schedule' is actionable, 'exists' is not. Only fields the manifest explicitly set are compared — an omitted field asserts nothing, and treating an omission as drift would make every apply drift on server-set defaults.")
-    drift_not_compared: Optional[List[StrictStr]] = Field(default=None, description="MG-1514. Fields the manifest declares that could NOT be compared, because the live resource has no corresponding key. Reported rather than dropped: a field silently excluded from the comparison is indistinguishable from one that matched, and that is the exact ambiguity `drifted` exists to remove.")
+    drift: Optional[List[StrictStr]] = Field(default=None, description="Fields the manifest DECLARES that differ from the live resource, present when status is `drifted`. Named rather than counted: 'collection c1 differs: schedule' is actionable, 'exists' is not. Only fields the manifest explicitly set are compared — an omitted field asserts nothing, and treating an omission as drift would make every apply drift on server-set defaults.")
+    drift_not_compared: Optional[List[StrictStr]] = Field(default=None, description="Fields the manifest declares that could NOT be compared, because the live resource has no corresponding key. Reported rather than dropped: a field silently excluded from the comparison is indistinguishable from one that matched, and that is the exact ambiguity `drifted` exists to remove.")
     __properties: ClassVar[List[str]] = ["resource_type", "name", "resource_id", "status", "error", "drift", "drift_not_compared"]
 
     model_config = ConfigDict(

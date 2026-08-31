@@ -230,3 +230,102 @@ class TestThrottled:
         # Hook should be called exactly 2 times (once per limit() call)
         # NOT more times due to internal retry attempts
         assert call_count == EXPECTED_HOOK_CALL_COUNT
+
+
+class TestKeyPrefix:
+    @classmethod
+    def test_limit__default_key_prefix(cls) -> None:
+        """Keys are stored under ``throttled:v1:<rate limiter type>:`` by default."""
+        mem_store: store.MemoryStore = store.MemoryStore()
+        throttle: Throttled = Throttled(
+            key="key",
+            using=RateLimiterType.GCRA.value,
+            quota=per_sec(1),
+            store=mem_store,
+        )
+        throttle.limit()
+        assert mem_store.exists("throttled:v1:gcra:key")
+
+    @classmethod
+    def test_limit__custom_key_prefix(cls) -> None:
+        """A provided key_prefix replaces the default throttled: namespace."""
+        mem_store: store.MemoryStore = store.MemoryStore()
+        throttle: Throttled = Throttled(
+            key="key",
+            using=RateLimiterType.GCRA.value,
+            quota=per_sec(1),
+            store=mem_store,
+            key_prefix="my-app:rate-limit",
+        )
+        throttle.limit()
+        assert mem_store.exists("my-app:rate-limit:v1:gcra:key")
+        assert not mem_store.exists("throttled:v1:gcra:key")
+
+    @classmethod
+    def test_peek__custom_key_prefix(cls) -> None:
+        """peek reads the key that limit wrote; a mismatch would look fresh."""
+        throttle: Throttled = Throttled(
+            key="key",
+            using=RateLimiterType.GCRA.value,
+            quota=per_sec(1),
+            store=store.MemoryStore(),
+            key_prefix="my-app:rate-limit",
+        )
+        throttle.limit()
+        assert throttle.peek("key").remaining == 0
+
+    @classmethod
+    @pytest.mark.parametrize("key_prefix", ["", "  ", ":", ":my-app", "my-app:"])
+    def test_constructor__invalid_key_prefix(cls, key_prefix: str) -> None:
+        """A blank or colon-edged namespace would produce malformed storage keys."""
+        with pytest.raises(DataError, match="Invalid key_prefix"):
+            Throttled(key_prefix=key_prefix)
+
+    @classmethod
+    def test_limit__subclass_key_prefix_override(cls) -> None:
+        """A subclass overriding the legacy ``KEY_PREFIX`` keeps its keys."""
+
+        class _OverridingRateLimiter(rate_limiter.GCRARateLimiter):
+            KEY_PREFIX = "acme:v1:"
+
+            class Meta:
+                type: str = "gcra_prefix_override"
+
+        mem_store: store.MemoryStore = store.MemoryStore()
+        throttle: Throttled = Throttled(
+            key="key",
+            using="gcra_prefix_override",
+            quota=per_sec(1),
+            store=mem_store,
+        )
+        throttle.limit()
+        assert mem_store.exists("acme:v1:gcra_prefix_override:key")
+
+    @classmethod
+    def test_limit__legacy_constructor_signature(cls) -> None:
+        """A registered limiter predating key_prefix is still constructible."""
+
+        class _LegacyRateLimiter(rate_limiter.GCRARateLimiter):
+            class Meta:
+                type: str = "gcra_legacy_init"
+
+            def __init__(
+                self, quota: rate_limiter.Quota, store: store.BaseStore
+            ) -> None:
+                super().__init__(quota, store)
+
+        throttle: Throttled = Throttled(
+            key="key",
+            using="gcra_legacy_init",
+            quota=per_sec(1),
+            store=store.MemoryStore(),
+        )
+        assert throttle.limit().limited is False
+
+    @classmethod
+    def test_construct_rate_limiter_directly__invalid_key_prefix(cls) -> None:
+        """Validation also covers limiters built without going via Throttled."""
+        with pytest.raises(DataError, match="Invalid key_prefix"):
+            rate_limiter.GCRARateLimiter(
+                per_sec(1), store.MemoryStore(), key_prefix="  "
+            )

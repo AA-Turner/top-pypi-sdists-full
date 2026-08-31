@@ -33,7 +33,7 @@ class WeightsResponse(BaseModel):
     learner_count: StrictInt = Field(description="Number of unique users with personal-level weights.")
     source: Optional[StrictStr] = Field(default=None, description="Which store served the weights: 'signals' (the namespace's _signals collection) or 'clickhouse' (analytics fallback).")
     warning: Optional[StrictStr] = Field(default=None, description="Set when the response contains fallback defaults due to an internal error.")
-    hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning (BACKE-2525).")
+    hint: Optional[StrictStr] = Field(default=None, description="Set when learned fusion is NOT configured for this retriever — the payload is a well-formed empty state and this explains how to enable learning.")
     __properties: ClassVar[List[str]] = ["feature_weights", "total_interactions", "learner_count", "source", "warning", "hint"]
 
     model_config = ConfigDict(

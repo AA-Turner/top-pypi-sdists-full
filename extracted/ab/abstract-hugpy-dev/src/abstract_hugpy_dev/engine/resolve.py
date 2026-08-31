@@ -46,9 +46,8 @@ _SETTINGS_KEY = "engine"
 
 
 def _settings_path() -> str:
-    id_file = (os.environ.get("WORKER_ID_FILE")
-               or os.path.expanduser("~/.abstract_hugpy_worker.json"))
-    return id_file + ".settings.json"
+    from .._platform import paths as _hp
+    return _hp.worker_id_file() + ".settings.json"
 
 
 def persisted_engine() -> dict:

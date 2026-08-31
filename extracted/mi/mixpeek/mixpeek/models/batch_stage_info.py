@@ -25,9 +25,9 @@ from typing_extensions import Self
 
 class BatchStageInfo(BaseModel):
     """
-    Current processing stage reported by the Ray engine.  BACKE-762: ``name`` is now the honest *active* streaming phase — \"dispatch\" → \"extraction\" → \"write\" — derived from the phase machine (the true bottleneck), NOT the premature \"writing\" label that the datasink used to emit on the first row. It is a LABEL ONLY; per-phase counters live in ``BatchProgress.phases``. ``index``/``total`` stay as N-of-3. The stage name resets the stall timer, so users can see *what* the job is doing even when processed=0 (e.g., waiting for a model load).
+    Current processing stage reported by the Ray engine.  ``name`` is now the honest *active* streaming phase — \"dispatch\" → \"extraction\" → \"write\" — derived from the phase machine (the true bottleneck), NOT the premature \"writing\" label that the datasink used to emit on the first row. It is a LABEL ONLY; per-phase counters live in ``BatchProgress.phases``. ``index``/``total`` stay as N-of-3. The stage name resets the stall timer, so users can see *what* the job is doing even when processed=0 (e.g., waiting for a model load).
     """ # noqa: E501
-    name: StrictStr = Field(description="Honest active streaming phase: 'dispatch', 'extraction', or 'write' (BACKE-762). Equals the one phase in BatchProgress.phases whose status is 'active'.")
+    name: StrictStr = Field(description="Honest active streaming phase: 'dispatch', 'extraction', or 'write'. Equals the one phase in BatchProgress.phases whose status is 'active'.")
     index: StrictInt = Field(description="1-based stage index within the current job.")
     total: StrictInt = Field(description="Total stages in the current job.")
     stage_elapsed_seconds: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Seconds spent in this stage so far.")

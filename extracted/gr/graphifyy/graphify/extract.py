@@ -52,6 +52,7 @@ from graphify.extractors.ocaml import extract_ocaml  # noqa: F401
 from graphify.extractors.pascal_forms import extract_delphi_form, extract_lazarus_form  # noqa: F401
 from graphify.extractors.powershell import extract_powershell, extract_powershell_manifest  # noqa: F401
 from graphify.extractors.razor import extract_razor  # noqa: F401
+from graphify.extractors.robot import extract_robot  # noqa: F401
 from graphify.extractors.rust import extract_rust  # noqa: F401
 from graphify.extractors.sln import extract_sln  # noqa: F401
 from graphify.extractors.sql import extract_sql  # noqa: F401
@@ -994,7 +995,9 @@ _KOTLIN_CONFIG = LanguageConfig(
 
 _SCALA_CONFIG = LanguageConfig(
     ts_module="tree_sitter_scala",
-    class_types=frozenset({"class_definition", "object_definition"}),
+    # traits are class-like containers with their own heritage (extends / with),
+    # so they need a node and the heritage walk just like classes and objects.
+    class_types=frozenset({"class_definition", "object_definition", "trait_definition"}),
     function_types=frozenset({"function_definition"}),
     import_types=frozenset({"import_declaration"}),
     call_types=frozenset({"call_expression"}),
@@ -1010,7 +1013,14 @@ _SCALA_CONFIG = LanguageConfig(
 _PHP_CONFIG = LanguageConfig(
     ts_module="tree_sitter_php",
     ts_language_fn="language_php",
-    class_types=frozenset({"class_declaration"}),
+    # interfaces/enums/traits are class-like containers whose heritage
+    # (extends/implements) and members must be captured, same as classes.
+    class_types=frozenset({
+        "class_declaration",
+        "interface_declaration",
+        "enum_declaration",
+        "trait_declaration",
+    }),
     function_types=frozenset({"function_definition", "method_declaration"}),
     import_types=frozenset({"namespace_use_clause"}),
     # object_creation_expression joins the dispatch set so `new Foo(...)` links
@@ -1026,7 +1036,9 @@ _PHP_CONFIG = LanguageConfig(
     call_accessor_node_types=frozenset({"member_call_expression"}),
     call_accessor_field="name",
     name_fallback_child_types=("name",),
-    body_fallback_child_types=("declaration_list", "compound_statement"),
+    # enums wrap their members in an enum_declaration_list rather than a
+    # declaration_list, so the body walk needs it to reach enum methods/cases.
+    body_fallback_child_types=("declaration_list", "compound_statement", "enum_declaration_list"),
     function_boundary_types=frozenset({"function_definition", "method_declaration"}),
     import_handler=_import_php,
 )
@@ -5452,6 +5464,8 @@ _DISPATCH: dict[str, Any] = {
     ".xaml": extract_xaml,
     ".razor": extract_razor,
     ".cshtml": extract_razor,
+    ".robot": extract_robot,
+    ".resource": extract_robot,
     ".cls": extract_apex,
     ".trigger": extract_apex,
 }
@@ -5474,6 +5488,8 @@ _EXTRA_FOR_EXTENSION = {
     ".cl": "commonlisp",
     ".lsp": "commonlisp",
     ".asd": "commonlisp",
+    ".robot": "robot",
+    ".resource": "robot",
 }
 
 # Substrings an extractor's error carries to classify why a dependency-backed

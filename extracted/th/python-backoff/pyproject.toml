@@ -1,10 +1,10 @@
 [project]
 name = "python-backoff"
-version = "2.4.0"
+version = "3.0.0"
 description = "Function decoration for backoff and retry"
 authors = [{ name = "Bob Green", email = "rgreen@aquent.com" }]
 maintainers = [{ name = "Edgar Ramírez-Mondragón", email = "edgarrm358@gmail.com" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.rst"
 license = "MIT"
 keywords = [
@@ -19,7 +19,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -75,11 +74,11 @@ include = ["backoff", "tests"]
 include = ["backoff"]
 
 [tool.tox]
-requires = [ "tox>=4.53", "tox-uv" ]
+requires = [ "tox>=4.61", "tox-uv" ]
 env_list = [
   "format",
   { product = [
-    { prefix = "3.", start = 9 },
+    { prefix = "3.", start = 10 },
   ] },
   "coverage",
   "lint",
@@ -134,12 +133,13 @@ commands = [
 ]
 
 [tool.tox.env.typing]
-description = "run type checking"
+description = "run type checking on Python {py_dot_ver}"
 dependency_groups = [ "typing" ]
 labels = [ "check" ]
 commands = [
   [
     "mypy",
+    "--python-version={py_dot_ver}",
     "--show-error-codes",
     { replace = "posargs", default = [
       "backoff",
@@ -147,8 +147,17 @@ commands = [
     ], extend = true },
   ],
   [
+    "mypy",
+    "--python-version={py_dot_ver}",
+    "--strict",
+    "--disallow-any-decorated",
+    "--follow-imports=silent",
+    "tests/typing",
+  ],
+  [
     "ty",
     "check",
+    "--python-version={py_dot_ver}",
     { replace = "if", condition = "env.GITHUB_ACTIONS == 'true'", then = [ "--output-format=github" ], else = [], extend = true },
     { replace = "posargs", default = [
       "backoff",
@@ -158,6 +167,18 @@ commands = [
   [
     "pyrefly",
     "check",
+    "--python-version={py_dot_ver}",
+    { replace = "if", condition = "env.GITHUB_ACTIONS == 'true'", then = [ "--output-format=github" ], else = [], extend = true },
+    { replace = "posargs", default = [
+      "backoff",
+      "tests",
+    ], extend = true },
+  ],
+  [
+    "pyrefly",
+    "coverage",
+    "check",
+    "--python-version={py_dot_ver}",
     { replace = "if", condition = "env.GITHUB_ACTIONS == 'true'", then = [ "--output-format=github" ], else = [], extend = true },
     { replace = "posargs", default = [
       "backoff",
@@ -226,6 +247,7 @@ ignore = [
 [tool.mypy]
 check_untyped_defs = true
 follow_untyped_imports = true
+strict = true
 warn_unreachable = true
 warn_unused_configs = true
 warn_unused_ignores = true

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.18.0
+Version: 0.19.0
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -51,6 +51,14 @@ Requires-Dist: pydantic[email]; extra == "agentdojo"
 Requires-Dist: deepdiff; extra == "agentdojo"
 Provides-Extra: bfcl
 Requires-Dist: mpmath; extra == "bfcl"
+Provides-Extra: bfcl-v4
+Requires-Dist: html2text>=2024.2.26; extra == "bfcl-v4"
+Requires-Dist: google-search-results>=2.4.2; extra == "bfcl-v4"
+Requires-Dist: beautifulsoup4>=4.12.0; extra == "bfcl-v4"
+Requires-Dist: overrides>=7.7.0; extra == "bfcl-v4"
+Requires-Dist: rank-bm25>=0.2.2; extra == "bfcl-v4"
+Requires-Dist: sentence-transformers>=3.0.0; extra == "bfcl-v4"
+Requires-Dist: faiss-cpu>=1.8.0; extra == "bfcl-v4"
 Provides-Extra: swe-bench
 Requires-Dist: swebench>=3.0.15; extra == "swe-bench"
 Requires-Dist: docker; extra == "swe-bench"
@@ -507,10 +515,11 @@ For running evaluations from the Harbor Framework (e.g. Terminal-Bench 2.0, SWE-
 
 - ### [BFCL: Berkeley Function-Calling Leaderboard](src/inspect_evals/bfcl)
 
-  Evaluates LLM function/tool-calling ability on a simplified split of the Berkeley Function-Calling Leaderboard (BFCL). <sub><sup>Contributed by: [@alex-remedios-aisi](https://github.com/alex-remedios-aisi)</sub></sup>
+  Evaluates LLM function/tool-calling ability on a simplified split of the Berkeley Function-Calling Leaderboard (BFCL). <sub><sup>Contributed by: [@alex-remedios-aisi](https://github.com/alex-remedios-aisi), [@rutvi02](https://github.com/rutvi02)</sub></sup>
 
   ```bash
   uv run inspect eval inspect_evals/bfcl
+  uv run inspect eval inspect_evals/bfcl_prereqs
   ```
 
 - ### [BrowseComp: A Simple Yet Challenging Benchmark for Browsing Agents](src/inspect_evals/browse_comp)

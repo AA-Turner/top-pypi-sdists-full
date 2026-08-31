@@ -205,12 +205,36 @@ class RateLimiterMeta(abc.ABCMeta):
         return new_cls
 
 
+def validate_key_prefix(key_prefix: str) -> None:
+    """Validate a custom storage key namespace.
+
+    :param key_prefix: The namespace under which storage keys live.
+    :raise: :class:`throttled.exceptions.DataError` if the key prefix is not
+        a non-blank string, or starts or ends with ``:``.
+    """
+    if (
+        isinstance(key_prefix, str)
+        and key_prefix.strip()
+        and not key_prefix.startswith(":")
+        and not key_prefix.endswith(":")
+    ):
+        return
+
+    raise exceptions.DataError(
+        f"Invalid key_prefix: {key_prefix!r}, must be a non-blank string "
+        "that does not start or end with ':'."
+    )
+
+
 class BaseRateLimiterMixin(abc.ABC):
     """Mixin class for RateLimiter."""
 
     KEY_PREFIX: str = "throttled:v1:"
+    KEY_SCHEMA_VERSION: str = "v1"
 
     quota: Quota
+
+    _key_prefix: str
 
     class Meta:
         type: types.RateLimiterTypeT = ""
@@ -243,6 +267,27 @@ class BaseRateLimiterMixin(abc.ABC):
                 )
             )
 
+    def _resolve_key_prefix(self, key_prefix: str | None) -> str:
+        """Resolve the prefix prepended to every storage key.
+
+        The storage schema version and rate limiter type are always appended
+        after a custom namespace: the version lets an incompatible change to
+        the stored state format start from clean keys, and the type keeps
+        state of different rate limiter types apart.
+
+        :param key_prefix: A custom namespace, or None for the legacy
+            ``KEY_PREFIX`` path, which subclasses may override.
+        :return: The resolved prefix: ``{KEY_PREFIX}{type}:`` by default, or
+            ``{key_prefix}:{version}:{type}:`` for a custom namespace.
+        :raise: :class:`throttled.exceptions.DataError` if a custom namespace
+            is invalid.
+        """
+        if key_prefix is None:
+            return f"{self.KEY_PREFIX}{self.Meta.type}:"
+
+        validate_key_prefix(key_prefix)
+        return f"{key_prefix}:{self.KEY_SCHEMA_VERSION}:{self.Meta.type}:"
+
     def _prepare_key(self, key: str) -> str:
         """Prepare the key by adding the prefix.
 
@@ -267,7 +312,7 @@ class BaseRateLimiterMixin(abc.ABC):
         # serial     -> 🕒Latency: 0.0724 ms/op, 🚀Throughput: 13712 req/s (--)
         # concurrent -> 🕒Latency: 2.3126 ms/op, 🚀Throughput: 13782 req/s (⬆️0.51%)
         """
-        return f"{self.KEY_PREFIX}{self.Meta.type}:{key}"
+        return f"{self._key_prefix}{key}"
 
 
 class BaseRateLimiter(BaseRateLimiterMixin, abc.ABC, metaclass=RateLimiterMeta):
@@ -283,9 +328,11 @@ class BaseRateLimiter(BaseRateLimiterMixin, abc.ABC, metaclass=RateLimiterMeta):
         quota: Quota,
         store: "BaseStore",
         additional_atomic_actions: "Sequence[type[BaseAtomicAction]] | None" = None,
+        key_prefix: str | None = None,
     ) -> None:
         self.quota: Quota = quota
         self._store = store
+        self._key_prefix = self._resolve_key_prefix(key_prefix)
         self._atomic_actions = {}
         self._register_atomic_actions(additional_atomic_actions or [])
 

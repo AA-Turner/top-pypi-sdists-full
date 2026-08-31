@@ -372,7 +372,7 @@ class OrganizationAPIKeysApi:
     ) -> GenericSuccessResponse:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app (MF-413). A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str
@@ -453,7 +453,7 @@ class OrganizationAPIKeysApi:
     ) -> ApiResponse[GenericSuccessResponse]:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app (MF-413). A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str
@@ -534,7 +534,7 @@ class OrganizationAPIKeysApi:
     ) -> RESTResponseType:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app (MF-413). A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app. A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str

@@ -706,7 +706,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -728,7 +728,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -787,7 +787,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -809,7 +809,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -868,7 +868,7 @@ class BucketBatchesApi:
         self,
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -890,7 +890,7 @@ class BucketBatchesApi:
         :type bucket_identifier: str
         :param batch_id: The unique identifier of the batch. (required)
         :type batch_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1020,7 +1020,7 @@ class BucketBatchesApi:
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
         ray_job_id: Annotated[StrictStr, Field(description="Ray job ID to cancel.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1046,7 +1046,7 @@ class BucketBatchesApi:
         :type tier_num: int
         :param ray_job_id: Ray job ID to cancel. (required)
         :type ray_job_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1109,7 +1109,7 @@ class BucketBatchesApi:
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
         ray_job_id: Annotated[StrictStr, Field(description="Ray job ID to cancel.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1135,7 +1135,7 @@ class BucketBatchesApi:
         :type tier_num: int
         :param ray_job_id: Ray job ID to cancel. (required)
         :type ray_job_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1198,7 +1198,7 @@ class BucketBatchesApi:
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number.")],
         ray_job_id: Annotated[StrictStr, Field(description="Ray job ID to cancel.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1224,7 +1224,7 @@ class BucketBatchesApi:
         :type tier_num: int
         :param ray_job_id: Ray job ID to cancel. (required)
         :type ray_job_id: str
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1361,7 +1361,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to cancel.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1385,7 +1385,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to cancel. (required)
         :type tier_num: int
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1446,7 +1446,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to cancel.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1470,7 +1470,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to cancel. (required)
         :type tier_num: int
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
@@ -1531,7 +1531,7 @@ class BucketBatchesApi:
         bucket_identifier: Annotated[StrictStr, Field(description="The unique identifier of the bucket.")],
         batch_id: Annotated[StrictStr, Field(description="The unique identifier of the batch.")],
         tier_num: Annotated[int, Field(strict=True, ge=0, description="Zero-based tier number to cancel.")],
-        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).")] = None,
+        reason: Annotated[Optional[StrictStr], Field(description="Optional human reason for the cancel, recorded on the batch record for audit.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1555,7 +1555,7 @@ class BucketBatchesApi:
         :type batch_id: str
         :param tier_num: Zero-based tier number to cancel. (required)
         :type tier_num: int
-        :param reason: Optional human reason for the cancel, recorded on the batch record for audit (BACKE-2732).
+        :param reason: Optional human reason for the cancel, recorded on the batch record for audit.
         :type reason: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request

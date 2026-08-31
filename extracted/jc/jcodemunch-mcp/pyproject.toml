@@ -1,6 +1,6 @@
 [project]
 name = "jcodemunch-mcp"
-version = "1.108.309"
+version = "1.108.312"
 description = "Token-efficient MCP server for source code exploration via tree-sitter AST parsing"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -104,6 +104,9 @@ packages = ["src/jcodemunch_mcp", "munch-bench/munch_bench"]
 # Nested .gitignore files do not reach hatchling, only the root one does.
 exclude = [
     ".claude/",
+    # Git-only: pins tests/fixtures/racket/*.rkt to LF for the frozen byte-position
+    # oracle. A checkout concern, not a distribution one.
+    ".gitattributes",
     "index.php",
     "vscode-extension/node_modules/",
     "vscode-extension/out/",

@@ -53,6 +53,20 @@ class ThrottledLogic:
         )
 
     @classmethod
+    def _validate_key_prefix(cls, key_prefix: str | None) -> None:
+        """Validate the key prefix.
+
+        :param key_prefix: The namespace under which storage keys live,
+            or None for the default.
+        :raise: :class:`throttled.exceptions.DataError` if the key prefix is
+            not a non-blank string, or starts or ends with ``:``.
+        """
+        if key_prefix is None:
+            return
+
+        rate_limiter.validate_key_prefix(key_prefix)
+
+    @classmethod
     def _parse_quota(cls, quota: rate_limiter.Quota | str | None) -> rate_limiter.Quota:
         if quota is None:
             return rate_limiter.per_min(60)

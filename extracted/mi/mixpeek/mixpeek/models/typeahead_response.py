@@ -27,7 +27,7 @@ from typing_extensions import Self
 
 class TypeaheadResponse(BaseModel):
     """
-    Prefix suggestions for a search box (UF-15).  Three sources, each scoped to the caller's namespace and organization: metadata-field values (index-backed facet, prefix-filtered), collection names, and the caller's own recent search queries. ``suggestions`` is the flat ranked convenience list (recent searches first, then field values by count, then collection names, case-insensitively deduplicated). A source that fails or times out is dropped and named in ``warnings`` instead of failing the request.
+    Prefix suggestions for a search box.  Three sources, each scoped to the caller's namespace and organization: metadata-field values (index-backed facet, prefix-filtered), collection names, and the caller's own recent search queries. ``suggestions`` is the flat ranked convenience list (recent searches first, then field values by count, then collection names, case-insensitively deduplicated). A source that fails or times out is dropped and named in ``warnings`` instead of failing the request.
     """ # noqa: E501
     query: StrictStr = Field(description="The prefix that was matched.")
     suggestions: Optional[List[StrictStr]] = Field(default=None, description="Flat ranked suggestion texts across all sources.")

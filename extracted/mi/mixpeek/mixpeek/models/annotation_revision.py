@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class AnnotationRevision(BaseModel):
     """
-    One superseded state of an edited annotation (ADM-15, BACKE-3455).  A judgment edit must not destroy the judgment it replaces: evaluations that scored against version N are unreproducible if N is gone. Each edit appends one of these BACKWARD deltas — the pre-edit values of exactly the fields the edit changed — so any prior version reconstructs by walking the chain newest-to-oldest. Edits are rare, so the chain lives on the annotation document itself.
+    One superseded state of an edited annotation.  A judgment edit must not destroy the judgment it replaces: evaluations that scored against version N are unreproducible if N is gone. Each edit appends one of these BACKWARD deltas — the pre-edit values of exactly the fields the edit changed — so any prior version reconstructs by walking the chain newest-to-oldest. Edits are rare, so the chain lives on the annotation document itself.
     """ # noqa: E501
     version: StrictInt = Field(description="The version number this revision PRESERVES (pre-edit).")
     prior: Dict[str, Any] = Field(description="Pre-edit values of the fields the superseding edit changed. Applying these onto the next-newer state reconstructs this version.")

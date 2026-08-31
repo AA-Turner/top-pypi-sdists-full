@@ -34,7 +34,7 @@ class EnginePerformanceResponse(BaseModel):
     time_range: ApiAnalyticsModelsTimeRange = Field(description="Time range of the query")
     metrics: List[PerformanceMetric] = Field(description="Time-series performance metrics")
     summary: Optional[PerformanceSummary] = Field(default=None, description="Overall summary statistics")
-    service_health: Optional[ServiceHealth] = Field(default=None, description="Per-namespace service-health dimensions (ADM-18): availability, degraded/partial rates, timeout/throttle rates and dependency health. Unwired dimensions are None with a stated reason, never a fabricated zero.")
+    service_health: Optional[ServiceHealth] = Field(default=None, description="Per-namespace service-health dimensions: availability, degraded/partial rates, timeout/throttle rates and dependency health. Unwired dimensions are None with a stated reason, never a fabricated zero.")
     __properties: ClassVar[List[str]] = ["time_range", "metrics", "summary", "service_health"]
 
     model_config = ConfigDict(

@@ -29,7 +29,7 @@ class BaseFeatureExtractorModelOutput(BaseModel):
     """ # noqa: E501
     feature_extractor_name: StrictStr = Field(description="Name of the feature extractor")
     version: StrictStr = Field(description="Version of the feature extractor (e.g., 'v1', 'v2')")
-    params: Optional[Dict[str, Any]] = Field(default=None, description="Optional extractor parameters that affect vector index configuration. Parameters set here are locked at namespace creation and determine vector dimensions in Qdrant. Collections using this extractor must use compatible params. Example: {'model': 'siglip_base'}")
+    params: Optional[Dict[str, Any]] = Field(default=None, description="Optional extractor parameters that affect vector index configuration. Parameters set here are locked at namespace creation and determine vector dimensions in the vector store. Collections using this extractor must use compatible params. Example: {'model': 'siglip_base'}")
     feature_extractor_id: StrictStr = Field(description="Construct unique identifier for the feature extractor instance (name + version).")
     __properties: ClassVar[List[str]] = ["feature_extractor_name", "version", "params", "feature_extractor_id"]
 

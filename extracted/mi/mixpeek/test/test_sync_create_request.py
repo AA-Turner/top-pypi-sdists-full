@@ -58,6 +58,8 @@ class TestSyncCreateRequest(unittest.TestCase):
                         ], ),
                 sync_from = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 provider_filters = { },
+                description = '',
+                max_objects_per_run = 1.0,
                 metadata = { }
             )
         else:

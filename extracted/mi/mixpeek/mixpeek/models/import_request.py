@@ -33,7 +33,7 @@ class ImportRequest(BaseModel):
     mapping: ImportMapping = Field(description="The finalized source->target mapping (validate it first).")
     explode: Optional[ExplodeSpec] = Field(default=None, description="Document-explosion inputs when the export nests a doc-generating array.")
     dry_run: Optional[StrictBool] = Field(default=False, description="Reconstruct and validate only; write nothing.")
-    seed_ledger: Optional[StrictBool] = Field(default=False, description="Seed the ledger for heal-skip (BACKE-3367; no-op until available).")
+    seed_ledger: Optional[StrictBool] = Field(default=False, description="Seed the ledger for heal-skip (no-op until available).")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["export", "mapping", "explode", "dry_run", "seed_ledger"]
 

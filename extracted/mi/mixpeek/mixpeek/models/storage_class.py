@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class StorageClass(str, Enum):
     """
-    Provider-agnostic object-storage tier for a bucket (BACKE-2299).  The mixpeek API stays provider-agnostic; the object-storage factory maps each value to the underlying provider's equivalent on write (and, where supported, retroactively via lifecycle/rewrite):  | mixpeek   | GCS       | S3 / MinIO     | |-----------|-----------|----------------| | standard  | STANDARD  | STANDARD       | | nearline  | NEARLINE  | STANDARD_IA    | | coldline  | COLDLINE  | GLACIER_IR     | | archive   | ARCHIVE   | GLACIER        |  Set per-bucket so hot retriever-source buckets stay `standard` while large write-once/read-occasionally media buckets (footage, creatives) opt into a cheaper tier (e.g. ~50% on Nearline for the TS iconik ~13TB footage sync).
+    Provider-agnostic object-storage tier for a bucket.  The mixpeek API stays provider-agnostic; the object-storage factory maps each value to the underlying provider's equivalent on write (and, where supported, retroactively via lifecycle/rewrite):  | mixpeek   | GCS       | S3 / MinIO     | |-----------|-----------|----------------| | standard  | STANDARD  | STANDARD       | | nearline  | NEARLINE  | STANDARD_IA    | | coldline  | COLDLINE  | GLACIER_IR     | | archive   | ARCHIVE   | GLACIER        |  Set per-bucket so hot retriever-source buckets stay `standard` while large write-once/read-occasionally media buckets (footage, creatives) opt into a cheaper tier (e.g. ~50% on Nearline for the TS iconik ~13TB footage sync).
     """
 
     """

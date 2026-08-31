@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from aigie._system_prompt import system_prompt_text
 from aigie.context_manager import enrich_span_fields, merge_metadata
 from aigie.tracing.emitter import TraceEmitter
 from aigie.tracing.execution_state import build_execution_plan
@@ -173,8 +174,10 @@ class OpenAIAgentsProcessor:
         self._emitter: TraceEmitter | None = emitter
         self._config = config
         self._traces: dict[str, tuple[datetime, Any]] = {}
-        self._trace_io: dict[str, tuple[Any, Any]] = {}
-        self._closed_traces: dict[str, tuple[datetime, Any, Any, Any]] = {}
+        # (input, output, system_prompt) from the optional lifecycle hooks. One store
+        # rather than one per fact, so the resume restore cannot put half of them back.
+        self._trace_io: dict[str, tuple[Any, Any, str | None]] = {}
+        self._closed_traces: dict[str, tuple[datetime, Any, Any, Any, str | None]] = {}
         self._tallies: dict[str, _RunTally] = {}
         # Traces paused for approval. on_trace_start accepts any id, so a paused
         # run stays resumable after the closed cache has forgotten it — which
@@ -211,11 +214,44 @@ class OpenAIAgentsProcessor:
         """Record Runner input/output supplied by the optional lifecycle hooks."""
         if self._emitter is None:
             return
-        current_input, current_output = self._trace_io.get(trace_id, (None, None))
+        current_input, current_output, prompt = self._trace_io.get(trace_id, (None, None, None))
         self._trace_io[trace_id] = (
             current_input if current_input is not None else input_value,
             output_value if output_value is not None else current_output,
+            prompt,
         )
+
+    def record_system_prompt(self, trace_id: str, value: Any) -> None:
+        """Persist the run's system prompt for its root span.
+
+        First write wins: the run's goal is the prompt it opened with, and a handoff
+        would otherwise replace it with the receiving agent's instructions. Gated on
+        ``capture_inputs`` here rather than at emit time, so a host that opted out
+        neither flattens the value nor holds it for the length of the run.
+        """
+        if self._emitter is None or not self._config.capture_inputs:
+            return
+        input_value, output_value, current = self._trace_io.get(trace_id, (None, None, None))
+        if current is not None:
+            return
+        # Stripped because whitespace is not a goal: stamped verbatim it binds the
+        # judges' {{agent_prompt}} to blanks, which reads worse than no prompt.
+        text = system_prompt_text(value).strip()
+        if text:
+            self._trace_io[trace_id] = (input_value, output_value, text)
+
+    def _root_metadata(self, trace: Any, system_prompt: str | None, **extra: Any) -> dict[str, Any]:
+        """Metadata for a run root, carrying the system prompt the judges bind to.
+
+        Configuration rather than a message, so it rides the metadata envelope rather
+        than the root's ``input``. ``capture_inputs`` is enforced at record time.
+        """
+        metadata = merge_metadata(
+            getattr(trace, "metadata", None), {"framework": "openai_agents", **extra}
+        )
+        if system_prompt:
+            metadata["system_prompt"] = system_prompt
+        return metadata
 
     def on_trace_start(self, trace: Any) -> None:
         self._closed_traces.pop(trace.trace_id, None)
@@ -228,14 +264,18 @@ class OpenAIAgentsProcessor:
 
     def on_trace_end(self, trace: Any) -> None:
         started, _ = self._traces.pop(trace.trace_id, (datetime.now(timezone.utc), trace))
-        input_value, output_value = self._trace_io.get(trace.trace_id, (None, None))
+        input_value, output_value, system_prompt = self._trace_io.get(
+            trace.trace_id, (None, None, None)
+        )
         # Left in _tallies rather than popped: a run that pauses for approval
         # resumes into this same trace, and its counters must survive the gap.
         tally = self._tallies.get(trace.trace_id) or _RunTally()
         tally.ended_at = datetime.now(timezone.utc)
         self._tallies[trace.trace_id] = tally
         name = getattr(trace, "name", None) or "Agent workflow"
-        self._remember_closed(trace.trace_id, (started, trace, input_value, output_value))
+        self._remember_closed(
+            trace.trace_id, (started, trace, input_value, output_value, system_prompt)
+        )
         self._trace_io.pop(trace.trace_id, None)
         self._emit(
             span_id=_uuid_id(trace.trace_id),
@@ -247,12 +287,10 @@ class OpenAIAgentsProcessor:
             ended=datetime.now(timezone.utc),
             input=input_value if self._config.capture_inputs else None,
             output=output_value if self._config.capture_outputs else None,
-            metadata=merge_metadata(
-                getattr(trace, "metadata", None),
-                {
-                    "framework": "openai_agents",
-                    "execution_plan": _plan(name, tally, "error" if tally.errored else "success"),
-                },
+            metadata=self._root_metadata(
+                trace,
+                system_prompt,
+                execution_plan=_plan(name, tally, "error" if tally.errored else "success"),
             ),
         )
 
@@ -309,8 +347,12 @@ class OpenAIAgentsProcessor:
             if ended is None or now - ended < _TALLY_RETENTION:
                 continue
             self._tallies.pop(trace_id, None)
+            # Same reachability test, and the prompt is the largest string a run holds.
+            self._trace_io.pop(trace_id, None)
 
-    def _remember_closed(self, trace_id: str, entry: tuple[datetime, Any, Any, Any]) -> None:
+    def _remember_closed(
+        self, trace_id: str, entry: tuple[datetime, Any, Any, Any, str | None]
+    ) -> None:
         """Retain a bounded window of finished traces for approval resumes."""
         self._closed_traces.pop(trace_id, None)
         self._closed_traces[trace_id] = entry
@@ -322,9 +364,10 @@ class OpenAIAgentsProcessor:
         closed = self._closed_traces.get(trace_id)
         if closed is None:
             return
-        started, trace, input_value, output_value = closed
+        started, trace, input_value, output_value, system_prompt = closed
         name = getattr(trace, "name", None) or "Agent workflow"
-        self._trace_io[trace_id] = (input_value, output_value)
+        # A resume may end with no further on_llm_start to re-supply the prompt.
+        self._trace_io[trace_id] = (input_value, output_value, system_prompt)
         self._paused.pop(trace_id, None)
         self._paused[trace_id] = None
         while len(self._paused) > _MAX_PAUSED_TRACES:
@@ -347,14 +390,12 @@ class OpenAIAgentsProcessor:
             ended=datetime.now(timezone.utc),
             input=input_value if self._config.capture_inputs else None,
             output=None,
-            metadata=merge_metadata(
-                getattr(trace, "metadata", None),
-                {
-                    "framework": "openai_agents",
-                    "human_in_loop": True,
-                    "pending_approvals": approvals,
-                    "execution_plan": _plan(name, tally, "paused"),
-                },
+            metadata=self._root_metadata(
+                trace,
+                system_prompt,
+                human_in_loop=True,
+                pending_approvals=approvals,
+                execution_plan=_plan(name, tally, "paused"),
             ),
             status="paused",
         )

@@ -23,7 +23,7 @@ class Trafikverket:
         self._client_session = client_session
         self._api_key = api_key
 
-    def _generate_request_data(
+    def _generate_request_data(  # noqa: PLR0917
         self,
         objecttype: str,
         schemaversion: str,
@@ -55,7 +55,7 @@ class Trafikverket:
 
         return root_node
 
-    async def async_make_request(
+    async def async_make_request(  # noqa: PLR0917
         self,
         objecttype: str,
         schemaversion: str,
@@ -89,8 +89,7 @@ class Trafikverket:
                         ", status: {response.status}"
                     )
                 raise UnknownError(
-                    f"Source: {source}, message: {message}"
-                    ", status: {response.status}"
+                    f"Source: {source}, message: {message}, status: {response.status}"
                 )
 
             result: list[etree._ElementTree] = etree.fromstring(content).xpath(

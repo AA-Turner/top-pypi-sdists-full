@@ -46,7 +46,7 @@ dependencies = [
     # Pin this dependency as we expect:
     # * It might have breaking changes
     # * It is not a direct dependency of the user
-    "sybil-extras==2026.7.19",
+    "sybil-extras==2026.8.16",
 ]
 optional-dependencies.dev = [
     "actionlint-py==1.7.12.24",
@@ -58,16 +58,16 @@ optional-dependencies.dev = [
     # hadolint is not available on Windows.
     "hadolint-bin==2.15.1; sys_platform!='win32'",
     "interrogate==1.7.0",
-    "mypy[faster-cache]==2.3.0",
-    "mypy-strict-kwargs==2026.7.19.1",
+    "mypy[faster-cache]==2.3.1",
+    "mypy-strict-kwargs==2026.8.25.1",
     "no-defaults==2.1.0",
-    "prek==0.4.13",
+    "prek==0.4.14",
     "pydocstringformatter==1.0.0",
     "pydocstyle==6.3",
-    "pygments==2.20.0",
+    "pygments==2.21.0",
     "pylint[spelling]==4.0.7",
     "pylint-per-file-ignores==3.2.1",
-    "pyproject-fmt==2.27.0",
+    "pyproject-fmt==2.28.1",
     "pyrefly==1.2.0",
     "pyright==1.1.411",
     "pyroma==5.0.1",
@@ -75,7 +75,7 @@ optional-dependencies.dev = [
     "pytest-cov==7.1.0",
     "pytest-regressions==2.11.0",
     "pyyaml==6.0.3",
-    "ruff==0.16.2",
+    "ruff==0.16.4",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
@@ -87,16 +87,16 @@ optional-dependencies.dev = [
     "sphinx-inline-tabs==2025.12.21.14",
     "sphinx-lint==1.0.2",
     "sphinx-pyproject==0.3.0",
-    "sphinx-substitution-extensions==2026.8.5",
+    "sphinx-substitution-extensions==2026.8.13.1",
     "sphinxcontrib-spelling==8.0.2",
     # ``sphinxcontrib-towncrier`` renders unreleased news fragments
     # into docs/source/unreleased.rst during Sphinx builds.
     "sphinxcontrib-towncrier==0.5.0a0",
-    "strict-kwargs==2026.7.24",
+    "strict-kwargs==2026.8.24",
     "towncrier==25.8.0",
-    "ty==0.0.70",
-    "types-pygments==2.20.0.20260728",
-    "vale==3.13.0.0",
+    "ty==0.0.74",
+    "types-pygments==2.21.0.20260819",
+    "vale==3.18.0.0",
     "vulture==2.16",
     "yamlfix==1.19.1",
     "zizmor==1.29.0",
@@ -165,6 +165,8 @@ lint.per-file-ignores."doccmd_*.py" = [
 lint.per-file-ignores."tests/*.py" = [
     # Do not require tests to have a one-line summary.
     "S101",
+    # Tests intentionally invoke Git from the test environment's PATH.
+    "S607",
 ]
 # Do not automatically remove commented out code.
 # We comment out code during development, and with VSCode auto-save, this code
@@ -308,7 +310,6 @@ ignore = [
     "*.enc",
     ".checkmake-config.ini",
     ".git_archival.txt",
-    ".pre-commit-config.yaml",
     ".prettierrc",
     ".shellcheckrc",
     ".vale.ini",
@@ -335,6 +336,7 @@ ignore = [
     "Makefile",
     "newsfragments",
     "newsfragments/**",
+    "prek.toml",
     "spelling_private_dict.txt",
     "src/*/_setuptools_scm_version.py",
     "tests",
@@ -438,11 +440,11 @@ log_cli = true
 xfail_strict = true
 
 [tool.coverage]
-run.branch = true
 run.omit = [
     "src/*/_setuptools_scm_version.py",
     "src/doccmd/__main__.py",
 ]
+run.branch = true
 report.exclude_also = [
     "@overload",
     "class .*\\bProtocol\\):",
@@ -467,6 +469,11 @@ issue_format = "#{issue}"
 # version such as ``2026.05.18`` underlined with ``-`` matches every
 # pre-towncrier entry in CHANGELOG.rst.
 underlines = [ "-", "~", "^" ]
+# Setting ``ignore`` makes ``towncrier build`` fail on any file in
+# the fragment directory whose suffix is not a declared fragment
+# type, instead of silently dropping it.  Only the listed
+# non-fragment files are allowed through.
+ignore = [ ".gitkeep" ]
 type = [
     # A single, unnamed fragment type keeps the assembled output as one
     # flat bullet list, matching the historical changelog (which never
@@ -478,7 +485,14 @@ type = [
 # `relative_to` and `is_relative_to` have `other` parameter that is
 # positional-only on Python 3.14+.
 # We need to support older versions, so we ignore them.
-ignore_names = [ "pathlib.Path.is_relative_to", "pathlib.Path.relative_to" ]
+# ``@cloup.option_group("...", opt, opt)`` passes the option group's name
+# and its options positionally; the plugin resolves that callable to this
+# internal name.
+ignore_names = [
+    "pathlib.Path.is_relative_to",
+    "pathlib.Path.relative_to",
+    "cloup._option_groups.option_group",
+]
 
 [tool.strict_kwargs]
 # `relative_to` and `is_relative_to` have `other` parameter that is

@@ -74,6 +74,40 @@ class TestDoctor:
         assert "lock file integrity OK · log rotation healthy" in r.out
         assert "● healthy" in r.out               # dashboard verdict
 
+    def test_an_untapped_machine_is_not_called_healthy(self, boost):
+        """The one state where a clean bill of health actively misleads.
+
+        A machine with no taps has nothing to disagree about, so every check
+        passes and the verdict read "healthy" — directly under the line saying
+        no registries are tapped. boost cannot answer anything yet: that is a
+        setup step, not health. The MCP `boost_doctor` tool already refused to
+        say it here; this is the CLI half of the same rule.
+        """
+        r = boost("doctor")
+        assert "● healthy" not in r.out
+        assert "ready to set up" in r.out
+
+    def test_an_untapped_machine_is_still_rc0(self, boost):
+        # Reported, never fatal. The exit code turns on real issues only, so
+        # scripts and CI on a fresh machine are unaffected — which is what
+        # makes saying the true thing safe.
+        boost("doctor")            # the fixture asserts rc == 0
+
+    def test_the_setup_hint_names_the_same_command_search_does(self, boost):
+        """doctor said `boost tap owner/repo`; search says `boost tap
+        --defaults`. A user who hits both in one session read one problem as
+        two, and `--defaults` is the precise one — it is what `mcp.no_results`
+        and the MCP `boost_doctor` tool already name, in that order.
+        """
+        out = boost("doctor").out
+        assert "boost tap --defaults" in out
+        assert "boost tap owner/repo" not in out
+
+    def test_a_tapped_machine_is_still_healthy(self, boost, tapped):
+        # The regression that would matter: the new branch must fire only on
+        # an untapped machine.
+        assert "● healthy" in boost("doctor").out
+
     def test_broken_symlink_rc1(self, boost, installed):
         ghost = paths.home() / ".claude" / "skills" / "ghost"
         ghost.symlink_to(paths.store_dir() / "nowhere")
@@ -97,9 +131,10 @@ class TestDoctor:
         shutil.rmtree(paths.store_dir() / "brainstorming")
         r = boost("doctor", expect=1)
         assert "skill brainstorming missing from store — run `boost heal`" in r.out
-        # the three symlinked agents now dangle too (gemini never had a link)
-        assert "3 broken symlinks in agent dirs" in r.out
-        assert "1 skill installed · 1 tap synced · 3 broken links" in r.out
+        # every symlinked agent now dangles (gemini never had a link; it reads
+        # the canonical store natively)
+        assert "4 broken symlinks in agent dirs" in r.out
+        assert "1 skill installed · 1 tap synced · 4 broken links" in r.out
 
     def test_links_outside_the_declared_scope_rc1(self, boost, installed):
         # doctor must agree with `boost sync`, which reports this. A "healthy"
@@ -109,7 +144,8 @@ class TestDoctor:
         boost("install", "brainstorming", "--force", "--agent", "cursor")
         r = boost("doctor", expect=1)
         assert ("skill brainstorming is linked for claude-code, windsurf, "
-                "outside its declared scope (cursor) — run `boost sync --prune`"
+                "antigravity, outside its declared scope (cursor) — run "
+                "`boost sync --prune`"
                 in r.out)
         assert "need attention" in r.out
 
@@ -121,7 +157,12 @@ class TestDoctor:
 
     def test_empty_env_rc0(self, boost, sandbox):
         r = boost("doctor")
-        assert "no taps configured — add one with `boost tap owner/repo`" in r.out
+        # `boost tap --defaults`, not `boost tap owner/repo`: the same command
+        # `boost search`'s error and the MCP `boost_doctor` tool already name,
+        # so a user hitting two of these surfaces reads one problem rather than
+        # two. Pinned by TestDoctor's setup-hint test just above.
+        assert "no registries tapped" in r.out
+        assert "boost tap --defaults" in r.out
         assert "0 skills installed · 0 taps synced · 0 broken links" in r.out
 
     def test_tampered_content_rc1(self, boost, installed):
@@ -177,6 +218,46 @@ class TestDoctor:
         r = boost("doctor", expect=1)
         assert ("workflow gone missing its claude-code file — "
                 "run `boost reinstall gone`") in r.out
+
+
+
+class TestDoctorSeesTheOtherTenant:
+    """boost is no longer the only writer of ~/.claude/settings.json.
+
+    `garrytan/gstack`'s `./setup` registers its own Stop hooks there and prunes
+    "dead gstack entries" on every run; boost prunes its own by the `# boost:`
+    marker. doctor must be able to *say* the other writer is present without
+    touching it — and must not count it, because boost will never remove it and
+    a health check that stays permanently red on something no command can clear
+    stops being read (the same rule as the foreign broken symlinks above it).
+    """
+
+    THEIRS = "~/.claude/skills/gstack/bin/gstack-timeline-stop"
+
+    def _write_foreign_hook(self):
+        from boost_cli.core import claude_settings as cs
+        cs.save("global", {"hooks": {"Stop": [
+            {"matcher": "*",
+             "hooks": [{"type": "command", "command": self.THEIRS}]}]}})
+
+    def test_doctor_reports_it_and_stays_green(self, boost, tapped):
+        self._write_foreign_hook()
+        r = boost("doctor")                       # the fixture asserts rc == 0
+        assert "not managed by boost" in r.out
+        assert "Stop" in r.out
+
+    def test_doctor_does_not_remove_it(self, boost, tapped):
+        from boost_cli.core import claude_settings as cs
+        self._write_foreign_hook()
+        boost("doctor")
+        blocks = cs.load("global")["hooks"]["Stop"]
+        assert blocks[0]["hooks"][0]["command"] == self.THEIRS
+
+    def test_a_clean_settings_file_says_nothing(self, boost, tapped):
+        # The line must be absent, not merely zero — doctor's output is read
+        # top to bottom and a "0 hooks not managed by boost" line is noise.
+        r = boost("doctor")
+        assert "not managed by boost" not in r.out
 
 
 # ── lint ─────────────────────────────────────────────────────────────────
@@ -507,12 +588,13 @@ class TestQuarantine:
 
         r = boost("quarantine", "--release", "brainstorming")
         assert ("released brainstorming "
-                "(linked: claude-code, windsurf, cursor)") in r.out
+                "(linked: claude-code, windsurf, cursor, antigravity)") in r.out
         link = paths.home() / ".claude" / "skills" / "brainstorming"
         assert link.is_symlink() and link.exists()
         entry = _lock()["brainstorming"]
         assert entry["quarantined"] is False
-        assert entry["agents"] == ["claude-code", "windsurf", "cursor"]
+        assert entry["agents"] == ["claude-code", "windsurf", "cursor",
+                                   "antigravity"]
 
     def test_edge_cases(self, boost, installed):
         boost("quarantine", "brainstorming")

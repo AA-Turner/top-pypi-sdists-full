@@ -2,11 +2,11 @@
 authors = [
     { name = "Dylan Anthony", email = "contact@dylananthony.com" },
 ]
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.11,<4.0"
 dependencies = [
     "jinja2>=3.0.0,<4.0.0",
-    "typer>0.16,<0.27",
+    "typer>0.16,<0.28",
     "colorama>=0.4.3; sys_platform == \"win32\"",
     "shellingham>=1.3.2,<2.0.0",
     "pydantic>=2.10,<3.0.0",
@@ -16,7 +16,7 @@ dependencies = [
     "ruff>=0.2",
 ]
 name = "openapi-python-client"
-version = "0.29.0"
+version = "0.29.1"
 description = "Generate modern Python clients from OpenAPI"
 keywords = [
     "OpenAPI",
@@ -25,7 +25,6 @@ keywords = [
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -43,6 +42,19 @@ repository = "https://github.com/openapi-generators/openapi-python-client"
 [project.scripts]
 openapi-python-client = "openapi_python_client.cli:app"
 
+[dependency-groups]
+dev = [
+    "pytest>8",
+    "pytest-mock>3",
+    "mypy>=1.13",
+    "pytest-cov",
+    "python-multipart",
+    "types-PyYAML<7.0.0,>=6.0.3",
+    "types-certifi<2021.10.9,>=2020.0.0",
+    "syrupy>=4",
+    "hypothesis>=6.100",
+]
+
 [tool.ruff]
 line-length = 120
 exclude = [
@@ -50,7 +62,8 @@ exclude = [
     ".mypy_cache",
     ".venv",
     "openapi_python_client/templates/*",
-    "end_to_end_tests/*",
+    "end_to_end_tests/golden-records/*",
+    "end_to_end_tests/__snapshots__/*",
     "tests/test_templates/*",
 ]
 
@@ -82,18 +95,6 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 junit_family = "xunit2"
 
-[tool.pdm.dev-dependencies]
-dev = [
-    "pytest>8",
-    "pytest-mock>3",
-    "mypy>=1.13",
-    "pytest-cov",
-    "python-multipart",
-    "types-PyYAML<7.0.0,>=6.0.3",
-    "types-certifi<2021.10.9,>=2020.0.0",
-    "syrupy>=4",
-]
-
 [tool.pdm.build]
 includes = [
     "openapi_python_client",
@@ -104,13 +105,14 @@ includes = [
 [tool.pdm.scripts]
 lint = "ruff check ."
 format = "ruff format ."
-mypy = "mypy openapi_python_client"
+mypy = "mypy openapi_python_client fuzz"
 check = { composite = ["lint", "format", "mypy", "test"] }
-regen = {composite = ["regen_e2e", "regen_integration"]}
+regen = { composite = ["regen_e2e", "regen_integration"] }
 e2e = "pytest openapi_python_client end_to_end_tests/test_end_to_end.py"
-re = {composite = ["regen_e2e", "e2e --snapshot-update"]}
+re = { composite = ["regen_e2e", "e2e --snapshot-update"] }
 regen_e2e = "python -m end_to_end_tests.regen_golden_record"
 unit_test = "pytest tests"
+fuzz = "pytest fuzz --hypothesis-show-statistics"
 
 [tool.pdm.scripts.test]
 cmd = "pytest tests end_to_end_tests/test_end_to_end.py end_to_end_tests/functional_tests --basetemp=tests/tmp"

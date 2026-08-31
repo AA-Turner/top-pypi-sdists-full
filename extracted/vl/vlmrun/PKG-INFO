@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vlmrun
-Version: 0.7.8
+Version: 0.8.0
 Summary: Official Python SDK for VLM Run
 Author-email: VLM Support <support@vlm.com>
 License: Apache-2.0
@@ -25,17 +25,16 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cachetools
-Requires-Dist: loguru
-Requires-Dist: openai>=1.0.0
-Requires-Dist: Pillow>=10.2.0
-Requires-Dist: pydantic<3,>=2.5
-Requires-Dist: pydantic_core>=2.23.4
-Requires-Dist: requests
-Requires-Dist: rich
-Requires-Dist: tenacity
-Requires-Dist: typer>=0.9.0
-Requires-Dist: vlmrun-hub>=0.1.28
+Requires-Dist: cachetools==7.1.7
+Requires-Dist: loguru==0.7.3
+Requires-Dist: openai==1.109.1
+Requires-Dist: Pillow==11.3.0
+Requires-Dist: pydantic==2.13.5
+Requires-Dist: requests==2.34.2
+Requires-Dist: rich==14.3.4
+Requires-Dist: tenacity==9.1.4
+Requires-Dist: typer==0.27.2
+Requires-Dist: vlmrun-hub==0.1.35
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pre-commit; extra == "test"

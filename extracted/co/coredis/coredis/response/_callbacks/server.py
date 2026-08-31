@@ -20,9 +20,9 @@ class TimeCallback(ResponseCallback[list[AnyStr], datetime.datetime]):
         self,
         response: list[AnyStr],
     ) -> datetime.datetime:
-        return datetime.datetime.fromtimestamp(int(response[0])) + datetime.timedelta(
-            microseconds=int(response[1]) / 1000.0
-        )
+        return datetime.datetime.fromtimestamp(
+            int(response[0]), tz=datetime.timezone.utc
+        ) + datetime.timedelta(microseconds=int(response[1]) / 1000.0)
 
 
 class SlowlogCallback(
@@ -40,6 +40,7 @@ class SlowlogCallback(
                 command=cast(list[StringT], item[3]),
                 client_addr=cast(StringT, item[4]),
                 client_name=cast(StringT, item[5]),
+                argument_count=cast(int | None, item[6] if len(item) > 6 else None),
             )
             for item in response
         )
@@ -196,13 +197,13 @@ class RoleCallback(
             return res
 
         def _parse_replica(response: Any) -> Any:
-            host, port, status, offset = response[1:]
+            _host, _port, status, offset = response[1:]
 
-            return dict(
-                role=role,
-                status=status,
-                offset=offset,
-            )
+            return {
+                "role": role,
+                "status": status,
+                "offset": offset,
+            }
 
         def _parse_sentinel(response: Any) -> Any:
             return {"role": role, "masters": response[1]}

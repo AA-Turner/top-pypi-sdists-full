@@ -659,7 +659,7 @@ def _make_room_locked(need: int, keep_key: str, budget: int, residency: float,
                   idle_s=int(now - float(_v.get("last_called", 0) or 0)),
                   bytes=int(_v.get("bytes") or 0))
     eligible.sort(key=lambda kv: _ev.sort_key(
-        _ev.Resident(model_key=kv[0],
+        _ev.EvictUnit(model_key=kv[0],
                      bytes=int(kv[1].get("bytes") or 0) or None,
                      last_call=float(kv[1].get("last_called", 0) or 0),
                      calls=int(kv[1].get("calls") or 0)),

@@ -5,7 +5,7 @@ requires = [
   "hatchling>=1.14.0",
   "hatch-mypyc>=0.1.0",
   "hatch-vcs>=0.4.0",
-  "mypy==2.3.0",
+  "mypy==2.3.1",
   "types-deprecated",
   "beartype>=0.20",
   "opentelemetry-sdk>=1.0.0",
@@ -102,8 +102,8 @@ dev = [
   "inflect>=6.0.0",
   "Jinja2==3.1.5",
   "memray; implementation_name != 'pypy'",
-  "mypy==2.3.0; implementation_name != 'pypy'",
-  "ruff",
+  "mypy==2.3.1; implementation_name != 'pypy'",
+  "ruff>=0.16,<0.17",
   "types-deprecated",
   "ipython",
   {include-group = "test"},
@@ -166,7 +166,7 @@ version-file = "coredis/_version.py"
 enable-by-default = false
 dependencies = [
   "hatch-mypyc>=0.16.0",
-  "mypy==2.3.0",
+  "mypy==2.3.1",
 ]
 require-runtime-dependencies = true
 include = [
@@ -243,6 +243,15 @@ exclude = ["doc/**","_version.py","coredis/_py_312_typing.py"]
 [tool.ruff.lint]
 extend-select = [
   "T20",   # flake8-print: forbid print/pprint statements
+]
+# Prefer mypy when ruff and mypy disagree on typing style.
+ignore = [
+  "PYI041",  # keep int|float for beartype (PEP 484 treats int as float statically)
+  "B008",  # intentional default construction of retry/callback/cluster configs
+  "PYI019",  # Self breaks from_url overloads (Redis[bytes] vs Redis[str])
+  "PLC0105",  # public TypeVar names (e.g. CommandResponseT) omit _co by design
+  "B009",  # setattr/getattr needed so mypy does not flag method-assign on wrappers
+  "B010",
 ]
 typing-modules = ["coredis.typing"]
 

@@ -1,9 +1,9 @@
 import glob
 import json
-import logging
 import os
 import time
 import shutil
+from collections import OrderedDict
 from datetime import date, datetime
 from os.path import isfile, join
 
@@ -15,48 +15,107 @@ from html_page.floating_error import FloatingError
 from html_page.screenshot_details import ScreenshotDetails
 from html_page.suite_row import SuiteRow
 from html_page.template import HtmlTemplate
+from html_page.test_log import TestLog
+from html_page.test_log_section import TestLogSection
 from html_page.test_row import TestRow
-from pytest_html_reporter.util import suite_highlights, generate_suite_highlights, max_rerun
+from pytest_html_reporter.util import (
+    suite_highlights,
+    generate_suite_highlights,
+    generate_environment_info,
+    generate_logs_notice,
+    is_xdist_worker,
+    xdist_worker_id,
+    report_logs_mode,
+    report_log_limit,
+    merge_log_sections,
+    format_log_sections,
+    escape_log_text,
+    count_log_lines,
+)
 from pytest_html_reporter.time_converter import time_converter
 from pytest_html_reporter.const_vars import ConfigVars
 
 
 class HTMLReporter(object):
     def __init__(self, path, archive_count, config):
-        self.json_data = {'content': {'suites': {0: {'status': {}, 'tests': {0: {}}, }, }}}
+        self.json_data = {'content': {'suites': {}}}
         self.path = path
         self.archive_count = archive_count
         self.config = config
-        has_rerun = config.pluginmanager.hasplugin("rerunfailures")
-        self.rerun = 0 if has_rerun else None
+        self.rerun_plugin = config.pluginmanager.hasplugin("rerunfailures")
         self._sessionstarttime = None
+
+        # What pytest captured for the test currently running, keyed by the
+        # section title it gave the capture ("Captured log call", ...). Emptied
+        # at the start of every attempt so nothing leaks into the next test.
+        self._log_sections = {}
+        self.logs_mode = report_logs_mode(config)
+        self.log_limit = report_log_limit(config)
+
+        # One record per finished test. In a serial run this process fills the
+        # list on its own; under xdist every worker fills its own copy and the
+        # controller merges them all before anything is rendered.
+        self._records = []
+
+        # Where each test's record sits in that list, so a retry can replace the
+        # attempt it superseded instead of being reported as another test.
+        self._record_slots = {}
+        self._collected = {}
+        self.worker_id = xdist_worker_id(config)
+
+        # attach() needs somewhere to write long before the report is built,
+        # and each xdist worker saves its own screenshots.
+        HTMLReporter.base_path = self.report_path[0]
 
     def pytest_sessionstart(self, session):
         self._sessionstarttime = time.time()
 
+        # The controller of an xdist run never executes a test, so it would
+        # otherwise stamp the report - and its archive file name - with 0.
+        ConfigVars._start_execution_time = self._sessionstarttime
+
+    @pytest.hookimpl(trylast=True)
+    def pytest_collection_modifyitems(self, session, config, items):
+        # Every xdist worker collects the whole suite, so a test sits at the
+        # same position in every process. Remembering that position is what
+        # lets the controller put the workers' results back in collection
+        # order, whatever order they actually ran in.
+        self._collected = {item.nodeid: index for index, item in enumerate(items)}
+
+    @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_teardown(self, item, nextitem):
         ConfigVars._test_name = item.name
 
         _test_end_time = time.time()
         ConfigVars._duration = _test_end_time - ConfigVars._start_execution_time
 
-        if (self.rerun is not None) and (max_rerun() is not None): self.previous_test_name(ConfigVars._test_name)
-        self._test_names(ConfigVars._test_name)
-        self.append_test_metrics_row()
+        # A test's fixtures are finalized by the implementations this wraps, so
+        # the record is built after them. That is what lets a screenshot
+        # attached from a fixture's teardown - the recipe most people reach for
+        # first - reach the report at all: built any earlier, there would be no
+        # record left for the image to be attached to. The duration is read
+        # before yielding, so time spent cleaning up is not billed to the test.
+        yield
 
-    def previous_test_name(self, _test_name):
-        if ConfigVars._previous_test_name == _test_name:
-            self.rerun += 1
-        else:
-            ConfigVars._scenario.append(_test_name)
-            self.rerun = 0
-            ConfigVars._previous_test_name = _test_name
+        self.append_test_record(item)
 
-    def pytest_runtest_setup(item):
+    def pytest_runtest_setup(self, item):
         ConfigVars._start_execution_time = time.time()
+        self._log_sections = {}
 
     def pytest_sessionfinish(self, session):
-        if ConfigVars._suite_name is not None: self.append_suite_metrics_row(ConfigVars._suite_name)
+        # A worker cannot write the report - it only ever saw its own slice of
+        # the run - so it ships its records back to the controller instead.
+        if is_xdist_worker(self.config):
+            self.config.workeroutput['pytest_html_reporter'] = {'records': self._records}
+
+    @pytest.hookimpl(optionalhook=True)
+    def pytest_testnodedown(self, node, error):
+        """Collect one finished xdist worker's records on the controller."""
+        payload = getattr(node, 'workeroutput', {}).get('pytest_html_reporter')
+        if payload:
+            for record in payload['records']:
+                self.store_test_record(record)
 
     def archive_data(self, base, filename):
         path = os.path.join(base, filename)
@@ -103,15 +162,23 @@ class HTMLReporter(object):
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
 
         yield
+
+        # Workers already handed their records to the controller. Letting them
+        # write as well is what produced a report - and an archived "build" -
+        # per worker, each holding only that worker's share of the tests.
+        if is_xdist_worker(self.config): return
+
         _execution_time = time.time() - self._sessionstarttime
 
-        if ConfigVars._execution_time < 60:
+        if _execution_time < 60:
             ConfigVars._execution_time = str(round(_execution_time, 2)) + " secs"
         else:
-            _execution_time = str(time.strftime("%H:%M:%S", time.gmtime(round(_execution_time)))) + " Hrs"
-        ConfigVars._total = ConfigVars._pass + ConfigVars._fail + ConfigVars._xpass + ConfigVars._xfail + ConfigVars._skip + ConfigVars._error
+            ConfigVars._execution_time = str(time.strftime("%H:%M:%S", time.gmtime(round(_execution_time)))) + " Hrs"
 
-        if ConfigVars._suite_name is not None:
+        if self._records:
+            # rows, suite totals and json, built once from every process's records
+            self.build_report()
+
             base = self.report_path[0]
             path = os.path.join(base, self.report_path[1])
 
@@ -131,6 +198,12 @@ class HTMLReporter(object):
             # generate suite highlights
             generate_suite_highlights()
 
+            # collect host, interpreter and invocation details
+            generate_environment_info(self.config)
+
+            # say why the Logs column is empty, when something is suppressing it
+            generate_logs_notice(self.config)
+
             # generate html report
             live_logs_file = open(path, 'w')
             message = self.renew_template_text('https://i.imgur.com/LRSRHJO.png')
@@ -144,34 +217,36 @@ class HTMLReporter(object):
         rep = outcome.get_result()
         ConfigVars._suite_name = rep.nodeid.split("::")[0]
 
-        if ConfigVars._initial_trigger:
-            self.update_previous_suite_name()
-            self.set_initial_trigger()
+        # Setup, call and teardown each report their own captured output, so
+        # the sections are collected as the phases go by rather than read off
+        # any single report.
+        if self.logs_mode != 'none':
+            merge_log_sections(self._log_sections, rep.sections)
 
-        if str(ConfigVars._previous_suite_name) != str(ConfigVars._suite_name):
-            self.append_suite_metrics_row(ConfigVars._previous_suite_name)
-            self.update_previous_suite_name()
-        else:
-            self.update_counts(rep)
+            # A record is built from the teardown hook, which runs before
+            # pytest has finished capturing that phase. Folding the last
+            # sections in here is what puts fixture teardown output - the
+            # output of the code that cleans up after a failure - in the
+            # report at all.
+            if rep.when == 'teardown': self.refresh_record_logs(rep.nodeid)
 
+        # Only the outcome of this one test is tracked here. Suite grouping and
+        # every total are worked out at the end, from the merged records, so
+        # that tests arriving interleaved from several workers still add up.
         if rep.when == "call" and rep.passed:
             if hasattr(rep, "wasxfail"):
-                self.increment_xpass()
                 self.update_test_status("xPASS")
                 self.update_test_error("")
             else:
-                self.increment_pass()
                 self.update_test_status("PASS")
                 self.update_test_error("")
 
         if rep.failed:
             if getattr(rep, "when", None) == "call":
                 if hasattr(rep, "wasxfail"):
-                    self.increment_xpass()
                     self.update_test_status("xPASS")
                     self.update_test_error("")
                 else:
-                    self.increment_fail()
                     self.update_test_status("FAIL")
                     if rep.longrepr:
                         longerr = ""
@@ -181,7 +256,6 @@ class HTMLReporter(object):
                                 longerr += line + "\n"
                         self.update_test_error(longerr.replace("E    ", ""))
             else:
-                self.increment_error()
                 self.update_test_status("ERROR")
                 if rep.longrepr:
                     longerr = ""
@@ -191,7 +265,6 @@ class HTMLReporter(object):
 
         if rep.skipped:
             if hasattr(rep, "wasxfail"):
-                self.increment_xfail()
                 self.update_test_status("xFAIL")
                 if rep.longrepr:
                     longerr = ""
@@ -201,7 +274,6 @@ class HTMLReporter(object):
                             longerr += line + "\n"
                     self.update_test_error(longerr.replace("E    ", ""))
             else:
-                self.increment_skip()
                 self.update_test_status("SKIP")
                 if rep.longrepr:
                     longerr = ""
@@ -209,206 +281,280 @@ class HTMLReporter(object):
                         longerr += line + "\n"
                     self.update_test_error(longerr)
 
-    def append_test_metrics_row(self):
+    def append_test_record(self, item):
+        """Store one finished test as a plain dict.
 
+        Nothing is rendered yet. Records are dicts of built-in types on purpose:
+        that is what lets an xdist worker send its results back to the
+        controller, which merges every worker's list and renders once.
+        """
+        record = {
+            'suite_name': str(ConfigVars._suite_name),
+            'test_name': str(ConfigVars._test_name),
+            'nodeid': str(item.nodeid),
+            'status': str(ConfigVars._test_status),
+            'message': str(ConfigVars._current_error),
+            'duration': round(ConfigVars._duration, 2),
+            'rerun': 0,
+            'index': self._collected.get(item.nodeid, len(self._collected) + len(self._records)),
+            'worker': self.worker_id,
+            'screenshot': None,
+            'logs': self.collect_logs(str(ConfigVars._test_status)),
+        }
+
+        # Whatever the test did. A screenshot of a pass is a baseline, and one
+        # of a skip says why it was skipped; keeping only the failures threw
+        # away images that had been deliberately attached. Every record claims
+        # the pending image, so none is left behind for a later test to pick up
+        # and present as its own.
+        if ConfigVars.screen_img is not None:
+            record['screenshot'] = self.generate_screenshot_data()
+
+        self.store_test_record(record)
+
+    def refresh_record_logs(self, nodeid):
+        """Re-read the captured output of the record already stored for a test."""
+        slot = self._record_slots.get(str(nodeid))
+        if slot is None: return
+
+        record = self._records[slot]
+        record['logs'] = self.collect_logs(record['status'])
+
+    def collect_logs(self, status):
+        """What pytest captured while this test ran, ready to be rendered.
+
+        Plain lists and strings, like the rest of a record, so an xdist worker
+        can ship them back to the controller that writes the report.
+        """
+        if self.logs_mode == 'none': return []
+        if (self.logs_mode == 'failed') and (status not in ('FAIL', 'ERROR')): return []
+
+        return format_log_sections(self._log_sections, self.log_limit)
+
+    def store_test_record(self, record):
+        """Keep one record per test, however many times it was attempted.
+
+        pytest-rerunfailures runs the whole setup/call/teardown protocol again
+        for every retry, so a retried test arrives here once per attempt. Only
+        the attempt that stuck belongs in the report - the ones it superseded
+        are what the rerun count is there to say.
+
+        Counting attempts is the only reliable signal: --reruns, the ini key and
+        @pytest.mark.flaky(reruns=n) can each set a different budget, and
+        --only-rerun can stop the retries early, so no single number says how
+        many attempts a given test will take.
+        """
+        slot = self._record_slots.get(record['nodeid'])
+
+        if (slot is None) or (not self.rerun_plugin):
+            self._record_slots[record['nodeid']] = len(self._records)
+            self._records.append(record)
+            return
+
+        superseded = self._records[slot]
+
+        # Both records may already stand for several attempts - that is what a
+        # worker sends back - and the one being replaced is an attempt itself.
+        record['rerun'] = int(superseded['rerun']) + int(record['rerun']) + 1
+
+        # A retry that attached no screenshot of its own keeps the one from the
+        # attempt it replaces, rather than dropping it from the report.
+        if record['screenshot'] is None: record['screenshot'] = superseded['screenshot']
+
+        record['index'] = superseded['index']
+        self._records[slot] = record
+
+    def build_report(self):
+        """Turn every collected record into rows, totals and json data - once.
+
+        Records come from this process and, on an xdist run, from each worker.
+        Sorting them by collection position and then grouping by suite means a
+        parallel report reads exactly like a serial one, no matter which worker
+        happened to pick up which test.
+        """
+        records = sorted(self._records, key=lambda r: (r['index'], r['worker']))
+
+        suites = OrderedDict()
+        for record in records:
+            suites.setdefault(record['suite_name'], []).append(record)
+
+        for suite_index, suite_name in enumerate(suites):
+            suite_records = suites[suite_name]
+
+            for row_id, record in enumerate(suite_records):
+                self.append_test_metrics_row(record, str(suite_index) + '-' + str(row_id))
+
+            self.append_suite_metrics_row(suite_index, suite_name, suite_records)
+
+        self.update_counts(records)
+
+    def append_test_metrics_row(self, record, row_id):
         test_row_text = TestRow(
-            sname=str(ConfigVars._suite_name),
-            name=str(ConfigVars._test_name),
-            stat=str(ConfigVars._test_status),
-            dur=str(round(ConfigVars._duration, 2)),
-            msg=str(ConfigVars._current_error[:50]),
-            runt=str(time.time()).replace('.', '')
+            sname=str(record['suite_name']),
+            name=str(record['test_name']),
+            stat=str(record['status']),
+            dur=str(record['duration']),
+            msg=str(record['message'][:50]),
+            runt=row_id,
+            log_count=str(self.attach_test_logs(record, row_id))
         )
 
-        floating_error_text = FloatingError(full_msg=str(ConfigVars._current_error), runt = str(time.time()).replace('.', ''))
-
-        if (self.rerun is not None) and (max_rerun() is not None):
-            if (ConfigVars._test_status == 'FAIL') or (ConfigVars._test_status == 'ERROR'): ConfigVars._pvalue += 1
-
-            if (ConfigVars._pvalue == max_rerun() + 1) or (ConfigVars._test_status == 'PASS'):
-                if ((ConfigVars._test_status == 'FAIL') or (ConfigVars._test_status == 'ERROR')) and (
-                        ConfigVars.screen_base != ''): self.generate_screenshot_data()
-
-                if len(ConfigVars._current_error) < 49:
-                    test_row_text.floating_error_text = str('')
-                else:
-                    test_row_text.floating_error_text = str(floating_error_text)
-                    test_row_text.full_msg = str(ConfigVars._current_error)
-
-                ConfigVars._test_metrics_content += str(test_row_text)
-                ConfigVars._pvalue = 0
-
-            elif (self.rerun is not None) and (
-                    (ConfigVars._test_status == 'xFAIL') or (ConfigVars._test_status == 'xPASS') or (
-                    ConfigVars._test_status == 'SKIP')):
-
-                if len(ConfigVars._current_error) < 49:
-                    test_row_text.floating_error_text = ''
-                else:
-                    test_row_text.floating_error_text = str(floating_error_text)
-                    test_row_text.full_msg = str(ConfigVars._current_error)
-
-                ConfigVars._test_metrics_content += str(test_row_text)
-
-        elif (self.rerun is None) or (max_rerun() is None):
-            if ((ConfigVars._test_status == 'FAIL') or (ConfigVars._test_status == 'ERROR')) and (
-                    ConfigVars.screen_base != ''): self.generate_screenshot_data()
-
-            if len(ConfigVars._current_error) < 49:
-                test_row_text.floating_error_text = ''
-            else:
-                test_row_text.floating_error_text = str(floating_error_text)
-                test_row_text.full_msg = str(ConfigVars._current_error)
-
-            logging.warning(f"Test Metrics Row: {test_row_text}")
-
-            ConfigVars._test_metrics_content += str(test_row_text)
-
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name), {})['suite_name'] = str(
-            ConfigVars._suite_name)
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name), {}).setdefault('tests',
-                                                                                                        {}).setdefault(
-            len(ConfigVars._scenario) - 1, {})['status'] = str(ConfigVars._test_status)
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name), {}).setdefault('tests',
-                                                                                                        {}).setdefault(
-            len(ConfigVars._scenario) - 1, {})['message'] = str(ConfigVars._current_error)
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name), {}).setdefault('tests',
-                                                                                                        {}).setdefault(
-            len(ConfigVars._scenario) - 1, {})['test_name'] = str(ConfigVars._test_name)
-
-        if (self.rerun is not None) and (max_rerun() is not None):
-            self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name), {}).setdefault('tests',
-                                                                                                            {}).setdefault(
-                len(ConfigVars._scenario) - 1, {})['rerun'] = str(self.rerun)
+        if len(record['message']) < 49:
+            test_row_text.floating_error_text = ''
         else:
-            self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name), {}).setdefault('tests',
-                                                                                                            {}).setdefault(
-                len(ConfigVars._scenario) - 1, {})['rerun'] = '0'
+            test_row_text.floating_error_text = str(
+                FloatingError(full_msg=str(record['message']), runt=row_id)
+            )
+            test_row_text.full_msg = str(record['message'])
+
+        ConfigVars._test_metrics_content += str(test_row_text)
+
+        if record['screenshot'] is not None:
+            self.attach_screenshots(
+                record['screenshot']['name'],
+                record['screenshot']['suite'],
+                record['screenshot']['test'],
+                record['screenshot']['error'],
+            )
+
+    def attach_test_logs(self, record, row_id):
+        """Park a test's captured output outside the table, return its size.
+
+        The text is kept in a hidden block rather than in the row itself: a
+        cell holding a few thousand lines would be swept into the table's
+        search index and into every CSV, Excel and print export. The row only
+        needs the line count, which is what the button shows and what tells the
+        page whether there is anything to open at all.
+        """
+        sections = record.get('logs') or []
+        if not sections: return 0
+
+        body = ''
+        for section in sections:
+            body += str(TestLogSection(
+                title=escape_log_text(section['title']),
+                text=escape_log_text(section['text'])
+            ))
+
+        ConfigVars._test_logs_content += str(TestLog(
+            runt=row_id,
+            sname=escape_log_text(record['suite_name']),
+            name=escape_log_text(record['test_name']),
+            sections=body
+        ))
+
+        return count_log_lines(sections)
 
     def generate_screenshot_data(self):
+        """Save the attached image and describe it for the report.
 
+        The png is written by whichever process ran the test - workers share the
+        filesystem with the controller - but the markup is left to the
+        controller so every screenshot lands in the one report.
+        """
         os.makedirs(ConfigVars.screen_base + '/pytest_screenshots', exist_ok=True)
 
-        _screenshot_name = round(time.time())
+        # Two workers failing in the same second must not overwrite each other's
+        # image, so the name carries milliseconds and the worker id.
+        _screenshot_name = str(round(time.time() * 1000))
+        if self.worker_id: _screenshot_name += '-' + self.worker_id
+
         _screenshot_suite_name = ConfigVars._suite_name.split('/')[-1:][0].replace('.py', '')
         _screenshot_test_name = ConfigVars._test_name
-        if len(ConfigVars._test_name) >= 19: ConfigVars._screenshot_test_name = ConfigVars._test_name[-17:]
-        _screenshot_error = ConfigVars._current_error
+        if len(ConfigVars._test_name) >= 19: _screenshot_test_name = ConfigVars._test_name[-17:]
 
         ConfigVars.screen_img.save(
-            ConfigVars.screen_base + '/pytest_screenshots/' + str(_screenshot_name) + '.png'
+            ConfigVars.screen_base + '/pytest_screenshots/' + _screenshot_name + '.png'
         )
 
-        # attach screenshots
-        self.attach_screenshots(_screenshot_name, _screenshot_suite_name, _screenshot_test_name, _screenshot_error)
-        _screenshot_name = ''
-        _screenshot_suite_name = ''
-        _screenshot_test_name = ''
-        _screenshot_error = ''
+        # Consumed: without this the same image is saved again for every later
+        # failure that did not attach one of its own.
+        ConfigVars.screen_img = None
 
-    def append_suite_metrics_row(self, name):
-        self._test_names(ConfigVars._test_name, clear='yes')
+        return {
+            'name': _screenshot_name,
+            'suite': _screenshot_suite_name,
+            'test': _screenshot_test_name,
+            # Blank for anything that passed, so the tile says how the test
+            # ended rather than showing an empty caption.
+            'error': ConfigVars._current_error or str(ConfigVars._test_status),
+        }
+
+    def append_suite_metrics_row(self, suite_index, name, records):
         self._test_suites(name)
 
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault('status',
-                                                                                                            {})[
-            'total_pass'] = int(ConfigVars._spass_tests)
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault('status',
-                                                                                                            {})[
-            'total_skip'] = int(ConfigVars._sskip_tests)
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault('status',
-                                                                                                            {})[
-            'total_xpass'] = int(ConfigVars._sxpass_tests)
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault('status',
-                                                                                                            {})[
-            'total_xfail'] = int(ConfigVars._sxfail_tests)
+        _status = {
+            'total_pass': 0,
+            'total_fail': 0,
+            'total_skip': 0,
+            'total_error': 0,
+            'total_xpass': 0,
+            'total_xfail': 0,
+            'total_rerun': 0,
+        }
+        _keys = {
+            'PASS': 'total_pass',
+            'FAIL': 'total_fail',
+            'SKIP': 'total_skip',
+            'ERROR': 'total_error',
+            'xPASS': 'total_xpass',
+            'xFAIL': 'total_xfail',
+        }
 
-        if (self.rerun is not None) and (max_rerun() is not None):
-            _base_suite = self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault(
-                'tests', {})
-            for i in _base_suite:
-                ConfigVars._srerun_tests += int(_base_suite[int(i)]['rerun'])
+        _tests = {}
+        for i, record in enumerate(records):
+            _status[_keys.get(record['status'], 'total_error')] += 1
+            _status['total_rerun'] += int(record['rerun'])
 
-            self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault(
-                'status', {})[
-                'total_rerun'] = int(ConfigVars._srerun_tests)
-        else:
-            self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault(
-                'status', {})[
-                'total_rerun'] = 0
+            _tests[i] = {
+                'status': str(record['status']),
+                'message': str(record['message']),
+                'test_name': str(record['test_name']),
+                'rerun': str(record['rerun']),
+            }
 
-        suite_tests = self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault('tests', {})
-        for i in suite_tests:
-            test_status = suite_tests[i].get('status', '')
-            if 'ERROR' in test_status:
-                ConfigVars._suite_error += 1
-            elif 'FAIL' == test_status:
-                ConfigVars._suite_fail += 1
-
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault('status',
-                                                                                                            {})[
-            'total_fail'] = ConfigVars._suite_fail
-        self.json_data['content']['suites'].setdefault(len(ConfigVars._test_suite_name) - 1, {}).setdefault('status',
-                                                                                                            {})[
-            'total_error'] = ConfigVars._suite_error
+        self.json_data['content']['suites'][suite_index] = {
+            'suite_name': str(name),
+            'tests': _tests,
+            'status': _status,
+        }
 
         suite_row_text = SuiteRow(
             sname=str(name),
-            spass=str(ConfigVars._spass_tests),
-            sfail=str(ConfigVars._suite_fail),
-            sskip=str(ConfigVars._sskip_tests),
-            sxpass=str(ConfigVars._sxpass_tests),
-            sxfail=str(ConfigVars._sxfail_tests),
-            serror=str(ConfigVars._suite_error),
-            srerun=str(ConfigVars._srerun_tests)
+            spass=str(_status['total_pass']),
+            sfail=str(_status['total_fail']),
+            sskip=str(_status['total_skip']),
+            sxpass=str(_status['total_xpass']),
+            sxfail=str(_status['total_xfail']),
+            serror=str(_status['total_error']),
+            srerun=str(_status['total_rerun'])
         )
 
         ConfigVars._suite_metrics_content += str(suite_row_text)
 
-        self._test_passed(int(ConfigVars._spass_tests))
-        self._test_failed(int(ConfigVars._suite_fail))
-        self._test_skipped(int(ConfigVars._sskip_tests))
-        self._test_xpassed(int(ConfigVars._sxpass_tests))
-        self._test_xfailed(int(ConfigVars._sxfail_tests))
-        self._test_error(int(ConfigVars._suite_error))
+        self._test_passed(_status['total_pass'])
+        self._test_failed(_status['total_fail'])
+        self._test_skipped(_status['total_skip'])
+        self._test_xpassed(_status['total_xpass'])
+        self._test_xfailed(_status['total_xfail'])
+        self._test_error(_status['total_error'])
 
-        ConfigVars._spass_tests = 0
-        ConfigVars._sfail_tests = 0
-        ConfigVars._sskip_tests = 0
-        ConfigVars._sxpass_tests = 0
-        ConfigVars._sxfail_tests = 0
-        ConfigVars._serror_tests = 0
-        ConfigVars._srerun_tests = 0
-        ConfigVars._suite_fail = 0
-        ConfigVars._suite_error = 0
+    def update_counts(self, records):
+        """Run-wide totals, counted off the records rather than accumulated.
 
-    def set_initial_trigger(self):
-        ConfigVars._initial_trigger = False
-
-    def update_previous_suite_name(self):
-        ConfigVars._previous_suite_name = ConfigVars._suite_name
-
-    def update_counts(self, rep):
-        if rep.when == "call" and rep.passed:
-            if hasattr(rep, "wasxfail"):
-                ConfigVars._sxpass_tests += 1
-            else:
-                ConfigVars._spass_tests += 1
-
-        if rep.failed:
-            if getattr(rep, "when", None) == "call":
-                if hasattr(rep, "wasxfail"):
-                    ConfigVars._sxpass_tests += 1
-                else:
-                    ConfigVars._sfail_tests += 1
-            else:
-                pass
-
-        if rep.skipped:
-            if hasattr(rep, "wasxfail"):
-                ConfigVars._sxfail_tests += 1
-            else:
-                ConfigVars._sskip_tests += 1
+        The controller of an xdist run never sees a test report of its own, so
+        these cannot be incremented as tests go by.
+        """
+        ConfigVars._pass = len([r for r in records if r['status'] == 'PASS'])
+        ConfigVars._fail = len([r for r in records if r['status'] == 'FAIL'])
+        ConfigVars._skip = len([r for r in records if r['status'] == 'SKIP'])
+        ConfigVars._xpass = len([r for r in records if r['status'] == 'xPASS'])
+        ConfigVars._xfail = len([r for r in records if r['status'] == 'xFAIL'])
+        ConfigVars._error = len(records) - (
+            ConfigVars._pass + ConfigVars._fail + ConfigVars._skip
+            + ConfigVars._xpass + ConfigVars._xfail
+        )
+        ConfigVars._total = ConfigVars._executed = len(records)
 
     def update_test_error(self, msg):
         ConfigVars._current_error = msg
@@ -416,37 +562,11 @@ class HTMLReporter(object):
     def update_test_status(self, status):
         ConfigVars._test_status = status
 
-    def increment_xpass(self):
-        ConfigVars._xpass += 1
-
-    def increment_xfail(self):
-        ConfigVars._xfail += 1
-
-    def increment_pass(self):
-        ConfigVars._pass += 1
-
-    def increment_fail(self):
-        ConfigVars._fail += 1
-
-    def increment_skip(self):
-        ConfigVars._skip += 1
-
-    def increment_error(self):
-        ConfigVars._error += 1
-        ConfigVars._serror_tests += 1
-
     def _date(self):
         return date.today().strftime("%B %d, %Y")
 
     def _test_suites(self, name):
         ConfigVars._test_suite_name.append(name.split('/')[-1].replace('.py', ''))
-
-    def _test_names(self, name, **kwargs):
-        if (self.rerun is None) or (max_rerun() is None): ConfigVars._scenario.append(name)
-        try:
-            if kwargs['clear'] == 'yes': ConfigVars._scenario = []
-        except Exception:
-            pass
 
     def _test_passed(self, value):
         ConfigVars._test_pass_list.append(value)
@@ -471,6 +591,8 @@ class HTMLReporter(object):
             custom_logo=logo_url,
             execution_time=str(ConfigVars._execution_time),
             title=ConfigVars._title,
+            title_full=str(ConfigVars._title_full),
+            title_class=str(ConfigVars._title_class),
             total=str(
                 ConfigVars._aspass + ConfigVars._asfail + ConfigVars._asskip + ConfigVars._aserror + ConfigVars._asxpass + ConfigVars._asxfail),
             executed=str(ConfigVars._executed),
@@ -505,13 +627,14 @@ class HTMLReporter(object):
             tpass=str(ConfigVars.tpass),
             tfail=str(ConfigVars.tfail),
             tskip=str(ConfigVars.tskip),
-            attach_screenshot_details=str(ConfigVars._attach_screenshot_details)
+            attach_screenshot_details=str(ConfigVars._attach_screenshot_details),
+            test_logs=str(ConfigVars._test_logs_content),
+            logs_notice=str(ConfigVars._logs_notice),
+            environment_rows=str(ConfigVars._environment_rows),
+            environment=str(ConfigVars._environment_label),
+            environment_title=str(ConfigVars._environment),
+            environment_class=str(ConfigVars._environment_class)
         )
-
-        # template_text = template_text.replace("__executed_by__", str(platform.uname()[1]))
-        # template_text = template_text.replace("__os_name__", str(platform.uname()[0]))
-        # template_text = template_text.replace("__python_version__", str(sys.version.split(' ')[0]))
-        # template_text = template_text.replace("__generated_date__", str(datetime.datetime.now().strftime("%b %d %Y, %H:%M")))
 
         return str(template_text)
 
@@ -594,7 +717,7 @@ class HTMLReporter(object):
                                               astate_color=state(data['status'].lower())[1])
                 if value == "current":
                     archive_row_text.astatus = 'build #' + str(ConfigVars._archive_count)
-                    archive_row_textacount = str(ConfigVars._archive_count)
+                    archive_row_text.acount = str(ConfigVars._archive_count)
                 else:
                     archive_row_text.astatus = 'build #' + str(len(f) - i)
                     archive_row_text.acount = str(len(f) - i)

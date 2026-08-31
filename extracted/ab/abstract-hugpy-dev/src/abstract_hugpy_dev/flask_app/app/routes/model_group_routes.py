@@ -289,7 +289,8 @@ def templates_create():
         from ....comms.task_templates import put_template
         rec, errors = put_template(
             body.get("id") or body.get("name"), name=body.get("name"),
-            groups=body.get("groups"), workers=body.get("workers"), by=_who())
+            groups=body.get("groups"), workers=body.get("workers"),
+            tasks=body.get("tasks"), by=_who())
     except Exception as exc:  # noqa: BLE001
         logger.warning("POST /llm/templates failed: %s", exc, exc_info=True)
         return jsonify({"error": str(exc)}), 500
@@ -306,12 +307,14 @@ def templates_update(template_id):
         cur = get_template(template_id)
         if cur is None and request.method == "PATCH":
             return jsonify({"error": f"no such template: {template_id}"}), 404
-        base = cur or {"name": template_id, "groups": [], "workers": []}
+        base = cur or {"name": template_id, "groups": [], "workers": [],
+                       "tasks": []}
         rec, errors = put_template(
             template_id,
             name=body.get("name", base.get("name")),
             groups=body.get("groups", base.get("groups")),
             workers=body.get("workers", base.get("workers")),
+            tasks=body.get("tasks", base.get("tasks")),
             by=_who())
     except Exception as exc:  # noqa: BLE001
         logger.warning("%s /llm/templates/%s failed: %s",
@@ -319,6 +322,29 @@ def templates_update(template_id):
         return jsonify({"error": str(exc)}), 500
     if errors:
         return jsonify({"error": "; ".join(errors), "errors": errors}), 400
+    return jsonify({"template": rec}), 200
+
+
+@model_group_bp.route("/llm/templates/<template_id>/tasks/<task_name>",
+                      methods=["POST"])
+def templates_fill_task(template_id, task_name):
+    """Fill ONE task's model slot — the operator's fill-in-the-optimum-model
+    operation (task-oriented templates, 2026-08-28). Body: {"model": str} to
+    set, {"model": null} to clear back to unfilled. Never touches the rest of
+    the outline."""
+    body = _payload()
+    if "model" not in body:
+        return jsonify({"error": 'body must carry "model" (a model key, or '
+                        "null to clear the slot)"}), 400
+    try:
+        from ....comms.task_templates import set_task_model
+        rec, err = set_task_model(template_id, task_name, body.get("model"))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("POST /llm/templates/%s/tasks/%s failed: %s",
+                       template_id, task_name, exc, exc_info=True)
+        return jsonify({"error": str(exc)}), 500
+    if err:
+        return jsonify({"error": err}), 404 if "no such" in err or "no task" in err else 400
     return jsonify({"template": rec}), 200
 
 

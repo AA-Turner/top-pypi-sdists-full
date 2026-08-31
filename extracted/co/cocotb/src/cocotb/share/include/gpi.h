@@ -32,15 +32,15 @@ imitate a callback.
 */
 
 #include <exports.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+
 #ifdef GPI_EXPORTS
 #define GPI_EXPORT COCOTB_EXPORT
 #else
 #define GPI_EXPORT COCOTB_IMPORT
 #endif
-
-#include <gpi_logging.h>
-#include <stdbool.h>
-#include <stdint.h>
 
 /*
  * Declare the handle types.
@@ -68,72 +68,23 @@ typedef GpiIterator *gpi_iterator_hdl;
 struct GpiObjHdl;
 struct GpiCbHdl;
 struct GpiIterator;
+
+/** Handle to simulation object, such as a signal. */
 typedef struct GpiObjHdl *gpi_sim_hdl;
+
+/** Handle to callback object. */
 typedef struct GpiCbHdl *gpi_cb_hdl;
+
+/** Handle to iterator object.
+ *
+ * Used to iterate over child handles of a smulation object.
+ */
 typedef struct GpiIterator *gpi_iterator_hdl;
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/** Object discovery method when searching by name. */
-typedef enum gpi_discovery_e {
-    GPI_AUTO = 0,
-    GPI_NATIVE = 1,
-} gpi_discovery;
-
-/** GPI simulation object types. */
-// Note these are strikingly similar to the VPI types...
-typedef enum gpi_objtype_e {
-    GPI_UNKNOWN = 0,
-    GPI_MEMORY = 1,
-    GPI_MODULE = 2,
-    // GPI_NET = 3,  // Deprecated
-    // GPI_PARAMETER = 4,  // Deprecated
-    // GPI_REGISTER = 5,  // Deprecated
-    GPI_ARRAY = 6,
-    GPI_ENUM = 7,
-    GPI_STRUCTURE = 8,
-    GPI_REAL = 9,
-    GPI_INTEGER = 10,
-    GPI_STRING = 11,
-    GPI_GENARRAY = 12,
-    GPI_PACKAGE = 13,
-    GPI_PACKED_STRUCTURE = 14,
-    GPI_LOGIC = 15,
-    GPI_LOGIC_ARRAY = 16,
-} gpi_objtype;
-
-/** Types of child objects to search for when iterating. */
-typedef enum gpi_iterator_sel_e {
-    GPI_OBJECTS = 1,
-    GPI_DRIVERS = 2,
-    GPI_LOADS = 3,
-    GPI_PACKAGE_SCOPES = 4,
-} gpi_iterator_sel;
-
-/** Action to use when setting object value. */
-typedef enum gpi_set_action_e {
-    GPI_DEPOSIT = 0,
-    GPI_FORCE = 1,
-    GPI_RELEASE = 2,
-    GPI_NO_DELAY = 3,
-} gpi_set_action;
-
-/** Direction of range constraint of an object. */
-typedef enum gpi_range_dir_e {
-    GPI_RANGE_DOWN = -1,
-    GPI_RANGE_NO_DIR = 0,
-    GPI_RANGE_UP = 1,
-} gpi_range_dir;
-
-/** Type of value change to match when registering for callback. */
-typedef enum gpi_edge_e {
-    GPI_RISING,
-    GPI_FALLING,
-    GPI_VALUE_CHANGE,
-} gpi_edge;
 
 /** @defgroup SimIntf Simulator Control and Interrogation
  * These functions are for controlling and querying
@@ -150,7 +101,7 @@ typedef enum gpi_edge_e {
 GPI_EXPORT bool gpi_has_registered_impl(void);
 
 /** Stop the simulation after control returns to the GPI. */
-GPI_EXPORT void gpi_sim_end(void);
+GPI_EXPORT void gpi_finish(void);
 
 /** Get the simulation time as two 32-bit uints.
  *
@@ -182,12 +133,26 @@ GPI_EXPORT const char *gpi_get_simulator_product(void);
  */
 GPI_EXPORT const char *gpi_get_simulator_version(void);
 
+/** Return the arguments to the simulator executable call.
+ *
+ * @param argc  Pointer to store argument count.
+ * @param argv  Pointer to store argument values.
+ * @return      Zero on success, non-zero on failure.
+ */
+GPI_EXPORT int gpi_get_simulator_args(int *argc, char const *const **argv);
+
 /** @} */  // End of group SimIntf
 
 /** @defgroup ObjQuery Simulation Object Query
  * These functions are for getting handles to simulation objects.
  * @{
  */
+
+/** Object discovery method when searching by name. */
+typedef enum gpi_discovery_e {
+    GPI_AUTO = 0,
+    GPI_NATIVE = 1,
+} gpi_discovery;
 
 /** Get a handle to the root simulation object.
  *
@@ -226,14 +191,44 @@ GPI_EXPORT gpi_sim_hdl gpi_get_handle_by_index(gpi_sim_hdl parent,
  * @{
  */
 
+/** GPI simulation object types. */
+// Note these are strikingly similar to the VPI types...
+typedef enum gpi_objtype_e {
+    GPI_UNKNOWN = 0,
+    GPI_MEMORY = 1,
+    GPI_MODULE = 2,
+    // GPI_NET = 3,  // Deprecated
+    // GPI_PARAMETER = 4,  // Deprecated
+    // GPI_REGISTER = 5,  // Deprecated
+    GPI_ARRAY = 6,
+    GPI_ENUM = 7,
+    GPI_STRUCTURE = 8,
+    GPI_REAL = 9,
+    GPI_INTEGER = 10,
+    GPI_STRING = 11,
+    GPI_FIXED_STRING = 12,
+    GPI_GENARRAY = 13,
+    GPI_PACKAGE = 14,
+    GPI_PACKED = 15,
+    GPI_LOGIC = 16,
+    GPI_LOGIC_ARRAY = 17,
+} gpi_objtype;
+
+/** Direction of range constraint of an object. */
+typedef enum gpi_range_dir_e {
+    GPI_RANGE_DOWN = -1,
+    GPI_RANGE_NO_DIR = 0,
+    GPI_RANGE_UP = 1,
+} gpi_range_dir;
+
 /** @return The @ref gpi_objtype "type" of the simulation object. */
-GPI_EXPORT gpi_objtype gpi_get_object_type(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT gpi_objtype gpi_get_object_type(gpi_sim_hdl obj_hdl);
 
 /** @return Definition name of the simulation object. */
-GPI_EXPORT const char *gpi_get_definition_name(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT const char *gpi_get_definition_name(gpi_sim_hdl obj_hdl);
 
 /** @return Definition file of the simulation object. */
-GPI_EXPORT const char *gpi_get_definition_file(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT const char *gpi_get_definition_file(gpi_sim_hdl obj_hdl);
 
 /** @return The number of objects in the collection of the handle. */
 GPI_EXPORT int gpi_get_num_elems(gpi_sim_hdl gpi_sim_hdl);
@@ -253,13 +248,20 @@ GPI_EXPORT gpi_range_dir gpi_get_range_dir(gpi_sim_hdl gpi_sim_hdl);
  *
  * @return `1` if the object value is constant, `0` otherwise.
  */
-GPI_EXPORT int gpi_is_constant(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT int gpi_is_constant(gpi_sim_hdl obj_hdl);
 
 /** Determine whether an object is indexable.
  *
  * @return `1` if the object value is indexable, `0` otherwise.
  */
-GPI_EXPORT int gpi_is_indexable(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT int gpi_is_indexable(gpi_sim_hdl obj_hdl);
+
+/** Determine whether integer object is signed.
+ *
+ * @return `1` if the integer object is signed, `0` if unsigned, `-1` if unknown
+ * or not applicable.
+ */
+GPI_EXPORT int gpi_is_signed(gpi_sim_hdl obj_hdl);
 
 /** @} */  // End of group ObjProps
 
@@ -268,78 +270,86 @@ GPI_EXPORT int gpi_is_indexable(gpi_sim_hdl gpi_hdl);
  * @{
  */
 
+/** Action to use when setting object value. */
+typedef enum gpi_set_action_e {
+    GPI_DEPOSIT = 0,
+    GPI_FORCE = 1,
+    GPI_RELEASE = 2,
+    GPI_NO_DELAY = 3,
+} gpi_set_action;
+
 // Getting properties
 
 /** Get signal object value as a binary string.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @return          Object value.
  */
-GPI_EXPORT const char *gpi_get_signal_value_binstr(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT const char *gpi_get_signal_value_binstr(gpi_sim_hdl sig_hdl);
 
 /** Get signal object value as a byte array.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @return          Object value. Null-terminated byte array.
  */
-GPI_EXPORT const char *gpi_get_signal_value_str(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT const char *gpi_get_signal_value_str(gpi_sim_hdl sig_hdl);
 
 /** Get signal object value as a real.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @return          Object value.
  */
-GPI_EXPORT double gpi_get_signal_value_real(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT double gpi_get_signal_value_real(gpi_sim_hdl sig_hdl);
 
 /** Get signal object value as a long.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @return          Object value.
  */
-GPI_EXPORT long gpi_get_signal_value_long(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT long gpi_get_signal_value_long(gpi_sim_hdl sig_hdl);
 
 /** Get signal object name.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @return          Object name.
  */
-GPI_EXPORT const char *gpi_get_signal_name_str(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT const char *gpi_get_signal_name_str(gpi_sim_hdl sig_hdl);
 
 /** Get signal object type as a string.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @return          Object type as a string.
  */
-GPI_EXPORT const char *gpi_get_signal_type_str(gpi_sim_hdl gpi_hdl);
+GPI_EXPORT const char *gpi_get_signal_type_str(gpi_sim_hdl sig_hdl);
 
 // Setting properties
 
 /** Set signal object value with a real.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @param value     Object value.
  * @param action    Action to use.
  */
-GPI_EXPORT void gpi_set_signal_value_real(gpi_sim_hdl gpi_hdl, double value,
+GPI_EXPORT void gpi_set_signal_value_real(gpi_sim_hdl sig_hdl, double value,
                                           gpi_set_action action);
 
 /** Set signal object value with an int.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @param value     Object value.
  * @param action    Action to use.
  */
-GPI_EXPORT void gpi_set_signal_value_int(gpi_sim_hdl gpi_hdl, int32_t value,
+GPI_EXPORT void gpi_set_signal_value_int(gpi_sim_hdl sig_hdl, int32_t value,
                                          gpi_set_action action);
 
 /** Set signal object value with a binary string.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @param str       Object value. Null-terminated string of binary characters
  *                  in [`1`, `0`, `x`, `z`].
  * @param action    Action to use.
  */
-GPI_EXPORT void gpi_set_signal_value_binstr(gpi_sim_hdl gpi_hdl,
+GPI_EXPORT void gpi_set_signal_value_binstr(gpi_sim_hdl sig_hdl,
                                             const char *str,
                                             gpi_set_action action);
 
 /** Set signal object value with a byte array.
- * @param gpi_hdl   Signal object handle.
+ * @param sig_hdl   Signal object handle.
  * @param str       Object value. Null-terminated byte array.
  * @param action    Action to use.
  */
-GPI_EXPORT void gpi_set_signal_value_str(gpi_sim_hdl gpi_hdl, const char *str,
+GPI_EXPORT void gpi_set_signal_value_str(gpi_sim_hdl sig_hdl, const char *str,
                                          gpi_set_action action);
 
 /** @} */  // End of group SigProps
@@ -349,6 +359,15 @@ GPI_EXPORT void gpi_set_signal_value_str(gpi_sim_hdl gpi_hdl, const char *str,
  * to discover child objects.
  * @{
  */
+
+/** Types of child objects to search for when iterating. */
+typedef enum gpi_iterator_sel_e {
+    GPI_OBJECTS = 1,
+    GPI_DRIVERS = 2,
+    GPI_LOADS = 3,
+    GPI_PACKAGE_SCOPES = 4,
+    GPI_ROOTS = 5,
+} gpi_iterator_sel;
 
 /** Start iteration on a simulation object.
  *
@@ -376,6 +395,13 @@ GPI_EXPORT gpi_sim_hdl gpi_next(gpi_iterator_hdl iterator);
  * @{
  */
 
+/** Type of value change to match when registering for callback. */
+typedef enum gpi_edge_e {
+    GPI_VALUE_CHANGE,
+    GPI_RISING,
+    GPI_FALLING,
+} gpi_edge;
+
 /** Register a timed callback.
  *
  * @param gpi_function  Callback function pointer.
@@ -391,12 +417,12 @@ GPI_EXPORT gpi_cb_hdl gpi_register_timed_callback(int (*gpi_function)(void *),
  *
  * @param gpi_function  Callback function pointer.
  * @param gpi_cb_data   Pointer to user data to be passed to callback function.
- * @param gpi_hdl       Simulation object to monitor for value change.
+ * @param sig_hdl       Simulation object to monitor for value change.
  * @param edge          Type of value change to monitor for.
  * @return              Handle to callback object.
  */
 GPI_EXPORT gpi_cb_hdl gpi_register_value_change_callback(
-    int (*gpi_function)(void *), void *gpi_cb_data, gpi_sim_hdl gpi_hdl,
+    int (*gpi_function)(void *), void *gpi_cb_data, gpi_sim_hdl sig_hdl,
     gpi_edge edge);
 
 /** Register a readonly simulation phase callback.
@@ -429,13 +455,46 @@ gpi_register_nexttime_callback(int (*gpi_function)(void *), void *gpi_cb_data);
 GPI_EXPORT gpi_cb_hdl
 gpi_register_readwrite_callback(int (*gpi_function)(void *), void *gpi_cb_data);
 
+/** Register a callback to run at the start of simulation time.
+ *
+ * @param cb        Callback function pointer.
+ * @param cb_data   Pointer to user data to be passed to callback function.
+ * @return          Zero on success, non-zero on failure.
+ */
+GPI_EXPORT int gpi_register_start_of_sim_time_callback(int (*cb)(void *),
+                                                       void *cb_data);
+
+/** Register a callback to run at the end of simulation time.
+ *
+ * @param cb        Callback function pointer.
+ * @param cb_data   Pointer to user data to be passed to callback function.
+ * @return          Zero on success, non-zero on failure.
+ */
+GPI_EXPORT int gpi_register_end_of_sim_time_callback(void (*cb)(void *),
+                                                     void *cb_data);
+
+/** Type of a GPI finalization callback.
+ *
+ * @param cb_data   Pointer to user data to be passed to callback function.
+ */
+typedef void (*gpi_finalize_callback)(void *cb_data);
+
+/** Register a callback to run just before the GPI terminates.
+ *
+ * @param cb        Callback function pointer.
+ * @param cb_data   Pointer to user data to be passed to callback function.
+ * @return          Handle to callback object.
+ */
+GPI_EXPORT int gpi_register_finalize_callback(gpi_finalize_callback cb,
+                                              void *cb_data);
+
 /** Remove callback.
  *
  * The callback will not fire after this function is called.
- * The argument is no longer valid if this function succeeds.
+ * The handle is no longer valid if this function succeeds.
  *
- * @param cb_hdl The handle to the callback to remove.
- * @returns `0` on successful removal, `1` otherwise.
+ * @param cb_hdl    The handle to the callback to remove.
+ * @return          `0` on successful removal, `1` otherwise.
  */
 GPI_EXPORT int gpi_remove_cb(gpi_cb_hdl cb_hdl);
 
@@ -443,14 +502,87 @@ GPI_EXPORT int gpi_remove_cb(gpi_cb_hdl cb_hdl);
  *
  * This function cannot fail.
  *
- * @param cb_hdl The handle to the callback.
- * @param cb_func Where the user callback function should be placed.
- * @param cb_data Where the user callback function data should be placed.
+ * @param cb_hdl    The handle to the callback.
+ * @param cb_func   Where the user callback function should be placed.
+ * @param cb_data   Where the user callback function data should be placed.
  */
 GPI_EXPORT void gpi_get_cb_info(gpi_cb_hdl cb_hdl, int (**cb_func)(void *),
                                 void **cb_data);
 
 /** @} */  // End of group SimCallbacks
+
+/** @defgroup Logging GPI Logging Dependency Injection
+ * These functions are for registering logging implementations into the GPI for
+ * its logging.
+ * @{
+ */
+
+/** Named logging level
+ *
+ *  The native logger only logs level names at these log level values.
+ *  They were specifically chosen to align with the default level values in the
+ *  Python logging module. Implementers of custom loggers should emit human
+ *  readable level names for these value, but may support other values.
+ */
+enum gpi_log_level {
+    GPI_NOTSET = 0,  ///< Lets the parent logger in the hierarchy decide the
+                     ///< effective log level. By default this behaves like
+                     ///< `INFO`.
+    GPI_TRACE = 5,   ///< Prints `TRACE` by default. Information about execution
+                     ///< of simulator callbacks and Python/simulator contexts.
+    GPI_DEBUG = 10,  ///< Prints `DEBUG` by default. Verbose information, useful
+                     ///< for debugging.
+    GPI_INFO = 20,   ///< Prints `INFO` by default. Information about major
+                     ///< events in the current program.
+    GPI_WARNING = 30,  ///< Prints `WARN` by default. Encountered a recoverable
+                       ///< bug, or information about surprising behavior.
+    GPI_ERROR = 40,    ///< Prints `ERROR` by default. An unrecoverable error.
+    GPI_CRITICAL = 50  ///< Prints `CRITICAL` by default. An unrecoverable
+                       ///< error, to be followed by immediate simulator
+                       ///< shutdown.
+};
+
+/** Type of a logger handler function.
+ * @param userdata  Private implementation data registered with this function
+ * @param name      Name of the logger
+ * @param level     Level at which to log the message
+ * @param pathname  Name of the file where the call site is located
+ * @param funcname  Name of the function where the call site is located
+ * @param lineno    Line number of the call site
+ * @param msg       The message to log, uses C-sprintf-style format specifier
+ * @param args      Additional arguments; formatted and inserted in message
+ *                  according to format specifier in msg argument
+ */
+typedef void (*gpi_log_handler_ftype)(void *userdata, const char *name,
+                                      enum gpi_log_level level,
+                                      const char *pathname,
+                                      const char *funcname, long lineno,
+                                      const char *msg, va_list args);
+
+/** Retrieve the current log handler.
+ * @param handler   Location to return current log handler function.
+ * @param userdata  Location to return log handler userdata.
+ */
+GPI_EXPORT void gpi_get_log_handler(gpi_log_handler_ftype *handler,
+                                    void **userdata);
+
+/** Set custom log handler
+ * @param handler   Logger handler function.
+ * @param userdata  Data passed to the above functions.
+ */
+GPI_EXPORT void gpi_set_log_handler(gpi_log_handler_ftype handler,
+                                    void *userdata);
+
+/** Set minimum logging level of the native logger.
+ *
+ * If a logging request occurs where the logging level is lower than the level
+ * set by this function, it is not logged. Only affects the native logger.
+ * @param level     Logging level
+ * @return          Previous logging level
+ */
+GPI_EXPORT int gpi_native_logger_set_level(enum gpi_log_level level);
+
+/** @} */  // End of group Logging
 
 #ifdef __cplusplus
 }

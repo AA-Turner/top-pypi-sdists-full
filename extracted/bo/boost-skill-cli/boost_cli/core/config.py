@@ -28,6 +28,29 @@ DEFAULTS = {
         # symlink if that alias is ever narrowed.
         "gemini": {"dir": "~/.gemini/skills", "enabled": True,
                    "links_skills": False},
+        # Antigravity CLI (`agy`) is Gemini CLI's successor and shares its
+        # `~/.gemini` tree, but it does **not** implement the Agent Skills
+        # standard: it reads neither `~/.agents/skills` nor, for CLI scope,
+        # anything outside `~/.gemini/antigravity-cli/`. So unlike gemini it
+        # needs real symlinks — `links_skills` defaults true and stays true.
+        #
+        # Why the CLI-scoped dir and not the shared `~/.gemini/skills`: that
+        # shared dir is one of *Gemini CLI's* user-tier discovery paths, and
+        # Gemini already reads the same skills through the `~/.agents/skills`
+        # alias. Linking there would put one skill in two of Gemini's tiers and
+        # cost a "Skill conflict detected" line per skill per session — the
+        # exact failure `links_skills: false` exists to avoid. Linking into
+        # `antigravity-cli/skills` is invisible to Gemini and is the tier the
+        # CLI itself reads.
+        # `project_scope: false` — its skills dir is two levels under the
+        # dotdir, so the repo-local derivation would make a dotless
+        # `<repo>/antigravity-cli/` nothing reads. See agents.project_agents.
+        # `skills_only`: its rule and workflow formats are unverified, and a
+        # rule reaches it anyway through the `gemini` entry above, which writes
+        # the ~/.gemini/GEMINI.md Antigravity reads.
+        "antigravity": {"dir": "~/.gemini/antigravity-cli/skills",
+                        "enabled": True, "project_scope": False,
+                        "skills_only": True},
     },
     "taps": [],  # [{"name": "owner/repo", "url": "...", "curated": bool}]
     "ai": {
@@ -106,6 +129,31 @@ def load_registry_catalog() -> list:
     except (OSError, json.JSONDecodeError):
         return []
     return data.get("registries", [])
+
+
+def self_installing_command(tap: str) -> str | None:
+    """The repo's own install command, when boost must not copy its items.
+
+    Some registries are real catalogues of Markdown and some are programs that
+    happen to ship Markdown entry points. For the second kind boost's install —
+    copy the item's directory into the canonical store, symlink it out — yields
+    a skill that *looks* installed and cannot run, because the step that makes
+    it work is the repo's own build, not a fetch. Returns the upstream command
+    so the caller can name it instead of pretending; None for every other tap.
+
+    The tap may be addressed by full ``owner/repo`` or by the bare repo name a
+    clone directory carries, so both resolve.
+    """
+    if not tap:
+        return None
+    for row in load_registry_catalog():
+        cmd = row.get("self_installing")
+        if not cmd:
+            continue
+        name = row.get("name") or ""
+        if tap in (name, name.split("/")[-1]):
+            return cmd
+    return None
 
 
 def _merge(base: dict, override: dict) -> dict:

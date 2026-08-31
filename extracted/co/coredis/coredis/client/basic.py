@@ -5,7 +5,7 @@ import contextvars
 import random
 import warnings
 from ssl import SSLContext
-from typing import TYPE_CHECKING, Any, cast, overload
+from typing import TYPE_CHECKING, Any, ClassVar, cast, overload
 
 from anyio import AsyncContextManagerMixin, sleep
 from deprecated.sphinx import versionadded
@@ -78,23 +78,25 @@ from coredis.typing import (
 
 P = ParamSpec("P")
 R = TypeVar("R")
+RedisT = TypeVar("RedisT", bound="Redis[Any]")
 
 if TYPE_CHECKING:
+    import coredis.patterns.himport
     import coredis.patterns.pipeline
     from coredis.patterns.lock import Lock
     from coredis.patterns.streams import Consumer, GroupConsumer, StreamParameters
 
-ClientT = TypeVar("ClientT", bound="Client[Any]")
-RedisT = TypeVar("RedisT", bound="Redis[Any]")
-
 
 class Client(
     AsyncContextManagerMixin,
-    Generic[AnyStr],
     CoreCommands[AnyStr],
     ModuleMixin[AnyStr],
     SentinelCommands[AnyStr],
+    Generic[AnyStr],
 ):
+    #: True when connection-local Redis commands are safe on this surface.
+    connection_scoped_commands: ClassVar[bool] = False
+
     connection_pool: BaseConnectionPool[Any]
     decode_responses: bool
     encoding: str
@@ -154,7 +156,7 @@ class Client(
             callback=callback,
             execution_parameters={
                 **(execution_parameters or {}),
-                **{"noreply": self.noreply},
+                "noreply": self.noreply,
             },
             resolver=self.execute_command,
             type_adapter=self.type_adapter,
@@ -171,15 +173,11 @@ class Client(
 
     @property
     def requires_wait(self) -> bool:
-        if not hasattr(self, "_waitcontext") or not self._waitcontext.get():
-            return False
-        return True
+        return not (not hasattr(self, "_waitcontext") or not self._waitcontext.get())
 
     @property
     def requires_waitaof(self) -> bool:
-        if not hasattr(self, "_waitaof_context") or not self._waitaof_context.get():
-            return False
-        return True
+        return not (not hasattr(self, "_waitaof_context") or not self._waitaof_context.get())
 
     def _ensure_server_version(self, version: str | None) -> None:
         if self.verify_version and not Config.optimized and not self.server_version and version:
@@ -370,7 +368,7 @@ class Client(
         return supported
 
     @contextlib.contextmanager
-    def ignore_replies(self: ClientT) -> Iterator[ClientT]:
+    def ignore_replies(self) -> Iterator[Self]:
         """
         Context manager to run commands without waiting for a reply.
 
@@ -388,9 +386,7 @@ class Client(
             self._noreplycontext.reset(noreply_reset_token)
 
     @contextlib.contextmanager
-    def ensure_replication(
-        self: ClientT, replicas: int = 1, timeout_ms: int = 100
-    ) -> Iterator[ClientT]:
+    def ensure_replication(self, replicas: int = 1, timeout_ms: int = 100) -> Iterator[Self]:
         """
         Context manager to ensure that commands executed within the context
         are replicated to atleast :paramref:`replicas` within
@@ -417,11 +413,11 @@ class Client(
     @versionadded(version="4.12.0")
     @contextlib.contextmanager
     def ensure_persistence(
-        self: ClientT,
+        self,
         local: Literal[0, 1] = 0,
         replicas: int = 0,
         timeout_ms: int = 100,
-    ) -> Iterator[ClientT]:
+    ) -> Iterator[Self]:
         """
         Context manager to ensure that commands executed within the context
         are synced to the AOF of a :paramref:`local` host and/or :paramref:`replicas`
@@ -1000,6 +996,22 @@ class Redis(Client[AnyStr]):
             if not released:
                 pool.release(connection)
 
+    def himport(
+        self, fieldset: StringT, fields: Parameters[StringT]
+    ) -> coredis.patterns.himport.HashImport[AnyStr]:
+        """
+        Return a :class:`~coredis.patterns.himport.HashImport` context manager for
+        writing many hashes that share the same field names.
+
+        :param fieldset: name identifying the field layout in Redis
+        :param fields: field names, in order, matching the values passed to
+         :meth:`~coredis.patterns.himport.HashImport.add`
+        :return: A :class:`~coredis.patterns.himport.HashImport` context manager
+        """
+        from coredis.patterns.himport import HashImport
+
+        return HashImport(self, fieldset, fields)
+
     @overload
     def decoding(
         self, mode: Literal[False], encoding: str | None = None
@@ -1183,8 +1195,8 @@ class Redis(Client[AnyStr]):
         *,
         buffer_size: int = ...,
         timeout: int | None = ...,
-        group: Literal[None] = ...,
-        consumer: Literal[None] = ...,
+        group: None = ...,
+        consumer: None = ...,
         auto_create: bool = ...,
         auto_acknowledge: bool = ...,
         start_from_backlog: bool = ...,

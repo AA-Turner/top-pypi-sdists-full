@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Authlib
-Version: 1.7.2
+Version: 1.8.0
 Summary: The ultimate Python library in building OAuth and OpenID Connect servers and clients.
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause
@@ -32,8 +32,8 @@ Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cryptography
-Requires-Dist: joserfc>=1.6.0
+Requires-Dist: cryptography>=45.0.1
+Requires-Dist: joserfc>=1.6.1
 Dynamic: license-file
 
 <div align="center">

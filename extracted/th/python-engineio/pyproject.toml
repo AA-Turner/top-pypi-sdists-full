@@ -1,6 +1,6 @@
 [project]
 name = "python-engineio"
-version = "4.13.5"
+version = "4.14.0"
 license = {text = "MIT"}
 authors = [{name = "Miguel Grinberg", email = "miguel.grinberg@gmail.com"}]
 description = "Engine.IO server and client for Python"
@@ -18,8 +18,11 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://github.com/miguelgrinberg/python-engineio"
-"Bug Tracker" = "https://github.com/miguelgrinberg/python-engineio/issues"
+homepage = "https://code.miguelgrinberg.com/miguelgrinberg/python-engineio"
+documentation = "https://python-engineio.readthedocs.io/"
+repository = "https://code.miguelgrinberg.com/miguelgrinberg/python-engineio"
+issues = "https://github.com/miguelgrinberg/python-engineio/issues"
+changelog = "https://code.miguelgrinberg.com/miguelgrinberg/python-engineio/src/branch/main/CHANGES.md"
 
 [project.optional-dependencies]
 client = [

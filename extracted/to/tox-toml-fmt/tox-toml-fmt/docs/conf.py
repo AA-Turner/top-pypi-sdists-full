@@ -1,9 +1,14 @@
-"""Configuration for documentation build."""  # noqa: INP001
+"""Configuration for documentation build."""  # ruff: ignore[implicit-namespace-package]
 
 from __future__ import annotations
 
+import os
+import sys
 from datetime import datetime, timezone
 from importlib.metadata import version as metadata_version
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parents[2] / "tasks"))
 
 company, name = "tox-dev", "tox-toml-fmt"
 ver = metadata_version("tox-toml-fmt")
@@ -17,6 +22,7 @@ html_title, html_last_updated_fmt = name, now.isoformat()
 pygments_style, pygments_dark_style = "sphinx", "monokai"
 
 extensions = [
+    "sphinx_llm.txt",
     "sphinx.ext.autodoc",
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
@@ -24,7 +30,9 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinx_inline_tabs",
     "sphinx_copybutton",
+    "sphinx_fmt_example",
 ]
+fmt_example_module = "tox_toml_fmt"
 
 exclude_patterns = ["_build", "changelog/*", "_draft.rst"]
 autoclass_content, autodoc_member_order, autodoc_typehints = "class", "bysource", "none"
@@ -41,3 +49,11 @@ extlinks = {
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 nitpicky = True
 nitpick_ignore = []
+# anchors that resolve in a browser but linkcheck cannot verify: GitHub renders README heading ids with a
+# user-content- prefix added client-side, and pyright's docs are a single-page app with hash-routed sections
+linkcheck_anchors_ignore_for_url = [
+    r"https://github\.com/.*",
+    r"https://microsoft\.github\.io/pyright/.*",
+]
+
+markdown_http_base = os.environ.get("READTHEDOCS_CANONICAL_URL", "")

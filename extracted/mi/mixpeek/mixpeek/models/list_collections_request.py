@@ -27,7 +27,7 @@ from typing_extensions import Self
 
 class ListCollectionsRequest(BaseModel):
     """
-    Request model for listing collections.  Inherits body-level limit/page_size/offset/page (BACKE-2846) — body values win over query pagination via merge_body_pagination.  To filter by taxonomy, use dot notation in filters: filters.AND = [{\"field\": \"taxonomy_applications.taxonomy_id\", \"operator\": \"eq\", \"value\": \"tax_123\"}]
+    Request model for listing collections.  Inherits body-level limit/page_size/offset/page — body values win over query pagination via merge_body_pagination.  To filter by taxonomy, use dot notation in filters: filters.AND = [{\"field\": \"taxonomy_applications.taxonomy_id\", \"operator\": \"eq\", \"value\": \"tax_123\"}]
     """ # noqa: E501
     limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=None, description="Page size. A body value wins over the `limit` query param.")
     page_size: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=None, description="Alias for `limit` (page size). If both are given, `limit` wins.")

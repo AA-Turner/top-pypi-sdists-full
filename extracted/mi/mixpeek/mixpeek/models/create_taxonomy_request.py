@@ -31,7 +31,8 @@ class CreateTaxonomyRequest(BaseModel):
     taxonomy_name: StrictStr = Field(description="A unique name for the taxonomy within the namespace.")
     description: Optional[StrictStr] = Field(default=None, description="An optional description of the taxonomy.")
     config: Config1
-    __properties: ClassVar[List[str]] = ["taxonomy_name", "description", "config"]
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL caller metadata, stored with the taxonomy and merged with the system entries (validation_warnings). PATCH /taxonomies/{id} accepted this field before create did.")
+    __properties: ClassVar[List[str]] = ["taxonomy_name", "description", "config", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,7 +90,8 @@ class CreateTaxonomyRequest(BaseModel):
         _obj = cls.model_validate({
             "taxonomy_name": obj.get("taxonomy_name"),
             "description": obj.get("description"),
-            "config": Config1.from_dict(obj["config"]) if obj.get("config") is not None else None
+            "config": Config1.from_dict(obj["config"]) if obj.get("config") is not None else None,
+            "metadata": obj.get("metadata")
         })
         return _obj
 

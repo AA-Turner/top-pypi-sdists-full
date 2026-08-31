@@ -1,10 +1,15 @@
 import asyncio
 import itertools
 import json
+import socket
+import threading
+import urllib.request
 import uuid
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator, Generator
+from contextlib import asynccontextmanager, contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Optional
+from urllib.parse import urlsplit
 
 import pytest
 import uvicorn
@@ -15,8 +20,16 @@ from wsproto.events import Request as WsRequest
 from pymobiledevice3.exceptions import WebInspectorNotEnabledError
 from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.services.web_protocol.cdp_browser import PAGE_LOCKS, PAGE_TAKEOVERS
-from pymobiledevice3.services.web_protocol.cdp_server import app, targets_html
-from pymobiledevice3.services.web_protocol.cdp_target import JS_CONTEXT_EXECUTION_ID
+from pymobiledevice3.services.web_protocol.cdp_server import (
+    DEVTOOLS_FRONTEND_HOST,
+    DEVTOOLS_FRONTEND_REV,
+    _fetch,
+    _frontend_base,
+    app,
+    targets_html,
+)
+from pymobiledevice3.services.web_protocol.cdp_target import JS_CONTEXT_EXECUTION_ID, CdpTarget
+from pymobiledevice3.services.web_protocol.session_protocol import SessionProtocol
 from pymobiledevice3.services.webinspector import SAFARI, Application, AutomationAvailability, Page, WebinspectorService
 
 TIMEOUT = 30
@@ -233,6 +246,74 @@ async def evaluate_and_log_in_javascript_context(port: int, target_id: str) -> b
         await client.close()
 
 
+async def testp_cdp_server_rejects_the_page_domain_on_a_javascript_context(lockdown: LockdownClient) -> None:
+    """
+    A JSContext debuggable implements no Page domain and its global object has no window, but
+    Chrome's frontends still ask for a resource tree and a screencast. Both must come back as
+    protocol errors the frontend can absorb. Raising out of their translation instead loses the
+    response, and a screencast kept on the target although it never started took the session's
+    teardown down with it - leaking the queue-consumer tasks that then drained the next
+    session's events.
+    """
+    async with cdp_server(lockdown) as (port, _):
+        targets = await list_targets_of_type(port, "node")
+        if not targets:
+            pytest.skip("no inspectable JSContext on the device")
+        for target in targets:
+            if await page_domain_is_rejected_in_javascript_context(port, target["id"]):
+                return
+        pytest.skip("no listed JSContext answered the inspector")
+
+
+async def list_targets_of_type(port: int, type_: str) -> list[dict[str, Any]]:
+    """Listed targets of one kind. The device reports its debuggables asynchronously after the
+    inspector connects, so an immediate listing is empty even when there are some."""
+    for _ in range(TIMEOUT):
+        targets = [target for target in await http_get_json(port, "/json/list") if target["type"] == type_]
+        if targets:
+            return targets
+        await asyncio.sleep(1)
+    return []
+
+
+async def page_domain_is_rejected_in_javascript_context(port: int, target_id: str) -> bool:
+    """Ask a JSContext target for page-only functionality and assert it is refused cleanly.
+
+    :returns: False if the debuggable never answered (a dormant JSContext), True once it did.
+    """
+    client = CdpWebsocketClient(port, target_id)
+    await asyncio.wait_for(client.connect(), TIMEOUT)
+    try:
+        try:
+            await asyncio.wait_for(client.command(1, "Runtime.enable", {}), TIMEOUT)
+        except asyncio.TimeoutError:
+            return False
+        for id_, method, params in (
+            (2, "Page.getResourceTree", {}),
+            (3, "Page.startScreencast", {"format": "jpeg", "quality": 60, "maxWidth": 480, "maxHeight": 960}),
+        ):
+            response = await client.command(id_, method, params)
+            assert "result" not in response, f"{method} cannot succeed on a JSContext"
+            assert "failed to handle" not in response["error"]["message"], (
+                f"{method} must be refused, not raise out of its translation: {response['error']}"
+            )
+        # Refusing must leave the session usable rather than wedge it.
+        result = await client.command(4, "Runtime.evaluate", {"expression": "40+2"})
+        assert result["result"]["result"]["value"] == 42
+    finally:
+        await client.close()
+    # The teardown of a session that asked for a screencast must complete, or its receive loop
+    # keeps consuming the messages of every later session on the same debuggable.
+    client = CdpWebsocketClient(port, target_id)
+    await asyncio.wait_for(client.connect(), TIMEOUT)
+    try:
+        result = await client.command(1, "Runtime.evaluate", {"expression": "40+2"})
+        assert result["result"]["result"]["value"] == 42
+    finally:
+        await client.close()
+    return True
+
+
 async def testp_cdp_server_takes_a_held_page_over(lockdown: LockdownClient) -> None:
     """
     A DevTools tab left attached to a page must not brick every later connection to it.
@@ -366,6 +447,64 @@ async def testp_cdp_server_screencast_survives_navigation(lockdown: LockdownClie
             for url in ("https://example.com/", "https://www.apple.com/") * 2:
                 await command("Page.navigate", {"url": url})
                 await wait_for_frame()
+        finally:
+            await client.close()
+
+
+async def testp_cdp_server_answers_page_requests_across_a_process_swap(lockdown: LockdownClient) -> None:
+    """
+    A navigation that commits in a new process destroys the target the bridge is talking to, and
+    WebKit never answers what was in flight to it - which is exactly when Chrome's frontend asks
+    for the resource tree and starts a screencast. Both used to blow up on the answer that never
+    came (a KeyError on the missing result, and "did not report its screen size"), and the
+    screencast is the damaging one: the frontend never asks again, so the screen stays black for
+    the rest of the session. Both must be re-asked of the target that took over.
+
+    A live screencast runs throughout: its snapshot round-trips pause the receive loop, which is
+    what keeps the targetDestroyed event queued long enough for the requests below to be routed
+    to a target that is already gone.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        try:
+
+            async def command(method: str, params: dict[str, Any]) -> dict[str, Any]:
+                """client.command, acking the screencast frames it would otherwise leave unacked
+                (the encoder stops after one unacked frame)."""
+                id_ = next(message_ids)
+                await client.send({"id": id_, "method": method, "params": params})
+
+                async def wait_for_response() -> dict[str, Any]:
+                    while True:
+                        message = await client.receive()
+                        if message.get("method") == "Page.screencastFrame":
+                            await client.send({
+                                "id": next(message_ids),
+                                "method": "Page.screencastFrameAck",
+                                "params": {"sessionId": message["params"]["sessionId"]},
+                            })
+                        if message.get("id") == id_:
+                            return message
+
+                return await asyncio.wait_for(wait_for_response(), TIMEOUT)
+
+            await command("Page.enable", {})
+            await command("Runtime.enable", {})
+            screencast_params = {"format": "jpeg", "quality": 60, "maxWidth": 480, "maxHeight": 960}
+            assert "result" in await command("Page.startScreencast", screencast_params)
+            # Alternating origins force the swaps. The target is destroyed somewhere in the
+            # couple of seconds after the navigate is issued, so keep asking across that window
+            # rather than once - a single well-timed request slips through on its own.
+            for url in ("https://example.com/", "https://www.apple.com/") * 3:
+                await command("Page.navigate", {"url": url})
+                for _ in range(6):
+                    tree = await command("Page.getResourceTree", {})
+                    assert "result" in tree, f"resource tree lost to the swap into {url}: {tree.get('error')}"
+                    restarted = await command("Page.startScreencast", screencast_params)
+                    assert "result" in restarted, f"screencast lost to the swap into {url}: {restarted.get('error')}"
+                    await asyncio.sleep(0.3)
         finally:
             await client.close()
 
@@ -515,3 +654,148 @@ def test_landing_page_escapes_titles_from_the_device() -> None:
     assert "<script>" not in html
     assert "&lt;/a&gt;&lt;script&gt;alert(1)&lt;/script&gt;" in html
     assert "https://example.com/?a=1&amp;b=2" in html
+
+
+@contextmanager
+def _local_asset_server(payload: bytes) -> Generator[str, None, None]:
+    """Serve payload from loopback, standing in for the fallback Chrome's bundled frontend."""
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        # Named to match BaseHTTPRequestHandler's keyword parameter; silences the request log.
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/devtools/inspector.html"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(TIMEOUT)
+
+
+def _refused_address() -> str:
+    """An address nothing listens on, so routing to it fails immediately instead of hanging."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return f"http://127.0.0.1:{probe.getsockname()[1]}"
+
+
+async def test_frontend_assets_are_fetched_without_a_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """urllib routes loopback through a configured proxy as readily as anything else, and the
+    fallback frontend lives on loopback: without a bypass, a proxied network serves a blank
+    DevTools window because every asset request goes to the proxy instead of the local Chrome."""
+    monkeypatch.setenv("http_proxy", _refused_address())
+    monkeypatch.delenv("no_proxy", raising=False)
+    # urlopen builds its default opener once and caches the proxies it read; drop it so the
+    # environment set above is the one in effect.
+    monkeypatch.setattr(urllib.request, "_opener", None, raising=False)
+
+    with _local_asset_server(b"<html>frontend</html>") as url:
+        assert urlsplit(url).hostname == "127.0.0.1"
+        assert await _fetch(url) == (b"<html>frontend</html>", "text/html")
+
+
+async def test_a_frontend_that_could_not_be_resolved_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remembering a failed lookup served 404s - a blank DevTools window - for the rest of the
+    session, even after the cause (an unreachable network, a Chrome that lost the race to publish
+    its port) had passed."""
+    app.state.frontend_lock = asyncio.Lock()
+    monkeypatch.delattr(app.state, "frontend_base", raising=False)
+    # No Chrome to fall back to, so the first attempt cannot resolve a frontend at all.
+    monkeypatch.setattr(app.state, "chrome_path", None, raising=False)
+    probes: list[str] = []
+
+    async def probe(url: str) -> Optional[tuple[bytes, str]]:
+        probes.append(url)
+        # The hosted build is unreachable at first, then comes back.
+        return (b"<html>", "text/html") if len(probes) > 1 else None
+
+    monkeypatch.setattr("pymobiledevice3.services.web_protocol.cdp_server._fetch", probe)
+
+    assert await _frontend_base() is None
+    assert await _frontend_base() == f"https://{DEVTOOLS_FRONTEND_HOST}/serve_rev/@{DEVTOOLS_FRONTEND_REV}"
+    assert len(probes) == 2
+
+
+@contextmanager
+def offline_cdp_target(
+    monkeypatch: pytest.MonkeyPatch, target_id: str = "page-1"
+) -> Generator[tuple[CdpTarget, list[dict[str, Any]]], None, None]:
+    """A CdpTarget wired to a stub inspector, for message translation that needs no device.
+
+    Yields the target and the list of messages it sent towards the device.
+    """
+    sent: list[dict[str, Any]] = []
+    inspector = WebinspectorService.__new__(WebinspectorService)
+    inspector.wir_events = {}
+    inspector.wir_message_results = {}
+
+    async def send_socket_data(session_id: str, app_id: str, page_id: int, data: dict[str, Any]) -> None:
+        sent.append(data)
+
+    monkeypatch.setattr(inspector, "send_socket_data", send_socket_data)
+    page = Page.from_page_dictionary({
+        "WIRPageIdentifierKey": 1,
+        "WIRTypeKey": "WIRTypeWeb",
+        "WIRTitleKey": "Example",
+        "WIRURLKey": "https://example.com/",
+    })
+    application = Application(
+        "PID:1", "com.apple.mobilesafari", 1, "MobileSafari", AutomationAvailability.NOT_AVAILABLE, 1, False, True
+    )
+    target = CdpTarget(SessionProtocol(inspector, "SESSION", application, page, method_prefix=""), target_id)
+    # The frontend had enabled a domain; a target that takes over gets it replayed.
+    target._setup_messages["Runtime.enable"] = {}
+    try:
+        yield target, sent
+    finally:
+        for task in (target._input_task, target._receiving_task):
+            task.cancel()
+
+
+def _target_created(target_id: str, type_: str, **extra: Any) -> dict[str, Any]:
+    return {"method": "Target.targetCreated", "params": {"targetInfo": {"targetId": target_id, "type": type_, **extra}}}
+
+
+async def test_a_page_target_takes_over_the_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The committed page target a process swap creates is what commands must be routed to."""
+    with offline_cdp_target(monkeypatch) as (target, sent):
+        await target._target_created(_target_created("page-2", "page"))
+
+        assert target.target_id == "page-2"
+        assert [json.loads(m["params"]["message"])["method"] for m in sent] == ["Runtime.enable"]
+        assert target.output_queue.get_nowait()["method"] == "Target.targetInfoChanged"
+
+
+async def test_a_frame_target_does_not_take_over_the_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """WebKit announces site-isolated subframes as "frame" targets. Their backend implements a
+    far smaller domain set than a page's - with site isolation off, no domains at all - so a
+    session that adopted one answered every request with "'<domain>' domain was not found", and
+    never recovered: no didCommitProvisionalTarget or targetDestroyed follows to move it back."""
+    with offline_cdp_target(monkeypatch) as (target, sent):
+        await target._target_created(_target_created("frame-2", "frame"))
+
+        assert target.target_id == "page-1"
+        assert sent == []
+        assert target.output_queue.empty()
+
+
+async def test_a_frame_target_going_away_does_not_reset_the_frontend(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A subframe target is not the inspected document; announcing a load and a document update
+    for it would clear panels the frontend filled from the page."""
+    with offline_cdp_target(monkeypatch) as (target, _):
+        await target._target_created(_target_created("frame-2", "frame"))
+        await target._target_destroyed({"method": "Target.targetDestroyed", "params": {"targetId": "frame-2"}})
+
+        assert target.output_queue.empty()
+        assert "frame-2" not in target._destroyed_targets

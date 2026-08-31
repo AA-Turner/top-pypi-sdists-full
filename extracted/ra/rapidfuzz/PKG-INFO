@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: RapidFuzz
-Version: 3.14.5
+Version: 3.14.6
 Summary: rapid fuzzy string matching
 Author-Email: Max Bachmann <pypi@maxbachmann.de>
 License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -15,7 +14,7 @@ Project-URL: Documentation, https://rapidfuzz.github.io/RapidFuzz/
 Project-URL: Repository, https://github.com/rapidfuzz/RapidFuzz.git
 Project-URL: Issues, https://github.com/rapidfuzz/RapidFuzz/issues
 Project-URL: Changelog, https://github.com/rapidfuzz/RapidFuzz/blob/main/CHANGELOG.rst
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Provides-Extra: all
 Requires-Dist: numpy; extra == "all"
 Description-Content-Type: text/markdown
@@ -67,7 +66,7 @@ Description-Content-Type: text/markdown
 
 ## Description
 RapidFuzz is a fast string matching library for Python and C++, which is using the string similarity calculations from [FuzzyWuzzy](https://github.com/seatgeek/fuzzywuzzy). However there are a couple of aspects that set RapidFuzz apart from FuzzyWuzzy:
-1) It is MIT licensed so it can be used with whichever License you might want to choose for your project, while you're forced to adopt the GPL license when using FuzzyWuzzy
+1) It is MIT licensed so it can be used with whichever license you might want to choose for your project.
 2) It provides many string_metrics like hamming or jaro_winkler, which are not included in FuzzyWuzzy
 3) It is mostly written in C++ and on top of this comes with a lot of Algorithmic improvements to make string matching even faster, while still providing the same results. For detailed benchmarks check the [documentation](https://rapidfuzz.github.io/RapidFuzz)
 4) Fixes multiple bugs in the `partial_ratio` implementation
@@ -75,7 +74,7 @@ RapidFuzz is a fast string matching library for Python and C++, which is using t
 
 ## Requirements
 
-- Python 3.10 or later
+- Python 3.11 or later
 - On Windows the [Visual C++ 2019 redistributable](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads) is required
 
 ## Installation

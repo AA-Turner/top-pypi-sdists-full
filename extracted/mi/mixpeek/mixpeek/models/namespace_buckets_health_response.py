@@ -27,7 +27,7 @@ from typing_extensions import Self
 
 class NamespaceBucketsHealthResponse(BaseModel):
     """
-    Batch health for all buckets in the namespace (single request).  Replaces the per-bucket GET /{bucket_id}/health fan-out on monitoring surfaces (browser N+1 that scaled with bucket count, MS-1024). Only buckets with events in the window appear — a bucket absent from `buckets` had no errors and no sync activity and should render as healthy.
+    Batch health for all buckets in the namespace (single request).  Replaces the per-bucket GET /{bucket_id}/health fan-out on monitoring surfaces (browser N+1 that scaled with bucket count). Only buckets with events in the window appear — a bucket absent from `buckets` had no errors and no sync activity and should render as healthy.
     """ # noqa: E501
     time_range: ApiAnalyticsBucketsModelsTimeRange = Field(description="Query time range")
     buckets: List[BucketHealthResponse] = Field(description="Per-bucket health, one entry per bucket with events in the window. Absent bucket == healthy/no activity.")

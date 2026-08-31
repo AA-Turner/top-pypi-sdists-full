@@ -36,7 +36,12 @@ from xpander_sdk.modules.agents.models.agent import SourceNodeType
 from xpander_sdk.modules.tasks.tasks_module import Tasks
 
 from .utils.git_init import configure_git_credentials
-from .utils.generic import backoff_delay, get_events_base, get_events_headers
+from .utils.generic import (
+    backoff_delay,
+    get_events_base,
+    get_events_headers,
+    is_stg_environment,
+)
 from .models.deployments import DeployedAsset
 from .models.events import (
     EventType,
@@ -689,7 +694,9 @@ class Events(ModuleBase):
                         task.result = py_json.dumps(task.result)
                     # a str here means schema validation failed; it may still be repairable JSON
                     if isinstance(task.result, str):
-                        task.result = normalize_json_mode_result(task.result) or task.result
+                        task.result = (
+                            normalize_json_mode_result(task.result) or task.result
+                        )
             except Exception:
                 pass
 
@@ -740,7 +747,8 @@ class Events(ModuleBase):
         """
         environment = "xpander" if self.is_xpander_cloud else "local"
 
-        url = f"{get_events_base(configuration=self.configuration)}/{agent_id}?environment={environment}"
+        events_base = get_events_base(configuration=self.configuration)
+        url = f"{events_base}/{agent_id}?environment={environment}"
 
         async for event in self._sse_events_with_retries(url):
             if event.event == EventType.EnvironmentConflict:
@@ -754,11 +762,7 @@ class Events(ModuleBase):
                 # convenience URLs
                 agent_meta = agent_worker.metadata or {}
                 if agent_meta:
-                    is_stg = "stg." in get_events_base(
-                        configuration=self.configuration
-                    ) or "localhost" in get_events_base(
-                        configuration=self.configuration
-                    )
+                    is_stg = is_stg_environment(self.configuration)
                     chat_url = (
                         f"https://{agent_meta.get('unique_name', agent_id)}.agents"
                     )

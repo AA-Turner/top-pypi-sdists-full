@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class RestoreReport(BaseModel):
     """
-    Outcome of a restore: exactly what was restored vs skipped.  Restore is lenient (it warns + continues on a missing/corrupt dump), so a 'completed' restore can be silently incomplete. This report records the per-collection and vector outcomes and a single ``complete`` flag so a partial restore is never mistaken for a clean one (BACKE-804).
+    Outcome of a restore: exactly what was restored vs skipped.  Restore is lenient (it warns + continues on a missing/corrupt dump), so a 'completed' restore can be silently incomplete. This report records the per-collection and vector outcomes and a single ``complete`` flag so a partial restore is never mistaken for a clean one.
     """ # noqa: E501
     snapshot_id: StrictStr
     target_namespace_id: StrictStr

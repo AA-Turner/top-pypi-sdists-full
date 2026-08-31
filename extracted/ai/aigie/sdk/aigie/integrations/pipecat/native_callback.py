@@ -6,12 +6,12 @@ import logging
 from collections import OrderedDict
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import dataclass, field
 from typing import Any
 
 from aigie.auto_instrument.trace import get_or_create_trace
 from aigie.context_manager import merge_metadata
 from aigie.integrations.pipecat import _frames, _llm, _media
+from aigie.integrations.pipecat._boundary import _Boundary
 from aigie.tracing.span_event_handler import SpanEventHandler
 from aigie.tracing.trace_state import (
     claim_provider_spans,
@@ -26,59 +26,6 @@ from aigie.tracing.workflow_root import WorkflowRoot
 logger = logging.getLogger(__name__)
 
 _BASE_META = _frames._BASE_META
-
-
-@dataclass
-class _Boundary:
-    trace_id: str
-    root: WorkflowRoot
-    ambient_token: Any = None
-    turn_run_id: str | None = None
-    open_spans: dict[str, str] = field(default_factory=dict)
-    # Every STT/TTS usage delta ever received, summed regardless of whether it
-    # could be attached to a span: Deepgram's deltas straddle transcript
-    # boundaries, so no single span's value is reliably "the" total, but the
-    # provider bills per connection, so the running sum is. See `_frames.usage_totals`.
-    stt_audio_seconds_total: float = 0.0
-    tts_character_count_total: float = 0.0
-    # STT has no span open when its usage metrics arrive (they land on the
-    # same MetricsFrame channel ahead of the finalized TranscriptionFrame
-    # that opens-and-closes the span), so there is nowhere else to hold it.
-    pending_stt_usage: Any = None
-    # Confirmed against real Deepgram: STTUsageMetricsData arrives on BOTH
-    # sides of a final transcript — a pre-final frame for the utterance's own
-    # audio (correctly attached above), then a post-final frame billing the
-    # trailing silence after endpointing. That post-final frame has no span
-    # to land on; left in pending_stt_usage it would silently misattach to
-    # the *next* utterance's span (wrong data presented as correct — worse
-    # than the alternative here, which is that next span simply carrying no
-    # usage). Set the instant a span consumes pending_stt_usage; the very
-    # next STT usage frame received while this is True is that trailing one
-    # and gets discarded instead of stashed. Tradeoff: an STT service that
-    # never emits a trailing frame would have its next utterance's own
-    # (legitimate) pre-final usage eaten by this flag instead — accepted
-    # because it degrades to missing data, never to a misattributed value.
-    discard_next_stt_usage: bool = False
-    # Mirror image for LLM: a call's span has already closed its text-
-    # accumulation phase (LLMFullResponseEndFrame arrived) but its usage
-    # MetricsFrame hasn't landed yet — possibly not until after the next
-    # call's start frame. FIFO list of run_ids, oldest first; see
-    # `_llm._attach_llm_usage` / `_llm.flush_pending_llm`.
-    pending_llm: list[str] = field(default_factory=list)
-    # LLMContextFrame can arrive before LLMFullResponseStartFrame opens the
-    # llm span (it is what triggers the LLM service to run in the first
-    # place), so there is nowhere on the not-yet-open span to stash it.
-    # Stash-then-consume, mirroring pending_llm/pending_stt_usage. Overwritten
-    # (not appended) on each new frame: only the most recent context is ever
-    # relevant to the next call, and per-hop redelivery of the SAME frame is
-    # already filtered upstream by `_is_duplicate_frame`.
-    pending_llm_context: list[dict[str, Any]] | None = None
-    # Set only by an InterruptionFrame that `_frames.is_barge_in` accepts (not
-    # every turn's routine one); read by `_llm.on_llm_end` / `_media.on_tts_stopped`
-    # so a barge-in — Pipecat still pushes the normal end frames after one —
-    # closes their span truthfully as "interrupted", not "success". Cleared via
-    # `_frames.interruption_settled` once neither lane is open, not on first read.
-    interrupted: bool = False
 
 
 class PipecatObserver:
@@ -123,6 +70,23 @@ class PipecatObserver:
 
     async def on_pipeline_started(self) -> None:
         return None
+
+    async def setup(self, task_manager: Any) -> None:
+        """Pipecat 1.8's `WorkerObserver.setup` fans this out to every observer it
+        proxies (1.7 had `start`/`stop`, called on the WorkerObserver alone).
+
+        Nothing to wire up — we own no child BaseObjects and start no tasks — but
+        the method must exist: absent, the worker task dies on the AttributeError
+        before a frame flows, which is how 1.8 broke us.
+        """
+        return
+
+    async def on_processor_setup(self, data: Any) -> None:
+        """Deliberately empty, like `on_process_frame` — new in 1.8, and per-processor
+        setup finishes before any frame flows, so there is no conversation to attach
+        the timing to.
+        """
+        return
 
     async def on_process_frame(self, data: Any) -> None:
         """Deliberately empty — on_push_frame already sees every frame.

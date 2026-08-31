@@ -30,7 +30,7 @@ class ListAdhocExecutionsRequest(BaseModel):
     status: Optional[StrictStr] = Field(default=None, description="Filter by execution status. Common values: 'completed', 'failed'. OPTIONAL - omit to see all statuses.")
     start_time: Optional[Any] = None
     end_time: Optional[Any] = None
-    count_only: Optional[StrictBool] = Field(default=False, description="BACKE-3071: when true, return ONLY the total count and skip fetching the execution rows. Use for a badge/total (the Executions-tab count) — it avoids the ORDER BY full-row scan that made a limit:1 count take 15s+.")
+    count_only: Optional[StrictBool] = Field(default=False, description="When true, return ONLY the total count and skip fetching the execution rows. Use for a badge/total (the Executions-tab count) — it avoids the ORDER BY full-row scan that made a limit:1 count take 15s+.")
     __properties: ClassVar[List[str]] = ["status", "start_time", "end_time", "count_only"]
 
     model_config = ConfigDict(

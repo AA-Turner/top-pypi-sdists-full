@@ -7,10 +7,12 @@ surfaces the real error and lets the caller heal a stale OAuth token first.
 """
 
 import asyncio
+import errno
 import hashlib
+import socket
 import time
 from os import getenv
-from typing import Dict, Optional
+from typing import Dict, Iterator, Optional
 
 import httpx
 
@@ -127,6 +129,63 @@ def is_mcp_auth_error(exc: BaseException) -> bool:
     )
 
 
+def _cause_chain(exc: BaseException) -> Iterator[BaseException]:
+    """Yield exc and its __cause__/__context__ chain (cycle-safe)."""
+    seen = set()
+    cur: Optional[BaseException] = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        yield cur
+        cur = cur.__cause__ or cur.__context__
+
+
+_RESET_HINT = "(often a firewall or proxy on the network path)"
+
+
+def describe_transport_failure(exc: BaseException) -> str:
+    """Short human phrase for why the MCP connect failed (for logs and the skip note)."""
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+        return f"HTTP {exc.response.status_code} from the server"
+    if isinstance(exc, httpx.ConnectTimeout):
+        return "connect timed out"
+    # asyncio.TimeoutError merged into builtin TimeoutError only in py3.11
+    if isinstance(exc, (httpx.ReadTimeout, TimeoutError, asyncio.TimeoutError)):
+        return "timed out waiting for the server to respond"
+    # anyio causes detected by class name so this module stays anyio-free
+    chain = list(_cause_chain(exc))
+    chain_names = {type(c).__name__ for c in chain}
+    if isinstance(
+        exc, (ConnectionResetError, httpx.ReadError, httpx.RemoteProtocolError)
+    ) or (
+        chain_names & {"BrokenResourceError", "ClosedResourceError"}
+        and not isinstance(exc, httpx.ConnectError)
+    ):
+        return f"connection reset during the exchange {_RESET_HINT}"
+    if isinstance(exc, httpx.ConnectError):
+        text = str(exc).lower()
+        if (
+            any(isinstance(c, socket.gaierror) for c in chain)
+            or "name or service not known" in text
+            or "getaddrinfo" in text
+            or "nodename" in text
+        ):
+            return "DNS lookup failed"
+        if (
+            any(getattr(c, "errno", None) == errno.ECONNREFUSED for c in chain)
+            or "refused" in text
+        ):
+            return "connection refused"
+        if "certificate" in text or "ssl" in text:
+            return "TLS handshake failed"
+        if not text.strip() or "BrokenResourceError" in chain_names:
+            # httpx surfaces a peer reset mid TCP/TLS handshake as a bare ConnectError
+            return f"connection reset while connecting {_RESET_HINT}"
+        # single line + capped: this rides into a model-facing one-line bullet note
+        short = " ".join(str(exc).split())[:120]
+        return f"could not connect ({short})"
+    return "could not connect"
+
+
 async def probe_mcp_server(
     url: str,
     headers: Optional[Dict] = None,
@@ -153,5 +212,8 @@ async def probe_mcp_server(
     try:
         await asyncio.wait_for(_probe(), timeout=PROBE_OVERALL_TIMEOUT)
         return None
+    except asyncio.CancelledError:
+        # an outer cancellation (user stop) is not a probe verdict - propagate it
+        raise
     except BaseException as e:
         return extract_real_mcp_error(e)

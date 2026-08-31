@@ -36,7 +36,7 @@ class IndexRecommendation(BaseModel):
     priority_score: Union[StrictFloat, StrictInt] = Field(description="Priority score for indexing")
     recommendation: StrictStr = Field(description="Human-readable recommendation level")
     mongodb_index_command: StrictStr = Field(description="Ready-to-use MongoDB index command")
-    index_kind: Optional[StrictStr] = Field(default=None, description="Recommended index KIND, derived from the operators observed with this field (BACKE-3394): 'keyword' (eq/ne/in/nin/exists/is_null), 'range' (gt/gte/lt/lte), 'text' (contains/starts_with/ends_with/regex/text/phrase), 'geo' (geo_*). None means no operator data exists for the field (rows written before filter_ops shipped) — treat as unknown, not as keyword.")
+    index_kind: Optional[StrictStr] = Field(default=None, description="Recommended index KIND, derived from the operators observed with this field: 'keyword' (eq/ne/in/nin/exists/is_null), 'range' (gt/gte/lt/lte), 'text' (contains/starts_with/ends_with/regex/text/phrase), 'geo' (geo_*). None means no operator data exists for the field (rows written before filter_ops shipped) — treat as unknown, not as keyword.")
     __properties: ClassVar[List[str]] = ["field_name", "query_count", "avg_latency_ms", "p95_latency_ms", "slow_query_count", "very_slow_query_count", "priority_score", "recommendation", "mongodb_index_command", "index_kind"]
 
     model_config = ConfigDict(

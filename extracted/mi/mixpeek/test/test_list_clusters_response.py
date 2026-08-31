@@ -40,6 +40,7 @@ class TestListClustersResponse(unittest.TestCase):
                     mixpeek.models.cluster_metadata.ClusterMetadata(
                         cluster_id = '', 
                         cluster_name = '', 
+                        description = '', 
                         namespace_id = '', 
                         input_collections = [
                             ''
@@ -167,6 +168,7 @@ class TestListClustersResponse(unittest.TestCase):
                     mixpeek.models.cluster_metadata.ClusterMetadata(
                         cluster_id = '', 
                         cluster_name = '', 
+                        description = '', 
                         namespace_id = '', 
                         input_collections = [
                             ''

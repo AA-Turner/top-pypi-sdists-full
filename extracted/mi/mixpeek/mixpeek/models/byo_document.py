@@ -39,7 +39,7 @@ class BYODocument(BaseModel):
     source_collection_id: Optional[StrictStr] = Field(default=None, description="Immediate parent collection id when source_type='collection'.")
     lineage_path: Optional[StrictStr] = Field(default=None, description="Materialized lineage path (e.g. 'bkt_123/col_456/col_789').")
     lineage_chain: Optional[List[Dict[str, Any]]] = Field(default=None, description="Ordered processing steps from root object to this document; each step carries collection_id, feature_extractor_id, document_id, timestamp.")
-    content_hash: Optional[StrictStr] = Field(default=None, description="SHA256 content hash of the source object. Supplying it lets a later heal/reprocess recognise the cached derivation potency (LIN-02) and skip recompute. Stored at _internal.content_hash.")
+    content_hash: Optional[StrictStr] = Field(default=None, description="SHA256 content hash of the source object. Supplying it lets a later heal/reprocess recognise the cached derivation potency and skip recompute. Stored at _internal.content_hash.")
     __properties: ClassVar[List[str]] = ["document_id", "vectors", "payload", "metadata", "source_type", "root_object_id", "root_bucket_id", "source_object_id", "source_document_id", "source_collection_id", "lineage_path", "lineage_chain", "content_hash"]
 
     @field_validator('source_type')

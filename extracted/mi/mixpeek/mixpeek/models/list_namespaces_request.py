@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class ListNamespacesRequest(BaseModel):
     """
-    Request schema for listing namespaces.  Inherits body-level limit/page_size/offset/page (BACKE-2846) — body values win over query pagination via merge_body_pagination.
+    Request schema for listing namespaces.  Inherits body-level limit/page_size/offset/page — body values win over query pagination via merge_body_pagination.
     """ # noqa: E501
     limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=None, description="Page size. A body value wins over the `limit` query param.")
     page_size: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=None, description="Alias for `limit` (page size). If both are given, `limit` wins.")

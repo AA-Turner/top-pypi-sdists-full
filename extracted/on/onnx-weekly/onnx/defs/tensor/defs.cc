@@ -21,7 +21,7 @@ namespace ONNX_NAMESPACE {
 
 ONNX_OPERATOR_SET_SCHEMA(
     Cast,
-    25,
+    28,
     OpSchema()
         .SetDoc(kDoc_Cast_ver24)
         .Attr(
@@ -58,11 +58,11 @@ ONNX_OPERATOR_SET_SCHEMA(
             OpSchema::Differentiable)
         .TypeConstraint(
             "T1",
-            OpSchema::all_non_complex_tensor_types_ir13(),
+            OpSchema::all_non_complex_tensor_types_ir14(),
             "Constrain input types. Casting from complex is not supported.")
         .TypeConstraint(
             "T2",
-            OpSchema::all_non_complex_tensor_types_ir13(),
+            OpSchema::all_non_complex_tensor_types_ir14(),
             "Constrain output types. Casting to complex is not supported.")
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
           propagateElemTypeFromAttributeToOutput(ctx, "to", 0);
@@ -3705,9 +3705,10 @@ The operation can be described using the following pseudocode:
 for prefix_idx in np.ndindex(past_cache.shape[:axis]):
     batch_idx = prefix_idx[0]
     for sequence_idx in range(sequence_length):
-        cache_idx = (*prefix_idx, write_indices[batch_idx] + sequence_idx)
+        cache_sequence_idx = write_indices[batch_idx] + sequence_idx
         if mode == "circular":
-            cache_idx = tuple(np.mod(np.asarray(cache_idx), max_sequence_length))
+            cache_sequence_idx = cache_sequence_idx % max_sequence_length
+        cache_idx = (*prefix_idx, cache_sequence_idx)
         update_idx = (*prefix_idx, sequence_idx)
         present_cache[cache_idx] = update[update_idx]
 ```

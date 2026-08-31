@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: python-backoff
-Version: 2.4.0
+Version: 3.0.0
 Summary: Function decoration for backoff and retry
 Project-URL: Documentation, https://python-backoff.github.io/backoff
 Project-URL: Repository, https://github.com/python-backoff/backoff
@@ -15,7 +15,6 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 
 backoff

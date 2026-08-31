@@ -59,7 +59,7 @@ class AnalyticsInferenceApi:
     ) -> List[Dict[str, object]]:
         """Get Inference Performance
 
-        Get inference performance metrics.  TODO: Implement inference performance query logic.
+        Inference performance metrics. Not implemented.  This route has no inference-performance aggregation behind it and returns 501 Not Implemented, so an empty response is never mistaken for real data.  For per-stage inference timings, use ``GET /v1/analytics/retrievers/{retriever_id}/stages``, which reports stage execution times and document flow.
 
         :param model_name: Filter by model
         :type model_name: str
@@ -136,7 +136,7 @@ class AnalyticsInferenceApi:
     ) -> ApiResponse[List[Dict[str, object]]]:
         """Get Inference Performance
 
-        Get inference performance metrics.  TODO: Implement inference performance query logic.
+        Inference performance metrics. Not implemented.  This route has no inference-performance aggregation behind it and returns 501 Not Implemented, so an empty response is never mistaken for real data.  For per-stage inference timings, use ``GET /v1/analytics/retrievers/{retriever_id}/stages``, which reports stage execution times and document flow.
 
         :param model_name: Filter by model
         :type model_name: str
@@ -213,7 +213,7 @@ class AnalyticsInferenceApi:
     ) -> RESTResponseType:
         """Get Inference Performance
 
-        Get inference performance metrics.  TODO: Implement inference performance query logic.
+        Inference performance metrics. Not implemented.  This route has no inference-performance aggregation behind it and returns 501 Not Implemented, so an empty response is never mistaken for real data.  For per-stage inference timings, use ``GET /v1/analytics/retrievers/{retriever_id}/stages``, which reports stage execution times and document flow.
 
         :param model_name: Filter by model
         :type model_name: str

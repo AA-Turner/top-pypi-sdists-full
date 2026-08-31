@@ -40,6 +40,8 @@ class TestClusterModel(unittest.TestCase):
                     ''
                     ],
                 cluster_name = '',
+                description = '',
+                metadata = { },
                 cluster_type = 'vector',
                 vector_config = mixpeek.models.vector_based_config.VectorBasedConfig(
                     feature_uri = '', 
@@ -135,8 +137,7 @@ class TestClusterModel(unittest.TestCase):
                 task_id = '',
                 last_run_id = '',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                metadata = { }
+                updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
             )
         else:
             return ClusterModel(

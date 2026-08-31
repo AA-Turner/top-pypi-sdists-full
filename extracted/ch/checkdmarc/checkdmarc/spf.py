@@ -1,4 +1,4 @@
-"""Sender Policy framework (SPF) record validation"""
+"""Sender Policy Framework (SPF) record validation"""
 
 from __future__ import annotations
 
@@ -49,19 +49,41 @@ logger = logging.getLogger(__name__)
 
 SPF_VERSION_TAG_REGEX_STRING = "v=spf1"
 
+# One SPF term: an optional qualifier, a name, and an optional value
+# introduced by ":" (a mechanism target), "/" (the a/mx CIDR shorthand), or
+# "=" (a modifier). The value character class spans the full printable range
+# that the RFC 7208 section 12 macro-string grammar allows; per-term
+# validation in parse_spf_record narrows it further for each term kind.
 SPF_MECHANISM_REGEX_STRING = (
-    r"([+\-~?])?"
-    r"(mx:?|ip4:?|ip6:?|exists:?|include:?|all|a:?|redirect=|exp=|ptr:?)"
-    r"([\w+/_.:\-{}%]*)"
+    r"([+\-~?])?([A-Za-z][A-Za-z0-9_.\-]*)(?:([:/=])([\x21-\x7E]*))?"
 )
 AFTER_ALL_REGEX_STRING = r"(?:^|\s)[+\-~?]?all\s+(.+)"
 
 SPF_MECHANISM_REGEX = re.compile(SPF_MECHANISM_REGEX_STRING, re.IGNORECASE)
 AFTER_ALL_REGEX = re.compile(AFTER_ALL_REGEX_STRING, re.IGNORECASE)
+# A term that is exactly an all mechanism (with optional qualifier)
+ALL_TERM_REGEX = re.compile(r"[+\-~?]?all", re.IGNORECASE)
 SENDER_ID_VERSION_TAG_REGEX = re.compile(
     r"^v=spf2\.0/(?:pra|mfrom)(?:,(?:pra|mfrom))?(?:\s|$)",
     re.IGNORECASE,
 )
+
+# The mechanism names defined by RFC 7208 section 12. Any other name followed
+# by "=" is an unknown modifier (ignored with a warning per section 6); any
+# other name without "=" is a syntax error.
+SPF_MECHANISM_NAMES = frozenset(
+    {"all", "include", "a", "mx", "ptr", "ip4", "ip6", "exists"}
+)
+
+# toplabel per RFC 7208 section 12: letters and digits with at least one
+# letter, or a hyphenated label that starts and ends with a letter or digit.
+TOPLABEL_REGEX = re.compile(r"[a-z0-9]*[a-z][a-z0-9]*|[a-z0-9]+-[a-z0-9\-]*[a-z0-9]")
+
+# dual-cidr-length per RFC 7208 section 12: "/nn" (IPv4), "//nn" (IPv6), or
+# "/nn//nn" — prefix lengths must not have leading zeros.
+DUAL_CIDR_REGEX = re.compile(r"(?:/(0|[1-9][0-9]*))?(?://(0|[1-9][0-9]*))?")
+# A single CIDR prefix length with no leading zeros (RFC 7208 section 12)
+CIDR_PREFIX_REGEX = re.compile(r"0|[1-9][0-9]*")
 
 # Detect an 'all' mechanism glued to the previous term without required
 # whitespace, e.g., "ip4:203.0.113.7~all". This should be rejected as a
@@ -72,6 +94,8 @@ SENDER_ID_VERSION_TAG_REGEX = re.compile(
 CONCATENATED_ALL_REGEX = re.compile(r"\S([+\-~?])all(?=\s|$)", re.IGNORECASE)
 
 MACRO_LETTERS = set("slodiphcrtv")
+# RFC 7208 section 7.2: c, r, and t may only be used in explanation text
+EXP_ONLY_MACRO_LETTERS = set("crt")
 MACRO_DELIMS = set(".-+,/_=")
 
 
@@ -93,7 +117,7 @@ class _SPFWarning(Exception):
 
 
 class _SPFMissingRecords(_SPFWarning):
-    """Raised when a mechanism in a ``SPF`` record is missing the requested A/AAAA or MX records"""
+    """Raised when a mechanism in an ``SPF`` record is missing the requested A/AAAA or MX records"""
 
 
 class _SPFDuplicateInclude(_SPFWarning):
@@ -246,20 +270,22 @@ def ptr_match(
     retries: int = DEFAULT_DNS_MAX_RETRIES,
 ) -> bool:
     """
-    Preforms a ptr mechanism check.
+    Performs a ptr mechanism check.
 
     Args:
-        domain (str): A domain name
+        ip_address (str): The IP address of the sending host
+        domain (str): The domain name to match against
         nameservers (list): A list of nameservers to query
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for an answer from DNS
+        retries (int): The number of times to retry on timeout or other transient errors
 
     Returns:
         bool: The result of the check
 
     Raises:
-        :exc:`checkdmarc.DNSException`
+        :exc:`checkdmarc.utils.DNSException`
     """
     hostnames = get_reverse_dns(
         ip_address,
@@ -301,11 +327,17 @@ def _validate_spf_macros(
     value: str,
     domain: str,
     syntax_error_marker: str,
+    *,
+    allow_exp_only_letters: bool = False,
 ) -> None:
     """
     Validate SPF macro syntax in a domain-spec / macro-string per RFC 7208 §7.
 
     This is purely syntactic; no macro expansion or DNS lookups.
+
+    Args:
+        allow_exp_only_letters: Accept the c, r, and t macro letters, which
+            RFC 7208 section 7.2 allows only in explanation (exp) text.
     """
     i = 0
     length = len(value)
@@ -348,6 +380,14 @@ def _validate_spf_macros(
         letter = body[0]
         if letter.lower() not in MACRO_LETTERS:
             _raise_macro_syntax_error(value, i + 2, domain, syntax_error_marker)
+        if not allow_exp_only_letters and letter.lower() in EXP_ONLY_MACRO_LETTERS:
+            # RFC 7208 section 7.2: the c, r, and t macro letters are
+            # allowed only in "exp" text, not in mechanism or redirect
+            # domain-specs.
+            raise SPFSyntaxError(
+                f"{domain}: The macro letter {letter} is only allowed in "
+                f"exp explanation text (RFC 7208 § 7.2): {value}"
+            )
 
         rest = body[1:]
 
@@ -366,7 +406,9 @@ def _validate_spf_macros(
             except ValueError:
                 _raise_macro_syntax_error(value, i + 2 + 1, domain, syntax_error_marker)
 
-        if j < len(rest) and rest[j] == "r":
+        # The "r" transformer is an ABNF quoted string, which matches
+        # case-insensitively (RFC 5234 section 2.3), so %{iR} is valid.
+        if j < len(rest) and rest[j] in ("r", "R"):
             j += 1
 
         # Remaining chars: delimiters
@@ -407,10 +449,11 @@ def query_spf_record(
             - ``warnings`` - A ``list`` of warnings
 
     Raises:
-        :exc:`checkdmarc.SPFRecordNotFound`
+        :exc:`checkdmarc.spf.SPFRecordNotFound`
+        :exc:`checkdmarc.spf.MultipleSPFRTXTRecords`
     """
     domain = normalize_domain(domain)
-    logger.debug(f"Checking for a SPF record on {domain}")
+    logger.debug(f"Checking for an SPF record on {domain}")
     txt_prefix = "v=spf1"
     warnings = []
     spf_type_records = []
@@ -489,11 +532,13 @@ def query_spf_record(
             ):
                 spf_txt_records.append(record)
             elif cleaned_record_lower.startswith(txt_prefix):
-                raise SPFRecordNotFound(
-                    "According to RFC 7208 section 4.5, an SPF record should be"
-                    f" equal to {txt_prefix} or begin with {txt_prefix} "
-                    "followed by a space.",
-                    domain,
+                # RFC 7208 section 4.5: discard records that do not begin
+                # with a version section of exactly "v=spf1" (for example
+                # "v=spf10"), and keep looking for a valid record.
+                warnings.append(
+                    "A TXT record that resembles an SPF record was discarded "
+                    "because its version section is not exactly "
+                    f"{txt_prefix} (RFC 7208 section 4.5): {record}"
                 )
         if len(spf_txt_records) > 1:
             raise MultipleSPFRTXTRecords("The domain has multiple SPF TXT records")
@@ -510,26 +555,26 @@ def query_spf_record(
     except dns.exception.DNSException as error:
         raise SPFRecordNotFound(error, domain)
 
-    # Per RFC 7208 § 3.3: any single TXT "character-string" should be ≤255 characters.
+    # Per RFC 7208 § 3.3: any single TXT "character-string" should be ≤255 bytes.
     # Per RFC 7208 § 3.4: keep overall SPF record small enough for UDP (advise ~450B, warn at >512B).
     try:
-        quoted_chunks = re.findall(r'"([^"]*)"', spf_record) if spf_record else []
-        if quoted_chunks:
-            for i, chunk in enumerate(quoted_chunks, 1):
+        txt_strings = re.findall(r'"([^"]*)"', spf_record) if spf_record else []
+        if txt_strings:
+            for i, chunk in enumerate(txt_strings, 1):
                 blen = len(chunk.encode("utf-8"))
                 if blen > 255:
                     warnings.append(
-                        f"SPF TXT string chunk #{i} for {domain} is {blen} characters (>255). "
-                        "Each individual TXT character-string should be ≤ 255 characters (RFC 7208 § 3.3)."
+                        f"SPF TXT string chunk #{i} for {domain} is {blen} bytes (>255). "
+                        "Each individual TXT character-string should be ≤ 255 bytes (RFC 7208 § 3.3)."
                     )
-            joined = "".join(quoted_chunks).replace('"', "")
+            joined = "".join(txt_strings)
         else:
             joined = spf_record or ""
             blen = len(joined.encode("utf-8"))
             if blen > 255:
                 warnings.append(
-                    f" The SPF record for {domain} appears to be a single {blen}-character string; "
-                    "a single TXT character-string should be ≤ 255 characters (RFC 7208 § 3.3). "
+                    f"The SPF record for {domain} appears to be a single {blen}-byte string; "
+                    "a single TXT character-string should be ≤ 255 bytes (RFC 7208 § 3.3). "
                     "Consider splitting it into multiple quoted strings."
                 )
 
@@ -570,6 +615,7 @@ def parse_spf_record(
     timeout: float = DEFAULT_DNS_TIMEOUT,
     retries: int = DEFAULT_DNS_MAX_RETRIES,
     syntax_error_marker: str = SYNTAX_ERROR_MARKER,
+    _include_cache: dict[str, SPFRecordResults] | None = None,
 ) -> SPFRecordResults:
     """
     Parses an SPF record, including resolving ``a``, ``mx``, and ``include`` mechanisms
@@ -577,7 +623,7 @@ def parse_spf_record(
     Args:
         record (str): An SPF record
         domain (str): The domain that the SPF record came from
-        parked (bool): indicated if a domain has been parked
+        parked (bool): Indicates if a domain has been parked
         ignore_too_many_lookups (bool): Do not raise an exception for too many lookups
         seen (list): A list of domains seen in past loops
         nameservers (list): A list of nameservers to query
@@ -585,13 +631,14 @@ def parse_spf_record(
         recursion (list): A list of domains used in recursion
         timeout (float): number of seconds to wait for an answer from DNS
         retries (int): The number of times to retry on timeout or other transient errors
-        syntax_error_marker (str): The maker for pointing out syntax errors
+        syntax_error_marker (str): The marker for pointing out syntax errors
 
     Returns:
         dict: A ``dict`` with the following keys:
+            - ``record`` - The SPF record string
             - ``dns_lookups`` - Number of DNS lookups required by the record
             - ``void_dns_lookups`` - The number of void DNS lookups
-            - ``parsed`` - A ``dict`` of a parsed SPF record values
+            - ``parsed`` - A ``dict`` of parsed SPF record values
             - ``warnings`` - A ``list`` of warnings
 
     Raises:
@@ -602,12 +649,16 @@ def parse_spf_record(
     """
     logger.debug(f"Parsing the SPF record on {domain}")
     domain = normalize_domain(domain)
-    record.replace('"', "")
 
     if seen is None:
         seen = [domain]
     if recursion is None:
         recursion = [domain]
+    if _include_cache is None:
+        # Maps an include target domain to its parse result, so that a
+        # duplicate include can be counted again (RFC 7208 section 4.6.4
+        # counts every evaluated term) without re-querying DNS.
+        _include_cache = {}
 
     # Collapse RFC-style split TXT tokens only, then remove remaining quotes.
     # (Safer than blanket replace('" ', '') which could drop valid whitespace.)
@@ -655,12 +706,12 @@ def parse_spf_record(
         # grammar only sees "v=spf1 ... all" and not the trailing junk/exp.
         grammar_record = record[: after_all_match.start(1)].rstrip()
 
-    parsed_record = spf_syntax_checker.parse(grammar_record)
+    grammar_result = spf_syntax_checker.parse(grammar_record)
 
-    if not parsed_record.is_valid:
-        pos = parsed_record.pos
+    if not grammar_result.is_valid:
+        pos = grammar_result.pos
         expecting: list[str] = [
-            str(x).strip('"') for x in list(parsed_record.expecting)
+            str(x).strip('"') for x in list(grammar_result.expecting)
         ]
         expecting_str = " or ".join(expecting)
         marked_record = record[:pos] + syntax_error_marker + record[pos:]
@@ -669,7 +720,11 @@ def parse_spf_record(
             f"(marked with {syntax_error_marker}) in: {marked_record}"
         )
 
-    matches: list[tuple[str, str, str]] = SPF_MECHANISM_REGEX.findall(record.lower())
+    # RFC 7208 section 6.1: any redirect modifier is ignored when an all
+    # mechanism is present anywhere in the record.
+    all_present = any(
+        ALL_TERM_REGEX.fullmatch(term) is not None for term in record.split()
+    )
 
     parsed: ParsedSPFRecord = {
         "mechanisms": [],
@@ -678,102 +733,323 @@ def parse_spf_record(
         "all": "neutral",
     }
 
-    exp = None
+    total_dns_lookups = 0
+    total_void_dns_lookups = 0
+    error = None
+    exp_seen = False
+    redirect_seen = False
+
+    def _count_dns_lookups(count: int = 1) -> None:
+        """Add DNS-querying terms to the total and enforce the 10-term limit.
+
+        RFC 7208 section 4.6.4 caps the DNS-querying terms (include, a, mx,
+        ptr, exists, and the redirect modifier) at 10 per evaluation. The cap
+        is checked every time the total grows, no matter which term kind grew
+        it, including nested include and redirect totals.
+        """
+        nonlocal total_dns_lookups
+        total_dns_lookups += count
+        if total_dns_lookups > 10:
+            raise SPFTooManyDNSLookups(
+                "Parsing the SPF record requires "
+                f"{total_dns_lookups}/10 maximum DNS lookups "
+                "(RFC 7208 § 4.6.4)",
+                dns_lookups=total_dns_lookups,
+            )
+
+    def _count_void_dns_lookups(count: int = 1) -> None:
+        """Add void DNS lookups to the total and enforce the limit of 2.
+
+        RFC 7208 section 4.6.4: a term query that returns no records or
+        NXDOMAIN is a void lookup, and implementations should allow at most
+        two of them per evaluation.
+        """
+        nonlocal total_void_dns_lookups
+        if count == 0:
+            return
+        total_void_dns_lookups += count
+        if total_void_dns_lookups > 2:
+            raise SPFTooManyVoidDNSLookups(
+                "Parsing the SPF record has "
+                f"{total_void_dns_lookups}/2 maximum void DNS lookups "
+                "(RFC 7208 § 4.6.4)",
+                void_dns_lookups=total_void_dns_lookups,
+            )
+
+    def _maybe_warn_domain_spec(name: str, value: str) -> None:
+        """Warn when a literal domain cannot match the RFC 7208 grammar.
+
+        A macro-free domain-spec must be a multi-label name whose last label
+        is a valid toplabel (RFC 7208 section 12). Section 4.8 leaves the
+        handling of an invalid domain up to the implementation, so this is a
+        warning rather than an error.
+        """
+        labels = value.rstrip(".").split(".")
+        if len(labels) < 2 or TOPLABEL_REGEX.fullmatch(labels[-1]) is None:
+            warnings.append(
+                f"The {name} value {value} is not a fully-qualified domain "
+                "name ending in a valid top-level label (RFC 7208 § 12); "
+                "receivers may treat it as a no-match (RFC 7208 § 4.8)."
+            )
+
+    def _split_domain_cidr(value: str, name: str) -> tuple[str, str | None, str | None]:
+        """Split an a/mx value into (domain, IPv4 prefix, IPv6 prefix).
+
+        dual-cidr-length per RFC 7208 section 12 is "/nn" (IPv4), "//nn"
+        (IPv6), or "/nn//nn". Prefix lengths may not have leading zeros and
+        must be at most 32 (IPv4) / 128 (IPv6).
+        """
+        domain_part, slash, cidr_rest = value.partition("/")
+        if not slash:
+            return domain_part, None, None
+        cidr_match = DUAL_CIDR_REGEX.fullmatch(f"/{cidr_rest}")
+        if cidr_match is None:
+            raise SPFSyntaxError(
+                f"{domain}: /{cidr_rest} is not a valid CIDR prefix length "
+                f"for the {name} mechanism (RFC 7208 § 12)"
+            )
+        ip4_cidr = cidr_match.group(1)
+        ip6_cidr = cidr_match.group(2)
+        if ip4_cidr is not None and int(ip4_cidr) > 32:
+            raise SPFSyntaxError(
+                f"{domain}: The IPv4 prefix length /{ip4_cidr} in the {name} "
+                "mechanism must be between 0 and 32 (RFC 7208 § 12)"
+            )
+        if ip6_cidr is not None and int(ip6_cidr) > 128:
+            raise SPFSyntaxError(
+                f"{domain}: The IPv6 prefix length //{ip6_cidr} in the "
+                f"{name} mechanism must be between 0 and 128 (RFC 7208 § 12)"
+            )
+        return domain_part, ip4_cidr, ip6_cidr
+
+    def _check_exp_value(exp_value: str) -> None:
+        """Validate an exp value: macro syntax, or the TXT record behind it.
+
+        RFC 7208 section 6.2: the explanation TXT lookup happens at
+        evaluation time and never counts toward the DNS lookup limits.
+        """
+        if "%" in exp_value:
+            # RFC 7208 section 7.2 allows the c, r, and t macro letters in
+            # explanation text.
+            _validate_spf_macros(
+                exp_value,
+                domain,
+                syntax_error_marker,
+                allow_exp_only_letters=True,
+            )
+            return
+        try:
+            exp_txt_records = get_txt_records(
+                exp_value,
+                nameservers=nameservers,
+                timeout=timeout,
+                retries=retries,
+            )
+            if len(exp_txt_records) == 0:
+                warnings.append(f"No TXT records at exp value {exp_value}.")
+            if len(exp_txt_records) > 1:
+                warnings.append(f"Too many TXT records at exp value {exp_value}.")
+        except DNSException as e:
+            warnings.append(f"Failed to get TXT records at exp value {exp_value}: {e}")
+
+    # Handle the text after the first all mechanism. Evaluation stops at the
+    # first matching mechanism (RFC 7208 section 4.6.2), so terms after all
+    # are never used and are not processed, counted, or listed; only an exp
+    # modifier placed there is still honored.
     items_after_all: list[str] = AFTER_ALL_REGEX.findall(record)
     if len(items_after_all) > 0:
-        if items_after_all[0].startswith("exp="):
+        # Modifier names are case-insensitive (RFC 7208 section 4.6.1), so
+        # EXP= and Exp= must be recognized here too.
+        if items_after_all[0][:4].lower() == "exp=":
             # RFC 7208 § 6.2 (exp modifier): The explanation string is
             # evaluated at runtime (after result == fail) and may contain
             # macros. It MUST NOT contribute to DNS lookup counting and
             # SHOULD NOT be resolved during static parsing.
-            #
-            # Therefore, do not perform any DNS lookups here. Simply
-            # preserve the provided value (which may include macros) so a
-            # caller with SMTP context can expand it at evaluation time.
-            exp = items_after_all[0].split("=")
-            if len(exp) < 2 or exp[1].strip() == 0:
+            exp_value = items_after_all[0].split("=", 1)[1]
+            if exp_value.strip() == "":
                 raise SPFSyntaxError("The exp modifier is missing a value")
-            exp = exp[1].split(" ")
-            if len(exp) > 1:
+            exp_tokens = exp_value.split(" ")
+            if len(exp_tokens) > 1:
                 warnings.append("No text should exist after the exp modifier value.")
-            exp = exp[0]
-            parsed["exp"] = exp
-            if "%" in exp:
-                _validate_spf_macros(exp, domain, syntax_error_marker)
-            else:
-                try:
-                    exp_txt_records = get_txt_records(
-                        exp,
-                        nameservers=nameservers,
-                        timeout=timeout,
-                        retries=retries,
-                    )
-                    if len(exp_txt_records) == 0:
-                        warnings.append(f"No TXT records at exp value {exp}.")
-                    if len(exp_txt_records) > 1:
-                        warnings.append(f"Too many TXT records at exp value {exp}.")
-                except DNSException as e:
-                    warnings.append(
-                        f"Failed to get TXT records at exp value {exp}: {e}"
-                    )
+            exp_value = exp_tokens[0]
+            parsed["exp"] = exp_value
+            exp_seen = True
+            _check_exp_value(exp_value)
         else:
-            warnings.append(
-                "Any text after the all mechanism other than an exp modifier is ignored."
-            )
+            after_tokens = items_after_all[0].split()
+            extra_all_tokens = [
+                token
+                for token in after_tokens
+                if ALL_TERM_REGEX.fullmatch(token) is not None
+            ]
+            if extra_all_tokens:
+                # RFC 7208 places no uniqueness constraint on all; the first
+                # match simply wins (section 4.6.2).
+                warnings.append(
+                    "The record contains multiple all mechanisms; only the "
+                    "first one is used (RFC 7208 § 4.6.2)."
+                )
+            if len(extra_all_tokens) < len(after_tokens):
+                warnings.append(
+                    "Any text after the all mechanism other than an exp modifier is ignored."
+                )
 
-    total_dns_lookups = 0
-    total_void_dns_lookups = 0
-    error = None
-    all_seen = False
-    exp_seen = False
-    for match in matches:
+    # Split the record into terms. Everything after the first all mechanism
+    # was trimmed from grammar_record above.
+    terms = grammar_record.split()
+    if terms and terms[0].lower() == "v=spf1":
+        terms = terms[1:]
+
+    # First pass: per-term syntax validation against the RFC 7208 section 12
+    # ABNF. Running every syntax check before any DNS work means a record
+    # with a syntax error is rejected without network traffic.
+    prepared_terms: list[tuple[str, str, str | None, str, str]] = []
+    for term in terms:
+        term_match = SPF_MECHANISM_REGEX.fullmatch(term)
+        if term_match is None:
+            raise SPFSyntaxError(f"{domain}: {term} is not a valid SPF term")
+        qualifier, raw_name, sep, raw_value = term_match.groups()
+        qualifier = qualifier or ""
+        raw_value = raw_value or ""
+        name = raw_name.lower()
+        value = raw_value.lower()
+        if sep == "=":
+            # Modifiers. The RFC 7208 section 12 ABNF does not allow a
+            # qualifier on a modifier.
+            if qualifier != "":
+                raise SPFSyntaxError(
+                    f"{domain}: Qualifiers are not allowed on modifiers "
+                    f"(RFC 7208 § 12): {term}"
+                )
+            if name == "redirect":
+                if value == "":
+                    raise SPFSyntaxError("The redirect modifier is missing a value")
+                _validate_spf_macros(value, domain, syntax_error_marker)
+                if "%" not in value:
+                    _maybe_warn_domain_spec(name, value)
+            elif name == "exp":
+                if value == "":
+                    raise SPFSyntaxError("The exp modifier is missing a value")
+            else:
+                # RFC 7208 section 6: "Unrecognized modifiers MUST be
+                # ignored no matter where, or how often, they appear in a
+                # record."
+                warnings.append(
+                    f"The unknown modifier {name} was ignored (RFC 7208 § 6)."
+                )
+                continue
+        else:
+            if name not in SPF_MECHANISM_NAMES:
+                raise SPFSyntaxError(
+                    f"{domain}: {raw_name} is not a valid SPF mechanism or modifier"
+                )
+            if name == "all":
+                # all takes no value (RFC 7208 section 12)
+                if sep is not None:
+                    raise SPFSyntaxError(
+                        f"{domain}: The all mechanism does not accept a "
+                        f"value (RFC 7208 § 12): {term}"
+                    )
+            elif name in ("ip4", "ip6"):
+                if sep != ":" or value == "":
+                    raise SPFSyntaxError(f"{name} must have a value")
+                if "%" in value:
+                    raise SPFSyntaxError(
+                        f"{domain}: SPF macros are not allowed in {name} "
+                        f"mechanisms: {value}"
+                    )
+                if "/" in value:
+                    prefix_length = value.split("/", 1)[1]
+                    if CIDR_PREFIX_REGEX.fullmatch(prefix_length) is None:
+                        # The ipaddress module tolerates leading zeros that
+                        # the RFC 7208 section 12 ABNF forbids.
+                        raise SPFSyntaxError(
+                            f"{value} is not a valid {name} value. CIDR "
+                            "prefix lengths must not have leading zeros "
+                            "(RFC 7208 § 12)."
+                        )
+                if name == "ip4":
+                    try:
+                        if not isinstance(
+                            ipaddress.ip_network(value, strict=False),
+                            ipaddress.IPv4Network,
+                        ):
+                            raise SPFSyntaxError(
+                                f"{value} is not a valid IPv4 value.\nLooks like IPv6."
+                            )
+                    except ValueError:
+                        raise SPFSyntaxError(f"{value} is not a valid IPv4 value.")
+                else:
+                    try:
+                        if not isinstance(
+                            ipaddress.ip_network(value, strict=False),
+                            ipaddress.IPv6Network,
+                        ):
+                            raise SPFSyntaxError(
+                                f"{value} is not a valid IPv6 value.\nLooks like IPv4."
+                            )
+                    except ValueError:
+                        raise SPFSyntaxError(f"{value} is not a valid IPv6 value.")
+            elif name in ("include", "exists"):
+                if sep != ":" or value == "":
+                    raise SPFSyntaxError(f"{name} must have a value")
+                _validate_spf_macros(value, domain, syntax_error_marker)
+                if "%" not in value:
+                    _maybe_warn_domain_spec(name, value)
+            elif name in ("a", "mx"):
+                if sep == ":" and value == "":
+                    raise SPFSyntaxError(f"{name} must have a value after the :")
+                if sep == "/":
+                    # a/24 shorthand: the value is only a CIDR length
+                    value = f"/{value}"
+                _validate_spf_macros(value, domain, syntax_error_marker)
+                if "%" not in value:
+                    domain_part, _, _ = _split_domain_cidr(value, name)
+                    if sep == ":" and domain_part == "":
+                        raise SPFSyntaxError(f"{name} must have a value after the :")
+                    if domain_part != "":
+                        _maybe_warn_domain_spec(name, domain_part)
+            elif name == "ptr":
+                if sep == "/":
+                    raise SPFSyntaxError(
+                        f"{domain}: The ptr mechanism does not accept a "
+                        f"CIDR prefix length (RFC 7208 § 12): {term}"
+                    )
+                if sep == ":" and value == "":
+                    raise SPFSyntaxError(f"{name} must have a value after the :")
+                _validate_spf_macros(value, domain, syntax_error_marker)
+                if "%" not in value and value != "":
+                    _maybe_warn_domain_spec(name, value)
+        prepared_terms.append((qualifier, name, sep, value, raw_value))
+
+    # Second pass: process the validated terms, resolving DNS where needed
+    # and enforcing the RFC 7208 section 4.6.4 lookup limits after every
+    # counted term.
+    for qualifier, name, _sep, value, raw_value in prepared_terms:
         mechanism_dns_lookups = 0
         mechanism_void_dns_lookups = 0
-        action = spf_qualifiers[match[0]]
-        mechanism = match[1].strip(":=")
-        value = match[2]
-        # Macro syntax validation: macros are allowed only in mechanisms
-        # that take a domain-spec / macro-string, not ip4/ip6.
-        if "%" in value and mechanism in ("ip4", "ip6"):
-            raise SPFSyntaxError(
-                f"{domain}: SPF macros are not allowed in {mechanism} "
-                f"mechanisms: {value}"
-            )
-        _validate_spf_macros(
-            value,
-            domain=domain,
-            syntax_error_marker=syntax_error_marker,
-        )
+        action = spf_qualifiers[qualifier]
+        mechanism = name
         try:
-            if mechanism == "ip4":
-                try:
-                    if not isinstance(
-                        ipaddress.ip_network(value, strict=False),
-                        ipaddress.IPv4Network,
-                    ):
-                        raise SPFSyntaxError(
-                            f"{value} is not a valid ipv4 value.\nLooks like ipv6."
-                        )
-                except ValueError:
-                    raise SPFSyntaxError(f"{value} is not a valid ipv4 value.")
+            if mechanism == "all":
+                # Only one all term can reach this loop: everything after
+                # the first all mechanism was trimmed from grammar_record,
+                # and extra all mechanisms are warned about there.
+                parsed["all"] = action
 
-            elif mechanism == "ip6":
-                try:
-                    if not isinstance(
-                        ipaddress.ip_network(value, strict=False),
-                        ipaddress.IPv6Network,
-                    ):
-                        raise SPFSyntaxError(
-                            f"{value} is not a valid ipv6 value.\nLooks like ipv4."
-                        )
-                except ValueError:
-                    raise SPFSyntaxError(f"{value} is not a valid ipv6 value.")
+            elif mechanism in ("ip4", "ip6"):
+                ip_mechanism: SPFMechanism = {
+                    "action": action,
+                    "mechanism": mechanism,
+                    "value": value,
+                }
+                parsed["mechanisms"].append(ip_mechanism)
 
-            if mechanism == "a":
+            elif mechanism == "a":
+                _count_dns_lookups()
                 mechanism_dns_lookups += 1
-                total_dns_lookups += 1
                 if "%" in value:
-                    a_mechanism: SPFAMechanism = {
+                    macro_a_mechanism: SPFAMechanism = {
                         "action": action,
                         "mechanism": mechanism,
                         "value": value,
@@ -781,16 +1057,12 @@ def parse_spf_record(
                         "void_dns_lookups": mechanism_void_dns_lookups,
                         "addresses": [],
                     }
-
-                    parsed["mechanisms"].append(a_mechanism)
+                    parsed["mechanisms"].append(macro_a_mechanism)
                     continue
-                if value == "":
-                    value = domain
-                cidr = None
-                value = value.split("/")
-                value = value[0]
-                if len(value) == 2:
-                    cidr = value[1]
+                domain_part, ip4_cidr, ip6_cidr = _split_domain_cidr(value, mechanism)
+                # An a mechanism with no domain (a or a/24) means the
+                # current domain (RFC 7208 section 5.3)
+                value = domain_part or domain
                 a_records = get_a_records(
                     value,
                     nameservers=nameservers,
@@ -804,25 +1076,32 @@ def parse_spf_record(
                     raise _SPFMissingRecords(
                         f"An a mechanism points to {value.lower()}, but that domain/subdomain does not have any A/AAAA records."
                     )
-                for i in range(len(a_records)):
-                    if cidr:
-                        a_records[i] = f"{a_records[i]}/{cidr}"
+                addresses = []
+                for address in a_records:
+                    # The IPv4 prefix applies to A records and the IPv6
+                    # prefix to AAAA records (RFC 7208 section 5.3)
+                    ip_version = ipaddress.ip_address(address).version
+                    if ip_version == 4 and ip4_cidr is not None:
+                        addresses.append(f"{address}/{ip4_cidr}")
+                    elif ip_version == 6 and ip6_cidr is not None:
+                        addresses.append(f"{address}/{ip6_cidr}")
+                    else:
+                        addresses.append(address)
                 a_mechanism: SPFAMechanism = {
                     "action": action,
                     "mechanism": mechanism,
                     "value": value,
                     "dns_lookups": mechanism_dns_lookups,
                     "void_dns_lookups": mechanism_void_dns_lookups,
-                    "addresses": a_records,
+                    "addresses": addresses,
                 }
-
                 parsed["mechanisms"].append(a_mechanism)
 
             elif mechanism == "mx":
+                _count_dns_lookups()
                 mechanism_dns_lookups += 1
-                total_dns_lookups += 1
                 if "%" in value:
-                    mx_mechanism: ParsedSPFMXMechanism = {
+                    macro_mx_mechanism: ParsedSPFMXMechanism = {
                         "action": action,
                         "mechanism": mechanism,
                         "value": value,
@@ -830,12 +1109,14 @@ def parse_spf_record(
                         "void_dns_lookups": mechanism_void_dns_lookups,
                         "hosts": [],
                     }
-
-                    parsed["mechanisms"].append(mx_mechanism)
+                    parsed["mechanisms"].append(macro_mx_mechanism)
                     continue
+                # RFC 7208 sections 5.4 and 12: the dual-cidr-length applies
+                # to the addresses of the MX hosts, not to the MX query
+                # name, so strip it before querying DNS.
+                domain_part, _ip4_cidr, _ip6_cidr = _split_domain_cidr(value, mechanism)
                 # Use the current domain if no value was provided
-                if value == "":
-                    value = domain
+                value = domain_part or domain
 
                 # Query the MX records
                 mx_hosts = get_mx_records(
@@ -854,58 +1135,32 @@ def parse_spf_record(
                         "but that domain/subdomain does not have any MX records."
                     )
 
-                # RFC 7208 § 4.6.4: no more than 10 DNS queries total per evaluation
+                # RFC 7208 § 4.6.4: evaluating an mx term must not require
+                # more than 10 address lookups
                 if len(mx_hosts) > 10:
                     raise SPFTooManyDNSLookups(
-                        f"{value} has more than 10 MX records - (RFC 7208 § 4.6.4)",
+                        f"{value} has more than 10 MX records (RFC 7208 § 4.6.4)",
                         dns_lookups=len(mx_hosts),
                     )
-                mx_host_addresses = {}
                 for host in mx_hosts:
                     hostname = host["hostname"]
-                    # --- perform A/AAAA resolution for each MX host ---
                     try:
-                        _addresses = get_a_records(
+                        host_addresses = get_a_records(
                             hostname,
                             nameservers=nameservers,
                             resolver=resolver,
                             timeout=timeout,
                             retries=retries,
                         )
-                        mx_host_addresses[hostname] = _addresses
-
-                        if len(_addresses) == 0:
-                            # void lookup: increment void counter
-                            mechanism_void_dns_lookups += 1
-                            total_void_dns_lookups += 1
-                            if total_void_dns_lookups > 2:
-                                raise SPFTooManyVoidDNSLookups(
-                                    "Parsing the SPF record has "
-                                    f"{total_void_dns_lookups}/2 maximum void DNS lookups - "
-                                    "(RFC 7208 § 4.6.4)",
-                                    void_dns_lookups=total_void_dns_lookups,
-                                )
-
-                        if total_dns_lookups > 10:
-                            raise SPFTooManyDNSLookups(
-                                "Parsing the SPF record requires "
-                                f"{total_dns_lookups}/10 maximum DNS lookups - "
-                                "(RFC 7208 § 4.6.4)",
-                                dns_lookups=total_dns_lookups,
-                            )
-
                     except DNSException as dnserror:
-                        if isinstance(dnserror, DNSExceptionNXDOMAIN):
-                            mechanism_void_dns_lookups += 1
-                            total_void_dns_lookups += 1
-                            if total_void_dns_lookups > 2:
-                                raise SPFTooManyVoidDNSLookups(
-                                    "Parsing the SPF record has "
-                                    f"{total_void_dns_lookups}/2 maximum void DNS lookups "
-                                    "(RFC 7208 § 4.6.4)",
-                                    void_dns_lookups=total_void_dns_lookups,
-                                )
                         raise _SPFWarning(str(dnserror))
+                    if len(host_addresses) == 0:
+                        # RFC 7208 section 4.6.4 defines void lookups per
+                        # term query; an MX host without address records is
+                        # not a void lookup, so warn without counting one.
+                        warnings.append(
+                            f"The MX host {hostname} does not have any A/AAAA records."
+                        )
                 mx_mechanism: ParsedSPFMXMechanism = {
                     "action": action,
                     "mechanism": mechanism,
@@ -914,12 +1169,11 @@ def parse_spf_record(
                     "void_dns_lookups": mechanism_void_dns_lookups,
                     "hosts": mx_hosts,
                 }
-
                 parsed["mechanisms"].append(mx_mechanism)
 
             elif mechanism == "exists":
+                _count_dns_lookups()
                 mechanism_dns_lookups += 1
-                total_dns_lookups += 1
                 exists_mechanism: SPFDNSLookupMechanism = {
                     "action": action,
                     "mechanism": mechanism,
@@ -928,22 +1182,26 @@ def parse_spf_record(
                     "void_dns_lookups": mechanism_void_dns_lookups,
                 }
                 parsed["mechanisms"].append(exists_mechanism)
-                if value == "":
-                    raise SPFSyntaxError(f"{mechanism} must have a value")
-                if total_dns_lookups > 10:
-                    raise SPFTooManyDNSLookups(
-                        "Parsing the SPF record requires "
-                        f"{total_dns_lookups}/10 maximum DNS lookups "
-                        "(RFC 7208 § 4.6.4)",
-                        dns_lookups=total_dns_lookups,
-                    )
+
             elif mechanism == "redirect":
-                if parsed["redirect"]:
+                # RFC 7208 section 6: more than one redirect modifier is a
+                # permanent error
+                if redirect_seen:
                     raise SPFSyntaxError("Multiple redirect modifiers")
+                redirect_seen = True
+                if all_present:
+                    # RFC 7208 section 6.1: "Any 'redirect' modifier MUST be
+                    # ignored if there is an 'all' mechanism anywhere in the
+                    # record." No DNS queries, no lookup counting.
+                    warnings.append(
+                        "The redirect modifier was ignored because the "
+                        "record contains an all mechanism (RFC 7208 § 6.1)."
+                    )
+                    continue
+                _count_dns_lookups()
                 mechanism_dns_lookups += 1
-                total_dns_lookups += 1
                 if "%" in value:
-                    redirect: SPFRedirect = {
+                    macro_redirect: SPFRedirect = {
                         "domain": domain,
                         "record": None,
                         "dns_lookups": mechanism_dns_lookups,
@@ -951,52 +1209,36 @@ def parse_spf_record(
                         "parsed": None,
                         "warnings": [],
                     }
-                    parsed["redirect"] = redirect
+                    parsed["redirect"] = macro_redirect
                     continue
-                if value.lower() in recursion:
-                    raise SPFRedirectLoop(f"Redirect loop: {value.lower()}")
-                seen.append(value.lower())
+                if value in recursion:
+                    raise SPFRedirectLoop(f"Redirect loop: {value}")
+                seen.append(value)
                 try:
-                    redirect_record = query_spf_record(
+                    redirect_query = query_spf_record(
                         value,
                         nameservers=nameservers,
                         resolver=resolver,
                         timeout=timeout,
                         retries=retries,
                     )
-                    redirect_record = redirect_record["record"]
+                    redirect_record = redirect_query["record"]
                     redirected_spf = parse_spf_record(
                         redirect_record,
                         value,
                         seen=seen,
-                        recursion=recursion + [value.lower()],
+                        recursion=recursion + [value],
                         nameservers=nameservers,
                         resolver=resolver,
                         timeout=timeout,
                         retries=retries,
+                        _include_cache=_include_cache,
                     )
                     parsed["all"] = redirected_spf["parsed"]["all"]
                     mechanism_dns_lookups += redirected_spf["dns_lookups"]
                     mechanism_void_dns_lookups += redirected_spf["void_dns_lookups"]
-                    total_dns_lookups += redirected_spf["dns_lookups"]
-                    total_void_dns_lookups += redirected_spf["void_dns_lookups"]
-                    if total_dns_lookups > 10:
-                        raise SPFTooManyDNSLookups(
-                            "Parsing the SPF record requires "
-                            f"{total_dns_lookups}/10 maximum "
-                            "DNS lookups "
-                            "(RFC 7208 § 4.6.4)",
-                            dns_lookups=total_dns_lookups,
-                        )
-                    if total_void_dns_lookups > 2:
-                        u = "(RFC 7208 § 4.6.4)"
-                        raise SPFTooManyVoidDNSLookups(
-                            "Parsing the SPF record has "
-                            f"{total_void_dns_lookups}/2 maximum void "
-                            "DNS lookups "
-                            f"{u}",
-                            void_dns_lookups=total_void_dns_lookups,
-                        )
+                    _count_dns_lookups(redirected_spf["dns_lookups"])
+                    _count_void_dns_lookups(redirected_spf["void_dns_lookups"])
                     redirect: SPFRedirect = {
                         "domain": value,
                         "record": redirect_record,
@@ -1014,42 +1256,26 @@ def parse_spf_record(
                     # exits, which would shadow and unset the function-level
                     # ``error`` set at the top of parse_spf_record.
                     if isinstance(redirect_err, DNSExceptionNXDOMAIN):
-                        total_void_dns_lookups += 1
+                        # An NXDOMAIN answer for the redirect target is a
+                        # void lookup (RFC 7208 § 4.6.4)
+                        _count_void_dns_lookups()
                     raise _SPFWarning(str(redirect_err))
 
-            elif mechanism == "all":
-                if all_seen:
-                    raise SPFSyntaxError("The all mechanism can only be used once.")
-                all_seen = True
-                parsed["all"] = action
             elif mechanism == "exp":
+                # RFC 7208 section 6: modifiers may appear anywhere in the
+                # record, so honor exp even before the all mechanism. The
+                # exp value keeps its original case because uppercase macro
+                # letters change how macros expand (RFC 7208 section 7.3).
                 if exp_seen:
                     raise SPFSyntaxError("Multiple exp values are not permitted")
                 exp_seen = True
-                parsed["exp"] = exp
-                if isinstance(exp, str) and "%" in exp:
-                    continue
-                if isinstance(exp, str):
-                    try:
-                        exp_txt_records = get_txt_records(
-                            exp,
-                            nameservers=nameservers,
-                            timeout=timeout,
-                            retries=retries,
-                        )
-                        if len(exp_txt_records) == 0:
-                            warnings.append(f"No TXT records at exp value {exp}.")
-                        if len(exp_txt_records) > 1:
-                            warnings.append(f"Too many TXT records at exp value {exp}.")
-                    except DNSException as e:
-                        warnings.append(
-                            f"Failed to get TXT records at exp value {exp}: {e}"
-                        )
+                parsed["exp"] = raw_value
+                _check_exp_value(raw_value)
 
             elif mechanism == "include":
-                mechanism_dns_lookups += 1
-                total_dns_lookups += 1
                 if "%" in value:
+                    _count_dns_lookups()
+                    mechanism_dns_lookups += 1
                     macro_include: SPFIncludeMechanism = {
                         "action": action,
                         "mechanism": mechanism,
@@ -1062,76 +1288,44 @@ def parse_spf_record(
                     }
                     parsed["mechanisms"].append(macro_include)
                     continue
-                if value == "":
-                    raise SPFSyntaxError(f"{mechanism} must have a value")
-                if value.lower() in recursion:
-                    pointer = " -> ".join(recursion + [value.lower()])
+                if value in recursion:
+                    pointer = " -> ".join(recursion + [value])
                     raise SPFIncludeLoop(f"Include loop: {pointer}")
-                if value.lower() in seen:
-                    raise _SPFDuplicateInclude(f"Duplicate include: {value.lower()}")
-                seen.append(value.lower())
-
+                if value in seen:
+                    warnings.append(f"Duplicate include: {value}")
+                    cached_include = _include_cache.get(value)
+                    if cached_include is not None:
+                        # RFC 7208 section 4.6.4: real evaluation counts
+                        # every evaluated term, repeats included, so count
+                        # the duplicate again using the earlier parse result
+                        # instead of re-querying DNS.
+                        _count_dns_lookups(1 + cached_include["dns_lookups"])
+                        _count_void_dns_lookups(cached_include["void_dns_lookups"])
+                        duplicate_include_mechanism: SPFIncludeMechanism = {
+                            "action": action,
+                            "mechanism": mechanism,
+                            "value": value,
+                            "dns_lookups": 1 + cached_include["dns_lookups"],
+                            "void_dns_lookups": cached_include["void_dns_lookups"],
+                            "record": cached_include["record"],
+                            "parsed": cached_include["parsed"],
+                            "warnings": cached_include["warnings"],
+                        }
+                        parsed["mechanisms"].append(duplicate_include_mechanism)
+                        continue
+                else:
+                    seen.append(value)
+                _count_dns_lookups()
+                mechanism_dns_lookups += 1
                 try:
-                    include_record = query_spf_record(
+                    include_query = query_spf_record(
                         value,
                         nameservers=nameservers,
                         resolver=resolver,
                         timeout=timeout,
                         retries=retries,
                     )
-                    include_record = include_record["record"]
-                    include = parse_spf_record(
-                        include_record,
-                        value,
-                        seen=seen,
-                        recursion=recursion + [value.lower()],
-                        nameservers=nameservers,
-                        resolver=resolver,
-                        timeout=timeout,
-                        retries=retries,
-                    )
-                    total_dns_lookups += include["dns_lookups"]
-                    total_void_dns_lookups += include["void_dns_lookups"]
-                    combined_mechanism_lookups = (
-                        mechanism_dns_lookups + include["dns_lookups"]
-                    )
-                    combined_mechanism_void_dns_lookups = (
-                        mechanism_void_dns_lookups + include["void_dns_lookups"]
-                    )
-
-                    include_mechanism: SPFIncludeMechanism = {
-                        "action": action,
-                        "mechanism": mechanism,
-                        "value": value,
-                        "dns_lookups": combined_mechanism_lookups,
-                        "void_dns_lookups": combined_mechanism_void_dns_lookups,
-                        "record": include_record,
-                        "parsed": include["parsed"],
-                        "warnings": include["warnings"],
-                    }
-                    parsed["mechanisms"].append(include_mechanism)
-                    warnings += include["warnings"]
-                    mechanism_dns_lookups += include["dns_lookups"]
-                    mechanism_void_dns_lookups += include["void_dns_lookups"]
-                    if total_dns_lookups > 10:
-                        raise SPFTooManyDNSLookups(
-                            "Parsing the SPF record requires "
-                            f"{total_dns_lookups}/10 maximum "
-                            "DNS lookups - "
-                            "(RFC 7208 § 4.6.4)",
-                            dns_lookups=total_dns_lookups,
-                        )
-                    if total_void_dns_lookups > 2:
-                        u = "(RFC 7208 § 4.6.4)"
-                        raise SPFTooManyVoidDNSLookups(
-                            "Parsing the SPF record has "
-                            f"{total_void_dns_lookups}/2 maximum void "
-                            "DNS lookups - "
-                            f"{u}",
-                            void_dns_lookups=total_void_dns_lookups,
-                        )
-                except SPFRecordNotFound as e:
-                    total_void_dns_lookups += 1
+                except SPFRecordNotFound as missing_include:
                     failed_include_mechanism: SPFIncludeMechanism = {
                         "action": action,
                         "mechanism": mechanism,
@@ -1143,22 +1337,61 @@ def parse_spf_record(
                         "warnings": [],
                     }
                     parsed["mechanisms"].append(failed_include_mechanism)
-                    raise _SPFWarning(str(e))
+                    _count_void_dns_lookups()
+                    # RFC 7208 section 5.2: when the recursive evaluation of
+                    # an include target returns "none" (no SPF record, or
+                    # the domain does not exist), the whole record is a
+                    # permanent error (permerror), not just a warning.
+                    raise SPFRecordNotFound(
+                        f"The include target {value} has no SPF record, "
+                        "which RFC 7208 § 5.2 defines as a permanent error "
+                        f"(permerror): {missing_include}",
+                        value,
+                    )
+                include_record = include_query["record"]
+                include = parse_spf_record(
+                    include_record,
+                    value,
+                    seen=seen,
+                    recursion=recursion + [value],
+                    nameservers=nameservers,
+                    resolver=resolver,
+                    timeout=timeout,
+                    retries=retries,
+                    _include_cache=_include_cache,
+                )
+                _include_cache[value] = include
+                _count_dns_lookups(include["dns_lookups"])
+                _count_void_dns_lookups(include["void_dns_lookups"])
+                mechanism_dns_lookups += include["dns_lookups"]
+                mechanism_void_dns_lookups += include["void_dns_lookups"]
+                include_mechanism: SPFIncludeMechanism = {
+                    "action": action,
+                    "mechanism": mechanism,
+                    "value": value,
+                    "dns_lookups": mechanism_dns_lookups,
+                    "void_dns_lookups": mechanism_void_dns_lookups,
+                    "record": include_record,
+                    "parsed": include["parsed"],
+                    "warnings": include["warnings"],
+                }
+                parsed["mechanisms"].append(include_mechanism)
+                warnings += include["warnings"]
 
             elif mechanism == "ptr":
+                _count_dns_lookups()
                 mechanism_dns_lookups += 1
-                total_dns_lookups += 1
                 if "%" in value:
-                    ptr_mechanism: SPFDNSLookupMechanism = {
+                    macro_ptr_mechanism: SPFDNSLookupMechanism = {
                         "action": action,
                         "mechanism": mechanism,
                         "value": value,
                         "dns_lookups": mechanism_dns_lookups,
                         "void_dns_lookups": mechanism_void_dns_lookups,
                     }
-                    parsed["mechanisms"].append(ptr_mechanism)
+                    parsed["mechanisms"].append(macro_ptr_mechanism)
                     raise _SPFWarning(
-                        "The ptr mechanism should not be used - (RFC 7208 § 5.5)"
+                        "The ptr mechanism should not be used (RFC 7208 § 5.5)"
                     )
                 if value == "":
                     value = domain
@@ -1184,25 +1417,8 @@ def parse_spf_record(
                 }
                 parsed["mechanisms"].append(ptr_mechanism)
                 raise _SPFWarning(
-                    "The ptr mechanism should not be used - (RFC 7208 § 5.5)"
+                    "The ptr mechanism should not be used (RFC 7208 § 5.5)"
                 )
-            else:
-                if mechanism_dns_lookups > 0:
-                    other_spf_dns_mechanism: SPFDNSLookupMechanism = {
-                        "action": action,
-                        "mechanism": mechanism,
-                        "value": value,
-                        "dns_lookups": mechanism_dns_lookups,
-                        "void_dns_lookups": mechanism_void_dns_lookups,
-                    }
-                    parsed["mechanisms"].append(other_spf_dns_mechanism)
-                else:
-                    other_mechanism: SPFMechanism = {
-                        "action": action,
-                        "mechanism": mechanism,
-                        "value": value,
-                    }
-                    parsed["mechanisms"].append(other_mechanism)
 
         except (SPFTooManyDNSLookups, SPFTooManyVoidDNSLookups) as e:
             if ignore_too_many_lookups:
@@ -1213,7 +1429,6 @@ def parse_spf_record(
         except (_SPFWarning, DNSException) as warning:
             if isinstance(warning, (_SPFMissingRecords, DNSExceptionNXDOMAIN)):
                 mechanism_void_dns_lookups += 1
-                total_void_dns_lookups += 1
 
                 failed_mechanism: SPFDNSLookupMechanism = {
                     "action": action,
@@ -1223,13 +1438,7 @@ def parse_spf_record(
                     "void_dns_lookups": 1,
                 }
                 parsed["mechanisms"].append(failed_mechanism)
-                if total_void_dns_lookups > 2:
-                    raise SPFTooManyVoidDNSLookups(
-                        "Parsing the SPF record has "
-                        f"{total_void_dns_lookups}/2 maximum void DNS "
-                        "lookups (RFC 7208 § 4.6.4)",
-                        void_dns_lookups=total_void_dns_lookups,
-                    )
+                _count_void_dns_lookups()
             warnings.append(f"Error when processing {value or domain}: {warning!s}")
 
     if error:
@@ -1272,7 +1481,7 @@ def get_spf_record(
         retries (int): The number of times to retry on timeout or other transient errors
 
     Returns:
-        dict: An SPF record parsed by result
+        dict: The parsed SPF record results
 
     Raises:
         :exc:`checkdmarc.spf.SPFRecordNotFound`
@@ -1339,7 +1548,7 @@ def check_spf(
             - ``warnings`` - A ``list`` of warnings
 
         If a DNS error occurs, the dictionary will have the following keys:
-            - ``error`` - Tne error message
+            - ``error`` - The error message
             - ``valid`` - False
     """
     domain = normalize_domain(domain)

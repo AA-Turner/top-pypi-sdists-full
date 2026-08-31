@@ -2501,12 +2501,12 @@ def _normalize_residency(mode) -> "str | None":
     """Map a caller-supplied residency mode onto the wire value the agent stores.
 
     "static" is the only stored tier; on-demand IS the default and clears the
-    override — so null / "" / "on-demand" and the agent's legacy synonyms
-    ("serving"/"warm") all normalize to None. Anything else is rejected by the
+    override — so null / "" / "on-demand" all normalize to None. Anything
+    else is rejected by the
     route (a bad tier must 400, never silently clear)."""
     if mode == "static":
         return "static"
-    if mode in (None, "", "on-demand", "on_demand", "serving", "warm"):
+    if mode in (None, "", "on-demand", "on_demand"):
         return None
     return "__invalid__"
 
@@ -4244,7 +4244,7 @@ def _budget_refusal_for_transfer(model, incoming_bytes):
     if not isinstance(view, dict):
         return None  # unknown worker -> serve (don't refuse what we can't size)
     budget = view.get("budget")
-    resident = view.get("resident_bytes")
+    resident = view.get("hot_bytes")
     if budget in (None, "") or resident is None:
         return None  # no managed budget -> serve (unmanaged = pre-feature behavior)
     try:
@@ -4267,7 +4267,7 @@ def _budget_refusal_for_transfer(model, incoming_bytes):
         "model_key": (model.get("key") or model.get("name")
                       if isinstance(model, dict) else None),
         "budget_bytes": budget,
-        "resident_bytes": resident,
+        "hot_bytes": resident,
         "incoming_bytes": incoming,
         "would_use_bytes": resident + incoming,
         "reason": (f"background pull ({purpose}) refused: resident {resident} + "
@@ -4277,6 +4277,73 @@ def _budget_refusal_for_transfer(model, incoming_bytes):
                    "(2026-07-17). The model pulls on a real call (demand), which "
                    "the worker's own evict-to-fit seats."),
     }
+
+
+def _elect_gguf_transfer_set(entries, model):
+    """Collapse a multi-quant GGUF listing to the ONE quant that is actually
+    served: the elected (or pinned) quant's member file(s) + the projector
+    (mmproj) + every non-.gguf sidecar. ``entries`` is ``[(relpath, size)]``.
+
+    WHY (operator, 2026-08-31): an imatrix repo like ``DAN-L3-R1-8B-i1-GGUF``
+    holds a dozen-plus quant files (~87 GB) but a call serves exactly ONE quant
+    (~4.6 GB). ``format_select.select_files`` deliberately passes GGUF through
+    untouched ("its quant is resolved elsewhere") — but for the TRANSFER manifest
+    that elsewhere is HERE. Left unfiltered the worker pulls every quant (≈20×
+    the space it serves, then evicts and re-pulls forever) and the budget need is
+    the whole-repo sum. This makes the manifest offer only the served quant, so
+    what a worker lands is what it loads.
+
+    Election mirrors the serve loader exactly (``gguf_election.elect``: q4_k_m
+    preferred, full-precision last, shard-aware, complete variants first), so the
+    transfer set and the load target can never disagree. An explicit pin wins:
+    ``model['filename']`` (a single entrypoint basename, brings its whole shard
+    set) or ``model['include']`` (glob patterns). Degrades to ``entries``
+    unchanged when there is no servable .gguf (not a GGUF repo) or nothing can be
+    elected (only incomplete litter) — never fewer-than-correct."""
+    import fnmatch
+    from ....imports.src import gguf_election as _ge
+
+    def _base(r):
+        return os.path.basename(str(r)).lower()
+
+    gguf = [(r, s) for (r, s) in entries if str(r).lower().endswith(".gguf")]
+    if not gguf:
+        return entries                       # not a GGUF repo — leave it be
+    # mmproj (the vision projector) is a .gguf but NOT a quant variant: it rides
+    # alongside whatever quant is served and must never enter the election.
+    mmproj = [(r, s) for (r, s) in gguf if "mmproj" in _base(r)]
+    quant_entries = [(r, s) for (r, s) in gguf if "mmproj" not in _base(r)]
+    sidecars = [(r, s) for (r, s) in entries
+                if not str(r).lower().endswith(".gguf")]
+    if not quant_entries:
+        return entries                       # only a projector, nothing to elect
+
+    chosen = None
+    pin_file = str(model.get("filename") or "").strip()
+    pin_include = model.get("include") or []
+    if pin_file:
+        variants = _ge.group_variants(quant_entries)
+        want = pin_file.lower()
+        for v in variants:
+            if _base(v["entry"]) == want or any(_base(m) == want for m in v["members"]):
+                mem = set(v["members"])
+                chosen = [(r, s) for (r, s) in quant_entries if r in mem]
+                break
+        if not chosen:                       # bare pinned file not seen as a variant entry
+            chosen = [(r, s) for (r, s) in quant_entries if _base(r) == want]
+    elif pin_include:
+        pats = pin_include if isinstance(pin_include, (list, tuple)) else [pin_include]
+        chosen = [(r, s) for (r, s) in quant_entries
+                  if any(fnmatch.fnmatch(_base(r), str(p).lower())
+                         or fnmatch.fnmatch(str(r).lower(), str(p).lower()) for p in pats)]
+    if not chosen:                           # no usable pin -> deterministic election
+        winner = _ge.elect(_ge.group_variants(quant_entries))
+        if winner:
+            mem = set(winner["members"])
+            chosen = [(r, s) for (r, s) in quant_entries if r in mem]
+    if not chosen:
+        return entries                       # nothing electable — never under-offer
+    return chosen + mmproj + sidecars
 
 
 @worker_bp.route("/llm/models/<path:model_key>/manifest", methods=["GET"])
@@ -4297,11 +4364,18 @@ def model_file_manifest(model_key):
     # Central mirrors WHOLE HF snapshots — the same weights in several formats,
     # often an fp32 duplicate too. A worker only needs ONE usable weight format +
     # the sidecars. Offer exactly that (degrade-to-correct: an unrecognized layout
-    # falls back to the whole listing). GGUF is untouched — its effective quant is
-    # resolved elsewhere. The worker's per-file puller drives off this `files`
-    # list, so this is what actually lands on the worker's disk.
+    # falls back to the whole listing). GGUF is passed through by select_files
+    # ("its effective quant is resolved elsewhere") — and for the TRANSFER
+    # manifest that elsewhere is HERE: _elect_gguf_transfer_set collapses a
+    # multi-quant repo to the single served quant + projector + sidecars, so the
+    # worker pulls ~4.6 GB (one quant) instead of ~87 GB (every quant) and the
+    # budget need below reflects the served size, not the whole-repo sum. The
+    # worker's per-file puller drives off this `files` list, so this is what
+    # actually lands on the worker's disk.
     framework = model.get("framework")
     selected = select_files(raw, framework=framework)
+    if str(framework or "").lower() in ("gguf", "llama_cpp"):
+        selected = _elect_gguf_transfer_set(selected, model)
     files = [{"path": r, "size": s} for (r, s) in selected]
     total = sum(s for (_r, s) in selected)
 

@@ -40,7 +40,7 @@ class BucketResponse(BaseModel):
     bucket_schema: Optional[BucketSchemaOutput] = Field(default=None, description="Schema definition for objects in this bucket")
     unique_key: Optional[UniqueKeyConfig] = Field(default=None, description="Unique key configuration for this bucket (if configured)")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the bucket")
-    storage_class: Optional[StorageClass] = Field(default=None, description="Object-storage tier for this bucket's objects: standard | nearline | coldline | archive. Provider-agnostic (GCS STANDARD/NEARLINE/COLDLINE/ARCHIVE; S3/MinIO STANDARD/STANDARD_IA/GLACIER). NOTE: applied on write for sync-based ingestion (the primary media path); tiering for direct/presigned uploads and retroactive re-tiering of existing objects are in progress (TG-2837). None = provider default.")
+    storage_class: Optional[StorageClass] = Field(default=None, description="Object-storage tier for this bucket's objects: standard | nearline | coldline | archive. Provider-agnostic (GCS STANDARD/NEARLINE/COLDLINE/ARCHIVE; S3/MinIO STANDARD/STANDARD_IA/GLACIER). NOTE: applied on write for sync-based ingestion (the primary media path); tiering for direct/presigned uploads and retroactive re-tiering of existing objects are in progress. None = provider default.")
     object_count: StrictInt = Field(description="Number of objects in the bucket")
     total_size_bytes: StrictInt = Field(description="Total size of all objects in the bucket in bytes")
     created_at: Optional[datetime] = Field(default=None, description="When the bucket was created")

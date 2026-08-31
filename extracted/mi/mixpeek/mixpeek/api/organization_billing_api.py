@@ -379,7 +379,7 @@ class OrganizationBillingApi:
     ) -> CancelSubscriptionResponse:
         """Cancel Subscription
 
-        Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true`` (BACKE-2859): cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
+        Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true``: cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
 
         :param cancel_subscription_request:
         :type cancel_subscription_request: CancelSubscriptionRequest
@@ -452,7 +452,7 @@ class OrganizationBillingApi:
     ) -> ApiResponse[CancelSubscriptionResponse]:
         """Cancel Subscription
 
-        Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true`` (BACKE-2859): cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
+        Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true``: cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
 
         :param cancel_subscription_request:
         :type cancel_subscription_request: CancelSubscriptionRequest
@@ -525,7 +525,7 @@ class OrganizationBillingApi:
     ) -> RESTResponseType:
         """Cancel Subscription
 
-        Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true`` (BACKE-2859): cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
+        Cancel the current subscription.  Default: cancel at end of billing period (the subscription remains active until then, after which the organization downgrades). With ``immediate=true``: cancel NOW — the org-deletion cascade and teardown callers need a cancel that actually ends billing today instead of leaving a live sub on the card.
 
         :param cancel_subscription_request:
         :type cancel_subscription_request: CancelSubscriptionRequest
@@ -5137,7 +5137,7 @@ class OrganizationBillingApi:
     ) -> RedeemPromoResponse:
         """Redeem Promo
 
-        Redeem a promo code on a FRESH org — no Checkout, no card (BACKE-2854).  Ethan directive 2026-07-22: a promo code must let the user continue without entering a CC. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
+        Redeem a promo code on a FRESH org — no Checkout, no card.  A promo code lets you continue without entering a card. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
 
         :param redeem_promo_request: (required)
         :type redeem_promo_request: RedeemPromoRequest
@@ -5210,7 +5210,7 @@ class OrganizationBillingApi:
     ) -> ApiResponse[RedeemPromoResponse]:
         """Redeem Promo
 
-        Redeem a promo code on a FRESH org — no Checkout, no card (BACKE-2854).  Ethan directive 2026-07-22: a promo code must let the user continue without entering a CC. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
+        Redeem a promo code on a FRESH org — no Checkout, no card.  A promo code lets you continue without entering a card. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
 
         :param redeem_promo_request: (required)
         :type redeem_promo_request: RedeemPromoRequest
@@ -5283,7 +5283,7 @@ class OrganizationBillingApi:
     ) -> RESTResponseType:
         """Redeem Promo
 
-        Redeem a promo code on a FRESH org — no Checkout, no card (BACKE-2854).  Ethan directive 2026-07-22: a promo code must let the user continue without entering a CC. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
+        Redeem a promo code on a FRESH org — no Checkout, no card.  A promo code lets you continue without entering a card. This creates the subscription server-side with the coupon attached (the self-serve twin of the manual comp flow), stamps ``metadata.organization_id`` so the subscription webhook grants tier + POC cap, and sets the org's plan fields inline so the user continues IMMEDIATELY (no webhook-latency paywall).  Only codes whose window bills $0 (percent_off=100 — every POC code by validated shape) can start service card-less: a partial discount with no payment method would generate a FAILING first invoice (service cut + dunning — strictly worse than the card form; the uncollectable shape POC-PROMO-CAP-2026-07-17 exists to prevent). Partial codes get a clear redirect to checkout, where the discount still applies. Card-ask happens at coupon end (finances' T-7d lifecycle).  Every failure carries a reason — never a silent no-op.
 
         :param redeem_promo_request: (required)
         :type redeem_promo_request: RedeemPromoRequest

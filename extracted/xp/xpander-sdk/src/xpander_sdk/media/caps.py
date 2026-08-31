@@ -99,6 +99,11 @@ PROVIDER_CAPABILITIES: Dict[str, ModelCapabilities] = {
     "open_router": ModelCapabilities(**_OPENAI_COMPAT_NO_PDF),
     "helicone": ModelCapabilities(**_OPENAI_COMPAT_NO_PDF),
     "cloudflare_ai_gw": ModelCapabilities(**_OPENAI_COMPAT_NO_PDF),
+    # Fail-closed like cerebras/nim: the backing model is unknown, so vision
+    # must be opted into per-model rather than assumed.
+    "openai_compatible": ModelCapabilities(
+        supports_vision=False, supports_native_pdf=False
+    ),
     "z_ai": ModelCapabilities(**_OPENAI_COMPAT_NO_PDF),
     "bytedance": ModelCapabilities(**_OPENAI_COMPAT_NO_PDF),
     "cerebras": ModelCapabilities(supports_vision=False, supports_native_pdf=False),

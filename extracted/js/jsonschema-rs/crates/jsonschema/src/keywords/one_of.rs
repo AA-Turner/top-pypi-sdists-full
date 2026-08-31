@@ -1,3 +1,4 @@
+use crate::LazyInstance;
 use std::borrow::Cow;
 
 use crate::{
@@ -42,7 +43,7 @@ impl OneOfValidator<SerdeJson> {
                 location.clone(),
                 location,
                 Location::new(),
-                Cow::Borrowed(schema),
+                LazyInstance::Ready(Cow::Borrowed(schema)),
                 JsonType::Array,
             ))
         }
@@ -121,7 +122,7 @@ impl<F: Json> Validate<F> for SingleOneOfValidator<F> {
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance.to_value(),
+                instance.lazy_value(),
                 vec![{
                     let mut branch = Vec::new();
                     self.node
@@ -139,10 +140,24 @@ impl<F: Json> Validate<F> for SingleOneOfValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
-        EvaluationResult::from(
-            self.node
-                .evaluate_instance(instance, location, tracker, ctx),
-        )
+        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+    }
+
+    fn evaluate_with_location(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        instance_location: &Location,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        EvaluationResult::from(self.node.evaluate_instance_at(
+            instance,
+            location,
+            instance_location,
+            tracker,
+            ctx,
+        ))
     }
 }
 
@@ -166,7 +181,7 @@ impl<F: Json> Validate<F> for OneOfValidator<F> {
                     self.location.clone(),
                     crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
-                    instance.to_value(),
+                    instance.lazy_value(),
                     self.schemas
                         .iter()
                         .map(|schema| {
@@ -183,7 +198,7 @@ impl<F: Json> Validate<F> for OneOfValidator<F> {
                 self.location.clone(),
                 crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
-                instance.to_value(),
+                instance.lazy_value(),
                 self.schemas
                     .iter()
                     .map(|schema| {
@@ -203,6 +218,17 @@ impl<F: Json> Validate<F> for OneOfValidator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> EvaluationResult {
+        self.evaluate_with_location(instance, location, &location.into(), tracker, ctx)
+    }
+
+    fn evaluate_with_location(
+        &self,
+        instance: &F::Node<'_>,
+        location: &LazyLocation,
+        instance_location: &Location,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         // Use cheap `is_valid` first, then run full `evaluate` only on matching schemas.
         let first_valid_idx = self.get_first_valid(instance, ctx);
 
@@ -210,7 +236,9 @@ impl<F: Json> Validate<F> for OneOfValidator<F> {
             let failures: Vec<_> = self
                 .schemas
                 .iter()
-                .map(|node| node.evaluate_instance(instance, location, tracker, ctx))
+                .map(|node| {
+                    node.evaluate_instance_at(instance, location, instance_location, tracker, ctx)
+                })
                 .collect();
             return EvaluationResult::Invalid {
                 errors: Vec::new(),
@@ -223,7 +251,13 @@ impl<F: Json> Validate<F> for OneOfValidator<F> {
             let mut successes = Vec::new();
             for (idx, node) in self.schemas.iter().enumerate() {
                 if idx == first_idx || node.is_valid(instance, ctx) {
-                    let child = node.evaluate_instance(instance, location, tracker, ctx);
+                    let child = node.evaluate_instance_at(
+                        instance,
+                        location,
+                        instance_location,
+                        tracker,
+                        ctx,
+                    );
                     if child.valid {
                         successes.push(child);
                     }
@@ -238,7 +272,13 @@ impl<F: Json> Validate<F> for OneOfValidator<F> {
                 annotations: None,
             }
         } else {
-            let child = self.schemas[first_idx].evaluate_instance(instance, location, tracker, ctx);
+            let child = self.schemas[first_idx].evaluate_instance_at(
+                instance,
+                location,
+                instance_location,
+                tracker,
+                ctx,
+            );
             EvaluationResult::from(child)
         }
     }

@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class BatchPhaseDetail(BaseModel):
     """
-    Per-phase progress for one streaming phase (BACKE-762).  Ray Data streams, so extraction and write run concurrently. Each phase carries its own honest counters. ``status`` is one of pending|active| done|error. Exactly one phase is ``active`` at a time, and it matches ``BatchStageInfo.name``. ``total`` is null when indeterminate (the write phase stays null until extraction drains — expanding pipelines emit N output points per input object).
+    Per-phase progress for one streaming phase.  Ray Data streams, so extraction and write run concurrently. Each phase carries its own honest counters. ``status`` is one of pending|active| done|error. Exactly one phase is ``active`` at a time, and it matches ``BatchStageInfo.name``. ``total`` is null when indeterminate (the write phase stays null until extraction drains — expanding pipelines emit N output points per input object).
     """ # noqa: E501
     processed: Optional[StrictInt] = Field(default=0, description="Items completed in this phase.")
     total: Optional[StrictInt] = Field(default=None, description="Items expected in this phase; null when indeterminate.")

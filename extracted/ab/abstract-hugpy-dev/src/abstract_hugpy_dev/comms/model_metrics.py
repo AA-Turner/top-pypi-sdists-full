@@ -26,7 +26,7 @@ from typing import Any, Dict, Optional
 from .shared import retry_on_emfile
 
 VARIANTS = ("split", "moe", "gpu_only_4bit", "ram_only_4bit")
-TEMPERATURES = ("hot", "cold")
+TEMPERATURES = ("loaded", "unloaded")   # LOADED-at-pick (STATE-MODEL.md #3); never "hot"/"cold" (that named a VRAM condition)
 
 # EMA weight for a new sample. High enough to track a card whose behavior
 # drifts (thermals, contention), low enough that one anomalous load doesn't
@@ -131,6 +131,13 @@ class ModelMetricsStore:
                         " updated_at REAL NOT NULL,"
                         " PRIMARY KEY (model, variant, worker_card,"
                         "              temperature))")
+                    # Canon migration (STATE-MODEL.md #3): legacy temperature
+                    # values hot/cold named a VRAM condition "hot" — rebucket
+                    # to loaded/unloaded (keyed on LOADED-at-pick). Idempotent.
+                    conn.execute("UPDATE OR IGNORE load_metrics"
+                                 " SET temperature='loaded' WHERE temperature='hot'")
+                    conn.execute("UPDATE OR IGNORE load_metrics"
+                                 " SET temperature='unloaded' WHERE temperature='cold'")
                     conn.execute(
                         "CREATE TABLE IF NOT EXISTS call_metrics ("
                         " model TEXT PRIMARY KEY,"
@@ -263,7 +270,7 @@ class ModelMetricsStore:
 
     # -- scoring -------------------------------------------------------------
     def estimate_total_time(self, model: str, variant: str, worker_card: str,
-                            *, temperature: str = "hot",
+                            *, temperature: str = "loaded",
                             time_to_download_s: float = 0.0,
                             time_to_evict_s: float = 0.0,
                             displaced_reupload_s: float = 0.0,
@@ -326,7 +333,7 @@ def record_loads_from_calibration(worker_name, samples) -> int:
             if variant is None:
                 continue
             if model_metrics_store.record_load(
-                    str(s.get("model_key") or ""), variant, card, "cold",
+                    str(s.get("model_key") or ""), variant, card, "unloaded",
                     upload_time_s=float(load_s)):
                 folded += 1
         except Exception:  # noqa: BLE001 — one bad sample must not drop the rest

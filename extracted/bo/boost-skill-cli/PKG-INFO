@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boost-skill-cli
-Version: 1.2.48
+Version: 1.2.63
 Summary: boost — Homebrew for AI coding skills
 Author: Jonathan Reyes
 License-Expression: Apache-2.0
@@ -54,7 +54,11 @@ Dynamic: license-file
 
 **Homebrew for AI coding skills.** boost finds, installs, and version-tracks skills
 from GitHub-hosted registries, and wires each one into Claude Code, Windsurf,
-Cursor and Gemini CLI in a single pass.
+Cursor, Gemini CLI and Antigravity CLI in a single pass.
+
+Antigravity CLI (`agy`) is wired up the same way: skills link into
+`~/.gemini/antigravity-cli/skills`, and `boost mcp register` reaches it through
+`agy mcp add` alongside Claude Code.
 
 ```bash
 pipx install boost-skill-cli
@@ -66,7 +70,7 @@ boost install tdd-workflow    # → every agent, version-pinned, one lock file
 (No `pipx` yet? macOS ships neither it nor a new enough Python — run the
 [prerequisites check](#prerequisites) first.)
 
-No more copying `SKILL.md` into four agent folders and forgetting which one is
+No more copying `SKILL.md` into five agent folders and forgetting which one is
 stale. The default install is pure stdlib, with no build step and no
 dependencies.
 
@@ -186,17 +190,41 @@ those vectors. Embedding is ~1.2 s/chunk on CPU — hours for a real corpus —
 and importing the same rows takes 0.12 s, so the difference between the two is
 the difference between semantic search being available and being reachable.
 
+Want everything? `boost quickstart --catalog` taps all 463 catalogued
+registries — 2 min 10 s now that clones run in parallel — and fetches vectors
+for every one that has a published shard.
+
 Already tapped? `boost reindex --fetch-shards` does the download half alone,
 and `boost reindex --dense` embeds locally whatever has no published shard.
+
+Vectors are republished weekly, and `boost update --shards` is the ingestion
+side of that. It reads the manifest as the *target* state: each tap is moved
+onto the commit its published vectors were built from, those vectors are
+imported, and the keyword index is rebuilt for anything that moved. A tap
+already sitting at the published commit with those vectors already built is
+skipped without downloading anything, so in a week where a registry did not
+move the command does nothing at all — which is what makes it safe to schedule:
+
+```bash
+# refresh prebuilt vectors every Monday at 09:00 — crontab -e
+0 9 * * 1 /full/path/to/boost update --shards >> ~/.boost/logs/shards.log 2>&1
+```
+
+Plain `boost update` moves each tap to its branch head; `--shards` moves each
+tap to the commit the published vectors describe. Two different targets, so
+they are separate modes rather than one pass, and `--shards --taps-only` is
+refused rather than silently picking one.
 
 Because vectors are keyed to a registry's commit, `quickstart` **pins** each tap
 it fetches vectors for, and `boost update` skips a pinned tap rather than moving
 it out from under them (`--force` moves it anyway and drops the pin). When a tap
 does move, boost checks whether a newer shard exists for the new commit and
 imports it; if none does, it says so instead of leaving stale vectors looking
-fresh. `boost search` never refreshes taps behind your back — it prints one line
-when they are more than two weeks old and leaves the fetching to
-`boost update --taps-only`.
+fresh. `boost search` never refreshes taps behind your back, and never checks
+the manifest either — acting on that answer means moving taps and downloading
+hundreds of megabytes, which cannot happen inside a sub-second search. It prints
+one line when the taps or the prebuilt vectors are more than two weeks old and
+leaves the fetching to `boost update --taps-only` or `boost update --shards`.
 Every download is checked against the sha256 in the manifest and refused on a
 mismatch, and shards for a registry that has moved since publication are
 refused rather than merged — stale vectors would otherwise look fresh forever.
@@ -440,8 +468,10 @@ purely local operation, for CI images and air-gapped machines.
 | Claude Code | `claude` | `claude mcp add` → its user-scope MCP config |
 | Gemini CLI | `gemini` | `gemini mcp add -s user` → `~/.gemini/settings.json` |
 
-Six tools are exposed: `boost_search`, `boost_list`, `boost_info`,
-`boost_install`, `boost_doctor` and `boost_discover_github`.
+Seven tools are exposed: `boost_search`, `boost_list`, `boost_info`,
+`boost_read`, `boost_install`, `boost_doctor` and
+`boost_discover_github`. `boost_read` is the one that returns an item's
+actual text — without it, installing was the only way to read a skill.
 
 The server also returns MCP `instructions`, telling the agent when boost is
 relevant. The two hosts place those differently, and it matters. Claude Code

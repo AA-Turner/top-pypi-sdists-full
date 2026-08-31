@@ -46,10 +46,57 @@ def test_template_refuses_dangling_group(isolated):
     assert any("no such priority group" in e for e in errors)
 
 
-def test_template_requires_a_group(isolated):
-    rec, errors = TT.put_template("t", name="t", groups=[])
+def test_template_requires_a_task_or_group(isolated):
+    # Task-oriented templates (operator 2026-08-28): a task outline alone is a
+    # valid template; groups became the legacy/reservation half. Empty both
+    # ways is still refused.
+    rec, errors = TT.put_template("t", name="t", groups=[], tasks=[])
     assert rec is None
-    assert any("at least one priority group" in e for e in errors)
+    assert any("at least one task" in e for e in errors)
+
+
+def test_tasks_only_template_is_valid(isolated):
+    rec, errors = TT.put_template(
+        "t", name="t",
+        tasks=[{"name": "script", "desc": "author the screenplay"}])
+    assert errors == []
+    assert rec["tasks"] == [
+        {"name": "script", "desc": "author the screenplay", "model": None}]
+
+
+def test_task_outline_validates(isolated):
+    rec, errors = TT.put_template(
+        "t", name="t",
+        tasks=[{"name": "a"}, {"name": "a"}, {"desc": "nameless"},
+               {"name": "b", "model": 7}])
+    assert rec is None
+    assert any("duplicate task" in e for e in errors)
+    assert any("needs a name" in e for e in errors)
+    assert any("model must be" in e for e in errors)
+
+
+def test_set_task_model_fills_and_clears_one_slot(isolated):
+    TT.put_template("t", name="t", tasks=[
+        {"name": "script", "desc": "author"},
+        {"name": "render", "desc": "synthesize"}])
+    rec, err = TT.set_task_model("t", "SCRIPT", "Qwen2.5-7B-Instruct-GGUF")
+    assert err == ""
+    assert rec["tasks"][0]["model"] == "Qwen2.5-7B-Instruct-GGUF"
+    assert rec["tasks"][1]["model"] is None       # untouched
+    rec, err = TT.set_task_model("t", "script", None)
+    assert err == "" and rec["tasks"][0]["model"] is None
+    _, err = TT.set_task_model("t", "missing", "m")
+    assert "no task" in err
+
+
+def test_groups_only_write_preserves_task_outline(isolated):
+    PG.put_group("g", name="g", members=["m1"], workers=["computron"])
+    TT.put_template("t", name="t",
+                    tasks=[{"name": "script", "model": "m1"}])
+    # a legacy write that doesn't mention tasks must not wipe the outline
+    rec, errors = TT.put_template("t", name="t", groups=["g"])
+    assert errors == []
+    assert rec["tasks"][0] == {"name": "script", "desc": "", "model": "m1"}
 
 
 def test_derive_workers_prefers_own_list(isolated):

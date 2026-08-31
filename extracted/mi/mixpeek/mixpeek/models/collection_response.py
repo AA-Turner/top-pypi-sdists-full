@@ -58,7 +58,7 @@ class CollectionResponse(BaseModel):
     trigger_id: Optional[StrictStr] = Field(default=None, description="NOT REQUIRED. ID of the linked trigger for scheduled re-processing. Automatically set when a schedule is configured.")
     created_at: Optional[datetime] = Field(default=None, description="Timestamp when the collection was created. Automatically set by the system when the collection is first saved to the database.")
     updated_at: Optional[datetime] = Field(default=None, description="Timestamp when the collection was last updated. Automatically updated by the system whenever the collection is modified.")
-    lifecycle_state: Optional[StrictStr] = Field(default='active', description="Storage lifecycle state: 'active' (Qdrant + S3), 'cold' (S3 only), 'archived' (metadata only). Managed via lifecycle API.")
+    lifecycle_state: Optional[StrictStr] = Field(default='active', description="Storage lifecycle state: 'active' (vector store + S3), 'cold' (S3 only), 'archived' (metadata only). Managed via lifecycle API.")
     s3_vector_index: Optional[StrictStr] = Field(default=None, description="S3 Vectors index name for this collection (e.g. 'col_{collection_id}').")
     last_lifecycle_transition: Optional[datetime] = Field(default=None, description="Timestamp of the most recent lifecycle state change.")
     tiering_rules: Optional[List[TieringRule]] = Field(default=None, description="Automatic storage tiering rules (not enforced in V1).")

@@ -40,7 +40,7 @@ class CurrentUsageResponse(BaseModel):
     next_invoice_date: datetime = Field(description="When next invoice will be generated")
     plan_usage: Optional[PlanUsage] = Field(default=None, description="Tier usage vs caps (objects for managed, vectors for MVS). None only if plan resolution fails.")
     usage_v2: Optional[Dict[str, Any]] = Field(default=None, description="Modality+features usage for the period (contract v2 §2): dollars by modality and feature, unit counts, estimated flag. SHADOW data until cutover — informational alongside the credit fields above. None if no v2 records exist yet or aggregation fails (best-effort).")
-    slack_invite: Optional[SlackInviteStatus] = Field(default=None, description="Slack Connect invite state for this org (BACKE-2990 / MS-1150). ALWAYS present — the null state is an explicit 'never_attempted', never a missing key. The invite fires when the org PAYS (and at signup for business domains); studio's post-checkout success screen renders its card only for status sent/pending.")
+    slack_invite: Optional[SlackInviteStatus] = Field(default=None, description="Slack Connect invite state for this org. ALWAYS present — the null state is an explicit 'never_attempted', never a missing key. The invite fires when the org PAYS (and at signup for business domains); studio's post-checkout success screen renders its card only for status sent/pending.")
     __properties: ClassVar[List[str]] = ["current_month_usage", "billing_month", "billing_period_start", "billing_period_end", "estimated_cost_usd", "credit_rate", "auto_billing_enabled", "next_invoice_date", "plan_usage", "usage_v2", "slack_invite"]
 
     model_config = ConfigDict(

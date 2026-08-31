@@ -42,17 +42,32 @@ data = {"A": A, "b": b, "c": c}
 FAIL = "failure"  # scs code for failure
 
 
+_solver_configs = [
+    scs.LinearSolver.AUTO,
+    scs.LinearSolver.QDLDL,
+    scs.LinearSolver.CPU_INDIRECT,
+]
+try:
+    from scs import _scs_dense
+    _solver_configs.append(scs.LinearSolver.CPU_DENSE)
+except ImportError:
+    pass
+
+
 @pytest.mark.parametrize(
-    "cone,use_indirect,expected",
+    "cone,linear_solver,expected",
     [
-        ({"q": [], "l": 2}, False, 1),
-        ({"q": [], "l": 2}, True, 1),
-        ({"q": [2], "l": 0}, False, 0.5),
-        ({"q": [2], "l": 0}, True, 0.5),
+        (c, ls, e)
+        for c, e in [
+            ({"q": [], "l": 2}, 1),
+            ({"q": [2], "l": 0}, 0.5),
+        ]
+        for ls in _solver_configs
     ],
 )
-def test_problems(cone, use_indirect, expected):
-    solver = scs.SCS(data, cone=cone, use_indirect=use_indirect, verbose=False)
+def test_problems(cone, linear_solver, expected):
+    solver = scs.SCS(data, cone=cone, linear_solver=linear_solver,
+                     verbose=False)
     sol = solver.solve()
     assert_almost_equal(sol["x"][0], expected, decimal=2)
 
@@ -60,17 +75,19 @@ def test_problems(cone, use_indirect, expected):
 if platform.python_version_tuple() < ("3", "0", "0"):
 
     @pytest.mark.parametrize(
-        "cone,use_indirect,expected",
+        "cone,linear_solver,expected",
         [
-            ({"q": [], "l": long(2)}, False, 1),
-            ({"q": [], "l": long(2)}, True, 1),
-            ({"q": [long(2)], "l": 0}, False, 0.5),
-            ({"q": [long(2)], "l": 0}, True, 0.5),
+            ({"q": [], "l": long(2)}, scs.LinearSolver.AUTO, 1),
+            ({"q": [], "l": long(2)}, scs.LinearSolver.QDLDL, 1),
+            ({"q": [], "l": long(2)}, scs.LinearSolver.CPU_INDIRECT, 1),
+            ({"q": [long(2)], "l": 0}, scs.LinearSolver.AUTO, 0.5),
+            ({"q": [long(2)], "l": 0}, scs.LinearSolver.QDLDL, 0.5),
+            ({"q": [long(2)], "l": 0}, scs.LinearSolver.CPU_INDIRECT, 0.5),
         ],
     )
-    def test_problems_with_longs(cone, use_indirect, expected):
+    def test_problems_with_longs(cone, linear_solver, expected):
         sol = scs.solve(
-            data, cone=cone, use_indirect=use_indirect, verbose=False
+            data, cone=cone, linear_solver=linear_solver, verbose=False
         )
         assert_almost_equal(sol["x"][0], expected, decimal=2)
 
@@ -88,7 +105,9 @@ def test_failures():
 
     # python 2.6 and before just cast float to int
     if platform.python_version_tuple() >= ("2", "7", "0"):
-        with pytest.raises(ValueError):
+        # Native TypeError surfaced from PyArg_ParseTupleAndKeywords
+        # ("'float' object cannot be interpreted as an integer").
+        with pytest.raises(TypeError):
             scs.solve(data, {"q": [], "l": 2}, max_iters=1.1)
 
     with pytest.raises(ValueError):

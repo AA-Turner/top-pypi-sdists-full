@@ -1,4 +1,5 @@
 """Asynchronous Python client for Elgato Lights."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -48,6 +49,7 @@ class EnergySavingAdjustBrightnessSettings(BaseModel):
     ----------
         brightness: Adjusted brightness when energy saving is active.
         enabled: boolean
+
     """
 
     brightness: int
@@ -70,6 +72,7 @@ class EnergySavingSettings(BaseModel):
         disable_wifi: Disable Wi-Fi when energy saving is active.
         enabled: boolean
         minimum_battery_level: Use energy saving when battery level is below this value.
+
     """
 
     adjust_brightness: EnergySavingAdjustBrightnessSettings = field(
@@ -95,6 +98,7 @@ class BatterySettings(BaseModel):
     ----------
         energy_saving: Energy saving settings.
         bypass: If the battery is bypassed (studio mode).
+
     """
 
     energy_saving: EnergySavingSettings = field(
@@ -107,18 +111,29 @@ class BatterySettings(BaseModel):
 class Wifi(BaseModel):
     """Object holding the Elgato device Wi-Fi information.
 
-    This object holds wireles information about the Elgato device.
+    This object holds wireless information about the Elgato device.
 
     Attributes
     ----------
         frequency: The frequency in MHz of the Wi-Fi network connected.
         rssi: The signal strength in dBm of the Wi-Fi network connected.
+        signal_strength: The signal strength as a percentage.
         ssid: The SSID of the Wi-Fi network the device is connected to.
+
     """
 
     frequency: int = field(metadata=field_options(alias="frequencyMHz"))
     rssi: int
     ssid: str
+
+    @property
+    def signal_strength(self) -> int:
+        """Convert RSSI to signal strength percentage (0-100)."""
+        if self.rssi <= -100:
+            return 0
+        if self.rssi >= -50:
+            return 100
+        return 2 * (self.rssi + 100)
 
 
 class PowerSource(IntEnum):
@@ -153,12 +168,13 @@ class BatteryInfo(BaseModel):
         charge_power: The charge power in W.
         charge_voltage: The charge voltage in V.
         input_charge_current: The charge current in mA.
-        input_charge_voltage: The charge voltage in mV.
+        input_charge_power: The charge power in mW.
         input_charge_voltage: The charge voltage in mV.
         level: The battery level of the device in %.
         power_source: The power source of the device.
         status: The battery status.
         voltage: The current battery voltage in mV.
+
     """
 
     power_source: PowerSource = field(metadata=field_options(alias="powerSource"))
@@ -207,8 +223,10 @@ class Info(BaseModel):
         firmware_build_number: An integer with the build number of the firmware.
         firmware_version: String containing the firmware version.
         hardware_board_type: An integer indicating the board revision.
+        hardware_revision: The revision of the board, if the device reports one.
         product_name: The product name.
         serial_number: Serial number of the Elgato Light.
+
     """
 
     features: list[str]
@@ -221,6 +239,12 @@ class Info(BaseModel):
     serial_number: str = field(metadata=field_options(alias="serialNumber"))
     display_name: str = field(
         default="Elgato Light", metadata=field_options(alias="displayName")
+    )
+    # Devices are not consistent about this one. A Key Light sends the string
+    # "1", a Ring Light sends the number 0.2. It identifies a revision, it is
+    # not something to do arithmetic with, so it is kept as text.
+    hardware_revision: str | None = field(
+        default=None, metadata=field_options(alias="hardwareRevision")
     )
     mac_address: str | None = field(
         default=None, metadata=field_options(alias="macAddress")
@@ -254,6 +278,7 @@ class Settings(BaseModel):
         power_on_temperature: The temperature level used as default.
         switch_off_duration: Turn off transition time in milliseconds.
         switch_on_duration: Turn on transition time in milliseconds.
+
     """
 
     color_change_duration: int = field(
@@ -287,11 +312,12 @@ class State(BaseModel):
 
     Attributes
     ----------
-        on: A boolean indicating the if the light if on or off.
-        brightness: An integer between 0 and 255, representing the brightness.
-        hue:
-        saturation:
+        on: A boolean indicating if the light is on or off.
+        brightness: An integer between 0 and 100, representing the brightness.
+        hue: The hue range as a float from 0 to 360 degrees.
+        saturation: The color saturation as a float from 0 to 100.
         temperature: An integer representing the color temperature in mireds.
+
     """
 
     on: bool

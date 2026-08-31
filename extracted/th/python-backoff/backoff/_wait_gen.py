@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import itertools
 import math
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable
+    from collections.abc import Callable, Generator, Iterable
 
 
 def expo(
@@ -102,6 +102,27 @@ def constant(interval: float | Iterable[float] = 1) -> Generator[float, Any, Non
 def runtime(*, value: Callable[[Any], float]) -> Generator[float, Any, None]:
     """Generator that is based on parsing the return value or thrown
         exception of the decorated method
+
+    Useful for honoring a server-specified retry delay, e.g. an HTTP
+    `Retry-After` header, rather than a fixed wait sequence:
+
+        # with on_predicate, `value` receives the return value
+        @backoff.on_predicate(
+            backoff.runtime,
+            predicate=lambda r: r.status_code == 429,
+            value=lambda r: int(r.headers.get("Retry-After", 1)),
+        )
+        def get_page():
+            return requests.get(url)
+
+        # with on_exception, `value` receives the raised exception
+        @backoff.on_exception(
+            backoff.runtime,
+            RetryableError,
+            value=lambda e: e.wait_seconds,
+        )
+        def get_page():
+            ...
 
     Args:
         value: a callable which takes as input the decorated

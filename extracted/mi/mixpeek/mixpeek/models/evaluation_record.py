@@ -49,7 +49,7 @@ class EvaluationRecord(BaseModel):
     evaluated_queries: Optional[StrictInt] = Field(default=None, description="Number of queries that produced metrics. May be < total_queries when some queries were skipped (skip-and-continue on empty/failing input).")
     skipped_queries: Optional[StrictInt] = Field(default=None, description="Number of queries skipped during evaluation (empty query_input or a per-query execution failure) — these did not fail the whole eval.")
     error_message: Optional[StrictStr] = Field(default=None, description="Error message if failed")
-    query_results: Optional[List[QueryOutcome]] = Field(default=None, description="Per-query outcomes (BACKE-3453): which branch each attempted query took and the actual error for skips, so an all-skipped run is actionable from the record without worker-log access.")
+    query_results: Optional[List[QueryOutcome]] = Field(default=None, description="Per-query outcomes: which branch each attempted query took and the actual error for skips, so an all-skipped run is actionable from the record without worker-log access.")
     __properties: ClassVar[List[str]] = ["evaluation_id", "retriever_id", "dataset_id", "dataset_name", "config", "status", "created_at", "updated_at", "completed_at", "namespace_id", "internal_id", "query_count", "overall_metrics", "metrics_by_k", "total_queries", "evaluated_queries", "skipped_queries", "error_message", "query_results"]
 
     model_config = ConfigDict(

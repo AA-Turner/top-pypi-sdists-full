@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 3.0.1
+Version: 3.0.4
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -445,6 +445,8 @@ Provides-Extra: twelvelabs
 Requires-Dist: twelvelabs>=1.2.8; extra == "twelvelabs"
 Provides-Extra: valyu
 Requires-Dist: valyu; extra == "valyu"
+Provides-Extra: wavespeed
+Requires-Dist: wavespeed; extra == "wavespeed"
 Provides-Extra: webex
 Requires-Dist: webexpythonsdk; extra == "webex"
 Provides-Extra: whatsapp-crypto
@@ -630,6 +632,7 @@ Requires-Dist: agno[todoist]; extra == "tools"
 Requires-Dist: agno[trafilatura]; extra == "tools"
 Requires-Dist: agno[twelvelabs]; extra == "tools"
 Requires-Dist: agno[valyu]; extra == "tools"
+Requires-Dist: agno[wavespeed]; extra == "tools"
 Requires-Dist: agno[webex]; extra == "tools"
 Requires-Dist: agno[whatsapp-crypto]; extra == "tools"
 Requires-Dist: agno[yfinance]; extra == "tools"

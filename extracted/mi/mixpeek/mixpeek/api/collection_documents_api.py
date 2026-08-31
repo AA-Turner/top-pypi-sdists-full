@@ -78,7 +78,7 @@ class CollectionDocumentsApi:
     ) -> DocumentAggregationResponse:
         """Aggregate Documents
 
-        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and Qdrant using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
+        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
@@ -155,7 +155,7 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[DocumentAggregationResponse]:
         """Aggregate Documents
 
-        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and Qdrant using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
+        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
@@ -232,7 +232,7 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Aggregate Documents
 
-        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and Qdrant using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
+        This endpoint performs aggregation operations on documents in a collection.      **Aggregation Framework**: Provides MongoDB-style aggregation operations:     - GROUP BY: Group documents by one or more fields     - Aggregations: COUNT, SUM, AVG, MIN, MAX, COUNT_DISTINCT, etc.     - Date Operations: Truncate or extract date parts for time-series analysis     - Filtering: Pre-aggregation filters (WHERE) and post-aggregation filters (HAVING)     - Sorting & Limiting: Control result ordering and size      **Use Cases**:     - Count documents by feature type or collection     - Calculate daily/monthly processing statistics     - Analyze feature distributions and confidence scores     - Generate reports with multiple metrics      **Note**: This endpoint works with both MongoDB and the vector store using the same interface.     The system automatically selects the appropriate aggregation provider based on     the underlying metadata store.
 
         :param collection_identifier: The unique identifier of the collection. (required)
         :type collection_identifier: str
@@ -2501,7 +2501,7 @@ class CollectionDocumentsApi:
     ) -> SceneDownloadResponse:
         """Download frame-accurate scene media for this document.
 
-        Export this scene's media cut frame-accurately to its time range.  The document's ``video_segment_url`` serves the extraction-time clip, which is stream-copied and therefore keyframe-bounded — it can overshoot ``[start_time, end_time]`` by up to a GOP (~1s). This endpoint re-cuts from the ORIGINAL source with re-encode so the exported media matches the declared range within one source frame (BACKE-3266 / UF-38), caches the result beside the extraction clip, and returns a presigned download URL. The first call for a given range pays the re-encode (seconds, bounded); repeat calls serve the cache.
+        Export this scene's media cut frame-accurately to its time range.  The document's ``video_segment_url`` serves the extraction-time clip, which is stream-copied and therefore keyframe-bounded — it can overshoot ``[start_time, end_time]`` by up to a GOP (~1s). This endpoint re-cuts from the ORIGINAL source with re-encode so the exported media matches the declared range within one source frame, caches the result beside the extraction clip, and returns a presigned download URL. The first call for a given range pays the re-encode (seconds, bounded); repeat calls serve the cache.
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
@@ -2578,7 +2578,7 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[SceneDownloadResponse]:
         """Download frame-accurate scene media for this document.
 
-        Export this scene's media cut frame-accurately to its time range.  The document's ``video_segment_url`` serves the extraction-time clip, which is stream-copied and therefore keyframe-bounded — it can overshoot ``[start_time, end_time]`` by up to a GOP (~1s). This endpoint re-cuts from the ORIGINAL source with re-encode so the exported media matches the declared range within one source frame (BACKE-3266 / UF-38), caches the result beside the extraction clip, and returns a presigned download URL. The first call for a given range pays the re-encode (seconds, bounded); repeat calls serve the cache.
+        Export this scene's media cut frame-accurately to its time range.  The document's ``video_segment_url`` serves the extraction-time clip, which is stream-copied and therefore keyframe-bounded — it can overshoot ``[start_time, end_time]`` by up to a GOP (~1s). This endpoint re-cuts from the ORIGINAL source with re-encode so the exported media matches the declared range within one source frame, caches the result beside the extraction clip, and returns a presigned download URL. The first call for a given range pays the re-encode (seconds, bounded); repeat calls serve the cache.
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
@@ -2655,7 +2655,7 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Download frame-accurate scene media for this document.
 
-        Export this scene's media cut frame-accurately to its time range.  The document's ``video_segment_url`` serves the extraction-time clip, which is stream-copied and therefore keyframe-bounded — it can overshoot ``[start_time, end_time]`` by up to a GOP (~1s). This endpoint re-cuts from the ORIGINAL source with re-encode so the exported media matches the declared range within one source frame (BACKE-3266 / UF-38), caches the result beside the extraction clip, and returns a presigned download URL. The first call for a given range pays the re-encode (seconds, bounded); repeat calls serve the cache.
+        Export this scene's media cut frame-accurately to its time range.  The document's ``video_segment_url`` serves the extraction-time clip, which is stream-copied and therefore keyframe-bounded — it can overshoot ``[start_time, end_time]`` by up to a GOP (~1s). This endpoint re-cuts from the ORIGINAL source with re-encode so the exported media matches the declared range within one source frame, caches the result beside the extraction clip, and returns a presigned download URL. The first call for a given range pays the re-encode (seconds, bounded); repeat calls serve the cache.
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
@@ -3749,7 +3749,7 @@ class CollectionDocumentsApi:
     ) -> DocumentDiagnosticsResponse:
         """Per-document support diagnostics (visibility, failures, history).
 
-        Answer three support facets for ONE document that no other surface exposes (BACKE-3528 / ADM-23): (1) visibility_reason - are this document's vectors present in MVS (searchable) and, if not, why (the ADM-01 unsearchable class, made per-document answerable via the ADM-02 vector-presence machinery); (2) recent_failures - the source object's own status/error, with an honest note that structured batch errors are aggregate-only; (3) diagnostic_history - the document's processing history from its own _internal records. Every facet returns a real value, or an empty/None value with a reason naming what would carry it.
+        Answer three support facets for ONE document that no other surface exposes: (1) visibility_reason - are this document's vectors present in MVS (searchable) and, if not, why (the Unsearchable class, made per-document answerable via the vector-presence machinery); (2) recent_failures - the source object's own status/error, with an honest note that structured batch errors are aggregate-only; (3) diagnostic_history - the document's processing history from its own _internal records. Every facet returns a real value, or an empty/None value with a reason naming what would carry it.
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
@@ -3826,7 +3826,7 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[DocumentDiagnosticsResponse]:
         """Per-document support diagnostics (visibility, failures, history).
 
-        Answer three support facets for ONE document that no other surface exposes (BACKE-3528 / ADM-23): (1) visibility_reason - are this document's vectors present in MVS (searchable) and, if not, why (the ADM-01 unsearchable class, made per-document answerable via the ADM-02 vector-presence machinery); (2) recent_failures - the source object's own status/error, with an honest note that structured batch errors are aggregate-only; (3) diagnostic_history - the document's processing history from its own _internal records. Every facet returns a real value, or an empty/None value with a reason naming what would carry it.
+        Answer three support facets for ONE document that no other surface exposes: (1) visibility_reason - are this document's vectors present in MVS (searchable) and, if not, why (the Unsearchable class, made per-document answerable via the vector-presence machinery); (2) recent_failures - the source object's own status/error, with an honest note that structured batch errors are aggregate-only; (3) diagnostic_history - the document's processing history from its own _internal records. Every facet returns a real value, or an empty/None value with a reason naming what would carry it.
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
@@ -3903,7 +3903,7 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """Per-document support diagnostics (visibility, failures, history).
 
-        Answer three support facets for ONE document that no other surface exposes (BACKE-3528 / ADM-23): (1) visibility_reason - are this document's vectors present in MVS (searchable) and, if not, why (the ADM-01 unsearchable class, made per-document answerable via the ADM-02 vector-presence machinery); (2) recent_failures - the source object's own status/error, with an honest note that structured batch errors are aggregate-only; (3) diagnostic_history - the document's processing history from its own _internal records. Every facet returns a real value, or an empty/None value with a reason naming what would carry it.
+        Answer three support facets for ONE document that no other surface exposes: (1) visibility_reason - are this document's vectors present in MVS (searchable) and, if not, why (the Unsearchable class, made per-document answerable via the vector-presence machinery); (2) recent_failures - the source object's own status/error, with an honest note that structured batch errors are aggregate-only; (3) diagnostic_history - the document's processing history from its own _internal records. Every facet returns a real value, or an empty/None value with a reason naming what would carry it.
 
         :param collection_identifier: The ID or name of the collection. (required)
         :type collection_identifier: str
@@ -4057,7 +4057,7 @@ class CollectionDocumentsApi:
     ) -> ListDocumentsResponse:
         """List documents.
 
-        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in Qdrant - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
+        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in the vector store - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
 
         :param collection_identifier: The ID of the collection to list documents from. (required)
         :type collection_identifier: str
@@ -4186,7 +4186,7 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[ListDocumentsResponse]:
         """List documents.
 
-        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in Qdrant - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
+        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in the vector store - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
 
         :param collection_identifier: The ID of the collection to list documents from. (required)
         :type collection_identifier: str
@@ -4315,7 +4315,7 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """List documents.
 
-        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in Qdrant - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
+        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in the vector store - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
 
         :param collection_identifier: The ID of the collection to list documents from. (required)
         :type collection_identifier: str
@@ -4586,7 +4586,7 @@ class CollectionDocumentsApi:
     ) -> ListDocumentsResponse:
         """List documents.
 
-        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in Qdrant - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
+        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in the vector store - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
 
         :param collection_identifier: The ID of the collection to list documents from. (required)
         :type collection_identifier: str
@@ -4715,7 +4715,7 @@ class CollectionDocumentsApi:
     ) -> ApiResponse[ListDocumentsResponse]:
         """List documents.
 
-        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in Qdrant - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
+        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in the vector store - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
 
         :param collection_identifier: The ID of the collection to list documents from. (required)
         :type collection_identifier: str
@@ -4844,7 +4844,7 @@ class CollectionDocumentsApi:
     ) -> RESTResponseType:
         """List documents.
 
-        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in Qdrant - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
+        List documents with optional grouping support.  Supports two modes: 1. Regular listing: Returns flat list of documents with pagination 2. Grouped listing: When group_by is specified, returns documents grouped by field value  When using group_by: - Requires a payload index on the specified field in the vector store - Pagination applies to groups, not individual documents - Each group contains all documents sharing the same field value
 
         :param collection_identifier: The ID of the collection to list documents from. (required)
         :type collection_identifier: str

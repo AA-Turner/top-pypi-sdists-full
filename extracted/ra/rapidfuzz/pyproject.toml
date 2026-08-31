@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "RapidFuzz"
 dynamic = ["version"]
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 authors = [
   {name = "Max Bachmann", email = "pypi@maxbachmann.de"},
 ]
@@ -16,7 +16,6 @@ readme = "README.md"
 license = "MIT"
 classifiers=[
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -92,9 +91,13 @@ input = "src/rapidfuzz/__init__.py"
 [tool.black]
 line-length = 120
 
+[tool.pyrefly]
+project-includes = ["src/rapidfuzz"]
+project-excludes = ["**/*_py.py", "**/*_cpp.py"]
+
 [tool.mypy]
 files = ["src"]
-python_version = "3.10"
+python_version = "3.12"
 warn_unused_configs = true
 show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
@@ -110,7 +113,7 @@ xfail_strict = true
 log_cli_level = "info"
 
 [tool.pylint]
-py-version = "3.10"
+py-version = "3.11"
 
 [tool.pylint.reports]
 output-format = "colorized"
@@ -162,6 +165,7 @@ extend-ignore = [
   "PLR",    # Design related pylint codes
   "E501",   # Line too long
   "PTH123", # use pathlib instead of builtin open
+  "ISC001", # conflicts with ruff formatter
 ]
 unfixable = [
   "T20",  # Removes print statements
@@ -180,8 +184,8 @@ isort.combine-as-imports = true
 "setup.py" = ["T20"]
 
 [tool.cibuildwheel]
-enable = ["cpython-freethreading", "pypy"]
+enable = ["pypy"]
 # in theory some tests require numpy / pandas as well. However those don't provider
 # wheels for all target platforms
-test-requires = ["pytest", "hypothesis"]
+test-requires = ["pytest", "hypothesis==6.155.7"]
 test-command = "pytest {package}/tests"

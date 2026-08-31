@@ -28,7 +28,7 @@ import copy
 import itertools
 import operator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from tomlrt import _array, _container
 from tomlrt._comment_text import _split_attached_block
@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 
     from tomlrt._array import AoT, Array
-    from tomlrt._container import Container, Document, Table
+    from tomlrt._container import Container, Document, Table, TomlInput
     from tomlrt._slots import Slot
     from tomlrt._values import InlineTableEntry, KeyPart, Value
 
@@ -146,7 +146,7 @@ def _effective_header_path_before(anchor: Slot | None) -> tuple[str, ...] | None
     return None
 
 
-def reposition_install(parent: Container, key: str, value: Any) -> None:
+def reposition_install(parent: Container, key: str, value: TomlInput) -> None:
     """Replace ``parent[key]`` while preserving its physical position.
 
     The binding is deleted, reinstalled via ``parent[key] = value``,
@@ -756,7 +756,7 @@ def append_direct_kv(
 def append_synth_kv(
     c: Container,
     key: str,
-    v: object,
+    v: TomlInput,
     *,
     reinstall_as_dotted: bool = False,
 ) -> None:
@@ -1132,6 +1132,7 @@ def delete_key(c: Container, key: str, *, materialise_empty: bool = False) -> No
         # CST lives inside a transplanted KV, so re-pointing (rather than
         # resetting) lets edits through a held reference flow into the
         # orphaned slot value, which a later rehome moves intact.
+        assert isinstance(val, (_container.Container, _array.AoT))
         displaced = _displaced_inline_views(val)
         orphan = _container.Document()
         orphan._newline = doc._newline  # noqa: SLF001
@@ -1148,16 +1149,12 @@ def delete_key(c: Container, key: str, *, materialise_empty: bool = False) -> No
     dict.__delitem__(c, key)
 
 
-def _walk_view_tree(vals: Iterable[object], visit: Callable[[_View], None]) -> None:
+def _walk_view_tree(vals: Iterable[_View], visit: Callable[[_View], None]) -> None:
     """Visit every view node in the given subtrees.
 
     Each caller supplies the per-node action. Descent is delegated to
     `_View._view_children`, so this needs no knowledge of, or deferred
     import of, the concrete view classes. Scalars are inert.
-
-    Takes a batch of roots so a caller displacing a range — clearing an
-    array, deleting a slice — makes one traversal rather than one per
-    element.
     """
 
     def walk(node: _View) -> None:
@@ -1167,11 +1164,10 @@ def _walk_view_tree(vals: Iterable[object], visit: Callable[[_View], None]) -> N
                 walk(child)
 
     for val in vals:
-        if isinstance(val, _View):
-            walk(val)
+        walk(val)
 
 
-def _displaced_inline_views(val: object) -> list[Container | Array]:
+def _displaced_inline_views(val: Container | AoT) -> list[Container | Array]:
     """The inline views inside an about-to-be-displaced subtree.
 
     Section Containers and AoTs are handled by ``_collect_subtree``
@@ -1195,16 +1191,39 @@ def _reset_view(node: _View) -> None:
     node._reset_displaced()  # noqa: SLF001
 
 
-def reset_displaced_views(*vals: object) -> None:
-    """Detach every inline-table / array view nested inside ``vals``.
+def _detach_materialised_inline(root: Container | Array) -> None:
+    """Free one CST-owning root while preserving its internal bindings."""
+    root._host = None  # noqa: SLF001
+    _walk_view_tree((root,), _reset_view)
 
-    Used when a value's backing CST is replaced or removed: a nested
-    view left pointing at the dead value would keep reporting as
-    attached and resolve against it. Resetting the whole subtree — not
-    just its root — lets each view re-attach live elsewhere. Takes the
-    whole batch at once so displacing a range makes one traversal.
+
+def _detach_inline_factory(root: Container) -> None:
+    """Detach a CST-less navigator and free each child CST component."""
+    root._host = None  # noqa: SLF001
+    root._reset_displaced()  # noqa: SLF001
+    for child in root.values():
+        if is_inline_value(child):
+            _detach_displaced_inline(child)
+
+
+def _detach_displaced_inline(root: Container | Array) -> None:
+    """Detach ``root`` at the natural boundary of its owned CST."""
+    if isinstance(root, _array.Array) or root._value is not None:  # noqa: SLF001
+        _detach_materialised_inline(root)
+    else:
+        _detach_inline_factory(root)
+
+
+def reset_displaced_views(*vals: object) -> None:
+    """Detach inline roots removed from their current materialised owner.
+
+    A CST-owning root becomes adoptable while keeping its descendants
+    bound to their existing occurrences. A CST-less dotted navigator
+    becomes a factory and frees each child CST component independently.
     """
-    _walk_view_tree(vals, _reset_view)
+    for val in vals:
+        if is_inline_value(val):
+            _detach_displaced_inline(val)
 
 
 def _collect_subtree(
@@ -1950,7 +1969,7 @@ def _aot_separator(aot: AoT, doc: Document) -> str:
 
 
 def add_aot_entry(
-    aot: AoT, body: Mapping[str, Any] | None, *, rehome: Table | None = None
+    aot: AoT, body: Mapping[str, TomlInput] | None, *, rehome: Table | None = None
 ) -> Table:
     """Append a ``[[path]]`` entry to ``aot`` and return its `Table` view.
 
@@ -1988,13 +2007,13 @@ def add_aot_entry(
         owner_aot_entry=entry,
     )
     # Build entry-root container (or rehome an existing one).
-    body_items: list[tuple[str, object]]
+    body_items: list[tuple[str, TomlInput]]
     if rehome is not None:
         assert isinstance(rehome, Table)
         assert rehome._layout_root is None  # noqa: SLF001
         entry_table = rehome
         body_items = list(rehome.items())
-        dict.clear(entry_table)  # ty: ignore[invalid-argument-type]
+        dict.clear(entry_table)
     else:
         entry_table = Table()
         body_items = list(body.items()) if body is not None else []
@@ -3167,8 +3186,8 @@ def attach_section_at(
     deepest_parent = ensure_implicit_chain(parent, sub[:-1])
 
     section = source
-    pending: list[tuple[str, object]] = list(source.items())
-    dict.clear(section)  # ty: ignore[invalid-argument-type]
+    pending: list[tuple[str, TomlInput]] = list(source.items())
+    dict.clear(section)
 
     section._wire(  # noqa: SLF001
         layout_root=doc,
@@ -3198,8 +3217,8 @@ def attach_section_at(
     # ``section``'s synthetic empty header on its first sub-section
     # attach, so scalars must populate the body (making the header
     # non-empty) first.
-    scalars: list[tuple[str, object]] = []
-    structurals: list[tuple[str, object]] = []
+    scalars: list[tuple[str, TomlInput]] = []
+    structurals: list[tuple[str, TomlInput]] = []
     for k, v in pending:
         if is_scalar(v) or _is_synth_inline(v):
             scalars.append((k, v))
@@ -3467,7 +3486,7 @@ def replace_aot_entry_with_clone(
     )
 
 
-def replace_aot_entry(aot: AoT, index: int, body: Mapping[str, Any]) -> None:
+def replace_aot_entry(aot: AoT, index: int, body: Mapping[str, TomlInput]) -> None:
     """Replace ``aot[index]`` in place.
 
     Keeps the entry's header slot and live `Table` view; just clears
@@ -3496,7 +3515,7 @@ def renormalise_aot_order(aot: AoT, new_logical_order: Sequence[Table]) -> None:
     """
     if len(aot) <= 1:
         # Reverse / sort on 0 or 1 elements is a no-op.
-        list.clear(aot)  # ty: ignore[invalid-argument-type]
+        list.clear(aot)
         for t in new_logical_order:
             list.append(aot, t)
         return
@@ -3534,7 +3553,7 @@ def renormalise_aot_order(aot: AoT, new_logical_order: Sequence[Table]) -> None:
         _splice_blocks_in_order(doc, movable_slots, placements)
 
     # Reflect the new order in the AoT's own list view.
-    list.clear(aot)  # ty: ignore[invalid-argument-type]
+    list.clear(aot)
     for t in new_logical_order:
         list.append(aot, t)
 

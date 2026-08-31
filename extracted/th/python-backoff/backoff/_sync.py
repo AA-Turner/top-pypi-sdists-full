@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
-from backoff._common import _Attempt, _dispatch_handlers, _RetryState
+from backoff._common import Attempt, _dispatch_handlers, _RetryState
 
 if TYPE_CHECKING:
     import sys
-    from collections.abc import Generator, Iterable
+    from collections.abc import Callable, Generator, Iterable
+    from typing import ParamSpec
 
     from backoff._typing import (
         ContextDetails,
@@ -23,11 +24,6 @@ if TYPE_CHECKING:
         _Predicate,
         _WaitGenerator,
     )
-
-    if sys.version_info >= (3, 10):
-        from typing import ParamSpec
-    else:
-        from typing_extensions import ParamSpec
 
     if sys.version_info >= (3, 11):
         from typing import Unpack
@@ -53,9 +49,8 @@ def _call_handlers(
         "kwargs": kwargs,
         "tries": tries,
         "elapsed": elapsed,
+        **extra,
     }
-    # pyrefly: ignore [no-matching-overload]
-    details.update(extra)
     for hdlr in hdlrs:
         hdlr(details)
 
@@ -68,6 +63,7 @@ def retry_predicate(
     max_tries: _MaybeCallable[int] | None,
     max_time: _MaybeCallable[float] | None,
     jitter: _Jitterer | None,
+    on_try: Iterable[_Handler],
     on_success: Iterable[_Handler],
     on_backoff: Iterable[_Handler],
     on_giveup: Iterable[_Handler],
@@ -83,14 +79,16 @@ def retry_predicate(
         )
         while True:
             state.start_attempt()
-            ret = target(*args, **kwargs)
             details: _BaseDetails = {
                 "target": target,
                 "args": args,
                 "kwargs": kwargs,
                 "tries": state.tries,
-                "elapsed": state.record_elapsed(),
+                "elapsed": state.elapsed,
             }
+            _call_handlers(on_try, **details)
+            ret = target(*args, **kwargs)
+            details["elapsed"] = state.record_elapsed()
 
             if predicate(ret):
                 if state.exhausted():
@@ -143,6 +141,7 @@ def retry_exception(
     max_time: _MaybeCallable[float] | None,
     jitter: _Jitterer | None,
     giveup: _Predicate[Exception],
+    on_try: Iterable[_Handler],
     on_success: Iterable[_Handler],
     on_backoff: Iterable[_Handler],
     on_giveup: Iterable[_Handler],
@@ -160,6 +159,7 @@ def retry_exception(
             max_time=max_time,
             jitter=jitter,
             giveup=giveup,  # type: ignore[arg-type] # ty:ignore[invalid-argument-type]
+            on_try=_adapt_context_handlers(on_try, target, args, kwargs),
             on_success=_adapt_context_handlers(on_success, target, args, kwargs),
             on_backoff=_adapt_context_handlers(on_backoff, target, args, kwargs),
             on_giveup=_adapt_context_handlers(on_giveup, target, args, kwargs),
@@ -182,12 +182,13 @@ def retry_context(
     max_time: _MaybeCallable[float] | None,
     jitter: _Jitterer | None,
     giveup: _Predicate[BaseException],
+    on_try: Iterable[_ContextHandler],
     on_success: Iterable[_ContextHandler],
     on_backoff: Iterable[_ContextHandler],
     on_giveup: Iterable[_ContextHandler],
     raise_on_giveup: bool,
     wait_gen_kwargs: dict[str, Any],
-) -> Generator[_Attempt, None, None]:
+) -> Generator[Attempt, None, None]:
     state = _RetryState(
         wait_gen,
         wait_gen_kwargs,
@@ -196,7 +197,8 @@ def retry_context(
     )
     while True:
         state.start_attempt()
-        attempt = _Attempt(exception)
+        attempt = Attempt(exception)
+        _dispatch_handlers(handlers=on_try, tries=state.tries, elapsed=state.elapsed)
         yield attempt
         elapsed = state.record_elapsed()
 

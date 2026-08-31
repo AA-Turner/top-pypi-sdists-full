@@ -6,6 +6,20 @@ configuring SDK behavior based on environment settings.
 """
 
 from os import getenv
+from typing import Optional
+from urllib.parse import urlparse
+
+
+def ensure_scheme(url: str) -> str:
+    """Prefix https:// when the URL carries no explicit http(s) scheme."""
+    if not url.lower().startswith(("http://", "https://")):
+        return f"https://{url}"
+    return url
+
+
+def url_host(url: Optional[str]) -> str:
+    """Parsed lowercase hostname of a URL, or "" when absent/unparseable."""
+    return (urlparse(url or "").hostname or "").lower()
 
 
 def get_base_url() -> str:
@@ -39,7 +53,4 @@ def get_base_url() -> str:
         is_stg = getenv("IS_STG", "false") == "true"
         base_url = "inbound.stg.xpander.ai" if is_stg else "inbound.xpander.ai"
 
-    if not base_url.startswith("http://") and not base_url.startswith("https://"):
-        base_url = f"https://{base_url}"
-
-    return base_url
+    return ensure_scheme(base_url)

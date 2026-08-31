@@ -71,8 +71,8 @@ def _clean_env(monkeypatch):
 # the need, so least-reaping spares the small one. Without a fixture where the
 # two answers differ, a broken switch would pass silently.
 _DROP_RESIDENTS = [
-    ev.Resident(model_key="small", bytes=5 * GIB, last_call=NOW - 9000, calls=0),
-    ev.Resident(model_key="big", bytes=35 * GIB, last_call=NOW - 8000, calls=0),
+    ev.EvictUnit(model_key="small", bytes=5 * GIB, last_call=NOW - 9000, calls=0),
+    ev.EvictUnit(model_key="big", bytes=35 * GIB, last_call=NOW - 8000, calls=0),
 ]
 _DROP_NEED = 15 * GIB
 
@@ -133,7 +133,7 @@ def test_default_is_least_reaping_on():
 # ─────────────────────────────────────────────────────────────────────────────
 def _fresh_resident():
     """One model, resident 10s — inside any floor that might be reintroduced."""
-    return [ev.Resident(model_key="fresh", bytes=10 * GIB, last_call=None,
+    return [ev.EvictUnit(model_key="fresh", bytes=10 * GIB, last_call=None,
                         calls=0, resident_since=NOW - 10)]
 
 
@@ -156,7 +156,7 @@ def test_nothing_blocks_on_age():
     which is exactly what the operator asked to eliminate.
     """
     for age in (0, 1, 10, 60, 299, 300, 301, 86400):
-        rows = [ev.Resident(model_key="m", bytes=10 * GIB, last_call=None,
+        rows = [ev.EvictUnit(model_key="m", bytes=10 * GIB, last_call=None,
                             calls=0, resident_since=NOW - age)]
         plan = ev.evict_plan(ev.VRAM, 5 * GIB, rows, now=NOW)
         assert plan.victims == ["m"], f"age={age}s was vetoed"
@@ -198,9 +198,9 @@ def test_only_two_classes_can_block_eviction():
     degrade-not-guess refusal, so it is asserted separately below.
     """
     rows = [
-        ev.Resident(model_key="static", bytes=10 * GIB, calls=0, static=True),
-        ev.Resident(model_key="busy", bytes=10 * GIB, calls=0, in_flight=True),
-        ev.Resident(model_key="fresh", bytes=10 * GIB, calls=0,
+        ev.EvictUnit(model_key="static", bytes=10 * GIB, calls=0, static=True),
+        ev.EvictUnit(model_key="busy", bytes=10 * GIB, calls=0, mid_generation=True),
+        ev.EvictUnit(model_key="fresh", bytes=10 * GIB, calls=0,
                     resident_since=NOW - 1),
     ]
     plan = ev.evict_plan(ev.VRAM, 5 * GIB, rows, now=NOW)
@@ -212,7 +212,7 @@ def test_only_two_classes_can_block_eviction():
 def test_unmeasurable_is_still_not_walked():
     """Degrade-not-guess survives the floor's removal: an occupant we cannot
     size is still never evicted, because the plan could not be verified."""
-    rows = [ev.Resident(model_key="unknown", bytes=None, calls=0)]
+    rows = [ev.EvictUnit(model_key="unknown", bytes=None, calls=0)]
     plan = ev.evict_plan(ev.VRAM, 5 * GIB, rows, now=NOW)
     assert plan.victims == []
     assert any("unmeasurable" in b["why"] for b in plan.blocking)

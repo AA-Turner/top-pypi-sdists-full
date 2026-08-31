@@ -179,6 +179,30 @@ def test_editops_inversion(module):
     ]
 
 
+@pytest.mark.parametrize("module", [distance_py, distance_cpp])
+def test_editops_access_returns_independent_copies(module):
+    """
+    indexing, slicing, iterating or copying an Editops must hand back Editop
+    objects that are independent of the ones stored internally. Mutating one
+    must not corrupt the Editops it came from
+    """
+    ops = module.Editops([("delete", 1, 1), ("replace", 2, 1)], 7, 9)
+    ops_before = ops.as_list()
+
+    ops[0].src_pos = 999
+    assert ops.as_list() == ops_before
+
+    ops[:][0].src_pos = 999
+    assert ops.as_list() == ops_before
+
+    for op in ops:
+        op.src_pos = 999
+    assert ops.as_list() == ops_before
+
+    ops.copy()[0].src_pos = 999
+    assert ops.as_list() == ops_before
+
+
 def test_opcodes_comparison():
     """
     test comparison with Opcodes
@@ -263,6 +287,36 @@ def test_opcode_inversion(module):
         ("delete", 5, 8, 6, 6),
         ("equal", 8, 9, 6, 7),
     ]
+
+
+@pytest.mark.parametrize("module", [distance_py, distance_cpp])
+def test_opcodes_access_returns_independent_copies(module):
+    """
+    indexing, iterating or copying an Opcodes must hand back Opcode objects
+    that are independent of the ones stored internally. Mutating one must
+    not corrupt the Opcodes it came from
+    """
+    ops = module.Opcodes(
+        [
+            ("equal", 0, 1, 0, 1),
+            ("delete", 1, 2, 1, 1),
+            ("equal", 2, 7, 1, 6),
+            ("insert", 7, 7, 6, 9),
+        ],
+        7,
+        9,
+    )
+    ops_before = ops.as_list()
+
+    ops[0].src_start = 999
+    assert ops.as_list() == ops_before
+
+    for op in ops:
+        op.src_start = 999
+    assert ops.as_list() == ops_before
+
+    ops.copy()[0].src_start = 999
+    assert ops.as_list() == ops_before
 
 
 @pytest.mark.parametrize("module", [distance_py, distance_cpp])
@@ -362,3 +416,38 @@ def test_editops_reversible(s1, s2):
         del ops[random.randrange(len(ops))]
         assert Opcodes(ops.as_list(), ops.src_len, ops.dest_len) == ops.as_opcodes()
         assert ops == ops.as_opcodes().as_editops()
+
+
+@pytest.mark.parametrize("module", [distance_py, distance_cpp])
+@pytest.mark.parametrize(
+    ("subsequence_list", "expected"),
+    [
+        ([("delete", 1, 1), ("insert", 6, 5)], [("replace", 1, 1), ("insert", 3, 3)]),
+        ([("delete", 1, 1)], [("replace", 1, 1), ("insert", 3, 3), ("insert", 5, 5)]),
+    ],
+)
+def test_editops_remove_subsequence_does_not_modify_source(module, subsequence_list, expected):
+    """remove_subsequence must not mutate the Editops it is called on"""
+    ops = module.Editops([("delete", 1, 1), ("replace", 2, 1), ("insert", 4, 3), ("insert", 6, 5)], 7, 9)
+    ops_before = ops.as_list()
+
+    result = ops.remove_subsequence(module.Editops(subsequence_list, 7, 9))
+
+    assert result.as_list() == expected
+    assert ops.as_list() == ops_before
+
+
+@pytest.mark.parametrize("module", [distance_py, distance_cpp])
+def test_remove_non_subsequence(module):
+    """
+    test invalid remove sequence from https://github.com/rapidfuzz/Levenshtein/issues/96
+    """
+    edit_operations = Levenshtein.editops("a", "").as_list()
+    not_a_subsequence = Levenshtein.editops("", "a").as_list()
+
+    # use the largest value that still fits into a 32-bit size_t
+    str_len = 2**32 - 1
+    with pytest.raises(ValueError, match="subsequence is not a subsequence"):
+        module.Editops(edit_operations, str_len, str_len).remove_subsequence(
+            module.Editops(not_a_subsequence, str_len, str_len)
+        )
